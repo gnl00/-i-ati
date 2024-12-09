@@ -79,3 +79,7 @@
 .AccordionTrigger[data-state="open"] > .AccordionChevron {
 	transform: rotate(90deg);
 }
+
+.smooth-scroll {
+  transition: all 0.5s ease;
+}

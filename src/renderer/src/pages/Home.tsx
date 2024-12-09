@@ -51,6 +51,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
 import { translateRequestWithHook, chatRequestWithHook } from '@request/index'
 import ReactMarkdown from 'react-markdown'
+import List from 'rc-virtual-list'
 
 const Home = (): JSX.Element => {
 
@@ -66,7 +67,7 @@ const Home = (): JSX.Element => {
     prompt: {
       embedded: ''
     },
-    model: 'Qwen/Qwen2-7B-Instruct'
+    model: 'Qwen/Qwen2.5-Coder-7B-Instruct'
   })
   const [translateText, setTranslateText] = useState('')
   const [chatList, setChatList] = useState([{role: '', content: ''}])
@@ -208,40 +209,40 @@ const Home = (): JSX.Element => {
       model: appConfig.model!
     }
 
-    // const reader = await chatRequestWithHook(req, beforeFetch, afterFetch)
+    const reader = await chatRequestWithHook(req, beforeFetch, afterFetch)
 
-    // if (!reader) {
-    //   return
-    // }
+    if (!reader) {
+      return
+    }
 
-    // let preResult = ''
-    // while (true) {
-    //   const { done, value} = await reader.read()
+    let preResult = ''
+    while (true) {
+      const { done, value} = await reader.read()
   
-    //   if (done) {
-    //     break
-    //   }
+      if (done) {
+        break
+      }
   
-    //   let eventDone = false
-    //   const arr = value.split('\n')
-    //   arr.forEach((data: any) => {
-    //     if (data.length === 0) return; // ignore empty message
-    //     if (data.startsWith(':')) return // ignore sse comment message
-    //     if (data === 'data: [DONE]') {
-    //       eventDone = true
-    //       return
-    //     }
-    //     const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
-    //     const resultText = json.choices[0].delta.content
-    //     preResult += resultText || ''
-    //     // console.log(preResult += resultText || '')
-    //   })
-    //   setChatList([...chatList, userChat, {role: 'assiatant', content: preResult}])
+      let eventDone = false
+      const arr = value.split('\n')
+      arr.forEach((data: any) => {
+        if (data.length === 0) return; // ignore empty message
+        if (data.startsWith(':')) return // ignore sse comment message
+        if (data === 'data: [DONE]') {
+          eventDone = true
+          return
+        }
+        const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
+        const resultText = json.choices[0].delta.content
+        preResult += resultText || ''
+        // console.log(preResult += resultText || '')
+      })
+      setChatList([...chatList, userChat, {role: 'assiatant', content: preResult}])
   
-    //   if (eventDone) {
-    //     break
-    //   }
-    // }
+      if (eventDone) {
+        break
+      }
+    }
   }
 
   const onPropmtSwicterChange = (value: boolean) => {
@@ -404,8 +405,9 @@ const Home = (): JSX.Element => {
           </Toggle>
         </div>
         <Separator style={{ margin: '10px 0' }} />
-        <ScrollArea ref={scrollAreaRef} className="app-undragable min-h-12 w-full rounded-md border p-1">
+        <ScrollArea ref={scrollAreaRef} className="smooth-scroll app-undragable min-h-12 w-full rounded-md border p-1">
           {listRenderer()}
+          {/* <List data={chatList} itemKey={"id"} height={500} itemHeight={44}></List> */}
           <div id="scrollAreaEnd" ref={scrollAreaEndRef}></div>
         </ScrollArea>
         <div id="InputArea" ref={inputAreaRef} className={"w-full fixed bottom-0 backdrop-blur-sm pb-2 pr-3"}>
@@ -429,7 +431,7 @@ const Home = (): JSX.Element => {
             }
           </div>
           <div className="app-undragable flex w-full items-end space-x-2 backdrop-blur-sm">
-            <Textarea onChange={onTranslateTextChange} defaultValue={translateText} value={translateText} className="bg-slate-50 text-lg" placeholder="Anything you want to ask..." />
+            <Textarea onChange={onTranslateTextChange} defaultValue={translateText} value={translateText} className="bg-slate-50 text-md" placeholder="Anything you want to ask..." />
             <Button size="sm" type="submit" onClick={onSubmitClick}>
               Enter
             </Button>
@@ -458,7 +460,9 @@ const UserChatItem = (key, content) => {
   return <div className="flex justify-end" key={key}>
   <div className="max-w-[80%] rounded-2xl bg-gray-900 px-4 py-3 text-slate-200 shadow-lg dark:bg-gray-800">
     <p className="text-sm font-medium">
-      {content}
+      <ReactMarkdown>
+        {content}
+      </ReactMarkdown>
     </p>
   </div>
 </div>
@@ -466,9 +470,11 @@ const UserChatItem = (key, content) => {
 
 const AssiatantChatItem = (key, content) => {
   return <div className="flex justify-start" key={key}>
-  <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50">
+  <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50" style={{overflowY: 'scroll'}}>
     <p className="text-sm font-medium">
-      {content}
+      <ReactMarkdown>
+        {content}
+      </ReactMarkdown>
     </p>
   </div>
 </div>

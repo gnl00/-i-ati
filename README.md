@@ -54,6 +54,15 @@ pnpm build:mac
 - [x] use StreamEvent
 - [x] custom prompt support
 - [x] add shortcut key: `CmdOrCtrl+G` show window, `CmdOrCtrl+Esc` hide window
+- [x] smooth scrool
+- [ ] use virtual list for chat list
+- [ ] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
+- [ ] input area toolbar
+- [ ] Copy and Edit tooltips
+- [ ] fetch models from api(if API provider support)
+- [ ] save chat list
+- [ ] chat list title and hisoty summary
+- [ ] dark/light mode
 
 ## Reference
 
