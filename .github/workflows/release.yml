@@ -1,0 +1,74 @@
+name: Build/release te-app
+
+on:
+  push:
+    tags:
+      - v*.*.*
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Linux pre-install dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: sudo apt update && sudo apt install -y libx11-dev libxtst-dev libc6 libstdc++6 build-essential libpng-dev
+
+      - name: install-pnpm
+        run: npm install -g pnpm
+
+      - name: install-dependencies-win
+        if: matrix.os == 'windows-latest'
+        run: npm install -g node-gyp && npm install
+
+      - name: install-dependencies-mac-or-linix
+        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-22.04'
+        run: pnpm install
+
+      - name: rebuild-robotjs
+        run: npm rebuild
+
+      - name: build-linux
+        if: matrix.os == 'ubuntu-22.04'
+        run: pnpm build:linux
+
+      - name: build-mac
+        if: matrix.os == 'macos-latest'
+        run: pnpm build:mac
+
+      - name: build-win
+        if: matrix.os == 'windows-latest'
+        run: npm up && pnpm build:win
+
+      - name: release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: |
+            dist/*.exe
+            dist/*.zip
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.tar.gz
+            dist/*.yml
+            dist/*.blockmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
