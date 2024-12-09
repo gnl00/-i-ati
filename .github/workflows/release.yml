@@ -1,4 +1,4 @@
-name: Build/release te-app
+name: Build/release @i
 
 on:
   push:
