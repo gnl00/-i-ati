@@ -1,10 +1,10 @@
 {
-  "name": "te-app",
-  "version": "1.0.44",
-  "description": "An AI translate application build with Electron",
+  "name": "at-i-app",
+  "version": "0.1",
+  "description": "An AI API client build with Electron",
   "main": "./out/main/index.js",
   "author": "gnl",
-  "homepage": "https://github.com/gnl00/electron-app-macos-env",
+  "homepage": "https://github.com/gnl00/-i-ati",
   "scripts": {
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",

@@ -53,6 +53,27 @@ import { translateRequestWithHook, chatRequestWithHook } from '@request/index'
 import ReactMarkdown from 'react-markdown'
 import List from 'rc-virtual-list'
 
+const models = [
+  {
+    provider: "Qwen",
+    model: "Qwen2.5-Coder-7B-Instruct"
+  },
+  {
+    provider: "Qwen",
+    model: "Qwen2.5-Coder-32B-Instruct"
+  },
+  {
+    provider: "Qwen",
+    model: "Qwen2.5-14B-Instruct"
+  },
+  {
+    provider: "Qwen",
+    model: "Qwen2.5-32B-Instruct"
+  },
+]
+
+const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY"
+
 const Home = (): JSX.Element => {
 
   // @ts-ignore
@@ -70,9 +91,10 @@ const Home = (): JSX.Element => {
     model: 'Qwen/Qwen2.5-Coder-7B-Instruct'
   })
   const [translateText, setTranslateText] = useState('')
+  const [selectedModel, setSelectedModel] = useState('Qwen/Qwen2.5-Coder-32B-Instruct')
+  const [chatTitle, setChatTitle] = useState('NewChat')
   const [chatList, setChatList] = useState([{role: '', content: ''}])
   const [markdownResultKey, setMarkdownResultKey] = useState(new Date().getTime())
-  const [translateResult, setTranslateResult] = useState('')
   const [fetching, setFetchingState] = useState<boolean>(false)
   const [useCustomePrompt, setUseCustomePrompt] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
@@ -115,10 +137,10 @@ const Home = (): JSX.Element => {
 
   }, [])
 
-  useEffect(() => {
-    // update markdown result key
-    setMarkdownResultKey(new Date().getTime())
-  }, [translateResult])
+  // useEffect(() => {
+  //   // update markdown result key
+  //   setMarkdownResultKey(new Date().getTime())
+  // }, [translateResult])
 
   useEffect(() => {
     console.log('chatList update')
@@ -206,7 +228,7 @@ const Home = (): JSX.Element => {
       content: translateText,
       token: appConfig.token!,
       prompt: '',
-      model: appConfig.model!
+      model: selectedModel
     }
 
     const reader = await chatRequestWithHook(req, beforeFetch, afterFetch)
@@ -243,6 +265,49 @@ const Home = (): JSX.Element => {
         break
       }
     }
+    if (!chatTitle || chatTitle === 'NewChat') {
+      generateTitle(translateText)
+    }
+  }
+
+  const generateTitle = async (context) => {
+    const titleReq: IChatRequest = {
+      url: appConfig.api!,
+      content: generateTitlePrompt + context,
+      token: appConfig.token!,
+      prompt: '',
+      model: 'Qwen/Qwen2.5-14B-Instruct'
+    }
+
+    const reader = await chatRequestWithHook(titleReq, () => {}, () =>{})
+    if (!reader) {
+      return
+    }
+    let title = ''
+    while (true) {
+      const { done, value} = await reader.read()
+      if (done) {
+        break
+      }
+      let eventDone = false
+      const arr = value.split('\n')
+      arr.forEach((data: any) => {
+        if (data.length === 0) return; // ignore empty message
+        if (data.startsWith(':')) return // ignore sse comment message
+        if (data === 'data: [DONE]') {
+          eventDone = true
+          return
+        }
+        const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
+        const resultText = json.choices[0].delta.content
+        title += resultText || ''
+        // console.log(preResult += resultText || '')
+      })
+      setChatTitle(title)
+      if (eventDone) {
+        break
+      }
+    }
   }
 
   const onPropmtSwicterChange = (value: boolean) => {
@@ -260,6 +325,10 @@ const Home = (): JSX.Element => {
 
   const listRenderer = () => {
     return <ChatComponent list={chatList}/>
+  }
+
+  const onSelectModelChange = (val) => {
+    setSelectedModel(val)
   }
 
   return (
@@ -398,24 +467,36 @@ const Home = (): JSX.Element => {
             </PopoverContent>
           </Popover>
           <div className='app-undragable flex space-x-2'>
-          <Button className='h-auto w-auto' variant='secondary' size='sm'><SpaceEvenlyHorizontallyIcon /></Button>
+          <Button className='h-auto w-auto' variant='secondary' size='sm'>{chatTitle}</Button>
           </div>
           <Toggle className="app-undragable" size="xs" variant="outline" onClick={onPinToggleClick}>
             {pinState ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
           </Toggle>
         </div>
         <Separator style={{ margin: '10px 0' }} />
-        <ScrollArea ref={scrollAreaRef} className="smooth-scroll app-undragable min-h-12 w-full rounded-md border p-1">
+        <ScrollArea ref={scrollAreaRef} className="smooth-scroll app-undragable h-auto w-auto rounded-md border p-1">
           {listRenderer()}
-          {/* <List data={chatList} itemKey={"id"} height={500} itemHeight={44}></List> */}
           <div id="scrollAreaEnd" ref={scrollAreaEndRef}></div>
         </ScrollArea>
         <div id="InputArea" ref={inputAreaRef} className={"w-full fixed bottom-0 backdrop-blur-sm pb-2 pr-3"}>
-          <div className='w-full p-2'>
-            {
+          <div className='w-full pb-0.5'>
+          <Select onValueChange={onSelectModelChange} defaultValue={selectedModel}>
+            <SelectTrigger className="w-auto h-auto">
+              <SelectValue/>
+            </SelectTrigger>
+            <SelectContent>
+              {
+                models.map((item, _) => {
+                  return <SelectItem key={item.provider.concat('/').concat(item.model)} value={item.provider.concat('/').concat(item.model)}>{item.model}</SelectItem>
+                })
+              }
+            </SelectContent>
+          </Select>
+            {/* {
               fetching ? 
               <>
                 <div className='flex justify-center'>
+                  
                   <Separator className='w-1/3' style={{ margin: '10px 0'}} />
                   <span className='text-xs text-slate-500'>Fetching</span>
                   <Separator className='w-1/3' style={{ margin: '10px 0' }} />
@@ -428,7 +509,7 @@ const Home = (): JSX.Element => {
                   <Separator className='w-1/3' style={{ margin: '5px 0' }} />
                 </div>
               </>
-            }
+            } */}
           </div>
           <div className="app-undragable flex w-full items-end space-x-2 backdrop-blur-sm">
             <Textarea onChange={onTranslateTextChange} defaultValue={translateText} value={translateText} className="bg-slate-50 text-md" placeholder="Anything you want to ask..." />
@@ -470,7 +551,7 @@ const UserChatItem = (key, content) => {
 
 const AssiatantChatItem = (key, content) => {
   return <div className="flex justify-start" key={key}>
-  <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50" style={{overflowY: 'scroll'}}>
+  <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
     <p className="text-sm font-medium">
       <ReactMarkdown>
         {content}

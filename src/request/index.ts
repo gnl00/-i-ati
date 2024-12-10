@@ -147,6 +147,10 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
     })
   })
 
+  if (!stream.ok) {
+    throw new Error(`HTTP error! Status: ${stream.status}`);
+  }
+
   const reader = stream.body?.pipeThrough(new TextDecoderStream()).getReader()
 
   afterFetch()
