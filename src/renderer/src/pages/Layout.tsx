@@ -1,4 +1,11 @@
-import { Button } from '@renderer/components/ui/button'
+import {
+  Button
+} from "@renderer/components/ui/button"
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@renderer/components/ui/resizable"
 import {
   Sheet,
   SheetContent,
@@ -6,45 +13,56 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  SheetFooter,
-  SheetClose
 } from "@renderer/components/ui/sheet"
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@renderer/components/ui/resizable"
+import { Textarea } from '@renderer/components/ui/textarea'
+import { cn } from "@renderer/lib/utils"
+import { useEffect, useRef, useState } from "react"
 
 export default () => {
+
+  const [headerHeight, setHeaderHeight] = useState<number>(20) // State to keep track of header height
+  const headerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (headerRef.current) {
+      setHeaderHeight(headerRef.current.offsetHeight)
+    }
+  }, [])
+
   return (
-    <div className="app-dragable flex w-full h-[96vh] bg-red-300">
-        <div className="app-undragable p-1 w-full h-[100%] bg-blue-300">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline">Open</Button>
-          </SheetTrigger>
-          <SheetContent side={'left'}>
-            <SheetHeader>
-              <SheetTitle>Edit profile</SheetTitle>
-              <SheetDescription>
-                Make changes to your profile here. Click save when you're done.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="grid gap-4 py-4">
-            </div>
-            <SheetFooter>
-              <SheetClose asChild>
-                <Button type="submit">Save changes</Button>
-              </SheetClose>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
-        <ResizablePanelGroup direction="vertical">
-          <ResizablePanel defaultSize={75}>One</ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel defaultSize={25} minSize={10} maxSize={55} className='bg-yellow-300 max-h-[20%]'>Two</ResizablePanel>
-        </ResizablePanelGroup>
+    <div className="app-dragable">
+      <div className="p-1">
+      <Sheet>
+        <div ref={headerRef} className="app-dragable fixed top-0 bg-blue-300 w-full">
+          <SheetTrigger asChild className=""><Button>Open</Button></SheetTrigger>
         </div>
+        <SheetContent side={"left"}>
+          <SheetHeader>
+            <SheetTitle>Are you absolutely sure?</SheetTitle>
+            <SheetDescription>
+              This action cannot be undone. This will permanently delete your account
+              and remove your data from our servers.
+            </SheetDescription>
+          </SheetHeader>
+        </SheetContent>
+      </Sheet>
+      </div>
+      <ResizablePanelGroup
+      direction="vertical"
+      className={cn("min-h-[98.5vh] w-full rounded-lg border", "pt-[44px]")}
+      >
+        <ResizablePanel defaultSize={75}>
+          <div className="flex h-full app-undragable ">
+            <span className="font-semibold">Content</span>
+          </div>
+        </ResizablePanel>
+        <ResizableHandle />
+        <ResizablePanel defaultSize={25} minSize={20} maxSize={50}>
+          <div className="flex h-full app-undragable ">
+            <Textarea className="w-full"></Textarea>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   )
 }
