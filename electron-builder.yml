@@ -1,5 +1,5 @@
-appId: com.teapp.app
-productName: te-app
+appId: com.ati.app
+productName: ati-app
 directories:
   buildResources: build
 files:
@@ -21,8 +21,8 @@ nsis:
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    #- NSCameraUsageDescription: Application requests access to the device's camera.
+    #- NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
@@ -40,6 +40,6 @@ appImage:
 npmRebuild: false
 publish:
   provider: generic
-  url: https://github.com/gnl00/electron-app-macos-env/releases
+  url: https://github.com/gnl00/-i-at/releases
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

@@ -1,6 +1,6 @@
 # @i-app
 
-> an AI API client
+> An AI API client
 
 ## Usages
 
