@@ -54,15 +54,55 @@ import { cn } from "@renderer/lib/utils"
 import { useEffect, useRef, useState, forwardRef, ReactHTMLElement, ReactElement } from "react"
 import { ScrollArea } from "@renderer/components/ui/scroll-area"
 
+const ChatComponent = (props: {list: {role: string, content: string}[]}) => {
+  return <div className="smooth-scroll flex flex-col gap-4 pr-2 pl-2 pt-2">
+    {
+      props.list.map((item, index) => {
+        if (item.role.length == 0) {
+          return
+        }
+        return item.role == 'user' ? UserChatItem(index, item.content) : AssiatantChatItem(index, item.content)
+      })
+    }
+  </div>
+}
+
+const UserChatItem = (key, content) => {
+  return <div className="app-undragble flex justify-end" key={key}>
+  <div className="max-w-[80%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
+    <div className="text-sm font-medium">
+      <ReactMarkdown className="prose text-slate-300">
+        {content}
+      </ReactMarkdown>
+    </div>
+  </div>
+</div>
+}
+
+const AssiatantChatItem = (key, content) => {
+  return <div className="app-undragble flex justify-start" key={key}>
+  <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
+    <div className="text-sm font-medium">
+      <ReactMarkdown className="prose">
+        {content}
+      </ReactMarkdown>
+    </div>
+  </div>
+</div>
+}
+
+const heights: number[] = [];
+
 interface Item {
   id: number;
   height: number;
   content: ReactElement
 }
 
-const MyItem: React.ForwardRefRenderFunction<HTMLElement, Item> = ({ id, height, content }, ref) => {
+const MyItem: React.ForwardRefRenderFunction<HTMLDivElement, Item> = ({ id, height, content }, ref) => {
+
   return (
-    <span
+    <div
       ref={ref}
       style={{
         border: '1px solid gray',
@@ -73,7 +113,7 @@ const MyItem: React.ForwardRefRenderFunction<HTMLElement, Item> = ({ id, height,
       }}
     >
       {content}
-    </span>
+    </div>
   );
 };
 
@@ -96,15 +136,49 @@ const pEl = (content) => {
   )
 }
 
+const listData: {content: string}[] = []
 const data: Item[] = [];
 for (let i = 0; i < 100; i += 1) {
   const c: ReactElement = i % 2 ? pEl(chats[0]) : pEl(chats[1])
+  listData.push({
+    content: i % 2 ? chats[0] : chats[1]
+    })
   data.push({
     id: i,
     height: 30 + (i % 2 ? 70 : 0),
     content: c,
-  });
+  })
 }
+
+interface ChatItem {
+  id: number
+  height: number
+  role: string
+  content: string
+}
+
+const MyChatItem: React.ForwardRefRenderFunction<HTMLDivElement, ChatItem> = ({ id, height, role, content }, ref) => {
+  return role === 'user' ? 
+  <div ref={ref} className="flex justify-end" key={id} onMouseDown={(e) => e.stopPropagation()} onDragStart={(e) => e.stopPropagation()}>
+    <div className="max-w-[80%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
+      <div className="text-sm font-medium">
+        <ReactMarkdown className="text-slate-300 prose">
+          {content}
+        </ReactMarkdown>
+      </div>
+    </div>
+  </div> : <div ref={ref} className="flex justify-start" key={id} onMouseDown={(e) => e.stopPropagation()} onDragStart={(e) => e.stopPropagation()}>
+  <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
+    <div className="text-sm font-medium">
+      <ReactMarkdown className="prose">
+        {content}
+      </ReactMarkdown>
+    </div>
+  </div>
+</div>
+}
+
+const ForwardMyChatItem = forwardRef(MyChatItem);
 
 const models = [
   {
@@ -125,6 +199,11 @@ const models = [
   },
 ]
 
+const localVirChatList: {id: number, height: number, role: string, content: string}[] = []
+for (let i = 0; i < 100; i ++) {
+  const c = {id: i, height: 10, role: i % 2 ? 'user' : 'assistant', content: i % 2 ? chats[0] : chats[1]}
+  localVirChatList.push(c)
+}
 export default () => {
   // @ts-ignore
   const appVersion = __APP_VERSION__
@@ -133,6 +212,11 @@ export default () => {
 
   const [pinState, setPinState] = useState<boolean>(false)
   const [chatTitle, setChatTitle] = useState('NewChat')
+
+  const [virChatList, setVirChatList] = useState(localVirChatList)
+  const [virHeightList, setVirHeightList] = useState<number[]>()
+  const [chatList, setChatList] = useState<{role: string, content: string}[]>()
+  
   const [customPrompt, setCustomPrompt] = useState('')
   const [useCustomePrompt, setUseCustomePrompt] = useState(false)
   const [appConfig, setAppConfig] = useState<IAppConfig>({
@@ -145,19 +229,29 @@ export default () => {
   })
   const [selectedModel, setSelectedModel] = useState('Qwen/Qwen2.5-Coder-32B-Instruct')
   const [sheetOpenState, setSheetOpenState] = useState(false)
-  const [mouseNearLeftSide, setMouseNearLeftSide] = useState(false);
 
   const sheetContentRef = useRef<HTMLDivElement>(null)
   const customPromptTextAreaRef = useRef<HTMLTextAreaElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const scrollAreaEndRef = useRef<HTMLDivElement>(null)
-  const itemRefs = useRef([])
+  const virtualDivRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
 
-    for (let i = 0; i < data.length; i++) {
-      const ref = itemRefs.current[i];
-    }
+    setTimeout(() => {
+      if (virtualDivRef.current) {
+        const childElements = virtualDivRef.current.children;
+        // 遍历子元素并记录高度
+        for (let i = 0; i < childElements.length; i++) {
+          heights.push(childElements[i].clientHeight)
+        }
+        setVirHeightList([...heights])
+  
+        // 输出子元素的高度
+        console.log('子元素的高度:', heights)
+        virtualDivRef.current.style.display = 'none'
+      }
+    }, 0)
 
     // get config from main
     console.log('loading config')
@@ -243,17 +337,24 @@ export default () => {
     setSelectedModel(val)
   }
 
-
   const onoSheetOpenChange = (val: boolean) => {
     setSheetOpenState(val)
   }
 
   return (
-    <div className="app-dragable flex flex-col">
-      <div className="app-dragable">
+    <div className="div-app app-dragable flex flex-col">
+      {/* 虚拟 div 用于记录子元素高度 */}
+      <div ref={virtualDivRef} className={'div-vir-dom fixed -left-1 -top-1'} style={{ visibility: 'hidden'}}>
+        {
+          virChatList.map((item, index) => {
+            return item.role === 'user' ? UserChatItem(index, item.content) : AssiatantChatItem(index, item.content)
+          })
+        }
+      </div>
+      <div className="div-header w-full h-full app-dragable bg-red-200" onMouseDown={(e) => e.stopPropagation()} onDragOver={(e) => e.stopPropagation()} onDragStart={(e) => e.stopPropagation()}>
         <Sheet open={sheetOpenState} onOpenChange={onoSheetOpenChange}>
-            <div className="app-dragable fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between">
-            <div className="space-x-2 flex flex-1">
+            <div className="app-dragable fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between bg-blue-200">
+            <div className="app-dragable flex-1 space-x-2 flex ">
               <SheetTrigger asChild className="app-undragable"><Button variant='outline' size={'xs'}><ActivityLogIcon></ActivityLogIcon></Button></SheetTrigger>
               <Popover>
                 <PopoverTrigger className="app-undragable">
@@ -387,10 +488,10 @@ export default () => {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className='flex-1 flex justify-center'>
+            <div className='app-dragable flex-1 flex justify-center'>
               <Button className='app-undragable h-auto w-auto' variant='secondary'>{chatTitle}</Button>
             </div>
-            <div className="flex-1 flex justify-end">
+            <div className="app-dragable flex-1 flex justify-end">
               <Toggle className="app-undragable" size="xs" variant="outline" onClick={onPinToggleClick}>
                 {pinState ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
               </Toggle>
@@ -408,44 +509,31 @@ export default () => {
       </div>
       <ResizablePanelGroup
       direction="vertical"
-      className={cn("w-full rounded-lg border min-h-[100vh]", "pt-[45px]")}
+      className={cn("div-body w-full rounded-lg border min-h-[100vh]", "mt-[45px]")}
       >
         <ResizablePanel defaultSize={80}>
           {/* <div className="flex h-full w-full app-undragable bg-red-300 p-1">
             <div className="font-semibold bg-green-200 w-full">Content</div>
           </div> */}
-          <ScrollArea ref={scrollAreaRef} className="app-undragable scroll-smooth h-full w-full rounded-md border">
-            <div className="app-undragable flex flex-col gap-4 pr-2 pl-2 pt-4 pb-2 bg-slate-50">
-              <List
+          <ScrollArea ref={scrollAreaRef} className="app-undragable scroll-smooth bg-red-200 h-full w-full rounded-md border">
+            <div className="app-dragable h-full flex space-y-4">
+              {/* <ChatComponent list={chatList}/> */}
+              {/* <List
                 data={data}
                 itemHeight={30}
                 itemKey="id"
                 >
-                {item => <ForwardMyItem {...item} />}
+                { item => <ForwardMyItem {...item} />}
+              </List> */}
+
+              <List
+                data={virChatList}
+                itemHeight={10}
+                itemKey="id"
+                className="app-undragable"
+                >
+                { item => <ForwardMyChatItem {...item} /> }
               </List>
-              {/* <div className="flex justify-end" key={1}>
-                <div className="max-w-[80%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
-                  <p className="text-sm font-medium">
-                    <ReactMarkdown className="prose text-slate-300">
-                    react-window 是一个用于优化大规模列表渲染性能的库。在处理聊天记录列表时，计算每条聊天记录的高度可能并不总是那么简单，因为高度取决于很多因素，例如字体大小、行高、是否包含图片或链接等。
-                    </ReactMarkdown>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-start " key={2}>
-                <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
-                  <p className="text-sm font-medium">
-                    <ReactMarkdown className="prose">
-                    动态调整高度：如果聊天记录的高度是动态变化的（例如包含图片或链接），你可能需要在每次消息内容更新时重新计算高度。这可以通过监听 message 的变化并重新渲染组件来实现。
-                    注意：这种方法可能不适用于所有情况，特别是当聊天记录的高度依赖于复杂布局或动态内容时。在这种情况下，你可能需要考虑使用更复杂的布局管理库（如 styled-components 或 emotion）来更好地控制元素的尺寸和位置。
-
-                    动态调整高度：如果聊天记录的高度是动态变化的（例如包含图片或链接），你可能需要在每次消息内容更新时重新计算高度。这可以通过监听 message 的变化并重新渲染组件来实现。
-                    注意：这种方法可能不适用于所有情况，特别是当聊天记录的高度依赖于复杂布局或动态内容时。在这种情况下，你可能需要考虑使用更复杂的布局管理库（如 styled-components 或 emotion）来更好地控制元素的尺寸和位置。
-                    </ReactMarkdown>
-                  </p>
-                </div>
-              </div> */}
 
             </div>
             <div id="scrollAreaEnd" ref={scrollAreaEndRef}></div>
@@ -478,41 +566,4 @@ export default () => {
       </ResizablePanelGroup>
     </div>
   )
-}
-
-const ChatComponent = (props: {list: {role: string, content: string}[]}) => {
-  return <div className="smooth-scroll flex flex-col gap-4 pr-2 pl-2 pt-2">
-    {
-      props.list.map((item, index) => {
-        if (item.role.length == 0) {
-          return
-        }
-        return item.role == 'user' ? UserChatItem(index, item.content) : AssiatantChatItem(index, item.content)
-      })
-    }
-  </div>
-}
-
-const UserChatItem = (key, content) => {
-  return <div className="flex justify-end" key={key}>
-  <div className="max-w-[80%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
-    <p className="text-sm font-medium">
-      <ReactMarkdown className="prose text-slate-300">
-        {content}
-      </ReactMarkdown>
-    </p>
-  </div>
-</div>
-}
-
-const AssiatantChatItem = (key, content) => {
-  return <div className="flex justify-start" key={key}>
-  <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
-    <p className="text-sm font-medium">
-      <ReactMarkdown className="prose">
-        {content}
-      </ReactMarkdown>
-    </p>
-  </div>
-</div>
 }
