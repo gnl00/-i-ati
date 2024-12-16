@@ -8,6 +8,7 @@ import { defaultConfig as embeddedConfig } from '../config'
 
 let mainWindow: BrowserWindow
 let appConfig: AppConfigType
+let windowSize: {width: number, height: number}
 
 const configPath = app.getPath('userData')
 const configFile = join(configPath, 'appConfig.json')
@@ -68,6 +69,19 @@ const pinWindow = (pin: boolean): void => {
   mainWindow.setAlwaysOnTop(pin, 'floating')
 }
 
+const saveWindowSize = () => {
+
+}
+
+const getWindowSize = () => {
+  const [width, height] = mainWindow.getSize();
+  console.log(`Window resized to ${width}x${height}`);
+  return windowSize = {
+    width,
+    height
+  }
+}
+
 function createWindow(): void {
   // Create the browser window.
   mainWindow = new BrowserWindow({
@@ -90,6 +104,11 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', async () => {
     mainWindow.show()
   })
+
+  // mainWindow.on('resize', async () => {
+  //   const [width, height] = mainWindow.getSize();
+  //   //console.log(`Window resized to ${width}x${height}`);
+  // })
 
   // mainWindow.on('show', async () => {
   // })
@@ -145,6 +164,7 @@ app.whenReady().then(() => {
   ipcMain.handle(PIN_WINDOW, (_, pinState) => pinWindow(pinState))
   ipcMain.handle(SAVE_CONFIG, (_, config) => saveConfig(config))
   ipcMain.handle(GET_CONFIG, (): IAppConfig => appConfig)
+  ipcMain.handle('get-window-size', (): {width: number, height: number} => windowSize)
   ipcMain.handle(OPEN_EXTERNAL, (_, url) => {
     console.log('main received url', url);
     shell.openExternal(url)
