@@ -69,17 +69,12 @@ const pinWindow = (pin: boolean): void => {
   mainWindow.setAlwaysOnTop(pin, 'floating')
 }
 
-const saveWindowSize = () => {
-
+const getWinPosition = (): number[] => {
+  return mainWindow.getPosition()
 }
 
-const getWindowSize = () => {
-  const [width, height] = mainWindow.getSize();
-  console.log(`Window resized to ${width}x${height}`);
-  return windowSize = {
-    width,
-    height
-  }
+const setWinPosition = ({x, y, animation= true}): void => {
+  mainWindow.setPosition(x, y, animation)
 }
 
 function createWindow(): void {
@@ -120,6 +115,11 @@ function createWindow(): void {
   // mainWindow.webContents.setWindowOpenHandler((details) => {
   //   shell.openExternal(details.url)
   //   return { action: 'deny' }
+  // })
+
+  // mainWindow.webContents.on('did-finish-load', () => {
+  //   // mainWindow.webContents.send('main-process-message', new Date().toLocaleString())
+  //   mainWindow.setTitle('New Async Title')
   // })
 
   // HMR for renderer base on electron-vite cli.
@@ -163,6 +163,8 @@ app.whenReady().then(() => {
   // IPC
   ipcMain.handle(PIN_WINDOW, (_, pinState) => pinWindow(pinState))
   ipcMain.handle(SAVE_CONFIG, (_, config) => saveConfig(config))
+  ipcMain.handle('get-win-position', (): number[] => getWinPosition())
+  ipcMain.handle('set-position', (_, options) => setWinPosition(options))
   ipcMain.handle(GET_CONFIG, (): IAppConfig => appConfig)
   ipcMain.handle('get-window-size', (): {width: number, height: number} => windowSize)
   ipcMain.handle(OPEN_EXTERNAL, (_, url) => {

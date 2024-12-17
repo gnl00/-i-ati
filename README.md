@@ -71,3 +71,7 @@ pnpm build:mac
 - https://www.builder.io/blog/stream-ai-javascript
 
 - https://stackoverflow.com/questions/73547502/how-do-i-stream-openais-completion-api
+
+- https://stackademic.com/blog/building-a-resizable-sidebar-component-with-persisting-width-using-react-tailwindcss
+
+- https://medium.com/@devblog_/electron-window-settitle-how-to-1a2e268d3430

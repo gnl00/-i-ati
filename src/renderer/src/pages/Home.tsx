@@ -506,69 +506,6 @@ const Home = (): JSX.Element => {
           </Toggle>
         </div>
         <Separator style={{ margin: '10px 0' }} />
-        {/* <ResizablePanelGroup
-          direction="vertical"
-          className="app-undragable min-h-[88vh] md:min-h-[90vh] lg:min-h-[93vh] w-full rounded-lg border pb-2"
-          onLayout={onResize}
-        >
-      <ResizablePanel defaultSize={25}>
-        <div className="flex h-full items-center justify-center">
-          <ScrollArea ref={scrollAreaRef} className="smooth-scroll app-undragable h-96 w-full rounded-md border">
-            <div className=" flex flex-col gap-4 pr-2 pl-2 pt-4 pb-2">
-              <div className="flex justify-end" key={1}>
-                <div className="max-w-[80%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
-                  <p className="text-sm font-medium">
-                    <ReactMarkdown className="prose text-slate-300">
-                    react-window 是一个用于优化大规模列表渲染性能的库。在处理聊天记录列表时，计算每条聊天记录的高度可能并不总是那么简单，因为高度取决于很多因素，例如字体大小、行高、是否包含图片或链接等。
-                    </ReactMarkdown>
-                  </p>
-                </div>
-              </div>
-              <div className="flex justify-start " key={2}>
-                <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
-                  <p className="text-sm font-medium">
-                    <ReactMarkdown className="prose">
-                    动态调整高度：如果聊天记录的高度是动态变化的（例如包含图片或链接），你可能需要在每次消息内容更新时重新计算高度。这可以通过监听 message 的变化并重新渲染组件来实现。
-                    注意：这种方法可能不适用于所有情况，特别是当聊天记录的高度依赖于复杂布局或动态内容时。在这种情况下，你可能需要考虑使用更复杂的布局管理库（如 styled-components 或 emotion）来更好地控制元素的尺寸和位置。
-
-                    动态调整高度：如果聊天记录的高度是动态变化的（例如包含图片或链接），你可能需要在每次消息内容更新时重新计算高度。这可以通过监听 message 的变化并重新渲染组件来实现。
-                    注意：这种方法可能不适用于所有情况，特别是当聊天记录的高度依赖于复杂布局或动态内容时。在这种情况下，你可能需要考虑使用更复杂的布局管理库（如 styled-components 或 emotion）来更好地控制元素的尺寸和位置。
-                    </ReactMarkdown>
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div id="scrollAreaEnd" ref={scrollAreaEndRef}></div>
-            </ScrollArea>
-          </div>
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel defaultSize={25} minSize={25} maxSize={50}>
-      <div ref={inputPanelRef} className="flex flex-col h-full items-center justify-center pl-1 pr-1">
-                <div className='w-full flex justify-start pb-0.5'>
-                <Select onValueChange={onSelectModelChange} defaultValue={selectedModel}>
-                  <SelectTrigger className="w-auto h-auto">
-                    <SelectValue/>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {
-                      models.map((item, _) => {
-                        return <SelectItem key={item.provider.concat('/').concat(item.model)} value={item.provider.concat('/').concat(item.model)}>{item.model}</SelectItem>
-                      })
-                    }
-                  </SelectContent>
-                </Select>
-                </div>
-                <div className="app-undragable flex w-full items-end space-x-2 backdrop-blur-sm">
-                
-                  <Textarea ref={textAreaRef} onChange={onTranslateTextChange} defaultValue={translateText} value={translateText} className=" bg-slate-50 text-md" placeholder="Anything you want to ask..." />
-                  <Button className='fixed bottom-0 right-0' size="sm" type="submit" onClick={onSubmitClick}>
-                    Enter
-                  </Button>
-                </div>
-                </div>
-      </ResizablePanel>
-    </ResizablePanelGroup> */}
         <ResizablePanelGroup
             direction="vertical"
             className="app-undragable min-h-[88vh] md:min-h-[90vh] lg:min-h-[93vh] w-full rounded-lg border pb-2"
@@ -631,51 +568,6 @@ const Home = (): JSX.Element => {
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>
-        {/* <ScrollArea ref={scrollAreaRef} className="app-undragable h-auto w-auto rounded-md border p-1">
-          {listRenderer()}
-          <div id="scrollAreaEnd" ref={scrollAreaEndRef}></div>
-        </ScrollArea> */}
-        {/*
-        <div id="InputArea" ref={inputAreaRef} className={"w-full fixed bottom-0 backdrop-blur-sm pb-2 pr-4"}>
-          <div className='w-full pb-0.5'>
-          <Select onValueChange={onSelectModelChange} defaultValue={selectedModel}>
-            <SelectTrigger className="w-auto h-auto">
-              <SelectValue/>
-            </SelectTrigger>
-            <SelectContent>
-              {
-                models.map((item, _) => {
-                  return <SelectItem key={item.provider.concat('/').concat(item.model)} value={item.provider.concat('/').concat(item.model)}>{item.model}</SelectItem>
-                })
-              }
-            </SelectContent>
-          </Select>
-             {
-              fetching ? 
-              <>
-                <div className='flex justify-center'>
-                  
-                  <Separator className='w-1/3' style={{ margin: '10px 0'}} />
-                  <span className='text-xs text-slate-500'>Fetching</span>
-                  <Separator className='w-1/3' style={{ margin: '10px 0' }} />
-                </div>
-              </> : 
-              <>
-                <div className='flex justify-center'>
-                  <Separator className='w-1/3' style={{ margin: '5px 0' }} />
-                  <span className='text-xs text-slate-400'>&nbsp;</span>
-                  <Separator className='w-1/3' style={{ margin: '5px 0' }} />
-                </div>
-              </>
-            } 
-          </div>
-          <div className="app-undragable flex w-full items-end space-x-2 backdrop-blur-sm">
-            <Textarea onChange={onTranslateTextChange} defaultValue={translateText} value={translateText} className=" bg-slate-50 text-md" placeholder="Anything you want to ask..." />
-            <Button className='fixed bottom-0 right-0' size="sm" type="submit" onClick={onSubmitClick}>
-              Enter
-            </Button>
-          </div>
-        </div> */}
         <Toaster />
       </div>
     </>
