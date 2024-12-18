@@ -31,6 +31,20 @@ declare interface ITranslateRequest {
   targetLang: string
 }
 
+
+declare interface IChatContent {
+  role: string
+  content: string
+}
+
+declare interface IChatRequestV2 {
+  url: string
+  token: string
+  model: string
+  prompt: string
+  messages: IChatContent[]
+}
+
 declare interface IChatRequest {
   url: string
   token: string

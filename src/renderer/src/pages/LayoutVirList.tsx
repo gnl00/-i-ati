@@ -47,12 +47,30 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@renderer/components/ui/select"
-import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import ReactMarkdown from 'react-markdown'
 import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
 import { cn } from "@renderer/lib/utils"
-import { useEffect, useRef, useState, forwardRef, useLayoutEffect, useMemo } from "react"
-import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
+import { useEffect, useRef, useState, forwardRef, useLayoutEffect } from "react"
+import { chatRequestWithHook } from '@request/index'
+import List from "rc-virtual-list"
+import { VariableSizeList as VList } from 'react-window'
+import AutoSizer from "react-virtualized-auto-sizer"
+import VirtualizedList from 'react-virtualized-list';
+
+const itemStyle = {
+    height: '50px',
+    lineHeight: '40px',
+    border: '1px solid blue',
+    marginBottom: '10px',
+  };
+  
+  const containerStyle = {
+    width: '100%', 
+    height: '100%', 
+    margin: '0 auto', 
+    border: '1px solid red', 
+    padding: '16px'
+  }
 
 const models = [
     {
@@ -73,16 +91,80 @@ const models = [
     },
 ]
 
+const chats = [
+    "react-window 是一个用于优化大规模列表渲染性能的库。在处理聊天记录列表时，计算每条聊天记录的高度可能并不总是那么简单，因为高度取决于很多因素，例如字体大小、行高、是否包含图片或链接等。",
+    "动态调整高度：如果聊天记录的高度是动态变化的（例如包含图片或链接），你可能需要在每次消息内容更新时重新计算高度。这可以通过监听 message 的变化并重新渲染组件来实现。注意：这种方法可能不适用于所有情况，特别是当聊天记录的高度依赖于复杂布局或动态内容时。在这种情况下，你可能需要考虑使用更复杂的布局管理库（如 styled-components 或 emotion）来更好地控制元素的尺寸和位置。react-virtualized-list 是一个专为处理大型数据集而设计的高性能 React 虚拟组件库，提供虚拟化列表、无限滚动、懒加载和动态数据更新等功能。通过使用 IntersectionObserver 精确管理可见性，优化性能并支持灵活的渲染和加载行为配置。仓库提供了详细的安装说明、使用示例和全面的 API 文档，适合快速集成和定制。动态调整高度：如果聊天记录的高度是动态变化的（例如包含图片或链接），你可能需要在每次消息内容更新时重新计算高度。这可以通过监听 message 的变化并重新渲染组件来实现。注意：这种方法可能不适用于所有情况，特别是当聊天记录的高度依赖于复杂布局或动态内容时。在这种情况下，你可能需要考虑使用更复杂的布局管理库（如 styled-components 或 emotion）来更好地控制元素的尺寸和位置。"
+]
+
+interface ChatItem {
+    id: number
+    height: number
+    role: string
+    content: string
+}
+
+const MyChatComp: React.ForwardRefRenderFunction<HTMLDivElement, ChatItem> = ({ id, height, role, content }, ref) => {
+    return role === 'user' ?
+        <div ref={ref} key={id} className="flex justify-end">
+            <div className="max-w-[85%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
+                <ReactMarkdown className="text-slate-300 prose text-md font-medium max-w-[100%]">
+                    {content}
+                </ReactMarkdown>
+            </div>
+        </div> : <div ref={ref} key={id} className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
+                <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
+                    {content}
+                </ReactMarkdown>
+            </div>
+        </div>
+}
+
+const ForwardMyChatComp = forwardRef(MyChatComp);
+
+const localVirChatList: { id: number, height: number, role: string, content: string }[] = []
+for (let i = 0; i < 100; i++) {
+    const c = { id: i, height: 10, role: i % 2 ? 'user' : 'assistant', content: i % 2 ? chats[0] : chats[1] }
+    localVirChatList.push(c)
+}
+
+
 const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY"
 
 export default () => {
+
+    const data = Array.from({ length: 1000 }, (_, index) => `条目 ${index}`);
+    // 渲染每个条目的函数
+    const renderItem = (itemData) => {
+        return itemData.role === 'user' ? 
+        <div key={itemData.id} className="flex justify-end">
+            <div className="max-w-[85%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
+                <ReactMarkdown className="text-slate-300 prose text-md font-medium max-w-[100%]">
+                    {itemData.content}
+                </ReactMarkdown>
+            </div>
+        </div> : <div key={itemData.id} className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl bg-gray-150 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
+                <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
+                    {itemData.content}
+                </ReactMarkdown>
+            </div>
+        </div>
+    }
+    const getRendererItemHeight = (itemData) => {
+        return '50px'
+    }
+
     // @ts-ignore
     const appVersion = __APP_VERSION__
 
     const { toast } = useToast()
 
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const [pinState, setPinState] = useState<boolean>(false)
     const [chatTitle, setChatTitle] = useState('NewChat')
+    const [virChatList, setVirChatList] = useState<{ id: number, height: number, role: string, content: string }[]>(localVirChatList)
+    const [virHeightList, setVirHeightList] = useState<number[]>([])
     const [chatList, setChatList] = useState<{ role: string, content: string }[]>([])
     const [customPrompt, setCustomPrompt] = useState('')
     const [useCustomePrompt, setUseCustomePrompt] = useState(false)
@@ -99,32 +181,78 @@ export default () => {
     const [chatContent, setChatContent] = useState<string>()
     const [fetchingState, setFetchingState] = useState<boolean>()
 
+    const vListRef = useRef<HTMLDivElement>(null)
+    const vListInnerRef = useRef<HTMLDivElement>(null)
+    const containerRef = useRef<HTMLDivElement>(null)
     const sheetContentRef = useRef<HTMLDivElement>(null)
     const customPromptTextAreaRef = useRef<HTMLTextAreaElement>(null)
     const scrollAreaTopRef = useRef<HTMLDivElement>(null)
     const scrollAreaBottomRef = useRef<HTMLDivElement>(null)
     const virtualDivRef = useRef<HTMLDivElement>(null)
 
+
+    useLayoutEffect(() => {
+        console.log(vListInnerRef.current)
+        if (vListInnerRef.current) {
+            console.log(vListInnerRef.current)
+            vListInnerRef.current.style.marginTop = '0.25rem'
+        }
+    }, [])
+
     useEffect(() => {
-        console.log('re-render')
-        const resizeObserver = new ResizeObserver((entries) => {})
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            if (vListRef.current) {
+                console.log(vListRef.current.resetAfterIndex(0, false));
+            }
+            // console.log('on-resize')
+            if (entries && entries[0]) {
+                const { width, height } = entries[0].contentRect;
+                setDimensions({ width, height });
+            }
+            if (virtualDivRef.current) {
+                const heights: number[] = []
+                virtualDivRef.current.style.display = ''
+                const childElements = virtualDivRef.current.children;
+                // 遍历子元素并记录高度
+                for (let i = 0; i < childElements.length; i++) {
+                    heights.push(childElements[i].clientHeight)
+                }
+                setVirHeightList([...heights])
+                // 输出子元素的高度
+                console.log('useEffect 子元素的高度:', heights)
+                virtualDivRef.current.style.display = 'none'
+            }
+        })
+    
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
 
         setTimeout(() => {
-            // if (virtualDivRef.current) {
-            //     const heights: number[] = []
-            //     virtualDivRef.current.style.display = ''
-            //     const childElements = virtualDivRef.current.children;
-            //     // 遍历子元素并记录高度
-            //     for (let i = 0; i < childElements.length; i++) {
-            //         heights.push(childElements[i].clientHeight)
-            //     }
-            //     setVirHeightList([...heights])
-            //     // 输出子元素的高度
-            //     console.log('useEffect 子元素的高度:', heights)
-            //     virtualDivRef.current.style.display = 'none'
-            // }
+            if (vListRef.current) {
+                console.log(vListRef.current.resetAfterIndex(0, false));
+            }
+
+            
+
+            if (virtualDivRef.current) {
+                const heights: number[] = []
+                virtualDivRef.current.style.display = ''
+                const childElements = virtualDivRef.current.children;
+                // 遍历子元素并记录高度
+                for (let i = 0; i < childElements.length; i++) {
+                    heights.push(childElements[i].clientHeight)
+                }
+                setVirHeightList([...heights])
+                // 输出子元素的高度
+                console.log('useEffect 子元素的高度:', heights)
+                virtualDivRef.current.style.display = 'none'
+            }
         }, 0)
 
+        // get config from main
+        // console.log('loading config')
         window.electron.ipcRenderer.invoke(GET_CONFIG).then((config: IAppConfig) => {
             setAppConfig({
                 ...appConfig,
@@ -152,15 +280,13 @@ export default () => {
                 }
             }
         }
+
         // addEventListener('mousemove', handleMouseMove)
+
         return () => {
-            // removeEventListener('mousemove', handleMouseMove)
+            removeEventListener('mousemove', handleMouseMove) // Cleanup the event listener when the component unmounts
         }
     }, [])
-
-    useEffect(() => {
-        scrollAreaBottomRef.current?.scrollIntoView({behavior: 'instant'})
-    }, [chatList])
 
     const onPinToggleClick = (): void => {
         setPinState(!pinState)
@@ -267,36 +393,36 @@ export default () => {
     }
 
     const onSubmitClick = async (): Promise<void> => {
-        console.log('send message:', chatContent)
+        console.log('chat content', chatContent)
+        
         if (!chatContent) {
           return
         }
 
         const userChat = {role: "user", content: chatContent}
-        const messages = [...chatList, userChat]
-        setChatList(messages)
+        setChatList([...chatList, userChat])
         setChatContent('')
-
-        const req: IChatRequestV2 = {
+    
+        const req: IChatRequest = {
             url: appConfig.api!,
-            messages,
+            content: chatContent,
             token: appConfig.token!,
             prompt: '',
             model: selectedModel
         }
     
-        const reader = await chatRequestWithHookV2(req, beforeFetch, afterFetch)
+        const reader = await chatRequestWithHook(req, beforeFetch, afterFetch)
     
         if (!reader) {
             return
         }
     
-        let gatherResult = ''
+        let preResult = ''
         while (true) {
             const { done, value} = await reader.read()
         
             if (done) {
-                break
+            break
             }
         
             let eventDone = false
@@ -310,15 +436,15 @@ export default () => {
             }
             const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
             const resultText = json.choices[0].delta.content
-            gatherResult += resultText || ''
-                // console.log(preResult += resultText || '')
+            preResult += resultText || ''
+            // console.log(preResult += resultText || '')
             })
-            setChatList([...chatList, userChat, {role: 'system', content: gatherResult}])
+            setChatList([...chatList, userChat, {role: 'assiatant', content: preResult}])
+        
             if (eventDone) {
-                break
+            break
             }
         }
-        console.log('received message:', gatherResult)
         if (!chatTitle || chatTitle === 'NewChat') {
             generateTitle(chatContent)
         }
@@ -328,90 +454,62 @@ export default () => {
         setSheetOpenState(true)
     }
 
-    const ChatComponent = (props: { list: { role: string, content: string }[] }) => {
-        return <div className="scroll-smooth flex flex-col space-y-2 pr-2 pl-2">
-            {
-                props.list.map((item, index) => {
-                    if (item.role.length == 0) {
-                        return
-                    }
-                    return item.role == 'user' ? UserChatItem(index, item.content) : AssiatantChatItem(index, item.content)
-                })
-            }
+    const rowHeights = new Array(100)
+                        .fill(true)
+                        .map(() => 25 + Math.round(Math.random() * 50));
+
+    const getItemSize = index => {
+        const result = virHeightList[index] || 30
+        // console.log(index, result, virHeightList)
+        return result
+    }
+
+    const Row = ({ index, style }) => {
+        return virChatList[index].role === 'user' ? 
+        <div key={index} style={style} className="flex justify-end">
+            <div className="max-w-[85%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
+                <ReactMarkdown className="text-slate-300 prose text-md font-medium max-w-[100%]">
+                    {virChatList[index].content}
+                </ReactMarkdown>
+            </div>
+        </div> : <div key={index} style={style} className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl bg-gray-150 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
+                <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
+                    {virChatList[index].content}
+                </ReactMarkdown>
+            </div>
         </div>
     }
-    
-    const UserChatItem = (key, content) => {
+
+    const Example = () => {
         return (
-            <div key={key} className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
-                    <ReactMarkdown className="text-slate-300 prose text-md font-medium max-w-[100%]">
-                        {content}
-                    </ReactMarkdown>
-                </div>
-            </div>
+            <AutoSizer>
+                {
+                    ({height, width}) => (
+                        <VList
+                        itemCount={100}
+                        itemSize={getItemSize}
+                        height={height}
+                        width={width}
+                        ref={vListRef}
+                        className={"virList scroll-smooth space-y-2"}
+                        innerRef={vListInnerRef}
+                        >
+                            {
+                            // ({index, style}) => (
+                            //     <div className="space-y-2" style={{color: 'red', ...style}}>{index}</div>
+                            // )
+                            Row
+                            }
+                        </VList>
+                    )
+                }
+            </AutoSizer>
         )
-    }
-    
-    const AssiatantChatItem = (key, content) => {
-        return (
-            <div key={key} className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
-                    <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
-                        {content}
-                    </ReactMarkdown>
-                </div>
-            </div>
-        )
-    }
-
-    interface CusTextareaProps {
-        className?: string
-        style?: React.CSSProperties
-        [key: string]: any
-    }
-
-    const CusTextArea = forwardRef<HTMLDivElement, CusTextareaProps>(
-        ({ className, style, ...props }, ref) => {
-          return (
-            <div
-              className={cn(
-                'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-                className
-              )}
-              ref={ref}
-              {...props}
-            />
-          )
-        }
-      )
-
-    const onTextAreaKeyDown = (e) => {
-        if (e.key === 'Enter' && e.shiftKey) {
-            e.preventDefault() // 防止跳到新的一行
-            console.log('Shift + Enter pressed!')
-            return
-        }
-        if (e.key === 'Enter' && e.shiftKey) {
-            e.preventDefault() // 防止跳到新的一行
-            console.log('Shift + Enter pressed!')
-            return
-        }
-        if (e.key === 'Enter') {
-            onSubmitClick()
-        }
-    }
-
-    const onTextAreaPaste = (e) => {
-        console.log('onPaste', e)
-        // const text = e.clipboardData.getData('text/plain')
-        // console.log('text', text)
-        const items = e.clipboardData.items
-        console.log(items);
     }
 
     return (
-        <div className="div-app app-dragable flex f`lex-col">
+        <div ref={containerRef} className="div-app app-dragable flex f`lex-col">
             <div className="header shadow-lg fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between z-10" style={{userSelect: 'none'}}>
                 <div className="app-dragable flex-1 space-x-2 flex">
                     {/* <SheetTrigger asChild className="app-undragable"><Button variant='outline' size={'xs'}><ActivityLogIcon></ActivityLogIcon></Button></SheetTrigger> */}
@@ -561,12 +659,40 @@ export default () => {
                 className={cn("div-body w-full rounded-lg border min-h-screen", "pt-[44px]")}
                 >
                 <ResizablePanel defaultSize={80}>
-                    <div className="app-undragable h-full flex flex-col pl-1 pr-1 gap-4 scroll-smooth overflow-y-scroll">
-                    <ScrollArea className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 pb-2">
+                    <div className="app-undragable h-full flex flex-col pl-1 pr-1 gap-4 bg-slate-50">
                         <div id="scrollAreaTop" ref={scrollAreaTopRef}></div>
-                        <ChatComponent list={chatList}/>
+                        {/* <ChatComponent list={chatList}/> */}
+                        
+                        {
+                            dimensions.width > 0 && dimensions.height > 0 && (
+                                <Example></Example>
+                            )
+                        }
+
+                        {/* <List
+                            data={virChatList}
+                            itemHeight={10}
+                            itemKey="id"
+                            className="app-undragable "
+                            >
+                            { item => <ForwardMyChatComp {...item} /> }
+                            </List> */}
+                        
+                        {/* <div style={containerStyle}>
+                            <VirtualizedList
+                                listData={virChatList}
+                                renderItem={renderItem}
+                                itemStyle={{
+                                    height: 'auto',
+                                    lineHeight: '40px',
+                                    border: '1px solid blue',
+                                    marginBottom: '10px',
+                                  }}
+                                containerHeight={"100%"}
+                            />
+                            </div> */}
+
                         <div id="scrollAreaBottom" ref={scrollAreaBottomRef}></div>
-                    </ScrollArea>
                     </div>
                 </ResizablePanel>
                 <ResizableHandle />
@@ -588,10 +714,7 @@ export default () => {
                     <div className="flex-grow app-dragable"></div>
                 </div>
                 <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
-                    <div className="flex h-full app-undragable ">
-                        <Textarea onKeyDown={onTextAreaKeyDown} value={chatContent} onPaste={onTextAreaPaste} onChange={onChatContentChange} className="w-full text-md" placeholder="Anything you want yo ask..."></Textarea>
-                        {/* <CusTextArea contentEditable className={'app-undragable p-0.5 m-0 bg-red-100'}></CusTextArea> */}
-                    </div>
+                    <div className="flex h-full app-undragable "><Textarea value={chatContent} onChange={onChatContentChange} className="w-full text-md" placeholder="Anything you want yo ask..."></Textarea></div>
                     <Button className='fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center' type="submit" onClick={onSubmitClick}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
                 </ResizablePanel>
             </ResizablePanelGroup>
@@ -607,6 +730,57 @@ export default () => {
                         </SheetHeader>
                     </SheetContent>
             </Sheet>
+            {/* 虚拟 div 用于记录子元素高度 */}
+            <div ref={virtualDivRef} className={'div-vir-dom fixed -left-1 -top-1'} style={{ visibility: 'hidden' }}>
+                {
+                    virChatList.map((item, index) => {
+                        return item.role === 'user' ? UserChatItem(index, item.content) : AssiatantChatItem(index, item.content)
+                    })
+                }
+            </div>
         </div>
+    )
+}
+
+const ChatComponent = (props: { list: { role: string, content: string }[] }) => {
+    return <div className="scroll-smooth flex flex-col space-y-2 pr-2 pl-2">
+        {
+            props.list.map((item, index) => {
+                if (item.role.length == 0) {
+                    return
+                }
+                return item.role == 'user' ? UserChatItem(index, item.content) : AssiatantChatItem(index, item.content)
+            })
+        }
+    </div>
+}
+
+const UserChatItem = (key, content) => {
+    return (
+        <div key={key} className="flex justify-end">
+            <div className="max-w-[85%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
+                <ReactMarkdown className="text-slate-300 prose text-md font-medium max-w-[100%]">
+                    {content}
+                </ReactMarkdown>
+            </div>
+        </div>
+    )
+}
+
+const AssiatantChatItem = (key, content) => {
+    return (
+        <div key={key} className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
+                <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
+                    {content}
+                </ReactMarkdown>
+            </div>
+        </div>
+    )
+}
+
+const ChatList = () => {
+    return (
+        <></>
     )
 }

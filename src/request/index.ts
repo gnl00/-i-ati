@@ -157,3 +157,52 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
 
   return reader
 }
+
+export const chatRequestWithHookV2 = async (req: IChatRequestV2, beforeFetch: Function, afterFetch: Function): Promise<any> => {
+
+  if (!req.messages) {
+    console.log('IChatRequestV2.messages is empty')
+    return
+  }
+
+  const initMessage = req.prompt ? {
+    role: 'user',
+    content: req.prompt
+  } : null
+
+  const headers = {
+    ...postHeanders,
+    authorization: authorizationPreffix + req.token
+  }
+
+  beforeFetch()
+
+  const stream = await fetch(req.url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: req.model,
+      messages: initMessage != null ? [
+        {...initMessage},
+        ...req.messages
+      ] : [...req.messages],
+      stream: true,
+      max_tokens: 1024,
+      temperature: 0.7,
+      top_p: 0.7,
+      top_k: 50,
+      frequency_penalty: 0.5,
+      n: 1
+    })
+  })
+
+  if (!stream.ok) {
+    throw new Error(`HTTP error! Status: ${stream.status}`);
+  }
+
+  const reader = stream.body?.pipeThrough(new TextDecoderStream()).getReader()
+
+  afterFetch()
+
+  return reader
+}

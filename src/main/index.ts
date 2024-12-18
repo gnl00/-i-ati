@@ -80,8 +80,8 @@ const setWinPosition = ({x, y, animation= true}): void => {
 function createWindow(): void {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 580,
+    width: 1100,
+    height: 1200,
     show: false,
     // alwaysOnTop: true,
     frame: false,
