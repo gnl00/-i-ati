@@ -48,11 +48,39 @@ import {
     SelectValue,
 } from "@renderer/components/ui/select"
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
-import ReactMarkdown from 'react-markdown'
-import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
+import { Separator } from "@renderer/components/ui/separator"
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@renderer/components/ui/carousel"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@renderer/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@renderer/components/ui/table"
 import { cn } from "@renderer/lib/utils"
 import { useEffect, useRef, useState, forwardRef, useLayoutEffect, useMemo } from "react"
+import ReactMarkdown from 'react-markdown'
+import { v4 as uuidv4 } from 'uuid';
+import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
 import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
+import { saveMessage, MessageEntity, getMessageById, getMessageByIds } from '../db/MessageRepository'
+import { ChatEntity, getChatById, saveChat, updateChat, getAllChat } from '../db/ChatRepository'
 
 const models = [
     {
@@ -82,8 +110,12 @@ export default () => {
     const { toast } = useToast()
 
     const [pinState, setPinState] = useState<boolean>(false)
+    const [chatId, setChatId] = useState<number | undefined>()
+    const [chatUuid, setChatUuid] = useState<string | undefined>()
     const [chatTitle, setChatTitle] = useState('NewChat')
-    const [chatList, setChatList] = useState<{ role: string, content: string }[]>([])
+    const [chatList, setChatList] = useState<ChatEntity[]>([])
+    const [messageList, setMessageList] = useState<MessageEntity[]>([])
+    const [lastMsgStatus, setLastMsgStatus] = useState<boolean>(true)
     const [customPrompt, setCustomPrompt] = useState('')
     const [useCustomePrompt, setUseCustomePrompt] = useState(false)
     const [appConfig, setAppConfig] = useState<IAppConfig>({
@@ -95,7 +127,7 @@ export default () => {
         model: 'Qwen/Qwen2.5-32B-Instruct'
     })
     const [selectedModel, setSelectedModel] = useState('Qwen/Qwen2.5-Coder-32B-Instruct')
-    const [sheetOpenState, setSheetOpenState] = useState(false)
+    const [sheetOpenState, setSheetOpenState] = useState(true)
     const [chatContent, setChatContent] = useState<string>()
     const [fetchingState, setFetchingState] = useState<boolean>()
 
@@ -103,11 +135,18 @@ export default () => {
     const customPromptTextAreaRef = useRef<HTMLTextAreaElement>(null)
     const scrollAreaTopRef = useRef<HTMLDivElement>(null)
     const scrollAreaBottomRef = useRef<HTMLDivElement>(null)
-    const virtualDivRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        console.log('re-render')
-        const resizeObserver = new ResizeObserver((entries) => {})
+        console.log('render []')
+        getAllChat().then(res => {
+            setChatList(res)
+        }).catch(err => {
+            console.error(err)
+        })
+        
+        const resizeObserver = new ResizeObserver((entries) => {
+            console.log('re-size')
+        })
 
         setTimeout(() => {
             // if (virtualDivRef.current) {
@@ -159,8 +198,9 @@ export default () => {
     }, [])
 
     useEffect(() => {
-        scrollAreaBottomRef.current?.scrollIntoView({behavior: 'instant'})
-    }, [chatList])
+        console.log('render [messageList]')
+        scrollAreaBottomRef.current?.scrollIntoView({behavior: 'auto'})
+    }, [messageList])
 
     const onPinToggleClick = (): void => {
         setPinState(!pinState)
@@ -264,6 +304,7 @@ export default () => {
             break
           }
         }
+        return title
     }
 
     const onSubmitClick = async (): Promise<void> => {
@@ -272,9 +313,39 @@ export default () => {
           return
         }
 
-        const userChat = {role: "user", content: chatContent}
-        const messages = [...chatList, userChat]
-        setChatList(messages)
+        const userMessage: MessageEntity = {role: "user", content: chatContent, status: false}
+        const usrMsgId = await saveMessage(userMessage) as number
+
+        let currChatId = chatId
+        let chatEntity: ChatEntity
+        if (!chatUuid && !chatId) {
+            const currChatUuid = uuidv4()
+            setChatUuid(currChatUuid)
+            chatEntity = {uuid: currChatUuid, title: 'NewChat', messages: [usrMsgId]}
+            const saveChatRetVal = await saveChat(chatEntity)
+            currChatId = saveChatRetVal as number
+            setChatId(chatId)
+            chatEntity.id = chatId
+        } else {
+            chatEntity = await getChatById(currChatId)
+            chatEntity.messages = [...chatEntity.messages, usrMsgId]
+            updateChat(chatEntity)
+        }
+
+        setChatList(prev => {
+            const nextChatList: ChatEntity[] = []
+            prev.forEach(c => {
+                if (chatEntity.uuid === c.uuid) {
+                    nextChatList.push(chatEntity)
+                } else {
+                    nextChatList.push(c)
+                }
+            })
+            return nextChatList
+        })
+        
+        const messages = [...messageList, userMessage]
+        setMessageList(messages)
         setChatContent('')
 
         const req: IChatRequestV2 = {
@@ -284,81 +355,101 @@ export default () => {
             prompt: '',
             model: selectedModel
         }
-    
-        const reader = await chatRequestWithHookV2(req, beforeFetch, afterFetch)
-    
-        if (!reader) {
-            return
-        }
-    
-        let gatherResult = ''
-        while (true) {
-            const { done, value} = await reader.read()
-        
-            if (done) {
-                break
+
+        chatRequestWithHookV2(req, beforeFetch, afterFetch)
+        .then(async (reader) => {
+            if (reader) {
+                let gatherResult = ''
+                while (true) {
+                    const { done, value } = await reader.read()
+                    // console.log(done, value)
+                    
+                    if (done) {
+                        break
+                    }
+                
+                    let eventDone = false
+                    const arr = value.split('\n')
+                    arr.forEach((data: any) => {
+                    if (data.length === 0) return; // ignore empty message
+                    if (data.startsWith(':')) return // ignore sse comment message
+                    if (data === 'data: [DONE]') {
+                        eventDone = true
+                        return
+                    }
+                    const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
+                    const resultText = json.choices[0].delta.content
+                    gatherResult += resultText || ''
+                    // console.log(preResult += resultText || '')
+                    })
+                    setMessageList([...messageList, userMessage, {role: 'system', content: gatherResult}])
+                    if (eventDone) {
+                        break
+                    }
+                }
+                // console.log('received message:', gatherResult)
+                const sysSuccMessage: MessageEntity = {role: 'system', content: gatherResult, status: true}
+                const sysMsgId = await saveMessage(sysSuccMessage) as number
+                chatEntity.messages = [...chatEntity.messages, sysMsgId]
+                updateChat(chatEntity)
+                if (!chatTitle || chatTitle === 'NewChat') {
+                    const title = await generateTitle(chatContent) as string
+                    // console.log('generateTitle', title)
+                    chatEntity.title = title
+                    updateChat(chatEntity)
+                }
+
             }
-        
-            let eventDone = false
-            const arr = value.split('\n')
-            arr.forEach((data: any) => {
-            if (data.length === 0) return; // ignore empty message
-            if (data.startsWith(':')) return // ignore sse comment message
-            if (data === 'data: [DONE]') {
-                eventDone = true
-                return
-            }
-            const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
-            const resultText = json.choices[0].delta.content
-            gatherResult += resultText || ''
-                // console.log(preResult += resultText || '')
+            setLastMsgStatus(true)
+        })
+        .catch(err => {
+            setLastMsgStatus(false)
+            toast({
+                variant: "destructive",
+                title: "Uh oh! Something went wrong.",
+                description: `There was a problem with your request. ${err.message}`
             })
-            setChatList([...chatList, userChat, {role: 'system', content: gatherResult}])
-            if (eventDone) {
-                break
-            }
-        }
-        console.log('received message:', gatherResult)
-        if (!chatTitle || chatTitle === 'NewChat') {
-            generateTitle(chatContent)
-        }
+        })
     }
 
     const onSheetHover = () => {
         setSheetOpenState(true)
     }
 
-    const ChatComponent = (props: { list: { role: string, content: string }[] }) => {
-        return <div className="scroll-smooth flex flex-col space-y-2 pr-2 pl-2">
+    const ChatComponent = (props: { list: MessageEntity[] }) => {
+        return <div className="scroll-smooth flex flex-col space-y-4 pr-2 pl-2">
             {
                 props.list.map((item, index) => {
                     if (item.role.length == 0) {
                         return
                     }
-                    return item.role == 'user' ? UserChatItem(index, item.content) : AssiatantChatItem(index, item.content)
+                    return item.role == 'user' ? UserChatItem(index, item) : AssiatantChatItem(index, item)
                 })
             }
         </div>
     }
     
-    const UserChatItem = (key, content) => {
+    const UserChatItem = (index, message: MessageEntity) => {
         return (
-            <div key={key} className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl bg-gray-900 px-4 py-3 shadow-lg dark:bg-gray-800">
-                    <ReactMarkdown className="text-slate-300 prose text-md font-medium max-w-[100%]">
-                        {content}
+            <div key={index} className={cn("flex justify-end")}>
+                {
+                    index == (messageList.length - 1) && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-600">Retry</span>
+                }
+                <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-900 dark:bg-gray-800")}>
+                    <ReactMarkdown className={cn("prose text-md font-medium max-w-[100%] text-slate-300")}>
+                        {message.content}
                     </ReactMarkdown>
                 </div>
             </div>
         )
     }
     
-    const AssiatantChatItem = (key, content) => {
+    const AssiatantChatItem = (key, message: MessageEntity) => {
         return (
             <div key={key} className="flex justify-start">
                 <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
                     <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
-                        {content}
+                        {message.content}
                     </ReactMarkdown>
                 </div>
             </div>
@@ -410,9 +501,26 @@ export default () => {
         console.log(items);
     }
 
+    const onChatClick = (e, chat: ChatEntity) => {
+        // console.log(chat)
+        setSheetOpenState(false)
+        setChatTitle(chat.title)
+        setChatUuid(chat.uuid)
+        setChatId(chat.id)
+        getMessageByIds(chat.messages).then(messageList => {
+            setMessageList(messageList)
+        }).catch(err => {
+            toast({
+                variant: "destructive",
+                title: "Uh oh! Something went wrong.",
+                description: `There was a problem with your databases. ${err.message}`
+            })
+        })
+    }
+
     return (
-        <div className="div-app app-dragable flex f`lex-col">
-            <div className="header shadow-lg fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between z-10" style={{userSelect: 'none'}}>
+        <div className="div-app app-dragable flex flex-col">
+            <div className="header shadow-lg fixed top-0 w-full pb-2 pr-2 pl-2 pt-2 flex items-center justify-between z-10" style={{userSelect: 'none'}}>
                 <div className="app-dragable flex-1 space-x-2 flex">
                     {/* <SheetTrigger asChild className="app-undragable"><Button variant='outline' size={'xs'}><ActivityLogIcon></ActivityLogIcon></Button></SheetTrigger> */}
                     <Popover>
@@ -558,13 +666,14 @@ export default () => {
             </div>
             <ResizablePanelGroup
                 direction="vertical"
-                className={cn("div-body w-full rounded-lg border min-h-screen", "pt-[44px]")}
+                className={cn("div-body w-full rounded-lg border min-h-screen", "pt-[54px]")}
                 >
                 <ResizablePanel defaultSize={80}>
-                    <div className="app-undragable h-full flex flex-col pl-1 pr-1 gap-4 scroll-smooth overflow-y-scroll">
+                    <div className="app-undragable h-full flex flex-col pl-1 pr-1 gap-4 overflow-y-scroll">
                     <ScrollArea className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 pb-2">
                         <div id="scrollAreaTop" ref={scrollAreaTopRef}></div>
-                        <ChatComponent list={chatList}/>
+                        <ChatComponent list={messageList}/>
+                        <Toaster />
                         <div id="scrollAreaBottom" ref={scrollAreaBottomRef}></div>
                     </ScrollArea>
                     </div>
@@ -572,6 +681,7 @@ export default () => {
                 <ResizableHandle />
                 <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
                     <div className="app-undragable">
+                        {/* use Combobox instead */}
                         <Select onValueChange={onSelectModelChange} defaultValue={selectedModel}>
                             <SelectTrigger className="w-auto h-auto">
                                 <SelectValue />
@@ -598,13 +708,96 @@ export default () => {
             <div className="h-[30vh] fixed left-0 top-1/3 cursor-pointer w-[1vh] hover:shadow-blue-600/100 hover:shadow-lg" onMouseEnter={onSheetHover} style={{userSelect: 'none'}}></div>
             {/* Sheet Section */}
             <Sheet open={sheetOpenState} onOpenChange={onoSheetOpenChange}>
-                    <SheetContent ref={sheetContentRef} side={"left"} className="[&>button]:hidden">
+                    <SheetContent ref={sheetContentRef} side={"left"} className="[&>button]:hidden w-full">
                         <SheetHeader>
                             <SheetTitle>@i</SheetTitle>
                             <SheetDescription>
                                 -- Just an AI API client.
                             </SheetDescription>
                         </SheetHeader>
+                        <div className="w-full h-full p-0 m-0 relative">
+                            <div className="pl-8 pr-8 pt-8">
+                                <Carousel className="w-full max-w-xs">
+                                    <CarouselContent>
+                                        {Array.from({ length: 5 }).map((_, index) => (
+                                        <CarouselItem key={index}>
+                                            <div className="p-1">
+                                            <Card>
+                                                <CardContent className="flex aspect-square items-center justify-center p-6 select-none">
+                                                    <span className="text-4xl font-semibold">NewChat-{index + 1}</span>
+                                                </CardContent>
+                                            </Card>
+                                            </div>
+                                        </CarouselItem>
+                                        ))}
+                                    </CarouselContent>
+                                    <CarouselPrevious />
+                                    <CarouselNext />
+                                </Carousel>
+                            </div>
+                            <div className="sheet-content h-full w-full pt-10">
+                                <div className="flex flex-col text-gray-700 w-full rounded-md shadow-lg bg-white">
+                                    <div className="flex flex-col p-2 gap-1 font-sans text-base font-normal text-blue-gray-700">
+                                        {
+                                            chatList.map((item, index) => {
+                                                return (
+                                                <div key={index} onClick={(event) => onChatClick(event, item)} className={cn("flex items-center w-full p-3 rounded-md hover:bg-gray-200", (index + 1) === chatId ? "bg-gray-200":"")}>
+                                                    {item.title}
+                                                    <div className="grid ml-auto place-items-center justify-self-end">
+                                                        <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                            <span className="">{item.messages.length}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                )
+                                            })
+                                        }
+                                        <div className="flex items-center w-full p-3 rounded-md hover:bg-gray-200">
+                                            A NewChat
+                                            <div className="grid ml-auto place-items-center justify-self-end">
+                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                    <span className="">14</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center w-full p-3 rounded-md hover:bg-gray-300">
+                                            Another NewChat
+                                            <div className="grid ml-auto place-items-center justify-self-end">
+                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                    <span className="">342</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center w-full p-3 rounded-md hover:bg-gray-300">
+                                            Oldest NewChat
+                                            <div className="grid ml-auto place-items-center justify-self-end">
+                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                    <span className="">768</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="sheet-footer absolute bottom-12 w-full">
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-medium leading-none">Radix Primitives</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                    An open-source UI component library.
+                                    </p>
+                                </div>
+                                <Separator className="my-4" />
+                                <div className="flex h-5 items-center space-x-4 text-sm">
+                                    <div>Blog</div>
+                                    <Separator orientation="vertical" />
+                                    <div>Docs</div>
+                                    <Separator orientation="vertical" />
+                                    <div>Source</div>
+                                </div>
+                            </div>
+                        </div>
                     </SheetContent>
             </Sheet>
         </div>

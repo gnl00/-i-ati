@@ -197,7 +197,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, beforeFetch: Fu
   })
 
   if (!stream.ok) {
-    throw new Error(`HTTP error! Status: ${stream.status}`);
+    throw new Error(`Error: status=${stream.status}, message=${stream.statusText}`)
   }
 
   const reader = stream.body?.pipeThrough(new TextDecoderStream()).getReader()
