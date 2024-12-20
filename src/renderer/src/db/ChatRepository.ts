@@ -37,4 +37,6 @@ export interface ChatEntity {
   uuid: string;
   title: string; // 用户名
   messages: number[]; // 消息内容
+  updateTime: number; // 更新时间
+  createTime: number; // 创建时间
 }

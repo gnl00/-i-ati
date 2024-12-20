@@ -39,7 +39,18 @@ import {
 } from "@renderer/components/ui/dialog"
 import { Switch } from "@renderer/components/ui/switch"
 import { Badge } from '@renderer/components/ui/badge'
-import { PaperPlaneIcon, GearIcon, QuestionMarkCircledIcon, DrawingPinIcon, DrawingPinFilledIcon } from "@radix-ui/react-icons"
+import { 
+    PaperPlaneIcon, 
+    GearIcon, 
+    QuestionMarkCircledIcon, 
+    DrawingPinIcon, 
+    DrawingPinFilledIcon, 
+    Pencil2Icon,
+    CrossCircledIcon,
+    Cross1Icon,
+    Cross2Icon,
+    StopIcon 
+} from "@radix-ui/react-icons"
 import {
     Select,
     SelectContent,
@@ -65,14 +76,29 @@ import {
   CardTitle
 } from "@renderer/components/ui/card"
 import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@renderer/components/ui/table"
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+  } from "@renderer/components/ui/command"
+  import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+    ContextMenuShortcut
+  } from "@renderer/components/ui/context-menu"
+  import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+  } from "@renderer/components/ui/dropdown-menu"
+import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@renderer/lib/utils"
 import { useEffect, useRef, useState, forwardRef, useLayoutEffect, useMemo } from "react"
 import ReactMarkdown from 'react-markdown'
@@ -81,23 +107,53 @@ import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/i
 import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
 import { saveMessage, MessageEntity, getMessageById, getMessageByIds } from '../db/MessageRepository'
 import { ChatEntity, getChatById, saveChat, updateChat, getAllChat } from '../db/ChatRepository'
+import bgSvg from '../assets/icon.svg'
+import bgSvgBlack from '../assets/black-icon.svg'
+import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
 
 const models = [
     {
         provider: "Qwen",
-        model: "Qwen2.5-Coder-7B-Instruct"
+        model: "Qwen2.5-14B-Instruct",
+        value: "Qwen/Qwen2.5-14B-Instruct"
     },
     {
         provider: "Qwen",
-        model: "Qwen2.5-Coder-32B-Instruct"
+        model: "Qwen2.5-32B-Instruct",
+        value: "Qwen/Qwen2.5-32B-Instruct"
     },
     {
         provider: "Qwen",
-        model: "Qwen2.5-14B-Instruct"
+        model: "Qwen2.5-Coder-7B-Instruct",
+        value: "Qwen/Qwen2.5-Coder-7B-Instruct"
     },
     {
         provider: "Qwen",
-        model: "Qwen2.5-32B-Instruct"
+        model: "Qwen2.5-Coder-32B-Instruct",
+        value: "Qwen/Qwen2.5-Coder-32B-Instruct"
+    },
+]
+
+const frameworks = [
+    {
+      value: "next.js",
+      label: "Next.js",
+    },
+    {
+      value: "sveltekit",
+      label: "SvelteKit",
+    },
+    {
+      value: "nuxt.js",
+      label: "Nuxt.js",
+    },
+    {
+      value: "remix",
+      label: "Remix",
+    },
+    {
+      value: "astro",
+      label: "Astro",
     },
 ]
 
@@ -108,6 +164,9 @@ export default () => {
     const appVersion = __APP_VERSION__
 
     const { toast } = useToast()
+
+    const [open, setOpen] = useState(false)
+    const [value, setValue] = useState("next.js")
 
     const [pinState, setPinState] = useState<boolean>(false)
     const [chatId, setChatId] = useState<number | undefined>()
@@ -127,9 +186,13 @@ export default () => {
         model: 'Qwen/Qwen2.5-32B-Instruct'
     })
     const [selectedModel, setSelectedModel] = useState('Qwen/Qwen2.5-Coder-32B-Instruct')
-    const [sheetOpenState, setSheetOpenState] = useState(true)
+    const [sheetOpenState, setSheetOpenState] = useState<boolean>(true)
     const [chatContent, setChatContent] = useState<string>()
-    const [fetchingState, setFetchingState] = useState<boolean>()
+    const [fetchState, setFetchState] = useState<boolean>()
+    const [currentReqCtrl, setCurrReqCtrl] = useState<AbortController>()
+    const [readStreamState, setReadStreamState] = useState<boolean>(false)
+    // inputMethod state
+    const [compositionState, setCompositionState] = useState<boolean>(false)
 
     const sheetContentRef = useRef<HTMLDivElement>(null)
     const customPromptTextAreaRef = useRef<HTMLTextAreaElement>(null)
@@ -259,11 +322,11 @@ export default () => {
     }
 
     const beforeFetch = () => {
-        setFetchingState(true)
+        setFetchState(true)
     }
 
     const afterFetch = () => {
-        setFetchingState(false)
+        setFetchState(false)
     }
 
     const generateTitle = async (context) => {
@@ -307,6 +370,12 @@ export default () => {
         return title
     }
 
+    const onStopBtnClick = () => {
+        if (currentReqCtrl) {
+            currentReqCtrl.abort()
+        }
+    }
+
     const onSubmitClick = async (): Promise<void> => {
         console.log('send message:', chatContent)
         if (!chatContent) {
@@ -321,28 +390,19 @@ export default () => {
         if (!chatUuid && !chatId) {
             const currChatUuid = uuidv4()
             setChatUuid(currChatUuid)
-            chatEntity = {uuid: currChatUuid, title: 'NewChat', messages: [usrMsgId]}
+            chatEntity = {uuid: currChatUuid, title: 'NewChat', messages: [usrMsgId], createTime: new Date().getTime(), updateTime: new Date().getTime()}
             const saveChatRetVal = await saveChat(chatEntity)
             currChatId = saveChatRetVal as number
-            setChatId(chatId)
-            chatEntity.id = chatId
+            setChatId(currChatId)
+            chatEntity.id = currChatId
         } else {
             chatEntity = await getChatById(currChatId)
             chatEntity.messages = [...chatEntity.messages, usrMsgId]
+            chatEntity.updateTime = new Date().getTime()
             updateChat(chatEntity)
         }
 
-        setChatList(prev => {
-            const nextChatList: ChatEntity[] = []
-            prev.forEach(c => {
-                if (chatEntity.uuid === c.uuid) {
-                    nextChatList.push(chatEntity)
-                } else {
-                    nextChatList.push(c)
-                }
-            })
-            return nextChatList
-        })
+        updateChatList(chatEntity)
         
         const messages = [...messageList, userMessage]
         setMessageList(messages)
@@ -356,9 +416,14 @@ export default () => {
             model: selectedModel
         }
 
-        chatRequestWithHookV2(req, beforeFetch, afterFetch)
+        const controller = new AbortController()
+        setCurrReqCtrl(controller)
+        const signal = controller.signal
+
+        chatRequestWithHookV2(req, signal, beforeFetch, afterFetch)
         .then(async (reader) => {
             if (reader) {
+                setReadStreamState(true)
                 let gatherResult = ''
                 while (true) {
                     const { done, value } = await reader.read()
@@ -387,18 +452,19 @@ export default () => {
                         break
                     }
                 }
+                setReadStreamState(false)
                 // console.log('received message:', gatherResult)
                 const sysSuccMessage: MessageEntity = {role: 'system', content: gatherResult, status: true}
                 const sysMsgId = await saveMessage(sysSuccMessage) as number
                 chatEntity.messages = [...chatEntity.messages, sysMsgId]
-                updateChat(chatEntity)
                 if (!chatTitle || chatTitle === 'NewChat') {
                     const title = await generateTitle(chatContent) as string
                     // console.log('generateTitle', title)
                     chatEntity.title = title
-                    updateChat(chatEntity)
                 }
-
+                chatEntity.updateTime = new Date().getTime()
+                updateChat(chatEntity)
+                updateChatList(chatEntity)
             }
             setLastMsgStatus(true)
         })
@@ -412,48 +478,23 @@ export default () => {
         })
     }
 
-    const onSheetHover = () => {
-        setSheetOpenState(true)
+    const updateChatList = (chatEntity: ChatEntity) => {
+        // console.log('to be update', chatEntity)
+        setChatList(prev => {
+            const nextChatList: ChatEntity[] = []
+            prev.forEach(c => {
+                if (chatEntity.uuid === c.uuid) {
+                    nextChatList.push(chatEntity)
+                } else {
+                    nextChatList.push(c)
+                }
+            })
+            return nextChatList
+        })
     }
 
-    const ChatComponent = (props: { list: MessageEntity[] }) => {
-        return <div className="scroll-smooth flex flex-col space-y-4 pr-2 pl-2">
-            {
-                props.list.map((item, index) => {
-                    if (item.role.length == 0) {
-                        return
-                    }
-                    return item.role == 'user' ? UserChatItem(index, item) : AssiatantChatItem(index, item)
-                })
-            }
-        </div>
-    }
-    
-    const UserChatItem = (index, message: MessageEntity) => {
-        return (
-            <div key={index} className={cn("flex justify-end")}>
-                {
-                    index == (messageList.length - 1) && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-600">Retry</span>
-                }
-                <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-900 dark:bg-gray-800")}>
-                    <ReactMarkdown className={cn("prose text-md font-medium max-w-[100%] text-slate-300")}>
-                        {message.content}
-                    </ReactMarkdown>
-                </div>
-            </div>
-        )
-    }
-    
-    const AssiatantChatItem = (key, message: MessageEntity) => {
-        return (
-            <div key={key} className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
-                    <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
-                        {message.content}
-                    </ReactMarkdown>
-                </div>
-            </div>
-        )
+    const onSheetHover = () => {
+        setSheetOpenState(true)
     }
 
     interface CusTextareaProps {
@@ -475,20 +516,17 @@ export default () => {
             />
           )
         }
-      )
+    )
 
     const onTextAreaKeyDown = (e) => {
         if (e.key === 'Enter' && e.shiftKey) {
             e.preventDefault() // 防止跳到新的一行
-            console.log('Shift + Enter pressed!')
+            // console.log('Shift + Enter pressed!')
+            setChatContent(chatContent + "\n")
             return
         }
-        if (e.key === 'Enter' && e.shiftKey) {
-            e.preventDefault() // 防止跳到新的一行
-            console.log('Shift + Enter pressed!')
-            return
-        }
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !compositionState) {
+            e.preventDefault()
             onSubmitClick()
         }
     }
@@ -516,6 +554,35 @@ export default () => {
                 description: `There was a problem with your databases. ${err.message}`
             })
         })
+    }
+
+    const onNewChatClick = (e) => {
+        setSheetOpenState(false)
+    }
+
+    const onCompositionStart = e => {
+        setCompositionState(true)
+    }
+
+    const onCompositionEnd = e => {
+        setCompositionState(false)
+    }
+
+    const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
+    const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
+
+    const onMouseOverSheetChat = (chatId) => {
+        setSheetChatItemHover(true)
+        setSheetChatItemHoverChatId(chatId)
+    }
+
+    const onMouseLeaveSheetChat = () => {
+        setSheetChatItemHover(false)
+        setSheetChatItemHoverChatId(-1)
+    }
+
+    const onSheetChatItemClick = (chat: ChatEntity) => {
+        console.log(chat)
     }
 
     return (
@@ -670,9 +737,11 @@ export default () => {
                 >
                 <ResizablePanel defaultSize={80}>
                     <div className="app-undragable h-full flex flex-col pl-1 pr-1 gap-4 overflow-y-scroll">
-                    <ScrollArea className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 pb-2">
+                    <ScrollArea
+                        style={{backgroundImage: `url(${bgSvgBlack128})`}} 
+                        className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 bg-auto bg-center bg-no-repeat bg-clip-content">
                         <div id="scrollAreaTop" ref={scrollAreaTopRef}></div>
-                        <ChatComponent list={messageList}/>
+                        <ChatComponent messages={messageList} lastMsgStatus={lastMsgStatus}/>
                         <Toaster />
                         <div id="scrollAreaBottom" ref={scrollAreaBottomRef}></div>
                     </ScrollArea>
@@ -681,8 +750,7 @@ export default () => {
                 <ResizableHandle />
                 <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
                     <div className="app-undragable">
-                        {/* use Combobox instead */}
-                        <Select onValueChange={onSelectModelChange} defaultValue={selectedModel}>
+                        {/* <Select onValueChange={onSelectModelChange} defaultValue={selectedModel}>
                             <SelectTrigger className="w-auto h-auto">
                                 <SelectValue />
                             </SelectTrigger>
@@ -692,92 +760,175 @@ export default () => {
                                         return <SelectItem key={item.provider.concat('/').concat(item.model)} value={item.provider.concat('/').concat(item.model)}>{item.model}</SelectItem>
                                     })
                                 }
-                        </SelectContent>
-                    </Select>
+                            </SelectContent>
+                        </Select> */}
+                        <Popover open={open} onOpenChange={setOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={open}
+                                className="w-[22vw] max-w-[25vw] justify-between flex pl-1 pr-1"
+                                >
+                                    <span className="flex flex-grow overflow-x-hidden">
+                                    { 
+                                        selectedModel ? models.find((model) => model.value === selectedModel)?.model
+                                        : "Select model..."
+                                    }
+                                    </span>
+                                    <ChevronsUpDown className="flex opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0">
+                                <Command>
+                                <CommandInput placeholder="Search model..." className="h-9" />
+                                <CommandList>
+                                    <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                    <CommandGroup>
+                                    {models.map((m) => (
+                                        <CommandItem
+                                        key={m.value}
+                                        value={m.value}
+                                        onSelect={(currentValue) => {
+                                            setSelectedModel(currentValue)
+                                            setOpen(false)
+                                        }}
+                                        >
+                                        {m.model}
+                                        <Check className={cn("ml-auto",value === m.value ? "opacity-100" : "opacity-0")}/>
+                                        </CommandItem>
+                                    ))}
+                                    </CommandGroup>
+                                </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
                     <div className="flex-grow app-dragable"></div>
                 </div>
                 <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
                     <div className="flex h-full app-undragable ">
-                        <Textarea onKeyDown={onTextAreaKeyDown} value={chatContent} onPaste={onTextAreaPaste} onChange={onChatContentChange} className="w-full text-md" placeholder="Anything you want yo ask..."></Textarea>
+                        <Textarea 
+                            className="w-full text-md"
+                            value={chatContent}
+                            placeholder="Anything you want yo ask..."
+                            onKeyDown={onTextAreaKeyDown} 
+                            onPaste={onTextAreaPaste} 
+                            onChange={onChatContentChange}
+                            onCompositionStart={onCompositionStart}
+                            onCompositionEnd={onCompositionEnd}
+                            ></Textarea>
                         {/* <CusTextArea contentEditable className={'app-undragable p-0.5 m-0 bg-red-100'}></CusTextArea> */}
                     </div>
-                    <Button className='fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center' type="submit" onClick={onSubmitClick}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
+                    {
+                        !readStreamState ?
+                        <Button className='fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center' type="submit" onClick={onSubmitClick}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
+                        :
+                        <Button className='fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center' variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
+                    }
                 </ResizablePanel>
             </ResizablePanelGroup>
-            <div className="h-[30vh] fixed left-0 top-1/3 cursor-pointer w-[1vh] hover:shadow-blue-600/100 hover:shadow-lg" onMouseEnter={onSheetHover} style={{userSelect: 'none'}}></div>
+            <div className="h-[35vh] fixed left-0 top-1/4 cursor-pointer w-[1vh] rounded-full hover:shadow-blue-600/100 hover:shadow-lg" onMouseEnter={onSheetHover} style={{userSelect: 'none'}}></div>
             {/* Sheet Section */}
             <Sheet open={sheetOpenState} onOpenChange={onoSheetOpenChange}>
-                    <SheetContent ref={sheetContentRef} side={"left"} className="[&>button]:hidden w-full">
+                    <SheetContent ref={sheetContentRef} side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0">
                         <SheetHeader>
-                            <SheetTitle>@i</SheetTitle>
+                            <SheetTitle>@i-ati</SheetTitle>
                             <SheetDescription>
-                                -- Just an AI API client.
+                                - Just an AI API client.
                             </SheetDescription>
                         </SheetHeader>
                         <div className="w-full h-full p-0 m-0 relative">
                             <div className="pl-8 pr-8 pt-8">
                                 <Carousel className="w-full max-w-xs">
                                     <CarouselContent>
-                                        {Array.from({ length: 5 }).map((_, index) => (
-                                        <CarouselItem key={index}>
-                                            <div className="p-1">
-                                            <Card>
-                                                <CardContent className="flex aspect-square items-center justify-center p-6 select-none">
-                                                    <span className="text-4xl font-semibold">NewChat-{index + 1}</span>
-                                                </CardContent>
-                                            </Card>
-                                            </div>
-                                        </CarouselItem>
-                                        ))}
+                                        {
+                                            Array.from({ length: 5 }).map((_, index) => (
+                                                <CarouselItem key={index}>
+                                                    <div className="p-1">
+                                                        {/* Pinned assistant */}
+                                                        <Card>
+                                                            <CardContent className="flex aspect-square items-center justify-center p-6 select-none">
+                                                                <span className="text-4xl font-semibold">Assiatant-{index + 1}</span>
+                                                            </CardContent>
+                                                        </Card>
+                                                    </div>
+                                                </CarouselItem>
+                                            ))
+                                        }
                                     </CarouselContent>
                                     <CarouselPrevious />
                                     <CarouselNext />
                                 </Carousel>
                             </div>
-                            <div className="sheet-content h-full w-full pt-10">
-                                <div className="flex flex-col text-gray-700 w-full rounded-md shadow-lg bg-white">
+                            <div className="sheet-content h-full w-full">
+                                <div className="flex flex-col text-gray-700 w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg bg-slate-50">
+                                    
                                     <div className="flex flex-col p-2 gap-1 font-sans text-base font-normal text-blue-gray-700">
                                         {
-                                            chatList.map((item, index) => {
+                                            chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
                                                 return (
-                                                <div key={index} onClick={(event) => onChatClick(event, item)} className={cn("flex items-center w-full p-3 rounded-md hover:bg-gray-200", (index + 1) === chatId ? "bg-gray-200":"")}>
+                                                <div id="chat-item" 
+                                                    key={index} 
+                                                    onMouseOver={(e) => onMouseOverSheetChat(item.id)} 
+                                                    onMouseLeave={onMouseLeaveSheetChat} 
+                                                    onClick={(event) => onChatClick(event, item)} 
+                                                    className={
+                                                        cn("flex items-center w-full p-3 rounded-lg select-none text-gray-800", 
+                                                            chatList.length !== 1 && item.id === chatId ? "bg-gray-200":"hover:bg-blue-gray-200")}
+                                                    >
                                                     {item.title}
-                                                    <div className="grid ml-auto place-items-center justify-self-end">
-                                                        <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                            <span className="">{item.messages.length}</span>
-                                                        </div>
+                                                    <div className="grid ml-auto place-items-center justify-self-end relative">
+                                                        {/* <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                            {
+                                                                sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
+                                                                <span><Pencil2Icon /></span>
+                                                                :
+                                                                <span>{item.messages.length}</span>
+                                                            }
+                                                        </div> */}
+                                                        {
+                                                            sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
+                                                            <div className="flex space-x-2">
+                                                                <div className="flex items-center px-2 py-2 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                                    <span onClick={_ => onSheetChatItemClick(item)} className="rounded-full px-2 py-2"><Pencil2Icon /></span>
+                                                                    {/* <Button variant={'secondary'} size="sm" className="rounded-full text-gray-700"><Pencil2Icon /></Button> */}
+                                                                </div>
+                                                                <div className="flex items-center px-2 py-2 font-sans text-lg font-bold uppercase rounded-full select-none whitespace-nowrap text-slate-50 bg-red-500">
+                                                                    {/* <Button variant={'destructive'} size="sm"><CrossCircledIcon /></Button> */}
+                                                                    <span onClick={_ => onSheetChatItemClick(item)} className="rounded-full px-2 py-2 text-lg"><Cross2Icon /></span>
+                                                                </div>
+                                                            </div>
+                                                            :
+                                                            <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                                <span>{item.messages.length}</span>
+                                                            </div>
+                                                        }
+                                                        {/* {
+                                                            sheetChatItemHover && sheetChatItemHoverChatId === item.id && (
+                                                                <div className="flex absolute right-0 backdrop-blur-sm h-fit pt-2 pb-2 pr-1 pl-1 rounded-xl">
+                                                                    <div id="edit" className="flex items-center py-1 font-sans text-xs font-bold text-gray-900 uppercase select-none whitespace-nowrap bg-gray-900/10">
+                                                                        <Button variant={'secondary'} size="sm" className="rounded-full text-gray-700">Edit Title</Button>
+                                                                    </div>
+                                                                    <div id="del" className="flex items-center pl-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase select-none whitespace-nowrap bg-gray-900/10">
+                                                                        <Button variant={'destructive'} size="sm" className="rounded-full">Delete</Button>
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        } */}
                                                     </div>
                                                 </div>
                                                 )
-                                            })
+                                            }) : 
+                                            <div className={cn("flex items-center w-full p-3 rounded-md hover:bg-gray-100")} onClick={onNewChatClick}>
+                                            NewChat
+                                            <div className="grid ml-auto place-items-center justify-self-end">
+                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                    <span>0</span>
+                                                </div>
+                                            </div>
+                                            </div>
                                         }
-                                        <div className="flex items-center w-full p-3 rounded-md hover:bg-gray-200">
-                                            A NewChat
-                                            <div className="grid ml-auto place-items-center justify-self-end">
-                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                    <span className="">14</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center w-full p-3 rounded-md hover:bg-gray-300">
-                                            Another NewChat
-                                            <div className="grid ml-auto place-items-center justify-self-end">
-                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                    <span className="">342</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center w-full p-3 rounded-md hover:bg-gray-300">
-                                            Oldest NewChat
-                                            <div className="grid ml-auto place-items-center justify-self-end">
-                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                    <span className="">768</span>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -800,6 +951,47 @@ export default () => {
                         </div>
                     </SheetContent>
             </Sheet>
+        </div>
+    )
+}
+
+const ChatComponent = (props: { messages: MessageEntity[], lastMsgStatus: boolean}) => {
+    const {messages, lastMsgStatus} = props 
+    return <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
+        {
+            props.messages.map((item, index) => {
+                if (item.role.length == 0) {
+                    return
+                }
+                return item.role == 'user' ? UserChatItem(index, item, messages.length, lastMsgStatus) : AssiatantChatItem(index, item)
+            })
+        }
+    </div>
+}
+
+const UserChatItem = (index, message: MessageEntity, msgSize: number, lastMsgStatus: boolean) => {
+    return (
+        <div key={index} className={cn("flex justify-end pr-3")}>
+            {
+                index === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-600">Retry</span>
+            }
+            <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-900 dark:bg-gray-800")}>
+                <ReactMarkdown className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}>
+                    {message.content}
+                </ReactMarkdown>
+            </div>
+        </div>
+    )
+}
+
+const AssiatantChatItem = (key, message: MessageEntity) => {
+    return (
+        <div key={key} className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
+                <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
+                    {message.content}
+                </ReactMarkdown>
+            </div>
         </div>
     )
 }

@@ -158,7 +158,7 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
   return reader
 }
 
-export const chatRequestWithHookV2 = async (req: IChatRequestV2, beforeFetch: Function, afterFetch: Function): Promise<any> => {
+export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSignal, beforeFetch: Function, afterFetch: Function): Promise<any> => {
 
   if (!req.messages) {
     console.log('IChatRequestV2.messages is empty')
@@ -180,6 +180,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, beforeFetch: Fu
   const stream = await fetch(req.url, {
     method: 'POST',
     headers,
+    signal,
     body: JSON.stringify({
       model: req.model,
       messages: initMessage != null ? [

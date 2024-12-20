@@ -96,10 +96,25 @@
   }
 }
 
-.AccordionTrigger[data-state="open"] > .AccordionChevron {
-	transform: rotate(90deg);
-}
-
 .smooth-scroll {
   transition: all 0.3s ease;
+}
+
+.chat-item-hover:hover {
+  opacity: 1;
+}
+
+@keyframes slideInRight {
+  from {
+      transform: translateX(5px);
+      opacity: 0;
+  }
+  to {
+      transform: translateX(0);
+      opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 300ms ease-out forwards;
 }
