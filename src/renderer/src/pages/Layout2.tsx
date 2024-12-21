@@ -166,7 +166,6 @@ export default () => {
     const { toast } = useToast()
 
     const [open, setOpen] = useState(false)
-    const [value, setValue] = useState("next.js")
 
     const [pinState, setPinState] = useState<boolean>(false)
     const [chatId, setChatId] = useState<number | undefined>()
@@ -194,18 +193,18 @@ export default () => {
     // inputMethod state
     const [compositionState, setCompositionState] = useState<boolean>(false)
 
+    const textAreaRef = useRef<HTMLTextAreaElement>(null)
     const sheetContentRef = useRef<HTMLDivElement>(null)
     const customPromptTextAreaRef = useRef<HTMLTextAreaElement>(null)
     const scrollAreaTopRef = useRef<HTMLDivElement>(null)
     const scrollAreaBottomRef = useRef<HTMLDivElement>(null)
 
+    useLayoutEffect(() => {
+        refreshChatList()
+    }, [])
+
     useEffect(() => {
         console.log('render []')
-        getAllChat().then(res => {
-            setChatList(res)
-        }).catch(err => {
-            console.error(err)
-        })
         
         const resizeObserver = new ResizeObserver((entries) => {
             console.log('re-size')
@@ -261,9 +260,23 @@ export default () => {
     }, [])
 
     useEffect(() => {
+        if (textAreaRef.current) {
+            textAreaRef.current.scrollTop = textAreaRef.current.scrollHeight
+        }
+    }, [chatContent]);
+
+    useEffect(() => {
         console.log('render [messageList]')
         scrollAreaBottomRef.current?.scrollIntoView({behavior: 'auto'})
     }, [messageList])
+
+    const refreshChatList = () => {
+        getAllChat().then(res => {
+            setChatList(res)
+        }).catch(err => {
+            console.error(err)
+        })
+    }
 
     const onPinToggleClick = (): void => {
         setPinState(!pinState)
@@ -495,34 +508,26 @@ export default () => {
 
     const onSheetHover = () => {
         setSheetOpenState(true)
+        refreshChatList()
     }
-
-    interface CusTextareaProps {
-        className?: string
-        style?: React.CSSProperties
-        [key: string]: any
-    }
-
-    const CusTextArea = forwardRef<HTMLDivElement, CusTextareaProps>(
-        ({ className, style, ...props }, ref) => {
-          return (
-            <div
-              className={cn(
-                'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-                className
-              )}
-              ref={ref}
-              {...props}
-            />
-          )
-        }
-    )
 
     const onTextAreaKeyDown = (e) => {
         if (e.key === 'Enter' && e.shiftKey) {
             e.preventDefault() // 防止跳到新的一行
             // console.log('Shift + Enter pressed!')
-            setChatContent(chatContent + "\n")
+            const inputElement = e.target
+            const start = inputElement.selectionStart
+            const end = inputElement.selectionEnd
+            // 获取当前输入框的内容
+            let value = inputElement.value
+            // 在光标位置插入换行符
+            value = value.substring(0, start) + "\n" + value.substring(end)
+            // 更新
+            inputElement.value = value
+            setChatContent(value)
+            // 将光标移动到换行符之后
+            inputElement.selectionStart = start + 1
+            inputElement.selectionEnd = start + 1
             return
         }
         if (e.key === 'Enter' && !compositionState) {
@@ -546,7 +551,7 @@ export default () => {
         setChatUuid(chat.uuid)
         setChatId(chat.id)
         getMessageByIds(chat.messages).then(messageList => {
-            setMessageList(messageList)
+        setMessageList(messageList)
         }).catch(err => {
             toast({
                 variant: "destructive",
@@ -558,6 +563,12 @@ export default () => {
 
     const onNewChatClick = (e) => {
         setSheetOpenState(false)
+        if (chatId && chatUuid) {
+            setChatId(undefined)
+            setChatUuid(undefined)
+            setChatTitle('NewChat')
+            setMessageList([])
+        }
     }
 
     const onCompositionStart = e => {
@@ -584,6 +595,27 @@ export default () => {
     const onSheetChatItemClick = (chat: ChatEntity) => {
         console.log(chat)
     }
+
+    interface CusTextareaProps {
+        className?: string
+        style?: React.CSSProperties
+        [key: string]: any
+    }
+
+    const CusTextArea = forwardRef<HTMLDivElement, CusTextareaProps>(
+        ({ className, style, ...props }, ref) => {
+          return (
+            <div
+              className={cn(
+                'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+                className
+              )}
+              ref={ref}
+              {...props}
+            />
+          )
+        }
+    )
 
     return (
         <div className="div-app app-dragable flex flex-col">
@@ -738,7 +770,9 @@ export default () => {
                 <ResizablePanel defaultSize={80}>
                     <div className="app-undragable h-full flex flex-col pl-1 pr-1 gap-4 overflow-y-scroll">
                     <ScrollArea
-                        style={{backgroundImage: `url(${bgSvgBlack128})`}} 
+                        style={{
+                            backgroundImage: `url(${bgSvgBlack128})`
+                        }} 
                         className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 bg-auto bg-center bg-no-repeat bg-clip-content">
                         <div id="scrollAreaTop" ref={scrollAreaTopRef}></div>
                         <ChatComponent messages={messageList} lastMsgStatus={lastMsgStatus}/>
@@ -750,18 +784,6 @@ export default () => {
                 <ResizableHandle />
                 <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
                     <div className="app-undragable">
-                        {/* <Select onValueChange={onSelectModelChange} defaultValue={selectedModel}>
-                            <SelectTrigger className="w-auto h-auto">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {
-                                    models.map((item, _) => {
-                                        return <SelectItem key={item.provider.concat('/').concat(item.model)} value={item.provider.concat('/').concat(item.model)}>{item.model}</SelectItem>
-                                    })
-                                }
-                            </SelectContent>
-                        </Select> */}
                         <Popover open={open} onOpenChange={setOpen}>
                             <PopoverTrigger asChild>
                                 <Button
@@ -795,7 +817,7 @@ export default () => {
                                         }}
                                         >
                                         {m.model}
-                                        <Check className={cn("ml-auto",value === m.value ? "opacity-100" : "opacity-0")}/>
+                                        <Check className={cn("ml-auto",selectedModel === m.value ? "opacity-100" : "opacity-0")}/>
                                         </CommandItem>
                                     ))}
                                     </CommandGroup>
@@ -809,8 +831,9 @@ export default () => {
                 <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
                     <div className="flex h-full app-undragable ">
                         <Textarea 
-                            className="w-full text-md"
+                            className="w-full text-md pb-2"
                             value={chatContent}
+                            ref={textAreaRef}
                             placeholder="Anything you want yo ask..."
                             onKeyDown={onTextAreaKeyDown} 
                             onPaste={onTextAreaPaste} 
@@ -839,7 +862,7 @@ export default () => {
                             </SheetDescription>
                         </SheetHeader>
                         <div className="w-full h-full p-0 m-0 relative">
-                            <div className="pl-8 pr-8 pt-8">
+                            <div className="pl-8 pr-8">
                                 <Carousel className="w-full max-w-xs">
                                     <CarouselContent>
                                         {
@@ -863,8 +886,10 @@ export default () => {
                             </div>
                             <div className="sheet-content h-full w-full">
                                 <div className="flex flex-col text-gray-700 w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg bg-slate-50">
-                                    
-                                    <div className="flex flex-col p-2 gap-1 font-sans text-base font-normal text-blue-gray-700">
+                                    <div className={cn("flex items-center w-full p-2 rounded-md")} onClick={onNewChatClick}>
+                                        <Button onClick={onNewChatClick} variant={"default"} className="w-full p-2 border-0 ring-0 focus:ring-0 outline-none focus:outline-none rounded-md">Start a NewChat</Button>
+                                    </div>
+                                    <div className="flex flex-col p-1 font-sans text-base font-normal text-blue-gray-700">
                                         {
                                             chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
                                                 return (
@@ -874,27 +899,19 @@ export default () => {
                                                     onMouseLeave={onMouseLeaveSheetChat} 
                                                     onClick={(event) => onChatClick(event, item)} 
                                                     className={
-                                                        cn("flex items-center w-full p-3 rounded-lg select-none text-gray-800", 
-                                                            chatList.length !== 1 && item.id === chatId ? "bg-gray-200":"hover:bg-blue-gray-200")}
+                                                        cn("flex items-center w-full p-2 rounded-lg select-none text-gray-800", 
+                                                            chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200":"hover:bg-blue-gray-200")}
                                                     >
-                                                    {item.title}
-                                                    <div className="grid ml-auto place-items-center justify-self-end relative">
-                                                        {/* <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                            {
-                                                                sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
-                                                                <span><Pencil2Icon /></span>
-                                                                :
-                                                                <span>{item.messages.length}</span>
-                                                            }
-                                                        </div> */}
+                                                    <span>{item.title}</span>
+                                                    <div className="flex ml-auto place-items-center justify-self-end relative">
                                                         {
                                                             sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
                                                             <div className="flex space-x-2">
-                                                                <div className="flex items-center px-2 py-2 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                                <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
                                                                     <span onClick={_ => onSheetChatItemClick(item)} className="rounded-full px-2 py-2"><Pencil2Icon /></span>
                                                                     {/* <Button variant={'secondary'} size="sm" className="rounded-full text-gray-700"><Pencil2Icon /></Button> */}
                                                                 </div>
-                                                                <div className="flex items-center px-2 py-2 font-sans text-lg font-bold uppercase rounded-full select-none whitespace-nowrap text-slate-50 bg-red-500">
+                                                                <div className="flex items-center px-1 py-1 font-sans text-lg font-bold uppercase rounded-full select-none whitespace-nowrap text-slate-50 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
                                                                     {/* <Button variant={'destructive'} size="sm"><CrossCircledIcon /></Button> */}
                                                                     <span onClick={_ => onSheetChatItemClick(item)} className="rounded-full px-2 py-2 text-lg"><Cross2Icon /></span>
                                                                 </div>
@@ -904,29 +921,17 @@ export default () => {
                                                                 <span>{item.messages.length}</span>
                                                             </div>
                                                         }
-                                                        {/* {
-                                                            sheetChatItemHover && sheetChatItemHoverChatId === item.id && (
-                                                                <div className="flex absolute right-0 backdrop-blur-sm h-fit pt-2 pb-2 pr-1 pl-1 rounded-xl">
-                                                                    <div id="edit" className="flex items-center py-1 font-sans text-xs font-bold text-gray-900 uppercase select-none whitespace-nowrap bg-gray-900/10">
-                                                                        <Button variant={'secondary'} size="sm" className="rounded-full text-gray-700">Edit Title</Button>
-                                                                    </div>
-                                                                    <div id="del" className="flex items-center pl-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase select-none whitespace-nowrap bg-gray-900/10">
-                                                                        <Button variant={'destructive'} size="sm" className="rounded-full">Delete</Button>
-                                                                    </div>
-                                                                </div>
-                                                            )
-                                                        } */}
                                                     </div>
                                                 </div>
                                                 )
                                             }) : 
                                             <div className={cn("flex items-center w-full p-3 rounded-md hover:bg-gray-100")} onClick={onNewChatClick}>
-                                            NewChat
-                                            <div className="grid ml-auto place-items-center justify-self-end">
-                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                    <span>0</span>
+                                                NewChat
+                                                <div className="grid ml-auto place-items-center justify-self-end">
+                                                    <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                        <span>0</span>
+                                                    </div>
                                                 </div>
-                                            </div>
                                             </div>
                                         }
                                     </div>
