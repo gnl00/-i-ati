@@ -198,6 +198,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
   })
 
   if (!stream.ok) {
+    console.log(stream)
     throw new Error(`Error: status=${stream.status}, message=${stream.statusText}`)
   }
 

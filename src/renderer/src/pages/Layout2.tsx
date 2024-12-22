@@ -21,6 +21,7 @@ import { Label } from '@renderer/components/ui/label'
 import { Toggle } from '@renderer/components/ui/toggle'
 import { useToast } from "@renderer/components/ui/use-toast"
 import { Toaster } from "@renderer/components/ui/toaster"
+import { ToastAction } from "@renderer/components/ui/toast"
 import {
     Tooltip,
     TooltipContent,
@@ -48,6 +49,7 @@ import {
     Pencil2Icon,
     CrossCircledIcon,
     Cross1Icon,
+    CheckIcon,
     Cross2Icon,
     StopIcon 
 } from "@radix-ui/react-icons"
@@ -106,10 +108,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
 import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
 import { saveMessage, MessageEntity, getMessageById, getMessageByIds } from '../db/MessageRepository'
-import { ChatEntity, getChatById, saveChat, updateChat, getAllChat } from '../db/ChatRepository'
+import { ChatEntity, getChatById, saveChat, updateChat, getAllChat, deleteChat } from '../db/ChatRepository'
 import bgSvg from '../assets/icon.svg'
 import bgSvgBlack from '../assets/black-icon.svg'
 import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
+import bgSvgWhite512 from '../assets/white-icon-512x512.svg'
 
 const models = [
     {
@@ -185,13 +188,18 @@ export default () => {
         model: 'Qwen/Qwen2.5-32B-Instruct'
     })
     const [selectedModel, setSelectedModel] = useState('Qwen/Qwen2.5-Coder-32B-Instruct')
-    const [sheetOpenState, setSheetOpenState] = useState<boolean>(true)
+    const [sheetOpenState, setSheetOpenState] = useState<boolean>(false)
     const [chatContent, setChatContent] = useState<string>()
     const [fetchState, setFetchState] = useState<boolean>()
     const [currentReqCtrl, setCurrReqCtrl] = useState<AbortController>()
     const [readStreamState, setReadStreamState] = useState<boolean>(false)
     // inputMethod state
     const [compositionState, setCompositionState] = useState<boolean>(false)
+    const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
+    const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
+    const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
+    const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
+    const [showDeleteChatConform, setShowDeleteChatConform] = useState<boolean>(false)
 
     const textAreaRef = useRef<HTMLTextAreaElement>(null)
     const sheetContentRef = useRef<HTMLDivElement>(null)
@@ -272,7 +280,7 @@ export default () => {
 
     const refreshChatList = () => {
         getAllChat().then(res => {
-            setChatList(res)
+            setChatList([...res, {id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: []}])
         }).catch(err => {
             console.error(err)
         })
@@ -386,16 +394,16 @@ export default () => {
     const onStopBtnClick = () => {
         if (currentReqCtrl) {
             currentReqCtrl.abort()
+            setReadStreamState(false)
         }
     }
 
     const onSubmitClick = async (): Promise<void> => {
-        console.log('send message:', chatContent)
         if (!chatContent) {
           return
         }
 
-        const userMessage: MessageEntity = {role: "user", content: chatContent, status: false}
+        const userMessage: MessageEntity = {role: "user", content: chatContent.trim(), status: false}
         const usrMsgId = await saveMessage(userMessage) as number
 
         let currChatId = chatId
@@ -433,19 +441,16 @@ export default () => {
         setCurrReqCtrl(controller)
         const signal = controller.signal
 
+        let gatherResult = ''
         chatRequestWithHookV2(req, signal, beforeFetch, afterFetch)
         .then(async (reader) => {
             if (reader) {
                 setReadStreamState(true)
-                let gatherResult = ''
                 while (true) {
                     const { done, value } = await reader.read()
-                    // console.log(done, value)
-                    
                     if (done) {
                         break
                     }
-                
                     let eventDone = false
                     const arr = value.split('\n')
                     arr.forEach((data: any) => {
@@ -458,41 +463,41 @@ export default () => {
                     const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
                     const resultText = json.choices[0].delta.content
                     gatherResult += resultText || ''
-                    // console.log(preResult += resultText || '')
                     })
                     setMessageList([...messageList, userMessage, {role: 'system', content: gatherResult}])
                     if (eventDone) {
                         break
                     }
                 }
-                setReadStreamState(false)
-                // console.log('received message:', gatherResult)
-                const sysSuccMessage: MessageEntity = {role: 'system', content: gatherResult, status: true}
-                const sysMsgId = await saveMessage(sysSuccMessage) as number
-                chatEntity.messages = [...chatEntity.messages, sysMsgId]
-                if (!chatTitle || chatTitle === 'NewChat') {
-                    const title = await generateTitle(chatContent) as string
-                    // console.log('generateTitle', title)
-                    chatEntity.title = title
-                }
-                chatEntity.updateTime = new Date().getTime()
-                updateChat(chatEntity)
-                updateChatList(chatEntity)
             }
             setLastMsgStatus(true)
         })
         .catch(err => {
+            if (err.name !== 'AbortError') {
+                toast({
+                    variant: "destructive",
+                    title: "Uh oh! Something went wrong.",
+                    description: `There was a problem with your request. ${err.message}`
+                })
+            }
             setLastMsgStatus(false)
-            toast({
-                variant: "destructive",
-                title: "Uh oh! Something went wrong.",
-                description: `There was a problem with your request. ${err.message}`
-            })
+        })
+        .finally(async () => {
+            setReadStreamState(false)
+            const sysSuccMessage: MessageEntity = {role: 'system', content: gatherResult, status: true}
+            const sysMsgId = await saveMessage(sysSuccMessage) as number
+            chatEntity.messages = [...chatEntity.messages, sysMsgId]
+            if (!chatTitle || chatTitle === 'NewChat') {
+                const title = await generateTitle(chatContent) as string
+                chatEntity.title = title
+            }
+            chatEntity.updateTime = new Date().getTime()
+            updateChat(chatEntity)
+            updateChatList(chatEntity)
         })
     }
 
     const updateChatList = (chatEntity: ChatEntity) => {
-        // console.log('to be update', chatEntity)
         setChatList(prev => {
             const nextChatList: ChatEntity[] = []
             prev.forEach(c => {
@@ -561,13 +566,17 @@ export default () => {
         })
     }
 
+    const startNewChat = () => {
+        setChatId(undefined)
+        setChatUuid(undefined)
+        setChatTitle('NewChat')
+        setMessageList([])
+    }
+
     const onNewChatClick = (e) => {
         setSheetOpenState(false)
         if (chatId && chatUuid) {
-            setChatId(undefined)
-            setChatUuid(undefined)
-            setChatTitle('NewChat')
-            setMessageList([])
+            startNewChat()
         }
     }
 
@@ -579,10 +588,8 @@ export default () => {
         setCompositionState(false)
     }
 
-    const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
-    const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
-
     const onMouseOverSheetChat = (chatId) => {
+        // console.log('onMouseOverSheetChat-chatid', chatId);
         setSheetChatItemHover(true)
         setSheetChatItemHoverChatId(chatId)
     }
@@ -592,30 +599,60 @@ export default () => {
         setSheetChatItemHoverChatId(-1)
     }
 
-    const onSheetChatItemClick = (chat: ChatEntity) => {
-        console.log(chat)
+    const onSheetChatItemDeleteUndo = (chat: ChatEntity, timeoutId) => {
+        // console.log('onSheetChatItemDeleteUndo', chat)
+        // updateChatList(chat)
+        // chatList still contains the deleted chat so we just need to update it manually
+        setChatList([...chatList])
+        clearTimeout(timeoutId)
     }
 
-    interface CusTextareaProps {
-        className?: string
-        style?: React.CSSProperties
-        [key: string]: any
-    }
-
-    const CusTextArea = forwardRef<HTMLDivElement, CusTextareaProps>(
-        ({ className, style, ...props }, ref) => {
-          return (
-            <div
-              className={cn(
-                'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-                className
-              )}
-              ref={ref}
-              {...props}
-            />
-          )
+    const onSheetChatItemDeleteClick = (e, chat: ChatEntity) => {
+        e.stopPropagation()
+        setShowDeleteChatConform(true)
+        console.log('delete-from-list', chat)
+        setChatList(chatList.filter(item => item.id !== chat.id))
+        const timeoutId = setTimeout(() => {
+            deleteChat(chat.id)
+        }, 3500)
+        if (chat.id === chatId) {
+            startNewChat()
         }
-    )
+        toast({
+            title: 'Delete Chat',
+            variant: 'default',
+            className: 'flex fixed bottom-0 right-0 w-1/3',
+            description: '💬 Chat deleted',
+            duration: 3000,
+            action: (
+                <ToastAction onClick={_ => onSheetChatItemDeleteUndo(chat, timeoutId)} altText="Undo delete chat">Undo</ToastAction>
+            ),
+        })
+    }
+
+    const onSheetChatItemEditConformClick = (e, chat: ChatEntity) => {
+        e.stopPropagation()
+        setShowChatItemEditConform(false)
+        setChatItemEditId(undefined)
+    }
+
+    const onSheetChatItemEditClick = (e, chat: ChatEntity) => {
+        e.stopPropagation()
+        setShowChatItemEditConform(true)
+        // console.log('edit-title', chat)
+        if (chatItemEditId) {
+            setChatItemEditId(undefined)
+        } else {
+            setChatItemEditId(chat.id)
+        }
+    }
+
+    const onChatItemTitleChange = (e, chat: ChatEntity) => {
+        // console.log(e.target.value)
+        chat.title = e.target.value
+        updateChat(chat)
+        updateChatList(chat)
+    }
 
     return (
         <div className="div-app app-dragable flex flex-col">
@@ -845,9 +882,9 @@ export default () => {
                     </div>
                     {
                         !readStreamState ?
-                        <Button className='fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center' type="submit" onClick={onSubmitClick}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
+                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "-translate-x-full opacity-0" : "")} type="submit" onClick={onSubmitClick}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
                         :
-                        <Button className='fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center' variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
+                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "" : "-translate-x-full opacity-0")} variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
                     }
                 </ResizablePanel>
             </ResizablePanelGroup>
@@ -885,41 +922,63 @@ export default () => {
                                 </Carousel>
                             </div>
                             <div className="sheet-content h-full w-full">
-                                <div className="flex flex-col text-gray-700 w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg bg-slate-50">
-                                    <div className={cn("flex items-center w-full p-2 rounded-md")} onClick={onNewChatClick}>
-                                        <Button onClick={onNewChatClick} variant={"default"} className="w-full p-2 border-0 ring-0 focus:ring-0 outline-none focus:outline-none rounded-md">Start a NewChat</Button>
+                                <div style={{display: 'none'}} className="flex flex-col text-gray-700 w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg bg-slate-50">
+                                    <div className={cn("flex items-center w-full rounded-md sticky top-0 bg-opacity-100 z-10")}>
+                                        <Button onClick={onNewChatClick} variant={"default"} className="w-full p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start a NewChat</Button>
                                     </div>
-                                    <div className="flex flex-col p-1 font-sans text-base font-normal text-blue-gray-700">
+                                    <div className="flex flex-col p-2 space-y-1 font-sans text-base font-normal text-blue-gray-700">
                                         {
                                             chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
                                                 return (
                                                 <div id="chat-item" 
                                                     key={index} 
-                                                    onMouseOver={(e) => onMouseOverSheetChat(item.id)} 
-                                                    onMouseLeave={onMouseLeaveSheetChat} 
+                                                    onMouseMove={(e) => onMouseOverSheetChat(item.id)} 
+                                                    // onMouseEnter={}
+                                                    onMouseOutCapture={onMouseLeaveSheetChat}
+                                                    onMouseLeave={onMouseLeaveSheetChat}
+                                                    onMouseOut={onMouseLeaveSheetChat}
                                                     onClick={(event) => onChatClick(event, item)} 
                                                     className={
                                                         cn("flex items-center w-full p-2 rounded-lg select-none text-gray-800", 
-                                                            chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200":"hover:bg-blue-gray-200")}
+                                                            chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200":"hover:bg-blue-gray-200",
+                                                            index === chatList.length - 1 ? "bg-red-300 pb-4" : ""
+                                                        )}
                                                     >
-                                                    <span>{item.title}</span>
+                                                        {
+                                                            showChatItemEditConform && chatItemEditId === item.id ? 
+                                                            <Input 
+                                                                className="focus:ring-0 focus-visible:ring-0 w-[70%]" 
+                                                                onClick={e => e.stopPropagation()} 
+                                                                onChange={e => onChatItemTitleChange(e, item)}
+                                                                value={item.title} 
+                                                                />
+                                                            :
+                                                            <span>{item.title}</span>
+                                                        }
                                                     <div className="flex ml-auto place-items-center justify-self-end relative">
                                                         {
-                                                            sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
-                                                            <div className="flex space-x-2">
-                                                                <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                    <span onClick={_ => onSheetChatItemClick(item)} className="rounded-full px-2 py-2"><Pencil2Icon /></span>
-                                                                    {/* <Button variant={'secondary'} size="sm" className="rounded-full text-gray-700"><Pencil2Icon /></Button> */}
+                                                            (
+                                                                sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
+                                                                <div className="flex space-x-2">
+                                                                    {
+                                                                        showChatItemEditConform && chatItemEditId === item.id ? 
+                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-2 py-2"><CheckIcon /></span>
+                                                                        </div>
+                                                                        :
+                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-2 py-2"><Pencil2Icon /></span>
+                                                                        </div>
+                                                                    }
+                                                                    <div className="flex items-center px-1 py-1 font-sans text-lg font-bold uppercase rounded-full select-none whitespace-nowrap text-slate-50 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                        <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-2 py-2 text-lg"><Cross2Icon /></span>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="flex items-center px-1 py-1 font-sans text-lg font-bold uppercase rounded-full select-none whitespace-nowrap text-slate-50 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                    {/* <Button variant={'destructive'} size="sm"><CrossCircledIcon /></Button> */}
-                                                                    <span onClick={_ => onSheetChatItemClick(item)} className="rounded-full px-2 py-2 text-lg"><Cross2Icon /></span>
+                                                                :
+                                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                                    <span>{item.messages.length}</span>
                                                                 </div>
-                                                            </div>
-                                                            :
-                                                            <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                                <span>{item.messages.length}</span>
-                                                            </div>
+                                                            )
                                                         }
                                                     </div>
                                                 </div>
@@ -936,6 +995,76 @@ export default () => {
                                         }
                                     </div>
                                 </div>
+                                <ScrollArea className="flex flex-col text-gray-700 w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg bg-slate-50">
+                                    <div className={cn("flex items-center w-full rounded-md sticky top-0 bg-opacity-100 z-10")}>
+                                        <Button onClick={onNewChatClick} variant={"default"} className="w-full p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start a NewChat</Button>
+                                    </div>
+                                    <div className="flex flex-col p-2 space-y-1 font-sans text-base font-normal text-blue-gray-700 overflow-x-scroll">
+                                        {
+                                            chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
+                                                return (
+                                                    index === chatList.length - 1 ? 
+                                                    <div key={-1} className="flex justify-center text-gray-300 select-none p-2">No more chats</div> : 
+                                                    <div id="chat-item" 
+                                                        key={index}
+                                                        onMouseOver={(e) => onMouseOverSheetChat(item.id)} 
+                                                        onMouseLeave={onMouseLeaveSheetChat}
+                                                        onClick={(event) => onChatClick(event, item)} 
+                                                        className={
+                                                            cn("flex items-center w-full p-2 rounded-lg select-none text-gray-800", 
+                                                                chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200":"hover:bg-blue-gray-200",
+                                                                index === chatList.length - 1 ? "" : ""
+                                                            )}
+                                                        >
+                                                            {
+                                                                showChatItemEditConform && chatItemEditId === item.id ? 
+                                                                <Input 
+                                                                    className="focus:ring-0 focus-visible:ring-0 w-[70%]" 
+                                                                    onClick={e => e.stopPropagation()} 
+                                                                    onChange={e => onChatItemTitleChange(e, item)}
+                                                                    value={item.title} 
+                                                                    />
+                                                                :
+                                                                <span className="w-[70%]">{item.title}</span>
+                                                            }
+                                                        <div className="flex ml-auto place-items-center justify-self-end relative">
+                                                            {
+                                                                sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
+                                                                <div className="flex space-x-2">
+                                                                    {
+                                                                        showChatItemEditConform && chatItemEditId === item.id ? 
+                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-2 py-2"><CheckIcon /></span>
+                                                                        </div>
+                                                                        :
+                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-2 py-2"><Pencil2Icon /></span>
+                                                                        </div>
+                                                                    }
+                                                                    <div className="flex items-center px-1 py-1 font-sans text-lg font-bold uppercase rounded-full select-none whitespace-nowrap text-slate-50 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                        <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-2 py-2 text-lg"><Cross2Icon /></span>
+                                                                    </div>
+                                                                </div>
+                                                                :
+                                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                                    <span>{item.messages.length}</span>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                )
+                                            }) : 
+                                            <div className={cn("flex items-center w-full p-3 rounded-md hover:bg-gray-100")} onClick={onNewChatClick}>
+                                                NewChat
+                                                <div className="grid ml-auto place-items-center justify-self-end">
+                                                    <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                        <span>0</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </ScrollArea>
                             </div>
                             <div className="sheet-footer absolute bottom-12 w-full">
                                 <div className="space-y-1">
@@ -1000,3 +1129,24 @@ const AssiatantChatItem = (key, message: MessageEntity) => {
         </div>
     )
 }
+
+interface CusTextareaProps {
+    className?: string
+    style?: React.CSSProperties
+    [key: string]: any
+}
+
+const CusTextArea = forwardRef<HTMLDivElement, CusTextareaProps>(
+    ({ className, style, ...props }, ref) => {
+      return (
+        <div
+          className={cn(
+            'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+            className
+          )}
+          ref={ref}
+          {...props}
+        />
+      )
+    }
+)
