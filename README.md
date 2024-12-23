@@ -48,30 +48,27 @@ pnpm build:mac
 > No icon show in Linux?
 > Add more resolution icon under `build` folder, 256x256/512x512/1024x1024... then build again
 
-
 ## TODO
-- [x] api quetsion tooltip
-- [x] use StreamEvent
-- [x] custom prompt support
-- [x] add shortcut key: `CmdOrCtrl+G` show window, `CmdOrCtrl+Esc` hide window
-- [x] smooth scrool
+
+- [X] api quetsion tooltip
+- [X] use StreamEvent
+- [X] custom prompt support
+- [X] add shortcut key: `CmdOrCtrl+G` show window, `CmdOrCtrl+Esc` hide window
+- [X] smooth scrool
 - [ ] use virtual list for chat list
 - [ ] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
 - [ ] input area toolbar
 - [ ] Copy and Edit tooltips
 - [ ] fetch models from api(if API provider support)
-- [x] save chat list
+- [X] save chat list
 - [ ] chat list ~~title~~ and hisoty summary
 - [ ] dark/light mode
 
 ## Reference
 
 - https://github.com/openai/openai-node
-
 - https://www.builder.io/blog/stream-ai-javascript
-
 - https://stackoverflow.com/questions/73547502/how-do-i-stream-openais-completion-api
-
 - https://stackademic.com/blog/building-a-resizable-sidebar-component-with-persisting-width-using-react-tailwindcss
-
 - https://medium.com/@devblog_/electron-window-settitle-how-to-1a2e268d3430
+- https://reniki.com/blog/gradient-border

@@ -51,6 +51,7 @@
     "react-use": "^17.5.1",
     "react-virtualized-auto-sizer": "^1.0.25",
     "react-virtualized-list": "0.0.4-beta1",
+    "remixicon": "^4.6.0",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.0.3"

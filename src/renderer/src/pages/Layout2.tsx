@@ -48,10 +48,13 @@ import {
     DrawingPinFilledIcon, 
     Pencil2Icon,
     CrossCircledIcon,
+    SymbolIcon,
+    ReloadIcon,
     Cross1Icon,
     CheckIcon,
     Cross2Icon,
-    StopIcon 
+    StopIcon,
+    CopyIcon,
 } from "@radix-ui/react-icons"
 import {
     Select,
@@ -102,6 +105,7 @@ import {
   } from "@renderer/components/ui/dropdown-menu"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@renderer/lib/utils"
+import React from 'react'
 import { useEffect, useRef, useState, forwardRef, useLayoutEffect, useMemo } from "react"
 import ReactMarkdown from 'react-markdown'
 import { v4 as uuidv4 } from 'uuid';
@@ -109,10 +113,7 @@ import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/i
 import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
 import { saveMessage, MessageEntity, getMessageById, getMessageByIds } from '../db/MessageRepository'
 import { ChatEntity, getChatById, saveChat, updateChat, getAllChat, deleteChat } from '../db/ChatRepository'
-import bgSvg from '../assets/icon.svg'
-import bgSvgBlack from '../assets/black-icon.svg'
 import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
-import bgSvgWhite512 from '../assets/white-icon-512x512.svg'
 
 const models = [
     {
@@ -137,29 +138,6 @@ const models = [
     },
 ]
 
-const frameworks = [
-    {
-      value: "next.js",
-      label: "Next.js",
-    },
-    {
-      value: "sveltekit",
-      label: "SvelteKit",
-    },
-    {
-      value: "nuxt.js",
-      label: "Nuxt.js",
-    },
-    {
-      value: "remix",
-      label: "Remix",
-    },
-    {
-      value: "astro",
-      label: "Astro",
-    },
-]
-
 const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY"
 
 export default () => {
@@ -168,15 +146,13 @@ export default () => {
 
     const { toast } = useToast()
 
-    const [open, setOpen] = useState(false)
-
     const [pinState, setPinState] = useState<boolean>(false)
     const [chatId, setChatId] = useState<number | undefined>()
     const [chatUuid, setChatUuid] = useState<string | undefined>()
     const [chatTitle, setChatTitle] = useState('NewChat')
     const [chatList, setChatList] = useState<ChatEntity[]>([])
     const [messageList, setMessageList] = useState<MessageEntity[]>([])
-    const [lastMsgStatus, setLastMsgStatus] = useState<boolean>(true)
+    const [lastMsgStatus, setLastMsgStatus] = useState<boolean>(false)
     const [customPrompt, setCustomPrompt] = useState('')
     const [useCustomePrompt, setUseCustomePrompt] = useState(false)
     const [appConfig, setAppConfig] = useState<IAppConfig>({
@@ -188,6 +164,7 @@ export default () => {
         model: 'Qwen/Qwen2.5-32B-Instruct'
     })
     const [selectedModel, setSelectedModel] = useState('Qwen/Qwen2.5-Coder-32B-Instruct')
+    const [selectModelPopoutState, setSelectModelPopoutState] = useState(false)
     const [sheetOpenState, setSheetOpenState] = useState<boolean>(false)
     const [chatContent, setChatContent] = useState<string>()
     const [fetchState, setFetchState] = useState<boolean>()
@@ -199,7 +176,9 @@ export default () => {
     const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
     const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
     const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
-    const [showDeleteChatConform, setShowDeleteChatConform] = useState<boolean>(false)
+    type ClipbordImg = string | ArrayBuffer | null
+    const [iptImgHoverIndex, setIptImgHoverIndex] = useState(-1)
+    const [imageSrcList, setImageSrcList] = useState<ClipbordImg[]>([]);
 
     const textAreaRef = useRef<HTMLTextAreaElement>(null)
     const sheetContentRef = useRef<HTMLDivElement>(null)
@@ -330,10 +309,6 @@ export default () => {
         }
     }
 
-    const onSelectModelChange = (val) => {
-        setSelectedModel(val)
-    }
-
     const onoSheetOpenChange = (val: boolean) => {
         setSheetOpenState(val)
     }
@@ -398,12 +373,14 @@ export default () => {
         }
     }
 
-    const onSubmitClick = async (): Promise<void> => {
-        if (!chatContent) {
+    const onSubmitClick = async (content): Promise<void> => {
+        console.log('send content', content)
+        
+        if (!content) {
           return
         }
 
-        const userMessage: MessageEntity = {role: "user", content: chatContent.trim(), status: false}
+        const userMessage: MessageEntity = {role: "user", content: content.trim(), status: false}
         const usrMsgId = await saveMessage(userMessage) as number
 
         let currChatId = chatId
@@ -488,7 +465,7 @@ export default () => {
             const sysMsgId = await saveMessage(sysSuccMessage) as number
             chatEntity.messages = [...chatEntity.messages, sysMsgId]
             if (!chatTitle || chatTitle === 'NewChat') {
-                const title = await generateTitle(chatContent) as string
+                const title = await generateTitle(content) as string
                 chatEntity.title = title
             }
             chatEntity.updateTime = new Date().getTime()
@@ -537,20 +514,41 @@ export default () => {
         }
         if (e.key === 'Enter' && !compositionState) {
             e.preventDefault()
-            onSubmitClick()
+            onSubmitClick(chatContent)
         }
     }
 
-    const onTextAreaPaste = (e) => {
-        console.log('onPaste', e)
+    const onTextAreaPaste = (event) => {
+        // console.log('onPaste', event)
         // const text = e.clipboardData.getData('text/plain')
-        // console.log('text', text)
-        const items = e.clipboardData.items
-        console.log(items);
+        const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+        let blob = null
+
+        let findImg: boolean = false
+        // 遍历粘贴的数据项
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                // 找到图片类型的数据
+                blob = items[i].getAsFile()
+                findImg = true
+                break
+            }
+        }
+        console.log(`findImg? ${findImg}`)
+        if (blob) {
+            // 创建 FileReader 对象
+            const reader = new FileReader()
+            // 以 Data URL 的形式读取文件内容
+            reader.readAsDataURL(blob)
+            // 当文件读取完成后触发
+            reader.onloadend = () => {
+                // 设置图片的 src 属性为读取到的数据 URL
+                setImageSrcList([...imageSrcList, reader.result])
+            }
+        }
     }
 
     const onChatClick = (e, chat: ChatEntity) => {
-        // console.log(chat)
         setSheetOpenState(false)
         setChatTitle(chat.title)
         setChatUuid(chat.uuid)
@@ -589,7 +587,6 @@ export default () => {
     }
 
     const onMouseOverSheetChat = (chatId) => {
-        // console.log('onMouseOverSheetChat-chatid', chatId);
         setSheetChatItemHover(true)
         setSheetChatItemHoverChatId(chatId)
     }
@@ -600,8 +597,6 @@ export default () => {
     }
 
     const onSheetChatItemDeleteUndo = (chat: ChatEntity, timeoutId) => {
-        // console.log('onSheetChatItemDeleteUndo', chat)
-        // updateChatList(chat)
         // chatList still contains the deleted chat so we just need to update it manually
         setChatList([...chatList])
         clearTimeout(timeoutId)
@@ -609,8 +604,7 @@ export default () => {
 
     const onSheetChatItemDeleteClick = (e, chat: ChatEntity) => {
         e.stopPropagation()
-        setShowDeleteChatConform(true)
-        console.log('delete-from-list', chat)
+        // console.log('delete-from-list', chat)
         setChatList(chatList.filter(item => item.id !== chat.id))
         const timeoutId = setTimeout(() => {
             deleteChat(chat.id)
@@ -621,7 +615,7 @@ export default () => {
         toast({
             title: 'Delete Chat',
             variant: 'default',
-            className: 'flex fixed bottom-0 right-0 w-1/3',
+            className: 'flex fixed bottom-1 right-1 w-1/3',
             description: '💬 Chat deleted',
             duration: 3000,
             action: (
@@ -639,7 +633,6 @@ export default () => {
     const onSheetChatItemEditClick = (e, chat: ChatEntity) => {
         e.stopPropagation()
         setShowChatItemEditConform(true)
-        // console.log('edit-title', chat)
         if (chatItemEditId) {
             setChatItemEditId(undefined)
         } else {
@@ -648,11 +641,29 @@ export default () => {
     }
 
     const onChatItemTitleChange = (e, chat: ChatEntity) => {
-        // console.log(e.target.value)
         chat.title = e.target.value
         updateChat(chat)
         updateChatList(chat)
     }
+
+    const onInputImgMouseOver = (_, imgIndex) => {
+        setIptImgHoverIndex(imgIndex)
+    }
+
+    const onInputImgMouseLeave = (_) => {
+        setIptImgHoverIndex(-1)
+    }
+
+    const onInputImgDelClick = (_, delIndex) => {
+        setImageSrcList(imageSrcList.filter((_, index) => index != delIndex))
+    }
+
+    const doRegenerate = (content) => {
+        onSubmitClick(content)
+    }
+
+    const [sysEditableContent, setSysEditableContent] = useState(false)
+    const [sysEditableContentId, setSysEditableContentId] = useState(-1)
 
     return (
         <div className="div-app app-dragable flex flex-col">
@@ -810,10 +821,46 @@ export default () => {
                         style={{
                             backgroundImage: `url(${bgSvgBlack128})`
                         }} 
-                        className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 bg-auto bg-center bg-no-repeat bg-clip-content">
+                        className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 bg-auto bg-center bg-no-repeat bg-clip-content relative">
                         <div id="scrollAreaTop" ref={scrollAreaTopRef}></div>
-                        <ChatComponent messages={messageList} lastMsgStatus={lastMsgStatus}/>
+                        <ChatComponent 
+                            messages={messageList} 
+                            lastMsgStatus={lastMsgStatus} 
+                            toast={toast} 
+                            reGenerate={doRegenerate}
+                            editableContentId={sysEditableContentId}
+                            />
                         <Toaster />
+                        {
+                            imageSrcList.length > 0 ? 
+                            (
+                                <div className="h-1/6 max-w-full absolute bottom-0 left-1 flex overflow-x-scroll scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+                                    {
+                                        imageSrcList.map((imgItem, index) => (
+                                            <div 
+                                                key={index} 
+                                                className="h-full min-w-[10rem] relative"
+                                                onMouseOver={e => onInputImgMouseOver(e, index)}
+                                                onMouseLeave={onInputImgMouseLeave}
+                                                >
+                                                <img
+                                                className={cn(
+                                                    "h-full w-full p-0.5 object-cover backdrop-blur",
+                                                    "transition-transform duration-300 ease-in-out",
+                                                    "hover:scale-110"
+                                                )} 
+                                                src={imgItem as string} />
+                                                {
+                                                    iptImgHoverIndex === index && <div onClick={e => onInputImgDelClick(e, index)} className="transition-all duration-300 ease-in-out absolute top-1 right-1"><Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 transition-all duration-300 ease-in-out hover:transform hover:rotate-180" /></div>
+                                                }
+                                            </div>
+                                        ))
+                                    }
+                                </div>
+                            )
+                            : 
+                            <></>
+                        }
                         <div id="scrollAreaBottom" ref={scrollAreaBottomRef}></div>
                     </ScrollArea>
                     </div>
@@ -821,12 +868,12 @@ export default () => {
                 <ResizableHandle />
                 <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
                     <div className="app-undragable">
-                        <Popover open={open} onOpenChange={setOpen}>
+                        <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
                             <PopoverTrigger asChild>
                                 <Button
                                 variant="outline"
                                 role="combobox"
-                                aria-expanded={open}
+                                aria-expanded={selectModelPopoutState}
                                 className="w-[22vw] max-w-[25vw] justify-between flex pl-1 pr-1"
                                 >
                                     <span className="flex flex-grow overflow-x-hidden">
@@ -850,7 +897,7 @@ export default () => {
                                         value={m.value}
                                         onSelect={(currentValue) => {
                                             setSelectedModel(currentValue)
-                                            setOpen(false)
+                                            setSelectModelPopoutState(false)
                                         }}
                                         >
                                         {m.model}
@@ -882,13 +929,13 @@ export default () => {
                     </div>
                     {
                         !readStreamState ?
-                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "-translate-x-full opacity-0" : "")} type="submit" onClick={onSubmitClick}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
+                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "-translate-x-full opacity-0" : "")} type="submit" onClick={e => onSubmitClick(chatContent)}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
                         :
-                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "" : "-translate-x-full opacity-0")} variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
+                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center animate-bounce transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "" : "-translate-x-full opacity-0")} variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
                     }
                 </ResizablePanel>
             </ResizablePanelGroup>
-            <div className="h-[35vh] fixed left-0 top-1/4 cursor-pointer w-[1vh] rounded-full hover:shadow-blue-600/100 hover:shadow-lg" onMouseEnter={onSheetHover} style={{userSelect: 'none'}}></div>
+            <div className="h-[35vh] fixed left-0 top-1/4 cursor-pointer w-[0.5vh] rounded-full hover:shadow-blue-600/100 hover:shadow-lg" onMouseEnter={onSheetHover} style={{userSelect: 'none'}}></div>
             {/* Sheet Section */}
             <Sheet open={sheetOpenState} onOpenChange={onoSheetOpenChange}>
                     <SheetContent ref={sheetContentRef} side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0">
@@ -1089,44 +1136,134 @@ export default () => {
     )
 }
 
-const ChatComponent = (props: { messages: MessageEntity[], lastMsgStatus: boolean}) => {
-    const {messages, lastMsgStatus} = props 
+interface ChatComponentProps {
+    messages: MessageEntity[]
+    lastMsgStatus: boolean
+    reGenerate: Function
+    toast: Function
+    editableContentId: number
+}
+
+const ChatComponent = (props: ChatComponentProps) => {
+    const {messages, lastMsgStatus, reGenerate, toast, editableContentId} = props 
     return <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
         {
-            props.messages.map((item, index) => {
-                if (item.role.length == 0) {
+            props.messages.map((message, index) => {
+                if (message.role.length == 0) {
                     return
                 }
-                return item.role == 'user' ? UserChatItem(index, item, messages.length, lastMsgStatus) : AssiatantChatItem(index, item)
+                return message.role == 'user' ? UserChatItem({key: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast}) : AssiatantChatItem({key: index, message, toast, editableContentId, setEditableContentId: () => {}})
             })
         }
     </div>
 }
 
-const UserChatItem = (index, message: MessageEntity, msgSize: number, lastMsgStatus: boolean) => {
+interface UserChatItemProps {
+    key: number
+    message: MessageEntity
+    msgSize: number
+    lastMsgStatus: boolean
+    reGenerate: Function
+    toast: Function
+}
+
+const UserChatItem = (props: UserChatItemProps) => {
+    const {key, message, msgSize, lastMsgStatus, reGenerate, toast} = props
+    // const [popoverState, setPopoverState] = useState(false)
+    // const { toast } = useToast()
+    const onContextMenuClick = (e) => {
+        // e.preventDefault()
+        // setPopoverState(!popoverState)
+    }
+    const onCopyClick = (copiedContent) => {
+        navigator.clipboard.writeText(copiedContent)
+        toast({
+            title: 'Copied',
+            variant: 'default',
+            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+            description: '✅ Copy content success',
+        })
+    }
+    //  onClick={e => {setPopoverState(false)}} onContextMenu={onContextMenuClick}
     return (
-        <div key={index} className={cn("flex justify-end pr-3")}>
+        <ContextMenu key={key} modal={true}>
+        <ContextMenuTrigger>
+        <div className={cn("flex justify-end pr-3")} onContextMenu={onContextMenuClick}>
             {
-                index === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-600">Retry</span>
+                key === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.content)} className="ri-refresh-line"></i></span>
             }
             <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-900 dark:bg-gray-800")}>
                 <ReactMarkdown className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}>
                     {message.content}
                 </ReactMarkdown>
             </div>
+            {/* <Popover open={popoverState}>
+                <PopoverTrigger></PopoverTrigger>
+                <PopoverContent className="p-2 w-auto">
+                <div className="w-auto">
+                    <div className="flex h-5 w-auto items-center space-x-2">
+                        <div className="hover:bg-blue-gray-100 p-2 rounded-md"><CopyIcon onClick={_ => onCopyClick(message.content)}></CopyIcon></div>
+                        <Separator orientation="vertical" />
+                        <div className="hover:bg-blue-gray-100 p-1 rounded-md"><ReloadIcon onClick={_ => reGenerate(message.content)}></ReloadIcon></div>
+                    </div>
+                </div>
+                </PopoverContent>
+            </Popover> */}
         </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+            <ContextMenuItem onClick={_ => onCopyClick(message.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
+            {/* <ContextMenuItem>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem> */}
+            <ContextMenuItem onClick={_ => reGenerate(message.content)}>Re-Generate<ContextMenuShortcut><ReloadIcon /></ContextMenuShortcut></ContextMenuItem>
+        </ContextMenuContent>
+        </ContextMenu>
     )
 }
 
-const AssiatantChatItem = (key, message: MessageEntity) => {
+interface AssistantChatItemProps {
+    key: number
+    message: MessageEntity
+    toast: Function
+    editableContentId: number
+    setEditableContentId: Function
+}
+
+const AssiatantChatItem = (props: AssistantChatItemProps) => {
+    const {key, message, toast, editableContentId, setEditableContentId} = props
+    // const { toast } = useToast()
+    // const onContextMenuClick = (e) => {
+    //     e.preventDefault()
+    //     setSysPopoverState(!sysPopoverState)
+    // }
+    const onCopyClick = (copiedContent) => {
+        navigator.clipboard.writeText(copiedContent)
+        toast({
+            title: 'Copied',
+            variant: 'default',
+            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+            description: '✅ Copy content success',
+        })
+    }
+    const onEditClick = (idx, content) => {
+        setEditableContentId(idx)
+    }
     return (
-        <div key={key} className="flex justify-start">
-            <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
-                <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
-                    {message.content}
-                </ReactMarkdown>
-            </div>
-        </div>
+        <ContextMenu key={key} modal={true}>
+            <ContextMenuTrigger>
+                <div key={key} className="flex justify-start">
+                    <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
+                        <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
+                            {message.content}
+                        </ReactMarkdown>
+                    </div>
+                </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+                <ContextMenuItem onClick={_ => onCopyClick(message.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
+                {/* <ContextMenuItem>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem> */}
+                <ContextMenuItem onClick={_ => onEditClick(key, message.content)}>Edit<ContextMenuShortcut><Pencil2Icon /></ContextMenuShortcut></ContextMenuItem>
+            </ContextMenuContent>
+        </ContextMenu>
     )
 }
 
