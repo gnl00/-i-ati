@@ -58,7 +58,7 @@ pnpm build:mac
 - [ ] use virtual list for chat list
 - [ ] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
 - [ ] input area toolbar
-- [ ] Copy and Edit tooltips
+- [X] Copy and Edit tooltips
 - [ ] fetch models from api(if API provider support)
 - [X] save chat list
 - [ ] chat list ~~title~~ and hisoty summary

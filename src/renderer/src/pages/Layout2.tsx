@@ -22,6 +22,7 @@ import { Toggle } from '@renderer/components/ui/toggle'
 import { useToast } from "@renderer/components/ui/use-toast"
 import { Toaster } from "@renderer/components/ui/toaster"
 import { ToastAction } from "@renderer/components/ui/toast"
+import { toast as SonnerToast, Toaster as SonnerToasterComp } from "sonner"
 import {
     Tooltip,
     TooltipContent,
@@ -111,7 +112,7 @@ import ReactMarkdown from 'react-markdown'
 import { v4 as uuidv4 } from 'uuid';
 import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
 import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
-import { saveMessage, MessageEntity, getMessageById, getMessageByIds } from '../db/MessageRepository'
+import { saveMessage, MessageEntity, getMessageById, getMessageByIds, updateMessage } from '../db/MessageRepository'
 import { ChatEntity, getChatById, saveChat, updateChat, getAllChat, deleteChat } from '../db/ChatRepository'
 import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
 
@@ -287,7 +288,7 @@ export default () => {
         window.electron.ipcRenderer.invoke(SAVE_CONFIG, appConfig)
         console.log('configurations to save: ', appConfig)
         toast({
-            className: 'top-0 right-0 flex fixed md:max-w-[360px] md:top-4 md:right-4',
+            className: 'buttom-1 left-1 flex fixed md:max-w-[360px] md:top-4 md:right-4',
             variant: 'default',
             // title: 'Save Configuration',
             description: '✅ Save configurations success',
@@ -613,13 +614,12 @@ export default () => {
             startNewChat()
         }
         toast({
-            title: 'Delete Chat',
             variant: 'default',
-            className: 'flex fixed bottom-1 right-1 w-1/3',
+            className: 'flex fixed bottom-1 right-1 w-1/2',
             description: '💬 Chat deleted',
             duration: 3000,
             action: (
-                <ToastAction onClick={_ => onSheetChatItemDeleteUndo(chat, timeoutId)} altText="Undo delete chat">Undo</ToastAction>
+                <ToastAction onClick={_ => onSheetChatItemDeleteUndo(chat, timeoutId)} className="bg-primary text-primary-foreground hover:bg-primary/90" altText="Undo delete chat">Undo</ToastAction>
             ),
         })
     }
@@ -829,38 +829,34 @@ export default () => {
                             toast={toast} 
                             reGenerate={doRegenerate}
                             editableContentId={sysEditableContentId}
+                            setEditableContentId={setSysEditableContentId}
+                            setMessageList={setMessageList}
                             />
                         <Toaster />
-                        {
-                            imageSrcList.length > 0 ? 
+                        {(imageSrcList.length > 0 ? 
                             (
                                 <div className="h-1/6 max-w-full absolute bottom-0 left-1 flex overflow-x-scroll scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-                                    {
-                                        imageSrcList.map((imgItem, index) => (
-                                            <div 
-                                                key={index} 
-                                                className="h-full min-w-[10rem] relative"
-                                                onMouseOver={e => onInputImgMouseOver(e, index)}
-                                                onMouseLeave={onInputImgMouseLeave}
-                                                >
-                                                <img
-                                                className={cn(
-                                                    "h-full w-full p-0.5 object-cover backdrop-blur",
-                                                    "transition-transform duration-300 ease-in-out",
-                                                    "hover:scale-110"
+                                    {imageSrcList.map((imgItem, index) => (
+                                        <div 
+                                            key={index} 
+                                            className="h-full min-w-[10rem] relative"
+                                            onMouseOver={e => onInputImgMouseOver(e, index)}
+                                            onMouseLeave={onInputImgMouseLeave}
+                                            >
+                                            <img className={cn(
+                                                "h-full w-full p-0.5 object-cover backdrop-blur",
+                                                "transition-transform duration-300 ease-in-out",
+                                                "hover:scale-110"
                                                 )} 
                                                 src={imgItem as string} />
-                                                {
-                                                    iptImgHoverIndex === index && <div onClick={e => onInputImgDelClick(e, index)} className="transition-all duration-300 ease-in-out absolute top-1 right-1"><Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 transition-all duration-300 ease-in-out hover:transform hover:rotate-180" /></div>
-                                                }
-                                            </div>
-                                        ))
-                                    }
+                                            {
+                                                iptImgHoverIndex === index && <div onClick={e => onInputImgDelClick(e, index)} className="transition-all duration-300 ease-in-out absolute top-1 right-1"><Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 transition-all duration-300 ease-in-out hover:transform hover:rotate-180" /></div>
+                                            }
+                                        </div>
+                                    ))}
                                 </div>
-                            )
-                            : 
-                            <></>
-                        }
+                            ): <></>
+                        )}
                         <div id="scrollAreaBottom" ref={scrollAreaBottomRef}></div>
                     </ScrollArea>
                     </div>
@@ -924,15 +920,13 @@ export default () => {
                             onChange={onChatContentChange}
                             onCompositionStart={onCompositionStart}
                             onCompositionEnd={onCompositionEnd}
-                            ></Textarea>
-                        {/* <CusTextArea contentEditable className={'app-undragable p-0.5 m-0 bg-red-100'}></CusTextArea> */}
+                            />
                     </div>
-                    {
-                        !readStreamState ?
+                    {(!readStreamState ?
                         <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "-translate-x-full opacity-0" : "")} type="submit" onClick={e => onSubmitClick(chatContent)}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
                         :
                         <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center animate-bounce transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "" : "-translate-x-full opacity-0")} variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
-                    }
+                    )}
                 </ResizablePanel>
             </ResizablePanelGroup>
             <div className="h-[35vh] fixed left-0 top-1/4 cursor-pointer w-[0.5vh] rounded-full hover:shadow-blue-600/100 hover:shadow-lg" onMouseEnter={onSheetHover} style={{userSelect: 'none'}}></div>
@@ -946,14 +940,14 @@ export default () => {
                             </SheetDescription>
                         </SheetHeader>
                         <div className="w-full h-full p-0 m-0 relative">
-                            <div className="pl-8 pr-8">
+                            <div className="pl-8 pr-8 pt-4">
                                 <Carousel className="w-full max-w-xs">
                                     <CarouselContent>
                                         {
                                             Array.from({ length: 5 }).map((_, index) => (
                                                 <CarouselItem key={index}>
                                                     <div className="p-1">
-                                                        {/* Pinned assistant */}
+                                                        {/* TODO - Pinned assistant */}
                                                         <Card>
                                                             <CardContent className="flex aspect-square items-center justify-center p-6 select-none">
                                                                 <span className="text-4xl font-semibold">Assiatant-{index + 1}</span>
@@ -1142,17 +1136,19 @@ interface ChatComponentProps {
     reGenerate: Function
     toast: Function
     editableContentId: number
+    setEditableContentId: Function
+    setMessageList: Function
 }
 
 const ChatComponent = (props: ChatComponentProps) => {
-    const {messages, lastMsgStatus, reGenerate, toast, editableContentId} = props 
+    const { messages, lastMsgStatus, reGenerate, toast, editableContentId, setEditableContentId, setMessageList } = props 
     return <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
         {
             props.messages.map((message, index) => {
                 if (message.role.length == 0) {
                     return
                 }
-                return message.role == 'user' ? UserChatItem({key: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast}) : AssiatantChatItem({key: index, message, toast, editableContentId, setEditableContentId: () => {}})
+                return message.role == 'user' ? UserChatItem({key: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast}) : AssiatantChatItem({key: index, message, toast, editableContentId, setEditableContentId, setMessageList})
             })
         }
     </div>
@@ -1178,13 +1174,12 @@ const UserChatItem = (props: UserChatItemProps) => {
     const onCopyClick = (copiedContent) => {
         navigator.clipboard.writeText(copiedContent)
         toast({
-            title: 'Copied',
+            // title: 'Copied',
             variant: 'default',
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '✅ Copy content success',
+            description: '✅ Content copied',
         })
     }
-    //  onClick={e => {setPopoverState(false)}} onContextMenu={onContextMenuClick}
     return (
         <ContextMenu key={key} modal={true}>
         <ContextMenuTrigger>
@@ -1197,24 +1192,12 @@ const UserChatItem = (props: UserChatItemProps) => {
                     {message.content}
                 </ReactMarkdown>
             </div>
-            {/* <Popover open={popoverState}>
-                <PopoverTrigger></PopoverTrigger>
-                <PopoverContent className="p-2 w-auto">
-                <div className="w-auto">
-                    <div className="flex h-5 w-auto items-center space-x-2">
-                        <div className="hover:bg-blue-gray-100 p-2 rounded-md"><CopyIcon onClick={_ => onCopyClick(message.content)}></CopyIcon></div>
-                        <Separator orientation="vertical" />
-                        <div className="hover:bg-blue-gray-100 p-1 rounded-md"><ReloadIcon onClick={_ => reGenerate(message.content)}></ReloadIcon></div>
-                    </div>
-                </div>
-                </PopoverContent>
-            </Popover> */}
         </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
             <ContextMenuItem onClick={_ => onCopyClick(message.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
             {/* <ContextMenuItem>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem> */}
-            <ContextMenuItem onClick={_ => reGenerate(message.content)}>Re-Generate<ContextMenuShortcut><ReloadIcon /></ContextMenuShortcut></ContextMenuItem>
+            <ContextMenuItem onClick={_ => reGenerate(message.content)}>Regenerate<ContextMenuShortcut><ReloadIcon /></ContextMenuShortcut></ContextMenuItem>
         </ContextMenuContent>
         </ContextMenu>
     )
@@ -1226,26 +1209,35 @@ interface AssistantChatItemProps {
     toast: Function
     editableContentId: number
     setEditableContentId: Function
+    setMessageList: Function
 }
 
 const AssiatantChatItem = (props: AssistantChatItemProps) => {
-    const {key, message, toast, editableContentId, setEditableContentId} = props
-    // const { toast } = useToast()
-    // const onContextMenuClick = (e) => {
-    //     e.preventDefault()
-    //     setSysPopoverState(!sysPopoverState)
-    // }
+    const { key, message, toast, editableContentId, setEditableContentId, setMessageList } = props
+
     const onCopyClick = (copiedContent) => {
         navigator.clipboard.writeText(copiedContent)
         toast({
-            title: 'Copied',
             variant: 'default',
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '✅ Copy content success',
+            description: '✅ Content copied',
         })
     }
     const onEditClick = (idx, content) => {
         setEditableContentId(idx)
+    }
+    const onEditContentSave = (e) => {
+        const updatedContent = e.target.value
+        message.content = updatedContent
+        // setMessageList((prev: MessageEntity) => {
+        //     const nextMessages: MessageEntity[] = []
+        //     if (prev.id === message.id) {
+        //         nextMessages.push(message)
+        //     } else {
+        //         nextMessages.push(prev)
+        //     }
+        // })
+        updateMessage(message)
     }
     return (
         <ContextMenu key={key} modal={true}>
@@ -1255,6 +1247,28 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
                         <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
                             {message.content}
                         </ReactMarkdown>
+                        {key === editableContentId && (
+                            <Popover open={key === editableContentId}>
+                                <PopoverTrigger></PopoverTrigger>
+                                <PopoverContent className="app-undragable w-[85vw] md:w-[80vw] lg:w-[75vw] h-[30vh] ml-1 p-1 border-0 backdrop-blur-sm bg-black/10">
+                                    <div className="w-full h-full flex flex-col space-y-2 ">
+                                        <p className="pl-1 pr-1 text-gray-800 flex items-center justify-between">
+                                            <span>Edit</span>
+                                            <span onClick={e => setEditableContentId(-1)} className="bg-red-500 rounded-full text-white p-0.5"><Cross2Icon className="transition-all duration-300 ease-in-out hover:transform hover:rotate-180"></Cross2Icon></span>
+                                        </p>
+                                        <Textarea
+                                            defaultValue={message.content}
+                                            className="flex-grow h-auto"
+                                            onChange={onEditContentSave}
+                                        />
+                                        <div className="flex space-x-2 justify-end">
+                                            <Button variant={'secondary'} size={'sm'} onClick={e => setEditableContentId(-1)} className="bg-red-500 text-slate-50 hover:bg-red-400">Close</Button>
+                                            <Button size={'sm'} onClick={e => setEditableContentId(-1)}>Save</Button>
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        )}
                     </div>
                 </div>
             </ContextMenuTrigger>
