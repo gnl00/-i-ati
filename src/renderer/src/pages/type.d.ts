@@ -1,3 +1,5 @@
+export declare type ClipbordImg = string | ArrayBuffer | null;
+
 export declare interface LLMMessage {
   role: string;
   content: string;
@@ -8,10 +10,15 @@ export declare interface VLMImgContent {
   detail: 'auto' | 'low' | 'high';
 }
 
-export declare interface VLMMessage {
+interface VLMContent {
   type: 'image_url' | 'text'
   text?: string;
   image_url?: VLMImgContent;
 }
 
-export declare type ChatContent = LLMMessage | VLMMessage;
+export declare interface VLMMessage {
+  role: string;
+  content: VLMContent[]
+}
+
+export declare type ChatMessage = LLMMessage | VLMMessage;

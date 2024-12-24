@@ -89,21 +89,21 @@ import {
     CommandItem,
     CommandList,
   } from "@renderer/components/ui/command"
-  import {
+import {
     ContextMenu,
     ContextMenuContent,
     ContextMenuItem,
     ContextMenuTrigger,
     ContextMenuShortcut
-  } from "@renderer/components/ui/context-menu"
-  import {
+} from "@renderer/components/ui/context-menu"
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-  } from "@renderer/components/ui/dropdown-menu"
+} from "@renderer/components/ui/dropdown-menu"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@renderer/lib/utils"
 import React from 'react'
@@ -115,27 +115,44 @@ import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
 import { saveMessage, MessageEntity, getMessageById, getMessageByIds, updateMessage } from '../db/MessageRepository'
 import { ChatEntity, getChatById, saveChat, updateChat, getAllChat, deleteChat } from '../db/ChatRepository'
 import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
+import { ChatMessage, ClipbordImg, LLMMessage, VLMMessage } from "./type"
 
 const models = [
     {
         provider: "Qwen",
         model: "Qwen2.5-14B-Instruct",
-        value: "Qwen/Qwen2.5-14B-Instruct"
+        value: "Qwen/Qwen2.5-14B-Instruct",
+        type: 'llm'
     },
     {
         provider: "Qwen",
         model: "Qwen2.5-32B-Instruct",
-        value: "Qwen/Qwen2.5-32B-Instruct"
+        value: "Qwen/Qwen2.5-32B-Instruct",
+        type: 'llm'
     },
     {
         provider: "Qwen",
         model: "Qwen2.5-Coder-7B-Instruct",
-        value: "Qwen/Qwen2.5-Coder-7B-Instruct"
+        value: "Qwen/Qwen2.5-Coder-7B-Instruct",
+        type: 'llm'
     },
     {
         provider: "Qwen",
         model: "Qwen2.5-Coder-32B-Instruct",
-        value: "Qwen/Qwen2.5-Coder-32B-Instruct"
+        value: "Qwen/Qwen2.5-Coder-32B-Instruct",
+        type: 'llm'
+    },
+    {
+        provider: "Qwen",
+        model: "Qwen2-VL-72B-Instruct",
+        value: "Qwen/Qwen2-VL-72B-Instruct",
+        type: 'vlm'
+    },
+    {
+        provider: "deepseek-ai",
+        model: "deepseek-vl2",
+        value: "deepseek-ai/deepseek-vl2",
+        type: 'vlm'
     },
 ]
 
@@ -171,15 +188,14 @@ export default () => {
     const [fetchState, setFetchState] = useState<boolean>()
     const [currentReqCtrl, setCurrReqCtrl] = useState<AbortController>()
     const [readStreamState, setReadStreamState] = useState<boolean>(false)
-    // inputMethod state
-    const [compositionState, setCompositionState] = useState<boolean>(false)
+    const [compositionState, setCompositionState] = useState<boolean>(false) // inputMethod state
     const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
     const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
     const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
     const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
-    type ClipbordImg = string | ArrayBuffer | null
     const [iptImgHoverIndex, setIptImgHoverIndex] = useState(-1)
-    const [imageSrcList, setImageSrcList] = useState<ClipbordImg[]>([]);
+    const [imageSrcBase64List, setImageSrcBase64List] = useState<ClipbordImg[]>([]);
+    const [sysEditableContentId, setSysEditableContentId] = useState(-1)
 
     const textAreaRef = useRef<HTMLTextAreaElement>(null)
     const sheetContentRef = useRef<HTMLDivElement>(null)
@@ -254,7 +270,7 @@ export default () => {
     }, [chatContent]);
 
     useEffect(() => {
-        console.log('render [messageList]')
+        // console.log('render [messageList]')
         scrollAreaBottomRef.current?.scrollIntoView({behavior: 'auto'})
     }, [messageList])
 
@@ -268,8 +284,7 @@ export default () => {
 
     const onPinToggleClick = (): void => {
         setPinState(!pinState)
-        // pin window
-        window.electron.ipcRenderer.invoke(PIN_WINDOW, !pinState)
+        window.electron.ipcRenderer.invoke(PIN_WINDOW, !pinState) // pin window
     }
 
     const onTokenQuestionClick = (url: string): void => {
@@ -375,13 +390,19 @@ export default () => {
     }
 
     const onSubmitClick = async (content): Promise<void> => {
-        console.log('send content', content)
-        
+        // console.log('send content', content)
         if (!content) {
           return
         }
 
-        const userMessage: MessageEntity = {role: "user", content: content.trim(), status: false}
+        let messageBody: ChatMessage
+        const modelType = models.filter(md => md.value === selectedModel)[0].type
+        if (modelType === 'llm') {
+            messageBody = {role: "user", content: content.trim()} as LLMMessage
+        } else if (modelType === 'vlm') {
+            messageBody = {role: "user", content: [{type: 'image_url', image_url: {url: '', detail: 'auto'}}, {type: 'text', text: content.trim()}]} as VLMMessage
+        }
+        const userMessage: MessageEntity = {role: "user", content: content.trim()}
         const usrMsgId = await saveMessage(userMessage) as number
 
         let currChatId = chatId
@@ -462,7 +483,7 @@ export default () => {
         })
         .finally(async () => {
             setReadStreamState(false)
-            const sysSuccMessage: MessageEntity = {role: 'system', content: gatherResult, status: true}
+            const sysSuccMessage: MessageEntity = {role: 'system', content: gatherResult}
             const sysMsgId = await saveMessage(sysSuccMessage) as number
             chatEntity.messages = [...chatEntity.messages, sysMsgId]
             if (!chatTitle || chatTitle === 'NewChat') {
@@ -544,7 +565,8 @@ export default () => {
             // 当文件读取完成后触发
             reader.onloadend = () => {
                 // 设置图片的 src 属性为读取到的数据 URL
-                setImageSrcList([...imageSrcList, reader.result])
+                // console.log(reader.result) // base64 格式的图片数据
+                setImageSrcBase64List([...imageSrcBase64List, reader.result])
             }
         }
     }
@@ -655,15 +677,12 @@ export default () => {
     }
 
     const onInputImgDelClick = (_, delIndex) => {
-        setImageSrcList(imageSrcList.filter((_, index) => index != delIndex))
+        setImageSrcBase64List(imageSrcBase64List.filter((_, index) => index != delIndex))
     }
 
     const doRegenerate = (content) => {
         onSubmitClick(content)
     }
-
-    const [sysEditableContent, setSysEditableContent] = useState(false)
-    const [sysEditableContentId, setSysEditableContentId] = useState(-1)
 
     return (
         <div className="div-app app-dragable flex flex-col">
@@ -833,10 +852,10 @@ export default () => {
                             setMessageList={setMessageList}
                             />
                         <Toaster />
-                        {(imageSrcList.length > 0 ? 
+                        {(imageSrcBase64List.length > 0 ? 
                             (
                                 <div className="h-1/6 max-w-full absolute bottom-0 left-1 flex overflow-x-scroll scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-                                    {imageSrcList.map((imgItem, index) => (
+                                    {imageSrcBase64List.map((imgItem, index) => (
                                         <div 
                                             key={index} 
                                             className="h-full min-w-[10rem] relative"
@@ -925,7 +944,7 @@ export default () => {
                     {(!readStreamState ?
                         <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "-translate-x-full opacity-0" : "")} type="submit" onClick={e => onSubmitClick(chatContent)}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
                         :
-                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center animate-bounce transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "" : "-translate-x-full opacity-0")} variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
+                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center animate-bounce transition-transform duration-700 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "" : "-translate-x-full opacity-0")} variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
                     )}
                 </ResizablePanel>
             </ResizablePanelGroup>

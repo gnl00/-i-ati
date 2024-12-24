@@ -47,6 +47,5 @@ export interface MessageEntity {
   chatUuid?: string;
   role: string;
   content: string;
-  status?: boolean;
   tokens?: number;
 }
