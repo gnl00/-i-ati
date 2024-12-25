@@ -59,10 +59,11 @@ pnpm build:mac
 - [ ] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
 - [ ] input area toolbar
 - [X] Copy and Edit tooltips
-- [ ] fetch models from api(if API provider support)
+- [ ] fetch models from api(if API provider supports)
 - [X] save chat list
 - [ ] chat list ~~title~~ and hisoty summary
-- [ ] dark/light mode
+- [X] dark/light mode
+- [ ] artifacts supports(maybe)
 
 ## Reference
 

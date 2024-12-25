@@ -198,8 +198,8 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
   })
 
   if (!stream.ok) {
-    console.log(stream)
-    throw new Error(`Error: status=${stream.status}, message=${stream.statusText}`)
+    const resp = await stream.json()
+    throw new Error(`Error=${JSON.stringify(resp)}, Text=${stream.statusText}`)
   }
 
   const reader = stream.body?.pipeThrough(new TextDecoderStream()).getReader()

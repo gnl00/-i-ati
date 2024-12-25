@@ -40,12 +40,3 @@ const deleteMessage = async (id) => {
 };
 
 export { saveMessage, getAllMessage, getMessageById, getMessageByIds, updateMessage, deleteMessage };
-
-export interface MessageEntity {
-  id?: number;
-  chatId?: number;
-  chatUuid?: string;
-  role: string;
-  content: string;
-  tokens?: number;
-}

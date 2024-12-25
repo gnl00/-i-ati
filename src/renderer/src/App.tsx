@@ -1,13 +1,11 @@
-import Home from '@renderer/pages/Home'
-import Layout from '@renderer/pages/Layout'
-import Layout2 from '@renderer/pages/Layout2'
-import SizebarLayout from '@renderer/pages/SidebarLayout'
+import HomeV2 from '@renderer/pages/Homev2'
+import { ThemeProvider } from "@renderer/components/theme-provider"
 
 function App(): JSX.Element {
   return (
-    <>
-      <Layout2 />
-    </>
+    <ThemeProvider>
+      <HomeV2 />
+    </ThemeProvider>
   )
 }
 

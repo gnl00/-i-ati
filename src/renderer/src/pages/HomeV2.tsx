@@ -112,41 +112,68 @@ import ReactMarkdown from 'react-markdown'
 import { v4 as uuidv4 } from 'uuid';
 import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
 import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
-import { saveMessage, MessageEntity, getMessageById, getMessageByIds, updateMessage } from '../db/MessageRepository'
-import { ChatEntity, getChatById, saveChat, updateChat, getAllChat, deleteChat } from '../db/ChatRepository'
+import { saveMessage, getMessageByIds, updateMessage } from '../db/MessageRepository'
+import { getChatById, saveChat, updateChat, getAllChat, deleteChat } from '../db/ChatRepository'
 import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
-import { ChatMessage, ClipbordImg, LLMMessage, VLMMessage } from "./type"
+import { ModeToggle } from "@renderer/components/mode-toggle"
+import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter'
+import {atomDark, darcula, dracula, duotoneDark, duotoneEarth, funky, ghcolors, oneDark} from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 const models = [
     {
         provider: "Qwen",
+        model: "Qwen2.5-7B-Instruct",
+        value: "Qwen/Qwen2.5-7B-Instruct",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "Qwen",
         model: "Qwen2.5-14B-Instruct",
         value: "Qwen/Qwen2.5-14B-Instruct",
-        type: 'llm'
+        type: 'llm',
+        ability: ['functioncalling']
     },
     {
         provider: "Qwen",
         model: "Qwen2.5-32B-Instruct",
         value: "Qwen/Qwen2.5-32B-Instruct",
-        type: 'llm'
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "Qwen",
+        model: "Qwen2.5-72B-Instruct",
+        value: "Qwen/Qwen2.5-72B-Instruct",
+        type: 'llm',
+        ability: ['functioncalling']
     },
     {
         provider: "Qwen",
         model: "Qwen2.5-Coder-7B-Instruct",
         value: "Qwen/Qwen2.5-Coder-7B-Instruct",
-        type: 'llm'
+        type: 'llm',
+        ability: ['functioncalling']
     },
     {
         provider: "Qwen",
         model: "Qwen2.5-Coder-32B-Instruct",
         value: "Qwen/Qwen2.5-Coder-32B-Instruct",
-        type: 'llm'
+        type: 'llm',
+        ability: ['functioncalling']
     },
     {
         provider: "Qwen",
         model: "Qwen2-VL-72B-Instruct",
         value: "Qwen/Qwen2-VL-72B-Instruct",
         type: 'vlm'
+    },
+    {
+        provider: "deepseek-ai",
+        model: "DeepSeek-V2.5",
+        value: "deepseek-ai/DeepSeek-V2.5",
+        type: 'llm',
+        ability: ['functioncalling']
     },
     {
         provider: "deepseek-ai",
@@ -169,7 +196,7 @@ export default () => {
     const [chatUuid, setChatUuid] = useState<string | undefined>()
     const [chatTitle, setChatTitle] = useState('NewChat')
     const [chatList, setChatList] = useState<ChatEntity[]>([])
-    const [messageList, setMessageList] = useState<MessageEntity[]>([])
+    const [messageEntityList, setMessageEntityList] = useState<MessageEntity[]>([])
     const [lastMsgStatus, setLastMsgStatus] = useState<boolean>(false)
     const [customPrompt, setCustomPrompt] = useState('')
     const [useCustomePrompt, setUseCustomePrompt] = useState(false)
@@ -272,7 +299,7 @@ export default () => {
     useEffect(() => {
         // console.log('render [messageList]')
         scrollAreaBottomRef.current?.scrollIntoView({behavior: 'auto'})
-    }, [messageList])
+    }, [messageEntityList])
 
     const refreshChatList = () => {
         getAllChat().then(res => {
@@ -303,11 +330,11 @@ export default () => {
         window.electron.ipcRenderer.invoke(SAVE_CONFIG, appConfig)
         console.log('configurations to save: ', appConfig)
         toast({
-            className: 'buttom-1 left-1 flex fixed md:max-w-[360px] md:top-4 md:right-4',
+            className: 'buttom-1 right-1 flex',
             variant: 'default',
             // title: 'Save Configuration',
             description: '✅ Save configurations success',
-            duration: 800
+            duration: 1000
             // action: <ToastAction altText="Try again">Try again</ToastAction>
         })
     }
@@ -389,21 +416,29 @@ export default () => {
         }
     }
 
-    const onSubmitClick = async (content): Promise<void> => {
+    const onSubmitClick = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
         // console.log('send content', content)
-        if (!content) {
+        if (!textCtx) {
           return
         }
 
         let messageBody: ChatMessage
         const modelType = models.filter(md => md.value === selectedModel)[0].type
         if (modelType === 'llm') {
-            messageBody = {role: "user", content: content.trim()} as LLMMessage
+            messageBody = {role: "user", content: textCtx.trim()} as ChatMessage
         } else if (modelType === 'vlm') {
-            messageBody = {role: "user", content: [{type: 'image_url', image_url: {url: '', detail: 'auto'}}, {type: 'text', text: content.trim()}]} as VLMMessage
+            const imgContents:VLMContent[] = []
+            mediaCtx.forEach(imgBase64 => {
+                imgContents.push({type: 'image_url', image_url: {url: imgBase64 as string, detail: 'auto'}})
+            })
+            messageBody = {role: "user", content: [...imgContents, {type: 'text', text: textCtx.trim()}]}
+        } else {
+            return
         }
-        const userMessage: MessageEntity = {role: "user", content: content.trim()}
-        const usrMsgId = await saveMessage(userMessage) as number
+
+        const userMessageEntity: MessageEntity = { body: messageBody }
+        const usrMsgId = await saveMessage(userMessageEntity) as number
+        console.log(`modelType=${modelType} msgId=${usrMsgId}`, userMessageEntity)
 
         let currChatId = chatId
         let chatEntity: ChatEntity
@@ -421,16 +456,16 @@ export default () => {
             chatEntity.updateTime = new Date().getTime()
             updateChat(chatEntity)
         }
-
         updateChatList(chatEntity)
         
-        const messages = [...messageList, userMessage]
-        setMessageList(messages)
+        const messageEntities = [...messageEntityList, userMessageEntity]
+        setMessageEntityList(messageEntities)
         setChatContent('')
-
+        setImageSrcBase64List([])
+        
         const req: IChatRequestV2 = {
             url: appConfig.api!,
-            messages,
+            messages: messageEntities.map(msg => msg.body),
             token: appConfig.token!,
             prompt: '',
             model: selectedModel
@@ -463,7 +498,7 @@ export default () => {
                     const resultText = json.choices[0].delta.content
                     gatherResult += resultText || ''
                     })
-                    setMessageList([...messageList, userMessage, {role: 'system', content: gatherResult}])
+                    setMessageEntityList([...messageEntityList, userMessageEntity, {body: {role: 'system', content: gatherResult}}])
                     if (eventDone) {
                         break
                     }
@@ -483,11 +518,11 @@ export default () => {
         })
         .finally(async () => {
             setReadStreamState(false)
-            const sysSuccMessage: MessageEntity = {role: 'system', content: gatherResult}
-            const sysMsgId = await saveMessage(sysSuccMessage) as number
+            const sysMessageEntity: MessageEntity = {body: {role: 'system', content: gatherResult}}
+            const sysMsgId = await saveMessage(sysMessageEntity) as number
             chatEntity.messages = [...chatEntity.messages, sysMsgId]
             if (!chatTitle || chatTitle === 'NewChat') {
-                const title = await generateTitle(content) as string
+                const title = await generateTitle(textCtx) as string
                 chatEntity.title = title
             }
             chatEntity.updateTime = new Date().getTime()
@@ -536,7 +571,7 @@ export default () => {
         }
         if (e.key === 'Enter' && !compositionState) {
             e.preventDefault()
-            onSubmitClick(chatContent)
+            onSubmitClick(chatContent as string, imageSrcBase64List)
         }
     }
 
@@ -577,7 +612,7 @@ export default () => {
         setChatUuid(chat.uuid)
         setChatId(chat.id)
         getMessageByIds(chat.messages).then(messageList => {
-        setMessageList(messageList)
+        setMessageEntityList(messageList)
         }).catch(err => {
             toast({
                 variant: "destructive",
@@ -591,7 +626,7 @@ export default () => {
         setChatId(undefined)
         setChatUuid(undefined)
         setChatTitle('NewChat')
-        setMessageList([])
+        setMessageEntityList([])
     }
 
     const onNewChatClick = (e) => {
@@ -622,26 +657,28 @@ export default () => {
     const onSheetChatItemDeleteUndo = (chat: ChatEntity, timeoutId) => {
         // chatList still contains the deleted chat so we just need to update it manually
         setChatList([...chatList])
-        clearTimeout(timeoutId)
+        updateChat(chat)
+        // clearTimeout(timeoutId)
     }
 
     const onSheetChatItemDeleteClick = (e, chat: ChatEntity) => {
         e.stopPropagation()
         // console.log('delete-from-list', chat)
         setChatList(chatList.filter(item => item.id !== chat.id))
-        const timeoutId = setTimeout(() => {
-            deleteChat(chat.id)
-        }, 3500)
+        deleteChat(chat.id)
+        // const timeoutId = setTimeout(() => {
+        //     deleteChat(chat.id)
+        // }, 3500)
         if (chat.id === chatId) {
             startNewChat()
         }
         toast({
             variant: 'default',
-            className: 'flex fixed bottom-1 right-1 w-1/2',
+            className: 'flex fixed bottom-1 right-1 w-1/3',
             description: '💬 Chat deleted',
             duration: 3000,
             action: (
-                <ToastAction onClick={_ => onSheetChatItemDeleteUndo(chat, timeoutId)} className="bg-primary text-primary-foreground hover:bg-primary/90" altText="Undo delete chat">Undo</ToastAction>
+                <ToastAction onClick={_ => onSheetChatItemDeleteUndo(chat, -1)} className="bg-primary text-primary-foreground hover:bg-primary/90" altText="Undo delete chat">Undo</ToastAction>
             ),
         })
     }
@@ -680,8 +717,8 @@ export default () => {
         setImageSrcBase64List(imageSrcBase64List.filter((_, index) => index != delIndex))
     }
 
-    const doRegenerate = (content) => {
-        onSubmitClick(content)
+    const doRegenerate = (text, mediaCtx: []) => {
+        onSubmitClick(text, mediaCtx)
     }
 
     return (
@@ -691,14 +728,14 @@ export default () => {
                     {/* <SheetTrigger asChild className="app-undragable"><Button variant='outline' size={'xs'}><ActivityLogIcon></ActivityLogIcon></Button></SheetTrigger> */}
                     <Popover>
                         <PopoverTrigger className="app-undragable">
-                            <div className="h-8 rounded-md px-3 border hover:bg-accent hover:text-accent-foreground flex items-center">
+                            <Button variant="outline" size="icon">
                                 <GearIcon />
-                            </div>
+                            </Button>
                         </PopoverTrigger>
                         <PopoverContent className="m-2 min-w-96 app-undragable">
                             <div className="grid gap-4">
                                 <div className="space-y-2 select-none">
-                                    <h4 className="font-medium leading-none space-x-2"><span>@i</span><Badge variant="secondary" className='bg-slate-100'>{appVersion}</Badge></h4>
+                                    <h4 className="font-medium leading-none space-x-2"><span>@i</span><Badge variant="secondary" className='bg-slate-100 text-gray-800'>{appVersion}</Badge></h4>
                                     <p className="text-sm text-muted-foreground">Set the prefernces for @i</p>
                                 </div>
                                 <div className="grid gap-2">
@@ -783,7 +820,14 @@ export default () => {
                                                         </DialogTrigger>
                                                         <DialogContent className='[&>button]:hidden rounded-md w-max'>
                                                             <DialogHeader className='space-y-2'>
-                                                                <DialogTitle className='select-none'>Custom prompt</DialogTitle>
+                                                                <DialogTitle className='select-none'>
+                                                                <p className="flex justify-between">
+                                                                    <span className="antialiased text-inherit">Edit</span>
+                                                                    <DialogClose asChild>
+                                                                        <span className="bg-red-500 rounded-full text-white p-0.5"><Cross2Icon className="transition-all duration-300 ease-in-out hover:transform hover:rotate-180"></Cross2Icon></span>
+                                                                    </DialogClose>
+                                                                </p>
+                                                                </DialogTitle>
                                                                 <DialogDescription aria-describedby={undefined} />
                                                                 <div className='space-y-3'>
                                                                     <Textarea
@@ -791,15 +835,13 @@ export default () => {
                                                                         ref={customPromptTextAreaRef}
                                                                         className="h-96 w-full text-base text-slate-600"
                                                                         defaultValue={appConfig.prompt?.custom}
-                                                                        placeholder='Input your custom prompt here...
-                                                                        &#10;We offer 2 variables&#10;- {{sourceLang}}&#10;- {{targetLang}}&#10;as placeholders.
-                                                                        &#10;Example&#10;请以简洁，幽默的语气将{{sourceLang}}准确的翻译成{{targetLang}}并按照...格式输出。'
+                                                                        placeholder='Input your custom prompt here...'
                                                                     />
                                                                     <DialogFooter className="justify-start flex">
                                                                         <p className='text-xs text-slate-500 select-none pt-2'>Remember to save the prompt. Click blur area to close popout content.</p>
                                                                         <DialogClose asChild>
                                                                             <Button onClick={onCustomPromptSave} size='sm'>
-                                                                                Save prompt
+                                                                                Save
                                                                             </Button>
                                                                         </DialogClose>
                                                                     </DialogFooter>
@@ -824,10 +866,11 @@ export default () => {
                 <div className='app-dragable flex-1 flex justify-center'>
                     <Button className='app-undragable h-auto w-auto' variant='secondary'>{chatTitle}</Button>
                 </div>
-                <div className="app-dragable flex-1 flex justify-end">
-                    <Toggle className="app-undragable" size="xs" variant="outline" onClick={onPinToggleClick}>
+                <div className="app-dragable flex-1 flex justify-end space-x-1">
+                    <div className="app-undragable"><ModeToggle></ModeToggle></div>
+                    <Button className="app-undragable" size="icon" variant="outline" onClick={onPinToggleClick}>
                         {pinState ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
-                    </Toggle>
+                    </Button>
                 </div>
             </div>
             <ResizablePanelGroup
@@ -843,13 +886,13 @@ export default () => {
                         className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 bg-auto bg-center bg-no-repeat bg-clip-content relative">
                         <div id="scrollAreaTop" ref={scrollAreaTopRef}></div>
                         <ChatComponent 
-                            messages={messageList} 
+                            messages={messageEntityList} 
                             lastMsgStatus={lastMsgStatus} 
                             toast={toast} 
                             reGenerate={doRegenerate}
                             editableContentId={sysEditableContentId}
                             setEditableContentId={setSysEditableContentId}
-                            setMessageList={setMessageList}
+                            setMessageList={setMessageEntityList}
                             />
                         <Toaster />
                         {(imageSrcBase64List.length > 0 ? 
@@ -892,8 +935,20 @@ export default () => {
                                 className="w-[22vw] max-w-[25vw] justify-between flex pl-1 pr-1"
                                 >
                                     <span className="flex flex-grow overflow-x-hidden">
-                                    { 
-                                        selectedModel ? models.find((model) => model.value === selectedModel)?.model
+                                    {
+                                        selectedModel ? 
+                                            (() => {
+                                                const selected = models.find(m => m.value === selectedModel)
+                                                if (!selected) return null
+                                                return selected.type === 'vlm' ? (
+                                                    <span className="flex space-x-2">
+                                                        <span>{selected.model}</span>
+                                                        <i className="ri-eye-line text-green-500"></i>
+                                                    </span>
+                                                ) : (
+                                                    selected.model
+                                                );
+                                            })()
                                         : "Select model..."
                                     }
                                     </span>
@@ -916,6 +971,9 @@ export default () => {
                                         }}
                                         >
                                         {m.model}
+                                        {
+                                            m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>
+                                        }
                                         <Check className={cn("ml-auto",selectedModel === m.value ? "opacity-100" : "opacity-0")}/>
                                         </CommandItem>
                                     ))}
@@ -942,9 +1000,26 @@ export default () => {
                             />
                     </div>
                     {(!readStreamState ?
-                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "-translate-x-full opacity-0" : "")} type="submit" onClick={e => onSubmitClick(chatContent)}>Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" /></Button>
+                        <Button 
+                            className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", 
+                                readStreamState ? "-translate-x-full opacity-0" : ""
+                            )} 
+                            type="submit" 
+                            onClick={e => onSubmitClick(chatContent as string, imageSrcBase64List)}
+                            >
+                            Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" />
+                        </Button>
                         :
-                        <Button className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center animate-bounce transition-transform duration-700 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", readStreamState ? "" : "-translate-x-full opacity-0")} variant="destructive" type="submit" onClick={onStopBtnClick}>Stop&ensp;<StopIcon /></Button>
+                        <Button 
+                            className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center animate-bounce transition-transform duration-700 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", 
+                                readStreamState ? "" : "-translate-x-full opacity-0"
+                            )} 
+                            variant="destructive" 
+                            type="submit" 
+                            onClick={onStopBtnClick}
+                            >
+                            Stop&ensp;<StopIcon />
+                        </Button>
                     )}
                 </ResizablePanel>
             </ResizablePanelGroup>
@@ -982,97 +1057,24 @@ export default () => {
                                 </Carousel>
                             </div>
                             <div className="sheet-content h-full w-full">
-                                <div style={{display: 'none'}} className="flex flex-col text-gray-700 w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg bg-slate-50">
-                                    <div className={cn("flex items-center w-full rounded-md sticky top-0 bg-opacity-100 z-10")}>
-                                        <Button onClick={onNewChatClick} variant={"default"} className="w-full p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start a NewChat</Button>
+                                <ScrollArea className="flex flex-col w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg dark:shadow-gray-900 bg-inherit text-inherit">
+                                    <div className={cn("flex items-center justify-center w-full rounded-md sticky top-0 bg-opacity-100 z-10")}>
+                                        <Button onClick={onNewChatClick} variant={"default"} className="w-full dark:w-[95%] p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start a NewChat</Button>
                                     </div>
-                                    <div className="flex flex-col p-2 space-y-1 font-sans text-base font-normal text-blue-gray-700">
-                                        {
-                                            chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
-                                                return (
-                                                <div id="chat-item" 
-                                                    key={index} 
-                                                    onMouseMove={(e) => onMouseOverSheetChat(item.id)} 
-                                                    // onMouseEnter={}
-                                                    onMouseOutCapture={onMouseLeaveSheetChat}
-                                                    onMouseLeave={onMouseLeaveSheetChat}
-                                                    onMouseOut={onMouseLeaveSheetChat}
-                                                    onClick={(event) => onChatClick(event, item)} 
-                                                    className={
-                                                        cn("flex items-center w-full p-2 rounded-lg select-none text-gray-800", 
-                                                            chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200":"hover:bg-blue-gray-200",
-                                                            index === chatList.length - 1 ? "bg-red-300 pb-4" : ""
-                                                        )}
-                                                    >
-                                                        {
-                                                            showChatItemEditConform && chatItemEditId === item.id ? 
-                                                            <Input 
-                                                                className="focus:ring-0 focus-visible:ring-0 w-[70%]" 
-                                                                onClick={e => e.stopPropagation()} 
-                                                                onChange={e => onChatItemTitleChange(e, item)}
-                                                                value={item.title} 
-                                                                />
-                                                            :
-                                                            <span>{item.title}</span>
-                                                        }
-                                                    <div className="flex ml-auto place-items-center justify-self-end relative">
-                                                        {
-                                                            (
-                                                                sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
-                                                                <div className="flex space-x-2">
-                                                                    {
-                                                                        showChatItemEditConform && chatItemEditId === item.id ? 
-                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                            <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-2 py-2"><CheckIcon /></span>
-                                                                        </div>
-                                                                        :
-                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                            <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-2 py-2"><Pencil2Icon /></span>
-                                                                        </div>
-                                                                    }
-                                                                    <div className="flex items-center px-1 py-1 font-sans text-lg font-bold uppercase rounded-full select-none whitespace-nowrap text-slate-50 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                        <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-2 py-2 text-lg"><Cross2Icon /></span>
-                                                                    </div>
-                                                                </div>
-                                                                :
-                                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                                    <span>{item.messages.length}</span>
-                                                                </div>
-                                                            )
-                                                        }
-                                                    </div>
-                                                </div>
-                                                )
-                                            }) : 
-                                            <div className={cn("flex items-center w-full p-3 rounded-md hover:bg-gray-100")} onClick={onNewChatClick}>
-                                                NewChat
-                                                <div className="grid ml-auto place-items-center justify-self-end">
-                                                    <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                        <span>0</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                                <ScrollArea className="flex flex-col text-gray-700 w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg bg-slate-50">
-                                    <div className={cn("flex items-center w-full rounded-md sticky top-0 bg-opacity-100 z-10")}>
-                                        <Button onClick={onNewChatClick} variant={"default"} className="w-full p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start a NewChat</Button>
-                                    </div>
-                                    <div className="flex flex-col p-2 space-y-1 font-sans text-base font-normal text-blue-gray-700 overflow-x-scroll">
+                                    <div className="flex flex-col p-2 space-y-1 font-sans text-base font-normal overflow-x-scroll">
                                         {
                                             chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
                                                 return (
                                                     index === chatList.length - 1 ? 
-                                                    <div key={-1} className="flex justify-center text-gray-300 select-none p-2">No more chats</div> : 
+                                                    <div key={-1} className="flex justify-center text-gray-300 dark:text-gray-700 select-none p-2">No more chats</div> : 
                                                     <div id="chat-item" 
                                                         key={index}
                                                         onMouseOver={(e) => onMouseOverSheetChat(item.id)} 
                                                         onMouseLeave={onMouseLeaveSheetChat}
                                                         onClick={(event) => onChatClick(event, item)} 
                                                         className={
-                                                            cn("flex items-center w-full p-2 rounded-lg select-none text-gray-800", 
-                                                                chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200":"hover:bg-blue-gray-200",
+                                                            cn("flex items-center w-full h-[3.5rem] p-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800", 
+                                                                chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200 dark:bg-blue-gray-700":"hover:bg-blue-gray-200 dark:hover:bg-blue-gray-700",
                                                                 index === chatList.length - 1 ? "" : ""
                                                             )}
                                                         >
@@ -1085,7 +1087,7 @@ export default () => {
                                                                     value={item.title} 
                                                                     />
                                                                 :
-                                                                <span className="w-[70%]">{item.title}</span>
+                                                                <span className="line-clamp-1 overflow-hidden text-ellipsis whitespace-no-wrap">{item.title}</span>
                                                             }
                                                         <div className="flex ml-auto place-items-center justify-self-end relative">
                                                             {
@@ -1093,11 +1095,11 @@ export default () => {
                                                                 <div className="flex space-x-2">
                                                                     {
                                                                         showChatItemEditConform && chatItemEditId === item.id ? 
-                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
                                                                             <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-2 py-2"><CheckIcon /></span>
                                                                         </div>
                                                                         :
-                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                        <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
                                                                             <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-2 py-2"><Pencil2Icon /></span>
                                                                         </div>
                                                                     }
@@ -1106,7 +1108,7 @@ export default () => {
                                                                     </div>
                                                                 </div>
                                                                 :
-                                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
+                                                                <div className="grid items-center px-2 py-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-500">
                                                                     <span>{item.messages.length}</span>
                                                                 </div>
                                                             }
@@ -1163,11 +1165,11 @@ const ChatComponent = (props: ChatComponentProps) => {
     const { messages, lastMsgStatus, reGenerate, toast, editableContentId, setEditableContentId, setMessageList } = props 
     return <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
         {
-            props.messages.map((message, index) => {
-                if (message.role.length == 0) {
+            messages.map((message, index) => {
+                if (!message.body || !message.body.content || message.body.content.length === 0) {
                     return
                 }
-                return message.role == 'user' ? UserChatItem({key: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast}) : AssiatantChatItem({key: index, message, toast, editableContentId, setEditableContentId, setMessageList})
+                return message.body.role == 'user' ? UserChatItem({key: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast}) : AssiatantChatItem({key: index, message, toast, editableContentId, setEditableContentId, setMessageList})
             })
         }
     </div>
@@ -1199,25 +1201,63 @@ const UserChatItem = (props: UserChatItemProps) => {
             description: '✅ Content copied',
         })
     }
+    const doRegenerate = (msgBody: ChatMessage) => {
+        if (typeof msgBody.content === 'string') {
+            reGenerate(msgBody.content, [])
+        } else {
+            const text = msgBody.content.map((body) => body.text).reduce((prev, curr) => prev ? prev : '' + curr ? curr : '')
+            let textCtx = ''
+            const imgUrls: string[] = []
+            msgBody.content.forEach((bodyItem) => {
+                if (bodyItem.text) {
+                    textCtx += bodyItem.text
+                } else {
+                    imgUrls.push(bodyItem.image_url?.url as string)
+                }
+            })
+            reGenerate(text, imgUrls)
+        }
+    }
+    const onImgDoubleClick = (imgUrl) => {
+        console.log(imgUrl.substring(0, 50))
+    }
     return (
         <ContextMenu key={key} modal={true}>
-        <ContextMenuTrigger>
-        <div className={cn("flex justify-end pr-3")} onContextMenu={onContextMenuClick}>
-            {
-                key === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.content)} className="ri-refresh-line"></i></span>
-            }
-            <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-900 dark:bg-gray-800")}>
-                <ReactMarkdown className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}>
-                    {message.content}
-                </ReactMarkdown>
+            <ContextMenuTrigger>
+            <div className={cn("flex justify-end pr-3")} onContextMenu={onContextMenuClick}>
+                {
+                    key === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
+                }
+                <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-900 dark:bg-gray-700")}>
+                    {typeof message.body.content !== 'string' ? (
+                        <>
+                            <div className="space-y-1">
+                                {message.body.content.map((vlmContent: VLMContent, idx) => {
+                                    if (vlmContent.image_url) {
+                                        return <img key={idx} src={vlmContent.image_url?.url} onDoubleClick={e => onImgDoubleClick(vlmContent.image_url?.url)}></img>
+                                    } else {
+                                        return (
+                                            <ReactMarkdown key={idx} className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}>
+                                                {vlmContent.text}
+                                            </ReactMarkdown>
+                                        )
+                                    }
+                                })}
+                            </div>
+                        </>
+                    ): (
+                        <ReactMarkdown key={key} className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}>
+                            {message.body.content as string}
+                        </ReactMarkdown>
+                    )}
+                </div>
             </div>
-        </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent>
-            <ContextMenuItem onClick={_ => onCopyClick(message.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
-            {/* <ContextMenuItem>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem> */}
-            <ContextMenuItem onClick={_ => reGenerate(message.content)}>Regenerate<ContextMenuShortcut><ReloadIcon /></ContextMenuShortcut></ContextMenuItem>
-        </ContextMenuContent>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+                <ContextMenuItem onClick={_ => onCopyClick(typeof message.body.content === 'string' ? message.body.content : message.body.content.map((body) => body.text).reduce((prev, curr) => prev ? prev : '' + curr ? curr : ''))}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
+                {/* <ContextMenuItem>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem> */}
+                <ContextMenuItem onClick={_ => doRegenerate(message.body)}>Regenerate<ContextMenuShortcut><ReloadIcon /></ContextMenuShortcut></ContextMenuItem>
+            </ContextMenuContent>
         </ContextMenu>
     )
 }
@@ -1247,7 +1287,7 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
     }
     const onEditContentSave = (e) => {
         const updatedContent = e.target.value
-        message.content = updatedContent
+        message.body.content = updatedContent
         // setMessageList((prev: MessageEntity) => {
         //     const nextMessages: MessageEntity[] = []
         //     if (prev.id === message.id) {
@@ -1262,21 +1302,42 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
         <ContextMenu key={key} modal={true}>
             <ContextMenuTrigger>
                 <div key={key} className="flex justify-start">
-                    <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-950 dark:text-gray-50 overflow-y-scroll">
-                        <ReactMarkdown className="prose text-md font-medium max-w-[100%]">
-                            {message.content}
+                    <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-slate-300 dark:text-gray-100 overflow-y-scroll">
+                        <ReactMarkdown 
+                            className="prose text-md font-medium max-w-[100%]"
+                            components={{
+                                code(props) {
+                                  const {children, className, node, ...rest} = props
+                                  const match = /language-(\w+)/.exec(className || '')
+                                  return match ? (
+                                    <SyntaxHighlighter
+                                      {...rest}
+                                      PreTag="div"
+                                      children={String(children).replace(/\n$/, '')}
+                                      language={match[1]}
+                                      style={oneDark}
+                                    />
+                                  ) : (
+                                    <code {...rest} className={className}>
+                                      {children}
+                                    </code>
+                                  )
+                                }
+                              }}
+                            >
+                            {message.body.content as string}
                         </ReactMarkdown>
                         {key === editableContentId && (
                             <Popover open={key === editableContentId}>
                                 <PopoverTrigger></PopoverTrigger>
-                                <PopoverContent className="app-undragable w-[85vw] md:w-[80vw] lg:w-[75vw] h-[30vh] ml-1 p-1 border-0 backdrop-blur-sm bg-black/10">
+                                <PopoverContent className="app-undragable w-[85vw] md:w-[80vw] lg:w-[75vw] h-[30vh] ml-2 p-1 border-0 backdrop-blur-sm bg-black/10 dark:bg-gray/50">
                                     <div className="w-full h-full flex flex-col space-y-2 ">
-                                        <p className="pl-1 pr-1 text-gray-800 flex items-center justify-between">
+                                        <p className="pl-1 pr-1 text-inherit flex items-center justify-between">
                                             <span>Edit</span>
                                             <span onClick={e => setEditableContentId(-1)} className="bg-red-500 rounded-full text-white p-0.5"><Cross2Icon className="transition-all duration-300 ease-in-out hover:transform hover:rotate-180"></Cross2Icon></span>
                                         </p>
                                         <Textarea
-                                            defaultValue={message.content}
+                                            defaultValue={message.body.content as string}
                                             className="flex-grow h-auto"
                                             onChange={onEditContentSave}
                                         />
@@ -1292,9 +1353,9 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
                 </div>
             </ContextMenuTrigger>
             <ContextMenuContent>
-                <ContextMenuItem onClick={_ => onCopyClick(message.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
+                <ContextMenuItem onClick={_ => onCopyClick(message.body.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
                 {/* <ContextMenuItem>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem> */}
-                <ContextMenuItem onClick={_ => onEditClick(key, message.content)}>Edit<ContextMenuShortcut><Pencil2Icon /></ContextMenuShortcut></ContextMenuItem>
+                <ContextMenuItem onClick={_ => onEditClick(key, message.body.content)}>Edit<ContextMenuShortcut><Pencil2Icon /></ContextMenuShortcut></ContextMenuItem>
             </ContextMenuContent>
         </ContextMenu>
     )
