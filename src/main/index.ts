@@ -1,14 +1,15 @@
-import { app, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
+import { app, session, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
 import * as fs from 'node:fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { PIN_WINDOW, SAVE_CONFIG, GET_CONFIG, OPEN_EXTERNAL } from '../constants'
 import { defaultConfig as embeddedConfig } from '../config'
+import path from 'node:path'
+import os from 'node:os'
 
 let mainWindow: BrowserWindow
 let appConfig: AppConfigType
-let windowSize: {width: number, height: number}
 
 const configPath = app.getPath('userData')
 const configFile = join(configPath, 'appConfig.json')
@@ -137,10 +138,17 @@ function createWindow(): void {
   
 }
 
+const reactDevToolsPath = path.join(
+  os.homedir(),
+  'Library/Application Support/Google/Chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/6.0.1_0'
+)
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await session.defaultSession.loadExtension(reactDevToolsPath)
+  
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
   // globalShortcut.unregister("Esc")
@@ -166,7 +174,6 @@ app.whenReady().then(() => {
   ipcMain.handle('get-win-position', (): number[] => getWinPosition())
   ipcMain.handle('set-position', (_, options) => setWinPosition(options))
   ipcMain.handle(GET_CONFIG, (): IAppConfig => appConfig)
-  ipcMain.handle('get-window-size', (): {width: number, height: number} => windowSize)
   ipcMain.handle(OPEN_EXTERNAL, (_, url) => {
     console.log('main received url', url);
     shell.openExternal(url)

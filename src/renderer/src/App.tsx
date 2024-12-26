@@ -1,5 +1,5 @@
-import HomeV2 from '@renderer/pages/Homev2'
-import { ThemeProvider } from "@renderer/components/theme-provider"
+import HomeV2 from '@renderer/pages/HomeV2'
+import { ThemeProvider } from './components/theme-provider'
 
 function App(): JSX.Element {
   return (

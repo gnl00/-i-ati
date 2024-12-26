@@ -22,7 +22,7 @@ import { Toggle } from '@renderer/components/ui/toggle'
 import { useToast } from "@renderer/components/ui/use-toast"
 import { Toaster } from "@renderer/components/ui/toaster"
 import { ToastAction } from "@renderer/components/ui/toast"
-import { toast as SonnerToast, Toaster as SonnerToasterComp } from "sonner"
+// import { toast as SonnerToast, Toaster as SonnerToaster } from "sonner"
 import {
     Tooltip,
     TooltipContent,
@@ -725,9 +725,8 @@ export default () => {
         <div className="div-app app-dragable flex flex-col">
             <div className="header shadow-lg fixed top-0 w-full pb-2 pr-2 pl-2 pt-2 flex items-center justify-between z-10" style={{userSelect: 'none'}}>
                 <div className="app-dragable flex-1 space-x-2 flex">
-                    {/* <SheetTrigger asChild className="app-undragable"><Button variant='outline' size={'xs'}><ActivityLogIcon></ActivityLogIcon></Button></SheetTrigger> */}
                     <Popover>
-                        <PopoverTrigger className="app-undragable">
+                        <PopoverTrigger asChild className="app-undragable">
                             <Button variant="outline" size="icon">
                                 <GearIcon />
                             </Button>
@@ -894,7 +893,7 @@ export default () => {
                             setEditableContentId={setSysEditableContentId}
                             setMessageList={setMessageEntityList}
                             />
-                        <Toaster />
+                        {/* <Toaster /> */}
                         {(imageSrcBase64List.length > 0 ? 
                             (
                                 <div className="h-1/6 max-w-full absolute bottom-0 left-1 flex overflow-x-scroll scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
@@ -1151,6 +1150,29 @@ export default () => {
     )
 }
 
+function CodeCopyBtn({ children }) {
+    const [copyOk, setCopyOk] = React.useState(false);
+
+    const iconColor = copyOk ? '#0af20a' : '#ddd';
+    const icon = copyOk ? 'fa-check-square' : 'fa-copy';
+
+    const handleClick = (e) => {
+        navigator.clipboard.writeText(children[0].props.children[0]);
+        console.log(children)
+
+        setCopyOk(true);
+        setTimeout(() => {
+            setCopyOk(false);
+        }, 500);
+    }
+
+    return (
+        <div className="code-copy-btn">
+            <i className={`fas ${icon}`} onClick={handleClick} style={{color: iconColor}} />
+        </div>
+    )
+}
+
 interface ChatComponentProps {
     messages: MessageEntity[]
     lastMsgStatus: boolean
@@ -1223,7 +1245,7 @@ const UserChatItem = (props: UserChatItemProps) => {
     }
     return (
         <ContextMenu key={key} modal={true}>
-            <ContextMenuTrigger>
+            <ContextMenuTrigger asChild>
             <div className={cn("flex justify-end pr-3")} onContextMenu={onContextMenuClick}>
                 {
                     key === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
@@ -1237,7 +1259,28 @@ const UserChatItem = (props: UserChatItemProps) => {
                                         return <img key={idx} src={vlmContent.image_url?.url} onDoubleClick={e => onImgDoubleClick(vlmContent.image_url?.url)}></img>
                                     } else {
                                         return (
-                                            <ReactMarkdown key={idx} className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}>
+                                            <ReactMarkdown 
+                                                key={idx} 
+                                                className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}
+                                                components={{
+                                                    code(props) {
+                                                      const {children, className, node, ...rest} = props
+                                                      const match = /language-(\w+)/.exec(className || '')
+                                                      return match ? (
+                                                        <SyntaxHighlighter
+                                                          PreTag="div"
+                                                          children={String(children).replace(/\n$/, '')}
+                                                          language={match[1]}
+                                                          style={dracula}
+                                                        />
+                                                      ) : (
+                                                        <code {...rest} className={className}>
+                                                          {children}
+                                                        </code>
+                                                      )
+                                                    }
+                                                  }}
+                                                >
                                                 {vlmContent.text}
                                             </ReactMarkdown>
                                         )
@@ -1246,7 +1289,28 @@ const UserChatItem = (props: UserChatItemProps) => {
                             </div>
                         </>
                     ): (
-                        <ReactMarkdown key={key} className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}>
+                        <ReactMarkdown 
+                            key={key} 
+                            className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}
+                            components={{
+                                code(props) {
+                                  const {children, className, node, ...rest} = props
+                                  const match = /language-(\w+)/.exec(className || '')
+                                  return match ? (
+                                    <SyntaxHighlighter
+                                      PreTag="div"
+                                      children={String(children).replace(/\n$/, '')}
+                                      language={match[1]}
+                                      style={dracula}
+                                    />
+                                  ) : (
+                                    <code {...rest} className={className}>
+                                      {children}
+                                    </code>
+                                  )
+                                }
+                              }}
+                            >
                             {message.body.content as string}
                         </ReactMarkdown>
                     )}
@@ -1255,7 +1319,6 @@ const UserChatItem = (props: UserChatItemProps) => {
             </ContextMenuTrigger>
             <ContextMenuContent>
                 <ContextMenuItem onClick={_ => onCopyClick(typeof message.body.content === 'string' ? message.body.content : message.body.content.map((body) => body.text).reduce((prev, curr) => prev ? prev : '' + curr ? curr : ''))}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
-                {/* <ContextMenuItem>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem> */}
                 <ContextMenuItem onClick={_ => doRegenerate(message.body)}>Regenerate<ContextMenuShortcut><ReloadIcon /></ContextMenuShortcut></ContextMenuItem>
             </ContextMenuContent>
         </ContextMenu>
@@ -1300,9 +1363,9 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
     }
     return (
         <ContextMenu key={key} modal={true}>
-            <ContextMenuTrigger>
+            <ContextMenuTrigger asChild>
                 <div key={key} className="flex justify-start">
-                    <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-slate-300 dark:text-gray-100 overflow-y-scroll">
+                    <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-400 dark:text-slate-50 overflow-y-scroll">
                         <ReactMarkdown 
                             className="prose text-md font-medium max-w-[100%]"
                             components={{
@@ -1311,11 +1374,10 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
                                   const match = /language-(\w+)/.exec(className || '')
                                   return match ? (
                                     <SyntaxHighlighter
-                                      {...rest}
                                       PreTag="div"
                                       children={String(children).replace(/\n$/, '')}
                                       language={match[1]}
-                                      style={oneDark}
+                                      style={dracula}
                                     />
                                   ) : (
                                     <code {...rest} className={className}>
@@ -1354,30 +1416,8 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
             </ContextMenuTrigger>
             <ContextMenuContent>
                 <ContextMenuItem onClick={_ => onCopyClick(message.body.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
-                {/* <ContextMenuItem>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem> */}
                 <ContextMenuItem onClick={_ => onEditClick(key, message.body.content)}>Edit<ContextMenuShortcut><Pencil2Icon /></ContextMenuShortcut></ContextMenuItem>
             </ContextMenuContent>
         </ContextMenu>
     )
 }
-
-interface CusTextareaProps {
-    className?: string
-    style?: React.CSSProperties
-    [key: string]: any
-}
-
-const CusTextArea = forwardRef<HTMLDivElement, CusTextareaProps>(
-    ({ className, style, ...props }, ref) => {
-      return (
-        <div
-          className={cn(
-            'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-            className
-          )}
-          ref={ref}
-          {...props}
-        />
-      )
-    }
-)

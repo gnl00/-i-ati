@@ -1,6 +1,6 @@
 {
   "name": "at-i-app",
-  "version": "0.1",
+  "version": "1.0.0",
   "description": "An AI API client build with Electron",
   "main": "./out/main/index.js",
   "author": "gnl",
