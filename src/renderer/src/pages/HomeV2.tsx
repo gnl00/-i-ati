@@ -1056,11 +1056,11 @@ export default () => {
                                 </Carousel>
                             </div>
                             <div className="sheet-content h-full w-full">
-                                <ScrollArea className="flex flex-col w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg dark:shadow-gray-900 bg-inherit text-inherit">
-                                    <div className={cn("flex items-center justify-center w-full rounded-md sticky top-0 bg-opacity-100 z-10")}>
+                                <div className="flex flex-col justify-center w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg dark:shadow-gray-900 bg-inherit text-inherit">
+                                    <div className={cn("flex items-center justify-center rounded-md sticky top-0 bg-opacity-100 z-10")}>
                                         <Button onClick={onNewChatClick} variant={"default"} className="w-full dark:w-[95%] p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start a NewChat</Button>
                                     </div>
-                                    <div className="flex flex-col p-2 space-y-1 font-sans text-base font-normal overflow-x-scroll">
+                                    <div className="flex flex-col p-2 space-y-1 w-full font-sans text-base font-normal overflow-x-scroll">
                                         {
                                             chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
                                                 return (
@@ -1072,7 +1072,7 @@ export default () => {
                                                         onMouseLeave={onMouseLeaveSheetChat}
                                                         onClick={(event) => onChatClick(event, item)} 
                                                         className={
-                                                            cn("flex items-center w-full h-[3.5rem] p-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800", 
+                                                            cn("flex items-center justify-center w-auto text-ellipsis p-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800", 
                                                                 chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200 dark:bg-blue-gray-700":"hover:bg-blue-gray-200 dark:hover:bg-blue-gray-700",
                                                                 index === chatList.length - 1 ? "" : ""
                                                             )}
@@ -1083,10 +1083,10 @@ export default () => {
                                                                     className="focus:ring-0 focus-visible:ring-0 w-[70%]" 
                                                                     onClick={e => e.stopPropagation()} 
                                                                     onChange={e => onChatItemTitleChange(e, item)}
-                                                                    value={item.title} 
+                                                                    value={item.title}
                                                                     />
                                                                 :
-                                                                <span className="line-clamp-1 overflow-hidden text-ellipsis whitespace-no-wrap">{item.title}</span>
+                                                                <span className="w-[80%] line-clamp-1 text-ellipsis whitespace-no-wrap">{item.title}</span>
                                                             }
                                                         <div className="flex ml-auto place-items-center justify-self-end relative">
                                                             {
@@ -1125,7 +1125,7 @@ export default () => {
                                             </div>
                                         }
                                     </div>
-                                </ScrollArea>
+                                </div>
                             </div>
                             <div className="sheet-footer absolute bottom-12 w-full">
                                 <div className="space-y-1">
