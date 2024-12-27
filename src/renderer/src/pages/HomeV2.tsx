@@ -893,7 +893,7 @@ export default () => {
                             setEditableContentId={setSysEditableContentId}
                             setMessageList={setMessageEntityList}
                             />
-                        {/* <Toaster /> */}
+                        <Toaster />
                         {(imageSrcBase64List.length > 0 ? 
                             (
                                 <div className="h-1/6 max-w-full absolute bottom-0 left-1 flex overflow-x-scroll scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
@@ -1218,6 +1218,7 @@ const UserChatItem = (props: UserChatItemProps) => {
         navigator.clipboard.writeText(copiedContent)
         toast({
             // title: 'Copied',
+            duration: 500,
             variant: 'default',
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
             description: '✅ Content copied',
@@ -1242,6 +1243,9 @@ const UserChatItem = (props: UserChatItemProps) => {
     }
     const onImgDoubleClick = (imgUrl) => {
         console.log(imgUrl.substring(0, 50))
+    }
+    const PreTag = () => {
+        return <div className="border-2 border-red-500"><Button className="absolute top-0">Copy</Button></div>
     }
     return (
         <ContextMenu key={key} modal={true}>
@@ -1268,7 +1272,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                                                       const match = /language-(\w+)/.exec(className || '')
                                                       return match ? (
                                                         <SyntaxHighlighter
-                                                          PreTag="div"
+                                                          PreTag={PreTag}
                                                           children={String(children).replace(/\n$/, '')}
                                                           language={match[1]}
                                                           style={dracula}
@@ -1341,6 +1345,7 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
         navigator.clipboard.writeText(copiedContent)
         toast({
             variant: 'default',
+            duration: 500,
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
             description: '✅ Content copied',
         })
