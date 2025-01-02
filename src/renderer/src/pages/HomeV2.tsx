@@ -56,6 +56,7 @@ import {
     Cross2Icon,
     StopIcon,
     CopyIcon,
+    PlusCircledIcon,
 } from "@radix-ui/react-icons"
 import {
     Select,
@@ -183,6 +184,39 @@ const models = [
     },
 ]
 
+const providers = [
+    {
+        name: "OpenAI",
+        models: [],
+        api: "",
+        apiKey: ''
+    },
+    {
+        name: "Anthropic",
+        models: [],
+        api: "",
+        apiKey: ''
+    },
+    {
+        name: "DeepSeek",
+        models: [],
+        api: "",
+        apiKey: ''
+    },
+    {
+        name: "SilliconFlow",
+        models: [],
+        api: "",
+        apiKey: ''
+    },
+    {
+        name: "MoonShoot",
+        models: [],
+        api: "",
+        apiKey: ''
+    }
+]
+
 const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY"
 
 export default () => {
@@ -208,7 +242,9 @@ export default () => {
         },
         model: 'Qwen/Qwen2.5-32B-Instruct'
     })
+    const [selectedProvider, setSelectedProvider] = useState('SilliconFlow')
     const [selectedModel, setSelectedModel] = useState('Qwen/Qwen2.5-Coder-32B-Instruct')
+    const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
     const [selectModelPopoutState, setSelectModelPopoutState] = useState(false)
     const [sheetOpenState, setSheetOpenState] = useState<boolean>(false)
     const [chatContent, setChatContent] = useState<string>()
@@ -720,6 +756,9 @@ export default () => {
     const doRegenerate = (text, mediaCtx: []) => {
         onSubmitClick(text, mediaCtx)
     }
+    const addProviderClick = () => {
+        setSelectProviderPopoutState(false)
+    }
 
     return (
         <div className="div-app app-dragable flex flex-col">
@@ -738,6 +777,63 @@ export default () => {
                                     <p className="text-sm text-muted-foreground">Set the prefernces for @i</p>
                                 </div>
                                 <div className="grid gap-2">
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="provider">Provider</Label>
+                                        <div className="app-undragable flex item-center space-x-4">
+                                            <Popover open={selectProviderPopoutState} onOpenChange={setSelectProviderPopoutState}>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={selectProviderPopoutState}
+                                                    className="flex justify-between pl-1 pr-1 space-x-2"
+                                                    >
+                                                        <span className="flex flex-grow overflow-x-hidden">
+                                                        {
+                                                            selectedProvider ? 
+                                                                (() => {
+                                                                    const selected = providers.find(m => m.name === selectedProvider)
+                                                                    if (!selected) return null
+                                                                    return selected.name
+                                                                })()
+                                                            : "Select model..."
+                                                        }
+                                                        </span>
+                                                        <ChevronsUpDown className="flex opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-full p-0">
+                                                    <Command>
+                                                    <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
+                                                    <CommandList>
+                                                        <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                                        <CommandGroup>
+                                                        {providers.map((pr) => (
+                                                            <CommandItem
+                                                            key={pr.name}
+                                                            value={pr.name}
+                                                            onSelect={(currentValue) => {
+                                                                setSelectedProvider(currentValue)
+                                                                setSelectProviderPopoutState(false)
+                                                            }}
+                                                            >
+                                                            {pr.name}
+                                                            <Check className={cn("ml-auto", selectedProvider === pr.name ? "opacity-100" : "opacity-0")}/>
+                                                            </CommandItem>
+                                                        ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button className="w-full space-x-1" size="sm" variant={"secondary"} onClick={e => {addProviderClick()}}>Add<i className="ri-add-circle-line text-lg"></i></Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent>Place content for the popover here.</PopoverContent>
+                                            </Popover>
+                                        </div>
+                                    </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
                                         <Label htmlFor="api">API</Label>
                                         <Input
@@ -856,7 +952,7 @@ export default () => {
                                     </div>
                                 </div>
                                 <Button size="xs" onClick={saveConfigurationClick}>
-                                    Save Configurations
+                                    Save Configuration
                                 </Button>
                             </div>
                         </PopoverContent>
@@ -1060,7 +1156,7 @@ export default () => {
                                     <div className={cn("flex items-center justify-center rounded-md sticky top-0 bg-opacity-100 z-10")}>
                                         <Button onClick={onNewChatClick} variant={"default"} className="w-full dark:w-[95%] p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start a NewChat</Button>
                                     </div>
-                                    <div className="flex flex-col p-2 space-y-1 w-full font-sans text-base font-normal overflow-x-scroll">
+                                    <div className="flex flex-col p-1 space-y-1 font-sans text-base font-normal overflow-x-scroll">
                                         {
                                             chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
                                                 return (
@@ -1072,38 +1168,100 @@ export default () => {
                                                         onMouseLeave={onMouseLeaveSheetChat}
                                                         onClick={(event) => onChatClick(event, item)} 
                                                         className={
-                                                            cn("flex items-center justify-center w-auto text-ellipsis p-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800", 
+                                                            cn("w-full flex items-center pl-2 pr-2 pb-4 pt-4 space-x-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800", 
                                                                 chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200 dark:bg-blue-gray-700":"hover:bg-blue-gray-200 dark:hover:bg-blue-gray-700",
                                                                 index === chatList.length - 1 ? "" : ""
                                                             )}
                                                         >
+                                                            <div className="flex w-full flex-[0.8] overflow-x-hidden">
                                                             {
                                                                 showChatItemEditConform && chatItemEditId === item.id ? 
                                                                 <Input 
-                                                                    className="focus:ring-0 focus-visible:ring-0 w-[70%]" 
+                                                                    className="focus:ring-0 focus-visible:ring-0" 
                                                                     onClick={e => e.stopPropagation()} 
                                                                     onChange={e => onChatItemTitleChange(e, item)}
                                                                     value={item.title}
                                                                     />
                                                                 :
-                                                                <span className="w-[80%] line-clamp-1 text-ellipsis whitespace-no-wrap">{item.title}</span>
+                                                                <span className="text-ellipsis line-clamp-1 whitespace-no-wrap">{item.title}</span>
                                                             }
-                                                        <div className="flex ml-auto place-items-center justify-self-end relative">
+                                                            </div>
+                                                            <div className="w-full flex flex-[0.2] justify-end">
+                                                            {(sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
+                                                                    <div className="flex space-x-2">
+                                                                        {showChatItemEditConform && chatItemEditId === item.id ? 
+                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-1 py-1"><CheckIcon /></span>
+                                                                        </div>
+                                                                        :
+                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-1 py-1"><Pencil2Icon /></span>
+                                                                        </div>
+                                                                        }
+                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap text-gray-200 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-1 py-1 text-lg"><Cross2Icon /></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    :
+                                                                    <div className="flex items-center px-2 py-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-500">
+                                                                        <span>{item.messages.length}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {/*   
+                                                            <div className="flex flex-6 w-full">
+                                                            {
+                                                                showChatItemEditConform && chatItemEditId === item.id ? 
+                                                                <Input 
+                                                                    className="focus:ring-0 focus-visible:ring-0" 
+                                                                    onClick={e => e.stopPropagation()} 
+                                                                    onChange={e => onChatItemTitleChange(e, item)}
+                                                                    value={item.title}
+                                                                    />
+                                                                :
+                                                                <span className="line-clamp-1 w-full text-ellipsis whitespace-no-wrap bg-red-300">{item.title}</span>
+                                                            }
+                                                            </div>
+                                                            <div className="flex flex-1 justify-end item-center relative">
+                                                                {(sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
+                                                                    <div className="flex space-x-2">
+                                                                        {
+                                                                        showChatItemEditConform && chatItemEditId === item.id ? 
+                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-1 py-1"><CheckIcon /></span>
+                                                                        </div>
+                                                                        :
+                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-1 py-1"><Pencil2Icon /></span>
+                                                                        </div>
+                                                                        }
+                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap text-gray-200 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-1 py-1 text-lg"><Cross2Icon /></span>
+                                                                        </div>
+                                                                        </div>
+                                                                    :
+                                                                    <div className="flex items-center px-2 py-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-500">
+                                                                        {item.messages.length}
+                                                                    </div>
+                                                                )}
+                                                            </div> */}
+
+                                                        {/* <div className="flex ml-auto place-items-center justify-self-end relative">
                                                             {
                                                                 sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
                                                                 <div className="flex space-x-2">
                                                                     {
                                                                         showChatItemEditConform && chatItemEditId === item.id ? 
                                                                         <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                            <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-2 py-2"><CheckIcon /></span>
+                                                                            <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-1 py-1"><CheckIcon /></span>
                                                                         </div>
                                                                         :
                                                                         <div className="flex items-center px-1 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                            <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-2 py-2"><Pencil2Icon /></span>
+                                                                            <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-1 py-1"><Pencil2Icon /></span>
                                                                         </div>
                                                                     }
                                                                     <div className="flex items-center px-1 py-1 font-sans text-lg font-bold uppercase rounded-full select-none whitespace-nowrap text-slate-50 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                        <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-2 py-2 text-lg"><Cross2Icon /></span>
+                                                                        <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-1 py-1 text-lg"><Cross2Icon /></span>
                                                                     </div>
                                                                 </div>
                                                                 :
@@ -1111,7 +1269,7 @@ export default () => {
                                                                     <span>{item.messages.length}</span>
                                                                 </div>
                                                             }
-                                                        </div>
+                                                        </div> */}
                                                     </div>
                                                 )
                                             }) : 
