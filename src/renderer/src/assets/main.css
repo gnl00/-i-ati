@@ -118,3 +118,63 @@
 .animate-slide-in-right {
   animation: slideInRight 300ms ease-out forwards;
 }
+
+.dynamic-background {
+  background-image: linear-gradient(90deg, #5c4ef7 0%, #f634e0 50%, #34f654 100%);
+  background-size: 300% 300%;
+  animation: gradient 5s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+      background-position: 0% 50%;
+  }
+  50% {
+      background-position: 100% 50%;
+  }
+  100% {
+      background-position: 0% 50%;
+  }
+}
+
+.dynamic-background-1 {
+  background-image: linear-gradient(45deg, #ff416c 0%, #2b97ff 100%);
+  background-size: 200% 200%;
+  animation: gradient-1 5s ease infinite;
+}
+
+@keyframes gradient-1 {
+  0% {
+      background-position: 0% 50%;
+  }
+  50% {
+      background-position: 100% 50%;
+  }
+  100% {
+      background-position: 0% 50%;
+  }
+}
+
+.dynamic-background-2 {
+  background-image: radial-gradient(circle at center, #ff6784, #ff4a3c);
+  background-size: cover;
+  animation: gradient-2 8s ease infinite;
+}
+
+@keyframes gradient-2 {
+  to {
+      transform: rotate(360deg);
+      filter: hue-rotate(360deg);
+    }
+}
+
+.dynamic-background-3 {
+    background-image: radial-gradient(circle at center, #ff9966, #ff5733);
+    background-size: cover;
+    animation: gradient-3 linear infinite;
+}
+
+@keyframes gradient-3 {
+    from { filter: hue-rotate(18deg); }
+    to { filter: hue-rotate(27deg); }
+}

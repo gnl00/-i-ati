@@ -129,6 +129,7 @@ import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
 import { ModeToggle } from "@renderer/components/mode-toggle"
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter'
 import {atomDark, darcula, dracula, duotoneDark, duotoneEarth, funky, ghcolors, oneDark} from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { AestheticFluidBg } from "../assets/color4bg.js/build/jsm/AestheticFluidBg.module.js"
 
 const models = [
     {
@@ -225,6 +226,14 @@ const providers = [
         apiUrl: "https://api.moonshot.cn/v1",
         apiKey: ''
     }
+]
+
+const bgGradientTypes = ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl']
+const gradientColors = [
+    { from: '#43CBFF', to: '#9708CC'},
+    {from: '#4158D0', via: '#C850C0', to: '#FFCC70'},
+    {from: '#FFFFFF', via: '#6284FF', to: '#FF0000'},
+    {from: '#00DBDE', via: '#6284FF', to: '#FC00FF'},
 ]
 
 const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY"
@@ -1245,6 +1254,19 @@ export default () => {
                             <div className="pl-8 pr-8 pt-4">
                                 <Carousel className="w-full max-w-xs">
                                     <CarouselContent>
+                                    <CarouselItem>
+                                            <div className="h-full w-full">
+                                                <Card>
+                                                    <CardContent className="bg-gradient-to-tl from-[#43CBFF] to-[#9708CC] bg-blur-lg flex h-full w-full aspect-square items-center justify-center p-6 select-none">
+                                                        <div className="">
+                                                            <div className="container h-full w-full mx-auto px-4 py-12 text-white">
+                                                                <p className="text-3xl">Hi</p>
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            </div>
+                                        </CarouselItem>
                                         {
                                             Array.from({ length: 5 }).map((_, index) => (
                                                 <CarouselItem key={index}>
@@ -1553,7 +1575,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                 {
                     key === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
                 }
-                <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-900 dark:bg-gray-700")}>
+                <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-600 dark:bg-gray-700")}>
                     {typeof message.body.content !== 'string' ? (
                         <>
                             <div className="space-y-1">
@@ -1564,7 +1586,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                                         return (
                                             <ReactMarkdown 
                                                 key={idx} 
-                                                className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}
+                                                className={cn("prose text-md font-medium max-w-[100%] text-slate-200 dark:text-slate-400")}
                                                 components={{
                                                     code(props) {
                                                       const {children, className, node, ...rest} = props
