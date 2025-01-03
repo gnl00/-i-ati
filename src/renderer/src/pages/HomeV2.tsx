@@ -948,7 +948,7 @@ export default () => {
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <p className='text-xs text-slate-500 col-span-4 select-none'>Everytime you change the configurations, you need to save it.</p>
+                                        <p className='text-xs text-slate-500 col-span-4 select-none'>After configurations change, remember to save.</p>
                                     </div>
                                 </div>
                                 <Button size="xs" onClick={saveConfigurationClick}>
@@ -1168,27 +1168,29 @@ export default () => {
                                                         onMouseLeave={onMouseLeaveSheetChat}
                                                         onClick={(event) => onChatClick(event, item)} 
                                                         className={
-                                                            cn("w-full flex items-center pl-2 pr-2 pb-4 pt-4 space-x-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800", 
+                                                            cn("w-full flex item-center min-h-[4.8vh] pl-2 pr-2 space-x-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800", 
                                                                 chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200 dark:bg-blue-gray-700":"hover:bg-blue-gray-200 dark:hover:bg-blue-gray-700",
                                                                 index === chatList.length - 1 ? "" : ""
                                                             )}
                                                         >
-                                                            <div className="flex w-full flex-[0.8] overflow-x-hidden">
+                                                            <div className="flex items-center w-full flex-[0.8] overflow-x-hidden">
                                                             {
                                                                 showChatItemEditConform && chatItemEditId === item.id ? 
                                                                 <Input 
-                                                                    className="focus:ring-0 focus-visible:ring-0" 
+                                                                    className="focus-visible:ring-offset-0 focus-visible:ring-0 focus:ring-0 focus:outline-none focus:border-0 border-0" 
                                                                     onClick={e => e.stopPropagation()} 
                                                                     onChange={e => onChatItemTitleChange(e, item)}
                                                                     value={item.title}
                                                                     />
                                                                 :
-                                                                <span className="text-ellipsis line-clamp-1 whitespace-no-wrap">{item.title}</span>
+                                                                <div className="flex items-center">
+                                                                    <span className="text-ellipsis line-clamp-1 whitespace-no-wrap">{item.title}</span>
+                                                                </div>
                                                             }
                                                             </div>
-                                                            <div className="w-full flex flex-[0.2] justify-end">
+                                                            <div className="w-full flex flex-[0.2] items-center justify-center">
                                                             {(sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
-                                                                    <div className="flex space-x-2">
+                                                                    <div className="flex space-x-2 item-center">
                                                                         {showChatItemEditConform && chatItemEditId === item.id ? 
                                                                         <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
                                                                             <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-1 py-1"><CheckIcon /></span>
