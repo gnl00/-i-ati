@@ -105,6 +105,16 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@renderer/components/ui/dropdown-menu"
+import {
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerTrigger,
+  } from "@renderer/components/ui/drawer"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@renderer/lib/utils"
 import React from 'react'
@@ -188,31 +198,31 @@ const providers = [
     {
         name: "OpenAI",
         models: [],
-        api: "",
+        apiUrl: "https://api.openai.com/v1/chat/completions",
         apiKey: ''
     },
     {
         name: "Anthropic",
         models: [],
-        api: "",
+        apiUrl: "https://api.anthropic.com/v1/messages",
         apiKey: ''
     },
     {
         name: "DeepSeek",
         models: [],
-        api: "",
+        apiUrl: "https://api.deepseek.com",
         apiKey: ''
     },
     {
         name: "SilliconFlow",
         models: [],
-        api: "",
+        apiUrl: "https://api.siliconflow.cn/v1/chat/completions",
         apiKey: ''
     },
     {
-        name: "MoonShoot",
+        name: "MoonShot",
         models: [],
-        api: "",
+        apiUrl: "https://api.moonshot.cn/v1",
         apiKey: ''
     }
 ]
@@ -826,12 +836,115 @@ export default () => {
                                                     </Command>
                                                 </PopoverContent>
                                             </Popover>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
+                                            <Drawer>
+                                                <DrawerTrigger asChild>
                                                     <Button className="w-full space-x-1" size="sm" variant={"secondary"} onClick={e => {addProviderClick()}}>Add<i className="ri-add-circle-line text-lg"></i></Button>
+                                                </DrawerTrigger>
+                                                <DrawerContent>
+                                                    <DrawerHeader>
+                                                        <DrawerTitle>Add provider</DrawerTitle>
+                                                        <DrawerDescription>Add custom provider.</DrawerDescription>
+                                                    </DrawerHeader>
+                                                    <DrawerFooter>
+                                                        <div className="grid gap-4">
+                                                            <div className="grid gap-2">
+                                                                <div className="grid grid-cols-3 items-center gap-4">
+                                                                    <Label htmlFor="name">Name</Label>
+                                                                    <Input
+                                                                        id="name"
+                                                                        // defaultValue="100%"
+                                                                        placeholder="OpenAI"
+                                                                        className="col-span-2 h-8"
+                                                                    />
+                                                                </div>
+                                                                <div className="grid grid-cols-3 items-center gap-4">
+                                                                    <Label htmlFor="api">API URL</Label>
+                                                                    <Input
+                                                                        id="api"
+                                                                        // defaultValue="300px"
+                                                                        placeholder="https://api.openai.com/v1/chat/completions"
+                                                                        className="col-span-2 h-8"
+                                                                    />
+                                                                </div>
+                                                                <div className="grid grid-cols-3 items-center gap-4">
+                                                                    <Label htmlFor="token">Token</Label>
+                                                                    <Input
+                                                                        id="token"
+                                                                        // defaultValue="25px"
+                                                                        placeholder="sk-********"
+                                                                        className="col-span-2 h-8"
+                                                                    />
+                                                                </div>
+                                                                <div className="grid grid-cols-3 items-center gap-4">
+                                                                    <Label htmlFor="models">Models</Label>
+                                                                    <Textarea
+                                                                        id="models"
+                                                                        // defaultValue="25px"
+                                                                        placeholder="model1,model2,model3"
+                                                                        className="col-span-2 h-8"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <Button>Save</Button>
+                                                        <DrawerClose asChild>
+                                                            <Button variant="outline">Cancel</Button>
+                                                        </DrawerClose>
+                                                    </DrawerFooter>
+                                                </DrawerContent>
+                                            </Drawer>
+                                            {/* <Popover open={addProviderPopoverState}>
+                                                <PopoverTrigger asChild>
                                                 </PopoverTrigger>
-                                                <PopoverContent>Place content for the popover here.</PopoverContent>
-                                            </Popover>
+                                                <PopoverContent>
+                                                    <div className="grid gap-4">
+                                                        <div className="space-y-2">
+                                                            <h4 className="font-medium leading-none">Add Provider</h4>
+                                                        </div>
+                                                        <div className="grid gap-2">
+                                                            <div className="grid grid-cols-3 items-center gap-4">
+                                                                <Label htmlFor="name">Name</Label>
+                                                                <Input
+                                                                    id="name"
+                                                                    // defaultValue="100%"
+                                                                    placeholder="OpenAI"
+                                                                    className="col-span-2 h-8"
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-3 items-center gap-4">
+                                                                <Label htmlFor="api">API URL</Label>
+                                                                <Input
+                                                                    id="api"
+                                                                    // defaultValue="300px"
+                                                                    placeholder="https://api.openai.com/v1/chat/completions"
+                                                                    className="col-span-2 h-8"
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-3 items-center gap-4">
+                                                                <Label htmlFor="token">Token</Label>
+                                                                <Input
+                                                                    id="token"
+                                                                    // defaultValue="25px"
+                                                                    placeholder="sk-********"
+                                                                    className="col-span-2 h-8"
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-3 items-center gap-4">
+                                                                <Label htmlFor="models">Models</Label>
+                                                                <Textarea
+                                                                    id="models"
+                                                                    // defaultValue="25px"
+                                                                    placeholder="model1,model2,model3"
+                                                                    className="col-span-2 h-8"
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-1 items-center gap-4">
+                                                                <Button onClick={e => {setAddProviderPopoverState(false)}}>Save Provider</Button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover> */}
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
@@ -903,7 +1016,7 @@ export default () => {
                                             }
                                         />
                                     </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
+                                    {/* <div className="grid grid-cols-4 items-center gap-4">
                                         <div className='col-span-4 flex items-center space-x-3'>
                                             <Label htmlFor="promptModeSwitcher"><span>Custom Prompt</span></Label>
                                             <Switch id='promptModeSwitcher' defaultChecked={useCustomePrompt} onCheckedChange={onPropmtSwicterChange} />
@@ -946,7 +1059,7 @@ export default () => {
                                                     </Dialog>
                                             }
                                         </div>
-                                    </div>
+                                    </div> */}
                                     <div className="grid grid-cols-4 items-center gap-4">
                                         <p className='text-xs text-slate-500 col-span-4 select-none'>After configurations change, remember to save.</p>
                                     </div>
@@ -1146,6 +1259,32 @@ export default () => {
                                                 </CarouselItem>
                                             ))
                                         }
+                                        <CarouselItem onClick={e => {console.log('add new assistant')}}>
+                                            <div className="p-1">
+                                                <Card>
+                                                    <CardContent className="flex flex-col aspect-square items-center justify-center p-6 select-none text-gray-300 hover:bg-gray-50">
+                                                        <Drawer>
+                                                            <DrawerTrigger>
+                                                                <p className="text-5xl font-semibold"><i className="ri-add-circle-line"></i></p>
+                                                                <p>add new assistant</p>
+                                                            </DrawerTrigger>
+                                                            <DrawerContent>
+                                                                <DrawerHeader>
+                                                                <DrawerTitle>Are you absolutely sure?</DrawerTitle>
+                                                                <DrawerDescription>This action cannot be undone.</DrawerDescription>
+                                                                </DrawerHeader>
+                                                                <DrawerFooter>
+                                                                <Button>Submit</Button>
+                                                                <DrawerClose asChild>
+                                                                    <Button variant="outline">Cancel</Button>
+                                                                </DrawerClose>
+                                                                </DrawerFooter>
+                                                            </DrawerContent>
+                                                        </Drawer>
+                                                    </CardContent>
+                                                </Card>
+                                            </div>
+                                        </CarouselItem>
                                     </CarouselContent>
                                     <CarouselPrevious />
                                     <CarouselNext />
