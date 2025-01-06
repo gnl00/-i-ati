@@ -130,6 +130,7 @@ import { ModeToggle } from "@renderer/components/mode-toggle"
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter'
 import {atomDark, darcula, dracula, duotoneDark, duotoneEarth, funky, ghcolors, oneDark} from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { AestheticFluidBg } from "../assets/color4bg.js/build/jsm/AestheticFluidBg.module.js"
+import { gradientDark } from "react-syntax-highlighter/dist/esm/styles/hljs"
 
 const models = [
     {
@@ -195,7 +196,7 @@ const models = [
     },
 ]
 
-const providers = [
+const localProviders = [
     {
         name: "OpenAI",
         models: [],
@@ -228,14 +229,6 @@ const providers = [
     }
 ]
 
-const bgGradientTypes = ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl']
-const gradientColors = [
-    { from: '#43CBFF', to: '#9708CC'},
-    {from: '#4158D0', via: '#C850C0', to: '#FFCC70'},
-    {from: '#FFFFFF', via: '#6284FF', to: '#FF0000'},
-    {from: '#00DBDE', via: '#6284FF', to: '#FC00FF'},
-]
-
 const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY"
 
 export default () => {
@@ -244,6 +237,14 @@ export default () => {
 
     const { toast } = useToast()
 
+    const [bgGradientTypes, setBgGradientTypes] = useState<string[]>(['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'])
+    const [bgGradientColors, setBgGradientColors] = useState<{from: string, via: string, to: string}[]>([
+        {from: 'from-[#FFD26F]', via: 'via-[#3687FF]', to: 'to-[#3677FF]'},
+        {from: 'from-[#43CBFF]', via: 'via-[#9708CC]', to: 'to-[#9708CC]'},
+        {from: 'from-[#4158D0]', via: 'via-[#C850C0]', to: 'to-[#FFCC70]'},
+        {from: 'from-[#FFFFFF]', via: 'via-[#6284FF]', to: 'to-[#FF0000]'},
+        {from: 'from-[#00DBDE]', via: 'via-[#6284FF]', to: 'to-[#FC00FF]'},
+    ])
     const [pinState, setPinState] = useState<boolean>(false)
     const [chatId, setChatId] = useState<number | undefined>()
     const [chatUuid, setChatUuid] = useState<string | undefined>()
@@ -261,6 +262,7 @@ export default () => {
         },
         model: 'Qwen/Qwen2.5-32B-Instruct'
     })
+    const [providers, setProviders] = useState<any[]>(localProviders)
     const [selectedProvider, setSelectedProvider] = useState('SilliconFlow')
     const [selectedModel, setSelectedModel] = useState('Qwen/Qwen2.5-Coder-32B-Instruct')
     const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
@@ -778,6 +780,37 @@ export default () => {
     const addProviderClick = () => {
         setSelectProviderPopoutState(false)
     }
+    
+    const [newProviderName, setNewProviderName] = useState()
+    const [newProviderApi, setNewProviderApi] = useState()
+    const [newProviderApiKey, setNewProviderApiKey] = useState()
+    const [newProviderModels, setNewProviderModels] = useState<string[]>([])
+
+    const onNewProviderNameChange = e => {
+        setNewProviderName(e.target.value)
+    }
+
+    const onNewProviderApiChange = e => {
+        setNewProviderApi(e.target.value)
+    }
+
+    const onNewProviderApiKeyChange = e => {
+        setNewProviderApiKey(e.target.value)
+    }
+
+    const onNewProviderModelsChange = e => {
+        if(e.target.value) {
+            const models = e.target.value.split(',')
+            setNewProviderModels(models)
+        }
+    }
+
+    const onAddProviderBtnClick = e => {
+        console.log(newProviderName)
+        console.log(newProviderApi)
+        console.log(newProviderApiKey)
+        console.log(newProviderModels)
+    }
 
     return (
         <div className="div-app app-dragable flex flex-col">
@@ -862,8 +895,10 @@ export default () => {
                                                                     <Input
                                                                         id="name"
                                                                         // defaultValue="100%"
+                                                                        value={newProviderName}
                                                                         placeholder="OpenAI"
                                                                         className="col-span-2 h-8"
+                                                                        onChange={onNewProviderNameChange}
                                                                     />
                                                                 </div>
                                                                 <div className="grid grid-cols-3 items-center gap-4">
@@ -871,8 +906,10 @@ export default () => {
                                                                     <Input
                                                                         id="api"
                                                                         // defaultValue="300px"
+                                                                        value={newProviderApi}
                                                                         placeholder="https://api.openai.com/v1/chat/completions"
                                                                         className="col-span-2 h-8"
+                                                                        onChange={onNewProviderApiChange}
                                                                     />
                                                                 </div>
                                                                 <div className="grid grid-cols-3 items-center gap-4">
@@ -880,8 +917,11 @@ export default () => {
                                                                     <Input
                                                                         id="token"
                                                                         // defaultValue="25px"
+                                                                        value={newProviderApiKey}
                                                                         placeholder="sk-********"
                                                                         className="col-span-2 h-8"
+                                                                        onChange={onNewProviderApiKeyChange}
+
                                                                     />
                                                                 </div>
                                                                 <div className="grid grid-cols-3 items-center gap-4">
@@ -889,13 +929,15 @@ export default () => {
                                                                     <Textarea
                                                                         id="models"
                                                                         // defaultValue="25px"
+                                                                        // value={newProviderModels}
                                                                         placeholder="model1,model2,model3"
                                                                         className="col-span-2 h-8"
+                                                                        onChange={onNewProviderModelsChange}
                                                                     />
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <Button>Save</Button>
+                                                        <Button onClick={onAddProviderBtnClick}>Save</Button>
                                                         <DrawerClose asChild>
                                                             <Button variant="outline">Cancel</Button>
                                                         </DrawerClose>
@@ -1273,8 +1315,14 @@ export default () => {
                                                     <div className="p-1">
                                                         {/* TODO - Pinned assistant */}
                                                         <Card>
-                                                            <CardContent className="flex aspect-square items-center justify-center p-6 select-none">
-                                                                <span className="text-4xl font-semibold">Assiatant-{index + 1}</span>
+                                                            <CardContent className={cn(
+                                                                "flex bg-blur-xl h-full w-full aspect-square items-center justify-center p-6 select-none text-slate-50", 
+                                                                bgGradientTypes[index % bgGradientTypes.length],
+                                                                bgGradientColors[index % bgGradientColors.length].from,
+                                                                bgGradientColors[index % bgGradientColors.length].via,
+                                                                bgGradientColors[index % bgGradientColors.length].to,
+                                                                )}>
+                                                                <span className="text-4xl font-semibold">Assistant-{index + 1}</span>
                                                             </CardContent>
                                                         </Card>
                                                     </div>
