@@ -823,7 +823,12 @@ export default () => {
             apiUrl: newProviderApi,
             apiKey: newProviderApiKey
         }])
-        alert(`Provider: ${newProviderName} added!`)
+        toast({
+            variant: 'default',
+            duration: 800,
+            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+            description: `✅ ${newProviderName} added`,
+        })
         // TODO save provider to local config
     }
 
