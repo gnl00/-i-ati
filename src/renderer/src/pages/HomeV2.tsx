@@ -229,7 +229,7 @@ const localProviders = [
     }
 ]
 
-const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY"
+const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY.\n"
 
 export default () => {
     // @ts-ignore
@@ -777,14 +777,15 @@ export default () => {
     const doRegenerate = (text, mediaCtx: []) => {
         onSubmitClick(text, mediaCtx)
     }
-    const addProviderClick = () => {
-        setSelectProviderPopoutState(false)
-    }
-    
+
     const [newProviderName, setNewProviderName] = useState()
     const [newProviderApi, setNewProviderApi] = useState()
     const [newProviderApiKey, setNewProviderApiKey] = useState()
     const [newProviderModels, setNewProviderModels] = useState<string[]>([])
+
+    const addProviderClick = () => {
+        setSelectProviderPopoutState(false)
+    }
 
     const onNewProviderNameChange = e => {
         setNewProviderName(e.target.value)
@@ -806,10 +807,24 @@ export default () => {
     }
 
     const onAddProviderBtnClick = e => {
-        console.log(newProviderName)
-        console.log(newProviderApi)
-        console.log(newProviderApiKey)
-        console.log(newProviderModels)
+        if(!newProviderName || !newProviderApi || !newProviderApiKey || newProviderModels.length === 0) {
+            alert(`Please fill all blanks`)
+            e.preventDefault()
+            return
+        }
+        if(providers.find(item => item.name == newProviderName) != undefined) {
+            alert(`Provider:${newProviderName} already exists!`)
+            e.preventDefault()
+            return
+        }
+        setProviders([...providers, {
+            name: newProviderName,
+            models: [...newProviderModels],
+            apiUrl: newProviderApi,
+            apiKey: newProviderApiKey
+        }])
+        alert(`Provider: ${newProviderName} added!`)
+        // TODO save provider to local config
     }
 
     return (
@@ -888,38 +903,38 @@ export default () => {
                                                         <DrawerDescription>Add custom provider.</DrawerDescription>
                                                     </DrawerHeader>
                                                     <DrawerFooter>
-                                                        <div className="grid gap-4">
+                                                        <div className="grid gap-4 app-undragable">
                                                             <div className="grid gap-2">
                                                                 <div className="grid grid-cols-3 items-center gap-4">
                                                                     <Label htmlFor="name">Name</Label>
                                                                     <Input
                                                                         id="name"
                                                                         // defaultValue="100%"
-                                                                        value={newProviderName}
+                                                                        // value={newProviderName}
                                                                         placeholder="OpenAI"
-                                                                        className="col-span-2 h-8"
+                                                                        className="col-span-2 h-10"
                                                                         onChange={onNewProviderNameChange}
                                                                     />
                                                                 </div>
                                                                 <div className="grid grid-cols-3 items-center gap-4">
-                                                                    <Label htmlFor="api">API URL</Label>
+                                                                    <Label htmlFor="apiUrl">API URL</Label>
                                                                     <Input
-                                                                        id="api"
+                                                                        id="apiUrl"
                                                                         // defaultValue="300px"
-                                                                        value={newProviderApi}
+                                                                        // value={newProviderApi}
                                                                         placeholder="https://api.openai.com/v1/chat/completions"
-                                                                        className="col-span-2 h-8"
+                                                                        className="col-span-2 h-10"
                                                                         onChange={onNewProviderApiChange}
                                                                     />
                                                                 </div>
                                                                 <div className="grid grid-cols-3 items-center gap-4">
-                                                                    <Label htmlFor="token">Token</Label>
+                                                                    <Label htmlFor="apiKey">API Key</Label>
                                                                     <Input
-                                                                        id="token"
+                                                                        id="apiKey"
                                                                         // defaultValue="25px"
-                                                                        value={newProviderApiKey}
+                                                                        // value={newProviderApiKey}
                                                                         placeholder="sk-********"
-                                                                        className="col-span-2 h-8"
+                                                                        className="col-span-2 h-10"
                                                                         onChange={onNewProviderApiKeyChange}
 
                                                                     />
@@ -937,65 +952,15 @@ export default () => {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <Button onClick={onAddProviderBtnClick}>Save</Button>
+                                                        <DrawerTrigger asChild>
+                                                            <Button onClick={onAddProviderBtnClick}>Save</Button>
+                                                        </DrawerTrigger>
                                                         <DrawerClose asChild>
                                                             <Button variant="outline">Cancel</Button>
                                                         </DrawerClose>
                                                     </DrawerFooter>
                                                 </DrawerContent>
                                             </Drawer>
-                                            {/* <Popover open={addProviderPopoverState}>
-                                                <PopoverTrigger asChild>
-                                                </PopoverTrigger>
-                                                <PopoverContent>
-                                                    <div className="grid gap-4">
-                                                        <div className="space-y-2">
-                                                            <h4 className="font-medium leading-none">Add Provider</h4>
-                                                        </div>
-                                                        <div className="grid gap-2">
-                                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                                <Label htmlFor="name">Name</Label>
-                                                                <Input
-                                                                    id="name"
-                                                                    // defaultValue="100%"
-                                                                    placeholder="OpenAI"
-                                                                    className="col-span-2 h-8"
-                                                                />
-                                                            </div>
-                                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                                <Label htmlFor="api">API URL</Label>
-                                                                <Input
-                                                                    id="api"
-                                                                    // defaultValue="300px"
-                                                                    placeholder="https://api.openai.com/v1/chat/completions"
-                                                                    className="col-span-2 h-8"
-                                                                />
-                                                            </div>
-                                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                                <Label htmlFor="token">Token</Label>
-                                                                <Input
-                                                                    id="token"
-                                                                    // defaultValue="25px"
-                                                                    placeholder="sk-********"
-                                                                    className="col-span-2 h-8"
-                                                                />
-                                                            </div>
-                                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                                <Label htmlFor="models">Models</Label>
-                                                                <Textarea
-                                                                    id="models"
-                                                                    // defaultValue="25px"
-                                                                    placeholder="model1,model2,model3"
-                                                                    className="col-span-2 h-8"
-                                                                />
-                                                            </div>
-                                                            <div className="grid grid-cols-1 items-center gap-4">
-                                                                <Button onClick={e => {setAddProviderPopoverState(false)}}>Save Provider</Button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </PopoverContent>
-                                            </Popover> */}
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
@@ -1623,7 +1588,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                 {
                     key === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
                 }
-                <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-600 dark:bg-gray-700")}>
+                <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-700 dark:bg-gray-800")}>
                     {typeof message.body.content !== 'string' ? (
                         <>
                             <div className="space-y-1">
@@ -1634,7 +1599,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                                         return (
                                             <ReactMarkdown 
                                                 key={idx} 
-                                                className={cn("prose text-md font-medium max-w-[100%] text-slate-200 dark:text-slate-400")}
+                                                className={cn("prose prose-code:text-indigo-500 text-md font-medium max-w-[100%] text-slate-200 dark:text-slate-400")}
                                                 components={{
                                                     code(props) {
                                                       const {children, className, node, ...rest} = props
@@ -1645,6 +1610,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                                                           children={String(children).replace(/\n$/, '')}
                                                           language={match[1]}
                                                           style={dracula}
+                                                          useInlineStyles={false}
                                                         />
                                                       ) : (
                                                         <code {...rest} className={className}>
@@ -1664,7 +1630,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                     ): (
                         <ReactMarkdown 
                             key={key} 
-                            className={cn("prose text-md font-medium max-w-[100%] text-slate-200")}
+                            className={cn("prose prose-code:text-indigo-500 text-md font-medium max-w-[100%] text-slate-200")}
                             components={{
                                 code(props) {
                                   const {children, className, node, ...rest} = props
