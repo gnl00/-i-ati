@@ -1599,7 +1599,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                                         return (
                                             <ReactMarkdown 
                                                 key={idx} 
-                                                className={cn("prose prose-code:text-indigo-500 text-md font-medium max-w-[100%] text-slate-200 dark:text-slate-400")}
+                                                className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-slate-200 dark:text-slate-400")}
                                                 components={{
                                                     code(props) {
                                                       const {children, className, node, ...rest} = props
@@ -1630,7 +1630,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                     ): (
                         <ReactMarkdown 
                             key={key} 
-                            className={cn("prose prose-code:text-indigo-500 text-md font-medium max-w-[100%] text-slate-200")}
+                            className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-slate-200")}
                             components={{
                                 code(props) {
                                   const {children, className, node, ...rest} = props
@@ -1707,7 +1707,7 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
                 <div key={key} className="flex justify-start">
                     <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-400 dark:text-slate-50 overflow-y-scroll">
                         <ReactMarkdown 
-                            className="prose text-md font-medium max-w-[100%]"
+                            className="prose prose-code:text-gray-400 text-md font-medium max-w-[100%]"
                             components={{
                                 code(props) {
                                   const {children, className, node, ...rest} = props
