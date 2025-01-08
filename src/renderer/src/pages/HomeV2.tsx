@@ -131,6 +131,9 @@ import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter'
 import {atomDark, darcula, dracula, duotoneDark, duotoneEarth, funky, ghcolors, oneDark} from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { AestheticFluidBg } from "../assets/color4bg.js/build/jsm/AestheticFluidBg.module.js"
 import { gradientDark } from "react-syntax-highlighter/dist/esm/styles/hljs"
+import { debounce } from 'lodash'
+import { useDebouncedValue } from '@mantine/hooks'
+import List from 'rc-virtual-list'
 
 const models = [
     {
@@ -269,6 +272,7 @@ export default () => {
     const [selectModelPopoutState, setSelectModelPopoutState] = useState(false)
     const [sheetOpenState, setSheetOpenState] = useState<boolean>(false)
     const [chatContent, setChatContent] = useState<string>()
+    const chatContentDebounce = useDebouncedValue(chatContent, 200)
     const [fetchState, setFetchState] = useState<boolean>()
     const [currentReqCtrl, setCurrReqCtrl] = useState<AbortController>()
     const [readStreamState, setReadStreamState] = useState<boolean>(false)
@@ -354,7 +358,7 @@ export default () => {
     }, [chatContent]);
 
     useEffect(() => {
-        // console.log('render [messageList]')
+        console.log('render [messageList]')
         scrollAreaBottomRef.current?.scrollIntoView({behavior: 'auto'})
     }, [messageEntityList])
 
@@ -413,9 +417,9 @@ export default () => {
         setSheetOpenState(val)
     }
 
-    const onChatContentChange = (evt) => {
-        setChatContent(evt.target.value)
-    }
+    const onChatContentChange = debounce((event) => {
+        setChatContent(event.target.value);
+    }, 249)
 
     const beforeFetch = () => {
         setFetchState(true)
@@ -905,7 +909,7 @@ export default () => {
                                                 <DrawerContent>
                                                     <DrawerHeader>
                                                         <DrawerTitle>Add provider</DrawerTitle>
-                                                        <DrawerDescription>Add custom provider.</DrawerDescription>
+                                                        <DrawerDescription>Add custom provider</DrawerDescription>
                                                     </DrawerHeader>
                                                     <DrawerFooter>
                                                         <div className="grid gap-4 app-undragable">
@@ -1512,6 +1516,31 @@ function CodeCopyBtn({ children }) {
     )
 }
 
+interface Item {
+    id: number;
+    height: number;
+}
+  
+const MyItem: React.ForwardRefRenderFunction<HTMLElement, Item> = ({ id, height }: Item, ref) => {
+    return (
+        <span
+        ref={ref}
+        style={{
+            border: '1px solid gray',
+            padding: '0 16px',
+            height,
+            lineHeight: '30px',
+            boxSizing: 'border-box',
+            display: 'inline-block',
+        }}
+        >
+        {id}
+        </span>
+    );
+};
+
+const ForwardMyItem = React.forwardRef(MyItem);
+
 interface ChatComponentProps {
     messages: MessageEntity[]
     lastMsgStatus: boolean
@@ -1523,21 +1552,47 @@ interface ChatComponentProps {
 }
 
 const ChatComponent = (props: ChatComponentProps) => {
+    const data: Item[] = [];
+    for (let i = 0; i < 100; i += 1) {
+        data.push({
+            id: i,
+            height: 30 + (i % 2 ? 70 : 0),
+        });
+    }
     const { messages, lastMsgStatus, reGenerate, toast, editableContentId, setEditableContentId, setMessageList } = props 
-    return <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
-        {
-            messages.map((message, index) => {
-                if (!message.body || !message.body.content || message.body.content.length === 0) {
-                    return
-                }
-                return message.body.role == 'user' ? UserChatItem({key: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast}) : AssiatantChatItem({key: index, message, toast, editableContentId, setEditableContentId, setMessageList})
-            })
-        }
-    </div>
+    return (
+        <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
+            {
+                messages.map((message, index) => {
+                    if (!message.body || !message.body.content || message.body.content.length === 0) {
+                        return
+                    }
+                    return message.body.role == 'user' ? 
+                        UserChatItem({idx: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast})
+                        : 
+                        AssiatantChatItem({idx: index, message, toast, editableContentId, setEditableContentId, setMessageList})
+                })
+            }
+        </div>
+    )
+    // return (
+    //     <List
+    //     data={data}
+    //     height={1000}
+    //     itemHeight={30}
+    //     itemKey="id"
+    //     style={{
+    //         border: '1px solid red',
+    //         boxSizing: 'border-box',
+    //     }}
+    //     >
+    //         {item => <ForwardMyItem {...item} />}
+    //     </List>
+    // )
 }
 
 interface UserChatItemProps {
-    key: number
+    idx: number
     message: MessageEntity
     msgSize: number
     lastMsgStatus: boolean
@@ -1546,7 +1601,7 @@ interface UserChatItemProps {
 }
 
 const UserChatItem = (props: UserChatItemProps) => {
-    const {key, message, msgSize, lastMsgStatus, reGenerate, toast} = props
+    const {idx, message, msgSize, lastMsgStatus, reGenerate, toast} = props
     // const [popoverState, setPopoverState] = useState(false)
     // const { toast } = useToast()
     const onContextMenuClick = (e) => {
@@ -1587,11 +1642,11 @@ const UserChatItem = (props: UserChatItemProps) => {
         return <div className="border-2 border-red-500"><Button className="absolute top-0">Copy</Button></div>
     }
     return (
-        <ContextMenu key={key} modal={true}>
+        <ContextMenu key={idx} modal={true}>
             <ContextMenuTrigger asChild>
             <div className={cn("flex justify-end pr-3")} onContextMenu={onContextMenuClick}>
                 {
-                    key === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
+                    idx === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
                 }
                 <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-700 dark:bg-gray-800")}>
                     {typeof message.body.content !== 'string' ? (
@@ -1634,7 +1689,7 @@ const UserChatItem = (props: UserChatItemProps) => {
                         </>
                     ): (
                         <ReactMarkdown 
-                            key={key} 
+                            key={idx} 
                             className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-slate-200")}
                             components={{
                                 code(props) {
@@ -1670,7 +1725,7 @@ const UserChatItem = (props: UserChatItemProps) => {
 }
 
 interface AssistantChatItemProps {
-    key: number
+    idx: number
     message: MessageEntity
     toast: Function
     editableContentId: number
@@ -1679,7 +1734,7 @@ interface AssistantChatItemProps {
 }
 
 const AssiatantChatItem = (props: AssistantChatItemProps) => {
-    const { key, message, toast, editableContentId, setEditableContentId, setMessageList } = props
+    const { idx, message, toast, editableContentId, setEditableContentId, setMessageList } = props
 
     const onCopyClick = (copiedContent) => {
         navigator.clipboard.writeText(copiedContent)
@@ -1707,9 +1762,9 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
         updateMessage(message)
     }
     return (
-        <ContextMenu key={key} modal={true}>
+        <ContextMenu key={idx} modal={true}>
             <ContextMenuTrigger asChild>
-                <div key={key} className="flex justify-start">
+                <div key={idx} className="flex justify-start">
                     <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-400 dark:text-slate-50 overflow-y-scroll">
                         <ReactMarkdown 
                             className="prose prose-code:text-gray-400 text-md font-medium max-w-[100%]"
@@ -1734,8 +1789,8 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
                             >
                             {message.body.content as string}
                         </ReactMarkdown>
-                        {key === editableContentId && (
-                            <Popover open={key === editableContentId}>
+                        {idx === editableContentId && (
+                            <Popover open={idx === editableContentId}>
                                 <PopoverTrigger></PopoverTrigger>
                                 <PopoverContent className="app-undragable w-[85vw] md:w-[80vw] lg:w-[75vw] h-[30vh] ml-2 p-1 border-0 backdrop-blur-sm bg-black/10 dark:bg-gray/50">
                                     <div className="w-full h-full flex flex-col space-y-2 ">
@@ -1761,7 +1816,7 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
             </ContextMenuTrigger>
             <ContextMenuContent>
                 <ContextMenuItem onClick={_ => onCopyClick(message.body.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
-                <ContextMenuItem onClick={_ => onEditClick(key, message.body.content)}>Edit<ContextMenuShortcut><Pencil2Icon /></ContextMenuShortcut></ContextMenuItem>
+                <ContextMenuItem onClick={_ => onEditClick(idx, message.body.content)}>Edit<ContextMenuShortcut><Pencil2Icon /></ContextMenuShortcut></ContextMenuItem>
             </ContextMenuContent>
         </ContextMenu>
     )

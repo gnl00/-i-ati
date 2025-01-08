@@ -56,7 +56,7 @@ pnpm build:mac
 - [X] add shortcut key: `CmdOrCtrl+G` show window, `CmdOrCtrl+Esc` hide window
 - [X] smooth scrool
 - [ ] use virtual list for chat list
-- [ ] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
+- [X] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
 - [ ] input area toolbar
 - [X] Copy and Edit tooltips
 - [ ] fetch models from api(if API provider supports)
@@ -64,6 +64,8 @@ pnpm build:mac
 - [ ] chat list ~~title~~ and hisoty summary
 - [X] dark/light mode
 - [ ] artifacts supports(maybe)
+- [ ] default model for chat
+- [ ] add provider
 
 ## Reference
 
