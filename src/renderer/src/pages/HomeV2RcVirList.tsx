@@ -127,14 +127,13 @@ import { saveMessage, getMessageByIds, updateMessage } from '../db/MessageReposi
 import { getChatById, saveChat, updateChat, getAllChat, deleteChat } from '../db/ChatRepository'
 import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
 import { ModeToggle } from "@renderer/components/mode-toggle"
-import {PrismAsync as SyntaxHighlighter} from 'react-syntax-highlighter'
+import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter'
 import {atomDark, darcula, dracula, duotoneDark, duotoneEarth, funky, ghcolors, oneDark} from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { AestheticFluidBg } from "../assets/color4bg.js/build/jsm/AestheticFluidBg.module.js"
 import { gradientDark } from "react-syntax-highlighter/dist/esm/styles/hljs"
 import { debounce } from 'lodash'
 import { useDebouncedValue } from '@mantine/hooks'
 import List from 'rc-virtual-list'
-import { VList } from "virtua"
 
 const models = [
     {
@@ -283,7 +282,7 @@ export default () => {
     const [selectModelPopoutState, setSelectModelPopoutState] = useState(false)
     const [sheetOpenState, setSheetOpenState] = useState<boolean>(false)
     const [chatContent, setChatContent] = useState<string>()
-    const chatContentDebounce = useDebouncedValue(chatContent, 150)
+    const chatContentDebounce = useDebouncedValue(chatContent, 99)
     const [fetchState, setFetchState] = useState<boolean>()
     const [currentReqCtrl, setCurrReqCtrl] = useState<AbortController>()
     const [readStreamState, setReadStreamState] = useState<boolean>(false)
@@ -1261,7 +1260,7 @@ export default () => {
                     <div className="flex h-full app-undragable ">
                         <Textarea 
                             className="w-full text-md pb-2"
-                            defaultValue={chatContent}
+                            defaultValue={chatContentDebounce[0]}
                             ref={textAreaRef}
                             placeholder="Anything you want yo ask..."
                             onKeyDown={onTextAreaKeyDown} 
@@ -1555,6 +1554,119 @@ function CodeCopyBtn({ children }) {
     )
 }
 
+interface Item {
+    id: number;
+    height: number;
+}
+  
+const MyItem: React.ForwardRefRenderFunction<HTMLDivElement, Item> = ({ id, height }: Item, ref) => {
+    const content1 = "Just a scentence"
+    const content2 = `${id} A paragraph with *emphasis* and **strong importance**.
+
+                > A block quote with ~strikethrough~ and a URL: https://reactjs.org.
+
+                * Lists
+                * [ ] todo
+                * [x] done
+
+                A table:
+
+                | a | b |
+                | - | - |
+                `
+    return (
+        <div
+        ref={ref}
+        style={{
+            border: '1px solid gray',
+            height,
+            lineHeight: '30px',
+            boxSizing: 'border-box',
+            display: 'inline-block',
+        }}
+        >
+            <ReactMarkdown
+            className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] ", id % 2 == 0 ? "bg-red-400" : "bg-blue-400")}
+            >
+                {id % 2 == 0 ? content1 : content2}
+            </ReactMarkdown>
+        </div>
+    )
+}
+
+const ForwardMyItem = React.forwardRef(MyItem);
+
+interface ChatItemProps {
+    id: number;
+    height: number;
+    message?: MessageEntity;
+    messageSize: number
+    toast: Function
+    lastMsgStatus: boolean
+    reGenerate: Function
+    editableContentId: number
+    setEditableContentId: Function
+}
+
+const ChatItem: React.ForwardRefRenderFunction<HTMLDivElement, ChatItemProps> = ({ id, height, message, messageSize, lastMsgStatus, reGenerate, editableContentId, setEditableContentId, toast }: ChatItemProps, ref) => {
+    const content1 = "Just a scentence"
+    const content2 = `${id} A paragraph with *emphasis* and **strong importance**.
+
+                > A block quote with ~strikethrough~ and a URL: https://reactjs.org.
+
+                * Lists
+                * [ ] todo
+                * [x] done
+
+                A table:
+
+                | a | b |
+                | - | - |
+                `
+    if (message == undefined || !message.body || !message.body.content || message.body.content.length === 0) return <></>
+    return (
+        <div ref={ref}
+        style={{
+            border: '1px solid gray',
+            height: '100%',
+            boxSizing: 'border-box',
+            display: 'inline-block',
+        }}
+        className="pr-2 pl-2 flex flex-col space-y-4"
+        >
+            {/* <ReactMarkdown
+            className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] ", id % 2 == 0 ? "bg-red-400" : "bg-blue-400")}
+            >
+                {id % 2 == 0 ? content1 : content2}
+            </ReactMarkdown> */}
+            {
+                message.body.role == 'user' ? 
+                UserChatItem({idx: id, message, msgSize: messageSize, lastMsgStatus, reGenerate, toast})
+                : 
+                AssiatantChatItem({idx: id, message, editableContentId, setEditableContentId, toast})
+            }
+        </div>
+    )
+    // return (
+    //     <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
+    //         {
+    //             messages.map((message, index) => {
+    //                 if (!message.body || !message.body.content || message.body.content.length === 0) {
+    //                     return
+    //                 }
+    //                 return message.body.role == 'user' ? 
+    //                     UserChatItem({idx: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast})
+    //                     : 
+    //                     AssiatantChatItem({idx: index, message, toast, editableContentId, setEditableContentId})
+    //             })
+    //         }
+    //     </div>
+    // )
+}
+
+const ForwardChatItem = React.forwardRef(ChatItem);
+
+
 interface ChatComponentProps {
     messages: MessageEntity[]
     lastMsgStatus: boolean
@@ -1567,6 +1679,20 @@ interface ChatComponentProps {
 
 const ChatComponent = (props: ChatComponentProps) => {
     const { messages, lastMsgStatus, reGenerate, toast, editableContentId, setEditableContentId, chatWindowHeight } = props 
+    const data: ChatItemProps[] = [];
+    for (let i = 0; i < messages.length; i += 1) {
+        data.push({
+            id: i,
+            height: 50,
+            message: messages[i],
+            lastMsgStatus,
+            reGenerate,
+            toast,
+            editableContentId,
+            setEditableContentId,
+            messageSize: messages.length
+        });
+    }
     // return (
     //     <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
     //         {
@@ -1583,31 +1709,19 @@ const ChatComponent = (props: ChatComponentProps) => {
     //     </div>
     // )
     return (
-        <VList className="scroll-smooth" style={{ height: chatWindowHeight ? chatWindowHeight - 12 : 900, scrollBehavior: 'smooth' }}>
-        {/* {Array.from({ length: 1000 }).map((_, i) => (
-            <div
-            key={i}
-            style={{
-                height: '100%',
-                borderBottom: "solid 1px gray",
-                background: "white",
-            }}
-            >
-            {i}
-            </div>
-        ))} */}
-            {
-                messages.map((message, index) => {
-                    if (!message.body || !message.body.content || message.body.content.length === 0) {
-                        return
-                    }
-                    return message.body.role == 'user' ? 
-                        UserChatItem({idx: index, message, msgSize: messages.length, lastMsgStatus, reGenerate, toast})
-                        : 
-                        AssiatantChatItem({idx: index, message, toast, editableContentId, setEditableContentId})
-                })
-            }
-        </VList>
+        <List
+        data={data}
+        height={chatWindowHeight ? chatWindowHeight - 18 : 900}
+        itemHeight={30}
+        itemKey="id"
+        style={{
+            border: '1px solid red',
+            boxSizing: 'border-box',
+        }}
+        className="smooth-scroll scroll-smooth"
+        >
+            {item => <ForwardChatItem {...item} />}
+        </List>
     )
 }
 
@@ -1680,25 +1794,25 @@ const UserChatItem = (props: UserChatItemProps) => {
                                             <ReactMarkdown 
                                                 key={idx} 
                                                 className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-slate-200 dark:text-slate-400")}
-                                                // components={{
-                                                //     code(props) {
-                                                //       const {children, className, node, ...rest} = props
-                                                //       const match = /language-(\w+)/.exec(className || '')
-                                                //       return match ? (
-                                                //         <SyntaxHighlighter
-                                                //           PreTag={PreTag}
-                                                //           children={String(children).replace(/\n$/, '')}
-                                                //           language={match[1]}
-                                                //           style={dracula}
-                                                //           useInlineStyles={false}
-                                                //         />
-                                                //       ) : (
-                                                //         <code {...rest} className={className}>
-                                                //           {children}
-                                                //         </code>
-                                                //       )
-                                                //     }
-                                                //   }}
+                                                components={{
+                                                    code(props) {
+                                                      const {children, className, node, ...rest} = props
+                                                      const match = /language-(\w+)/.exec(className || '')
+                                                      return match ? (
+                                                        <SyntaxHighlighter
+                                                          PreTag={PreTag}
+                                                          children={String(children).replace(/\n$/, '')}
+                                                          language={match[1]}
+                                                          style={dracula}
+                                                          useInlineStyles={false}
+                                                        />
+                                                      ) : (
+                                                        <code {...rest} className={className}>
+                                                          {children}
+                                                        </code>
+                                                      )
+                                                    }
+                                                  }}
                                                 >
                                                 {vlmContent.text}
                                             </ReactMarkdown>
@@ -1711,24 +1825,24 @@ const UserChatItem = (props: UserChatItemProps) => {
                         <ReactMarkdown 
                             key={idx} 
                             className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-slate-200")}
-                            // components={{
-                            //     code(props) {
-                            //       const {children, className, node, ...rest} = props
-                            //       const match = /language-(\w+)/.exec(className || '')
-                            //       return match ? (
-                            //         <SyntaxHighlighter
-                            //           PreTag="div"
-                            //           children={String(children).replace(/\n$/, '')}
-                            //           language={match[1]}
-                            //           style={dracula}
-                            //         />
-                            //       ) : (
-                            //         <code {...rest} className={className}>
-                            //           {children}
-                            //         </code>
-                            //       )
-                            //     }
-                            //   }}
+                            components={{
+                                code(props) {
+                                  const {children, className, node, ...rest} = props
+                                  const match = /language-(\w+)/.exec(className || '')
+                                  return match ? (
+                                    <SyntaxHighlighter
+                                      PreTag="div"
+                                      children={String(children).replace(/\n$/, '')}
+                                      language={match[1]}
+                                      style={dracula}
+                                    />
+                                  ) : (
+                                    <code {...rest} className={className}>
+                                      {children}
+                                    </code>
+                                  )
+                                }
+                              }}
                             >
                             {message.body.content as string}
                         </ReactMarkdown>
@@ -1751,18 +1865,6 @@ interface AssistantChatItemProps {
     setEditableContentId: Function
     toast: Function
 }
-
-const SyntaxHighlighterWrapper = React.memo(({ children, language }: { children: string, language: string }) => {
-    return (
-        <SyntaxHighlighter
-            PreTag="div"
-            children={String(children).replace(/\n$/, '')}
-            language={language}
-            style={dracula}
-            wrapLongLines={true}
-        />
-    );
-});
 
 const AssiatantChatItem = (props: AssistantChatItemProps) => {
     const { idx, message, toast, editableContentId, setEditableContentId } = props
@@ -1804,9 +1906,11 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
                                   const {children, className, node, ...rest} = props
                                   const match = /language-(\w+)/.exec(className || '')
                                   return match ? (
-                                    <SyntaxHighlighterWrapper
+                                    <SyntaxHighlighter
+                                      PreTag="div"
                                       children={String(children).replace(/\n$/, '')}
                                       language={match[1]}
+                                      style={dracula}
                                     />
                                   ) : (
                                     <code {...rest} className={className}>

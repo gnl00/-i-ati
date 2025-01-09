@@ -128,6 +128,9 @@ importers:
       vaul:
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@18.3.5(@types/react@18.3.16))(@types/react@18.3.16)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      virtua:
+        specifier: ^0.39.3
+        version: 0.39.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     optionalDependencies:
       '@swc/core-darwin-x64':
         specifier: ^1.2.0
@@ -8000,6 +8003,26 @@ packages:
 
   vfile@6.0.3:
     resolution: {integrity: sha512-KzIbH/9tXat2u30jf+smMwFCsno4wHVdNmzFyL+T/L3UGqqk6JKfVqOFOZEpZSHADH1k40ab6NUIXZq422ov3Q==}
+
+  virtua@0.39.3:
+    resolution: {integrity: sha512-Ep3aiJXSGPm1UUniThr5mGDfG0upAleP7pqQs5mvvCgM1wPhII1ZKa7eNCWAJRLkC+InpXKokKozyaaj/aMYOQ==}
+    peerDependencies:
+      react: '>=16.14.0'
+      react-dom: '>=16.14.0'
+      solid-js: '>=1.0'
+      svelte: '>=5.0'
+      vue: '>=3.2'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      solid-js:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
 
   vite@5.4.11:
     resolution: {integrity: sha512-c7jFQRklXua0mTzneGW9QVyxFjUgwcihC4bXEtujIo2ouWCe1Ajt/amn2PCxYnhYfd5k09JX3SB7OYWFKYqj8Q==}
@@ -17917,6 +17940,11 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
       vfile-message: 4.0.2
+
+  virtua@0.39.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   vite@5.4.11(@types/node@20.17.10)(terser@5.37.0):
     dependencies:
