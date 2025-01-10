@@ -290,8 +290,6 @@ export default () => {
     const scrollAreaBottomRef = useRef<HTMLDivElement>(null)
     const chatWindowRef = useRef<HTMLDivElement>(null)
 
-    // const { imageSrcBase64List, setImageSrcBase64List } = useChatContext()
-
     useLayoutEffect(() => {
         refreshChatList()
     }, [])
@@ -470,7 +468,7 @@ export default () => {
         
         const messageEntities = [...messageEntityList, userMessageEntity]
         setMessageEntityList(messageEntities)
-        setImageSrcBase64List([])
+        // setImageSrcBase64List([])
         
         const req: IChatRequestV2 = {
             url: appConfig.api!,
@@ -650,10 +648,6 @@ export default () => {
 
     const onInputImgMouseLeave = (_) => {
         setIptImgHoverIndex(-1)
-    }
-
-    const onInputImgDelClick = (_, delIndex) => {
-        setImageSrcBase64List(imageSrcBase64List.filter((_, index) => index != delIndex))
     }
 
     const doRegenerate = (text, mediaCtx: []) => {
@@ -1012,7 +1006,6 @@ export default () => {
                                     iptImgHoverIndex={iptImgHoverIndex}
                                     onInputImgMouseOver={onInputImgMouseOver}
                                     onInputImgMouseLeave={onInputImgMouseLeave}
-                                    onInputImgDelClick={onInputImgDelClick}
                                 />
                             {/* {(imageSrcBase64List.length > 0 ? 
                                 (
