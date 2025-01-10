@@ -55,7 +55,7 @@ pnpm build:mac
 - [X] custom prompt support
 - [X] add shortcut key: `CmdOrCtrl+G` show window, `CmdOrCtrl+Esc` hide window
 - [X] smooth scrool
-- [ ] use virtual list for chat list
+- [X] use virtual list for chat list
 - [X] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
 - [ ] input area toolbar
 - [X] Copy and Edit tooltips
@@ -66,6 +66,7 @@ pnpm build:mac
 - [ ] artifacts supports(maybe)
 - [ ] default model for chat
 - [ ] add provider
+- [ ] chat config topK/topP/maxToken...
 
 ## Reference
 

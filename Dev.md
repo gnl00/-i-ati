@@ -17,4 +17,5 @@
   [任何的输入，会导 `<pre></pre>`内元素的全量渲染，在大段代码进行更新的时候，会有](https://github.com/react-simple-code-editor/react-simple-code-editor/issues/66)比较明显的卡顿
 
   刚开始还以为是没有使用虚拟列表来优化聊天界面导致的，但是使用虚拟列表之后改问题依然存在。排查发现原来是**代码高亮的锅**。
+- 再后来发现。。。原来是组件未拆分的锅。。。SyntaxHighlighter 对不起，是我太菜 😭 组件太大未拆分，导致[每次输入的时候都会全局渲染](https://developer.aliyun.com/article/1048728)
 - ...

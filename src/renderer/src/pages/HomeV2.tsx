@@ -1,6 +1,4 @@
-import {
-    Button
-} from "@renderer/components/ui/button"
+import { Button } from "@renderer/components/ui/button"
 import {
     ResizableHandle,
     ResizablePanel,
@@ -134,7 +132,10 @@ import { gradientDark } from "react-syntax-highlighter/dist/esm/styles/hljs"
 import { debounce } from 'lodash'
 import { useDebouncedValue } from '@mantine/hooks'
 import List from 'rc-virtual-list'
-import { VList } from "virtua"
+import { VList, VListHandle } from "virtua"
+import InputArea from "@renderer/components/InputAreaComp"
+import { ChatProvider, useChatContext } from "@renderer/context/ChatContext"
+import ImageGalleryComp from "@renderer/components/ImageGalleryComp"
 
 const models = [
     {
@@ -235,16 +236,6 @@ const localProviders = [
 
 const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: RETURN ME THE TITLE ONLY.\n"
 
-type ChatContextType = {
-    lastMsgStatus: boolean;
-    reGenerate: () => void;
-    editableContentId: string | null;
-    setEditableContentId: (id: string | null) => void;
-    toast: any;
-};
-
-const ChatContext = createContext<ChatContextType | undefined>(undefined);
-
 export default () => {
     // @ts-ignore
     const appVersion = __APP_VERSION__
@@ -282,27 +273,24 @@ export default () => {
     const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
     const [selectModelPopoutState, setSelectModelPopoutState] = useState(false)
     const [sheetOpenState, setSheetOpenState] = useState<boolean>(false)
-    const [chatContent, setChatContent] = useState<string>()
-    const chatContentDebounce = useDebouncedValue(chatContent, 150)
     const [fetchState, setFetchState] = useState<boolean>()
     const [currentReqCtrl, setCurrReqCtrl] = useState<AbortController>()
     const [readStreamState, setReadStreamState] = useState<boolean>(false)
-    const [compositionState, setCompositionState] = useState<boolean>(false) // inputMethod state
     const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
     const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
     const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
     const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
     const [iptImgHoverIndex, setIptImgHoverIndex] = useState(-1)
-    const [imageSrcBase64List, setImageSrcBase64List] = useState<ClipbordImg[]>([]);
     const [sysEditableContentId, setSysEditableContentId] = useState(-1)
     const [chatWindowHeight, setChatWindowHeight] = useState(800)
 
     const textAreaRef = useRef<HTMLTextAreaElement>(null)
     const sheetContentRef = useRef<HTMLDivElement>(null)
-    const customPromptTextAreaRef = useRef<HTMLTextAreaElement>(null)
     const scrollAreaTopRef = useRef<HTMLDivElement>(null)
     const scrollAreaBottomRef = useRef<HTMLDivElement>(null)
     const chatWindowRef = useRef<HTMLDivElement>(null)
+
+    // const { imageSrcBase64List, setImageSrcBase64List } = useChatContext()
 
     useLayoutEffect(() => {
         refreshChatList()
@@ -310,35 +298,14 @@ export default () => {
 
     useEffect(() => {
         console.log('render []')
-
         const resizeObserver = new ResizeObserver((entries) => {
-            // console.log('re-size')
             entries.forEach(entry => {
-                // console.log('Element size changed:', entry.contentRect);
                 setChatWindowHeight(entry.contentRect.height)
             });
         })
-
         if (chatWindowRef.current) {
             resizeObserver.observe(chatWindowRef.current);
         }
-
-        setTimeout(() => {
-            // if (virtualDivRef.current) {
-            //     const heights: number[] = []
-            //     virtualDivRef.current.style.display = ''
-            //     const childElements = virtualDivRef.current.children;
-            //     // 遍历子元素并记录高度
-            //     for (let i = 0; i < childElements.length; i++) {
-            //         heights.push(childElements[i].clientHeight)
-            //     }
-            //     setVirHeightList([...heights])
-            //     // 输出子元素的高度
-            //     console.log('useEffect 子元素的高度:', heights)
-            //     virtualDivRef.current.style.display = 'none'
-            // }
-        }, 0)
-
         window.electron.ipcRenderer.invoke(GET_CONFIG).then((config: IAppConfig) => {
             setAppConfig({
                 ...appConfig,
@@ -347,42 +314,15 @@ export default () => {
             setUseCustomePrompt(config?.prompt?.useCustomePrompt || false)
             setCustomPrompt(config?.prompt?.custom || '')
         })
-
-        const handleMouseMove = (event) => {
-            // 检查鼠标是否靠近左边框，例如距离左边框 10 像素以内
-            const threshold = 15
-            const windowHeight = window.innerHeight
-            const offset = windowHeight / 3
-            if (event.clientX <= threshold && (event.clientY >= offset && event.clientY <= windowHeight - offset)) {
-                setSheetOpenState(true)
-            } else {
-                if (sheetContentRef.current) {
-                    const sheetRect = sheetContentRef.current.getBoundingClientRect();
-                    const sheetRightEdge = sheetRect.right;
-            
-                    if (event.clientX >= sheetRightEdge) {
-                        setSheetOpenState(false);
-                    }
-                }
-            }
-        }
-        // const onResize = (evt) => {
-        //     console.log(chatWindowRef.current.clientHeight)
-        // }
-        // if(chatWindowRef.current) {
-        //     addEventListener('resize', onResize)
-        // }
-        // addEventListener('mousemove', handleMouseMove)
-        return () => {
-            // removeEventListener('resize', onResize)
-        }
+        return () => {}
     }, [])
 
-    useEffect(() => {
-        if (textAreaRef.current) {
-            textAreaRef.current.scrollTop = textAreaRef.current.scrollHeight
-        }
-    }, [chatContent])
+    // 使用虚拟列表之后此处暂时无用了
+    // useEffect(() => {
+    //     if (textAreaRef.current) {
+    //         textAreaRef.current.scrollTop = textAreaRef.current.scrollHeight
+    //     }
+    // }, [chatContent])
 
     useEffect(() => {
         console.log('render [messageList]')
@@ -427,32 +367,8 @@ export default () => {
         })
     }
 
-    const onPropmtSwicterChange = (value: boolean) => {
-        setUseCustomePrompt(value)
-        onConfigurationsChange({ ...appConfig, prompt: { ...appConfig.prompt, useCustomePrompt: value } })
-    }
-
-    const onCustomPromptSave = () => {
-        if (customPromptTextAreaRef && customPromptTextAreaRef.current != null) {
-            const value = customPromptTextAreaRef.current.value
-            setCustomPrompt(value)
-            onConfigurationsChange({ ...appConfig, prompt: { ...appConfig.prompt, custom: value } })
-        }
-    }
-
     const onoSheetOpenChange = (val: boolean) => {
         setSheetOpenState(val)
-    }
-
-    // const onChatContentChange = debounce((event) => {
-    //     console.log(event.target.value)
-    //     setChatContent(event.target.value)
-    // }, 249)
-
-    const onChatContentChange = (event) => {
-        // setChatContent(event.target.value)
-        setChatContent(event.currentTarget.value)
-        // console.log(chatContentDebounce[0])
     }
 
     const beforeFetch = () => {
@@ -512,7 +428,6 @@ export default () => {
     }
 
     const onSubmitClick = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
-        // console.log('send content', content)
         if (!textCtx) {
           return
         }
@@ -555,7 +470,6 @@ export default () => {
         
         const messageEntities = [...messageEntityList, userMessageEntity]
         setMessageEntityList(messageEntities)
-        setChatContent('')
         setImageSrcBase64List([])
         
         const req: IChatRequestV2 = {
@@ -645,62 +559,6 @@ export default () => {
         refreshChatList()
     }
 
-    const onTextAreaKeyDown = (e) => {
-        if (e.key === 'Enter' && e.shiftKey) {
-            e.preventDefault() // 防止跳到新的一行
-            // console.log('Shift + Enter pressed!')
-            const inputElement = e.target
-            const start = inputElement.selectionStart
-            const end = inputElement.selectionEnd
-            // 获取当前输入框的内容
-            let value = inputElement.value
-            // 在光标位置插入换行符
-            value = value.substring(0, start) + "\n" + value.substring(end)
-            // 更新
-            inputElement.value = value
-            setChatContent(value)
-            // 将光标移动到换行符之后
-            inputElement.selectionStart = start + 1
-            inputElement.selectionEnd = start + 1
-            return
-        }
-        if (e.key === 'Enter' && !compositionState) {
-            e.preventDefault()
-            onSubmitClick(chatContent as string, imageSrcBase64List)
-        }
-    }
-
-    const onTextAreaPaste = (event) => {
-        // console.log('onPaste', event)
-        // const text = e.clipboardData.getData('text/plain')
-        const items = (event.clipboardData || event.originalEvent.clipboardData).items;
-        let blob = null
-
-        let findImg: boolean = false
-        // 遍历粘贴的数据项
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf('image') !== -1) {
-                // 找到图片类型的数据
-                blob = items[i].getAsFile()
-                findImg = true
-                break
-            }
-        }
-        console.log(`findImg? ${findImg}`)
-        if (blob) {
-            // 创建 FileReader 对象
-            const reader = new FileReader()
-            // 以 Data URL 的形式读取文件内容
-            reader.readAsDataURL(blob)
-            // 当文件读取完成后触发
-            reader.onloadend = () => {
-                // 设置图片的 src 属性为读取到的数据 URL
-                // console.log(reader.result) // base64 格式的图片数据
-                setImageSrcBase64List([...imageSrcBase64List, reader.result])
-            }
-        }
-    }
-
     const onChatClick = (e, chat: ChatEntity) => {
         setSheetOpenState(false)
         setChatTitle(chat.title)
@@ -731,14 +589,6 @@ export default () => {
         }
     }
 
-    const onCompositionStart = e => {
-        setCompositionState(true)
-    }
-
-    const onCompositionEnd = e => {
-        setCompositionState(false)
-    }
-
     const onMouseOverSheetChat = (chatId) => {
         setSheetChatItemHover(true)
         setSheetChatItemHoverChatId(chatId)
@@ -749,21 +599,15 @@ export default () => {
         setSheetChatItemHoverChatId(-1)
     }
 
-    const onSheetChatItemDeleteUndo = (chat: ChatEntity, timeoutId) => {
-        // chatList still contains the deleted chat so we just need to update it manually
+    const onSheetChatItemDeleteUndo = (chat: ChatEntity) => {
         setChatList([...chatList])
         updateChat(chat)
-        // clearTimeout(timeoutId)
     }
 
     const onSheetChatItemDeleteClick = (e, chat: ChatEntity) => {
         e.stopPropagation()
-        // console.log('delete-from-list', chat)
         setChatList(chatList.filter(item => item.id !== chat.id))
         deleteChat(chat.id)
-        // const timeoutId = setTimeout(() => {
-        //     deleteChat(chat.id)
-        // }, 3500)
         if (chat.id === chatId) {
             startNewChat()
         }
@@ -773,7 +617,7 @@ export default () => {
             description: '💬 Chat deleted',
             duration: 3000,
             action: (
-                <ToastAction onClick={_ => onSheetChatItemDeleteUndo(chat, -1)} className="bg-primary text-primary-foreground hover:bg-primary/90" altText="Undo delete chat">Undo</ToastAction>
+                <ToastAction onClick={_ => onSheetChatItemDeleteUndo(chat)} className="bg-primary text-primary-foreground hover:bg-primary/90" altText="Undo delete chat">Undo</ToastAction>
             ),
         })
     }
@@ -869,10 +713,6 @@ export default () => {
         })
         // TODO save provider to local config
     }
-
-    // const onResizablePanelResize = (size: number[]) => {
-    //     console.log(size)
-    // }
 
     return (
         <div className="div-app app-dragable flex flex-col">
@@ -1149,151 +989,130 @@ export default () => {
                 direction="vertical"
                 className={cn("div-body w-full rounded-lg border min-h-screen", "pt-[54px]")}
                 >
-                <ResizablePanel defaultSize={80}>
-                    <div ref={chatWindowRef} className="app-undragable h-full flex flex-col pl-1 pr-1 gap-4 overflow-y-scroll">
-                    <ScrollArea
-                        style={{
-                            backgroundImage: `url(${bgSvgBlack128})`
-                        }} 
-                        className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 bg-auto bg-center bg-no-repeat bg-clip-content relative">
-                        <div id="scrollAreaTop" ref={scrollAreaTopRef}></div>
-                        <ChatComponent 
-                            messages={messageEntityList} 
-                            lastMsgStatus={lastMsgStatus} 
-                            toast={toast} 
-                            reGenerate={doRegenerate}
-                            editableContentId={sysEditableContentId}
-                            setEditableContentId={setSysEditableContentId}
-                            chatWindowHeight={chatWindowHeight}
-                            />
-                        <Toaster />
-                        {(imageSrcBase64List.length > 0 ? 
-                            (
-                                <div className="h-1/6 max-w-full absolute bottom-0 left-1 flex overflow-x-scroll scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-                                    {imageSrcBase64List.map((imgItem, index) => (
-                                        <div 
-                                            key={index} 
-                                            className="h-full min-w-[10rem] relative"
-                                            onMouseOver={e => onInputImgMouseOver(e, index)}
-                                            onMouseLeave={onInputImgMouseLeave}
-                                            >
-                                            <img className={cn(
-                                                "h-full w-full p-0.5 object-cover backdrop-blur",
-                                                "transition-transform duration-300 ease-in-out",
-                                                "hover:scale-110"
-                                                )} 
-                                                src={imgItem as string} />
-                                            {
-                                                iptImgHoverIndex === index && <div onClick={e => onInputImgDelClick(e, index)} className="transition-all duration-300 ease-in-out absolute top-1 right-1"><Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 transition-all duration-300 ease-in-out hover:transform hover:rotate-180" /></div>
-                                            }
-                                        </div>
-                                    ))}
-                                </div>
-                            ): <></>
-                        )}
-                        <div id="scrollAreaBottom" ref={scrollAreaBottomRef}></div>
-                    </ScrollArea>
-                    </div>
-                </ResizablePanel>
-                <ResizableHandle />
-                <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
-                    <div className="app-undragable">
-                        <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={selectModelPopoutState}
-                                className="w-[22vw] max-w-[25vw] justify-between flex pl-1 pr-1"
-                                >
-                                    <span className="flex flex-grow overflow-x-hidden">
-                                    {
-                                        selectedModel ? 
-                                            (() => {
-                                                const selected = models.find(m => m.value === selectedModel)
-                                                if (!selected) return null
-                                                return selected.type === 'vlm' ? (
-                                                    <span className="flex space-x-2">
-                                                        <span>{selected.model}</span>
-                                                        <i className="ri-eye-line text-green-500"></i>
-                                                    </span>
-                                                ) : (
-                                                    selected.model
-                                                );
-                                            })()
-                                        : "Select model..."
-                                    }
-                                    </span>
-                                    <ChevronsUpDown className="flex opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-full p-0">
-                                <Command>
-                                <CommandInput placeholder="Search model..." className="h-9" />
-                                <CommandList>
-                                    <CommandEmpty>Oops...NotFound</CommandEmpty>
-                                    <CommandGroup>
-                                    {models.map((m) => (
-                                        <CommandItem
-                                        key={m.value}
-                                        value={m.value}
-                                        onSelect={(currentValue) => {
-                                            setSelectedModel(currentValue)
-                                            setSelectModelPopoutState(false)
-                                        }}
-                                        >
-                                        {m.model}
+                <ChatProvider>
+                    <ResizablePanel defaultSize={80}>
+                        <div ref={chatWindowRef} className="app-undragable h-full flex flex-col pl-1 pr-1 gap-4 overflow-y-scroll">
+                        <ScrollArea
+                            style={{
+                                backgroundImage: `url(${bgSvgBlack128})`
+                            }} 
+                            className="scroll-smooth app-undragable h-full w-full rounded-md border pt-2 bg-auto bg-center bg-no-repeat bg-clip-content relative">
+                            <div id="scrollAreaTop" ref={scrollAreaTopRef}></div>
+                            <ChatComponent 
+                                messages={messageEntityList} 
+                                lastMsgStatus={lastMsgStatus} 
+                                toast={toast} 
+                                reGenerate={doRegenerate}
+                                editableContentId={sysEditableContentId}
+                                setEditableContentId={setSysEditableContentId}
+                                chatWindowHeight={chatWindowHeight}
+                                />
+                            <Toaster />
+                            <ImageGalleryComp
+                                    iptImgHoverIndex={iptImgHoverIndex}
+                                    onInputImgMouseOver={onInputImgMouseOver}
+                                    onInputImgMouseLeave={onInputImgMouseLeave}
+                                    onInputImgDelClick={onInputImgDelClick}
+                                />
+                            {/* {(imageSrcBase64List.length > 0 ? 
+                                (
+                                    <div className="h-1/6 max-w-full absolute bottom-0 left-1 flex overflow-x-scroll scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+                                        {imageSrcBase64List.map((imgItem, index) => (
+                                            <div 
+                                                key={index} 
+                                                className="h-full min-w-[10rem] relative"
+                                                onMouseOver={e => onInputImgMouseOver(e, index)}
+                                                onMouseLeave={onInputImgMouseLeave}
+                                                >
+                                                <img className={cn(
+                                                    "h-full w-full p-0.5 object-cover backdrop-blur",
+                                                    "transition-transform duration-300 ease-in-out",
+                                                    "hover:scale-110"
+                                                    )} 
+                                                    src={imgItem as string} />
+                                                {
+                                                    iptImgHoverIndex === index && <div onClick={e => onInputImgDelClick(e, index)} className="transition-all duration-300 ease-in-out absolute top-1 right-1"><Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 transition-all duration-300 ease-in-out hover:transform hover:rotate-180" /></div>
+                                                }
+                                            </div>
+                                        ))}
+                                    </div>
+                                ): <></>
+                            )} */}
+                            <div id="scrollAreaBottom" ref={scrollAreaBottomRef}></div>
+                        </ScrollArea>
+                        </div>
+                    </ResizablePanel>
+                    <ResizableHandle />
+                    <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
+                        <div className="app-undragable">
+                            <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={selectModelPopoutState}
+                                    className="w-[22vw] max-w-[25vw] justify-between flex pl-1 pr-1"
+                                    >
+                                        <span className="flex flex-grow overflow-x-hidden">
                                         {
-                                            m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>
+                                            selectedModel ? 
+                                                (() => {
+                                                    const selected = models.find(m => m.value === selectedModel)
+                                                    if (!selected) return null
+                                                    return selected.type === 'vlm' ? (
+                                                        <span className="flex space-x-2">
+                                                            <span>{selected.model}</span>
+                                                            <i className="ri-eye-line text-green-500"></i>
+                                                        </span>
+                                                    ) : (
+                                                        selected.model
+                                                    );
+                                                })()
+                                            : "Select model..."
                                         }
-                                        <Check className={cn("ml-auto",selectedModel === m.value ? "opacity-100" : "opacity-0")}/>
-                                        </CommandItem>
-                                    ))}
-                                    </CommandGroup>
-                                </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                                        </span>
+                                        <ChevronsUpDown className="flex opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-full p-0">
+                                    <Command>
+                                    <CommandInput placeholder="Search model..." className="h-9" />
+                                    <CommandList>
+                                        <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                        <CommandGroup>
+                                        {models.map((m) => (
+                                            <CommandItem
+                                            key={m.value}
+                                            value={m.value}
+                                            onSelect={(currentValue) => {
+                                                setSelectedModel(currentValue)
+                                                setSelectModelPopoutState(false)
+                                            }}
+                                            >
+                                            {m.model}
+                                            {
+                                                m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>
+                                            }
+                                            <Check className={cn("ml-auto",selectedModel === m.value ? "opacity-100" : "opacity-0")}/>
+                                            </CommandItem>
+                                        ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="flex-grow app-dragable"></div>
                     </div>
-                    <div className="flex-grow app-dragable"></div>
-                </div>
-                <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
-                    <div className="flex h-full app-undragable ">
-                        <Textarea 
-                            className="w-full text-md pb-2"
-                            defaultValue={chatContent}
-                            ref={textAreaRef}
-                            placeholder="Anything you want yo ask..."
-                            onKeyDown={onTextAreaKeyDown} 
-                            onPaste={onTextAreaPaste} 
-                            onChange={onChatContentChange}
-                            onCompositionStart={onCompositionStart}
-                            onCompositionEnd={onCompositionEnd}
+                    <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
+                        <InputArea
+                            textAreaRef={textAreaRef}
+                            readStreamState={readStreamState}
+                            onSubmitClick={onSubmitClick}
+                            onStopBtnClick={onStopBtnClick}
                             />
-                    </div>
-                    {(!readStreamState ?
-                        <Button 
-                            className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", 
-                                readStreamState ? "-translate-x-full opacity-0" : ""
-                            )} 
-                            type="submit" 
-                            onClick={e => onSubmitClick(chatContent as string, imageSrcBase64List)}
-                            >
-                            Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" />
-                        </Button>
-                        :
-                        <Button 
-                            className={cn("fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center animate-bounce transition-transform duration-700 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1", 
-                                readStreamState ? "" : "-translate-x-full opacity-0"
-                            )} 
-                            variant="destructive" 
-                            type="submit" 
-                            onClick={onStopBtnClick}
-                            >
-                            Stop&ensp;<StopIcon />
-                        </Button>
-                    )}
-                </ResizablePanel>
+                    </ResizablePanel>
+                </ChatProvider>
             </ResizablePanelGroup>
             <div className="h-[35vh] fixed left-0 top-1/4 cursor-pointer w-[0.5vh] rounded-full hover:shadow-blue-600/100 hover:shadow-lg" onMouseEnter={onSheetHover} style={{userSelect: 'none'}}></div>
             {/* Sheet Section */}
@@ -1566,7 +1385,20 @@ interface ChatComponentProps {
 }
 
 const ChatComponent = (props: ChatComponentProps) => {
-    const { messages, lastMsgStatus, reGenerate, toast, editableContentId, setEditableContentId, chatWindowHeight } = props 
+    const { messages, lastMsgStatus, reGenerate, toast, editableContentId, setEditableContentId, chatWindowHeight } = props
+    const chatListRef = useRef<VListHandle>(null)
+    useEffect(() => {
+        const debouncedScrollToIndex = debounce(() => {
+            chatListRef.current?.scrollToIndex(messages.length, {
+                align: 'end',
+                smooth: true
+            });
+        }, 150)
+        debouncedScrollToIndex()
+        return () => {
+            debouncedScrollToIndex.cancel();
+        };
+    }, [messages])
     // return (
     //     <div className="scroll-smooth w-screen flex flex-col space-y-4 pr-2 pl-2 pb-2">
     //         {
@@ -1583,19 +1415,7 @@ const ChatComponent = (props: ChatComponentProps) => {
     //     </div>
     // )
     return (
-        <VList className="scroll-smooth" style={{ height: chatWindowHeight ? chatWindowHeight - 12 : 900, scrollBehavior: 'smooth' }}>
-        {/* {Array.from({ length: 1000 }).map((_, i) => (
-            <div
-            key={i}
-            style={{
-                height: '100%',
-                borderBottom: "solid 1px gray",
-                background: "white",
-            }}
-            >
-            {i}
-            </div>
-        ))} */}
+        <VList ref={chatListRef} className="scroll-smooth" style={{ height: chatWindowHeight ? chatWindowHeight - 12 : 900, scrollBehavior: 'smooth' }}>
             {
                 messages.map((message, index) => {
                     if (!message.body || !message.body.content || message.body.content.length === 0) {
@@ -1622,16 +1442,10 @@ interface UserChatItemProps {
 
 const UserChatItem = (props: UserChatItemProps) => {
     const {idx, message, msgSize, lastMsgStatus, reGenerate, toast} = props
-    // const [popoverState, setPopoverState] = useState(false)
-    // const { toast } = useToast()
-    const onContextMenuClick = (e) => {
-        // e.preventDefault()
-        // setPopoverState(!popoverState)
-    }
+    const onContextMenuClick = (e) => {}
     const onCopyClick = (copiedContent) => {
         navigator.clipboard.writeText(copiedContent)
         toast({
-            // title: 'Copied',
             duration: 500,
             variant: 'default',
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
@@ -1752,10 +1566,17 @@ interface AssistantChatItemProps {
     toast: Function
 }
 
+const PreTag = (props) => {
+    return <div className="preTag" {...props}></div>
+}
+
+const MemoSyntaxHighlighter = React.memo(SyntaxHighlighter)
+
 const SyntaxHighlighterWrapper = React.memo(({ children, language }: { children: string, language: string }) => {
     return (
-        <SyntaxHighlighter
-            PreTag="div"
+        <MemoSyntaxHighlighter
+            customStyle={{padding: '0', maxHeight: '300px', overflow: 'scroll'}}
+            PreTag={PreTag}
             children={String(children).replace(/\n$/, '')}
             language={language}
             style={dracula}
@@ -1764,9 +1585,82 @@ const SyntaxHighlighterWrapper = React.memo(({ children, language }: { children:
     );
 });
 
-const AssiatantChatItem = (props: AssistantChatItemProps) => {
-    const { idx, message, toast, editableContentId, setEditableContentId } = props
+const AssiatantChatItem: React.FC<AssistantChatItemProps> = ({ idx, message, toast, editableContentId, setEditableContentId }) => {
+    const onCopyClick = (copiedContent) => {
+        navigator.clipboard.writeText(copiedContent)
+        toast({
+            variant: 'default',
+            duration: 500,
+            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+            description: '✅ Content copied',
+        })
+    }
+    const onEditContentSave = (e) => {
+        const updatedContent = e.target.value
+        message.body.content = updatedContent
+        updateMessage(message)
+    }
+    return (
+        <ContextMenu key={idx} modal={true}>
+            <ContextMenuTrigger asChild>
+                <div key={idx} className="flex justify-start">
+                    <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-400 dark:text-slate-50 overflow-y-scroll">
+                        <ReactMarkdown 
+                            className="prose prose-code:text-gray-400 text-md font-medium max-w-[100%]"
+                            components={{
+                                code(props) {
+                                  const {children, className, node, ...rest} = props
+                                  const match = /language-(\w+)/.exec(className || '')
+                                  return match ? (
+                                    <SyntaxHighlighterWrapper
+                                      children={String(children).replace(/\n$/, '')}
+                                      language={match[1]}
+                                    />
+                                  ) : (
+                                    <code {...rest} className={className}>
+                                      {children}
+                                    </code>
+                                  )
+                                }
+                              }}
+                            >
+                            {message.body.content as string}
+                        </ReactMarkdown>
+                        {idx === editableContentId && (
+                            <Popover open={idx === editableContentId}>
+                                <PopoverTrigger></PopoverTrigger>
+                                <PopoverContent className="app-undragable w-[85vw] md:w-[80vw] lg:w-[75vw] h-[30vh] ml-2 p-1 border-0 backdrop-blur-sm bg-black/10 dark:bg-gray/50">
+                                    <div className="w-full h-full flex flex-col space-y-2 ">
+                                        <p className="pl-1 pr-1 text-inherit flex items-center justify-between">
+                                            <span>Edit</span>
+                                            <span onClick={e => setEditableContentId(-1)} className="bg-red-500 rounded-full text-white p-0.5"><Cross2Icon className="transition-all duration-300 ease-in-out hover:transform hover:rotate-180"></Cross2Icon></span>
+                                        </p>
+                                        <Textarea
+                                            defaultValue={message.body.content as string}
+                                            className="flex-grow h-auto"
+                                            onChange={onEditContentSave}
+                                        />
+                                        <div className="flex space-x-2 justify-end">
+                                            <Button variant={'secondary'} size={'sm'} onClick={e => setEditableContentId(-1)} className="bg-red-500 text-slate-50 hover:bg-red-400">Close</Button>
+                                            <Button size={'sm'} onClick={e => setEditableContentId(-1)}>Save</Button>
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    </div>
+                </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+                <ContextMenuItem onClick={_ => onCopyClick(message.body.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
+                <ContextMenuItem onClick={_ => setEditableContentId(idx)}>Edit<ContextMenuShortcut><Pencil2Icon /></ContextMenuShortcut></ContextMenuItem>
+            </ContextMenuContent>
+        </ContextMenu>
+    )
+}
 
+const AssiatantChatItem1 = (props: AssistantChatItemProps) => {
+    const { idx, message, toast, editableContentId, setEditableContentId } = props
     const onCopyClick = (copiedContent) => {
         navigator.clipboard.writeText(copiedContent)
         toast({
