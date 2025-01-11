@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useRef, useState } from 'react';
+import { VListHandle } from 'virtua';
 
 type ChatContextType = {
   lastMsgStatus: boolean;
@@ -6,6 +7,7 @@ type ChatContextType = {
   setEditableContentId: (id: number) => void;
   imageSrcBase64List: ClipbordImg[];
   setImageSrcBase64List: (imgs: ClipbordImg[]) => void;
+  chatListRef: React.RefObject<VListHandle>;
   reGenerate: () => void;
   toast: Function;
 };
@@ -20,14 +22,26 @@ export const useChatContext = () => {
 };
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [editableContentId, setEditableContentId] = useState<number | undefined>();
-  const [imageSrcBase64List, setImageSrcBase64List] = useState<ClipbordImg[]>([]);
+  const chatListRef = useRef<VListHandle>(null)
+  const [editableContentId, setEditableContentId] = useState<number | undefined>()
+  const [imageSrcBase64List, setImageSrcBase64List] = useState<ClipbordImg[]>([])
   const lastMsgStatus = false;
   const reGenerate = () => {};
   const toast = () => {};
 
   return (
-      <ChatContext.Provider value={{ imageSrcBase64List, setImageSrcBase64List, lastMsgStatus, reGenerate, editableContentId, setEditableContentId, toast }}>
+      <ChatContext.Provider 
+        value={{ 
+          chatListRef, 
+          imageSrcBase64List, 
+          setImageSrcBase64List, 
+          lastMsgStatus, 
+          reGenerate, 
+          editableContentId, 
+          setEditableContentId, 
+          toast
+        }}
+      >
           {children}
       </ChatContext.Provider>
   );
