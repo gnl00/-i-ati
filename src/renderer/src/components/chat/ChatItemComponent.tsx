@@ -10,7 +10,6 @@ import { updateMessage } from "../../db/MessageRepository"
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { dracula, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { debounce } from 'lodash'
-import AnimateHeight from 'react-animate-height'
 
 interface UserChatItemProps {
   idx: number
@@ -19,17 +18,11 @@ interface UserChatItemProps {
   lastMsgStatus: boolean
   reGenerate: Function
   toast: Function
-  itemRef?: Ref<HTMLDivElement>
+  elRef?: Ref<HTMLDivElement>
 }
 
 export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivElement, UserChatItemProps>((props, ref) => {
-  const { idx, message, msgSize, lastMsgStatus, reGenerate, toast, itemRef } = props
-  // useEffect(() => {
-  //   console.log('user', idx, itemRef);
-  //   if (idx === msgSize - 1) {
-  //     itemRef.current?.scrollIntoVew()
-  //   }
-  // }, [])
+  const { idx, message, msgSize, lastMsgStatus, reGenerate, toast, elRef } = props
   const onContextMenuClick = (e) => { }
   const onCopyClick = (copiedContent) => {
     navigator.clipboard.writeText(copiedContent)
@@ -63,7 +56,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
   return (
     <ContextMenu key={idx} modal={true}>
       <ContextMenuTrigger asChild>
-        <div ref={itemRef} className={cn("flex justify-end pr-3 mb-2")} onContextMenu={onContextMenuClick}>
+        <div ref={elRef} className={cn("flex justify-end pr-3 mb-2")} onContextMenu={onContextMenuClick}>
           {
             idx === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
           }

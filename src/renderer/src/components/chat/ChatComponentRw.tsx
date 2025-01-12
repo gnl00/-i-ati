@@ -62,7 +62,7 @@ export const ChatComponent = (props: ChatComponentProps) => {
                     return message.body.role == 'user' ?
                     <UserChatItemRef
                         key={index} 
-                        itemRef={chatListRefs[index]}
+                        elRef={chatListRefs[index]}
                         idx={index}
                         message={message}
                         msgSize={messages.length}
