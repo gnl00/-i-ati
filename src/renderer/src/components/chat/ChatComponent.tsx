@@ -1,5 +1,5 @@
 import { VList, VListHandle } from "virtua"
-import React, { useEffect, useRef, useMemo, useLayoutEffect, useState, forwardRef, useCallback } from "react"
+import React, { useEffect, useRef, useMemo, useLayoutEffect } from "react"
 import { UserChatItemRef, AssistantChatItemRef } from "./ChatItemComponent"
 import { debounce } from 'lodash'
 import AnimateHeight, { Height } from 'react-animate-height'
@@ -68,7 +68,7 @@ export const ChatComponent = (props: ChatComponentProps) => {
         //     }
         //     <div ref={scrollEndRef} className="scrollEndRef"></div>
         // </div>
-        <VList ref={chatListRef} className="scroll-smooth space-y-2" style={{ height: chatWindowHeight ? chatWindowHeight - 12 : 900 }}>
+        <VList ref={chatListRef} className="space-y-2" style={{ height: chatWindowHeight ? chatWindowHeight - 12 : 900, scrollBehavior: 'smooth' }}>
             {
                 messages.map((message, index) => {
                     if (!message.body || !message.body.content || message.body.content.length === 0) {
@@ -77,24 +77,22 @@ export const ChatComponent = (props: ChatComponentProps) => {
                     return message.body.role == 'user' ?
                         <UserChatItemRef
                             key={index}
-                            elRef={chatListRefs[index]}
                             idx={index}
+                            elRef={chatListRefs[index]}
                             message={message}
                             msgSize={messages.length}
                             lastMsgStatus={lastMsgStatus}
                             reGenerate={reGenerate}
-                            toast={toast}
                         />
                         :
                         <AssistantChatItemRef
                             key={index}
-                            itemRef={chatListRefs[index]}
                             idx={index}
+                            elRef={chatListRefs[index]}
                             msgSize={messages.length}
                             message={message}
                             editableContentId={editableContentId}
                             setEditableContentId={setEditableContentId}
-                            toast={toast}
                         />
                 })
             }

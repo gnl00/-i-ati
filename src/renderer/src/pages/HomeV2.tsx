@@ -27,42 +27,15 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@renderer/components/ui/tooltip"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogClose,
-    DialogFooter
-} from "@renderer/components/ui/dialog"
-import { Switch } from "@renderer/components/ui/switch"
 import { Badge } from '@renderer/components/ui/badge'
 import {
-    PaperPlaneIcon,
     GearIcon,
     QuestionMarkCircledIcon,
     DrawingPinIcon,
     DrawingPinFilledIcon,
     Pencil2Icon,
-    CrossCircledIcon,
-    SymbolIcon,
-    ReloadIcon,
-    Cross1Icon,
-    CheckIcon,
     Cross2Icon,
-    StopIcon,
-    CopyIcon,
-    PlusCircledIcon,
 } from "@radix-ui/react-icons"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@renderer/components/ui/select"
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Separator } from "@renderer/components/ui/separator"
 import {
@@ -89,21 +62,6 @@ import {
     CommandList,
 } from "@renderer/components/ui/command"
 import {
-    ContextMenu,
-    ContextMenuContent,
-    ContextMenuItem,
-    ContextMenuTrigger,
-    ContextMenuShortcut
-} from "@renderer/components/ui/context-menu"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@renderer/components/ui/dropdown-menu"
-import {
     Drawer,
     DrawerClose,
     DrawerContent,
@@ -116,20 +74,16 @@ import {
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@renderer/lib/utils"
 import React from 'react'
-import { useEffect, useRef, useState, forwardRef, useLayoutEffect, useMemo, createContext, useContext } from "react"
+import { useEffect, useRef, useState, useLayoutEffect } from "react"
 import { v4 as uuidv4 } from 'uuid';
 import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
 import { chatRequestWithHook, chatRequestWithHookV2 } from '@request/index'
-import { saveMessage, getMessageByIds, updateMessage } from '../db/MessageRepository'
+import { saveMessage, getMessageByIds } from '../db/MessageRepository'
 import { getChatById, saveChat, updateChat, getAllChat, deleteChat } from '../db/ChatRepository'
 import bgSvgBlack128 from '../assets/black-icon-128x128.svg'
 import { ModeToggle } from "@renderer/components/mode-toggle"
-import { debounce } from 'lodash'
-import { useDebouncedValue } from '@mantine/hooks'
-import List from 'rc-virtual-list'
-import { VList, VListHandle } from "virtua"
 import InputArea from "@renderer/components/InputAreaComp"
-import { ChatProvider, useChatContext } from "@renderer/context/ChatContext"
+import { ChatProvider } from "@renderer/context/ChatContext"
 import ImageGalleryComp from "@renderer/components/ImageGalleryComp"
 import { ChatComponent } from "@renderer/components/chat/ChatComponent"
 
@@ -318,10 +272,10 @@ export default () => {
     //     }
     // }, [chatContent])
 
-    useEffect(() => {
-        console.log('render [messageList]')
-        scrollAreaBottomRef.current?.scrollIntoView({behavior: 'auto'})
-    }, [messageEntityList])
+    // useEffect(() => {
+    //     console.log('render [messageList]')
+    //     scrollAreaBottomRef.current?.scrollIntoView({behavior: 'auto'})
+    // }, [messageEntityList])
 
     const refreshChatList = () => {
         getAllChat().then(res => {
@@ -395,7 +349,7 @@ export default () => {
             let eventDone = false
             const arr = value.split('\n')
             arr.forEach((data: any) => {
-                if (data.length === 0) return; // ignore empty message
+                if (data.length === 0) return // ignore empty message
                 if (data.startsWith(':')) return // ignore sse comment message
                 if (data === 'data: [DONE]') {
                     eventDone = true
@@ -464,7 +418,6 @@ export default () => {
 
         const messageEntities = [...messageEntityList, userMessageEntity]
         setMessageEntityList(messageEntities)
-        // setImageSrcBase64List([])
 
         const req: IChatRequestV2 = {
             url: appConfig.api!,
@@ -491,7 +444,7 @@ export default () => {
                         let eventDone = false
                         const arr = value.split('\n')
                         arr.forEach((data: any) => {
-                            if (data.length === 0) return; // ignore empty message
+                            if (data.length === 0) return // ignore empty message
                             if (data.startsWith(':')) return // ignore sse comment message
                             if (data === 'data: [DONE]') {
                                 eventDone = true
@@ -909,50 +862,6 @@ export default () => {
                                             }
                                         />
                                     </div>
-                                    {/* <div className="grid grid-cols-4 items-center gap-4">
-                                        <div className='col-span-4 flex items-center space-x-3'>
-                                            <Label htmlFor="promptModeSwitcher"><span>Custom Prompt</span></Label>
-                                            <Switch id='promptModeSwitcher' defaultChecked={useCustomePrompt} onCheckedChange={onPropmtSwicterChange} />
-                                            {
-                                                !useCustomePrompt ? <></> :
-                                                    <Dialog>
-                                                        <DialogTrigger asChild>
-                                                            <Button variant='outline' size='sm' className='w-24'>Edit Prompt</Button>
-                                                        </DialogTrigger>
-                                                        <DialogContent className='[&>button]:hidden rounded-md w-max'>
-                                                            <DialogHeader className='space-y-2'>
-                                                                <DialogTitle className='select-none'>
-                                                                <p className="flex justify-between">
-                                                                    <span className="antialiased text-inherit">Edit</span>
-                                                                    <DialogClose asChild>
-                                                                        <span className="bg-red-500 rounded-full text-white p-0.5"><Cross2Icon className="transition-all duration-300 ease-in-out hover:transform hover:rotate-180"></Cross2Icon></span>
-                                                                    </DialogClose>
-                                                                </p>
-                                                                </DialogTitle>
-                                                                <DialogDescription aria-describedby={undefined} />
-                                                                <div className='space-y-3'>
-                                                                    <Textarea
-                                                                        id="promptTextArea"
-                                                                        ref={customPromptTextAreaRef}
-                                                                        className="h-96 w-full text-base text-slate-600"
-                                                                        defaultValue={appConfig.prompt?.custom}
-                                                                        placeholder='Input your custom prompt here...'
-                                                                    />
-                                                                    <DialogFooter className="justify-start flex">
-                                                                        <p className='text-xs text-slate-500 select-none pt-2'>Remember to save the prompt. Click blur area to close popout content.</p>
-                                                                        <DialogClose asChild>
-                                                                            <Button onClick={onCustomPromptSave} size='sm'>
-                                                                                Save
-                                                                            </Button>
-                                                                        </DialogClose>
-                                                                    </DialogFooter>
-                                                                </div>
-                                                            </DialogHeader>
-                                                        </DialogContent>
-                                                    </Dialog>
-                                            }
-                                        </div>
-                                    </div> */}
                                     <div className="grid grid-cols-4 items-center gap-4">
                                         <p className='text-xs text-slate-500 col-span-4 select-none'>After configurations change, remember to save.</p>
                                     </div>

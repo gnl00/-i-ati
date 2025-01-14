@@ -67,6 +67,7 @@ pnpm build:mac
 - [ ] default model for chat
 - [ ] add provider
 - [ ] chat config topK/topP/maxToken...
+- [X] copyCode button
 
 ## Reference
 

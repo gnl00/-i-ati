@@ -73,7 +73,7 @@ export const ChatComponent = (props: ChatComponentProps) => {
                     :
                     <AssistantChatItemRef
                         key={index} 
-                        itemRef={chatListRefs[index]}
+                        elRef={chatListRefs[index]}
                         idx={index}
                         msgSize={messages.length}
                         message={message}
