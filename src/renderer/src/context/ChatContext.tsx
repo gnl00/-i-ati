@@ -184,7 +184,7 @@ type ChatContextType = {
   updateChatList: (chatEntity: ChatEntity) => void
   lastMsgStatus: boolean
   setLastMsgStatus: (state: boolean) => void
-  provider: IProvider
+  provider: IProvider | undefined
   setProvider: (Provider: IProvider | undefined) => void
   providers: IProvider[]
   setProviders: (providers: IProvider[]) => void
@@ -210,7 +210,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [appConfig, setAppConfig] = useState<IAppConfig>({
     providers: localProviders
   })
-  const [provider, setProvider] = useState<IProvider>({
+  const [provider, setProvider] = useState<IProvider | undefined>({
     name: "SilliconFlow",
     models: [
         {
