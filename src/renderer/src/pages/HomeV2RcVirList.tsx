@@ -1836,14 +1836,6 @@ const AssiatantChatItem = (props: AssistantChatItemProps) => {
     const onEditContentSave = (e) => {
         const updatedContent = e.target.value
         message.body.content = updatedContent
-        // setMessageList((prev: MessageEntity) => {
-        //     const nextMessages: MessageEntity[] = []
-        //     if (prev.id === message.id) {
-        //         nextMessages.push(message)
-        //     } else {
-        //         nextMessages.push(prev)
-        //     }
-        // })
         updateMessage(message)
     }
     return (

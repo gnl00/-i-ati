@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useMemo, useRef } from 'react'
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { dracula, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { toast } from "@renderer/components/ui/use-toast"
@@ -77,17 +77,22 @@ export const CodeCopyWrapper = React.memo(({ children, code, language }: { child
         })
     }
   }
+  const MemolizedCopyBtn = useMemo(() => {
+    return (
+      <Button
+      variant="ghost"
+      size="icon"
+      className="absolute -top-3 -right-2 rounded-full backdrop-blur hover:bg-gray-500 dark:hover:bg-gray-700 transition-colors"
+      onClick={copyToClipboard}
+      >
+        <ClipboardCopyIcon className="w-4 h-4" />
+    </Button>
+    )
+  }, [children])
   return (
     <div className='code-copy-wrapper relative'>
       {children}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute -top-3 -right-2 rounded-full backdrop-blur hover:bg-gray-500 dark:hover:bg-gray-700 transition-colors"
-        onClick={copyToClipboard}
-        >
-          <ClipboardCopyIcon className="w-4 h-4" />
-      </Button>
+      {MemolizedCopyBtn}
     </div>
   )
 })

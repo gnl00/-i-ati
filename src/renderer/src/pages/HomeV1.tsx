@@ -1,10 +1,4 @@
 import { Button } from '@renderer/components/ui/button'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger
-} from '@renderer/components/ui/accordion'
 import { Badge } from '@renderer/components/ui/badge'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Textarea } from '@renderer/components/ui/textarea'
@@ -14,9 +8,7 @@ import {
   GearIcon,
   DrawingPinIcon,
   DrawingPinFilledIcon,
-  QuestionMarkCircledIcon,
-  SpaceEvenlyHorizontallyIcon,
-  ChevronDownIcon
+  QuestionMarkCircledIcon
 } from '@radix-ui/react-icons'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
@@ -51,20 +43,11 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@renderer/components/ui/resizable"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@renderer/components/ui/sheet"
 import { Switch } from "@renderer/components/ui/switch"
 import { useEffect, useRef, useState } from 'react'
 import { PIN_WINDOW, GET_CONFIG, OPEN_EXTERNAL, SAVE_CONFIG } from '@constants/index'
-import { translateRequestWithHook, chatRequestWithHook } from '@request/index'
+import { chatRequestWithHook } from '@request/index'
 import ReactMarkdown from 'react-markdown'
-import List from 'rc-virtual-list'
 
 const models = [
   {

@@ -1,0 +1,63 @@
+[
+  {
+    "provider": "Qwen",
+    "name": "Qwen2.5-7B-Chat",
+    "value": "Qwen/Qwen2.5-7B-Chat",
+    "type": "llm",
+    "ability": ["functioncalling"]
+  },
+  {
+    "provider": "Qwen",
+    "name": "Qwen2.5-14B-Chat",
+    "value": "Qwen/Qwen2.5-14B-Chat",
+    "type": "llm",
+    "ability": ["functioncalling"]
+  },
+  {
+    "provider": "Qwen",
+    "name": "Qwen2.5-32B-Chat",
+    "value": "Qwen/Qwen2.5-32B-Chat",
+    "type": "llm",
+    "ability": ["functioncalling"]
+  },
+  {
+    "provider": "Qwen",
+    "name": "Qwen2.5-72B-Chat",
+    "value": "Qwen/Qwen2.5-72B-Chat",
+    "type": "llm",
+    "ability": ["functioncalling"]
+  },
+  {
+    "provider": "Qwen",
+    "name": "Qwen2.5-Coder-7B-Chat",
+    "value": "Qwen/Qwen2.5-Coder-7B-Chat",
+    "type": "llm",
+    "ability": ["functioncalling"]
+  },
+  {
+    "provider": "Qwen",
+    "name": "Qwen2.5-Coder-14B-Chat",
+    "value": "Qwen/Qwen2.5-Coder-14B-Chat",
+    "type": "llm",
+    "ability": ["functioncalling"]
+  },
+  {
+    "provider": "Qwen",
+    "name": "Qwen2-VL-72B-Instruct",
+    "value": "Qwen/Qwen2-VL-72B-Instruct",
+    "type": "vlm"
+  },
+  {
+    "provider": "deepseek-ai",
+    "name": "DeepSeek-V2.5",
+    "value": "deepseek-ai/DeepSeek-V2.5",
+    "type": "llm",
+    "ability": ["functioncalling"]
+  },
+  {
+    "provider": "deepseek-ai",
+    "name": "DeepSeek-vl2",
+    "value": "deepseek-ai/DeepSeek-vl2",
+    "type": "vlm"
+  }
+]

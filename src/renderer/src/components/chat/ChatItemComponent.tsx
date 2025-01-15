@@ -1,4 +1,4 @@
-import React, { useEffect, forwardRef, Ref, useRef } from 'react'
+import React, { forwardRef, Ref} from 'react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from "@renderer/lib/utils"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuTrigger } from "../ui/context-menu"
@@ -11,18 +11,19 @@ import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { toast } from "@renderer/components/ui/use-toast"
 import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '../md/SyntaxHighlighterWrapper'
+import { useChatContext } from '@renderer/context/ChatContext'
 
 interface UserChatItemProps {
   idx: number
   message: MessageEntity
   msgSize: number
-  lastMsgStatus: boolean
   reGenerate: Function
   elRef?: Ref<HTMLDivElement>
 }
 
 export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivElement, UserChatItemProps>((props, ref) => {
-  const { idx, message, msgSize, lastMsgStatus, reGenerate, elRef } = props
+  const { idx, message, msgSize, reGenerate, elRef } = props
+  const { lastMsgStatus } = useChatContext()
   const onContextMenuClick = (e) => { }
   const onCopyClick = (copiedContent) => {
     navigator.clipboard.writeText(copiedContent)

@@ -1,19 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from "@renderer/lib/utils";
 import { Cross1Icon } from "@radix-ui/react-icons";
 import { useChatContext } from '@renderer/context/ChatContext';
 
 interface ImageGalleryCompProps {
-    iptImgHoverIndex: number | null;
-    onInputImgMouseOver: (e: React.MouseEvent<HTMLDivElement>, index: number) => void;
-    onInputImgMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-const ImageGalleryComp: React.FC<ImageGalleryCompProps> = ({
-    iptImgHoverIndex,
-    onInputImgMouseOver,
-    onInputImgMouseLeave
-}) => {
+const ImageGalleryComp: React.FC<ImageGalleryCompProps> = (props: ImageGalleryCompProps) => {
+    const [iptImgHoverIndex, setIptImgHoverIndex] = useState(-1)
     const { imageSrcBase64List, setImageSrcBase64List } = useChatContext()
     const onInputImgDelClick = (_, delIndex) => {
         setImageSrcBase64List(imageSrcBase64List.filter((_, index) => index != delIndex))
@@ -25,8 +19,8 @@ const ImageGalleryComp: React.FC<ImageGalleryCompProps> = ({
                     <div
                         key={index}
                         className="h-full min-w-[10rem] relative"
-                        onMouseOver={e => onInputImgMouseOver(e, index)}
-                        onMouseLeave={onInputImgMouseLeave}
+                        onMouseOver={_ => {setIptImgHoverIndex(index)}}
+                        onMouseLeave={_ => {setIptImgHoverIndex(-1)}}
                     >
                         <img className={cn(
                             "h-full w-full p-0.5 object-cover backdrop-blur",

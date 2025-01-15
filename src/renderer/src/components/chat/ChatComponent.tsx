@@ -1,22 +1,19 @@
 import { VList, VListHandle } from "virtua"
-import React, { useEffect, useRef, useMemo, useLayoutEffect } from "react"
+import React, { useEffect, useRef, useMemo, useLayoutEffect, useState } from "react"
 import { UserChatItemRef, AssistantChatItemRef } from "./ChatItemComponent"
 import { debounce } from 'lodash'
 import AnimateHeight, { Height } from 'react-animate-height'
 import { Transition } from 'react-transition-group'
+import { useChatContext } from "@renderer/context/ChatContext"
 
 interface ChatComponentProps {
-    messages: MessageEntity[]
-    lastMsgStatus: boolean
-    reGenerate: Function
-    toast: Function
-    editableContentId: number
-    setEditableContentId: Function
     chatWindowHeight?: number
 }
 
 export const ChatComponent = (props: ChatComponentProps) => {
-    const { messages, lastMsgStatus, reGenerate, toast, editableContentId, setEditableContentId, chatWindowHeight } = props
+    const { chatWindowHeight } = props
+    const [editableContentId, setEditableContentId] = useState(-1)
+    const { messages } = useChatContext()
     const chatListRef = useRef<VListHandle>(null)
     const scrollEndRef = useRef<HTMLDivElement>(null)
     const chatListRefs = useMemo(() => {
@@ -35,6 +32,9 @@ export const ChatComponent = (props: ChatComponentProps) => {
             debouncedScrollToIndex.cancel();
         }
     }, [messages.length])
+    const reGenerate = (text, mediaCtx: []) => {
+        onSubmitClick(text, mediaCtx)
+    }
     return (
         // <div className="h-full space-x-2 scroll-smooth w-[100vw]">
         //     {
@@ -81,7 +81,6 @@ export const ChatComponent = (props: ChatComponentProps) => {
                             elRef={chatListRefs[index]}
                             message={message}
                             msgSize={messages.length}
-                            lastMsgStatus={lastMsgStatus}
                             reGenerate={reGenerate}
                         />
                         :
