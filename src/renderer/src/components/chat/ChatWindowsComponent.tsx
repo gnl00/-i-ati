@@ -32,7 +32,7 @@ const ChatWindowsComponent: React.FC = () => {
       entries.forEach(entry => {
         handleResize(entry)
       })
-    });
+    })
 
     if (chatWindowRef.current) {
       resizeObserver.observe(chatWindowRef.current)
