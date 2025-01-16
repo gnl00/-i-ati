@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { GearIcon, DrawingPinIcon, DrawingPinFilledIcon } from '@radix-ui/react-icons'
-import PreferenceComponent from './PreferenceComp'
+import PreferenceComponent from './PreferenceComponent'
 import { Button } from '../ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { ModeToggle } from '../mode-toggle'
 import { GET_CONFIG, OPEN_EXTERNAL, PIN_WINDOW } from '@constants/index'
 import { useChatContext } from '@renderer/context/ChatContext'
 
-interface HeaderProps {
+interface ChatHeaderProps {
 }
 
-const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
+const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) => {
   const [pinState, setPinState] = useState<boolean>(false)
   const { chatTitle, appConfig, setAppConfig } = useChatContext()
 
@@ -62,4 +62,4 @@ const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
   )
 }
 
-export default Header
+export default ChatHeaderComponent

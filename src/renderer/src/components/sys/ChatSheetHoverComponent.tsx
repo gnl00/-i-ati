@@ -1,9 +1,9 @@
 import React from 'react'
 import { useChatStore } from '@renderer/store'
 
-interface ChatSheetHoverCompProps {}
+interface ChatSheetHoverProps {}
 
-const ChatSheetHoverComp: React.FC<ChatSheetHoverCompProps> = (props: ChatSheetHoverCompProps) => {
+const ChatSheetHoverComponent: React.FC<ChatSheetHoverProps> = (props: ChatSheetHoverProps) => {
   const {setSheetOpenState} = useChatStore()
   return (
       <div
@@ -14,4 +14,4 @@ const ChatSheetHoverComp: React.FC<ChatSheetHoverCompProps> = (props: ChatSheetH
   )
 }
 
-export default ChatSheetHoverComp;
+export default ChatSheetHoverComponent

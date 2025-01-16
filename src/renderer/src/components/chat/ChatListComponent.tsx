@@ -19,8 +19,7 @@ const ChatListComponent = (props: ChatListProps) => {
     const scrollEndRef = useRef<HTMLDivElement>(null)
     const chatListRefs = useMemo(() => {
         return Array(messages.length).fill(null).map(() => React.createRef<HTMLDivElement>())
-    }, [messages.length])
-    useLayoutEffect(() => { }, [messages.length])
+    }, [messages])
     useEffect(() => {
         const debouncedScrollToIndex = debounce(() => {
             chatListRef.current?.scrollToIndex(messages.length - 1, {
@@ -32,7 +31,7 @@ const ChatListComponent = (props: ChatListProps) => {
         return () => {
             debouncedScrollToIndex.cancel();
         }
-    }, [messages.length])
+    }, [messages])
     return (
         // <div className="h-full space-x-2 scroll-smooth w-[100vw]">
         //     {

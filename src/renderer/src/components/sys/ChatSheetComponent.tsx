@@ -19,7 +19,7 @@ import { useChatStore } from '@renderer/store'
 
 interface ChatSheetProps {}
 
-const ChatSheet: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
+const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
     const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])
     const bgGradientColors = useMemo(() => [
         { from: 'from-[#FFD26F]', via: 'via-[#3687FF]', to: 'to-[#3677FF]' },
@@ -303,4 +303,4 @@ const ChatSheet: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
     )
 }
 
-export default ChatSheet;
+export default ChatSheetComponent;

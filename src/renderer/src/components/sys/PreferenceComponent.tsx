@@ -6,7 +6,7 @@ import { Badge } from '../ui/badge'
 import { Label } from '../ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandInput } from '../ui/command'
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, PlusCircleIcon, MinusCircleIcon } from "lucide-react"
 import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerDescription, DrawerTrigger, DrawerFooter, DrawerClose } from '../ui/drawer'
 import { Input } from '../ui/input'
 import { toast } from '../ui/use-toast'
@@ -16,11 +16,11 @@ import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { SAVE_CONFIG } from '@constants/index'
 
-interface PreferenceComponentProps {
+interface PreferenceProps {
     onTokenQuestionClick: (url: string) => void;
 }
 
-const PreferenceComponent: React.FC<PreferenceComponentProps> = ({
+const PreferenceComponent: React.FC<PreferenceProps> = ({
     onTokenQuestionClick,
 }) => {
     const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
@@ -50,7 +50,16 @@ const PreferenceComponent: React.FC<PreferenceComponentProps> = ({
 
     const onNewProviderModelsChange = e => {
         if (e.target.value) {
-            const models = e.target.value.split(',')
+            const modelNames = e.target.value.split(',')
+            const models: IModel[] = modelNames.map(name => {
+                const model: IModel = {
+                    provider: newProviderName,
+                    name: name,
+                    value: name,
+                    type: 'llm'
+                }
+                return model
+            })
             setNewProviderModels(models)
         }
     }
@@ -79,6 +88,13 @@ const PreferenceComponent: React.FC<PreferenceComponentProps> = ({
         })
         // TODO save provider to local config
     }
+    const onDelProviderBtnClick = (e) => {
+        e.preventDefault()
+        setSelectProviderPopoutState(false)
+        const filterProviders = providers.filter(p => provider.name !== p.name)
+        setProvider(filterProviders[0])
+        setProviders(filterProviders)
+    }
     return (
         <div className="grid gap-4">
             <div className="space-y-2 select-none">
@@ -89,9 +105,9 @@ const PreferenceComponent: React.FC<PreferenceComponentProps> = ({
                 <p className="text-sm text-muted-foreground">Set the preferences for @i</p>
             </div>
             <div className="grid gap-2">
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 items-center gap-1">
                     <Label htmlFor="provider">Provider</Label>
-                    <div className="app-undragable flex items-center space-x-4">
+                    <div className="app-undragable flex items-center space-x-1">
                         <Popover open={selectProviderPopoutState} onOpenChange={setSelectProviderPopoutState}>
                             <PopoverTrigger asChild>
                                 <Button
@@ -126,7 +142,7 @@ const PreferenceComponent: React.FC<PreferenceComponentProps> = ({
                                                     value={pr.name}
                                                     onSelect={(currentValue) => {
                                                         setSelectProviderPopoutState(false);
-                                                        setProvider(providers.findLast(p => p.name === currentValue));
+                                                        setProvider(providers.findLast(p => p.name === currentValue)!);
                                                     }}
                                                 >
                                                     {pr.name}
@@ -140,7 +156,12 @@ const PreferenceComponent: React.FC<PreferenceComponentProps> = ({
                         </Popover>
                         <Drawer>
                             <DrawerTrigger asChild>
+                                <div className="w-full flex space-x-1">
+                                    {/* <PlusCircleIcon className="bg-gray-100 text-gray-800 rounded-full p-1"></PlusCircleIcon> */}
+                                    {/* <MinusCircleIcon className="bg-red-500 text-white rounded-full p-1"></MinusCircleIcon> */}
                                 <Button className="w-full space-x-1" size="sm" variant={"secondary"} onClick={_ => { setSelectProviderPopoutState(false) }}>Add<i className="ri-add-circle-line text-lg"></i></Button>
+                                <Button className="w-full space-x-1" size="sm" variant={"destructive"} onClick={onDelProviderBtnClick}>Del<i className="ri-indeterminate-circle-line text-lg" /></Button>
+                                </div>
                             </DrawerTrigger>
                             <DrawerContent>
                                 <DrawerHeader>
@@ -250,7 +271,7 @@ const PreferenceComponent: React.FC<PreferenceComponentProps> = ({
                                             <QuestionMarkCircledIcon></QuestionMarkCircledIcon>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>Split by '\n'</p>
+                                            <p>Split by Enter</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
