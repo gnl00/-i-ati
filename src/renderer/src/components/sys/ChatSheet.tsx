@@ -15,6 +15,7 @@ import { ToastAction } from '../ui/toast'
 import { updateChat } from '@renderer/db/ChatRepository'
 import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { useChatContext } from '@renderer/context/ChatContext'
+import { useChatStore } from '@renderer/store'
 
 interface ChatSheetProps {}
 
@@ -32,7 +33,8 @@ const ChatSheet: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
     const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
     const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
 
-    const {chatId, chatUuid, chatList, setChatList, sheetOpenState, setSheetOpenState, setChatTitle, setChatUuid, setChatId, updateChatList, setMessages} = useChatContext()
+    const {chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList} = useChatContext()
+    const {sheetOpenState, setSheetOpenState, setMessages} = useChatStore()
 
     useEffect(() => {
         if(sheetOpenState) {

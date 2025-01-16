@@ -4,14 +4,14 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { Button } from '../ui/button';
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@renderer/lib/utils';
-import { useChatContext } from '@renderer/context/ChatContext';
+import { useChatStore } from '@renderer/store';
 
 interface ToolBarProps {}
 
-const ToolBarComp: React.FC<ToolBarProps> = (props: ToolBarProps) => {
-    const { selectedModel, setSelectedModel } = useChatContext()
+const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
     const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
-    const { models } = useChatContext()
+    const {models, selectedModel, setSelectedModel} = useChatStore()
+
     return (
         <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
             <div className="app-undragable">
@@ -55,8 +55,8 @@ const ToolBarComp: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                                             key={m.value}
                                             value={m.value}
                                             onSelect={(currentValue) => {
-                                                setSelectedModel(currentValue);
-                                                setSelectModelPopoutState(false);
+                                                setSelectedModel(currentValue)
+                                                setSelectModelPopoutState(false)
                                             }}
                                         >
                                             {m.name}
@@ -75,4 +75,4 @@ const ToolBarComp: React.FC<ToolBarProps> = (props: ToolBarProps) => {
     );
 };
 
-export default ToolBarComp
+export default ToolBarComponent

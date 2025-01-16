@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
-import { cn } from "@renderer/lib/utils";
-import { Cross1Icon } from "@radix-ui/react-icons";
-import { useChatContext } from '@renderer/context/ChatContext';
+import React, { useState } from 'react'
+import { cn } from "@renderer/lib/utils"
+import { Cross1Icon } from "@radix-ui/react-icons"
+import { useChatContext } from '@renderer/context/ChatContext'
 
-interface ImageGalleryCompProps {
-}
+interface ImageGalleryProps {}
 
-const ImageGalleryComp: React.FC<ImageGalleryCompProps> = (props: ImageGalleryCompProps) => {
+const ImageGalleryComponent: React.FC<ImageGalleryProps> = (props: ImageGalleryProps) => {
     const [iptImgHoverIndex, setIptImgHoverIndex] = useState(-1)
     const { imageSrcBase64List, setImageSrcBase64List } = useChatContext()
     const onInputImgDelClick = (_, delIndex) => {
@@ -37,7 +36,7 @@ const ImageGalleryComp: React.FC<ImageGalleryCompProps> = (props: ImageGalleryCo
                 ))}
             </div>
         ) : <></>
-    );
-};
+    )
+}
 
-export default ImageGalleryComp;
+export default ImageGalleryComponent

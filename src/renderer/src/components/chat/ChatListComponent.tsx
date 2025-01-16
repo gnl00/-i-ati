@@ -4,16 +4,17 @@ import { UserChatItemRef, AssistantChatItemRef } from "./ChatItemComponent"
 import { debounce } from 'lodash'
 import AnimateHeight, { Height } from 'react-animate-height'
 import { Transition } from 'react-transition-group'
-import { useChatContext } from "@renderer/context/ChatContext"
+import { useChatStore } from "@renderer/store"
 
-interface ChatComponentProps {
+interface ChatListProps {
     chatWindowHeight?: number
+    regenChat: (textCtx: string, mediaCtx: ClipbordImg[] | string[]) => Promise<void>
 }
 
-export const ChatComponent = (props: ChatComponentProps) => {
-    const { chatWindowHeight } = props
+const ChatListComponent = (props: ChatListProps) => {
+    const { chatWindowHeight, regenChat } = props
     const [editableContentId, setEditableContentId] = useState(-1)
-    const { messages } = useChatContext()
+    const { messages } = useChatStore()
     const chatListRef = useRef<VListHandle>(null)
     const scrollEndRef = useRef<HTMLDivElement>(null)
     const chatListRefs = useMemo(() => {
@@ -32,9 +33,6 @@ export const ChatComponent = (props: ChatComponentProps) => {
             debouncedScrollToIndex.cancel();
         }
     }, [messages.length])
-    const reGenerate = (text, mediaCtx: []) => {
-        onSubmitClick(text, mediaCtx)
-    }
     return (
         // <div className="h-full space-x-2 scroll-smooth w-[100vw]">
         //     {
@@ -81,7 +79,7 @@ export const ChatComponent = (props: ChatComponentProps) => {
                             elRef={chatListRefs[index]}
                             message={message}
                             msgSize={messages.length}
-                            reGenerate={reGenerate}
+                            reGenerate={(textCtx, mediaCtx) => regenChat(textCtx, mediaCtx)}
                         />
                         :
                         <AssistantChatItemRef
@@ -99,3 +97,5 @@ export const ChatComponent = (props: ChatComponentProps) => {
         </VList>
     )
 }
+
+export default ChatListComponent
