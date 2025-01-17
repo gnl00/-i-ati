@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-import { Popover, PopoverTrigger, PopoverContent } from '@radix-ui/react-popover';
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '../ui/command';
-import { Button } from '../ui/button';
-import { ChevronsUpDown, Check } from 'lucide-react';
-import { cn } from '@renderer/lib/utils';
-import { useChatStore } from '@renderer/store';
+import React, { useState } from 'react'
+import { Popover, PopoverTrigger, PopoverContent } from '@radix-ui/react-popover'
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '../ui/command'
+import { Button } from '../ui/button'
+import { ChevronsUpDown, Check } from 'lucide-react'
+import { cn } from '@renderer/lib/utils'
+import { useChatStore } from '@renderer/store'
 
 interface ToolBarProps {}
 
 const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
     const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
-    const {models, selectedModel, setSelectedModel} = useChatStore()
+    const {providers, models, selectedModel, setSelectedModel} = useChatStore()
 
     return (
         <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
@@ -30,11 +30,11 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                                         if (!selected) return null;
                                         return selected.type === 'vlm' ? (
                                             <span className="flex space-x-2">
-                                                <span>{selected.name}</span>
+                                                <span>{selected.value}</span>
                                                 <i className="ri-eye-line text-green-500"></i>
                                             </span>
                                         ) : (
-                                            selected.name
+                                            selected.value
                                         );
                                     })()
                                 ) : (
@@ -46,25 +46,36 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                     </PopoverTrigger>
                     <PopoverContent className="w-full p-0">
                         <Command>
-                            <CommandInput placeholder="Search model..." className="h-9" />
+                            <CommandInput placeholder="Search model..." className="h-auto" />
                             <CommandList>
                                 <CommandEmpty>Oops...NotFound</CommandEmpty>
-                                <CommandGroup>
-                                    {models.map((m) => (
-                                        <CommandItem
-                                            key={m.value}
-                                            value={m.value}
-                                            onSelect={(currentValue) => {
-                                                setSelectedModel(currentValue)
-                                                setSelectModelPopoutState(false)
-                                            }}
+                                {
+                                    providers.map((p) => p.models.length > 0 && (
+                                        <CommandGroup
+                                            key={p.name}
+                                            value={p.name}
+                                            className='scroll-smooth'
                                         >
-                                            {m.name}
-                                            {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
-                                            <Check className={cn("ml-auto", selectedModel === m.value ? "opacity-100" : "opacity-0")} />
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
+                                            <span className="text-xs text-gray-400">{p.name}</span>
+                                            {
+                                                p.models.map((m) => (
+                                                    <CommandItem
+                                                        key={m.value}
+                                                        value={m.value}
+                                                        onSelect={(currentValue) => {
+                                                            setSelectedModel(currentValue)
+                                                            setSelectModelPopoutState(false)
+                                                        }}
+                                                    >
+                                                        {m.value}
+                                                        {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
+                                                        <Check className={cn("ml-auto", selectedModel === m.value ? "opacity-100" : "opacity-0")} />
+                                                    </CommandItem>
+                                                ))
+                                            }
+                                        </CommandGroup>
+                                    ))
+                                }
                             </CommandList>
                         </Command>
                     </PopoverContent>
@@ -72,7 +83,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
             </div>
             <div className="flex-grow app-dragable"></div>
         </div>
-    );
-};
+    )
+}
 
 export default ToolBarComponent

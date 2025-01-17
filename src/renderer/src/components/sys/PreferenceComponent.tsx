@@ -15,6 +15,7 @@ import { TooltipProvider } from '../ui/tooltip'
 import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { SAVE_CONFIG } from '@constants/index'
+import { useChatStore } from '@renderer/store'
 
 interface PreferenceProps {
     onTokenQuestionClick: (url: string) => void;
@@ -28,12 +29,17 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
     const [newProviderApi, setNewProviderApi] = useState<string>()
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
     const [newProviderModels, setNewProviderModels] = useState<IModel[]>([])
-    const { appVersion, appConfig, setAppConfig, provider, setProvider, providers, setProviders } = useChatContext()
-    const onConfigurationsChange = (config: IAppConfig): void => {
-        setAppConfig({
-            ...appConfig,
-            ...config
+    const { appVersion, appConfig, setAppConfig } = useChatContext()
+    const { provider, setProvider, providers, setProviders } = useChatStore()
+    const onConfigurationsChange = (p: IProvider): void => {
+        setProvider({
+            ...provider,
+            ...p
         })
+    }
+    const onModelChange = (e) => {
+        const models = e.target.value.split(',')
+        console.log(models)
     }
     const saveConfigurationClick = (): void => {
         window.electron.ipcRenderer.invoke(SAVE_CONFIG, appConfig)
@@ -53,7 +59,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
             const modelNames = e.target.value.split(',')
             const models: IModel[] = modelNames.map(name => {
                 const model: IModel = {
-                    provider: newProviderName,
+                    provider: newProviderName!,
                     name: name,
                     value: name,
                     type: 'llm'
@@ -141,8 +147,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                     key={pr.name}
                                                     value={pr.name}
                                                     onSelect={(currentValue) => {
-                                                        setSelectProviderPopoutState(false);
-                                                        setProvider(providers.findLast(p => p.name === currentValue)!);
+                                                        setSelectProviderPopoutState(false)
+                                                        setProvider(providers.find(p => p.name === currentValue)!)
                                                     }}
                                                 >
                                                     {pr.name}
@@ -282,9 +288,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                         id="model"
                         className="col-span-3 h-8 text-sm"
                         value={provider?.models.map(m => m.value).join('\n') || ''}
-                        onChange={(event) =>
-                            onConfigurationsChange({ ...appConfig, model: event.target.value })
-                        }
+                        onChange={onModelChange}
                     />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">

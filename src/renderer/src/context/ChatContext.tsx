@@ -114,10 +114,6 @@ type ChatContextType = {
   updateChatList: (chatEntity: ChatEntity) => void
   lastMsgStatus: boolean
   setLastMsgStatus: (state: boolean) => void
-  provider: IProvider
-  setProvider: (Provider: IProvider) => void
-  providers: IProvider[]
-  setProviders: (providers: IProvider[]) => void
   appConfig: IAppConfig
   setAppConfig: (config: IAppConfig) => void
   appVersion: string
@@ -138,76 +134,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [appConfig, setAppConfig] = useState<IAppConfig>({
     providers: localProviders
   })
-  const [provider, setProvider] = useState<IProvider>({
-    name: "SilliconFlow",
-    models: [
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-7B-Instruct",
-            value: "Qwen/Qwen2.5-7B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-14B-Instruct",
-            value: "Qwen/Qwen2.5-14B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-32B-Instruct",
-            value: "Qwen/Qwen2.5-32B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-72B-Instruct",
-            value: "Qwen/Qwen2.5-72B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-Coder-7B-Instruct",
-            value: "Qwen/Qwen2.5-Coder-7B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-Coder-32B-Instruct",
-            value: "Qwen/Qwen2.5-Coder-32B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2-VL-72B-Instruct",
-            value: "Qwen/Qwen2-VL-72B-Instruct",
-            type: 'vlm'
-        },
-        {
-            provider: "deepseek-ai",
-            name: "DeepSeek-V2.5",
-            value: "deepseek-ai/DeepSeek-V2.5",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "deepseek-ai",
-            name: "deepseek-vl2",
-            value: "deepseek-ai/deepseek-vl2",
-            type: 'vlm'
-        },
-    ],
-    apiUrl: "https://api.siliconflow.cn/v1/chat/completions",
-    apiKey: 'sk-qfhmqnmegjzjycpueslxveqpnqpvsyseoqjjieoiutxpzkpx'
-  }) // current provider
-  const [providers, setProviders] = useState<IProvider[]>(localProviders) // all supported providers
-
   const [chatId, setChatId] = useState<number>()
   const [chatUuid, setChatUuid] = useState<string>()
   const [chatTitle, setChatTitle] = useState('NewChat')
@@ -242,8 +168,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           chatList, setChatList,
           lastMsgStatus, setLastMsgStatus,
           appConfig, setAppConfig,
-          provider, setProvider,
-          providers, setProviders,
           appVersion,
           updateChatList,
           chatListRef

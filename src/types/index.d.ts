@@ -1,5 +1,5 @@
 declare interface IModel {
-  provider?: string
+  provider: IProvider | string
   name: string
   value: string
   type: string

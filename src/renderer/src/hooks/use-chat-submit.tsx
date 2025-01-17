@@ -16,9 +16,8 @@ function chatSubmit() {
     chatTitle, setChatTitle,
     updateChatList,
     setLastMsgStatus,
-    provider,
   } = useChatContext()
-  const { models, messages, selectedModel, setMessages, setFetchState, setCurrentReqCtrl, setReadStreamState } = useChatStore()
+  const { models, messages, selectedModel, provider, providers, setMessages, setFetchState, setCurrentReqCtrl, setReadStreamState } = useChatStore()
 
   const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
     if (!textCtx) {
@@ -26,7 +25,8 @@ function chatSubmit() {
     }
 
     let messageBody: ChatMessage
-    const modelType = models.filter(md => md.value === selectedModel)[0].type
+    const model = models.findLast(model => selectedModel === model.value)!
+    const modelType = model.type
     if (modelType === 'llm') {
       messageBody = { role: "user", content: textCtx.trim() } as ChatMessage
     } else if (modelType === 'vlm') {
@@ -64,12 +64,13 @@ function chatSubmit() {
     const messageEntities = [...messages, userMessageEntity]
     setMessages(messageEntities)
 
+    const currProvider = model.provider as IProvider
     const req: IChatRequestV2 = {
-      url: provider.apiUrl,
+      url: currProvider.apiUrl,
       messages: messageEntities.map(msg => msg.body),
-      token: provider.apiKey,
+      token: currProvider.apiKey,
       prompt: '',
-      model: selectedModel!
+      model: model.value,
     }
 
     const controller = new AbortController()
@@ -77,8 +78,7 @@ function chatSubmit() {
     const signal = controller.signal
 
     let gatherResult = ''
-    chatRequestWithHookV2(req, signal, beforeFetch, afterFetch)
-      .then(async (reader) => {
+    chatRequestWithHookV2(req, signal, beforeFetch, afterFetch).then(async (reader) => {
         if (reader) {
           setReadStreamState(true)
           while (true) {
@@ -106,8 +106,7 @@ function chatSubmit() {
           }
         }
         setLastMsgStatus(true)
-      })
-      .catch(err => {
+      }).catch(err => {
         if (err.name !== 'AbortError') {
           toast({
             variant: "destructive",
@@ -116,8 +115,7 @@ function chatSubmit() {
           })
         }
         setLastMsgStatus(false)
-      })
-      .finally(async () => {
+      }).finally(async () => {
         setReadStreamState(false)
         const sysMessageEntity: MessageEntity = { body: { role: 'system', content: gatherResult } }
         const sysMsgId = await saveMessage(sysMessageEntity) as number
@@ -138,12 +136,14 @@ function chatSubmit() {
     setFetchState(false)
   }
   const generateTitle = async (context) => {
+    const usedModel = models.find(md => 'Qwen/Qwen2.5-14B-Instruct' === md.value)!
+    const currProvider = usedModel.provider as IProvider
     const titleReq: IChatRequest = {
-      url: provider.apiUrl,
-      content: generateTitlePrompt + context,
-      token: provider.apiKey,
-      prompt: '',
-      model: 'Qwen/Qwen2.5-14B-Instruct'
+      url: currProvider.apiUrl,
+      content: context,
+      prompt: generateTitlePrompt,
+      token: currProvider.apiKey,
+      model: usedModel.value
     }
 
     const reader = await chatRequestWithHook(titleReq, () => { }, () => { })
@@ -159,16 +159,15 @@ function chatSubmit() {
       let eventDone = false
       const arr = value.split('\n')
       arr.forEach((data: any) => {
-        if (data.length === 0) return // ignore empty message
-        if (data.startsWith(':')) return // ignore sse comment message
+        if (data.length === 0) return
+        if (data.startsWith(':')) return
         if (data === 'data: [DONE]') {
           eventDone = true
           return
         }
-        const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
+        const json = JSON.parse(data.substring(('data:'.length + 1)))
         const resultText = json.choices[0].delta.content
         title += resultText || ''
-        // console.log(preResult += resultText || '')
       })
       setChatTitle(title)
       if (eventDone) {
