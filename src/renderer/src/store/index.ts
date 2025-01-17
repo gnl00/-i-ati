@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { VListHandle } from 'virtua'
 import { create } from 'zustand'
 
@@ -195,9 +196,9 @@ declare type ChatStoreType = {
   setProvider: (Provider: IProvider) => void
   providers: IProvider[]
   setProviders: (providers: IProvider[]) => void
-  // appConfig: IAppConfig
-  // setAppConfig: (config: IAppConfig) => void
-  // appVersion: string
+  appConfig: IAppConfig
+  setAppConfig: (config: IAppConfig) => void
+  appVersion: string
   readStreamState: boolean
   setReadStreamState: (state: boolean) => void
 }
@@ -205,7 +206,6 @@ export const useChatStore = create<ChatStoreType>((set) => ({
   models: localModels.map(m => {
     const providerForModel = localProviders.find(p => p.name === m.provider)!
     m.provider = providerForModel
-    console.log(m)
     return m
   }),
   setModels: (models: IModel[]) => set({ models: models }),
@@ -294,4 +294,8 @@ export const useChatStore = create<ChatStoreType>((set) => ({
     apiKey: 'sk-qfhmqnmegjzjycpueslxveqpnqpvsyseoqjjieoiutxpzkpx'
   }, // current provider
   setProvider: (provider: IProvider) => set({ provider: provider }),
+  appConfig: {providers: localProviders},
+  setAppConfig: (appConfig: IAppConfig) => set({ appConfig: appConfig }),
+  // @ts-ignore
+  appVersion: __APP_VERSION__,
 }))

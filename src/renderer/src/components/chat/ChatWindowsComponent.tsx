@@ -24,7 +24,7 @@ const ChatWindowsComponent: React.FC = () => {
     console.log('render []')
 
     const handleResize = debounce((entry: ResizeObserverEntry) => {
-      console.log('handleResize debounceSet', entry)
+      // console.log('handleResize debounceSet', entry)
       setChatWindowHeight(entry.contentRect.height)
     }, 200)
 

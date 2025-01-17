@@ -6,13 +6,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { ModeToggle } from '../mode-toggle'
 import { GET_CONFIG, OPEN_EXTERNAL, PIN_WINDOW } from '@constants/index'
 import { useChatContext } from '@renderer/context/ChatContext'
+import { useChatStore } from '@renderer/store'
 
 interface ChatHeaderProps {
 }
 
 const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) => {
   const [pinState, setPinState] = useState<boolean>(false)
-  const { chatTitle, appConfig, setAppConfig } = useChatContext()
+  const { chatTitle } = useChatContext()
+  const { appConfig, setAppConfig } = useChatStore()
 
   useEffect(() => {
     window.electron.ipcRenderer.invoke(GET_CONFIG).then((config: IAppConfig) => {

@@ -114,9 +114,6 @@ type ChatContextType = {
   updateChatList: (chatEntity: ChatEntity) => void
   lastMsgStatus: boolean
   setLastMsgStatus: (state: boolean) => void
-  appConfig: IAppConfig
-  setAppConfig: (config: IAppConfig) => void
-  appVersion: string
 }
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
 
@@ -129,11 +126,6 @@ export const useChatContext = () => {
 }
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // @ts-ignore
-  const appVersion = useMemo(() => __APP_VERSION__, [__APP_VERSION__])
-  const [appConfig, setAppConfig] = useState<IAppConfig>({
-    providers: localProviders
-  })
   const [chatId, setChatId] = useState<number>()
   const [chatUuid, setChatUuid] = useState<string>()
   const [chatTitle, setChatTitle] = useState('NewChat')
@@ -167,8 +159,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           chatTitle, setChatTitle,
           chatList, setChatList,
           lastMsgStatus, setLastMsgStatus,
-          appConfig, setAppConfig,
-          appVersion,
           updateChatList,
           chatListRef
         }}

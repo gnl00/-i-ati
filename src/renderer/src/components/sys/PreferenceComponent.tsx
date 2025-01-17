@@ -13,7 +13,6 @@ import { toast } from '../ui/use-toast'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { TooltipProvider } from '../ui/tooltip'
 import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
-import { useChatContext } from '@renderer/context/ChatContext'
 import { SAVE_CONFIG } from '@constants/index'
 import { useChatStore } from '@renderer/store'
 
@@ -29,8 +28,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
     const [newProviderApi, setNewProviderApi] = useState<string>()
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
     const [newProviderModels, setNewProviderModels] = useState<IModel[]>([])
-    const { appVersion, appConfig, setAppConfig } = useChatContext()
-    const { provider, setProvider, providers, setProviders } = useChatStore()
+    const { appVersion, appConfig, setAppConfig, provider, setProvider, providers, setProviders } = useChatStore()
     const onConfigurationsChange = (p: IProvider): void => {
         setProvider({
             ...provider,
@@ -42,8 +40,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
         console.log(models)
     }
     const saveConfigurationClick = (): void => {
-        window.electron.ipcRenderer.invoke(SAVE_CONFIG, appConfig)
-        console.log('configurations to save: ', appConfig)
+        const nextAppConfig = {
+            ...appConfig,
+            providers: providers,
+        }
+        setAppConfig(nextAppConfig)
+        window.electron.ipcRenderer.invoke(SAVE_CONFIG, nextAppConfig)
+        console.log('configurations to save: ', nextAppConfig)
         toast({
             className: 'buttom-1 right-1 flex',
             variant: 'default',
@@ -163,10 +166,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                         <Drawer>
                             <DrawerTrigger asChild>
                                 <div className="w-full flex space-x-1">
-                                    {/* <PlusCircleIcon className="bg-gray-100 text-gray-800 rounded-full p-1"></PlusCircleIcon> */}
-                                    {/* <MinusCircleIcon className="bg-red-500 text-white rounded-full p-1"></MinusCircleIcon> */}
-                                <Button className="w-full space-x-1" size="sm" variant={"secondary"} onClick={_ => { setSelectProviderPopoutState(false) }}>Add<i className="ri-add-circle-line text-lg"></i></Button>
-                                <Button className="w-full space-x-1" size="sm" variant={"destructive"} onClick={onDelProviderBtnClick}>Del<i className="ri-indeterminate-circle-line text-lg" /></Button>
+                                <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false) }}>Add<i className="ri-add-circle-line text-lg"></i></Button>
+                                <Button className="w-full space-x-1" size="sm" variant={"destructiveGhost"} onClick={onDelProviderBtnClick}>Del<i className="ri-indeterminate-circle-line text-lg" /></Button>
                                 </div>
                             </DrawerTrigger>
                             <DrawerContent>

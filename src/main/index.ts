@@ -1,4 +1,4 @@
-import { app, session, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
 import * as fs from 'node:fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
