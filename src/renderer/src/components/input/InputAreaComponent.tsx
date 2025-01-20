@@ -84,7 +84,7 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
         <div className="flex h-full w-full app-undragable">
             <div className="flex h-full w-full app-undragable">
                 <Textarea
-                    className="w-full text-md rounded-xl mb-0.5"
+                    className="w-full text-md rounded-xl mb-0.5 border-0 border-input-0"
                     value={chatContent}
                     ref={inputAreaRef}
                     placeholder="Anything you want to ask..."
