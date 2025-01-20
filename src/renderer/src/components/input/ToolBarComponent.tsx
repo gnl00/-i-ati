@@ -5,15 +5,32 @@ import { Button } from '../ui/button'
 import { ChevronsUpDown, Check } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
+import { PaperPlaneIcon } from '@radix-ui/react-icons'
+import { StopIcon } from '@radix-ui/react-icons'
 
-interface ToolBarProps {}
+interface ToolBarProps {
+    onSubmit: (textCtx: string, mediaCtx: ClipbordImg[] | string[]) => Promise<void>
+}
 
 const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
+    const { onSubmit } = props
     const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
-    const {providers, models, selectedModel, setSelectedModel} = useChatStore()
-
+    const {currentReqCtrl, readStreamState, setReadStreamState, providers, models, selectedModel, setSelectedModel, 
+        chatContent, setChatContent, imageSrcBase64List, setImageSrcBase64List
+    } = useChatStore()
+    const onSubmitClick = (_) => {
+        onSubmit(chatContent, imageSrcBase64List)
+        setChatContent('')
+        setImageSrcBase64List([])
+    }
+    const onStopClick = (_) => {
+        if (currentReqCtrl) {
+            currentReqCtrl.abort()
+            setReadStreamState(false)
+        }
+    }
     return (
-        <div className="app-undragable flex min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
+        <div className="app-undragable flex items-center min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
             <div className="app-undragable">
                 <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
                     <PopoverTrigger asChild>
@@ -81,7 +98,36 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                     </PopoverContent>
                 </Popover>
             </div>
-            <div className="flex-grow app-dragable"></div>
+            <div className="flex-grow app-dragable flex">
+                <div className='flex-grow'></div>
+                <div className="app-undragable flex justify-end items-center mr-0.5">
+                    {(!readStreamState ? (
+                        <Button
+                            className={cn(
+                                "mt-0.5 mb-0.5 flex items-center transition-transform duration-1500 hover:animate-bounce",
+                                readStreamState ? "-translate-x-full opacity-0" : ""
+                            )}
+                            type="submit"
+                            size={'sm'}
+                            onClick={onSubmitClick}
+                        >
+                            Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" />
+                        </Button>
+                    ) : (
+                        <Button
+                            className={cn(
+                                "flex items-center animate-pulse transition-transform duration-700 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1",
+                                readStreamState ? "" : "-translate-x-full opacity-0"
+                            )}
+                            variant="destructive"
+                            type="submit"
+                            onClick={onStopClick}
+                        >
+                            Stop&ensp;<StopIcon />
+                        </Button>
+                    ))}
+                </div>
+            </div>
         </div>
     )
 }

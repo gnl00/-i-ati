@@ -1,106 +1,9 @@
-import React, { createContext, useContext, useMemo, useRef, useState } from 'react'
+import React, { createContext, useContext, useRef, useState } from 'react'
 import { VListHandle } from 'virtua'
-
-const localProviders: IProvider[] = [
-  {
-      name: "OpenAI",
-      models: [],
-      apiUrl: "https://api.openai.com/v1/chat/completions",
-      apiKey: ''
-  },
-  {
-      name: "Anthropic",
-      models: [],
-      apiUrl: "https://api.anthropic.com/v1/messages",
-      apiKey: ''
-  },
-  {
-      name: "DeepSeek",
-      models: [],
-      apiUrl: "https://api.deepseek.com",
-      apiKey: ''
-  },
-  {
-      name: "SilliconFlow",
-      models: [
-          {
-              provider: "Qwen",
-              name: "Qwen2.5-7B-Instruct",
-              value: "Qwen/Qwen2.5-7B-Instruct",
-              type: 'llm',
-              ability: ['functioncalling']
-          },
-          {
-              provider: "Qwen",
-              name: "Qwen2.5-14B-Instruct",
-              value: "Qwen/Qwen2.5-14B-Instruct",
-              type: 'llm',
-              ability: ['functioncalling']
-          },
-          {
-              provider: "Qwen",
-              name: "Qwen2.5-32B-Instruct",
-              value: "Qwen/Qwen2.5-32B-Instruct",
-              type: 'llm',
-              ability: ['functioncalling']
-          },
-          {
-              provider: "Qwen",
-              name: "Qwen2.5-72B-Instruct",
-              value: "Qwen/Qwen2.5-72B-Instruct",
-              type: 'llm',
-              ability: ['functioncalling']
-          },
-          {
-              provider: "Qwen",
-              name: "Qwen2.5-Coder-7B-Instruct",
-              value: "Qwen/Qwen2.5-Coder-7B-Instruct",
-              type: 'llm',
-              ability: ['functioncalling']
-          },
-          {
-              provider: "Qwen",
-              name: "Qwen2.5-Coder-32B-Instruct",
-              value: "Qwen/Qwen2.5-Coder-32B-Instruct",
-              type: 'llm',
-              ability: ['functioncalling']
-          },
-          {
-              provider: "Qwen",
-              name: "Qwen2-VL-72B-Instruct",
-              value: "Qwen/Qwen2-VL-72B-Instruct",
-              type: 'vlm'
-          },
-          {
-              provider: "deepseek-ai",
-              name: "DeepSeek-V2.5",
-              value: "deepseek-ai/DeepSeek-V2.5",
-              type: 'llm',
-              ability: ['functioncalling']
-          },
-          {
-              provider: "deepseek-ai",
-              name: "deepseek-vl2",
-              value: "deepseek-ai/deepseek-vl2",
-              type: 'vlm'
-          },
-      ],
-      apiUrl: "https://api.siliconflow.cn/v1/chat/completions",
-      apiKey: 'sk-qfhmqnmegjzjycpueslxveqpnqpvsyseoqjjieoiutxpzkpx'
-  },
-  {
-      name: "MoonShot",
-      models: [],
-      apiUrl: "https://api.moonshot.cn/v1",
-      apiKey: ''
-  }
-]
 
 type ChatContextType = {
   editableContentId: number | undefined
   setEditableContentId: (id: number) => void
-  imageSrcBase64List: ClipbordImg[]
-  setImageSrcBase64List: (imgs: ClipbordImg[]) => void
   chatListRef: React.RefObject<VListHandle>
 
   chatId: number | undefined
@@ -131,7 +34,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [chatTitle, setChatTitle] = useState('NewChat')
   const [chatList, setChatList] = useState<ChatEntity[]>([])
   const [editableContentId, setEditableContentId] = useState<number | undefined>()
-  const [imageSrcBase64List, setImageSrcBase64List] = useState<ClipbordImg[]>([])
   const [lastMsgStatus, setLastMsgStatus] = useState<boolean>(false)
 
   const chatListRef = useRef<VListHandle>(null)
@@ -151,8 +53,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
       <ChatContext.Provider 
-        value={{ 
-          imageSrcBase64List, setImageSrcBase64List,
+        value={{
           editableContentId, setEditableContentId,
           chatId, setChatId,
           chatUuid, setChatUuid,

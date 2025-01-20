@@ -3,7 +3,6 @@ import { cn } from "@renderer/lib/utils"
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Button } from "@renderer/components/ui/button"
 import { PaperPlaneIcon, StopIcon } from "@radix-ui/react-icons"
-import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 
 interface InputAreaProps {
@@ -13,14 +12,9 @@ interface InputAreaProps {
 
 const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElement, InputAreaProps>((props: InputAreaProps, inputAreaRef) => {
     const {onSubmit} = props
-    const [chatContent, setChatContent] = useState<string | undefined>()
     const [compositionState, setCompositionState] = useState<boolean>(false) // inputMethod state
 
-    const {
-        imageSrcBase64List, setImageSrcBase64List
-    } = useChatContext()
-
-    const { currentReqCtrl, readStreamState, setReadStreamState } = useChatStore()
+    const { currentReqCtrl, readStreamState, setReadStreamState, chatContent, setChatContent, imageSrcBase64List, setImageSrcBase64List } = useChatStore()
 
     const onTextAreaKeyDown = (e) => {
         if (e.key === 'Enter' && e.shiftKey) {
@@ -90,7 +84,7 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
         <div className="flex h-full w-full app-undragable">
             <div className="flex h-full w-full app-undragable">
                 <Textarea
-                    className="w-full text-md pb-2"
+                    className="w-full text-md rounded-xl mb-0.5"
                     value={chatContent}
                     ref={inputAreaRef}
                     placeholder="Anything you want to ask..."
@@ -101,7 +95,7 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
                     onCompositionEnd={_ => { setCompositionState(false) }}
                 />
             </div>
-            {(!readStreamState ? (
+            {/* {(!readStreamState ? (
                 <Button
                     className={cn(
                         "fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1",
@@ -124,7 +118,7 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
                 >
                     Stop&ensp;<StopIcon />
                 </Button>
-            ))}
+            ))} */}
         </div>
     )
 })

@@ -164,13 +164,15 @@ const localModels: IModel[] = [
 declare type ChatStoreType = {
   // editableContentId: number | undefined
   // setEditableContentId: (id: number) => void
-  // imageSrcBase64List: ClipbordImg[]
-  // setImageSrcBase64List: (imgs: ClipbordImg[]) => void
+  imageSrcBase64List: ClipbordImg[]
+  setImageSrcBase64List: (imgs: ClipbordImg[]) => void
   // chatListRef: React.RefObject<VListHandle>
   models: IModel[]
   setModels: (models: IModel[]) => void
   selectedModel: string | undefined
   setSelectedModel: (mode: string) => void
+  chatContent: string
+  setChatContent: (content: string) => void
   // chatId: number | undefined
   // setChatId: (chatId: number | undefined) => void
   // chatUuid: string | undefined
@@ -298,4 +300,8 @@ export const useChatStore = create<ChatStoreType>((set) => ({
   setAppConfig: (appConfig: IAppConfig) => set({ appConfig: appConfig }),
   // @ts-ignore
   appVersion: __APP_VERSION__,
+  chatContent: '',
+  setChatContent: (content: string) => set({ chatContent: content }),
+  imageSrcBase64List: [],
+  setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
 }))

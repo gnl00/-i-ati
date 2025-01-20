@@ -72,7 +72,7 @@ const ChatWindowsComponent: React.FC = () => {
         </div>
       </ResizablePanel>
       <ResizableHandle />
-      <ToolBarComponent />
+      <ToolBarComponent onSubmit={chatSubmit()} />
       <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
         <InputAreaComponent onSubmit={chatSubmit()} />
       </ResizablePanel>

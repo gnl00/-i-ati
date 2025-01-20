@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { cn } from "@renderer/lib/utils"
 import { Cross1Icon } from "@radix-ui/react-icons"
-import { useChatContext } from '@renderer/context/ChatContext'
+import { useChatStore } from '@renderer/store'
 
 interface ImageGalleryProps {}
 
 const ImageGalleryComponent: React.FC<ImageGalleryProps> = (props: ImageGalleryProps) => {
     const [iptImgHoverIndex, setIptImgHoverIndex] = useState(-1)
-    const { imageSrcBase64List, setImageSrcBase64List } = useChatContext()
+    const { imageSrcBase64List, setImageSrcBase64List } = useChatStore()
     const onInputImgDelClick = (_, delIndex) => {
         setImageSrcBase64List(imageSrcBase64List.filter((_, index) => index != delIndex))
     }
