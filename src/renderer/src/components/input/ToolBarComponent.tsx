@@ -30,7 +30,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
         }
     }
     return (
-        <div className="app-undragable flex items-center min-h-[2.5vh] pt-0.5 pb-0.5 pl-1">
+        <div className="app-undragable flex items-center min-h-[2.5vh] pt-0.5 pb-0.5 pl-1 border-1 border-b">
             <div className="app-undragable">
                 <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
                     <PopoverTrigger asChild>
