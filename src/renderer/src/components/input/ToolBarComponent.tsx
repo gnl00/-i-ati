@@ -7,6 +7,7 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { PaperPlaneIcon } from '@radix-ui/react-icons'
 import { StopIcon } from '@radix-ui/react-icons'
+import { useChatContext } from '@renderer/context/ChatContext'
 
 interface ToolBarProps {
     onSubmit: (textCtx: string, mediaCtx: ClipbordImg[] | string[]) => Promise<void>
@@ -16,11 +17,11 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
     const { onSubmit } = props
     const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
     const {currentReqCtrl, readStreamState, setReadStreamState, providers, models, selectedModel, setSelectedModel, 
-        chatContent, setChatContent, imageSrcBase64List, setImageSrcBase64List
+        imageSrcBase64List, setImageSrcBase64List
     } = useChatStore()
+    const {chatContent} = useChatContext()
     const onSubmitClick = (_) => {
         onSubmit(chatContent, imageSrcBase64List)
-        setChatContent('')
         setImageSrcBase64List([])
     }
     const onStopClick = (_) => {
@@ -104,7 +105,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                     {(!readStreamState ? (
                         <Button
                             className={cn(
-                                "mt-0.5 mb-0.5 flex items-center transition-transform duration-1500 hover:animate-bounce",
+                                "mt-0.5 mb-0.5 flex items-center transition-all duration-500 hover:scale-105",
                                 readStreamState ? "-translate-x-full opacity-0" : ""
                             )}
                             type="submit"
@@ -116,7 +117,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                     ) : (
                         <Button
                             className={cn(
-                                "flex items-center animate-pulse transition-transform duration-700 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1",
+                                "flex items-center animate-pulse transition-transform duration-700",
                                 readStreamState ? "" : "-translate-x-full opacity-0"
                             )}
                             variant="destructive"

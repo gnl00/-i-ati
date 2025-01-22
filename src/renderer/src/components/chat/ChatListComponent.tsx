@@ -5,6 +5,7 @@ import { debounce } from 'lodash'
 import AnimateHeight, { Height } from 'react-animate-height'
 import { Transition } from 'react-transition-group'
 import { useChatStore } from "@renderer/store"
+import { Link, Button, Element, Events, animateScroll as scroll, scrollSpy } from 'react-scroll'
 
 interface ChatListProps {
     chatWindowHeight?: number
@@ -21,19 +22,56 @@ const ChatListComponent = (props: ChatListProps) => {
         return Array(messages.length).fill(null).map(() => React.createRef<HTMLDivElement>())
     }, [messages])
     useEffect(() => {
-        const debouncedScrollToIndex = debounce(() => {
-            chatListRef.current?.scrollToIndex(messages.length - 1, {
-                align: 'end',
-                smooth: true
-            })
-        }, 10)
-        debouncedScrollToIndex()
-        return () => {
-            debouncedScrollToIndex.cancel();
-        }
+        // scrollEndRef.current?.scrollIntoView({
+        //     behavior: 'instant'
+        // })
+        // const debouncedScrollToIndex = debounce(() => {
+        //     chatListRef.current?.scrollToIndex(messages.length - 1, {
+        //         align: 'start',
+        //         smooth: true
+        //     })
+        // }, 99)
+        // debouncedScrollToIndex()
+        // return () => {
+        //     debouncedScrollToIndex.cancel();
+        // }
     }, [messages])
     return (
-        // <div className="h-full space-x-2 scroll-smooth w-[100vw]">
+        <div className="h-full space-x-2 w-[100vw] overflow-y-auto" id="chatContainer">
+            {
+                messages.map((message, index) => {
+                    if (!message.body || !message.body.content || message.body.content.length === 0) {
+                        return null
+                    }
+                    const elementName = `message-${index}`
+                    return (
+                        <Element name={elementName} key={index} className="scroll-smooth">
+                            {message.body.role === 'user' ? (
+                                <UserChatItemRef
+                                    idx={index}
+                                    elRef={chatListRefs[index]}
+                                    message={message}
+                                    msgSize={messages.length}
+                                    reGenerate={(textCtx, mediaCtx) => regenChat(textCtx, mediaCtx)}
+                                />
+                            ) : (
+                                <AssistantChatItemRef
+                                    idx={index}
+                                    elRef={chatListRefs[index]}
+                                    msgSize={messages.length}
+                                    message={message}
+                                    editableContentId={editableContentId}
+                                    setEditableContentId={setEditableContentId}
+                                />
+                            )}
+                        </Element>
+                    )
+                })
+            }
+            <Element name="scrollEnd" className="scrollEndRef" ref={scrollEndRef} />
+        </div>
+
+        // <VList ref={chatListRef} className="space-y-2" style={{ height: chatWindowHeight ? chatWindowHeight - 12 : 900, scrollBehavior: 'smooth' }}>
         //     {
         //         messages.map((message, index) => {
         //             if (!message.body || !message.body.content || message.body.content.length === 0) {
@@ -42,59 +80,27 @@ const ChatListComponent = (props: ChatListProps) => {
         //             return message.body.role == 'user' ?
         //                 <UserChatItemRef
         //                     key={index}
-        //                     itemRef={chatListRefs[index]}
         //                     idx={index}
+        //                     elRef={chatListRefs[index]}
         //                     message={message}
         //                     msgSize={messages.length}
-        //                     lastMsgStatus={lastMsgStatus}
-        //                     reGenerate={reGenerate}
-        //                     toast={toast}
+        //                     reGenerate={(textCtx, mediaCtx) => regenChat(textCtx, mediaCtx)}
         //                 />
         //                 :
         //                 <AssistantChatItemRef
         //                     key={index}
-        //                     itemRef={chatListRefs[index]}
         //                     idx={index}
+        //                     elRef={chatListRefs[index]}
         //                     msgSize={messages.length}
         //                     message={message}
         //                     editableContentId={editableContentId}
         //                     setEditableContentId={setEditableContentId}
-        //                     toast={toast}
         //                 />
         //         })
         //     }
         //     <div ref={scrollEndRef} className="scrollEndRef"></div>
-        // </div>
-        <VList ref={chatListRef} className="space-y-2" style={{ height: chatWindowHeight ? chatWindowHeight - 12 : 900, scrollBehavior: 'smooth' }}>
-            {
-                messages.map((message, index) => {
-                    if (!message.body || !message.body.content || message.body.content.length === 0) {
-                        return
-                    }
-                    return message.body.role == 'user' ?
-                        <UserChatItemRef
-                            key={index}
-                            idx={index}
-                            elRef={chatListRefs[index]}
-                            message={message}
-                            msgSize={messages.length}
-                            reGenerate={(textCtx, mediaCtx) => regenChat(textCtx, mediaCtx)}
-                        />
-                        :
-                        <AssistantChatItemRef
-                            key={index}
-                            idx={index}
-                            elRef={chatListRefs[index]}
-                            msgSize={messages.length}
-                            message={message}
-                            editableContentId={editableContentId}
-                            setEditableContentId={setEditableContentId}
-                        />
-                })
-            }
-            <div ref={scrollEndRef} className="scrollEndRef"></div>
-        </VList>
+        // </VList>
     )
 }
 
-export default ChatListComponent
+export default React.memo(ChatListComponent)

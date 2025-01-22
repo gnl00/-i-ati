@@ -4,6 +4,7 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { Button } from "@renderer/components/ui/button"
 import { PaperPlaneIcon, StopIcon } from "@radix-ui/react-icons"
 import { useChatStore } from '@renderer/store'
+import { useChatContext } from '@renderer/context/ChatContext'
 
 interface InputAreaProps {
     inputAreaRef?: Ref<HTMLTextAreaElement>
@@ -13,8 +14,9 @@ interface InputAreaProps {
 const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElement, InputAreaProps>((props: InputAreaProps, inputAreaRef) => {
     const {onSubmit} = props
     const [compositionState, setCompositionState] = useState<boolean>(false) // inputMethod state
-
-    const { currentReqCtrl, readStreamState, setReadStreamState, chatContent, setChatContent, imageSrcBase64List, setImageSrcBase64List } = useChatStore()
+    const [localContent, setLocalContent] = useState<string>('')
+    const {setChatContent} = useChatContext()
+    const { currentReqCtrl, readStreamState, setReadStreamState, imageSrcBase64List, setImageSrcBase64List } = useChatStore()
 
     const onTextAreaKeyDown = (e) => {
         if (e.key === 'Enter' && e.shiftKey) {
@@ -29,7 +31,7 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
             value = value.substring(0, start) + "\n" + value.substring(end)
             // 更新
             inputElement.value = value
-            setChatContent(value)
+            setLocalContent(value)
             // 将光标移动到换行符之后
             inputElement.selectionStart = start + 1
             inputElement.selectionEnd = start + 1
@@ -37,6 +39,7 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
         }
         if (e.key === 'Enter' && !compositionState) {
             e.preventDefault()
+            setChatContent(localContent)
             onInputAreaSubmit()
         }
     }
@@ -67,60 +70,30 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
         }
     }
     const onInputAreaSubmit = () => {
-        setChatContent('')
+        setLocalContent('')
         setImageSrcBase64List([])
-        onSubmitClick(chatContent as string, imageSrcBase64List)
+        onSubmitClick(localContent, imageSrcBase64List)
     }
     const onSubmitClick = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
         onSubmit(textCtx, mediaCtx)
-    }
-    const onStopBtnClick = () => {
-        if (currentReqCtrl) {
-            currentReqCtrl.abort()
-            setReadStreamState(false)
-        }
     }
     return (
         <div className="flex h-full w-full app-undragable">
             <div className="flex h-full w-full app-undragable">
                 <Textarea
                     className="w-full text-md rounded-xl mb-0.5 border-0 border-input-0"
-                    value={chatContent}
+                    value={localContent}
                     ref={inputAreaRef}
                     placeholder="Anything you want to ask..."
                     onKeyDown={onTextAreaKeyDown}
                     onPaste={onTextAreaPaste}
-                    onChange={e => { setChatContent(e.currentTarget.value) }}
+                    onChange={e => { setLocalContent(e.currentTarget.value) }}
                     onCompositionStart={_ => { setCompositionState(true) }}
                     onCompositionEnd={_ => { setCompositionState(false) }}
                 />
             </div>
-            {/* {(!readStreamState ? (
-                <Button
-                    className={cn(
-                        "fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center transition-transform duration-500 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1",
-                        readStreamState ? "-translate-x-full opacity-0" : ""
-                    )}
-                    type="submit"
-                    onClick={onInputAreaSubmit}
-                >
-                    Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" />
-                </Button>
-            ) : (
-                <Button
-                    className={cn(
-                        "fixed bottom-0 right-0 mr-2 mb-1.5 flex items-center animate-bounce transition-transform duration-700 hover:scale-120 hover:-translate-y-1 hover:-translate-x-1",
-                        readStreamState ? "" : "-translate-x-full opacity-0"
-                    )}
-                    variant="destructive"
-                    type="submit"
-                    onClick={onStopBtnClick}
-                >
-                    Stop&ensp;<StopIcon />
-                </Button>
-            ))} */}
         </div>
     )
 })
 
-export default InputAreaComponent
+export default React.memo(InputAreaComponent)

@@ -61,7 +61,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
           {
             idx === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
           }
-            <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-700 dark:bg-gray-800")}>
+            <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-[#eff6ff] dark:bg-blue-200")}>
               {typeof message.body.content !== 'string' ? (
                 <>
                   <div className="space-y-1">
@@ -75,7 +75,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
                             remarkPlugins={[remarkGfm]}
                             rehypePlugins={[rehypeRaw]}
                             remarkRehypeOptions={{ passThrough: ['link'] }}
-                            className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-slate-200 dark:text-slate-400 transition-all duration-400 ease-in-out")}
+                            className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-white dark:text-white0 transition-all duration-400 ease-in-out")}
                             components={{
                               code(props) {
                                 const { children, className, node, ...rest } = props
@@ -108,7 +108,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeRaw]}
                   remarkRehypeOptions={{ passThrough: ['link'] }}
-                  className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-slate-200 transition-all duration-400 ease-in-out")}
+                  className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-[#3b82f6] transition-all duration-400 ease-in-out")}
                   components={{
                     code(props) {
                       const { children, className, node, ...rest } = props
@@ -176,7 +176,7 @@ export const AssistantChatItemRef: React.FC<AssistantChatItemProps> = forwardRef
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw]}
                 remarkRehypeOptions={{ passThrough: ['link'] }}
-                className="prose prose-code:text-gray-400 text-md font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                className="prose prose-code:text-gray-400 dark:prose-code:text-gray-500 text-md font-medium max-w-[100%] transition-all duration-400 ease-in-out"
                 components={{
                   code(props) {
                     const { children, className, node, ...rest } = props

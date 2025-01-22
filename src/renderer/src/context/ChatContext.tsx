@@ -5,7 +5,8 @@ type ChatContextType = {
   editableContentId: number | undefined
   setEditableContentId: (id: number) => void
   chatListRef: React.RefObject<VListHandle>
-
+  chatContent: string
+  setChatContent: (content: string) => void
   chatId: number | undefined
   setChatId: (chatId: number | undefined) => void
   chatUuid: string | undefined
@@ -33,6 +34,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [chatUuid, setChatUuid] = useState<string>()
   const [chatTitle, setChatTitle] = useState('NewChat')
   const [chatList, setChatList] = useState<ChatEntity[]>([])
+  const [chatContent, setChatContent] = useState<string>('')
   const [editableContentId, setEditableContentId] = useState<number | undefined>()
   const [lastMsgStatus, setLastMsgStatus] = useState<boolean>(false)
 
@@ -54,6 +56,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
       <ChatContext.Provider 
         value={{
+          chatContent, setChatContent,
           editableContentId, setEditableContentId,
           chatId, setChatId,
           chatUuid, setChatUuid,

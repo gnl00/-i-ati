@@ -171,8 +171,8 @@ declare type ChatStoreType = {
   setModels: (models: IModel[]) => void
   selectedModel: string | undefined
   setSelectedModel: (mode: string) => void
-  chatContent: string
-  setChatContent: (content: string) => void
+//   chatContent: string
+//   setChatContent: (content: string) => void
   // chatId: number | undefined
   // setChatId: (chatId: number | undefined) => void
   // chatUuid: string | undefined
@@ -300,8 +300,8 @@ export const useChatStore = create<ChatStoreType>((set) => ({
   setAppConfig: (appConfig: IAppConfig) => set({ appConfig: appConfig }),
   // @ts-ignore
   appVersion: __APP_VERSION__,
-  chatContent: '',
-  setChatContent: (content: string) => set({ chatContent: content }),
+//   chatContent: '',
+//   setChatContent: (content: string) => set({ chatContent: content }),
   imageSrcBase64List: [],
   setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
 }))
