@@ -61,7 +61,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
           {
             idx === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
           }
-            <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-[#eff6ff] dark:bg-blue-200")}>
+            <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 shadow-lg bg-gray-700 dark:bg-gray-800")}>
               {typeof message.body.content !== 'string' ? (
                 <>
                   <div className="space-y-1">
@@ -108,7 +108,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeRaw]}
                   remarkRehypeOptions={{ passThrough: ['link'] }}
-                  className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-[#3b82f6] transition-all duration-400 ease-in-out")}
+                  className={cn("prose prose-code:text-gray-400 text-md font-medium max-w-[100%] text-gray-200 transition-all duration-400 ease-in-out")}
                   components={{
                     code(props) {
                       const { children, className, node, ...rest } = props
@@ -171,12 +171,12 @@ export const AssistantChatItemRef: React.FC<AssistantChatItemProps> = forwardRef
     <ContextMenu key={idx} modal={true}>
       <ContextMenuTrigger asChild>
         <div ref={elRef} key={idx} className="flex justify-start mb-2">
-        <div className="max-w-[85%] rounded-2xl bg-gray-100 px-4 py-3 text-gray-900 shadow-lg dark:bg-gray-400 dark:text-slate-50 overflow-y-scroll">
+        <div className="max-w-[85%] rounded-2xl px-4 py-3 shadow-lg  bg-gray-50 dark:bg-gray-600 overflow-y-scroll">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw]}
                 remarkRehypeOptions={{ passThrough: ['link'] }}
-                className="prose prose-code:text-gray-400 dark:prose-code:text-gray-500 text-md font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                className="prose prose-code:text-gray-400 dark:prose-code:text-gray-100 prose-counter:text-inherient  dark:text-slate-300 text-md font-medium max-w-[100%] transition-all duration-400 ease-in-out"
                 components={{
                   code(props) {
                     const { children, className, node, ...rest } = props
