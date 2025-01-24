@@ -68,6 +68,7 @@ const ChatWindowsComponent: React.FC = () => {
             <ChatListComponent chatWindowHeight={chatWindowHeight} regenChat={chatSubmit()} />
             <ImageGalleryComponent />
             <div id="scrollAreaBottom" />
+            {/* <div className="abso lute bg-red-300 z-10 right-3 bottom-1 rounded-full p-2">End</div> */}
           </ScrollArea>
         </div>
       </ResizablePanel>

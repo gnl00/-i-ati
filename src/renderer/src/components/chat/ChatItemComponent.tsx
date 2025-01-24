@@ -19,10 +19,11 @@ interface UserChatItemProps {
   msgSize: number
   reGenerate: Function
   elRef?: Ref<HTMLDivElement>
+  className?: string
 }
 
 export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivElement, UserChatItemProps>((props, ref) => {
-  const { idx, message, msgSize, reGenerate, elRef } = props
+  const { idx, message, msgSize, reGenerate, elRef, className } = props
   const { lastMsgStatus } = useChatContext()
   const onContextMenuClick = (e) => { }
   const onCopyClick = (copiedContent) => {
@@ -57,7 +58,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
   return (
     <ContextMenu key={idx} modal={true}>
       <ContextMenuTrigger asChild>
-        <div ref={elRef} className={cn("flex justify-end pr-3 mb-2")} onContextMenu={onContextMenuClick}>
+        <div ref={elRef} className={cn("flex justify-end pr-3 mb-2", className)} onContextMenu={onContextMenuClick}>
           {
             idx === msgSize && !lastMsgStatus && <span className="flex items-end pr-1 text-orange-500 font-bold text-lg"><i onClick={e => reGenerate(message.body.content)} className="ri-refresh-line"></i></span>
           }
