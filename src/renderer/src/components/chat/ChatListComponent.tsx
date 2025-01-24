@@ -62,7 +62,7 @@ const ChatListComponent = (props: ChatListProps) => {
                     )
                 })
             }
-            <div className="absolute bg-black/30 backdrop-blur-lg text-gray-300 z-10 right-3 bottom-1 rounded-full p-2" onClick={onEndClick}>End</div>
+            <div className="absolute bg-black/30 backdrop-blur-lg text-gray-300 z-10 right-1 bottom-1 rounded-full w-8 h-8 p-1 flex items-center justify-center" onClick={onEndClick}><i className="ri-arrow-down-fill"></i></div>
             <div id="scrollEnd" className="scrollEndRef" ref={scrollEndRef} />
         </div>
     )
