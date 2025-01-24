@@ -23,7 +23,7 @@ const ChatListComponent = (props: ChatListProps) => {
             block: 'end',
             inline: 'nearest'
         })
-    }, [chatId, fetchState])
+    }, [chatId, fetchState, messages.length])
     const onEndClick = (e) => {
         scrollEndRef.current?.scrollIntoView({
             behavior: 'smooth',
