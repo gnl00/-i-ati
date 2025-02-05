@@ -65,7 +65,7 @@ const ChatListComponent = (props: ChatListProps) => {
             }
             {
                 chatId && (
-                    <div className="absolute bg-black/30 backdrop-blur-lg text-gray-300 z-10 right-4 bottom-1 rounded-full w-8 h-8 p-1 flex items-center justify-center" onClick={onEndClick}><i className="ri-arrow-down-fill"></i></div>
+                    <div className="absolute bg-black/30 dark:bg-gray-50/30 backdrop-blur-lg text-gray-300 z-10 right-4 bottom-1 rounded-full w-8 h-8 p-1 flex items-center justify-center" onClick={onEndClick}><i className="ri-arrow-down-fill"></i></div>
                 )
             }
             <div id="scrollEnd" className="scrollEndRef" ref={scrollEndRef} />
