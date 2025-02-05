@@ -23,6 +23,7 @@ interface PreferenceProps {
 const PreferenceComponent: React.FC<PreferenceProps> = ({
     onTokenQuestionClick,
 }) => {
+    const [addProviderPopoutState, setAddProviderPopoutState] = useState(false)
     const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
     const [newProviderName, setNewProviderName] = useState<string>()
     const [newProviderApi, setNewProviderApi] = useState<string>()
@@ -97,11 +98,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
         })
         // TODO save provider to local config
     }
-    const onDelProviderBtnClick = (e) => {
+    const onDelProviderBtnClick = (e, providerName) => {
         e.preventDefault()
+        e.stopPropagation()
         setSelectProviderPopoutState(false)
-        const filterProviders = providers.filter(p => provider.name !== p.name)
-        setProvider(filterProviders[0])
+        const filterProviders = providers.filter(p => providerName !== p.name)
+        if(provider.name === providerName) {
+            setProvider(filterProviders[0])
+        }
         setProviders(filterProviders)
     }
     return (
@@ -156,19 +160,19 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                 >
                                                     {pr.name}
                                                     <Check className={cn("ml-auto", provider?.name === pr.name ? "opacity-100" : "opacity-0")} />
+                                                    <i onClick={e => {onDelProviderBtnClick(e, pr.name)}} className="ri-indeterminate-circle-line w-3 h-3 rounded-full p-3 text-red-300 hover:bg-red-400 hover:text-white flex justify-center items-center" />
                                                 </CommandItem>
                                             ))}
+                                            <CommandItem>
+                                                <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add<i className="ri-add-circle-line text-lg"></i></Button>
+                                            </CommandItem>
                                         </CommandGroup>
                                     </CommandList>
                                 </Command>
                             </PopoverContent>
                         </Popover>
-                        <Drawer>
+                        <Drawer open={addProviderPopoutState} onOpenChange={setAddProviderPopoutState}>
                             <DrawerTrigger asChild>
-                                <div className="w-full flex space-x-1">
-                                <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false) }}>Add<i className="ri-add-circle-line text-lg"></i></Button>
-                                <Button className="w-full space-x-1" size="sm" variant={"destructiveGhost"} onClick={onDelProviderBtnClick}>Del<i className="ri-indeterminate-circle-line text-lg" /></Button>
-                                </div>
                             </DrawerTrigger>
                             <DrawerContent>
                                 <DrawerHeader>
