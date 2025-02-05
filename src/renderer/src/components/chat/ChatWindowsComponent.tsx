@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, memo } from 'react'
 import {
   ResizableHandle,
   ResizablePanel,
@@ -15,7 +15,7 @@ import { useChatStore } from "@renderer/store"
 import { debounce } from 'lodash'
 import chatSubmit from '@renderer/hooks/use-chat-submit'
 
-const ChatWindowsComponent: React.FC = () => {
+const ChatWindowsComponent: React.FC = memo(() => {
   const { chatWindowHeight, setChatWindowHeight } = useChatStore()
   const chatWindowRef = useRef<HTMLDivElement>(null)
   const scrollAreaTopRef = useRef<HTMLDivElement>(null)
@@ -79,6 +79,6 @@ const ChatWindowsComponent: React.FC = () => {
       </ResizablePanel>
     </ResizablePanelGroup>
   )
-}
+})
 
 export default ChatWindowsComponent

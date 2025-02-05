@@ -1,5 +1,3 @@
-import { useMemo } from 'react'
-import { VListHandle } from 'virtua'
 import { create } from 'zustand'
 
 const localProviders: IProvider[] = [
@@ -183,8 +181,6 @@ declare type ChatStoreType = {
   // setChatList: (list: ChatEntity[]) => void
   messages: MessageEntity[]
   setMessages: (msgs: MessageEntity[]) => void
-  sheetOpenState: boolean
-  setSheetOpenState: (state: boolean) => void
   chatWindowHeight: number
   setChatWindowHeight: (height: number) => void
   fetchState: boolean
@@ -213,8 +209,6 @@ export const useChatStore = create<ChatStoreType>((set) => ({
   setModels: (models: IModel[]) => set({ models: models }),
   selectedModel: 'Qwen/Qwen2.5-Coder-32B-Instruct',
   setSelectedModel: (mode: string) => set({ selectedModel: mode }),
-  sheetOpenState: false,
-  setSheetOpenState: (state: boolean) => set({ sheetOpenState: state }),
   messages: [],
   setMessages: (msgs: MessageEntity[]) => set({ messages: msgs }),
   chatWindowHeight: 800,

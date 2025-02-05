@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { GearIcon, DrawingPinIcon, DrawingPinFilledIcon } from '@radix-ui/react-icons'
+import { GearIcon, DrawingPinIcon, DrawingPinFilledIcon, ActivityLogIcon } from '@radix-ui/react-icons'
 import PreferenceComponent from './PreferenceComponent'
 import { Button } from '../ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
@@ -7,6 +7,7 @@ import { ModeToggle } from '../mode-toggle'
 import { GET_CONFIG, OPEN_EXTERNAL, PIN_WINDOW } from '@constants/index'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
+import { useSheetStore } from '@renderer/store/sheet'
 
 interface ChatHeaderProps {
 }
@@ -15,6 +16,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
   const [pinState, setPinState] = useState<boolean>(false)
   const { chatTitle } = useChatContext()
   const { appConfig, setAppConfig } = useChatStore()
+  const {setSheetOpenState} = useSheetStore()
 
   useEffect(() => {
     window.electron.ipcRenderer.invoke(GET_CONFIG).then((config: IAppConfig) => {
@@ -38,6 +40,9 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
   return (
     <div className="header shadow-lg fixed top-0 w-full pb-2 pr-2 pl-2 pt-2 flex items-center justify-between z-10" style={{ userSelect: 'none' }}>
       <div className="app-dragable flex-1 space-x-2 flex">
+        <Button className="app-undragable" variant="outline" size="icon" onClick={e => {setSheetOpenState(true)}}>
+          <ActivityLogIcon />
+        </Button>
         <Popover>
           <PopoverTrigger asChild className="app-undragable">
             <Button variant="outline" size="icon">

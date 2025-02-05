@@ -15,11 +15,13 @@ import { ToastAction } from '../ui/toast'
 import { updateChat } from '@renderer/db/ChatRepository'
 import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { useChatContext } from '@renderer/context/ChatContext'
+import { useSheetStore } from '@renderer/store/sheet'
 import { useChatStore } from '@renderer/store'
 
 interface ChatSheetProps {}
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
+    const { sheetOpenState, setSheetOpenState } = useSheetStore()
     const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])
     const bgGradientColors = useMemo(() => [
         { from: 'from-[#FFD26F]', via: 'via-[#3687FF]', to: 'to-[#3677FF]' },
@@ -34,7 +36,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
 
     const {chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList} = useChatContext()
-    const {sheetOpenState, setSheetOpenState, setMessages} = useChatStore()
+    const {setMessages} = useChatStore()
 
     useEffect(() => {
         if(sheetOpenState) {

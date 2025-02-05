@@ -38,12 +38,12 @@ const ChatListComponent = (props: ChatListProps) => {
                     if (!message.body || !message.body.content || message.body.content.length === 0) {
                         return null
                     }
-                    const elementName = `message-${index}`
                     return (
                         message.body.role === 'user' ? (
                             <UserChatItemRef
                                 className="mr-1"
                                 idx={index}
+                                key={index}
                                 elRef={chatListRefs[index]}
                                 message={message}
                                 msgSize={messages.length}
@@ -52,6 +52,7 @@ const ChatListComponent = (props: ChatListProps) => {
                         ) : (
                             <AssistantChatItemRef
                                 idx={index}
+                                key={index}
                                 elRef={chatListRefs[index]}
                                 msgSize={messages.length}
                                 message={message}
