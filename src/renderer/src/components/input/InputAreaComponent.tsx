@@ -21,7 +21,6 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
     const onTextAreaKeyDown = (e) => {
         if (e.key === 'Enter' && e.shiftKey) {
             e.preventDefault() // 防止跳到新的一行
-            // console.log('Shift + Enter pressed!')
             const inputElement = e.target
             const start = inputElement.selectionStart
             const end = inputElement.selectionEnd
@@ -35,6 +34,8 @@ const InputAreaComponent: React.FC<InputAreaProps> = forwardRef<HTMLTextAreaElem
             // 将光标移动到换行符之后
             inputElement.selectionStart = start + 1
             inputElement.selectionEnd = start + 1
+            // 确保光标可见
+            inputElement.scrollTop = inputElement.scrollHeight
             return
         }
         if (e.key === 'Enter' && !compositionState) {
