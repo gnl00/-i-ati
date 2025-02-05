@@ -39,7 +39,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                             variant="outline"
                             role="combobox"
                             aria-expanded={selectModelPopoutState}
-                            className="w-[22vw] max-w-[25vw] justify-between flex pl-1 pr-1"
+                            className="w-auto justify-between flex pl-1 pr-1"
                         >
                             <span className="flex flex-grow overflow-x-hidden">
                                 {selectedModel ? (

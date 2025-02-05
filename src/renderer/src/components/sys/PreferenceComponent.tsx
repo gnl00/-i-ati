@@ -101,7 +101,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
     const onDelProviderBtnClick = (e, providerName) => {
         e.preventDefault()
         e.stopPropagation()
-        setSelectProviderPopoutState(false)
+        // setSelectProviderPopoutState(false)
         const filterProviders = providers.filter(p => providerName !== p.name)
         if(provider.name === providerName) {
             setProvider(filterProviders[0])
