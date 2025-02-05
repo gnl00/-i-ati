@@ -17,7 +17,7 @@ function chatSubmit() {
     updateChatList,
     setLastMsgStatus,
   } = useChatContext()
-  const { models, messages, selectedModel, provider, providers, setMessages, setFetchState, setCurrentReqCtrl, setReadStreamState } = useChatStore()
+  const { models, messages, selectedModel, setMessages, setFetchState, setCurrentReqCtrl, setReadStreamState } = useChatStore()
 
   const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
     if (!textCtx) {

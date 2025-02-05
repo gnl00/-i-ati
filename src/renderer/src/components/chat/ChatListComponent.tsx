@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useLayoutEffect, useState } from "react"
+import React, { useRef, useMemo, useState, useEffect } from "react"
 import { UserChatItemRef, AssistantChatItemRef } from "./ChatItemComponent"
 import { useChatStore } from "@renderer/store"
 import { useChatContext } from "@renderer/context/ChatContext"
@@ -17,18 +17,18 @@ const ChatListComponent = (props: ChatListProps) => {
     const chatListRefs = useMemo(() => {
         return Array(messages.length).fill(null).map(() => React.createRef<HTMLDivElement>())
     }, [messages])
-    useLayoutEffect(() => {
+    useEffect(() => {
         scrollEndRef.current?.scrollIntoView({
             behavior: 'smooth',
             block: 'end',
-            inline: 'nearest'
+            inline: 'end'
         })
     }, [chatId, fetchState, messages.length])
     const onEndClick = (e) => {
         scrollEndRef.current?.scrollIntoView({
             behavior: 'smooth',
             block: 'end',
-            inline: 'nearest'
+            inline: 'end'
         })
     }
     return (
@@ -65,7 +65,7 @@ const ChatListComponent = (props: ChatListProps) => {
             }
             {
                 chatId && (
-                    <div className="absolute bg-black/30 dark:bg-gray-50/30 backdrop-blur-lg text-gray-300 z-10 right-4 bottom-1 rounded-full w-8 h-8 p-1 flex items-center justify-center" onClick={onEndClick}><i className="ri-arrow-down-fill"></i></div>
+                    <div className="absolute bg-black/30 dark:bg-gray-50/30 backdrop-blur-lg text-gray-300 z-10 right-4 bottom-20 rounded-full w-8 h-8 p-1 flex items-center justify-center" onClick={onEndClick}><i className="ri-arrow-down-fill"></i></div>
                 )
             }
             <div id="scrollEnd" className="scrollEndRef" ref={scrollEndRef} />
