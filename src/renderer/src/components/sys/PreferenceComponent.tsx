@@ -6,7 +6,7 @@ import { Badge } from '../ui/badge'
 import { Label } from '../ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandInput } from '../ui/command'
-import { Check, ChevronsUpDown, PlusCircleIcon, MinusCircleIcon } from "lucide-react"
+import { Check, ChevronsUpDown } from "lucide-react"
 import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerDescription, DrawerTrigger, DrawerFooter, DrawerClose } from '../ui/drawer'
 import { Input } from '../ui/input'
 import { toast } from '../ui/use-toast'
