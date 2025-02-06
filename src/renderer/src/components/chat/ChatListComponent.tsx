@@ -11,13 +11,13 @@ interface ChatListProps {
 const ChatListComponent = (props: ChatListProps) => {
     const { regenChat } = props
     const [editableContentId, setEditableContentId] = useState(-1)
+    const [scrollUp, setScrollUp] = useState(false)
     const { messages, fetchState } = useChatStore()
     const { chatId } = useChatContext()
     const scrollEndRef = useRef<HTMLDivElement>(null)
     const chatListRefs = useMemo(() => {
         return Array(messages.length).fill(null).map(() => React.createRef<HTMLDivElement>())
     }, [messages])
-    const [scrollUp, setScrollUp] = useState(false)
     useEffect(() => {
         const chatContainer = document.getElementById('chatContainer')
         const handleWheel = (e: WheelEvent) => {

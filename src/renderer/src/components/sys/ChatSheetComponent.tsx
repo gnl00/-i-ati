@@ -53,7 +53,8 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
 
     const onNewChatClick = (_) => {
         setSheetOpenState(false)
-        if (chatId && chatUuid) {
+        console.log('current chatId ', chatId, 'chatUuid ', chatUuid)
+        if ((chatId && chatUuid) || !chatId || !chatUuid) {
             startNewChat()
         }
     }
@@ -283,16 +284,16 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                             </div>
                         </div>
                     </div>
-                    <div className="sheet-footer absolute bottom-12 w-full">
+                    <div className="sheet-footer absolute bottom-12 w-full select-none">
                         <div className="space-y-1">
-                            <h4 className="text-sm font-medium leading-none">Radix Primitives</h4>
+                            <h4 className="text-sm font-medium leading-none">Have a nice day~</h4>
                             <p className="text-sm text-muted-foreground">
-                                An open-source UI component library.
+                                Based on React & Electron & ShadcnUI.
                             </p>
                         </div>
                         <Separator className="my-4" />
                         <div className="flex h-5 items-center space-x-4 text-sm">
-                            <div>Blog</div>
+                            <div>...</div>
                             <Separator orientation="vertical" />
                             <div>Docs</div>
                             <Separator orientation="vertical" />
