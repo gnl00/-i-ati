@@ -90,16 +90,22 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
       // Currently, electron-vite not support nodeIntegration. 
       // nodeIntegration: true,
-      // contextIsolation: true
+      contextIsolation: true
     }
   })
 
   mainWindow.on('ready-to-show', async () => {
     mainWindow.show()
   })
+
+  // 监听 new-window 事件
+  // mainWindow.webContents.on('new-window', (event, url) => {
+  //   event.preventDefault() // 阻止默认行为（在应用内打开新窗口）
+  //   shell.openExternal(url) // 使用系统默认浏览器打开链接
+  // })
 
   // mainWindow.on('resize', async () => {
   //   const [width, height] = mainWindow.getSize();
@@ -113,10 +119,10 @@ function createWindow(): void {
   //   console.log('on-focus')
   // })
 
-  // mainWindow.webContents.setWindowOpenHandler((details) => {
-  //   shell.openExternal(details.url)
-  //   return { action: 'deny' }
-  // })
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url)
+    return { action: 'deny' }
+  })
 
   // mainWindow.webContents.on('did-finish-load', () => {
   //   // mainWindow.webContents.send('main-process-message', new Date().toLocaleString())

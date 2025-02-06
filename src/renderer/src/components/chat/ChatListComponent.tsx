@@ -17,7 +17,26 @@ const ChatListComponent = (props: ChatListProps) => {
     const chatListRefs = useMemo(() => {
         return Array(messages.length).fill(null).map(() => React.createRef<HTMLDivElement>())
     }, [messages])
+    const [scrollUp, setScrollUp] = useState(false)
     useEffect(() => {
+        const chatContainer = document.getElementById('chatContainer')
+        const handleWheel = (e: WheelEvent) => {
+            if (e.deltaY < 0) { // Scrolling up
+                setScrollUp(true)
+            }
+        }
+        chatContainer?.addEventListener('wheel', handleWheel)
+        return () => chatContainer?.removeEventListener('wheel', handleWheel)
+    }, [])
+    useEffect(() => {
+        if (!scrollUp) {
+            scrollEndRef.current?.scrollIntoView({
+                behavior:'instant'
+            })
+        }
+    }, [messages])
+    useEffect(() => {
+        setScrollUp(false)
         scrollEndRef.current?.scrollIntoView({
             behavior: 'smooth',
             block: 'end',

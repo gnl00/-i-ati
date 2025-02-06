@@ -101,7 +101,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
             </div>
             <div className="flex-grow app-dragable flex">
                 <div className='flex-grow'></div>
-                <div className="app-undragable flex justify-end items-center mr-0.5">
+                <div className="app-undragable flex justify-end items-center mr-1">
                     {(!readStreamState ? (
                         <Button
                             className={cn(
@@ -109,7 +109,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                                 readStreamState ? "-translate-x-full opacity-0" : ""
                             )}
                             type="submit"
-                            size={'sm'}
+                            size={'xs'}
                             onClick={onSubmitClick}
                         >
                             Enter&ensp;<PaperPlaneIcon className="-rotate-45 mb-1.5" />
@@ -117,11 +117,12 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                     ) : (
                         <Button
                             className={cn(
-                                "flex items-center animate-pulse transition-transform duration-700",
+                                "flex items-center animate-pulse transition-transform duration-800",
                                 readStreamState ? "" : "-translate-x-full opacity-0"
                             )}
                             variant="destructive"
                             type="submit"
+                            size={'xs'}
                             onClick={onStopClick}
                         >
                             Stop&ensp;<StopIcon />
