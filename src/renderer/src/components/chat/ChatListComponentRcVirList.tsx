@@ -1,23 +1,20 @@
-import { VList, VListHandle } from "virtua"
 import List, { ListRef } from 'rc-virtual-list'
-import React, { useEffect, useRef, Ref, RefObject, useMemo, useLayoutEffect, forwardRef } from "react"
-import { UserChatItem, UserChatItemRef, AssistantChatItem, AssistantChatItemRef } from "./ChatItemComponent"
+import React, { useEffect, useRef, forwardRef, useState } from "react"
+import { UserChatItemRef, AssistantChatItemRef } from "./ChatItemComponent"
 import { debounce } from 'lodash'
+import { useChatStore } from '@renderer/store';
 
 interface ChatItemProps {
     id: number;
     height: number;
     message?: MessageEntity;
     messageSize: number
-    toast: Function
-    lastMsgStatus: boolean
-    reGenerate: Function
-    editableContentId: number
-    setEditableContentId: Function
+    regenChat: (textCtx: string, mediaCtx: ClipbordImg[] | string[]) => Promise<void>
 }
 
 const ChatItemRef: React.FC<ChatItemProps> = forwardRef<HTMLDivElement, ChatItemProps>((props, ref) => {
-    const { id, height, message, messageSize, lastMsgStatus, reGenerate, editableContentId, setEditableContentId, toast } = props
+    const { id, height, message, messageSize, regenChat} = props
+    const [editableContentId, setEditableContentId] = useState(-1)
     if (message == undefined || !message.body || !message.body.content || message.body.content.length === 0) return <></>
     return (
         <div ref={ref}
@@ -32,13 +29,11 @@ const ChatItemRef: React.FC<ChatItemProps> = forwardRef<HTMLDivElement, ChatItem
             {
                 message.body.role == 'user' ?
                 <UserChatItemRef
-                key={id} 
+                key={id}
                 idx={id}
                 message={message}
                 msgSize={messageSize}
-                lastMsgStatus={lastMsgStatus}
-                reGenerate={reGenerate}
-                toast={toast}
+                reGenerate={(textCtx, mediaCtx) => regenChat(textCtx, mediaCtx)}
                 />
                 :
                 <AssistantChatItemRef
@@ -48,25 +43,20 @@ const ChatItemRef: React.FC<ChatItemProps> = forwardRef<HTMLDivElement, ChatItem
                     message={message}
                     editableContentId={editableContentId}
                     setEditableContentId={setEditableContentId}
-                    toast={toast}
                 />
             }
         </div>
     )
 })
 
-interface ChatComponentProps {
-    messages: MessageEntity[]
-    lastMsgStatus: boolean
-    reGenerate: Function
-    toast: Function
-    editableContentId: number
-    setEditableContentId: Function
+interface ChatListProps {
     chatWindowHeight?: number
+    regenChat: (textCtx: string, mediaCtx: ClipbordImg[] | string[]) => Promise<void>
 }
 
-export const ChatComponent = (props: ChatComponentProps) => {
-    const { messages, lastMsgStatus, reGenerate, toast, editableContentId, setEditableContentId, chatWindowHeight } = props
+const ChatListComponent = (props: ChatListProps) => {
+    const { regenChat, chatWindowHeight } = props
+    const { messages, fetchState } = useChatStore()
     const chatListRef = useRef<ListRef>(null)
     useEffect(() => {
         const debouncedScrollToIndex = debounce(() => {
@@ -86,11 +76,7 @@ export const ChatComponent = (props: ChatComponentProps) => {
             id: i,
             height: 300,
             message: messages[i],
-            lastMsgStatus,
-            reGenerate,
-            toast,
-            editableContentId,
-            setEditableContentId,
+            regenChat,
             messageSize: messages.length
         });
     }
@@ -102,10 +88,10 @@ export const ChatComponent = (props: ChatComponentProps) => {
             itemHeight={30}
             itemKey="id"
             ref={chatListRef}
-            style={{
-                scrollBehavior: 'smooth',
-                transition: 'all 0.3s ease'
-            }}
+            // style={{
+            //     scrollBehavior: 'smooth',
+            //     transition: 'all 0.3s ease'
+            // }}
             className="smooth-scroll"
             >
                 {item => <ChatItemRef {...item} />}
@@ -114,4 +100,6 @@ export const ChatComponent = (props: ChatComponentProps) => {
         </div>
     )
 }
+
+export default ChatListComponent
 
