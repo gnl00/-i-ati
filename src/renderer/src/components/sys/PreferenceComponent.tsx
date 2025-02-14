@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
@@ -30,6 +30,28 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
     const [newProviderModels, setNewProviderModels] = useState<IModel[]>([])
     const { appVersion, appConfig, setAppConfig, provider, setProvider, providers, setProviders } = useChatStore()
+
+    async function fetchModels() {
+        try {
+            console.log('Fetching models from URL:', 'https://raw.githubusercontent.com/gnl00/-i-ati/refs/heads/main/data/models.json');
+            const response = await fetch('https://raw.githubusercontent.com/gnl00/-i-ati/refs/heads/main/data/models.json');
+            console.log('Response received:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            const data = await response.json();
+            console.log('Data fetched:', data);
+            // fs.writeFileSync(path.join(__dirname, '../../data/models.json'), JSON.stringify(data, null, 2));
+            console.log('Models written to file successfully.');
+        } catch (error) {
+            console.error('Error fetching models:', error.message);
+        }
+    }
+
+    useEffect(() => {
+        fetchModels()
+    }, [])
+
     const onConfigurationsChange = (p: IProvider): void => {
         setProvider({
             ...provider,
@@ -75,26 +97,26 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
     }
     const onAddProviderBtnClick = e => {
         if (!newProviderName || !newProviderApi || !newProviderApiKey || newProviderModels.length === 0) {
-          alert(`Please fill all blanks`)
-          e.preventDefault()
-          return
+            alert(`Please fill all blanks`)
+            e.preventDefault()
+            return
         }
         if (providers.find(item => item.name == newProviderName) != undefined) {
-          alert(`Provider:${newProviderName} already exists!`)
-          e.preventDefault()
-          return
+            alert(`Provider:${newProviderName} already exists!`)
+            e.preventDefault()
+            return
         }
         setProviders([...providers, {
-          name: newProviderName,
-          models: [...newProviderModels],
-          apiUrl: newProviderApi,
-          apiKey: newProviderApiKey
+            name: newProviderName,
+            models: [...newProviderModels],
+            apiUrl: newProviderApi,
+            apiKey: newProviderApiKey
         }])
         toast({
-          variant: 'default',
-          duration: 800,
-          className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-          description: `✅ ${newProviderName} added`,
+            variant: 'default',
+            duration: 800,
+            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+            description: `✅ ${newProviderName} added`,
         })
         // TODO save provider to local config
     }
@@ -103,7 +125,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
         e.stopPropagation()
         // setSelectProviderPopoutState(false)
         const filterProviders = providers.filter(p => providerName !== p.name)
-        if(provider.name === providerName) {
+        if (provider.name === providerName) {
             setProvider(filterProviders[0])
         }
         setProviders(filterProviders)
@@ -160,7 +182,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                 >
                                                     {pr.name}
                                                     <Check className={cn("ml-auto", provider?.name === pr.name ? "opacity-100" : "opacity-0")} />
-                                                    <i onClick={e => {onDelProviderBtnClick(e, pr.name)}} className="ri-indeterminate-circle-line w-3 h-3 rounded-full p-3 text-red-300 hover:bg-red-400 hover:text-white flex justify-center items-center" />
+                                                    <i onClick={e => { onDelProviderBtnClick(e, pr.name) }} className="ri-indeterminate-circle-line w-3 h-3 rounded-full p-3 text-red-300 hover:bg-red-400 hover:text-white flex justify-center items-center" />
                                                 </CommandItem>
                                             ))}
                                             <CommandItem>
@@ -188,7 +210,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                     id="name"
                                                     placeholder="OpenAI"
                                                     className="col-span-2 h-10"
-                                                    onChange={e => {setNewProviderName(e.target.value)}}
+                                                    onChange={e => { setNewProviderName(e.target.value) }}
                                                 />
                                             </div>
                                             <div className="grid grid-cols-3 items-center gap-4">
@@ -197,7 +219,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                     id="apiUrl"
                                                     placeholder="https://api.openai.com/v1/chat/completions"
                                                     className="col-span-2 h-10"
-                                                    onChange={e => {setNewProviderApi(e.target.value)}}
+                                                    onChange={e => { setNewProviderApi(e.target.value) }}
                                                 />
                                             </div>
                                             <div className="grid grid-cols-3 items-center gap-4">
@@ -206,7 +228,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                     id="apiKey"
                                                     placeholder="sk-********"
                                                     className="col-span-2 h-10"
-                                                    onChange={e => {setNewProviderApiKey(e.target.value)}}
+                                                    onChange={e => { setNewProviderApiKey(e.target.value) }}
                                                 />
                                             </div>
                                             <div className="grid grid-cols-3 items-center gap-4">
