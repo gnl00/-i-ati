@@ -16,7 +16,7 @@ interface ToolBarProps {
 const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
     const { onSubmit } = props
     const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
-    const {currentReqCtrl, readStreamState, setReadStreamState, providers, models, selectedModel, setSelectedModel, 
+    const {currentReqCtrl, readStreamState, setReadStreamState, provider, providers, models, selectedModel, setSelectedModel, 
         imageSrcBase64List, setImageSrcBase64List
     } = useChatStore()
     const {chatContent} = useChatContext()
@@ -62,7 +62,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                             <ChevronsUpDown className="flex opacity-50" />
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-full p-0">
+                    <PopoverContent className="w-full p-0 border-2 ml-1 rounded">
                         <Command>
                             <CommandInput placeholder="Search model..." className="h-auto" />
                             <CommandList>

@@ -44,7 +44,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
             // fs.writeFileSync(path.join(__dirname, '../../data/models.json'), JSON.stringify(data, null, 2));
             console.log('Models written to file successfully.');
         } catch (error) {
-            console.error('Error fetching models:', error.message);
+            console.info('Error fetching models:', error.message);
         }
     }
 
