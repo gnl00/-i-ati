@@ -17,7 +17,17 @@ function chatSubmit() {
     updateChatList,
     setLastMsgStatus,
   } = useChatContext()
-  const { models, messages, selectedModel, setMessages, setFetchState, setCurrentReqCtrl, setReadStreamState } = useChatStore()
+  const { 
+    provider, 
+    models, 
+    messages, 
+    selectedModel, 
+    setMessages, 
+    setFetchState, 
+    setCurrentReqCtrl, 
+    setReadStreamState,
+    selectedTitleModel,
+  } = useChatStore()
 
   const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
     if (!textCtx) {
@@ -64,11 +74,10 @@ function chatSubmit() {
     const messageEntities = [...messages, userMessageEntity]
     setMessages(messageEntities)
 
-    const currProvider = model.provider as IProvider
     const req: IChatRequestV2 = {
-      url: currProvider.apiUrl,
+      url: provider.apiUrl,
       messages: messageEntities.map(msg => msg.body),
-      token: currProvider.apiKey,
+      token: provider.apiKey,
       prompt: '',
       model: model.value,
     }
@@ -106,16 +115,7 @@ function chatSubmit() {
           }
         }
         setLastMsgStatus(true)
-      }).catch(err => {
-        if (err.name !== 'AbortError') {
-          toast({
-            variant: "destructive",
-            title: "Uh oh! Something went wrong.",
-            description: `There was a problem with your request. ${err.message}`
-          })
-        }
-        setLastMsgStatus(false)
-      }).finally(async () => {
+      }).then(async () => {
         setReadStreamState(false)
         const sysMessageEntity: MessageEntity = { body: { role: 'system', content: gatherResult } }
         const sysMsgId = await saveMessage(sysMessageEntity) as number
@@ -127,6 +127,15 @@ function chatSubmit() {
         chatEntity.updateTime = new Date().getTime()
         updateChat(chatEntity)
         updateChatList(chatEntity)
+      }).catch(err => {
+        if (err.name !== 'AbortError') {
+          toast({
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: `There was a problem with your request. ${err.message}`
+          })
+        }
+        setLastMsgStatus(false)
       })
   }
   const beforeFetch = () => {
@@ -136,14 +145,14 @@ function chatSubmit() {
     setFetchState(false)
   }
   const generateTitle = async (context) => {
-    const usedModel = models.find(md => 'Qwen/Qwen2.5-14B-Instruct' === md.value)!
-    const currProvider = usedModel.provider as IProvider
+    const titleModel = models.find(md => selectedTitleModel === md.value)!
+    const titleProvider = titleModel.provider as IProvider
     const titleReq: IChatRequest = {
-      url: currProvider.apiUrl,
+      url: titleProvider.apiUrl,
       content: context,
       prompt: generateTitlePrompt,
-      token: currProvider.apiKey,
-      model: usedModel.value
+      token: titleProvider.apiKey,
+      model: titleModel.value
     }
 
     const reader = await chatRequestWithHook(titleReq, () => { }, () => { })
@@ -165,9 +174,13 @@ function chatSubmit() {
           eventDone = true
           return
         }
-        const json = JSON.parse(data.substring(('data:'.length + 1)))
-        const resultText = json.choices[0].delta.content
-        title += resultText || ''
+        try {
+          const json = JSON.parse(data.substring(('data:'.length + 1)))
+          const resultText = json.choices[0].delta.content
+          title += resultText || ''
+        } catch (error: any) {
+          console.log("Generate title ERROR: ", error.message)
+        }
       })
       setChatTitle(title)
       if (eventDone) {

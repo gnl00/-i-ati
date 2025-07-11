@@ -48,6 +48,12 @@ pnpm build:mac
 > No icon show in Linux?
 > Add more resolution icon under `build` folder, 256x256/512x512/1024x1024... then build again
 
+## ScreenShot
+
+![screenshot-1](./screenshot/screenshot-1.png)
+
+![screenshot-2](./screenshot/screenshot-2.png)
+
 ## TODO
 
 - [X] api quetsion tooltip

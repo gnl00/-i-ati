@@ -16,7 +16,13 @@ interface ToolBarProps {
 const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
     const { onSubmit } = props
     const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
-    const {currentReqCtrl, readStreamState, setReadStreamState, provider, providers, models, selectedModel, setSelectedModel, 
+    const { currentReqCtrl, 
+        readStreamState, setReadStreamState, 
+        setProvider, 
+        providers, 
+        models, 
+        selectedModel, 
+        setSelectedModel, 
         imageSrcBase64List, setImageSrcBase64List
     } = useChatStore()
     const {chatContent} = useChatContext()
@@ -82,6 +88,7 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                                                         value={m.value}
                                                         onSelect={(currentValue) => {
                                                             setSelectedModel(currentValue)
+                                                            setProvider(providers.findLast(p => p.name == m.provider)!)
                                                             setSelectModelPopoutState(false)
                                                         }}
                                                     >

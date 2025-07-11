@@ -9,6 +9,7 @@ import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandI
 import { Check, ChevronsUpDown } from "lucide-react"
 import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerDescription, DrawerTrigger, DrawerFooter, DrawerClose } from '../ui/drawer'
 import { Input } from '../ui/input'
+import { Switch } from '../ui/switch'
 import { toast } from '../ui/use-toast'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { TooltipProvider } from '../ui/tooltip'
@@ -25,11 +26,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
 }) => {
     const [addProviderPopoutState, setAddProviderPopoutState] = useState(false)
     const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
+    const [modelInput, setModelInput] = useState<string>()
+    const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
     const [newProviderName, setNewProviderName] = useState<string>()
     const [newProviderApi, setNewProviderApi] = useState<string>()
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
     const [newProviderModels, setNewProviderModels] = useState<IModel[]>([])
-    const { appVersion, appConfig, setAppConfig, provider, setProvider, providers, setProviders } = useChatStore()
+    const { appVersion, appConfig, setAppConfig, provider, setProvider, models, setModels, providers, setProviders, titleProvider, setTitleProvider, selectedTitleModel, setSelectedTitleModel } = useChatStore()
+    const [titleGenerateEnabled, setTitleGenerateEnabled] = useState(true)
 
     async function fetchModels() {
         try {
@@ -43,7 +47,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
             console.log('Data fetched:', data);
             // fs.writeFileSync(path.join(__dirname, '../../data/models.json'), JSON.stringify(data, null, 2));
             console.log('Models written to file successfully.');
-        } catch (error) {
+        } catch (error: any) {
             console.info('Error fetching models:', error.message);
         }
     }
@@ -59,8 +63,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
         })
     }
     const onModelChange = (e) => {
-        const models = e.target.value.split(',')
-        console.log(models)
+        setModelInput(e.target.value)
+    }
+    const handleInputedModel = () => {
+        const models = modelInput?.split('\n')
+        const ms = models?.map(mName => ({provider, name: mName, value: mName, type: 'llm'}));
+        if (ms) {
+            provider.models = ms
+            setProvider(provider)
+            setModelInput('')
+        }
     }
     const saveConfigurationClick = (): void => {
         const nextAppConfig = {
@@ -112,6 +124,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
             apiUrl: newProviderApi,
             apiKey: newProviderApiKey
         }])
+        setModels([...models, ...newProviderModels])
         toast({
             variant: 'default',
             duration: 800,
@@ -139,6 +152,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                 </h4>
                 <p className="text-sm text-muted-foreground">Set the preferences for @i</p>
             </div>
+            <p className="text-xl font-medium text-gray-500 cursor-pointer">Providers</p>
             <div className="grid gap-2">
                 <div className="grid grid-cols-4 items-center gap-1">
                     <Label htmlFor="provider">Provider</Label>
@@ -153,13 +167,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                 >
                                     <span className="flex flex-grow overflow-x-hidden">
                                         {
-                                            provider ?
-                                                (() => {
-                                                    const selected = providers.find(p => p.name === provider.name);
-                                                    if (!selected) return null;
-                                                    return selected.name;
-                                                })()
-                                                : "Select provider..."
+                                            provider ? provider.name : "Select provider..."
                                         }
                                     </span>
                                     <ChevronsUpDown className="flex opacity-50" />
@@ -169,7 +177,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                 <Command>
                                     <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
                                     <CommandList>
-                                        <CommandEmpty>Oops... Not Found</CommandEmpty>
+                                        <CommandEmpty>Oops...NotFound</CommandEmpty>
                                         <CommandGroup>
                                             {providers.map((pr) => (
                                                 <CommandItem
@@ -186,7 +194,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                 </CommandItem>
                                             ))}
                                             <CommandItem>
-                                                <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add<i className="ri-add-circle-line text-lg"></i></Button>
+                                                <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
                                             </CommandItem>
                                         </CommandGroup>
                                     </CommandList>
@@ -251,6 +259,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                 </DrawerFooter>
                             </DrawerContent>
                         </Drawer>
+                        <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
                     </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -259,9 +268,12 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                         id="api"
                         className="col-span-3 h-8 text-sm"
                         value={provider?.apiUrl || ''}
-                        placeholder="server:port/chat/v1/x"
+                        placeholder="https://provider-api.com/v1/chat/x"
                         onChange={(event) =>
-                            onConfigurationsChange({ ...appConfig, api: event.target.value })
+                            setProvider({
+                                ...provider,
+                                apiUrl: event.target.value
+                            })
                         }
                     />
                 </div>
@@ -289,7 +301,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                         value={provider?.apiKey || ''}
                         className="col-span-3 h-8 text-sm"
                         onChange={(event) =>
-                            onConfigurationsChange({ ...appConfig, token: event.target.value })
+                            setProvider({
+                                ...provider,
+                                apiKey: event.target.value
+                            })
                         }
                     />
                 </div>
@@ -314,13 +329,135 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                     <Textarea
                         id="model"
                         className="col-span-3 h-8 text-sm"
-                        value={provider?.models.map(m => m.value).join('\n') || ''}
+                        value={provider.models.length !== 0 ? provider?.models.map(m => m.value).join('\n') || '' : modelInput}
                         onChange={onModelChange}
+                        // onMouseLeave={handleInputedModel}
                     />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <p className='text-xs text-slate-500 col-span-4 select-none'>After configurations change, remember to save.</p>
+            </div>
+            <p className="text-xl font-medium text-gray-500 cursor-pointer">Title Generation</p>
+            <div className="grid gap-4">
+                <div className="grid grid-cols-4 items-center gap-1">
+                    <Label htmlFor="provider">Enable</Label>
+                    <div className='flex items-center space-x-2'>
+                        {/* <Switch checked={titleProvider.enabled} onCheckedChange={onTitleProviderEnabledChange} /> */}
+                        <Switch checked={titleGenerateEnabled} onCheckedChange={setTitleGenerateEnabled} />
+                    </div>
                 </div>
+                {/* <div className="grid grid-cols-4 items-center gap-1">
+                    <Label htmlFor="provider">Provider</Label>
+                    <div className="app-undragable flex items-center space-x-1">
+                        <Popover open={selectTitleProviderPopoutState} onOpenChange={setSelectTitleProviderPopoutState}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={selectTitleProviderPopoutState}
+                                    className="flex justify-between pl-1 pr-1 space-x-2"
+                                >
+                                    <span className="flex flex-grow overflow-x-hidden">
+                                        {
+                                            titleProvider ? titleProvider.name: "Select provider..."
+                                        }
+                                    </span>
+                                    <ChevronsUpDown className="flex opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0">
+                                <Command>
+                                    <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
+                                    <CommandList>
+                                        <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                        <CommandGroup>
+                                            {providers.map((pr) => (
+                                                <CommandItem
+                                                    key={pr.name}
+                                                    value={pr.name}
+                                                    onSelect={(selected) => {
+                                                        setSelectTitleProviderPopoutState(false)
+                                                        const selectedProvider = providers.find(p => p.name === selected)
+                                                        setTitleProvider(selectedProvider!)
+                                                    }}
+                                                >
+                                                    {pr.name}
+                                                    <Check className={cn("ml-auto", titleProvider?.name === pr.name ? "opacity-100" : "opacity-0")} />
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div> */}
+                <div className="grid grid-cols-4 items-center gap-1">
+                    <Label htmlFor="provider">Model</Label>
+                    <div className="app-undragable flex items-center space-x-1">
+                        <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={selectTitleModelPopoutState}
+                                    className="flex justify-between pl-1 pr-1 space-x-2"
+                                >
+                                    <span className="flex flex-grow overflow-x-hidden">
+                                        {
+                                            selectedTitleModel ? selectedTitleModel : "Select model..."
+                                        }
+                                    </span>
+                                    <ChevronsUpDown className="flex opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0">
+                                <Command>
+                                    <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
+                                    <CommandList>
+                                        <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                        <CommandGroup>
+                                            {models.map((md) => (
+                                                <CommandItem
+                                                    key={md.name}
+                                                    value={md.name}
+                                                    onSelect={(currentValue) => {
+                                                        setSelectTitleModelPopoutState(false)
+                                                        setSelectedTitleModel(currentValue)
+                                                    }}
+                                                >
+                                                    {md.name}
+                                                    <Check className={cn("ml-auto", titleProvider?.name === md.name ? "opacity-100" : "opacity-0")} />
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
+                {/* <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="custom-prompt">
+                        <span>
+                            Prompt
+                            <Button size={'round'} variant={'ghost'}>
+                                <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <QuestionMarkCircledIcon></QuestionMarkCircledIcon>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Split by Enter</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </Button>
+                        </span>
+                    </Label>
+                    <div></div>
+                </div> */}
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <p className='text-xs text-slate-500 col-span-4 select-none'>Remember to SAVE, after configurations change</p>
             </div>
             <Button size="xs" onClick={saveConfigurationClick}>
                 Save Configuration

@@ -3,7 +3,22 @@ import { create } from 'zustand'
 const localProviders: IProvider[] = [
   {
       name: "OpenAI",
-      models: [],
+      models: [
+        {
+            provider: "OpenAI",
+            name: "gpt-4o-mini",
+            value: "gpt-4o-mini",
+            type: 'llm',
+            ability: ['functioncalling']
+        },
+        {
+            provider: "OpenAI",
+            name: "gpt-4o",
+            value: "gpt-4o",
+            type: 'llm',
+            ability: ['functioncalling']
+        }
+      ],
       apiUrl: "https://api.openai.com/v1/chat/completions",
       apiKey: ''
   },
@@ -96,67 +111,102 @@ const localProviders: IProvider[] = [
 ]
 
 const localModels: IModel[] = [
-  {
-      provider: "SilliconFlow",
-      name: "Qwen2.5-7B-Instruct",
-      value: "Qwen/Qwen2.5-7B-Instruct",
-      type: 'llm',
-      ability: ['functioncalling']
-  },
-  {
-      provider: "SilliconFlow",
-      name: "Qwen2.5-14B-Instruct",
-      value: "Qwen/Qwen2.5-14B-Instruct",
-      type: 'llm',
-      ability: ['functioncalling']
-  },
-  {
-      provider: "SilliconFlow",
-      name: "Qwen2.5-32B-Instruct",
-      value: "Qwen/Qwen2.5-32B-Instruct",
-      type: 'llm',
-      ability: ['functioncalling']
-  },
-  {
-      provider: "SilliconFlow",
-      name: "Qwen2.5-72B-Instruct",
-      value: "Qwen/Qwen2.5-72B-Instruct",
-      type: 'llm',
-      ability: ['functioncalling']
-  },
-  {
-      provider: "SilliconFlow",
-      name: "Qwen2.5-Coder-7B-Instruct",
-      value: "Qwen/Qwen2.5-Coder-7B-Instruct",
-      type: 'llm',
-      ability: ['functioncalling']
-  },
-  {
-      provider: "SilliconFlow",
-      name: "Qwen2.5-Coder-32B-Instruct",
-      value: "Qwen/Qwen2.5-Coder-32B-Instruct",
-      type: 'llm',
-      ability: ['functioncalling']
-  },
-  {
-      provider: "SilliconFlow",
-      name: "Qwen2-VL-72B-Instruct",
-      value: "Qwen/Qwen2-VL-72B-Instruct",
-      type: 'vlm'
-  },
-  {
-      provider: "SilliconFlow",
-      name: "DeepSeek-V2.5",
-      value: "deepseek-ai/DeepSeek-V2.5",
-      type: 'llm',
-      ability: ['functioncalling']
-  },
-  {
-      provider: "SilliconFlow",
-      name: "deepseek-vl2",
-      value: "deepseek-ai/deepseek-vl2",
-      type: 'vlm'
-  },
+    {
+        provider: "OpenAI",
+        name: "gpt-4o-mini",
+        value: "gpt-4o-mini",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "OpenAI",
+        name: "gpt-4o",
+        value: "gpt-4o",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "OpenRouter",
+        name: "qwen/qwen3-14b:free",
+        value: "qwen/qwen3-14b:free",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "OpenRouter",
+        name: "deepseek/deepseek-r1-distill-llama-70b:free",
+        value: "deepseek/deepseek-r1-distill-llama-70b:free",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "OpenRouter",
+        name: "deepseek/deepseek-r1-0528:free",
+        value: "deepseek/deepseek-r1-0528:free",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "SilliconFlow",
+        name: "Qwen2.5-7B-Instruct",
+        value: "Qwen/Qwen2.5-7B-Instruct",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "SilliconFlow",
+        name: "Qwen2.5-14B-Instruct",
+        value: "Qwen/Qwen2.5-14B-Instruct",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "SilliconFlow",
+        name: "Qwen2.5-32B-Instruct",
+        value: "Qwen/Qwen2.5-32B-Instruct",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "SilliconFlow",
+        name: "Qwen2.5-72B-Instruct",
+        value: "Qwen/Qwen2.5-72B-Instruct",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "SilliconFlow",
+        name: "Qwen2.5-Coder-7B-Instruct",
+        value: "Qwen/Qwen2.5-Coder-7B-Instruct",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "SilliconFlow",
+        name: "Qwen2.5-Coder-32B-Instruct",
+        value: "Qwen/Qwen2.5-Coder-32B-Instruct",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "SilliconFlow",
+        name: "Qwen2-VL-72B-Instruct",
+        value: "Qwen/Qwen2-VL-72B-Instruct",
+        type: 'vlm'
+    },
+    {
+        provider: "SilliconFlow",
+        name: "DeepSeek-V2.5",
+        value: "deepseek-ai/DeepSeek-V2.5",
+        type: 'llm',
+        ability: ['functioncalling']
+    },
+    {
+        provider: "SilliconFlow",
+        name: "deepseek-vl2",
+        value: "deepseek-ai/deepseek-vl2",
+        type: 'vlm'
+    },
 ]
 
 declare type ChatStoreType = {
@@ -169,8 +219,8 @@ declare type ChatStoreType = {
   setModels: (models: IModel[]) => void
   selectedModel: string | undefined
   setSelectedModel: (mode: string) => void
-//   chatContent: string
-//   setChatContent: (content: string) => void
+  //   chatContent: string
+  //   setChatContent: (content: string) => void
   // chatId: number | undefined
   // setChatId: (chatId: number | undefined) => void
   // chatUuid: string | undefined
@@ -192,6 +242,13 @@ declare type ChatStoreType = {
   // setLastMsgStatus: (state: boolean) => void
   provider: IProvider
   setProvider: (Provider: IProvider) => void
+  
+
+  titleProvider: IProvider
+  setTitleProvider: (Provider: IProvider) => void
+  selectedTitleModel: string | undefined
+  setSelectedTitleModel: (mode: string) => void
+
   providers: IProvider[]
   setProviders: (providers: IProvider[]) => void
   appConfig: IAppConfig
@@ -200,6 +257,7 @@ declare type ChatStoreType = {
   readStreamState: boolean
   setReadStreamState: (state: boolean) => void
 }
+
 export const useChatStore = create<ChatStoreType>((set) => ({
   models: localModels.map(m => {
     const providerForModel = localProviders.find(p => p.name === m.provider)!
@@ -207,8 +265,10 @@ export const useChatStore = create<ChatStoreType>((set) => ({
     return m
   }),
   setModels: (models: IModel[]) => set({ models: models }),
-  selectedModel: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+  selectedModel: '',
   setSelectedModel: (mode: string) => set({ selectedModel: mode }),
+  selectedTitleModel: 'qwen/qwen3-14b:free',
+  setSelectedTitleModel: (mode: string) => set({ selectedTitleModel: mode }),
   messages: [],
   setMessages: (msgs: MessageEntity[]) => set({ messages: msgs }),
   chatWindowHeight: 800,
@@ -222,80 +282,41 @@ export const useChatStore = create<ChatStoreType>((set) => ({
   providers: localProviders,
   setProviders: (providers: IProvider[]) => set({ providers: providers }),
   provider: {
-    name: "SilliconFlow",
+    name: "OpenAI",
     models: [
         {
-            provider: "Qwen",
-            name: "Qwen2.5-7B-Instruct",
-            value: "Qwen/Qwen2.5-7B-Instruct",
+            provider: "OpenAI",
+            name: "gpt-4o-mini",
+            value: "gpt-4o-mini",
             type: 'llm',
             ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-14B-Instruct",
-            value: "Qwen/Qwen2.5-14B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-32B-Instruct",
-            value: "Qwen/Qwen2.5-32B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-72B-Instruct",
-            value: "Qwen/Qwen2.5-72B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-Coder-7B-Instruct",
-            value: "Qwen/Qwen2.5-Coder-7B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2.5-Coder-32B-Instruct",
-            value: "Qwen/Qwen2.5-Coder-32B-Instruct",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "Qwen",
-            name: "Qwen2-VL-72B-Instruct",
-            value: "Qwen/Qwen2-VL-72B-Instruct",
-            type: 'vlm'
-        },
-        {
-            provider: "deepseek-ai",
-            name: "DeepSeek-V2.5",
-            value: "deepseek-ai/DeepSeek-V2.5",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-        {
-            provider: "deepseek-ai",
-            name: "deepseek-vl2",
-            value: "deepseek-ai/deepseek-vl2",
-            type: 'vlm'
         },
     ],
-    apiUrl: "https://api.siliconflow.cn/v1/chat/completions",
-    apiKey: 'sk-qfhmqnmegjzjycpueslxveqpnqpvsyseoqjjieoiutxpzkpx'
+    apiUrl: "https://api.openai.com/v1/chat/completions",
+    apiKey: 'sk-xxx'
   }, // current provider
   setProvider: (provider: IProvider) => set({ provider: provider }),
+  titleProvider: {
+    name: "OpenAI",
+    models: [
+        {
+            provider: "OpenAI",
+            name: "gpt-4o-mini",
+            value: "gpt-4o-mini",
+            type: 'llm',
+            ability: ['functioncalling']
+        },
+    ],
+    apiUrl: "https://api.openai.com/v1/chat/completions",
+    apiKey: 'sk-xxx'
+  },
+  setTitleProvider: (provider: IProvider) => set({ titleProvider: provider }),
   appConfig: {providers: localProviders},
   setAppConfig: (appConfig: IAppConfig) => set({ appConfig: appConfig }),
   // @ts-ignore
   appVersion: __APP_VERSION__,
-//   chatContent: '',
-//   setChatContent: (content: string) => set({ chatContent: content }),
+  //   chatContent: '',
+  //   setChatContent: (content: string) => set({ chatContent: content }),
   imageSrcBase64List: [],
   setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
 }))
