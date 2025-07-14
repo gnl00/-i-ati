@@ -185,8 +185,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                     <TabsTrigger value="misc">Misc</TabsTrigger>
                 </TabsList>
                 <TabsContent value="provider">
-                    <div className="grid gap-2">
-                        <div className="grid grid-cols-4 items-center gap-1">
+                    <div className='mt-4'>
+                        <div className="flex flex-col gap-6">
                             <Label htmlFor="provider">Provider</Label>
                             <div className="app-undragable flex items-center space-x-1">
                                 <Popover open={selectProviderPopoutState} onOpenChange={setSelectProviderPopoutState}>
@@ -203,7 +203,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                             <ChevronsUpDown className="flex opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-full p-0">
+                                    <PopoverContent className="w-full p-0 ml-2">
                                         <Command>
                                             <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
                                             <CommandList>
@@ -289,79 +289,57 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                         </DrawerFooter>
                                     </DrawerContent>
                                 </Drawer>
-                                <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
+                                <Button className="space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-9 items-center gap-4">
-                            <Label htmlFor="api">API</Label>
-                            <Input
-                                id="api"
-                                className="col-span-8 h-8 text-sm"
-                                value={provider?.apiUrl || ''}
-                                placeholder="https://provider-api.com/v1/chat/x"
-                                onChange={(event) =>
-                                    setProvider({
-                                        ...provider,
-                                        apiUrl: event.target.value
-                                    })
-                                }
-                            />
-                        </div>
-                        <div className="grid grid-cols-9">
-                            <Label htmlFor="token">Token</Label>
-                            <Input
-                                id="token"
-                                placeholder="Please input your token"
-                                value={provider?.apiKey || ''}
-                                className="col-span-8 h-8 text-sm"
-                                onChange={(event) =>
-                                    setProvider({
-                                        ...provider,
-                                        apiKey: event.target.value
-                                    })
-                                }
-                            />
-                        </div>
-                        <Label htmlFor="models">Models</Label>
-                        <div className="grid-cols-1 items-center gap-1 overflow-scroll max-h-96 relative">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Enable</TableHead>
-                                        <TableHead>Label</TableHead>
-                                        <TableHead>Value</TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Operation</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <TableRow>
-                                            <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
-                                            <TableCell><Input className='h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
-                                            <TableCell><Input className='h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
-                                            <TableCell>
-                                                <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
-                                                    <SelectTrigger className="h-8">
-                                                        <SelectValue placeholder="Type" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectGroup>
-                                                            <SelectItem value="llm">LLM</SelectItem>
-                                                            <SelectItem value="vlm">VLM</SelectItem>
-                                                        </SelectGroup>
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                            <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
+                            <div className="grid grid-cols-9 items-center gap-4">
+                                <Label htmlFor="api">API</Label>
+                                <Input
+                                    id="api"
+                                    className="col-span-8 h-8 text-sm"
+                                    value={provider?.apiUrl || ''}
+                                    placeholder="https://provider-api.com/v1/chat/x"
+                                    onChange={(event) =>
+                                        setProvider({
+                                            ...provider,
+                                            apiUrl: event.target.value
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="grid grid-cols-9">
+                                <Label htmlFor="token">Token</Label>
+                                <Input
+                                    id="token"
+                                    placeholder="Please input your token"
+                                    value={provider?.apiKey || ''}
+                                    className="col-span-8 h-8 text-sm"
+                                    onChange={(event) =>
+                                        setProvider({
+                                            ...provider,
+                                            apiKey: event.target.value
+                                        })
+                                    }
+                                />
+                            </div>
+                            <Label htmlFor="models">Models</Label>
+                            <div className="grid-cols-1 items-center gap-1 overflow-scroll max-h-96 relative">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Enable</TableHead>
+                                            <TableHead>Label</TableHead>
+                                            <TableHead>Value</TableHead>
+                                            <TableHead>Type</TableHead>
+                                            <TableHead>Operation</TableHead>
                                         </TableRow>
-                                    {
-                                        provider.models.map(m => (
-                                            <TableRow key={m.value}>
-                                                <TableCell><Checkbox checked={true} /></TableCell>
-                                                <TableCell className='text-left'>{m.name}</TableCell>
-                                                <TableCell className='text-left'>{m.value}</TableCell>
-                                                <TableCell className="text-left">
-                                                    <Select value={m.type}>
+                                    </TableHeader>
+                                    <TableBody>
+                                        <TableRow>
+                                                <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
+                                                <TableCell><Input className='h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
+                                                <TableCell><Input className='h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
+                                                <TableCell>
+                                                    <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
                                                         <SelectTrigger className="h-8">
                                                             <SelectValue placeholder="Type" />
                                                         </SelectTrigger>
@@ -373,11 +351,33 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                         </SelectContent>
                                                     </Select>
                                                 </TableCell>
+                                                <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
                                             </TableRow>
-                                        ))
-                                    }
-                                </TableBody>
-                            </Table>
+                                        {
+                                            provider.models.map(m => (
+                                                <TableRow key={m.value}>
+                                                    <TableCell><Checkbox checked={true} /></TableCell>
+                                                    <TableCell className='text-left'>{m.name}</TableCell>
+                                                    <TableCell className='text-left'>{m.value}</TableCell>
+                                                    <TableCell className="text-left">
+                                                        <Select value={m.type}>
+                                                            <SelectTrigger className="h-8">
+                                                                <SelectValue placeholder="Type" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectGroup>
+                                                                    <SelectItem value="llm">LLM</SelectItem>
+                                                                    <SelectItem value="vlm">VLM</SelectItem>
+                                                                </SelectGroup>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        }
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </div>
                     </div>
                 </TabsContent>
