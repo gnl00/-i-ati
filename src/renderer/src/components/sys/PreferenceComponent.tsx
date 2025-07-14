@@ -1,5 +1,25 @@
 import React, { useEffect, useState } from 'react'
 import { cn } from '@renderer/lib/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
+import {
+    Table,
+    TableBody,
+    TableCaption,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+  } from "../ui/table"
+import { Checkbox } from "../ui/checkbox"
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+    } from "../ui/select"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Badge } from '../ui/badge'
@@ -27,6 +47,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
     const [addProviderPopoutState, setAddProviderPopoutState] = useState(false)
     const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
     const [modelInput, setModelInput] = useState<string>()
+    const [nextAddModelType, setNextAddModelType] = useState<string>()
     const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
     const [newProviderName, setNewProviderName] = useState<string>()
     const [newProviderApi, setNewProviderApi] = useState<string>()
@@ -63,15 +84,15 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
         })
     }
     const onModelChange = (e) => {
-        setModelInput(e.target.value)
-    }
-    const handleInputedModel = () => {
-        const models = modelInput?.split('\n')
+        const currentModelInput = e.target.value
+        if (!currentModelInput) return
+
+        const models = currentModelInput?.split('\n')
+        if (!models) return
         const ms = models?.map(mName => ({provider, name: mName, value: mName, type: 'llm'}));
         if (ms) {
             provider.models = ms
             setProvider(provider)
-            setModelInput('')
         }
     }
     const saveConfigurationClick = (): void => {
@@ -152,310 +173,266 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                 </h4>
                 <p className="text-sm text-muted-foreground">Set the preferences for @i</p>
             </div>
-            <p className="text-xl font-medium text-gray-500 cursor-pointer">Providers</p>
-            <div className="grid gap-2">
-                <div className="grid grid-cols-4 items-center gap-1">
-                    <Label htmlFor="provider">Provider</Label>
-                    <div className="app-undragable flex items-center space-x-1">
-                        <Popover open={selectProviderPopoutState} onOpenChange={setSelectProviderPopoutState}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={selectProviderPopoutState}
-                                    className="flex justify-between pl-1 pr-1 space-x-2"
-                                >
-                                    <span className="flex flex-grow overflow-x-hidden">
-                                        {
-                                            provider ? provider.name : "Select provider..."
-                                        }
-                                    </span>
-                                    <ChevronsUpDown className="flex opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-full p-0">
-                                <Command>
-                                    <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
-                                    <CommandList>
-                                        <CommandEmpty>Oops...NotFound</CommandEmpty>
-                                        <CommandGroup>
-                                            {providers.map((pr) => (
-                                                <CommandItem
-                                                    key={pr.name}
-                                                    value={pr.name}
-                                                    onSelect={(currentValue) => {
-                                                        setSelectProviderPopoutState(false)
-                                                        setProvider(providers.find(p => p.name === currentValue)!)
-                                                    }}
-                                                >
-                                                    {pr.name}
-                                                    <Check className={cn("ml-auto", provider?.name === pr.name ? "opacity-100" : "opacity-0")} />
-                                                    <i onClick={e => { onDelProviderBtnClick(e, pr.name) }} className="ri-indeterminate-circle-line w-3 h-3 rounded-full p-3 text-red-300 hover:bg-red-400 hover:text-white flex justify-center items-center" />
-                                                </CommandItem>
-                                            ))}
-                                            <CommandItem>
-                                                <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
-                                            </CommandItem>
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                        <Drawer open={addProviderPopoutState} onOpenChange={setAddProviderPopoutState}>
-                            <DrawerTrigger asChild>
-                            </DrawerTrigger>
-                            <DrawerContent>
-                                <DrawerHeader>
-                                    <DrawerTitle>Add provider</DrawerTitle>
-                                    <DrawerDescription>Add custom provider</DrawerDescription>
-                                </DrawerHeader>
-                                <DrawerFooter>
-                                    <div className="grid gap-4 app-undragable">
-                                        <div className="grid gap-2">
-                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                <Label htmlFor="name">Name</Label>
-                                                <Input
-                                                    id="name"
-                                                    placeholder="OpenAI"
-                                                    className="col-span-2 h-10"
-                                                    onChange={e => { setNewProviderName(e.target.value) }}
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                <Label htmlFor="apiUrl">API URL</Label>
-                                                <Input
-                                                    id="apiUrl"
-                                                    placeholder="https://api.openai.com/v1/chat/completions"
-                                                    className="col-span-2 h-10"
-                                                    onChange={e => { setNewProviderApi(e.target.value) }}
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                <Label htmlFor="apiKey">API Key</Label>
-                                                <Input
-                                                    id="apiKey"
-                                                    placeholder="sk-********"
-                                                    className="col-span-2 h-10"
-                                                    onChange={e => { setNewProviderApiKey(e.target.value) }}
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                <Label htmlFor="models">Models</Label>
-                                                <Textarea
-                                                    id="models"
-                                                    placeholder="model1,model2,model3"
-                                                    className="col-span-2 h-8"
-                                                    onChange={onNewProviderModelsChange}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
+            <Tabs defaultValue="provider" className="w-auto">
+                <TabsList>
+                    <TabsTrigger value="provider">Provider</TabsTrigger>
+                    <TabsTrigger value="misc">Misc</TabsTrigger>
+                </TabsList>
+                <TabsContent value="provider">
+                    <div className="grid gap-2">
+                        <div className="grid grid-cols-4 items-center gap-1">
+                            <Label htmlFor="provider">Provider</Label>
+                            <div className="app-undragable flex items-center space-x-1">
+                                <Popover open={selectProviderPopoutState} onOpenChange={setSelectProviderPopoutState}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={selectProviderPopoutState}
+                                            className="flex justify-between pl-1 pr-1 space-x-2"
+                                            >
+                                            <span className="flex flex-grow overflow-x-hidden">
+                                                {provider ? provider.name : "Select provider..."}
+                                            </span>
+                                            <ChevronsUpDown className="flex opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0">
+                                        <Command>
+                                            <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
+                                            <CommandList>
+                                                <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                                <CommandGroup>
+                                                    {providers.map((pr) => (
+                                                        <CommandItem
+                                                            key={pr.name}
+                                                            value={pr.name}
+                                                            onSelect={(currentValue) => {
+                                                                setSelectProviderPopoutState(false)
+                                                                setProvider(providers.find(p => p.name === currentValue)!)
+                                                                setModelInput('')
+                                                            }}
+                                                        >
+                                                            {pr.name}
+                                                            <Check className={cn("ml-auto", provider?.name === pr.name ? "opacity-100" : "opacity-0")} />
+                                                            <i onClick={e => { onDelProviderBtnClick(e, pr.name) }} className="ri-indeterminate-circle-line w-3 h-3 rounded-full p-3 text-red-300 hover:bg-red-400 hover:text-white flex justify-center items-center" />
+                                                        </CommandItem>
+                                                    ))}
+                                                    <CommandItem>
+                                                        <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
+                                                    </CommandItem>
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                <Drawer open={addProviderPopoutState} onOpenChange={setAddProviderPopoutState}>
                                     <DrawerTrigger asChild>
-                                        <Button onClick={onAddProviderBtnClick}>Save</Button>
                                     </DrawerTrigger>
-                                    <DrawerClose asChild>
-                                        <Button variant="outline">Cancel</Button>
-                                    </DrawerClose>
-                                </DrawerFooter>
-                            </DrawerContent>
-                        </Drawer>
-                        <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
+                                    <DrawerContent>
+                                        <DrawerHeader>
+                                            <DrawerTitle>Add provider</DrawerTitle>
+                                            <DrawerDescription>Add custom provider</DrawerDescription>
+                                        </DrawerHeader>
+                                        <DrawerFooter>
+                                            <div className="grid gap-4 app-undragable">
+                                                <div className="grid gap-2">
+                                                    <div className="grid grid-cols-3 items-center gap-4">
+                                                        <Label htmlFor="name">Name</Label>
+                                                        <Input
+                                                            id="name"
+                                                            placeholder="OpenAI"
+                                                            className="col-span-2 h-10"
+                                                            onChange={e => { setNewProviderName(e.target.value) }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-3 items-center gap-4">
+                                                        <Label htmlFor="apiUrl">API URL</Label>
+                                                        <Input
+                                                            id="apiUrl"
+                                                            placeholder="https://api.openai.com/v1/chat/completions"
+                                                            className="col-span-2 h-10"
+                                                            onChange={e => { setNewProviderApi(e.target.value) }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-3 items-center gap-4">
+                                                        <Label htmlFor="apiKey">API Key</Label>
+                                                        <Input
+                                                            id="apiKey"
+                                                            placeholder="sk-********"
+                                                            className="col-span-2 h-10"
+                                                            onChange={e => { setNewProviderApiKey(e.target.value) }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-3 items-center gap-4">
+                                                        <Label htmlFor="models">Models</Label>
+                                                        <Textarea
+                                                            id="models"
+                                                            placeholder="model1,model2,model3"
+                                                            className="col-span-2 h-8"
+                                                            onChange={onNewProviderModelsChange}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <DrawerTrigger asChild>
+                                                <Button onClick={onAddProviderBtnClick}>Save</Button>
+                                            </DrawerTrigger>
+                                            <DrawerClose asChild>
+                                                <Button variant="outline">Cancel</Button>
+                                            </DrawerClose>
+                                        </DrawerFooter>
+                                    </DrawerContent>
+                                </Drawer>
+                                <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-9 items-center gap-4">
+                            <Label htmlFor="api">API</Label>
+                            <Input
+                                id="api"
+                                className="col-span-8 h-8 text-sm"
+                                value={provider?.apiUrl || ''}
+                                placeholder="https://provider-api.com/v1/chat/x"
+                                onChange={(event) =>
+                                    setProvider({
+                                        ...provider,
+                                        apiUrl: event.target.value
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="grid grid-cols-9">
+                            <Label htmlFor="token">Token</Label>
+                            <Input
+                                id="token"
+                                placeholder="Please input your token"
+                                value={provider?.apiKey || ''}
+                                className="col-span-8 h-8 text-sm"
+                                onChange={(event) =>
+                                    setProvider({
+                                        ...provider,
+                                        apiKey: event.target.value
+                                    })
+                                }
+                            />
+                        </div>
+                        <Label htmlFor="models">Models</Label>
+                        <div className="grid-cols-1 items-center gap-1 overflow-scroll max-h-96 relative">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Enable</TableHead>
+                                        <TableHead>Label</TableHead>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead>Operation</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow>
+                                            <TableCell><Checkbox/></TableCell>
+                                            <TableCell><Input className='h-8' /></TableCell>
+                                            <TableCell><Input className='h-8' /></TableCell>
+                                            <TableCell>
+                                                <Select value={nextAddModelType}>
+                                                    <SelectTrigger className="h-8">
+                                                        <SelectValue placeholder="Type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectGroup>
+                                                            <SelectItem value="llm">LLM</SelectItem>
+                                                            <SelectItem value="vlm">VLM</SelectItem>
+                                                        </SelectGroup>
+                                                    </SelectContent>
+                                                </Select>
+                                            </TableCell>
+                                            <TableCell className='text-center'><Button size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
+                                        </TableRow>
+                                    {
+                                        provider.models.map(m => (
+                                            <TableRow>
+                                                <TableCell><Checkbox checked={true} /></TableCell>
+                                                <TableCell className='text-left'>{m.name}</TableCell>
+                                                <TableCell className='text-left'>{m.value}</TableCell>
+                                                <TableCell className="text-left">
+                                                    <Select value={m.type}>
+                                                        <SelectTrigger className="h-8">
+                                                            <SelectValue placeholder="Type" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectGroup>
+                                                                <SelectItem value="llm">LLM</SelectItem>
+                                                                <SelectItem value="vlm">VLM</SelectItem>
+                                                            </SelectGroup>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    }
+                                </TableBody>
+                            </Table>
+                        </div>
                     </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="api">API</Label>
-                    <Input
-                        id="api"
-                        className="col-span-3 h-8 text-sm"
-                        value={provider?.apiUrl || ''}
-                        placeholder="https://provider-api.com/v1/chat/x"
-                        onChange={(event) =>
-                            setProvider({
-                                ...provider,
-                                apiUrl: event.target.value
-                            })
-                        }
-                    />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="token">
-                        <span>
-                            Token
-                            <Button size={'round'} variant={'ghost'}>
-                                <TooltipProvider delayDuration={100}>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <QuestionMarkCircledIcon></QuestionMarkCircledIcon>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Get <strong className='underline' onClick={(_) => onTokenQuestionClick('https://cloud.siliconflow.cn/account/ak')}>SiliconFlow-Token</strong></p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </Button>
-                        </span>
-                    </Label>
-                    <Input
-                        id="token"
-                        placeholder="Please input your token"
-                        value={provider?.apiKey || ''}
-                        className="col-span-3 h-8 text-sm"
-                        onChange={(event) =>
-                            setProvider({
-                                ...provider,
-                                apiKey: event.target.value
-                            })
-                        }
-                    />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="model">
-                        <span>
-                            Model
-                            <Button size={'round'} variant={'ghost'}>
-                                <TooltipProvider delayDuration={100}>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <QuestionMarkCircledIcon></QuestionMarkCircledIcon>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Split by Enter</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </Button>
-                        </span>
-                    </Label>
-                    <Textarea
-                        id="model"
-                        className="col-span-3 h-8 text-sm"
-                        value={provider.models.length !== 0 ? provider?.models.map(m => m.value).join('\n') || '' : modelInput}
-                        onChange={onModelChange}
-                        // onMouseLeave={handleInputedModel}
-                    />
-                </div>
-            </div>
-            <p className="text-xl font-medium text-gray-500 cursor-pointer">Title Generation</p>
-            <div className="grid gap-4">
-                <div className="grid grid-cols-4 items-center gap-1">
-                    <Label htmlFor="provider">Enable</Label>
-                    <div className='flex items-center space-x-2'>
-                        {/* <Switch checked={titleProvider.enabled} onCheckedChange={onTitleProviderEnabledChange} /> */}
-                        <Switch checked={titleGenerateEnabled} onCheckedChange={setTitleGenerateEnabled} />
+                </TabsContent>
+                <TabsContent value="misc">
+                    <p className="text-xl font-medium text-gray-800 cursor-pointer text-muted-foreground">Title Generation</p>
+                    <div className="grid gap-2">
+                        <div className="grid grid-cols-4 items-center gap-1">
+                            <Label htmlFor="provider">Enable</Label>
+                            <div className='flex items-center space-x-1'>
+                                <Switch checked={titleGenerateEnabled} onCheckedChange={setTitleGenerateEnabled} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-1">
+                            <Label htmlFor="provider">Model</Label>
+                            <div className="app-undragable flex items-center space-x-1">
+                                <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={selectTitleModelPopoutState}
+                                            className="flex justify-between pl-1 pr-1 space-x-2"
+                                        >
+                                            <span className="flex flex-grow overflow-x-hidden">
+                                                {
+                                                    selectedTitleModel ? selectedTitleModel : "Select model..."
+                                                }
+                                            </span>
+                                            <ChevronsUpDown className="flex opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0">
+                                        <Command>
+                                            <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
+                                            <CommandList>
+                                                <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                                <CommandGroup>
+                                                    {models.map((md) => (
+                                                        <CommandItem
+                                                            key={md.name}
+                                                            value={md.name}
+                                                            onSelect={(currentValue) => {
+                                                                setSelectTitleModelPopoutState(false)
+                                                                setSelectedTitleModel(currentValue)
+                                                            }}
+                                                        >
+                                                            {md.name}
+                                                            <Check className={cn("ml-auto", titleProvider?.name === md.name ? "opacity-100" : "opacity-0")} />
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                {/* <div className="grid grid-cols-4 items-center gap-1">
-                    <Label htmlFor="provider">Provider</Label>
-                    <div className="app-undragable flex items-center space-x-1">
-                        <Popover open={selectTitleProviderPopoutState} onOpenChange={setSelectTitleProviderPopoutState}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={selectTitleProviderPopoutState}
-                                    className="flex justify-between pl-1 pr-1 space-x-2"
-                                >
-                                    <span className="flex flex-grow overflow-x-hidden">
-                                        {
-                                            titleProvider ? titleProvider.name: "Select provider..."
-                                        }
-                                    </span>
-                                    <ChevronsUpDown className="flex opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-full p-0">
-                                <Command>
-                                    <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
-                                    <CommandList>
-                                        <CommandEmpty>Oops...NotFound</CommandEmpty>
-                                        <CommandGroup>
-                                            {providers.map((pr) => (
-                                                <CommandItem
-                                                    key={pr.name}
-                                                    value={pr.name}
-                                                    onSelect={(selected) => {
-                                                        setSelectTitleProviderPopoutState(false)
-                                                        const selectedProvider = providers.find(p => p.name === selected)
-                                                        setTitleProvider(selectedProvider!)
-                                                    }}
-                                                >
-                                                    {pr.name}
-                                                    <Check className={cn("ml-auto", titleProvider?.name === pr.name ? "opacity-100" : "opacity-0")} />
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                </div> */}
-                <div className="grid grid-cols-4 items-center gap-1">
-                    <Label htmlFor="provider">Model</Label>
-                    <div className="app-undragable flex items-center space-x-1">
-                        <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={selectTitleModelPopoutState}
-                                    className="flex justify-between pl-1 pr-1 space-x-2"
-                                >
-                                    <span className="flex flex-grow overflow-x-hidden">
-                                        {
-                                            selectedTitleModel ? selectedTitleModel : "Select model..."
-                                        }
-                                    </span>
-                                    <ChevronsUpDown className="flex opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-full p-0">
-                                <Command>
-                                    <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
-                                    <CommandList>
-                                        <CommandEmpty>Oops...NotFound</CommandEmpty>
-                                        <CommandGroup>
-                                            {models.map((md) => (
-                                                <CommandItem
-                                                    key={md.name}
-                                                    value={md.name}
-                                                    onSelect={(currentValue) => {
-                                                        setSelectTitleModelPopoutState(false)
-                                                        setSelectedTitleModel(currentValue)
-                                                    }}
-                                                >
-                                                    {md.name}
-                                                    <Check className={cn("ml-auto", titleProvider?.name === md.name ? "opacity-100" : "opacity-0")} />
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                </div>
-                {/* <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="custom-prompt">
-                        <span>
-                            Prompt
-                            <Button size={'round'} variant={'ghost'}>
-                                <TooltipProvider delayDuration={100}>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <QuestionMarkCircledIcon></QuestionMarkCircledIcon>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Split by Enter</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </Button>
-                        </span>
-                    </Label>
-                    <div></div>
-                </div> */}
-            </div>
+                </TabsContent>
+            </Tabs>
             <div className="grid grid-cols-4 items-center gap-4">
                 <p className='text-xs text-slate-500 col-span-4 select-none'>Remember to SAVE, after configurations change</p>
             </div>
