@@ -1,4 +1,5 @@
 declare interface IModel {
+  enable?: boolean
   provider: IProvider | string
   name: string
   value: string

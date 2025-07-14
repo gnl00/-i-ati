@@ -46,8 +46,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
 }) => {
     const [addProviderPopoutState, setAddProviderPopoutState] = useState(false)
     const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
-    const [modelInput, setModelInput] = useState<string>()
-    const [nextAddModelType, setNextAddModelType] = useState<string>()
+    const [nextAddModelEnable, setNextAddModelEnable] = useState<boolean>(false)
+    const [nextAddModelLabel, setNextAddModelLabel] = useState<string>('')
+    const [nextAddModelValue, setNextAddModelValue] = useState<string>('')
+    const [nextAddModelType, setNextAddModelType] = useState<string>('')
     const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
     const [newProviderName, setNewProviderName] = useState<string>()
     const [newProviderApi, setNewProviderApi] = useState<string>()
@@ -83,17 +85,21 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
             ...p
         })
     }
-    const onModelChange = (e) => {
-        const currentModelInput = e.target.value
-        if (!currentModelInput) return
+    const onAddModelClick = () => {
+        const nextAddModel: IModel = {enable: nextAddModelEnable, provider, name: nextAddModelLabel, value: nextAddModelValue, type: nextAddModelType || 'llm'}
 
-        const models = currentModelInput?.split('\n')
-        if (!models) return
-        const ms = models?.map(mName => ({provider, name: mName, value: mName, type: 'llm'}));
-        if (ms) {
-            provider.models = ms
-            setProvider(provider)
-        }
+        setProvider({
+            ...provider,
+            models: [...provider.models, nextAddModel]
+        })
+
+        setNextAddModelEnable(false)
+        setNextAddModelLabel('')
+        setNextAddModelValue('')
+        setNextAddModelType('')
+    }
+    const onNextAddModelEnableChange = (val) => {
+        setNextAddModelEnable(val)
     }
     const saveConfigurationClick = (): void => {
         const nextAppConfig = {
@@ -210,7 +216,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                             onSelect={(currentValue) => {
                                                                 setSelectProviderPopoutState(false)
                                                                 setProvider(providers.find(p => p.name === currentValue)!)
-                                                                setModelInput('')
                                                             }}
                                                         >
                                                             {pr.name}
@@ -324,18 +329,18 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                     <TableRow>
                                         <TableHead>Enable</TableHead>
                                         <TableHead>Label</TableHead>
-                                        <TableHead>Name</TableHead>
+                                        <TableHead>Value</TableHead>
                                         <TableHead>Type</TableHead>
                                         <TableHead>Operation</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     <TableRow>
-                                            <TableCell><Checkbox/></TableCell>
-                                            <TableCell><Input className='h-8' /></TableCell>
-                                            <TableCell><Input className='h-8' /></TableCell>
+                                            <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
+                                            <TableCell><Input className='h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
+                                            <TableCell><Input className='h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
                                             <TableCell>
-                                                <Select value={nextAddModelType}>
+                                                <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
                                                     <SelectTrigger className="h-8">
                                                         <SelectValue placeholder="Type" />
                                                     </SelectTrigger>
@@ -347,11 +352,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                                                     </SelectContent>
                                                 </Select>
                                             </TableCell>
-                                            <TableCell className='text-center'><Button size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
+                                            <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
                                         </TableRow>
                                     {
                                         provider.models.map(m => (
-                                            <TableRow>
+                                            <TableRow key={m.value}>
                                                 <TableCell><Checkbox checked={true} /></TableCell>
                                                 <TableCell className='text-left'>{m.name}</TableCell>
                                                 <TableCell className='text-left'>{m.value}</TableCell>
