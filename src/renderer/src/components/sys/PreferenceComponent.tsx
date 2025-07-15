@@ -20,6 +20,8 @@ import {
     SelectTrigger,
     SelectValue,
     } from "../ui/select"
+import { Carousel, CarouselItem, CarouselContent, CarouselNext, CarouselPrevious } from '../ui/carousel'
+import { Card, CardContent } from '../ui/card'
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Badge } from '../ui/badge'
@@ -36,14 +38,12 @@ import { TooltipProvider } from '../ui/tooltip'
 import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
 import { SAVE_CONFIG } from '@constants/index'
 import { useChatStore } from '@renderer/store'
-
+import { OpenAI, Anthropic, DeepSeek, OpenRouter, Kimi, SiliconCloud } from '@lobehub/icons';
 interface PreferenceProps {
     onTokenQuestionClick: (url: string) => void;
 }
 
-const PreferenceComponent: React.FC<PreferenceProps> = ({
-    onTokenQuestionClick,
-}) => {
+const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) => {
     const [addProviderPopoutState, setAddProviderPopoutState] = useState(false)
     const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
     const [nextAddModelEnable, setNextAddModelEnable] = useState<boolean>(false)
@@ -170,6 +170,38 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
         }
         setProviders(filterProviders)
     }
+    const onCarouselItemChange = (e) => {
+        console.log(e);
+    }
+    const getIcon = (provider: string) => {
+        switch (provider) {
+            case "OpenAI":
+                return <OpenAI className='w-20 h-20' />
+            case "Anthropic":
+                return <Anthropic className='w-20 h-20' />
+            case "DeepSeek":
+                return <DeepSeek className='w-20 h-20' />
+            case "MoonShot":
+                return <Kimi className='w-20 h-20' />
+            case "SilliconFlow":
+                return <SiliconCloud className='w-20 h-20' />
+            case "SiliconCloud":
+                return <SiliconCloud className='w-20 h-20' />
+            case "OpenRouter":
+                return <OpenRouter className='w-20 h-20' />
+            default:
+                return <></>
+        }
+    }
+    const onModelTableCellClick = (val: string) => {
+        navigator.clipboard.writeText(val)
+        toast({
+            variant: 'default',
+            duration: 800,
+            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+            description: `✅ Copied`,
+        })
+    }
     return (
         <div className="grid gap-4">
             <div className="space-y-2 select-none">
@@ -179,271 +211,259 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({
                 </h4>
                 <p className="text-sm text-muted-foreground">Set the preferences for @i</p>
             </div>
-            <Tabs defaultValue="provider" className="w-auto">
+            <Tabs defaultValue="misc">
                 <TabsList>
-                    <TabsTrigger value="provider">Provider</TabsTrigger>
+                    <TabsTrigger value="provider-card">ProviderCard</TabsTrigger>
                     <TabsTrigger value="misc">Misc</TabsTrigger>
                 </TabsList>
-                <TabsContent value="provider">
-                    <div className='mt-4'>
-                        <div className="flex flex-col gap-6">
-                            <Label htmlFor="provider">Provider</Label>
-                            <div className="app-undragable flex items-center space-x-1">
-                                <Popover open={selectProviderPopoutState} onOpenChange={setSelectProviderPopoutState}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={selectProviderPopoutState}
-                                            className="flex justify-between pl-1 pr-1 space-x-2"
-                                            >
-                                            <span className="flex flex-grow overflow-x-hidden">
-                                                {provider ? provider.name : "Select provider..."}
-                                            </span>
-                                            <ChevronsUpDown className="flex opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-full p-0 ml-2">
-                                        <Command>
-                                            <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
-                                            <CommandList>
-                                                <CommandEmpty>Oops...NotFound</CommandEmpty>
-                                                <CommandGroup>
-                                                    {providers.map((pr) => (
-                                                        <CommandItem
-                                                            key={pr.name}
-                                                            value={pr.name}
-                                                            onSelect={(currentValue) => {
-                                                                setSelectProviderPopoutState(false)
-                                                                setProvider(providers.find(p => p.name === currentValue)!)
-                                                            }}
-                                                        >
-                                                            {pr.name}
-                                                            <Check className={cn("ml-auto", provider?.name === pr.name ? "opacity-100" : "opacity-0")} />
-                                                            <i onClick={e => { onDelProviderBtnClick(e, pr.name) }} className="ri-indeterminate-circle-line w-3 h-3 rounded-full p-3 text-red-300 hover:bg-red-400 hover:text-white flex justify-center items-center" />
-                                                        </CommandItem>
-                                                    ))}
-                                                    <CommandItem>
-                                                        <Button className="w-full space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
-                                                    </CommandItem>
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                                <Drawer open={addProviderPopoutState} onOpenChange={setAddProviderPopoutState}>
-                                    <DrawerTrigger asChild>
-                                    </DrawerTrigger>
-                                    <DrawerContent>
-                                        <DrawerHeader>
-                                            <DrawerTitle>Add provider</DrawerTitle>
-                                            <DrawerDescription>Add custom provider</DrawerDescription>
-                                        </DrawerHeader>
-                                        <DrawerFooter>
-                                            <div className="grid gap-4 app-undragable">
-                                                <div className="grid gap-2">
-                                                    <div className="grid grid-cols-3 items-center gap-4">
-                                                        <Label htmlFor="name">Name</Label>
-                                                        <Input
-                                                            id="name"
-                                                            placeholder="OpenAI"
-                                                            className="col-span-2 h-10"
-                                                            onChange={e => { setNewProviderName(e.target.value) }}
-                                                        />
-                                                    </div>
-                                                    <div className="grid grid-cols-3 items-center gap-4">
-                                                        <Label htmlFor="apiUrl">API URL</Label>
-                                                        <Input
-                                                            id="apiUrl"
-                                                            placeholder="https://api.openai.com/v1/chat/completions"
-                                                            className="col-span-2 h-10"
-                                                            onChange={e => { setNewProviderApi(e.target.value) }}
-                                                        />
-                                                    </div>
-                                                    <div className="grid grid-cols-3 items-center gap-4">
-                                                        <Label htmlFor="apiKey">API Key</Label>
-                                                        <Input
-                                                            id="apiKey"
-                                                            placeholder="sk-********"
-                                                            className="col-span-2 h-10"
-                                                            onChange={e => { setNewProviderApiKey(e.target.value) }}
-                                                        />
-                                                    </div>
-                                                    <div className="grid grid-cols-3 items-center gap-4">
-                                                        <Label htmlFor="models">Models</Label>
-                                                        <Textarea
-                                                            id="models"
-                                                            placeholder="model1,model2,model3"
-                                                            className="col-span-2 h-8"
-                                                            onChange={onNewProviderModelsChange}
-                                                        />
-                                                    </div>
+                <TabsContent value="provider-card" className='w-[640px] h-[420px]'>
+                    <Carousel className="p-2" onChange={onCarouselItemChange}>
+                        <CarouselContent>
+                            {
+                                providers.map(provider => (
+                                    <CarouselItem key={provider.name}>
+                                    <div className=' flex flex-col'>
+                                        <div className='flex-1 flex'>
+                                            <div className='flex-none select-none bg-gray-100 rounded justify-center items-center mb-2 w-20 h-full'>
+                                                {getIcon(provider.name)}
+                                            </div>
+                                            <div className='flex-grow col-span-3 p-2 space-y-2'>
+                                                <div className='grid grid-cols-9 items-center gap-2'>
+                                                <Label htmlFor="provider" className='font-semibold'>Provider</Label>
+                                                <Input
+                                                    id="provider"
+                                                    className="col-span-8 text-sm"
+                                                    value={provider?.name || ''}
+                                                    placeholder="ProviderName"
+                                                    onChange={(event) =>
+                                                        setProvider({
+                                                            ...provider,
+                                                            name: event.target.value
+                                                        })
+                                                    }
+                                                />
+                                                </div>
+                                                <div className="grid grid-cols-9 items-center gap-2">
+                                                    <Label htmlFor="api" className='font-semibold'>API</Label>
+                                                    <Input
+                                                        id="api"
+                                                        className="col-span-8 text-sm"
+                                                        value={provider?.apiUrl || ''}
+                                                        placeholder="https://provider-api.com/v1/chat/x"
+                                                        onChange={(event) =>
+                                                            setProvider({
+                                                                ...provider,
+                                                                apiUrl: event.target.value
+                                                            })
+                                                        }
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-9 items-center gap-2">
+                                                    <Label htmlFor="token" className='font-semibold'>Token</Label>
+                                                    <Input
+                                                        id="token"
+                                                        placeholder="Please input your token"
+                                                        value={provider?.apiKey || ''}
+                                                        className="col-span-8 text-sm"
+                                                        onChange={(event) =>
+                                                            setProvider({
+                                                                ...provider,
+                                                                apiKey: event.target.value
+                                                            })
+                                                        }
+                                                    />
                                                 </div>
                                             </div>
-                                            <DrawerTrigger asChild>
-                                                <Button onClick={onAddProviderBtnClick}>Save</Button>
+                                        </div>
+                                        <div className='flex-1'>
+                                            {/* <Label htmlFor="models">Models</Label> */}
+                                            <div className="items-center gap-1 overflow-scroll h-64">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Enable</TableHead>
+                                                            <TableHead>Label</TableHead>
+                                                            <TableHead>Value</TableHead>
+                                                            <TableHead>Type</TableHead>
+                                                            <TableHead>Operation</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        <TableRow>
+                                                                <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
+                                                                <TableCell><Input className='h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
+                                                                <TableCell><Input className='h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
+                                                                <TableCell>
+                                                                    <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
+                                                                        <SelectTrigger className="h-8">
+                                                                            <SelectValue placeholder="Type" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            <SelectGroup>
+                                                                                <SelectItem value="llm">LLM</SelectItem>
+                                                                                <SelectItem value="vlm">VLM</SelectItem>
+                                                                            </SelectGroup>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </TableCell>
+                                                                <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
+                                                            </TableRow>
+                                                        {
+                                                            provider.models.map(m => (
+                                                                <TableRow key={m.value}>
+                                                                    <TableCell><Checkbox checked={true} /></TableCell>
+                                                                    <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.name)}>{m.name}</TableCell>
+                                                                    <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.value)}>{m.value}</TableCell>
+                                                                    <TableCell className='text-center'>{m.type}</TableCell>
+                                                                    <TableCell className='text-left'></TableCell>
+                                                                </TableRow>
+                                                            ))
+                                                        }
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CarouselItem>
+                                ))
+                            }
+                            <CarouselItem onClick={e => { console.log('add new assistant') }}>
+                                <Card className="p-1">
+                                    <CardContent className="aspect-square select-none text-gray-300 hover:bg-gray-50 w-full h-96">
+                                        <Drawer>
+                                            <DrawerTrigger className='w-full h-full'>
+                                                <p className="text-5xl font-semibold"><i className="ri-add-circle-line"></i></p>
+                                                <p>Add new provider</p>
                                             </DrawerTrigger>
-                                            <DrawerClose asChild>
-                                                <Button variant="outline">Cancel</Button>
-                                            </DrawerClose>
-                                        </DrawerFooter>
-                                    </DrawerContent>
-                                </Drawer>
-                                <Button className="space-x-1" size="sm" variant={"ghost"} onClick={_ => { setSelectProviderPopoutState(false); setAddProviderPopoutState(true) }}>Add&nbsp;<i className="ri-add-circle-line text-lg"></i></Button>
+                                            <DrawerContent>
+                                                <DrawerHeader>
+                                                    <DrawerTitle>Add new provider</DrawerTitle>
+                                                </DrawerHeader>
+                                                <DrawerFooter>
+                                                    <div className="grid gap-4 app-undragable">
+                                                        <div className="grid gap-2">
+                                                            <div className="grid grid-cols-3 items-center gap-4">
+                                                                <Label htmlFor="name">Name</Label>
+                                                                <Input
+                                                                    id="name"
+                                                                    placeholder="OpenAI"
+                                                                    className="col-span-2 h-10"
+                                                                    onChange={e => { setNewProviderName(e.target.value) }}
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-3 items-center gap-4">
+                                                                <Label htmlFor="apiUrl">API URL</Label>
+                                                                <Input
+                                                                    id="apiUrl"
+                                                                    placeholder="https://api.openai.com/v1/chat/completions"
+                                                                    className="col-span-2 h-10"
+                                                                    onChange={e => { setNewProviderApi(e.target.value) }}
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-3 items-center gap-4">
+                                                                <Label htmlFor="apiKey">API Key</Label>
+                                                                <Input
+                                                                    id="apiKey"
+                                                                    placeholder="sk-********"
+                                                                    className="col-span-2 h-10"
+                                                                    onChange={e => { setNewProviderApiKey(e.target.value) }}
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-3 items-center gap-4">
+                                                                <Label htmlFor="models">Models</Label>
+                                                                <Textarea
+                                                                    id="models"
+                                                                    placeholder="model1,model2,model3"
+                                                                    className="col-span-2 h-8"
+                                                                    onChange={onNewProviderModelsChange}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <DrawerTrigger asChild>
+                                                        <Button onClick={onAddProviderBtnClick}>Save</Button>
+                                                    </DrawerTrigger>
+                                                    <DrawerClose asChild>
+                                                        <Button variant="outline">Cancel</Button>
+                                                    </DrawerClose>
+                                                </DrawerFooter>
+                                            </DrawerContent>
+                                        </Drawer>
+                                    </CardContent>
+                                </Card>
+                            </CarouselItem>
+                        </CarouselContent>
+                        <CarouselPrevious className='left-0 -translate-y-4' />
+                        <CarouselNext className='right-0 -translate-y-4' />
+                    </Carousel>
+                </TabsContent>
+                <TabsContent value="misc" className='w-[640px] min-h-96'>
+                    <div className='w-full'>
+                        <p className="text-xl font-medium text-gray-800 cursor-pointer text-muted-foreground">Title Generation</p>
+                        <div className="grid gap-2">
+                            <div className="grid grid-cols-4 items-center gap-1">
+                                <Label htmlFor="provider">Enable</Label>
+                                <div className='flex items-center space-x-1'>
+                                    <Switch checked={titleGenerateEnabled} onCheckedChange={setTitleGenerateEnabled} />
+                                </div>
                             </div>
-                            <div className="grid grid-cols-9 items-center gap-4">
-                                <Label htmlFor="api">API</Label>
-                                <Input
-                                    id="api"
-                                    className="col-span-8 h-8 text-sm"
-                                    value={provider?.apiUrl || ''}
-                                    placeholder="https://provider-api.com/v1/chat/x"
-                                    onChange={(event) =>
-                                        setProvider({
-                                            ...provider,
-                                            apiUrl: event.target.value
-                                        })
-                                    }
-                                />
-                            </div>
-                            <div className="grid grid-cols-9">
-                                <Label htmlFor="token">Token</Label>
-                                <Input
-                                    id="token"
-                                    placeholder="Please input your token"
-                                    value={provider?.apiKey || ''}
-                                    className="col-span-8 h-8 text-sm"
-                                    onChange={(event) =>
-                                        setProvider({
-                                            ...provider,
-                                            apiKey: event.target.value
-                                        })
-                                    }
-                                />
-                            </div>
-                            <Label htmlFor="models">Models</Label>
-                            <div className="grid-cols-1 items-center gap-1 overflow-scroll max-h-96 relative">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Enable</TableHead>
-                                            <TableHead>Label</TableHead>
-                                            <TableHead>Value</TableHead>
-                                            <TableHead>Type</TableHead>
-                                            <TableHead>Operation</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        <TableRow>
-                                                <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
-                                                <TableCell><Input className='h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
-                                                <TableCell><Input className='h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
-                                                <TableCell>
-                                                    <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
-                                                        <SelectTrigger className="h-8">
-                                                            <SelectValue placeholder="Type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectGroup>
-                                                                <SelectItem value="llm">LLM</SelectItem>
-                                                                <SelectItem value="vlm">VLM</SelectItem>
-                                                            </SelectGroup>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </TableCell>
-                                                <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
-                                            </TableRow>
-                                        {
-                                            provider.models.map(m => (
-                                                <TableRow key={m.value}>
-                                                    <TableCell><Checkbox checked={true} /></TableCell>
-                                                    <TableCell className='text-left'>{m.name}</TableCell>
-                                                    <TableCell className='text-left'>{m.value}</TableCell>
-                                                    <TableCell className="text-left">
-                                                        <Select value={m.type}>
-                                                            <SelectTrigger className="h-8">
-                                                                <SelectValue placeholder="Type" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectGroup>
-                                                                    <SelectItem value="llm">LLM</SelectItem>
-                                                                    <SelectItem value="vlm">VLM</SelectItem>
-                                                                </SelectGroup>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        }
-                                    </TableBody>
-                                </Table>
+                            <div className="grid grid-cols-4 items-center gap-1">
+                                <Label htmlFor="provider">Model</Label>
+                                <div className="app-undragable flex items-center space-x-1">
+                                    <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={selectTitleModelPopoutState}
+                                                className="flex justify-between pl-1 pr-1 space-x-2"
+                                            >
+                                                <span className="flex flex-grow overflow-x-hidden">
+                                                    {
+                                                        selectedTitleModel ? selectedTitleModel : "Select model..."
+                                                    }
+                                                </span>
+                                                <ChevronsUpDown className="flex opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0">
+                                            <Command>
+                                                <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
+                                                <CommandList>
+                                                    <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {models.map((md) => (
+                                                            <CommandItem
+                                                                key={md.name}
+                                                                value={md.name}
+                                                                onSelect={(currentValue) => {
+                                                                    setSelectTitleModelPopoutState(false)
+                                                                    setSelectedTitleModel(currentValue)
+                                                                }}
+                                                            >
+                                                                {md.name}
+                                                                <Check className={cn("ml-auto", titleProvider?.name === md.name ? "opacity-100" : "opacity-0")} />
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="misc">
-                    <p className="text-xl font-medium text-gray-800 cursor-pointer text-muted-foreground">Title Generation</p>
-                    <div className="grid gap-2">
-                        <div className="grid grid-cols-4 items-center gap-1">
-                            <Label htmlFor="provider">Enable</Label>
-                            <div className='flex items-center space-x-1'>
-                                <Switch checked={titleGenerateEnabled} onCheckedChange={setTitleGenerateEnabled} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-1">
-                            <Label htmlFor="provider">Model</Label>
-                            <div className="app-undragable flex items-center space-x-1">
-                                <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={selectTitleModelPopoutState}
-                                            className="flex justify-between pl-1 pr-1 space-x-2"
-                                        >
-                                            <span className="flex flex-grow overflow-x-hidden">
-                                                {
-                                                    selectedTitleModel ? selectedTitleModel : "Select model..."
-                                                }
-                                            </span>
-                                            <ChevronsUpDown className="flex opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-full p-0">
-                                        <Command>
-                                            <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
-                                            <CommandList>
-                                                <CommandEmpty>Oops...NotFound</CommandEmpty>
-                                                <CommandGroup>
-                                                    {models.map((md) => (
-                                                        <CommandItem
-                                                            key={md.name}
-                                                            value={md.name}
-                                                            onSelect={(currentValue) => {
-                                                                setSelectTitleModelPopoutState(false)
-                                                                setSelectedTitleModel(currentValue)
-                                                            }}
-                                                        >
-                                                            {md.name}
-                                                            <Check className={cn("ml-auto", titleProvider?.name === md.name ? "opacity-100" : "opacity-0")} />
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                        </div>
+                <div className='space-y-1'>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <p className='text-xs text-slate-500 col-span-4 select-none'>Remember to SAVE, after configurations change</p>
                     </div>
-                </TabsContent>
+                    <Button size="xs" onClick={saveConfigurationClick}>
+                        Save
+                    </Button>
+                </div>
             </Tabs>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <p className='text-xs text-slate-500 col-span-4 select-none'>Remember to SAVE, after configurations change</p>
-            </div>
-            <Button size="xs" onClick={saveConfigurationClick}>
-                Save Configuration
-            </Button>
         </div>
     )
 }

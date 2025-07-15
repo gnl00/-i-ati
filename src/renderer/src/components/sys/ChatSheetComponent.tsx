@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { CheckIcon, Pencil2Icon, Cross2Icon } from '@radix-ui/react-icons'
-import { CardContent } from '../ui/card'
-import { Card } from '../ui/card'
+import { Card, CardContent } from '../ui/card'
 import { Carousel, CarouselItem, CarouselContent, CarouselNext, CarouselPrevious } from '../ui/carousel'
 import { Sheet, SheetDescription, SheetTitle, SheetHeader, SheetContent } from '../ui/sheet'
 import { cn } from '@renderer/lib/utils'
@@ -204,10 +203,10 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                             </Card>
                                         </div>
                                     </CarouselItem>
-                                </CarouselContent>
-                                <CarouselPrevious />
-                                <CarouselNext />
-                            </Carousel>
+                            </CarouselContent>
+                            <CarouselPrevious />
+                            <CarouselNext />
+                        </Carousel>
                     </div>
                     <div className="sheet-content h-full w-full">
                         <div className="flex flex-col justify-center w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg dark:shadow-gray-900 bg-inherit text-inherit">
