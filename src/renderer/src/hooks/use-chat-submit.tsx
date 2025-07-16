@@ -18,7 +18,8 @@ function chatSubmit() {
     setLastMsgStatus,
   } = useChatContext()
   const { 
-    provider, 
+    provider,
+    providers,
     models, 
     messages, 
     selectedModel, 
@@ -36,6 +37,7 @@ function chatSubmit() {
 
     let messageBody: ChatMessage
     const model = models.findLast(model => selectedModel === model.value)!
+
     const modelType = model.type
     if (modelType === 'llm') {
       messageBody = { role: "user", content: textCtx.trim() } as ChatMessage
@@ -51,7 +53,7 @@ function chatSubmit() {
 
     const userMessageEntity: MessageEntity = { body: messageBody }
     const usrMsgId = await saveMessage(userMessageEntity) as number
-    console.log(`modelType=${modelType} msgId=${usrMsgId}`, userMessageEntity)
+    // console.log(`modelType=${modelType} msgId=${usrMsgId}`, userMessageEntity)
 
     let currChatId = chatId
     let chatEntity: ChatEntity
@@ -74,10 +76,11 @@ function chatSubmit() {
     const messageEntities = [...messages, userMessageEntity]
     setMessages(messageEntities)
 
+    const p: IProvider = providers.findLast(p => p.name === model.provider)!
     const req: IChatRequestV2 = {
-      url: provider.apiUrl,
+      url: p.apiUrl,
       messages: messageEntities.map(msg => msg.body),
-      token: provider.apiKey,
+      token: p.apiKey,
       prompt: '',
       model: model.value,
     }
@@ -86,6 +89,7 @@ function chatSubmit() {
     setCurrentReqCtrl(controller)
     const signal = controller.signal
 
+    let gatherReasoning = ''
     let gatherResult = ''
     chatRequestWithHookV2(req, signal, beforeFetch, afterFetch).then(async (reader) => {
         if (reader) {
@@ -105,10 +109,16 @@ function chatSubmit() {
                 return
               }
               const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
-              const resultText = json.choices[0].delta.content
-              gatherResult += resultText || ''
+              if (json.choices[0].delta.content) {
+                gatherResult += json.choices[0].delta.content || ''
+              } else if (json.choices[0].delta.reasoning) {
+                gatherReasoning += json.choices[0].delta.reasoning || ''
+                console.log(gatherReasoning)
+              }
+              console.log('set message processing...');
+              
+              setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherResult, reasoning: gatherReasoning} }])
             })
-            setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherResult } }])
             if (eventDone) {
               break
             }
@@ -145,8 +155,12 @@ function chatSubmit() {
     setFetchState(false)
   }
   const generateTitle = async (context) => {
+    console.log("generateTitle...");
+    
     const titleModel = models.find(md => selectedTitleModel === md.value)!
-    const titleProvider = titleModel.provider as IProvider
+    const titleProvider: IProvider = providers.findLast(p => p.name === titleModel.provider)!
+    console.log(titleModel, titleProvider);
+    
     const titleReq: IChatRequest = {
       url: titleProvider.apiUrl,
       content: context,
@@ -178,6 +192,7 @@ function chatSubmit() {
           const json = JSON.parse(data.substring(('data:'.length + 1)))
           const resultText = json.choices[0].delta.content
           title += resultText || ''
+          console.log(title);
         } catch (error: any) {
           console.log("Generate title ERROR: ", error.message)
         }

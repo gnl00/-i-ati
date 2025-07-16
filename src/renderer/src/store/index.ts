@@ -38,62 +38,62 @@ const localProviders: IProvider[] = [
       name: "SilliconFlow",
       models: [
           {
-              provider: "Qwen",
+              provider: "SilliconFlow",
               name: "Qwen2.5-7B-Instruct",
               value: "Qwen/Qwen2.5-7B-Instruct",
               type: 'llm',
               ability: ['functioncalling']
           },
           {
-              provider: "Qwen",
+              provider: "SilliconFlow",
               name: "Qwen2.5-14B-Instruct",
               value: "Qwen/Qwen2.5-14B-Instruct",
               type: 'llm',
               ability: ['functioncalling']
           },
           {
-              provider: "Qwen",
+              provider: "SilliconFlow",
               name: "Qwen2.5-32B-Instruct",
               value: "Qwen/Qwen2.5-32B-Instruct",
               type: 'llm',
               ability: ['functioncalling']
           },
           {
-              provider: "Qwen",
+              provider: "SilliconFlow",
               name: "Qwen2.5-72B-Instruct",
               value: "Qwen/Qwen2.5-72B-Instruct",
               type: 'llm',
               ability: ['functioncalling']
           },
           {
-              provider: "Qwen",
+              provider: "SilliconFlow",
               name: "Qwen2.5-Coder-7B-Instruct",
               value: "Qwen/Qwen2.5-Coder-7B-Instruct",
               type: 'llm',
               ability: ['functioncalling']
           },
           {
-              provider: "Qwen",
+              provider: "SilliconFlow",
               name: "Qwen2.5-Coder-32B-Instruct",
               value: "Qwen/Qwen2.5-Coder-32B-Instruct",
               type: 'llm',
               ability: ['functioncalling']
           },
           {
-              provider: "Qwen",
+              provider: "SilliconFlow",
               name: "Qwen2-VL-72B-Instruct",
               value: "Qwen/Qwen2-VL-72B-Instruct",
               type: 'vlm'
           },
           {
-              provider: "deepseek-ai",
+              provider: "SilliconFlow",
               name: "DeepSeek-V2.5",
               value: "deepseek-ai/DeepSeek-V2.5",
               type: 'llm',
               ability: ['functioncalling']
           },
           {
-              provider: "deepseek-ai",
+              provider: "SilliconFlow",
               name: "deepseek-vl2",
               value: "deepseek-ai/deepseek-vl2",
               type: 'vlm'

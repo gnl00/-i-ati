@@ -87,8 +87,10 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                                                         key={m.value}
                                                         value={m.value}
                                                         onSelect={(currentValue) => {
+                                                            console.log(currentValue)
                                                             setSelectedModel(currentValue)
-                                                            setProvider(providers.findLast(p => p.name == m.provider)!)
+                                                            const p = providers.findLast(p => p.name == m.provider)!
+                                                            setProvider(p)
                                                             setSelectModelPopoutState(false)
                                                         }}
                                                     >

@@ -2,10 +2,16 @@ import React, { forwardRef, Ref} from 'react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from "@renderer/lib/utils"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuTrigger } from "../ui/context-menu"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
-import { CopyIcon, ReloadIcon, Cross2Icon, Pencil2Icon } from "@radix-ui/react-icons"
+import { CopyIcon, ReloadIcon, Cross2Icon, Pencil2Icon, ArrowDownIcon } from "@radix-ui/react-icons"
 import { updateMessage } from "../../db/MessageRepository"
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -173,6 +179,15 @@ export const AssistantChatItemRef: React.FC<AssistantChatItemProps> = forwardRef
       <ContextMenuTrigger asChild>
         <div ref={elRef} key={idx} className="flex justify-start mb-2">
         <div className="max-w-[85%] rounded-2xl px-4 py-3 shadow bg-white dark:bg-gray-900 overflow-y-scroll">
+              {/* <div className='bg-gray-200 p-2 mb-2 rounded-xl text-gray-700'>{message.body.reasoning as string}</div> */}
+              <Accordion defaultValue={'reasoning-' + idx} type="single" collapsible className='bg-gray-50 pl-0.5 pr-0.5 rounded-xl'>
+                <AccordionItem value={'reasoning-' + idx}>
+                  <AccordionTrigger className='text-sm text-gray-600 h-10'>Reasoning<ArrowDownIcon></ArrowDownIcon></AccordionTrigger>
+                  <AccordionContent>
+                    <div className='bg-gray-100 p-2 rounded-xl text-gray-500 min-w-96'>{(message.body.reasoning as string).replaceAll('<', '\<').replaceAll('>', '\>')}</div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw]}

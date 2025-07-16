@@ -64,6 +64,7 @@ declare interface MessageEntity {
 declare interface ChatMessage {
   role: string;
   content: string | VLMContent[]
+  reasoning?: string
 }
 
 declare type LLMContent = string;
