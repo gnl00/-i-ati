@@ -38,7 +38,15 @@ import { TooltipProvider } from '../ui/tooltip'
 import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
 import { SAVE_CONFIG } from '@constants/index'
 import { useChatStore } from '@renderer/store'
-// import { OpenAI, Anthropic, DeepSeek, OpenRouter, Moonshot, SiliconCloud, OpenWebUI } from '@lobehub/icons';
+import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
+import openaiTextIcon from '@renderer/assets/provider-icons/openai-text.svg'
+import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
+import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
+import moonshotIcon from '@renderer/assets/provider-icons/moonshot.svg'
+import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
+import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
+import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
+import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
 interface PreferenceProps {
     onTokenQuestionClick: (url: string) => void;
 }
@@ -232,25 +240,33 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         setProviders(filterProviders)
     }
     const getIcon = (provider: string) => {
-        return <div>icon</div>
-        // switch (provider) {
-        //     case "OpenAI":
-        //         return <OpenAI className='w-16 h-16' />
-        //     case "Anthropic":
-        //         return <Anthropic className='w-16 h-16' />
-        //     case "DeepSeek":
-        //         return <DeepSeek className='w-16 h-16' />
-        //     case "MoonShot":
-        //         return <Moonshot className='w-16 h-16' />
-        //     case "SilliconFlow":
-        //         return <SiliconCloud className='w-16 h-16' />
-        //     case "SiliconCloud":
-        //         return <SiliconCloud className='w-16 h-16' />
-        //     case "OpenRouter":
-        //         return <OpenRouter className='w-16 h-16' />
-        //     default:
-        //         return <OpenWebUI className='w-16 h-16' />
-        // }
+        let iconSrc = robotIcon
+        switch (provider) {
+            case "OpenAI":
+                iconSrc = openaiIcon
+                break
+            case "Anthropic":
+                iconSrc = anthropicIcon
+                break
+            case "DeepSeek":
+                iconSrc = deepseekIcon
+                break
+            case "MoonShot":
+                iconSrc = moonshotIcon
+                break
+            case "SilliconFlow":
+                iconSrc = siliconcloudIcon
+                break
+            case "SiliconCloud":
+                iconSrc = siliconcloudIcon
+                break
+            case "OpenRouter":
+                iconSrc = openrouterIcon
+                break
+            default:
+                break
+        }
+        return <img src={iconSrc} alt="OpenAI" className="w-14 h-14" />
     }
     const onModelTableCellClick = (val: string) => {
         navigator.clipboard.writeText(val)
@@ -603,7 +619,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                         <CarouselPrevious className='left-0 -translate-y-4' />
                         <CarouselNext className='right-0 -translate-y-4' />
                     </Carousel>
-                    <div className='h-[84%] flex flex-col mt-4 pl-2 pr-2'>
+                    <div className='h-[84%] flex flex-col mt-2 pl-2 pr-2'>
                         <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
                             <Label className='flex-none' htmlFor="provider">Provider</Label>
                             <Input id="provider" 
