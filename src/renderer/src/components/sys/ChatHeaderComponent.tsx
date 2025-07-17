@@ -38,7 +38,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
   }
 
   return (
-    <div className="header shadow-lg fixed top-0 w-full pb-2 pr-2 pl-2 pt-2 flex items-center justify-between z-10 bg-gray-50" style={{ userSelect: 'none' }}>
+    <div className="header shadow-lg fixed top-0 w-full pb-2 pr-2 pl-2 pt-2 flex items-center justify-between z-10 app-dragable bg-gray-50" style={{ userSelect: 'none' }}>
       <div className="app-dragable flex-1 space-x-2 flex">
         <Button className="app-undragable" variant="outline" size="icon" onClick={e => {setSheetOpenState(true)}}>
           <ActivityLogIcon />

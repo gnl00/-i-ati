@@ -5,15 +5,21 @@ import { PaperPlaneIcon } from '@radix-ui/react-icons'
 
 const ChatWindowComponentV2 = () => {
   return (
-    <div className="pt-14 h-svh relative app-undragable flex flex-col" style={{
+    <div className="h-svh relative app-undragable flex flex-col" style={{
       backgroundColor: '#f9f9f9',
       backgroundImage: `radial-gradient(circle at 1px 1px, rgba(139,125,102,0.15) 1px, transparent 0)`,
       backgroundSize: '50px 50px'
     }}>
+      <div className='h-14 bg-gray-50 app-dragable'></div> {/* padding-area */}
       <div className="">chat-list</div>
       <div className="p-6 rounded-md fixed bottom-0 w-full h-52">
         <div className='relative bg-gray-50 h-full rounded-2xl'>
-          <Textarea className="bg-gray-50 text-base p-2 h-full border-b-[0px] rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto" style={{maxHeight: 'calc(100% - 2rem)'}}>input area
+          <Textarea 
+            style={{maxHeight: 'calc(100% - 2rem)'}}
+            className="bg-gray-50 text-base p-2 h-full border-b-[0px]
+              rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto" 
+            placeholder='Type anything to chat'
+            >input area
           </Textarea>
           <div className='absolute bottom-0 rounded-b-2xl z-10 w-full bg-[#F9FAFB] p-1 pl-4 flex border-b-[1px] border-l-[1px] border-r-[1px]'>
             <div className='flex-grow flex space-x-2 select-none relative'>
