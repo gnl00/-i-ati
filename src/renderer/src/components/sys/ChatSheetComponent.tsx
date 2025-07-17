@@ -133,7 +133,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     }
     return (
         <Sheet open={sheetOpenState} onOpenChange={() => {setSheetOpenState(!sheetOpenState)}}>
-            <SheetContent side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0">
+            <SheetContent side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0 select-none">
                 <SheetHeader>
                     <SheetTitle>@i-ati</SheetTitle>
                     <SheetDescription>

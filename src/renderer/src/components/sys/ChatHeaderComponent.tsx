@@ -9,8 +9,7 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
 
-interface ChatHeaderProps {
-}
+interface ChatHeaderProps {}
 
 const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) => {
   const [pinState, setPinState] = useState<boolean>(false)
@@ -38,9 +37,9 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
   }
 
   return (
-    <div className="header shadow-lg fixed top-0 w-full pb-2 pr-2 pl-2 pt-2 flex items-center justify-between z-10 app-dragable bg-gray-50" style={{ userSelect: 'none' }}>
+    <div className="header shadow-lg fixed top-0 w-full pb-2 pr-2 pl-2 pt-2 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black/100" style={{ userSelect: 'none' }}>
       <div className="app-dragable flex-1 space-x-2 flex">
-        <Button className="app-undragable" variant="outline" size="icon" onClick={e => {setSheetOpenState(true)}}>
+        <Button className="app-undragable" variant="outline" size="icon" onClick={_ => {setSheetOpenState(true)}}>
           <ActivityLogIcon />
         </Button>
         <Popover>
