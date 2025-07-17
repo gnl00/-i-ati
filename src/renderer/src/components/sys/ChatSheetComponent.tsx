@@ -285,7 +285,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                     </div>
                     <div className="sheet-footer absolute bottom-12 w-full select-none">
                         <div className="space-y-1">
-                            <h4 className="text-sm font-medium leading-none">Have a nice day~</h4>
+                            <h4 className="text-sm font-medium leading-none">-</h4>
                             <p className="text-sm text-muted-foreground">
                                 Based on React & Electron & ShadcnUI.
                             </p>
@@ -294,7 +294,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                         <div className="flex h-5 items-center space-x-4 text-sm">
                             <div>...</div>
                             <Separator orientation="vertical" />
-                            <div>Docs</div>
+                            <div>...</div>
                             <Separator orientation="vertical" />
                             <div>Source</div>
                         </div>

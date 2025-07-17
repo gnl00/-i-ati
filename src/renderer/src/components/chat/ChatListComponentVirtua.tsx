@@ -82,7 +82,7 @@ const ChatListComponent = (props: ChatListProps) => {
                 }
                 <div ref={scrollEndRef} className="scrollEndRef"></div>
             </VList>
-            <div onClick={onEndClick} className="fixed bottom-[25%] right-10 bg-black/30 dark:bg-gray-50/30 backdrop-blur-lg text-gray-300 z-10 rounded-full w-8 h-8 p-1 flex items-center justify-center"><i className="ri-arrow-down-fill"></i></div>
+            <div onClick={onEndClick} className="fixed bottom-[25%] right-10 bg-black/30 dark:bg-gray-50/30 backdrop-blur-sm text-gray-300 z-10 rounded-full w-8 h-8 p-1 flex items-center justify-center"><i className="ri-arrow-down-fill"></i></div>
         </div>
     )
 }

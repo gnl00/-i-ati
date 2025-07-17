@@ -38,7 +38,7 @@ import { TooltipProvider } from '../ui/tooltip'
 import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
 import { SAVE_CONFIG } from '@constants/index'
 import { useChatStore } from '@renderer/store'
-import { OpenAI, Anthropic, DeepSeek, OpenRouter, Moonshot, SiliconCloud, OpenWebUI } from '@lobehub/icons';
+// import { OpenAI, Anthropic, DeepSeek, OpenRouter, Moonshot, SiliconCloud, OpenWebUI } from '@lobehub/icons';
 interface PreferenceProps {
     onTokenQuestionClick: (url: string) => void;
 }
@@ -232,24 +232,25 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         setProviders(filterProviders)
     }
     const getIcon = (provider: string) => {
-        switch (provider) {
-            case "OpenAI":
-                return <OpenAI className='w-16 h-16' />
-            case "Anthropic":
-                return <Anthropic className='w-16 h-16' />
-            case "DeepSeek":
-                return <DeepSeek className='w-16 h-16' />
-            case "MoonShot":
-                return <Moonshot className='w-16 h-16' />
-            case "SilliconFlow":
-                return <SiliconCloud className='w-16 h-16' />
-            case "SiliconCloud":
-                return <SiliconCloud className='w-16 h-16' />
-            case "OpenRouter":
-                return <OpenRouter className='w-16 h-16' />
-            default:
-                return <OpenWebUI className='w-16 h-16' />
-        }
+        return <div>icon</div>
+        // switch (provider) {
+        //     case "OpenAI":
+        //         return <OpenAI className='w-16 h-16' />
+        //     case "Anthropic":
+        //         return <Anthropic className='w-16 h-16' />
+        //     case "DeepSeek":
+        //         return <DeepSeek className='w-16 h-16' />
+        //     case "MoonShot":
+        //         return <Moonshot className='w-16 h-16' />
+        //     case "SilliconFlow":
+        //         return <SiliconCloud className='w-16 h-16' />
+        //     case "SiliconCloud":
+        //         return <SiliconCloud className='w-16 h-16' />
+        //     case "OpenRouter":
+        //         return <OpenRouter className='w-16 h-16' />
+        //     default:
+        //         return <OpenWebUI className='w-16 h-16' />
+        // }
     }
     const onModelTableCellClick = (val: string) => {
         navigator.clipboard.writeText(val)
