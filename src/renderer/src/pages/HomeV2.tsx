@@ -4,7 +4,7 @@ import { ChatProvider } from "@renderer/context/ChatContext"
 import ChatSheetComponent from "@renderer/components/sys/ChatSheetComponent"
 import ChatSheetHoverComponent from "@renderer/components/sys/ChatSheetHoverComponent"
 import ChatHeaderComponent from "@renderer/components/sys/ChatHeaderComponent"
-import ChatWindowsComponent from "@renderer/components/chat/ChatWindowsComponent"
+import ChatWindowsComponent from "@renderer/components/chat/ChatWindowComponentV2"
 
 export default () => {
     return (

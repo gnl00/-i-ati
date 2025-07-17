@@ -29,6 +29,7 @@ const ChatListComponent = (props: ChatListProps) => {
         return () => chatContainer?.removeEventListener('wheel', handleWheel)
     }, [])
     useEffect(() => {
+        // console.log(messages[messages.length - 1]);
         if (!scrollUp) {
             scrollEndRef.current?.scrollIntoView({
                 behavior:'instant'
@@ -54,7 +55,7 @@ const ChatListComponent = (props: ChatListProps) => {
         <div className="h-auto space-x-2 w-[100vw] overflow-y-auto" id="chatContainer">
             {
                 messages.map((message, index) => {
-                    if (!message.body || !message.body.content || message.body.content.length === 0) {
+                    if (!message.body || !message.body.content || !message.body.reasoning) {
                         return null
                     }
                     return (

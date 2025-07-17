@@ -82,12 +82,11 @@ const ToolBarComponent: React.FC<ToolBarProps> = (props: ToolBarProps) => {
                                         >
                                             <span className="text-xs text-gray-400">{p.name}</span>
                                             {
-                                                p.models.map((m) => (
+                                                p.models.map((m) => m.enable && (
                                                     <CommandItem
                                                         key={m.value}
                                                         value={m.value}
                                                         onSelect={(currentValue) => {
-                                                            console.log(currentValue)
                                                             setSelectedModel(currentValue)
                                                             const p = providers.findLast(p => p.name == m.provider)!
                                                             setProvider(p)

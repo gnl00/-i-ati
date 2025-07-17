@@ -101,20 +101,20 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         setEditProviderApiKey(provider.apiKey)
     }, [provider])
 
-    useEffect(() => {
-        carouselApi?.on('select', () => {
-            const index = carouselApi.selectedScrollSnap()
-            console.log(index);
+    // useEffect(() => {
+    //     carouselApi?.on('select', () => {
+    //         const index = carouselApi.selectedScrollSnap()
+    //         console.log(index);
             
-            if (index < providers.length) {
-                const nextProvider: IProvider = providers[index]
-                setProvider(nextProvider)
-                setEditProviderName(nextProvider.name)
-                setEditProviderApiUrl(nextProvider.apiUrl)
-                setEditProviderApiKey(nextProvider.apiKey)
-            }
-        })
-    }, [carouselApi])
+    //         if (index < providers.length) {
+    //             const nextProvider: IProvider = providers[index]
+    //             setProvider(nextProvider)
+    //             setEditProviderName(nextProvider.name)
+    //             setEditProviderApiUrl(nextProvider.apiUrl)
+    //             setEditProviderApiKey(nextProvider.apiKey)
+    //         }
+    //     })
+    // }, [carouselApi])
 
     const updateProviders = () => {
         const nextProviders: IProvider[] = providers.map(p => {
@@ -234,21 +234,21 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     const getIcon = (provider: string) => {
         switch (provider) {
             case "OpenAI":
-                return <OpenAI className='w-20 h-20' />
+                return <OpenAI className='w-16 h-16' />
             case "Anthropic":
-                return <Anthropic className='w-20 h-20' />
+                return <Anthropic className='w-16 h-16' />
             case "DeepSeek":
-                return <DeepSeek className='w-20 h-20' />
+                return <DeepSeek className='w-16 h-16' />
             case "MoonShot":
-                return <Moonshot className='w-20 h-20' />
+                return <Moonshot className='w-16 h-16' />
             case "SilliconFlow":
-                return <SiliconCloud className='w-20 h-20' />
+                return <SiliconCloud className='w-16 h-16' />
             case "SiliconCloud":
-                return <SiliconCloud className='w-20 h-20' />
+                return <SiliconCloud className='w-16 h-16' />
             case "OpenRouter":
-                return <OpenRouter className='w-20 h-20' />
+                return <OpenRouter className='w-16 h-16' />
             default:
-                return <OpenWebUI className='w-20 h-20' />
+                return <OpenWebUI className='w-16 h-16' />
         }
     }
     const onModelTableCellClick = (val: string) => {
@@ -260,6 +260,26 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             description: `✅ Copied`,
         })
     }
+    const onProviderCardClick = (p: IProvider) => {
+        console.log('click', p)
+        setProvider(p)
+        setEditProviderName(p.name)
+        setEditProviderApiUrl(p.apiUrl)
+        setEditProviderApiKey(p.apiKey)
+    }
+    const onModelEnableStatusChange = (checked, model: IModel) => {
+        model.enable = checked
+        setProvider({
+            ...provider,
+            models: provider.models.map(m => m.value === model.value ? model : m)
+        })
+        updateProviders()
+        if (!checked) {
+            setModels(models.filter(m => m.value !== model.value))
+        } else {
+            setModels([...models, model])
+        }
+    }
     return (
         <div className="grid gap-4">
             <div className="space-y-2 select-none">
@@ -269,10 +289,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                 </h4>
                 <p className="text-sm text-muted-foreground">Set the preferences for @i</p>
             </div>
-            <Tabs defaultValue="provider-card">
+            <Tabs defaultValue="providers">
                 <TabsList>
                     <TabsTrigger value="provider-card">ProviderCard</TabsTrigger>
                     <TabsTrigger value="misc">Misc</TabsTrigger>
+                    <TabsTrigger value="providers">Providers</TabsTrigger>
                 </TabsList>
                 <TabsContent value="provider-card" className='w-[640px] h-[420px]'>
                     <Carousel className="p-2" setApi={setCarouselApi}>
@@ -326,9 +347,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                                         <Label htmlFor="token" className='font-semibold'>Token</Label>
                                                         <Input
                                                             id="token"
+                                                            className="col-span-8 text-sm"
                                                             placeholder="Please input your token"
                                                             value={editProviderApiKey}
-                                                            className="col-span-8 text-sm"
                                                             onChange={(e) => {
                                                                 const nextKeyVal = e.target.value
                                                                 setEditProviderApiKey(nextKeyVal)
@@ -344,7 +365,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                             </div>
                                             <div className='flex-1'>
                                                 {/* <Label htmlFor="models">Models</Label> */}
-                                                <div className="items-center gap-1 overflow-scroll h-64">
+                                                <div className="items-center gap-1 overflow-scroll h-64 scroll-smooth">
                                                     <Table>
                                                         <TableHeader>
                                                             <TableRow>
@@ -378,7 +399,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                                             {
                                                                 fProvider.models.map((m, idx) => (
                                                                     <TableRow key={idx}>
-                                                                        <TableCell><Checkbox checked={true} /></TableCell>
+                                                                        <TableCell><Checkbox /></TableCell>
                                                                         <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.name)}>{m.name}</TableCell>
                                                                         <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.value)}>{m.value}</TableCell>
                                                                         <TableCell className='text-center'>{m.type}</TableCell>
@@ -513,7 +534,173 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                         </div>
                     </div>
                 </TabsContent>
-                <div className='space-y-1'>
+                <TabsContent value="providers" className='w-[640px] h-[600px]'>
+                    <Carousel className="m-2 p-0.5 h-20" setApi={setCarouselApi}>
+                        <CarouselContent>
+                            {
+                                providers.map(fProvider => (
+                                    <CarouselItem key={fProvider.name} className='basis-1/5'>
+                                        <div className='flex flex-col justify-center items-center bg-gray-100 rounded' onClick={_ => onProviderCardClick(fProvider)}>
+                                            {getIcon(fProvider.name)}
+                                            <p className='select-none'>{fProvider.name}</p>
+                                        </div>
+                                    </CarouselItem>
+                                ))
+                            }
+                            <div className='ml-4 bg-gray-100 rounded-md'>
+                                <Drawer>
+                                    <DrawerTrigger className='flex flex-col h-full justify-center items-start text-gray-400 w-24'>
+                                        <p className="text-5xl font-semibold w-full"><i className="ri-add-circle-line"></i></p>
+                                    </DrawerTrigger>
+                                    <DrawerContent>
+                                        <DrawerHeader>
+                                            <DrawerTitle>Add new provider</DrawerTitle>
+                                        </DrawerHeader>
+                                        <DrawerFooter>
+                                            <div className="grid gap-4 app-undragable">
+                                                <div className="grid gap-2">
+                                                    <div className="grid grid-cols-3 items-center gap-4">
+                                                        <Label htmlFor="name">Name</Label>
+                                                        <Input
+                                                            id="name"
+                                                            placeholder="OpenAI"
+                                                            className="col-span-2 h-10"
+                                                            onChange={e => { setNewProviderName(e.target.value) }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-3 items-center gap-4">
+                                                        <Label htmlFor="apiUrl">API URL</Label>
+                                                        <Input
+                                                            id="apiUrl"
+                                                            placeholder="https://api.openai.com/v1/chat/completions"
+                                                            className="col-span-2 h-10"
+                                                            onChange={e => { setNewProviderApi(e.target.value) }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-3 items-center gap-4">
+                                                        <Label htmlFor="apiKey">API Key</Label>
+                                                        <Input
+                                                            id="apiKey"
+                                                            placeholder="sk-********"
+                                                            className="col-span-2 h-10"
+                                                            onChange={e => { setNewProviderApiKey(e.target.value) }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <DrawerTrigger asChild>
+                                                <Button onClick={onAddProviderBtnClick}>Save</Button>
+                                            </DrawerTrigger>
+                                            <DrawerClose asChild>
+                                                <Button variant="outline">Cancel</Button>
+                                            </DrawerClose>
+                                        </DrawerFooter>
+                                    </DrawerContent>
+                                </Drawer>
+                            </div>
+                        </CarouselContent>
+                        <CarouselPrevious className='left-0 -translate-y-4' />
+                        <CarouselNext className='right-0 -translate-y-4' />
+                    </Carousel>
+                    <div className='h-[84%] flex flex-col mt-4 pl-2 pr-2'>
+                        <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
+                            <Label className='flex-none' htmlFor="provider">Provider</Label>
+                            <Input id="provider" 
+                                className='flex-grow' 
+                                value={editProviderName}
+                                onChange={(e) => {
+                                    const nextNameVal = e.target.value
+                                    setEditProviderName(nextNameVal)
+                                    setProvider({
+                                        ...provider,
+                                        name: nextNameVal
+                                    })
+                                    updateProviders()
+                                }}
+                                />
+                        </div>
+                        <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
+                            <Label className='flex-none' htmlFor="provider">ApiUrl&emsp;</Label>
+                            <Input id="provider" 
+                                className='flex-grow'
+                                value={editProviderApiUrl}
+                                placeholder="https://provider-api.com/v1/chat/x"
+                                onChange={(e) => {
+                                    const nextApiVal = e.target.value
+                                    setEditProviderApiUrl(nextApiVal)
+                                    setProvider({
+                                        ...provider,
+                                        apiUrl: nextApiVal
+                                    })
+                                    updateProviders()
+                                }}
+                                />
+                        </div>
+                        <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
+                            <Label className='flex-none' htmlFor="provider">ApiKey&ensp;</Label>
+                            <Input id="provider" 
+                                className='flex-grow'
+                                placeholder="Please input your api-key"
+                                value={editProviderApiKey}
+                                onChange={(e) => {
+                                    const nextKeyVal = e.target.value
+                                    setEditProviderApiKey(nextKeyVal)
+                                    setProvider({
+                                        ...provider,
+                                        apiKey: nextKeyVal
+                                    })
+                                    updateProviders()
+                                }}
+                                />
+                        </div>
+                        <div className='flex-grow h-full overflow-scroll'>
+                            <Table>
+                                <TableHeader className=''>
+                                    <TableRow>
+                                        <TableHead className='text-center'>Enable</TableHead>
+                                        <TableHead className='text-center'>DisplayName</TableHead>
+                                        <TableHead className='text-center'>Value</TableHead>
+                                        <TableHead className='text-center'>Type</TableHead>
+                                        <TableHead className='text-center'>Operation</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
+                                        <TableCell><Input className='h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
+                                        <TableCell><Input className='h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
+                                        <TableCell>
+                                            <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
+                                                <SelectTrigger className="h-8">
+                                                    <SelectValue placeholder="Type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectGroup>
+                                                        <SelectItem value="llm">LLM</SelectItem>
+                                                        <SelectItem value="vlm">VLM</SelectItem>
+                                                    </SelectGroup>
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                        <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
+                                    </TableRow>
+                                    {
+                                        provider.models.map((m, idx) => (
+                                            <TableRow key={idx}>
+                                                <TableCell><Checkbox checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell>
+                                                <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.name)}>{m.name}</TableCell>
+                                                <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.value)}>{m.value}</TableCell>
+                                                <TableCell className='text-center'>{m.type}</TableCell>
+                                                <TableCell className='text-left'></TableCell>
+                                            </TableRow>
+                                        ))
+                                    }
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                </TabsContent>
+                <div className='space-y-1 mt-1'>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <p className='text-xs text-slate-500 col-span-4 select-none'>Remember to SAVE, after configurations change</p>
                     </div>

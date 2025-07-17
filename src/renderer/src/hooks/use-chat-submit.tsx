@@ -109,14 +109,15 @@ function chatSubmit() {
                 return
               }
               const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
+              if (json.error) {
+                throw Error(json.error)
+              }
               if (json.choices[0].delta.content) {
                 gatherResult += json.choices[0].delta.content || ''
+                console.log(gatherResult)
               } else if (json.choices[0].delta.reasoning) {
                 gatherReasoning += json.choices[0].delta.reasoning || ''
-                console.log(gatherReasoning)
               }
-              console.log('set message processing...');
-              
               setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherResult, reasoning: gatherReasoning} }])
             })
             if (eventDone) {
