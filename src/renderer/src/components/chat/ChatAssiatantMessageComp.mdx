@@ -1,0 +1,16 @@
+import ReactMarkdown from 'react-markdown'
+import { Badge } from "@renderer/components/ui/badge"
+import ThinkingBadge from "@renderer/components/mdx/components/ThinkingBadge"
+
+<div id='think'>
+  <ThinkingBadge />
+  <ReactMarkdown>
+  {props.reasoning}
+  </ReactMarkdown>
+</div>
+<p class='m-0 mb-2'/>
+<div class='pl-2 pr-2'>
+  <ReactMarkdown>
+    {props.content}
+  </ReactMarkdown>
+</div>

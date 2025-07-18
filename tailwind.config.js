@@ -78,6 +78,9 @@ module.exports = {
 						800: '#1e293b',
 						900: '#0f172a',
 					},
+				gray: {
+					150: '#e9eaec'
+				},
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

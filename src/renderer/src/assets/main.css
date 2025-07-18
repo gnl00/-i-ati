@@ -118,3 +118,17 @@
 .animate-slide-in-right {
   animation: slideInRight 300ms ease-out forwards;
 }
+
+#think {
+  padding-top: 5px;
+  padding-left: 8px;
+  padding-right: 5px;
+  /* border-radius: 10px 10px 0px 0px; */
+  border-radius: 10px;
+  color: rgb(105, 105, 105);
+  background-color: #e6e7ec;
+
+  & p {
+    margin: 0px !important;
+  }
+}

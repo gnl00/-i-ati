@@ -29,7 +29,7 @@ function chatSubmit() {
     setReadStreamState,
     selectedTitleModel,
   } = useChatStore()
-
+  
   const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
     if (!textCtx) {
       return
@@ -114,9 +114,10 @@ function chatSubmit() {
               }
               if (json.choices[0].delta.content) {
                 gatherResult += json.choices[0].delta.content || ''
-                console.log(gatherResult)
+                // console.log(gatherResult)
               } else if (json.choices[0].delta.reasoning) {
                 gatherReasoning += json.choices[0].delta.reasoning || ''
+                // console.log(gatherReasoning)
               }
               setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherResult, reasoning: gatherReasoning} }])
             })
@@ -132,6 +133,11 @@ function chatSubmit() {
         const sysMsgId = await saveMessage(sysMessageEntity) as number
         chatEntity.messages = [...chatEntity.messages, sysMsgId]
         if (!chatTitle || chatTitle === 'NewChat') {
+
+          const generateTitleEnable: boolean = false
+
+          if (!generateTitleEnable) { return }
+
           const title = await generateTitle(textCtx) as string
           chatEntity.title = title
         }
