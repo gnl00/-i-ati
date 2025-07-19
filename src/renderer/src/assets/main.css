@@ -120,9 +120,10 @@
 }
 
 #think {
-  padding-top: 5px;
+  padding-top: 3px;
   padding-left: 8px;
   padding-right: 5px;
+  padding-bottom: 5px;
   /* border-radius: 10px 10px 0px 0px; */
   border-radius: 10px;
   color: rgb(105, 105, 105);

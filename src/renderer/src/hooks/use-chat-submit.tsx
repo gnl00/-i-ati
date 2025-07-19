@@ -113,11 +113,20 @@ function chatSubmit() {
                 throw Error(json.error)
               }
               if (json.choices[0].delta.content) {
-                gatherResult += json.choices[0].delta.content || ''
+                let reasoningEndIndex = 0
+                if ((json.choices[0].delta.content as string).startsWith('<think>')
+                  && (reasoningEndIndex = (json.choices[0].delta.content as string).indexOf('</think>')) != -1
+                ) {
+                  gatherReasoning += (json.choices[0].delta.content as string).substring(0, reasoningEndIndex)
+                }else if((json.choices[0].delta.content as string).startsWith('<think>')) {
+                  gatherReasoning += json.choices[0].delta.content
+                } else {
+                  gatherResult += json.choices[0].delta.content
+                }
                 // console.log(gatherResult)
               } else if (json.choices[0].delta.reasoning) {
                 gatherReasoning += json.choices[0].delta.reasoning || ''
-                // console.log(gatherReasoning)
+                console.log(gatherReasoning)
               }
               setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherResult, reasoning: gatherReasoning} }])
             })
@@ -132,15 +141,11 @@ function chatSubmit() {
         const sysMessageEntity: MessageEntity = { body: { role: 'system', content: gatherResult } }
         const sysMsgId = await saveMessage(sysMessageEntity) as number
         chatEntity.messages = [...chatEntity.messages, sysMsgId]
-        if (!chatTitle || chatTitle === 'NewChat') {
-
-          const generateTitleEnable: boolean = false
-
-          if (!generateTitleEnable) { return }
-
-          const title = await generateTitle(textCtx) as string
-          chatEntity.title = title
-        }
+        // TODO fix generateTitle
+        // if (!chatTitle || chatTitle === 'NewChat') {
+        //   const title = await generateTitle(textCtx) as string
+        //   chatEntity.title = title
+        // }
         chatEntity.updateTime = new Date().getTime()
         updateChat(chatEntity)
         updateChatList(chatEntity)

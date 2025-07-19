@@ -38,7 +38,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
       duration: 500,
       variant: 'default',
       className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-      description: '✅ Content copied',
+      description: '✅ Copied',
     })
   }
   const doRegenerate = (msgBody: ChatMessage) => {
@@ -178,10 +178,74 @@ export const AssistantChatItemRef: React.FC<AssistantChatItemProps> = forwardRef
     console.log('rendering assiatant comp');
   }, [])
   return (
-    <div className='p-8'>
-      <div>{message.body.reasoning as string}</div>
-      <hr/>
-      <div>{message.body.content as string}</div>
-    </div>
+    <ContextMenu key={idx} modal={true}>
+      <ContextMenuTrigger asChild>
+        <div ref={elRef} key={idx} className="flex justify-start mb-2">
+        <div className="max-w-[85%] rounded-2xl px-4 py-3 shadow bg-white dark:bg-gray-900 overflow-y-scroll">
+              {/* <div className='bg-gray-200 p-2 mb-2 rounded-xl text-gray-700'>{message.body.reasoning as string}</div> */}
+              <Accordion defaultValue={'reasoning-' + idx} type="single" collapsible className='bg-gray-50 pl-0.5 pr-0.5 rounded-xl'>
+                <AccordionItem value={'reasoning-' + idx}>
+                  <AccordionTrigger className='text-sm text-gray-600 h-10'>Reasoning<ArrowDownIcon></ArrowDownIcon></AccordionTrigger>
+                  <AccordionContent>
+                    <div className='bg-gray-100 p-2 rounded-xl text-gray-500 min-w-96'>{(message.body.reasoning as string).replaceAll('<', '\<').replaceAll('>', '\>')}</div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+                remarkRehypeOptions={{ passThrough: ['link'] }}
+                className="prose dark:prose-invert prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 text-md font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                components={{
+                  code(props) {
+                    const { children, className, node, ...rest } = props
+                    const match = /language-(\w+)/.exec(className || '')
+                    return match ? (
+                      <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
+                        <SyntaxHighlighterWrapper
+                        children={String(children).replace(/\n$/, '')}
+                        language={match[1]}
+                        />
+                      </CodeCopyWrapper>
+                    ) : (
+                      <code {...rest} className={className}>
+                        {children}
+                      </code>
+                    )
+                  }
+                }}
+              >
+                {message.body.content as string}
+              </ReactMarkdown>
+              {idx === editableContentId && (
+                <Popover open={idx === editableContentId}>
+                  <PopoverTrigger></PopoverTrigger>
+                  <PopoverContent className="app-undragable w-[85vw] md:w-[80vw] lg:w-[75vw] h-[30vh] ml-2 p-1 border-0 backdrop-blur-sm bg-black/10 dark:bg-gray/50">
+                    <div className="w-full h-full flex flex-col space-y-2 ">
+                      <p className="pl-1 pr-1 text-inherit flex items-center justify-between">
+                        <span>Edit</span>
+                        <span onClick={e => setEditableContentId(-1)} className="bg-red-500 rounded-full text-white p-0.5"><Cross2Icon className="transition-all duration-400 ease-in-out hover:transform hover:rotate-180"></Cross2Icon></span>
+                      </p>
+                      <Textarea
+                        defaultValue={message.body.content as string}
+                        className="flex-grow h-auto"
+                        onChange={onEditContentSave}
+                      />
+                      <div className="flex space-x-2 justify-end">
+                        <Button variant={'secondary'} size={'sm'} onClick={e => setEditableContentId(-1)} className="bg-red-500 text-slate-50 hover:bg-red-400">Close</Button>
+                        <Button size={'sm'} onClick={e => setEditableContentId(-1)}>Save</Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={_ => onCopyClick(message.body.content)}>Copy<ContextMenuShortcut><CopyIcon /></ContextMenuShortcut></ContextMenuItem>
+        <ContextMenuItem onClick={_ => setEditableContentId(idx)}>Edit<ContextMenuShortcut><Pencil2Icon /></ContextMenuShortcut></ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 })

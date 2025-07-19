@@ -1,5 +1,11 @@
-import ChatHeaderComponent from "@renderer/components/sys/ChatHeaderComponent"
+import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@renderer/components/ui/accordion"
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
@@ -16,14 +22,22 @@ import {
 import { useChatStore } from '@renderer/store'
 import { useChatContext } from '@renderer/context/ChatContext'
 import React, { useState, forwardRef, useEffect } from 'react'
-import { ChevronsUpDown, Check, SlidersHorizontal, Globe, BadgePercent, CirclePlus, PlaneIcon } from 'lucide-react'
+import { 
+  ChevronsUpDown, 
+  Check, 
+  Globe, 
+  BadgePercent, 
+  CirclePlus,
+  Boxes,
+} from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 
-import { MDXProvider } from '@mdx-js/react'
-import {MDXComponents} from 'mdx/types.js'
-import ChatAssiatantMessageComp from './ChatAssiatantMessageComp.mdx'
-import ChatUserMessageComp from '@renderer/components/mdx/ChatUserMessageComp.mdx'
 import chatSubmit from '@renderer/hooks/use-chat-submit'
+
+import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '@renderer/components/md/SyntaxHighlighterWrapper'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { 
@@ -44,25 +58,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
   const [chatListHeight, setChatListHeight] = useState<number>(0)
 
-  const onSubmit = chatSubmit()
-  
-  const components: MDXComponents = {
-    em(properties) {
-      return <i {...properties} />
-    }
-  }
-
-  const calculateChatListHeight = () => {
-    const chatWindow = document.getElementById('chat-window')
-    const inputArea = document.getElementById('input-area')
-    
-    if (chatWindow && inputArea) {
-      const chatWindowHeight = chatWindow.offsetHeight
-      const inputAreaHeight = inputArea.offsetHeight
-      setChatListHeight(chatWindowHeight - inputAreaHeight - 78)
-    }
-  }
-
   useEffect(() => {
     calculateChatListHeight()
     
@@ -77,9 +72,26 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   useEffect(() => {
+
+    console.log(messages)
+    
+
     calculateChatListHeight()
     scrollToBottom()
   }, [messages])
+
+  const onSubmit = chatSubmit()
+
+  const calculateChatListHeight = () => {
+    const chatWindow = document.getElementById('chat-window')
+    const inputArea = document.getElementById('input-area')
+    
+    if (chatWindow && inputArea) {
+      const chatWindowHeight = chatWindow.offsetHeight
+      const inputAreaHeight = inputArea.offsetHeight
+      setChatListHeight(chatWindowHeight - inputAreaHeight - 28)
+    }
+  }
 
   const scrollToBottom = () => {
     const chatList = document.getElementById('chat-list')
@@ -110,35 +122,135 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       backgroundSize: '50px 50px'
     }}>
       <ChatHeaderComponent />
-      <div id='chat-list' className="mt-16 mr-2 w-full overflow-scroll flex flex-col space-y-2 px-4" style={{ height: `${chatListHeight}px` }}>
-        <MDXProvider components={components}>
-          {
+      <div id='chat-list' className="mt-14 w-full overflow-scroll flex flex-col space-y-2 px-2" style={{ height: `${chatListHeight}px` }}>
+        {
             messages.length !== 0 && messages.map((m, index) => m.body.role === 'user' ? 
             (
-              <div key={index} className="flex justify-end">
-                <div className="border-gray-200 border-[1px] text-gray-700 p-2 rounded-xl">
-                  <ChatUserMessageComp content={m.body.content} />
-                </div>
+              (
+                <div key={index} className={cn("flex justify-end mr-1", index == 0 ? 'mt-2' : '')}>
+                  <div className={cn("max-w-[85%] rounded-xl py-2 px-2 border-gray-100 border-[1px] shadow bg-gray-50 dark:bg-gray-100")}>
+                    {typeof m.body.content !== 'string' ? (
+                      <>
+                        <div className="">
+                          {m.body.content.map((vlmContent: VLMContent, idx) => {
+                            if (vlmContent.image_url) {
+                              return <img key={idx} src={vlmContent.image_url?.url} onDoubleClick={e => e}></img>
+                            } else {
+                              return (
+                                <ReactMarkdown
+                                  key={idx}
+                                  remarkPlugins={[remarkGfm]}
+                                  rehypePlugins={[rehypeRaw]}
+                                  remarkRehypeOptions={{ passThrough: ['link'] }}
+                                  className={cn("prose prose-code:text-gray-400 text-base font-medium max-w-[100%] text-white dark:text-white transition-all duration-400 ease-in-out")}
+                                  components={{
+                                    code(props) {
+                                      const { children, className, node, ...rest } = props
+                                      const match = /language-(\w+)/.exec(className || '')
+                                      return match ? (
+                                        <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
+                                          <SyntaxHighlighterWrapper
+                                          children={String(children).replace(/\n$/, '')}
+                                          language={match[1]}
+                                          />
+                                        </CodeCopyWrapper>
+                                      ) : (
+                                        <code {...rest} className={className}>
+                                          {children}
+                                        </code>
+                                      )
+                                    }
+                                  }}
+                                >
+                                  {vlmContent.text}
+                                </ReactMarkdown>
+                              )
+                            }
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <ReactMarkdown
+                        key={index}
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw]}
+                        remarkRehypeOptions={{ passThrough: ['link'] }}
+                        className={cn("prose prose-code:text-gray-400 text-base text-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
+                        components={{
+                          code(props) {
+                            const { children, className, node, ...rest } = props
+                            const match = /language-(\w+)/.exec(className || '')
+                            return match ? (
+                              <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
+                                <SyntaxHighlighterWrapper
+                                children={String(children).replace(/\n$/, '')}
+                                language={match[1]}
+                                />
+                              </CodeCopyWrapper>
+                            ) : (
+                              <code {...rest} className={className}>
+                                {children}
+                              </code>
+                            )
+                          }
+                        }}
+                      >
+                        {m.body.content as string}
+                      </ReactMarkdown>
+                    )}
+                  </div>
               </div>
+              )
             )
             : 
-            (
-              <div key={index} className="flex justify-start">
-                <div className="bg-gray-100 pb-1 prose rounded-xl">
-                  <ChatAssiatantMessageComp content={m.body.content} reasoning={m.body.reasoning} components={{
-                    PlaneIconTo() {
-                      return <PlaneIcon></PlaneIcon>
-                    },
-                    Think() {
-                      return m.body.reasoning?.startsWith('<') ? <div>{m.body.reasoning}</div> : <></>
+            (<div key={index} className={cn("flex justify-start pb-0.5", index == 0 ? 'mt-2' : '')}>
+                <div className="max-w-[85%] rounded-xl shadow bg-gray-100 dark:bg-gray-900 overflow-y-scroll">
+                    {
+                      m.body.reasoning && 
+                      (
+                        <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
+                          <AccordionItem value={'reasoning-' + index}>
+                            <AccordionTrigger className='text-sm h-10'><Badge variant={'secondary'} className="text-gray-600 bg-blue-gray-200">Thinking</Badge></AccordionTrigger>
+                            <AccordionContent className="bg-blue-gray-100 p-1 border-none rounded-xl">
+                              <div className='text-blue-gray-500 pb-2 pl-1 pr-1 border-none'>{(m.body.reasoning as string)}</div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      )
                     }
-                  }} />
-                </div>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      remarkRehypeOptions={{ passThrough: ['link'] }}
+                      className="prose px-2 py-2 dark:prose-invert prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 text-base font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                      components={{
+                        code(props) {
+                          const { children, className, node, ...rest } = props
+                          const match = /language-(\w+)/.exec(className || '')
+                          return match ? (
+                            <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
+                              <SyntaxHighlighterWrapper
+                              children={String(children).replace(/\n$/, '')}
+                              language={match[1]}
+                              />
+                            </CodeCopyWrapper>
+                          ) : (
+                            <code {...rest} className={className}>
+                              {children}
+                            </code>
+                          )
+                        }
+                      }}
+                    >
+                      {m.body.content as string}
+                    </ReactMarkdown>
+                  </div>
               </div>
             )
           )
-          }
-        </MDXProvider>
+        }
+        {/* just as a padding element */}
+        <div className="flex h-20 pt-3">&nbsp;</div>
       </div>
       <div id='input-area' className="p-6 rounded-md fixed bottom-10 w-full h-52">
         <div className='rounded-xl flex items-center space-x-2 pl-2 pr-2 mb-2 select-none'>
@@ -226,7 +338,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                           ) : (selected.value);
                         })()) : ("Mcp Tool")}
                     </span>
-                    <SlidersHorizontal className="flex opacity-50 pl-1 pr-0.5 w-5" />
+                    <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-full border-[1px] ml-1 rounded-xl">
