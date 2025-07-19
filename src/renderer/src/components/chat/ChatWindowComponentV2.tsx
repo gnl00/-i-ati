@@ -72,10 +72,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   useEffect(() => {
-
     console.log(messages)
-    
-
     calculateChatListHeight()
     scrollToBottom()
   }, [messages])
@@ -297,6 +294,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                                           key={m.value}
                                           value={m.value}
                                           onSelect={(currentValue) => {
+                                              console.log(currentValue)
                                               setSelectedModel(currentValue)
                                               const p = providers.findLast(p => p.name == m.provider)!
                                               setProvider(p)

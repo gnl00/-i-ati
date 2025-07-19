@@ -150,6 +150,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         updateProviders()
 
         const updatedModels = models.map(md => md.value === nextAddModel.value ? nextAddModel : md)
+        console.log(updatedModels)
+        
         setModels(updatedModels)
 
         setNextAddModelEnable(false)

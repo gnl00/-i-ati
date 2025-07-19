@@ -45,7 +45,7 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
       max_tokens: 1024,
       temperature: 0.7,
       top_p: 0.7,
-      top_k: 50,
+      // top_k: 50,
       frequency_penalty: 0.5,
       n: 1
     })
@@ -81,6 +81,10 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
 
   beforeFetch()
 
+  const cacheMessage: ChatMessage[] = req.messages.map(msg => {
+    const { reasoning, ...props } = msg
+    return props
+  })
   const stream = await fetch(req.url, {
     method: 'POST',
     headers,
@@ -89,13 +93,13 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
       model: req.model,
       messages: initMessage != null ? [
         {...initMessage},
-        ...req.messages
-      ] : [...req.messages],
+        ...cacheMessage
+      ] : [...cacheMessage],
       stream: true,
       max_tokens: 1024,
       temperature: 0.7,
       top_p: 0.7,
-      top_k: 50,
+      // top_k: 50,
       frequency_penalty: 0.5,
       n: 1
     })
