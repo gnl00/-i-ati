@@ -76,6 +76,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   useEffect(() => {
     calculateChatListHeight()
     scrollToBottom()
+    // console.log(messages)
   }, [messages])
 
   const onSubmit = chatSubmit()
@@ -273,7 +274,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   variant="outline"
                   role="combobox"
                   aria-expanded={selectModelPopoutState}
-                  className="w-auto justify-between flex p-1 rounded-full bg-white/20 backdrop-blur-xl"
+                  className="w-auto justify-between flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl"
                   >
                     <span className="flex flex-grow overflow-x-hidden opacity-70">
                       {selectedModel ? (
@@ -336,7 +337,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   variant="outline"
                   role="combobox"
                   aria-expanded={selectMCPPopoutState}
-                  className="w-auto justify-between flex p-1 rounded-full bg-white/30 backdrop-blur-xl"
+                  className="w-auto justify-between flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl"
                   >
                     <span className="flex flex-grow overflow-x-hidden opacity-70">
                       {selectedModel ? (
