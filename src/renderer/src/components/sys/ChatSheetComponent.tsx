@@ -218,7 +218,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                     chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
                                         return (
                                             index === chatList.length - 1 ?
-                                                <div key={-1} className="flex justify-center text-gray-300 dark:text-gray-700 select-none p-2">No more chats</div> :
+                                                <div key={-1} className="flex justify-center text-gray-300 dark:text-gray-700 select-none p-1">No more chats</div> :
                                                 <div id="chat-item"
                                                     key={index}
                                                     onMouseOver={(e) => onMouseOverSheetChat(item.id as number)}

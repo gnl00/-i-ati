@@ -1,32 +1,44 @@
 [
   {
-      "name": "OpenAI",
-      "models": [],
-      "apiUrl": "https://api.openai.com/v1/chat/completions",
-      "apiKey": ""
+    "name": "OpenAI",
+    "models": [],
+    "apiUrl": "https://api.openai.com/v1/chat/completions",
+    "apiKey": ""
   },
   {
-      "name": "Anthropic",
-      "models": [],
-      "apiUrl": "https://api.anthropic.com/v1/messages",
-      "apiKey": ""
+    "name": "Anthropic",
+    "models": [],
+    "apiUrl": "https://api.anthropic.com/v1/messages",
+    "apiKey": ""
   },
   {
-      "name": "DeepSeek",
-      "models": [],
-      "apiUrl": "https://api.deepseek.com",
-      "apiKey": ""
+    "name": "OpenRouter",
+    "models": [],
+    "apiUrl": "https://openrouter.ai/api/v1/chat/completions",
+    "apiKey": ""
   },
   {
-      "name": "SilliconFlow",
-      "models": [],
-      "apiUrl": "https://api.siliconflow.cn/v1/chat/completions",
-      "apiKey": ""
+    "name": "Groq",
+    "models": [],
+    "apiUrl": "https://api.groq.com/openai/v1/chat/completions",
+    "apiKey": ""
   },
   {
-      "name": "MoonShot",
-      "models": [],
-      "apiUrl": "https://api.moonshot.cn/v1",
-      "apiKey": ""
+    "name": "DeepSeek",
+    "models": [],
+    "apiUrl": "https://api.deepseek.com",
+    "apiKey": ""
+  },
+  {
+    "name": "SilliconFlow",
+    "models": [],
+    "apiUrl": "https://api.siliconflow.cn/v1/chat/completions",
+    "apiKey": ""
+  },
+  {
+    "name": "MoonShot",
+    "models": [],
+    "apiUrl": "https://api.moonshot.cn/v1",
+    "apiKey": ""
   }
 ]

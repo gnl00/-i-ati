@@ -89,6 +89,7 @@ function chatSubmit() {
     setCurrentReqCtrl(controller)
     const signal = controller.signal
 
+    let isContentHasThinkTag = false // 标记是否在<think>标签内
     let gatherContent = ''
     let gatherReasoning = ''
     let sysMessageEntity: MessageEntity = { body: { role: 'system', content: '' } }
@@ -113,23 +114,27 @@ function chatSubmit() {
               if (json.error) {
                 throw Error(json.error)
               }
-              if (json.choices[0].delta.content) {
-                // let reasoningEndIndex = 0
-                // if ((json.choices[0].delta.content as string).startsWith('<think>')
-                //   && (reasoningEndIndex = (json.choices[0].delta.content as string).indexOf('</think>')) != -1
-                // ) {
-                //   gatherReasoning += (json.choices[0].delta.content as string).substring(0, reasoningEndIndex)
-                // }else if((json.choices[0].delta.content as string).startsWith('<think>')) {
-                //   gatherReasoning += json.choices[0].delta.content
-                // } else {
-                //   gatherContent += json.choices[0].delta.content
-                // }
-                gatherContent += json.choices[0].delta.content
-                // console.log(gatherContent)
-              } else if (json.choices[0].delta.reasoning) {
-                gatherReasoning += json.choices[0].delta.reasoning || ''
-                console.log(gatherReasoning)
+              if (isContentHasThinkTag) {
+                if (!gatherReasoning) {
+                  gatherReasoning = gatherContent
+                  gatherContent = ''
+                }
+                gatherReasoning += json.choices[0].delta.content
+                if (gatherReasoning.includes('</think>')) {
+                  isContentHasThinkTag = false
+                }
+              } else {
+                if (gatherContent.includes('<think>')) {
+                  isContentHasThinkTag = true
+                  gatherContent += json.choices[0].delta.content
+                } else if (json.choices[0].delta.content) {
+                  gatherContent += json.choices[0].delta.content
+                } else if (json.choices[0].delta.reasoning) {
+                  gatherReasoning += json.choices[0].delta.reasoning || '';
+                }
               }
+              // console.log(gatherReasoning)
+              // console.log(gatherContent)
               setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherContent, reasoning: gatherReasoning} }])
             })
             if (eventDone) {
