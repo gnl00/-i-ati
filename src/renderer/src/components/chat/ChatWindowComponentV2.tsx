@@ -9,7 +9,7 @@ import {
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
-import { PaperPlaneIcon } from '@radix-ui/react-icons'
+import { PaperPlaneIcon, CopyIcon, ReloadIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@renderer/components/ui/command'
 import { Popover, PopoverTrigger, PopoverContent } from '@radix-ui/react-popover'
 import {
@@ -72,7 +72,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   useEffect(() => {
-    console.log(messages)
     calculateChatListHeight()
     scrollToBottom()
   }, [messages])
@@ -112,6 +111,12 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const onTextAreaChange = (e) => {
     setInputContent(e.target.value)
   }
+  const onTextAreaKeyDown = (e) => {
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault() // 防止跳到新的一行
+      onSubmitClick(e)
+    }
+  }
   return (
     <div id='chat-window' className="h-svh relative app-undragable" style={{
       backgroundColor: '#f9f9f9',
@@ -124,8 +129,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             messages.length !== 0 && messages.map((m, index) => m.body.role === 'user' ? 
             (
               (
-                <div key={index} className={cn("flex justify-end mr-1", index == 0 ? 'mt-2' : '')}>
-                  <div className={cn("max-w-[85%] rounded-xl py-2 px-2 border-gray-100 border-[1px] shadow bg-gray-50 dark:bg-gray-100")}>
+                <div id='use-message' key={index} className={cn("flex justify-end mr-1", index == 0 ? 'mt-2' : '')}>
+                  <div className={cn("max-w-[85%] rounded-xl py-3 px-3 bg-blue-50 dark:bg-gray-100")}>
                     {typeof m.body.content !== 'string' ? (
                       <>
                         <div className="">
@@ -137,8 +142,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                                 <ReactMarkdown
                                   key={idx}
                                   remarkPlugins={[remarkGfm]}
-                                  rehypePlugins={[rehypeRaw]}
-                                  remarkRehypeOptions={{ passThrough: ['link'] }}
+                                  skipHtml={false}
                                   className={cn("prose prose-code:text-gray-400 text-base font-medium max-w-[100%] text-white dark:text-white transition-all duration-400 ease-in-out")}
                                   components={{
                                     code(props) {
@@ -170,9 +174,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       <ReactMarkdown
                         key={index}
                         remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw]}
-                        remarkRehypeOptions={{ passThrough: ['link'] }}
-                        className={cn("prose prose-code:text-gray-400 text-base text-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
+                        skipHtml={false}
+                        className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-500 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
                         components={{
                           code(props) {
                             const { children, className, node, ...rest } = props
@@ -200,8 +203,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
               )
             )
             : 
-            (<div key={index} className={cn("flex justify-start pb-0.5", index == 0 ? 'mt-2' : '')}>
-                <div className="max-w-[85%] rounded-xl shadow bg-gray-100 dark:bg-gray-900 overflow-y-scroll">
+            (<div id='assistant-message' key={index} className={cn("flex justify-start flex-col pb-0.5", index == 0 ? 'mt-2' : '')}>
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
                     {
                       m.body.reasoning && 
                       (
@@ -219,7 +222,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw]}
                       remarkRehypeOptions={{ passThrough: ['link'] }}
-                      className="prose px-2 py-2 dark:prose-invert prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 text-base font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                      className="prose px-2 py-2 text-base text-blue-gray-500 dark:prose-invert prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
                       components={{
                         code(props) {
                           const { children, className, node, ...rest } = props
@@ -241,15 +244,25 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                     >
                       {m.body.content as string}
                     </ReactMarkdown>
-                  </div>
+                </div>
+                <div className="pl-2 space-x-1 flex text-gray-500">
+                  <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center"><CopyIcon></CopyIcon></div>
+                  {
+                    // only the latest messgae can be regenerate
+                    index === messages.length - 1 && (
+                      <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center"><ReloadIcon></ReloadIcon></div>
+                    )
+                  }
+                  <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center"><Pencil2Icon></Pencil2Icon></div>
+                </div>
               </div>
             )
           )
         }
         {/* just as a padding element */}
-        <div className="flex h-20 pt-3">&nbsp;</div>
+        <div className="flex h-20 pt-10">&nbsp;</div>
       </div>
-      <div id='input-area' className="p-6 rounded-md fixed bottom-10 w-full h-52">
+      <div id='input-area' className="p-6 pt-0 rounded-md fixed bottom-10 w-full h-52">
         <div className='rounded-xl flex items-center space-x-2 pl-2 pr-2 mb-2 select-none'>
           <div className="app-undragable">
             <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
@@ -263,7 +276,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                     <span className="flex flex-grow overflow-x-hidden opacity-70">
                       {selectedModel ? (
                         (() => {
-                          const selected = models.find(m => m.value === selectedModel);
+                          const selected = models.find(m => m.value === selectedModel)
                           if (!selected) return null;
                           return selected.type === 'vlm' ? (
                             <span className="flex space-x-2">
@@ -386,6 +399,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             placeholder='Type anything to chat'
             value={inputContent}
             onChange={onTextAreaChange}
+            onKeyDown={onTextAreaKeyDown}
             ></Textarea>
           <div className='absolute bottom-0 rounded-b-2xl z-10 w-full bg-[#F9FAFB] p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px]'>
             <div className='flex-grow flex space-x-2 select-none relative'>

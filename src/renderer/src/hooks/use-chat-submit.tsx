@@ -89,8 +89,9 @@ function chatSubmit() {
     setCurrentReqCtrl(controller)
     const signal = controller.signal
 
+    let gatherContent = ''
     let gatherReasoning = ''
-    let gatherResult = ''
+    let sysMessageEntity: MessageEntity = { body: { role: 'system', content: '' } }
     chatRequestWithHookV2(req, signal, beforeFetch, afterFetch).then(async (reader) => {
         if (reader) {
           setReadStreamState(true)
@@ -121,35 +122,32 @@ function chatSubmit() {
                 // }else if((json.choices[0].delta.content as string).startsWith('<think>')) {
                 //   gatherReasoning += json.choices[0].delta.content
                 // } else {
-                //   gatherResult += json.choices[0].delta.content
+                //   gatherContent += json.choices[0].delta.content
                 // }
-                gatherResult += json.choices[0].delta.content
-                // console.log(gatherResult)
+                gatherContent += json.choices[0].delta.content
+                // console.log(gatherContent)
               } else if (json.choices[0].delta.reasoning) {
                 gatherReasoning += json.choices[0].delta.reasoning || ''
                 console.log(gatherReasoning)
               }
-              setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherResult, reasoning: gatherReasoning} }])
+              setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherContent, reasoning: gatherReasoning} }])
             })
             if (eventDone) {
+              sysMessageEntity.body.content = gatherContent
+              sysMessageEntity.body.reasoning = gatherReasoning
               break
             }
           }
         }
         setLastMsgStatus(true)
       }).then(async () => {
-        setReadStreamState(false)
-        const sysMessageEntity: MessageEntity = { body: { role: 'system', content: gatherResult } }
-        const sysMsgId = await saveMessage(sysMessageEntity) as number
-        chatEntity.messages = [...chatEntity.messages, sysMsgId]
+        console.log('generate chatTitle');
+        
         // TODO fix generateTitle
         // if (!chatTitle || chatTitle === 'NewChat') {
         //   const title = await generateTitle(textCtx) as string
         //   chatEntity.title = title
         // }
-        chatEntity.updateTime = new Date().getTime()
-        updateChat(chatEntity)
-        updateChatList(chatEntity)
       }).catch(err => {
         if (err.name !== 'AbortError') {
           toast({
@@ -159,6 +157,15 @@ function chatSubmit() {
           })
         }
         setLastMsgStatus(false)
+      }).finally(async () => {
+        console.log('save messageEntity');
+        
+        setReadStreamState(false)
+        const sysMsgId = await saveMessage(sysMessageEntity) as number
+        chatEntity.messages = [...chatEntity.messages, sysMsgId]
+        chatEntity.updateTime = new Date().getTime()
+        updateChat(chatEntity)
+        updateChatList(chatEntity)
       })
   }
   const beforeFetch = () => {

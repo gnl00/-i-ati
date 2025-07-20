@@ -4,12 +4,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import {
     Table,
     TableBody,
-    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
-  } from "../ui/table"
+} from "../ui/table"
 import { Checkbox } from "../ui/checkbox"
 import {
     Select,
@@ -21,21 +20,16 @@ import {
     SelectValue,
     } from "../ui/select"
 import { Carousel, CarouselItem, CarouselContent, CarouselNext, CarouselPrevious, type CarouselApi } from '../ui/carousel'
-import { Card, CardContent } from '../ui/card'
 import { Button } from "../ui/button"
-import { Textarea } from "../ui/textarea"
 import { Badge } from '../ui/badge'
 import { Label } from '../ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandInput } from '../ui/command'
 import { Check, ChevronsUpDown } from "lucide-react"
-import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerDescription, DrawerTrigger, DrawerFooter, DrawerClose } from '../ui/drawer'
+import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from '../ui/drawer'
 import { Input } from '../ui/input'
 import { Switch } from '../ui/switch'
 import { toast } from '../ui/use-toast'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import { TooltipProvider } from '../ui/tooltip'
-import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
 import { SAVE_CONFIG } from '@constants/index'
 import { useChatStore } from '@renderer/store'
 import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
@@ -55,9 +49,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
 
     const { appVersion, appConfig, setAppConfig, provider, setProvider, models, setModels, providers, setProviders, titleProvider, selectedTitleModel, setSelectedTitleModel } = useChatStore()
 
-    const [addProviderPopoutState, setAddProviderPopoutState] = useState(false)
-    const [selectProviderPopoutState, setSelectProviderPopoutState] = useState(false)
-
     const [editProviderName, setEditProviderName] = useState<string>(provider.name)
     const [editProviderApiUrl, setEditProviderApiUrl] = useState<string>(provider.apiUrl)
     const [editProviderApiKey, setEditProviderApiKey] = useState<string>(provider.apiKey)
@@ -72,11 +63,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     const [newProviderName, setNewProviderName] = useState<string>()
     const [newProviderApi, setNewProviderApi] = useState<string>()
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
-    const [newProviderModels, setNewProviderModels] = useState<IModel[]>([])
     
     const [titleGenerateEnabled, setTitleGenerateEnabled] = useState(true)
 
-    const [carouselApi, setCarouselApi] = useState<CarouselApi>()
+    // const [carouselApi, setCarouselApi] = useState<CarouselApi>()
 
     async function fetchModels() {
         try {
@@ -141,18 +131,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         })
     }
     const onAddModelClick = () => {
-        const nextAddModel: IModel = {enable: nextAddModelEnable, provider: provider.name, name: nextAddModelLabel, value: nextAddModelValue, type: nextAddModelType || 'llm'}
-        console.log(nextAddModel)
+        const newModel: IModel = {enable: nextAddModelEnable, provider: provider.name, name: nextAddModelLabel, value: nextAddModelValue, type: nextAddModelType || 'llm'}
         
-        provider.models = [...provider.models, nextAddModel]
+        provider.models = [...provider.models, newModel]
         
+        setModels([...models, newModel])
         setProvider(provider)
         updateProviders()
-
-        const updatedModels = models.map(md => md.value === nextAddModel.value ? nextAddModel : md)
-        console.log(updatedModels)
-        
-        setModels(updatedModels)
 
         setNextAddModelEnable(false)
         setNextAddModelLabel('')
@@ -215,14 +200,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         }
         const newProvider: IProvider = {
             name: newProviderName,
-            models: [...newProviderModels],
+            models: [],
             apiUrl: newProviderApi,
             apiKey: newProviderApiKey
         }
-        console.log(newProvider)
         setProvider(newProvider)
-        setProviders([...providers, newProvider])
-        setModels([...models, ...newProviderModels])
+        setProviders([newProvider, ...providers])
+        console.log('new-provider', newProvider)
         toast({
             variant: 'default',
             duration: 800,
@@ -243,27 +227,28 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     }
     const getIcon = (provider: string) => {
         let iconSrc = robotIcon
-        switch (provider) {
-            case "OpenAI":
+        const pName = provider.toLowerCase()
+        switch (pName) {
+            case "OpenAI".toLowerCase():
                 iconSrc = openaiIcon
                 break
-            case "Anthropic":
+            case "Anthropic".toLowerCase():
                 iconSrc = anthropicIcon
                 break
-            case "DeepSeek":
+            case "DeepSeek".toLowerCase():
                 iconSrc = deepseekIcon
                 break
-            case "MoonShot":
+            case "MoonShot".toLowerCase():
                 iconSrc = moonshotIcon
                 break
-            case "SilliconFlow":
+            case "SilliconFlow".toLowerCase() || "SiliconCloud".toLowerCase():
                 iconSrc = siliconcloudIcon
                 break
-            case "SiliconCloud":
-                iconSrc = siliconcloudIcon
-                break
-            case "OpenRouter":
+            case "OpenRouter".toLowerCase():
                 iconSrc = openrouterIcon
+                break
+            case "Ollamma".toLowerCase():
+                iconSrc = ollamaIcon
                 break
             default:
                 break
@@ -280,7 +265,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         })
     }
     const onProviderCardClick = (p: IProvider) => {
-        console.log('click', p)
         setProvider(p)
         setEditProviderName(p.name)
         setEditProviderApiUrl(p.apiUrl)
@@ -310,191 +294,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             </div>
             <Tabs defaultValue="providers">
                 <TabsList>
-                    <TabsTrigger value="provider-card">ProviderCard</TabsTrigger>
-                    <TabsTrigger value="misc">Misc</TabsTrigger>
                     <TabsTrigger value="providers">Providers</TabsTrigger>
+                    <TabsTrigger value="misc">Misc</TabsTrigger>
                 </TabsList>
-                <TabsContent value="provider-card" className='w-[640px] h-[420px]'>
-                    <Carousel className="p-2" setApi={setCarouselApi}>
-                        <CarouselContent>
-                            {
-                                providers.map(fProvider => (
-                                    <CarouselItem key={fProvider.name}>
-                                        <div className=' flex flex-col'>
-                                            <div className='flex-1 flex'>
-                                                <div className='flex-none select-none bg-gray-100 rounded justify-center items-center mb-2 w-20 h-26'>
-                                                    {getIcon(fProvider.name)}
-                                                </div>
-                                                <div className='flex-grow col-span-3 p-2 space-y-2'>
-                                                    <div className='grid grid-cols-9 items-center gap-2'>
-                                                    <Label htmlFor="provider" className='font-semibold'>Provider</Label>
-                                                    <Input
-                                                        id="provider"
-                                                        className="col-span-8 text-sm"
-                                                        value={editProviderName}
-                                                        placeholder="ProviderName"
-                                                        onChange={(e) => {
-                                                            const nextNameVal = e.target.value
-                                                            setEditProviderName(nextNameVal)
-                                                            setProvider({
-                                                                ...provider,
-                                                                name: nextNameVal
-                                                            })
-                                                            updateProviders()
-                                                        }}
-                                                    />
-                                                    </div>
-                                                    <div className="grid grid-cols-9 items-center gap-2">
-                                                        <Label htmlFor="api" className='font-semibold'>API</Label>
-                                                        <Input
-                                                            id="api"
-                                                            className="col-span-8 text-sm"
-                                                            value={editProviderApiUrl}
-                                                            placeholder="https://provider-api.com/v1/chat/x"
-                                                            onChange={(e) => {
-                                                                const nextApiVal = e.target.value
-                                                                setEditProviderApiUrl(nextApiVal)
-                                                                setProvider({
-                                                                    ...provider,
-                                                                    apiUrl: nextApiVal
-                                                                })
-                                                                updateProviders()
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div className="grid grid-cols-9 items-center gap-2">
-                                                        <Label htmlFor="token" className='font-semibold'>Token</Label>
-                                                        <Input
-                                                            id="token"
-                                                            className="col-span-8 text-sm"
-                                                            placeholder="Please input your token"
-                                                            value={editProviderApiKey}
-                                                            onChange={(e) => {
-                                                                const nextKeyVal = e.target.value
-                                                                setEditProviderApiKey(nextKeyVal)
-                                                                setProvider({
-                                                                    ...provider,
-                                                                    apiKey: nextKeyVal
-                                                                })
-                                                                updateProviders()
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className='flex-1'>
-                                                {/* <Label htmlFor="models">Models</Label> */}
-                                                <div className="items-center gap-1 overflow-scroll h-64 scroll-smooth">
-                                                    <Table>
-                                                        <TableHeader>
-                                                            <TableRow>
-                                                                <TableHead className='text-center'>Enable</TableHead>
-                                                                <TableHead className='text-center'>DisplayName</TableHead>
-                                                                <TableHead className='text-center'>Value</TableHead>
-                                                                <TableHead className='text-center'>Type</TableHead>
-                                                                <TableHead className='text-center'>Operation</TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                            <TableRow>
-                                                                <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
-                                                                <TableCell><Input className='h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
-                                                                <TableCell><Input className='h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
-                                                                <TableCell>
-                                                                    <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
-                                                                        <SelectTrigger className="h-8">
-                                                                            <SelectValue placeholder="Type" />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            <SelectGroup>
-                                                                                <SelectItem value="llm">LLM</SelectItem>
-                                                                                <SelectItem value="vlm">VLM</SelectItem>
-                                                                            </SelectGroup>
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                </TableCell>
-                                                                <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
-                                                            </TableRow>
-                                                            {
-                                                                fProvider.models.map((m, idx) => (
-                                                                    <TableRow key={idx}>
-                                                                        <TableCell><Checkbox /></TableCell>
-                                                                        <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.name)}>{m.name}</TableCell>
-                                                                        <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.value)}>{m.value}</TableCell>
-                                                                        <TableCell className='text-center'>{m.type}</TableCell>
-                                                                        <TableCell className='text-left'></TableCell>
-                                                                    </TableRow>
-                                                                ))
-                                                            }
-                                                        </TableBody>
-                                                    </Table>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CarouselItem>
-                                ))
-                            }
-                            <CarouselItem onClick={e => { console.log('add new provider') }}>
-                                <Card className="p-1">
-                                    <CardContent className="aspect-square select-none text-gray-300 hover:bg-gray-50 w-full h-96">
-                                        <Drawer>
-                                            <DrawerTrigger className='w-full h-full'>
-                                                <p className="text-5xl font-semibold"><i className="ri-add-circle-line"></i></p>
-                                                <p>Add new provider</p>
-                                            </DrawerTrigger>
-                                            <DrawerContent>
-                                                <DrawerHeader>
-                                                    <DrawerTitle>Add new provider</DrawerTitle>
-                                                </DrawerHeader>
-                                                <DrawerFooter>
-                                                    <div className="grid gap-4 app-undragable">
-                                                        <div className="grid gap-2">
-                                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                                <Label htmlFor="name">Name</Label>
-                                                                <Input
-                                                                    id="name"
-                                                                    placeholder="OpenAI"
-                                                                    className="col-span-2 h-10"
-                                                                    onChange={e => { setNewProviderName(e.target.value) }}
-                                                                />
-                                                            </div>
-                                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                                <Label htmlFor="apiUrl">API URL</Label>
-                                                                <Input
-                                                                    id="apiUrl"
-                                                                    placeholder="https://api.openai.com/v1/chat/completions"
-                                                                    className="col-span-2 h-10"
-                                                                    onChange={e => { setNewProviderApi(e.target.value) }}
-                                                                />
-                                                            </div>
-                                                            <div className="grid grid-cols-3 items-center gap-4">
-                                                                <Label htmlFor="apiKey">API Key</Label>
-                                                                <Input
-                                                                    id="apiKey"
-                                                                    placeholder="sk-********"
-                                                                    className="col-span-2 h-10"
-                                                                    onChange={e => { setNewProviderApiKey(e.target.value) }}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <DrawerTrigger asChild>
-                                                        <Button onClick={onAddProviderBtnClick}>Save</Button>
-                                                    </DrawerTrigger>
-                                                    <DrawerClose asChild>
-                                                        <Button variant="outline">Cancel</Button>
-                                                    </DrawerClose>
-                                                </DrawerFooter>
-                                            </DrawerContent>
-                                        </Drawer>
-                                    </CardContent>
-                                </Card>
-                            </CarouselItem>
-                        </CarouselContent>
-                        <CarouselPrevious className='left-0 -translate-y-4' />
-                        <CarouselNext className='right-0 -translate-y-4' />
-                    </Carousel>
-                </TabsContent>
                 <TabsContent value="misc" className='w-[640px] min-h-96'>
                     <div className='w-full'>
                         <p className="text-xl font-medium text-gray-800 cursor-pointer text-muted-foreground">Title Generation</p>
@@ -554,21 +356,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                     </div>
                 </TabsContent>
                 <TabsContent value="providers" className='w-[640px] h-[600px]'>
-                    <Carousel className="m-2 p-0.5 h-20" setApi={setCarouselApi}>
+                    <Carousel className="m-2 p-0.5 h-20">
                         <CarouselContent>
-                            {
-                                providers.map(fProvider => (
-                                    <CarouselItem key={fProvider.name} className='basis-1/5'>
-                                        <div className='flex flex-col justify-center items-center bg-gray-100 rounded' onClick={_ => onProviderCardClick(fProvider)}>
-                                            {getIcon(fProvider.name)}
-                                            <p className='select-none'>{fProvider.name}</p>
-                                        </div>
-                                    </CarouselItem>
-                                ))
-                            }
                             <div className='ml-4 bg-gray-100 rounded-md'>
                                 <Drawer>
-                                    <DrawerTrigger className='flex flex-col h-full justify-center items-start text-gray-400 w-24'>
+                                    <DrawerTrigger className='flex flex-col h-full justify-center items-start text-gray-300 w-24'>
                                         <p className="text-5xl font-semibold w-full"><i className="ri-add-circle-line"></i></p>
                                     </DrawerTrigger>
                                     <DrawerContent>
@@ -617,6 +409,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                     </DrawerContent>
                                 </Drawer>
                             </div>
+                            {
+                                providers.map(fProvider => (
+                                    <CarouselItem key={fProvider.name} className='basis-1/5'>
+                                        <div className='flex flex-col justify-center items-center bg-gray-100 rounded' onClick={_ => onProviderCardClick(fProvider)}>
+                                            {getIcon(fProvider.name)}
+                                            <p className='select-none'>{fProvider.name}</p>
+                                        </div>
+                                    </CarouselItem>
+                                ))
+                            }
                         </CarouselContent>
                         <CarouselPrevious className='left-0 -translate-y-4' />
                         <CarouselNext className='right-0 -translate-y-4' />
@@ -721,7 +523,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                 </TabsContent>
                 <div className='space-y-1 mt-1'>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <p className='text-xs text-slate-500 col-span-4 select-none'>Remember to SAVE, after configurations change</p>
+                        <p className='text-xs text-orange-300 col-span-4 select-none'>Remember to SAVE, after configurations change</p>
                     </div>
                     <Button size="xs" onClick={saveConfigurationClick}>
                         Save
