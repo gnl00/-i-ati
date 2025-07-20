@@ -263,7 +263,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           )
         }
         {/* just as a padding element */}
-        <div className="flex h-20 pt-20">&nbsp;</div>
+        <div className="flex h-20 pt-20 select-none">&nbsp;</div>
       </div>
       <div id='input-area' className="p-6 pt-0 rounded-md fixed bottom-10 w-full h-52">
         <div className='rounded-xl flex items-center space-x-2 pl-2 pr-2 mb-2 select-none'>
