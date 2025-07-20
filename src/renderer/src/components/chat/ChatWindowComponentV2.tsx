@@ -29,6 +29,8 @@ import {
   BadgePercent, 
   CirclePlus,
   Boxes,
+  CornerDownLeft,
+  ArrowBigUp
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 
@@ -85,7 +87,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     if (chatWindow && inputArea) {
       const chatWindowHeight = chatWindow.offsetHeight
       const inputAreaHeight = inputArea.offsetHeight
-      setChatListHeight(chatWindowHeight - inputAreaHeight - 28)
+      setChatListHeight(chatWindowHeight - inputAreaHeight)
     }
   }
 
@@ -143,7 +145,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                                   key={idx}
                                   remarkPlugins={[remarkGfm]}
                                   skipHtml={false}
-                                  className={cn("prose prose-code:text-gray-400 text-base font-medium max-w-[100%] text-white dark:text-white transition-all duration-400 ease-in-out")}
+                                  className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
                                   components={{
                                     code(props) {
                                       const { children, className, node, ...rest } = props
@@ -175,7 +177,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                         key={index}
                         remarkPlugins={[remarkGfm]}
                         skipHtml={false}
-                        className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-500 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
+                        className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
                         components={{
                           code(props) {
                             const { children, className, node, ...rest } = props
@@ -222,7 +224,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw]}
                       remarkRehypeOptions={{ passThrough: ['link'] }}
-                      className="prose px-2 py-2 text-base text-blue-gray-500 dark:prose-invert prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                      className="prose px-2 py-2 text-base text-blue-gray-600 dark:prose-invert prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
                       components={{
                         code(props) {
                           const { children, className, node, ...rest } = props
@@ -260,7 +262,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           )
         }
         {/* just as a padding element */}
-        <div className="flex h-20 pt-10">&nbsp;</div>
+        <div className="flex h-20 pt-20">&nbsp;</div>
       </div>
       <div id='input-area' className="p-6 pt-0 rounded-md fixed bottom-10 w-full h-52">
         <div className='rounded-xl flex items-center space-x-2 pl-2 pr-2 mb-2 select-none'>
@@ -394,7 +396,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         <div className='relative bg-gray-50 h-full rounded-2xl -z-10'>
           <Textarea 
             style={{maxHeight: 'calc(100% - 2rem)'}}
-            className="bg-gray-50 focus:bg-white/50 backdrop-blur-3xl text-base p-2 h-full border-b-[0px] rounded-bl-none rounded-br-none
+            className="bg-white/5 focus:bg-white/50 backdrop-blur-3xl text-base p-2 h-full border-b-[0px] rounded-bl-none rounded-br-none
               rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto" 
             placeholder='Type anything to chat'
             value={inputContent}
@@ -434,7 +436,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                 </Tooltip>
                 </TooltipProvider>
               {/* <div><Badge variant="secondary" className='border-[1px] border-gray-200 hover:bg-gray-300 text-blue-600 w-10 flex justify-center'>MCP</Badge></div> */}
-              <div onClick={onSubmitClick} className='absolute right-0 bottom-0'><Button variant={'default'} size={'sm'} className='rounded-2xl border-[1px] border-gray-300 hover:bg-gray-600'><PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8" /></Button></div>
+              <div onClick={onSubmitClick} className='absolute right-0 bottom-0'><Button variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 hover:bg-gray-600'><PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8" /><sub className="text-gray-400 flex"><ArrowBigUp className="w-3" /><CornerDownLeft className="w-3" /></sub></Button></div>
             </div>
           </div>
         </div>
