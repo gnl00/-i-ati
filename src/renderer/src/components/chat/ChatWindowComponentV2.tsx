@@ -213,7 +213,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       (
                         <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
                           <AccordionItem value={'reasoning-' + index}>
-                            <AccordionTrigger className='text-sm h-10'><Badge variant={'secondary'} className="text-gray-600 bg-blue-gray-200">Thinking</Badge></AccordionTrigger>
+                            <AccordionTrigger className='text-sm h-10'><Badge variant={'secondary'} className="text-gray-600 bg-blue-gray-200 space-x-1"><BadgePercent className="w-4" /><span>Thinking</span></Badge></AccordionTrigger>
                             <AccordionContent className="bg-blue-gray-100 p-1 border-none rounded-xl">
                               <div className='text-blue-gray-500 pb-2 pl-1 pr-1 border-none'>{(m.body.reasoning as string)}</div>
                             </AccordionContent>
@@ -286,7 +286,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                               <span>{selected.value}</span>
                               <i className="ri-eye-line text-green-500"></i>
                             </span>
-                          ) : (selected.value);
+                          ) : <span>{selected.value}</span>
                         })()) : ("Select Model")}
                     </span>
                     <ChevronsUpDown className="flex opacity-50 pl-1 pr-0.5 w-5" />
@@ -316,9 +316,9 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                                               setSelectModelPopoutState(false)
                                           }}
                                       >
-                                          {m.value}
+                                          {m.name}
                                           {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
-                                          <Check className={cn("ml-auto", selectedModel === m.value ? "opacity-100" : "opacity-0")} />
+                                          {selectedModel === m.value && <Check className={cn("ml-auto")} />}
                                       </CommandItem>
                                   ))
                               }
@@ -378,9 +378,9 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                                               setSelectModelPopoutState(false)
                                           }}
                                       >
-                                          {m.value}
+                                          {m.name}
                                           {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
-                                          <Check className={cn("ml-auto", selectedModel === m.value ? "opacity-100" : "opacity-0")} />
+                                          {selectedModel === m.value && <Check className={cn("ml-auto")} />}
                                       </CommandItem>
                                   ))
                               }

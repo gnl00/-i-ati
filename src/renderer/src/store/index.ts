@@ -192,7 +192,7 @@ export const useChatStore = create<ChatStoreType>((set, get) => ({
     providers: state.providers.map(p => {
         if (p.name === providerName) {
             const nextP = { ...p, ...updates }
-            console.log('store updated', nextP)
+            // console.log('store updated', nextP)
             return nextP
         } else {
             return p

@@ -121,7 +121,7 @@ function chatSubmit() {
                 }
                 gatherReasoning += json.choices[0].delta.content
                 if (gatherReasoning.includes('</think>')) {
-                  gatherReasoning.replace('</think>', '')
+                  gatherReasoning = gatherReasoning.replace('</think>', '')
                   isContentHasThinkTag = false
                 }
               } else {
@@ -168,11 +168,13 @@ function chatSubmit() {
         console.log('save messageEntity');
         
         setReadStreamState(false)
-        const sysMsgId = await saveMessage(sysMessageEntity) as number
-        chatEntity.messages = [...chatEntity.messages, sysMsgId]
-        chatEntity.updateTime = new Date().getTime()
-        updateChat(chatEntity)
-        updateChatList(chatEntity)
+        if (gatherContent || gatherReasoning) {
+          const sysMsgId = await saveMessage(sysMessageEntity) as number
+          chatEntity.messages = [...chatEntity.messages, sysMsgId]
+          chatEntity.updateTime = new Date().getTime()
+          updateChat(chatEntity)
+          updateChatList(chatEntity)
+        }
       })
   }
   const beforeFetch = () => {

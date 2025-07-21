@@ -1,6 +1,6 @@
 declare interface IModel {
   enable?: boolean
-  provider: IProvider | string
+  provider: string // providerName
   name: string
   value: string
   type: string

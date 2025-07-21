@@ -107,20 +107,23 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     useEffect(() => {
         fetchModels()
 
-        // setEditProviderName('')
-        // setEditProviderApiUrl('')
-        // setEditProviderApiKey('')
+        if (!currentProvider) {
+            setCurrentProvider(storeProvider)
+        }
+
+        setEditProviderName('')
+        setEditProviderApiUrl('')
+        setEditProviderApiKey('')
     }, [])
 
     useEffect(() => {
-        if (storeProvider) {
-            setCurrentProvider(storeProvider)
-            setEditProviderName(storeProvider.name)
-            setEditProviderApiUrl(storeProvider.apiUrl)
-            setEditProviderApiKey(storeProvider.apiKey)
-            console.log(`provider updated provider-name=${currentProviderName}, provider=`, storeProvider)
+        if (currentProvider) {
+            setEditProviderName(currentProvider.name)
+            setEditProviderApiUrl(currentProvider.apiUrl)
+            setEditProviderApiKey(currentProvider.apiKey)
+            console.log(`provider updated, providerName=${currentProviderName}, provider=`, currentProvider)
         }
-    }, [currentProviderName, providers])
+    }, [currentProvider])
 
     useEffect(() => {}, [editProviderName, editProviderApiUrl, editProviderApiKey])
 
@@ -140,6 +143,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     // }, [carouselApi])
 
     const onAddModelClick = () => {
+        console.log('onAddModelClick currentProvider=', currentProvider);
+        
         if (!currentProvider) return
         
         const newModel: IModel = {
@@ -150,6 +155,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             type: nextAddModelType || 'llm'
         }
         
+        setCurrentProvider({
+            ...currentProvider,
+            models: [...currentProvider.models, newModel]
+        })
         addModel(currentProvider.name, newModel)
 
         setNextAddModelEnable(false)
@@ -271,10 +280,21 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     }
     const onProviderCardClick = (p: IProvider) => {
         setCurrentProviderName(p.name)
+        setCurrentProvider(p)
     }
     const onModelEnableStatusChange = (checked, model: IModel) => {
         if (!currentProvider) return
         toggleModelEnable(currentProvider.name, model.value)
+    }
+    const updateCurrentProvider = (key: string, value: Object) => {
+        if (currentProvider) {
+            const updatedProvider = {
+                ...currentProvider,
+                [key]: value
+            }
+            setCurrentProvider(updatedProvider)
+            updateProvider(currentProvider.name, updatedProvider)
+        }
     }
     return (
         <div className="grid gap-4">
@@ -366,6 +386,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                 value={editProviderName}
                                 onChange={(e) => {
                                     setEditProviderName(e.target.value)
+                                    updateCurrentProvider('name', e.target.value)
                                 }}
                                 />
                         </div>
@@ -377,6 +398,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                 placeholder="https://provider-api.com/v1/chat/x"
                                 onChange={(e) => {
                                     setEditProviderApiUrl(e.target.value)
+                                    updateCurrentProvider('apiUrl', e.target.value)
                                 }}
                                 />
                         </div>
@@ -388,6 +410,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                 value={editProviderApiKey}
                                 onChange={(e) => {
                                     setEditProviderApiKey(e.target.value)
+                                    updateCurrentProvider('apiKey', e.target.value)
                                 }}
                                 />
                         </div>
@@ -423,7 +446,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                         <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
                                     </TableRow>
                                     {
-                                        storeProvider?.models.map((m, idx) => (
+                                        currentProvider?.models.map((m, idx) => (
                                             <TableRow key={idx}>
                                                 <TableCell><Checkbox checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell>
                                                 <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.name)}>{m.name}</TableCell>

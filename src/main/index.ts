@@ -35,7 +35,7 @@ function handleConfig(): void {
   console.log('local config file\n', configFile)
   const localConfigStr = fs.readFileSync(configFile).toString('utf8')
   const localConfig: AppConfigType = JSON.parse(localConfigStr)
-  console.log('got local config\n', localConfig)
+  console.log('got local config\n', JSON.stringify(localConfig))
   appConfig = {
     ...localConfig
   }
