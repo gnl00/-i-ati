@@ -24,7 +24,7 @@ export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { ch
             variant: 'default',
             duration: 1000,
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '✅ Code copied',
+            description: '✅ Copied',
         })
     } catch (err) {
         toast({
@@ -66,7 +66,7 @@ export const CodeCopyWrapper = React.memo(({ children, code, language }: { child
             variant: 'default',
             duration: 1000,
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '✅ Code copied',
+            description: '✅ Copied',
         })
     } catch (err) {
         toast({
