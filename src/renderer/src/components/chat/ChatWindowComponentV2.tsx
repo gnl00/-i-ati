@@ -213,7 +213,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       (
                         <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
                           <AccordionItem value={'reasoning-' + index}>
-                            <AccordionTrigger className='text-sm h-10'><Badge variant={'secondary'} className="text-gray-600 bg-blue-gray-200 space-x-1"><BadgePercent className="w-4" /><span>Thinking</span></Badge></AccordionTrigger>
+                            <AccordionTrigger className='text-sm h-10'><Badge variant={'secondary'} className="text-gray-600 bg-blue-gray-100 hover:bg-blue-gray-200 space-x-1"><BadgePercent className="w-4" /><span>Thinking</span></Badge></AccordionTrigger>
                             <AccordionContent className="bg-blue-gray-100 p-1 border-none rounded-xl">
                               <div className='text-blue-gray-500 pb-2 pl-1 pr-1 border-none'>{(m.body.reasoning as string)}</div>
                             </AccordionContent>
