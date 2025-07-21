@@ -121,12 +121,14 @@ function chatSubmit() {
                 }
                 gatherReasoning += json.choices[0].delta.content
                 if (gatherReasoning.includes('</think>')) {
+                  gatherReasoning.replace('</think>', '')
                   isContentHasThinkTag = false
                 }
               } else {
                 if (gatherContent.includes('<think>')) {
                   isContentHasThinkTag = true
-                  gatherContent += json.choices[0].delta.content
+                  // gatherContent += json.choices[0].delta.content
+                  gatherContent = json.choices[0].delta.content
                 } else if (json.choices[0].delta.content) {
                   gatherContent += json.choices[0].delta.content
                 } else if (json.choices[0].delta.reasoning) {

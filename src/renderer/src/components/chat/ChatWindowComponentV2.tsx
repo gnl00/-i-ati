@@ -46,8 +46,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       messages,
       currentReqCtrl, 
       readStreamState, setReadStreamState, 
-      setProvider, 
-      providers, 
+      providers,
+      setCurrentProviderName,
       models, 
       selectedModel, 
       setSelectedModel, 
@@ -310,10 +310,9 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                                           key={m.value}
                                           value={m.value}
                                           onSelect={(currentValue) => {
-                                              console.log(currentValue)
                                               setSelectedModel(currentValue)
                                               const p = providers.findLast(p => p.name == m.provider)!
-                                              setProvider(p)
+                                              setCurrentProviderName(p.name)
                                               setSelectModelPopoutState(false)
                                           }}
                                       >
@@ -375,7 +374,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                                           onSelect={(currentValue) => {
                                               setSelectedModel(currentValue)
                                               const p = providers.findLast(p => p.name == m.provider)!
-                                              setProvider(p)
+                                              setCurrentProviderName(p.name)
                                               setSelectModelPopoutState(false)
                                           }}
                                       >
