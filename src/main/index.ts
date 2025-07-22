@@ -58,7 +58,7 @@ const saveConfig = (configData: AppConfigType): void => {
     ...configData 
   }
   
-  console.log('saving merged config\n', mergedConfig)
+  console.log('saving merged config\n', JSON.stringify(mergedConfig))
   
   fs.writeFileSync(configFile, JSON.stringify(mergedConfig, null, 2))
   console.log('configurations save success')

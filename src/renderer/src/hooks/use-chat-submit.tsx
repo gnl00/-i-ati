@@ -155,6 +155,7 @@ function chatSubmit() {
         //   const title = await generateTitle(textCtx) as string
         //   chatEntity.title = title
         // }
+
       }).catch(err => {
         if (err.name !== 'AbortError') {
           toast({

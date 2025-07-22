@@ -1,7 +1,10 @@
 import { create } from 'zustand'
+import { GET_CONFIG, SAVE_CONFIG } from '@constants/index'
 import providerJsonData from '../../../../data/providers.json'
 
-const providersData: IProvider[] = providerJsonData
+const localAppConfig: IAppConfig = await window.electron.ipcRenderer.invoke(GET_CONFIG)
+
+const providersData: IProvider[] = localAppConfig.providers || providerJsonData
 
 const localModels: IModel[] = [
     {
@@ -141,7 +144,7 @@ type ChatState = {
 // Actions
 type ChatAction = {
     setAppConfig: (config: IAppConfig) => void
-
+    loadAppConfig: () => Promise<void>
     setImageSrcBase64List: (imgs: ClipbordImg[]) => void
     setProviders: (providers: IProvider[]) => void
     setCurrentProviderName: (providerName: string) => void
@@ -164,6 +167,18 @@ type ChatAction = {
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   // Core data
+  appConfig: {providers: providersData},
+  async loadAppConfig() {
+    const localConfig = await window.electron.ipcRenderer.invoke(GET_CONFIG)
+    // console.log('store get local app config', localConfig);
+    return localConfig
+  },
+  setAppConfig: (updatedConfig: IAppConfig) => set((_) => {
+    window.electron.ipcRenderer.invoke(SAVE_CONFIG, updatedConfig)
+    return { appConfig: updatedConfig }
+  }),
+  // @ts-ignore
+  appVersion: __APP_VERSION__,
   providers: providersData,
   currentProviderName: '',
   
@@ -285,10 +300,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     apiKey: 'sk-xxx'
   },
   setTitleProvider: (provider: IProvider) => set({ titleProvider: provider }),
-  appConfig: {providers: providersData},
-  setAppConfig: (appConfig: IAppConfig) => set({ appConfig: appConfig }),
-  // @ts-ignore
-  appVersion: __APP_VERSION__,
   imageSrcBase64List: [],
   setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
 }))

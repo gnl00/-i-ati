@@ -30,7 +30,6 @@ import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, Drawer
 import { Input } from '../ui/input'
 import { Switch } from '../ui/switch'
 import { toast } from '../ui/use-toast'
-import { SAVE_CONFIG } from '@constants/index'
 import { useChatStore } from '@renderer/store'
 import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
@@ -48,8 +47,9 @@ interface PreferenceProps {
 const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) => {
 
     const { 
-        appVersion, 
-        appConfig, 
+        appVersion,
+        appConfig,
+        loadAppConfig,
         setAppConfig, 
         models, 
         providers, 
@@ -102,8 +102,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         }
     }
 
+    async function loadAppCfg() {
+        await loadAppConfig()
+    }
+
     useEffect(() => {
-        fetchModels()
+        // loadAppCfg()
+        // fetchModels()
 
         setEditProviderName('')
         setEditProviderApiUrl('')
@@ -115,7 +120,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             setEditProviderName(currentProvider.name)
             setEditProviderApiUrl(currentProvider.apiUrl)
             setEditProviderApiKey(currentProvider.apiKey)
-            console.log(`provider updated, providerName=${currentProviderName}, provider=`, currentProvider)
         }
     }, [currentProvider])
 
@@ -177,11 +181,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         }
         
         // TODO save configuration to local config file
-        // const nextAppConfig = {
-        //     ...appConfig,
-        //     providers: providers,
-        // }
-        // setAppConfig(nextAppConfig)
+        const nextAppConfig = {
+            ...appConfig,
+            providers: providers,
+        }
+        setAppConfig(nextAppConfig)
         // window.electron.ipcRenderer.invoke(SAVE_CONFIG, nextAppConfig)
         // console.log('configurations to save: ', nextAppConfig)
         

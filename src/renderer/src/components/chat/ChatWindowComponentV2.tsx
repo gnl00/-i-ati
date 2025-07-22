@@ -400,7 +400,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                               key={mcpToolName}
                               value={mcpToolName}
                               onSelect={(selectVal) => {
-                                console.log('mcpTool selected:', selectVal)
                                 if (selectedMcpTools.includes(selectVal)) {
                                   setSelectedMcpTools(selectedMcpTools.filter(mcp => mcp !== selectVal))
                                 } else {
