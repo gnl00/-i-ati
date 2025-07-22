@@ -3,7 +3,7 @@ const authorizationPreffix = 'Bearer '
 // const getHeanders: IHeaders = {}
 
 const postHeanders: IHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  // 'Access-Control-Allow-Origin': '*',
   'content-type': 'application/json',
   accept: 'application/json'
 }
