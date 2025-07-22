@@ -150,11 +150,11 @@ function chatSubmit() {
       }).then(async () => {
         console.log('generate chatTitle');
         
-        // TODO fix generateTitle
-        // if (!chatTitle || chatTitle === 'NewChat') {
-        //   const title = await generateTitle(textCtx) as string
-        //   chatEntity.title = title
-        // }
+        if (!chatTitle || chatTitle === 'NewChat') {
+          // TODO fix generateTitle
+          // const title = await generateTitle(textCtx) as string
+          chatEntity.title = textCtx.substring(6) + '...'
+        }
 
       }).catch(err => {
         if (err.name !== 'AbortError') {

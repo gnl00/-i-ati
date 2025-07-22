@@ -26,6 +26,7 @@ declare interface IHeaders {
   accept?: string
   authorization?: string
   'content-type'?: string
+  'Access-Control-Allow-Origin'?: string
 }
 
 declare interface IChatRequest {
