@@ -102,34 +102,25 @@ const localModels: IModel[] = [
     },
 ]
 
-declare type ChatStoreType = {
-  // editableContentId: number | undefined
-  // setEditableContentId: (id: number) => void
-  imageSrcBase64List: ClipbordImg[]
-  setImageSrcBase64List: (imgs: ClipbordImg[]) => void
-  // chatListRef: React.RefObject<VListHandle>
-  
+type ChatState = {  
+  // Config data
+  appConfig: IAppConfig
+  appVersion: string
   // Core data - providers is the single source of truth
-  providers: IProvider[]
   currentProviderName: string | undefined
-  
+  providers: IProvider[]
   // Derived getters (computed from providers)
   models: IModel[]
   provider: IProvider | undefined
-  
-  // Actions
-  setProviders: (providers: IProvider[]) => void
-  setCurrentProviderName: (providerName: string) => void
-  updateProvider: (providerName: string, updates: Partial<IProvider>) => void
-  addProvider: (provider: IProvider) => void
-  removeProvider: (providerName: string) => void
-  updateModel: (providerName: string, modelValue: string, updates: Partial<IModel>) => void
-  addModel: (providerName: string, model: IModel) => void
-  removeModel: (providerName: string, modelValue: string) => void
-  toggleModelEnable: (providerName: string, modelValue: string) => void
-  
-  selectedModel: string | undefined
-  setSelectedModel: (mode: string) => void
+  selectedModel: IModel | undefined
+  messages: MessageEntity[]
+  imageSrcBase64List: ClipbordImg[]
+  chatWindowHeight: number
+  fetchState: boolean
+  currentReqCtrl: AbortController | undefined
+  readStreamState: boolean
+  titleProvider: IProvider
+  selectedTitleModel: string | undefined
   // chatContent: string
   // setChatContent: (content: string) => void
   // chatId: number | undefined
@@ -140,31 +131,38 @@ declare type ChatStoreType = {
   // setChatTitle: (title: string) => void
   // chatList: ChatEntity[]
   // setChatList: (list: ChatEntity[]) => void
-  messages: MessageEntity[]
-  setMessages: (msgs: MessageEntity[]) => void
-  chatWindowHeight: number
-  setChatWindowHeight: (height: number) => void
-  fetchState: boolean
-  setFetchState: (state: boolean) => void
-  currentReqCtrl: AbortController | undefined
-  setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
+  // editableContentId: number | undefined
+  // setEditableContentId: (id: number) => void
   // updateChatList: (chatEntity: ChatEntity) => void
   // lastMsgStatus: boolean
   // setLastMsgStatus: (state: boolean) => void
-
-  titleProvider: IProvider
-  setTitleProvider: (Provider: IProvider) => void
-  selectedTitleModel: string | undefined
-  setSelectedTitleModel: (mode: string) => void
-
-  appConfig: IAppConfig
-  setAppConfig: (config: IAppConfig) => void
-  appVersion: string
-  readStreamState: boolean
-  setReadStreamState: (state: boolean) => void
 }
 
-export const useChatStore = create<ChatStoreType>((set, get) => ({
+// Actions
+type ChatAction = {
+    setAppConfig: (config: IAppConfig) => void
+
+    setImageSrcBase64List: (imgs: ClipbordImg[]) => void
+    setProviders: (providers: IProvider[]) => void
+    setCurrentProviderName: (providerName: string) => void
+    updateProvider: (providerName: string, updates: Partial<IProvider>) => void
+    addProvider: (provider: IProvider) => void
+    removeProvider: (providerName: string) => void
+    updateModel: (providerName: string, modelValue: string, updates: Partial<IModel>) => void
+    addModel: (providerName: string, model: IModel) => void
+    removeModel: (providerName: string, modelValue: string) => void
+    toggleModelEnable: (providerName: string, modelValue: string) => void
+    setSelectedModel: (mode: IModel) => void
+    setMessages: (msgs: MessageEntity[]) => void
+    setChatWindowHeight: (height: number) => void
+    setFetchState: (state: boolean) => void
+    setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
+    setTitleProvider: (Provider: IProvider) => void
+    setSelectedTitleModel: (mode: string) => void
+    setReadStreamState: (state: boolean) => void
+}
+
+export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   // Core data
   providers: providersData,
   currentProviderName: '',
@@ -258,8 +256,8 @@ export const useChatStore = create<ChatStoreType>((set, get) => ({
     )
   })),
   
-  selectedModel: '',
-  setSelectedModel: (mode: string) => set({ selectedModel: mode }),
+  selectedModel: undefined,
+  setSelectedModel: (mode: IModel) => set({ selectedModel: mode }),
   selectedTitleModel: 'qwen/qwen3-14b:free',
   setSelectedTitleModel: (mode: string) => set({ selectedTitleModel: mode }),
   messages: [],
@@ -291,8 +289,6 @@ export const useChatStore = create<ChatStoreType>((set, get) => ({
   setAppConfig: (appConfig: IAppConfig) => set({ appConfig: appConfig }),
   // @ts-ignore
   appVersion: __APP_VERSION__,
-  //   chatContent: '',
-  //   setChatContent: (content: string) => set({ chatContent: content }),
   imageSrcBase64List: [],
   setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
 }))

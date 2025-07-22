@@ -54,7 +54,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         models, 
         providers, 
         setProviders,
-        provider: storeProvider,
+        provider: currentProvider,
         currentProviderName,
         setCurrentProviderName,
         updateProvider,
@@ -66,8 +66,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         selectedTitleModel, 
         setSelectedTitleModel,
     } = useChatStore()
-
-    const [currentProvider, setCurrentProvider] = useState<IProvider | undefined>(storeProvider)
 
     const [editProviderName, setEditProviderName] = useState<string>(currentProvider?.name || '')
     const [editProviderApiUrl, setEditProviderApiUrl] = useState<string>(currentProvider?.apiUrl || '')
@@ -106,10 +104,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
 
     useEffect(() => {
         fetchModels()
-
-        if (!currentProvider) {
-            setCurrentProvider(storeProvider)
-        }
 
         setEditProviderName('')
         setEditProviderApiUrl('')
@@ -155,10 +149,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             type: nextAddModelType || 'llm'
         }
         
-        setCurrentProvider({
-            ...currentProvider,
-            models: [...currentProvider.models, newModel]
-        })
         addModel(currentProvider.name, newModel)
 
         setNextAddModelEnable(false)
@@ -280,7 +270,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     }
     const onProviderCardClick = (p: IProvider) => {
         setCurrentProviderName(p.name)
-        setCurrentProvider(p)
     }
     const onModelEnableStatusChange = (checked, model: IModel) => {
         if (!currentProvider) return
@@ -292,7 +281,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                 ...currentProvider,
                 [key]: value
             }
-            setCurrentProvider(updatedProvider)
             updateProvider(currentProvider.name, updatedProvider)
         }
     }
@@ -384,6 +372,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                             <Input id="provider" 
                                 className='flex-grow' 
                                 value={editProviderName}
+                                placeholder="Custom provider name"
                                 onChange={(e) => {
                                     setEditProviderName(e.target.value)
                                     updateCurrentProvider('name', e.target.value)
@@ -406,7 +395,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                             <Label className='flex-none' htmlFor="provider">ApiKey&ensp;</Label>
                             <Input id="provider" 
                                 className='flex-grow'
-                                placeholder="Please input your api-key"
+                                placeholder="Custom API key"
                                 value={editProviderApiKey}
                                 onChange={(e) => {
                                     setEditProviderApiKey(e.target.value)
@@ -446,7 +435,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                         <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
                                     </TableRow>
                                     {
-                                        currentProvider?.models.map((m, idx) => (
+                                        providers.find(p => p.name === currentProviderName)?.models.map((m, idx) => (
                                             <TableRow key={idx}>
                                                 <TableCell><Checkbox checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell>
                                                 <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.name)}>{m.name}</TableCell>

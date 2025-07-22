@@ -36,7 +36,7 @@ function chatSubmit() {
     }
 
     let messageBody: ChatMessage
-    const model = models.findLast(model => selectedModel === model.value)!
+    const model = selectedModel!
 
     const modelType = model.type
     if (modelType === 'llm') {
@@ -159,7 +159,7 @@ function chatSubmit() {
         if (err.name !== 'AbortError') {
           toast({
             variant: "destructive",
-            title: "Uh oh! Something went wrong.",
+            title: "Uh oh! Request went wrong.",
             description: `There was a problem with your request. ${err.message}`
           })
         }

@@ -9,7 +9,7 @@ import {
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
-import { PaperPlaneIcon, CopyIcon, ReloadIcon, Pencil2Icon } from '@radix-ui/react-icons'
+import { PaperPlaneIcon, CopyIcon, ReloadIcon, Pencil2Icon, StopIcon } from '@radix-ui/react-icons'
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@renderer/components/ui/command'
 import { Popover, PopoverTrigger, PopoverContent } from '@radix-ui/react-popover'
 import {
@@ -59,6 +59,36 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
   const [chatListHeight, setChatListHeight] = useState<number>(0)
+  const [selectedMcpTool, setSelectedMcpTool] = useState<string>()
+  const [mcpConfig, setMcpConfig] = useState({
+    "mcpServers": {
+      "filesystem": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-filesystem",
+          "/Users/username/Desktop",
+          "/path/to/other/allowed/dir"
+        ]
+      },
+      "fetch": {
+        "command": "uvx",
+        "args": ["mcp-server-fetch"]
+      },
+      "everything": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-everything"
+        ]
+      },
+      "git": {
+        "command": "uvx",
+        "args": ["mcp-server-git"]
+      }
+    }
+  })
+  const [mcpTools, setMcpTools] = useState<string[]>([])
 
   useEffect(() => {
     calculateChatListHeight()
@@ -78,6 +108,14 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     scrollToBottom()
     // console.log(messages)
   }, [messages])
+
+  useEffect(() => {
+    const tools: string[] = []
+    for (const [name, cfg] of Object.entries(mcpConfig.mcpServers)) {
+      tools.push(name)
+    }
+    setMcpTools(tools)
+  }, [mcpConfig])
 
   const onSubmit = chatSubmit()
 
@@ -118,6 +156,12 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault() // 防止跳到新的一行
       onSubmitClick(e)
+    }
+  }
+  const onStopClick = (_) => {
+    if (currentReqCtrl) {
+        currentReqCtrl.abort()
+        setReadStreamState(false)
     }
   }
   return (
@@ -274,19 +318,17 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   variant="outline"
                   role="combobox"
                   aria-expanded={selectModelPopoutState}
-                  className="w-auto justify-between flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl"
+                  className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl"
                   >
-                    <span className="flex flex-grow overflow-x-hidden opacity-70">
+                    <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                       {selectedModel ? (
                         (() => {
-                          const selected = models.find(m => m.value === selectedModel)
-                          if (!selected) return null;
-                          return selected.type === 'vlm' ? (
+                          return selectedModel.type === 'vlm' ? (
                             <span className="flex space-x-2">
-                              <span>{selected.value}</span>
+                              <span>{selectedModel.value}</span>
                               <i className="ri-eye-line text-green-500"></i>
                             </span>
-                          ) : <span>{selected.value}</span>
+                          ) : <span>{selectedModel.value}</span>
                         })()) : ("Select Model")}
                     </span>
                     <ChevronsUpDown className="flex opacity-50 pl-1 pr-0.5 w-5" />
@@ -307,18 +349,18 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                               {
                                   p.models.map((m) => m.enable && (
                                       <CommandItem
-                                          key={m.value}
-                                          value={m.value}
-                                          onSelect={(currentValue) => {
-                                              setSelectedModel(currentValue)
-                                              const p = providers.findLast(p => p.name == m.provider)!
-                                              setCurrentProviderName(p.name)
-                                              setSelectModelPopoutState(false)
-                                          }}
+                                        key={m.provider + '/' +m.value}
+                                        value={m.value}
+                                        onSelect={(selectedModelValue) => {
+                                          setSelectedModel(m)
+                                          const p = providers.findLast(p => p.name == m.provider)!
+                                          setCurrentProviderName(p.name)
+                                          setSelectModelPopoutState(false)
+                                        }}
                                       >
                                           {m.name}
                                           {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
-                                          {selectedModel === m.value && <Check className={cn("ml-auto")} />}
+                                          {(selectedModel && selectedModel.value === m.value && selectedModel.provider === p.name) && <Check className={cn("ml-auto")} />}
                                       </CommandItem>
                                   ))
                               }
@@ -336,21 +378,9 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   variant="outline"
                   role="combobox"
                   aria-expanded={selectMCPPopoutState}
-                  className="w-auto justify-between flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl"
+                  className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl"
                   >
-                    <span className="flex flex-grow overflow-x-hidden opacity-70">
-                      {selectedModel ? (
-                        (() => {
-                          const selected = models.find(m => m.value === selectedModel);
-                          if (!selected) return null;
-                          return selected.type === 'vlm' ? (
-                            <span className="flex space-x-2">
-                              <span>{selected.value}</span>
-                              <i className="ri-eye-line text-green-500"></i>
-                            </span>
-                          ) : (selected.value);
-                        })()) : ("Mcp Tool")}
-                    </span>
+                    <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">{selectedMcpTool || 'Mcp Tool'}</span>
                     <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
                 </Button>
               </PopoverTrigger>
@@ -358,40 +388,32 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                 <Command className='z-10 rounded-xl bg-white/30 backdrop-blur-xl'>
                   <CommandInput placeholder="Search tool" className="h-auto" />
                   <CommandList>
-                    {(models.findIndex(fm => fm.enable === true) != -1) && <CommandEmpty>Oops...NotFound</CommandEmpty>}
-                    {providers.map((p) => p.models.length > 0 && (
-                          <CommandGroup
-                              key={p.name}
-                              value={p.name}
-                              className='scroll-smooth'
-                          >
-                              <span className="text-xs text-gray-400">{p.name}</span>
-                              {
-                                  p.models.map((m) => m.enable && (
-                                      <CommandItem
-                                          key={m.value}
-                                          value={m.value}
-                                          onSelect={(currentValue) => {
-                                              setSelectedModel(currentValue)
-                                              const p = providers.findLast(p => p.name == m.provider)!
-                                              setCurrentProviderName(p.name)
-                                              setSelectModelPopoutState(false)
-                                          }}
-                                      >
-                                          {m.name}
-                                          {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
-                                          {selectedModel === m.value && <Check className={cn("ml-auto")} />}
-                                      </CommandItem>
-                                  ))
-                              }
-                          </CommandGroup>
-                    ))}
+                  <CommandGroup
+                    className='scroll-smooth'
+                    >
+                      {
+                        mcpTools.map((mcpToolName) =>  (
+                            <CommandItem
+                              key={mcpToolName}
+                              value={mcpToolName}
+                              onSelect={(selectVal) => {
+                                console.log('mcpTool selected:', selectVal)
+                                selectVal === selectedMcpTool ? setSelectedMcpTool('') : setSelectedMcpTool(selectVal)
+                                setSelectMCPPopoutState(false)
+                              }}
+                            >
+                              {mcpToolName}
+                              {(selectedMcpTool && selectedMcpTool === mcpToolName) && <Check className={cn("ml-auto")} />}
+                          </CommandItem>
+                        ))
+                      }
+                    </CommandGroup>
                   </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
           </div>
-          <div className='bg-red-200 flex-grow w-full'></div>
+          <div className='flex-grow w-full'></div>
         </div>
         <div className='relative bg-gray-50 h-full rounded-2xl -z-10'>
           <Textarea 
@@ -436,7 +458,17 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                 </Tooltip>
                 </TooltipProvider>
               {/* <div><Badge variant="secondary" className='border-[1px] border-gray-200 hover:bg-gray-300 text-blue-600 w-10 flex justify-center'>MCP</Badge></div> */}
-              <div onClick={onSubmitClick} className='absolute right-0 bottom-0'><Button variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 hover:bg-gray-600'><PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8" /><sub className="text-gray-400 flex"><ArrowBigUp className="w-3" /><CornerDownLeft className="w-3" /></sub></Button></div>
+              <div onClick={onSubmitClick} className='absolute right-0 bottom-0'>
+                  {!readStreamState 
+                    ? (
+                      <Button variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 hover:bg-gray-600'>
+                        <PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8" />
+                        <sub className="text-gray-400 flex"><ArrowBigUp className="w-3" /><CornerDownLeft className="w-3" /></sub>
+                      </Button>
+                    )
+                    : <Button variant={'destructive'} size={'sm'} className={cn('rounded-full border-[1px] hover:bg-red-400 animate-pulse transition-transform duration-800')} onClick={onStopClick}><StopIcon />&nbsp;Stop</Button>
+                  }
+              </div>
             </div>
           </div>
         </div>
