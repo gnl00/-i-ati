@@ -59,7 +59,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
   const [chatListHeight, setChatListHeight] = useState<number>(0)
-  const [selectedMcpTool, setSelectedMcpTool] = useState<string>()
+  const [selectedMcpTools, setSelectedMcpTools] = useState<string[]>([])
   const [mcpConfig, setMcpConfig] = useState({
     "mcpServers": {
       "filesystem": {
@@ -378,9 +378,12 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   variant="outline"
                   role="combobox"
                   aria-expanded={selectMCPPopoutState}
-                  className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl"
+                  className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1"
                   >
-                    <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">{selectedMcpTool || 'Mcp Tool'}</span>
+                    <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
+                      {selectedMcpTools.length === 0 ? 'Mcp Tool' : selectedMcpTools[0] }
+                    </span>
+                    {selectedMcpTools.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 hover:bg-blue-gray-200 text-blue-gray-500 backdrop-blur-xl">+{selectedMcpTools.length - 1}</Badge>}
                     <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
                 </Button>
               </PopoverTrigger>
@@ -398,12 +401,16 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                               value={mcpToolName}
                               onSelect={(selectVal) => {
                                 console.log('mcpTool selected:', selectVal)
-                                selectVal === selectedMcpTool ? setSelectedMcpTool('') : setSelectedMcpTool(selectVal)
+                                if (selectedMcpTools.includes(selectVal)) {
+                                  setSelectedMcpTools(selectedMcpTools.filter(mcp => mcp !== selectVal))
+                                } else {
+                                  setSelectedMcpTools([...selectedMcpTools, selectVal])
+                                }
                                 setSelectMCPPopoutState(false)
                               }}
                             >
                               {mcpToolName}
-                              {(selectedMcpTool && selectedMcpTool === mcpToolName) && <Check className={cn("ml-auto")} />}
+                              {(selectedMcpTools && selectedMcpTools.includes(mcpToolName)) && <Check className={cn("ml-auto")} />}
                           </CommandItem>
                         ))
                       }
