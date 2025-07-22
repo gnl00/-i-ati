@@ -1,5 +1,5 @@
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
-
+import ChatImgGalleryComponent from "@renderer/components/chat/ChatImgGalleryComponent"
 import {
   Accordion,
   AccordionContent,
@@ -158,6 +158,29 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       onSubmitClick(e)
     }
   }
+  const onTextAreaPaste = (event) => {
+    const items = (event.clipboardData || event.originalEvent.clipboardData).items
+    let blob = null
+
+    let findImg: boolean = false
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) { // 找到图片类型的数据
+            blob = items[i].getAsFile()
+            findImg = true
+            break
+        }
+    }
+    console.log(`findImg? ${findImg}`)
+    if (blob) {
+        const reader = new FileReader()
+        reader.readAsDataURL(blob) // 以 Data URL 的形式读取文件内容
+        reader.onloadend = () => {
+            // 设置图片的 src 属性为读取到的数据 URL
+            // console.log(reader.result) // base64 格式的图片数据
+            setImageSrcBase64List([...imageSrcBase64List, reader.result])
+        }
+    }
+  }
   const onStopClick = (_) => {
     if (currentReqCtrl) {
         currentReqCtrl.abort()
@@ -307,9 +330,12 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           )
         }
         {/* just as a padding element */}
-        <div className="flex h-20 pt-20 select-none">&nbsp;</div>
+        <div className="flex h-20 pt-16 select-none">&nbsp;</div>
       </div>
-      <div id='input-area' className="p-6 pt-0 rounded-md fixed bottom-10 w-full h-52">
+      <div id='input-area' className={cn('p-6 pt-0 rounded-md fixed w-full h-52', imageSrcBase64List.length !== 0 ? 'bottom-36' : 'bottom-8')}>
+        <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
+            <ChatImgGalleryComponent></ChatImgGalleryComponent>
+        </div>
         <div className='rounded-xl flex items-center space-x-2 pl-2 pr-2 mb-2 select-none'>
           <div className="app-undragable">
             <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
@@ -421,17 +447,18 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           </div>
           <div className='flex-grow w-full'></div>
         </div>
-        <div className='relative bg-gray-50 h-full rounded-2xl -z-10'>
+        <div className='relative bg-gray-50 h-full rounded-2xl -z-10 flex flex-col'>
           <Textarea 
             style={{maxHeight: 'calc(100% - 2rem)'}}
-            className="bg-white/5 focus:bg-white/50 backdrop-blur-3xl text-base p-2 h-full border-b-[0px] rounded-bl-none rounded-br-none
-              rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto" 
+            className="bg-white/5 focus:bg-white/50 backdrop-blur-3xl text-base p-2 border-b-[0px] rounded-bl-none rounded-br-none
+              rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto flex-grow" 
             placeholder='Type anything to chat'
             value={inputContent}
             onChange={onTextAreaChange}
             onKeyDown={onTextAreaKeyDown}
+            onPaste={onTextAreaPaste}
             ></Textarea>
-          <div className='absolute bottom-0 rounded-b-2xl z-10 w-full bg-[#F9FAFB] p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px]'>
+          <div className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px] flex-none h-10">
             <div className='flex-grow flex space-x-2 select-none relative'>
               <TooltipProvider delayDuration={400}>
                 <Tooltip>
@@ -463,7 +490,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   </TooltipContent>
                 </Tooltip>
                 </TooltipProvider>
-              {/* <div><Badge variant="secondary" className='border-[1px] border-gray-200 hover:bg-gray-300 text-blue-600 w-10 flex justify-center'>MCP</Badge></div> */}
               <div onClick={onSubmitClick} className='absolute right-0 bottom-0'>
                   {!readStreamState 
                     ? (
