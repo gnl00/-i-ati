@@ -107,7 +107,7 @@ function chatSubmit() {
       }
     }
 
-    let searchMessageEntity: ChatMessage = {role: 'user', content: searchResults.length > 0 ? searchResults.join('\n') : ''}
+    let searchMessageEntity: ChatMessage = {role: 'function', name: 'web_search', content: searchResults.length > 0 ? searchResults.join('\n') : ''}
     
     const p: IProvider = providers.findLast(p => p.name === model.provider)!
     const req: IChatRequestV2 = {
