@@ -1,5 +1,7 @@
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatImgGalleryComponent from "@renderer/components/chat/ChatImgGalleryComponent"
+
+import { Skeleton } from "@renderer/components/ui/skeleton"
 import {
   Accordion,
   AccordionContent,
@@ -47,6 +49,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       currentReqCtrl, 
       readStreamState, setReadStreamState,
       webSearchEnable, toggleWebSearch,
+      webSearchProcessing, setWebSearchProcessState,
       providers,
       setCurrentProviderName,
       models, 
@@ -187,15 +190,9 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         currentReqCtrl.abort()
         setReadStreamState(false)
     }
-  }
-  const onSearchClick = async () => {
-    console.log('onSearchClick-click');
-    
-    // 通过 IPC 调用主进程中的 headless browser search action
-    const { success, result } = await window.electron?.ipcRenderer.invoke('headless-web-search-action', {
-      action: 'navigate',
-      url: '杭州天气'
-    })
+    if (webSearchProcessing) {
+      setWebSearchProcessState(false)
+    }
   }
   const onWebSearchClick = () => {
     toggleWebSearch(!webSearchEnable)
@@ -342,7 +339,12 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             )
           )
         }
-        <div><Button onClick={(_) => onSearchClick()}>ppClick</Button></div>
+        {webSearchEnable && webSearchProcessing && (
+          <div className="space-y-1">
+            <Skeleton className=" mt-3 h-5 w-[60%] rounded-full bg-black/5"></Skeleton>
+            <Skeleton className=" mt-3 h-5 w-[40%] rounded-full bg-black/5"></Skeleton>
+          </div>
+        )}
         {/* just as a padding element */}
         <div className="flex h-20 pt-16 select-none">&nbsp;</div>
       </div>
@@ -350,7 +352,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
             <ChatImgGalleryComponent></ChatImgGalleryComponent>
         </div>
-        <div className='rounded-xl flex items-center space-x-2 pl-2 pr-2 mb-2 select-none'>
+        <div className='rounded-xl flex items-center space-x-2 pr-2 mb-2 select-none'>
           <div className="app-undragable">
             <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
               <PopoverTrigger asChild>

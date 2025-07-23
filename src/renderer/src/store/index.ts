@@ -126,6 +126,7 @@ type ChatState = {
   selectedTitleModel: string | undefined
 
   webSearchEnable: boolean
+  webSearchProcessing: boolean
   // chatContent: string
   // setChatContent: (content: string) => void
   // chatId: number | undefined
@@ -167,6 +168,7 @@ type ChatAction = {
     setSelectedTitleModel: (mode: string) => void
     setReadStreamState: (state: boolean) => void
     toggleWebSearch: (state: boolean) => void
+    setWebSearchProcessState: (state: boolean) => void
 }
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
@@ -310,5 +312,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   imageSrcBase64List: [],
   setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
   webSearchEnable: false,
-  toggleWebSearch: (state: boolean) => (set({ webSearchEnable: state}))
+  toggleWebSearch: (state: boolean) => (set({ webSearchEnable: state})),
+  webSearchProcessing: false,
+  setWebSearchProcessState: (state: boolean) => (set({ webSearchProcessing: state}))
 }))

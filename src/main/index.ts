@@ -3,13 +3,11 @@ import { join } from 'path'
 import * as fs from 'node:fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { PIN_WINDOW, SAVE_CONFIG, GET_CONFIG, OPEN_EXTERNAL } from '../constants'
+import { PIN_WINDOW, SAVE_CONFIG, GET_CONFIG, OPEN_EXTERNAL, WEB_SEARCH_ACTION } from '../constants'
 import { defaultConfig as embeddedConfig } from '../config'
+import { handleWebSearch } from './web-search'
 import path from 'node:path'
 import os from 'node:os'
-// import puppeteer from 'puppeteer'
-import { chromium } from 'playwright'
-import * as cheerio from 'cheerio'
 
 let mainWindow: BrowserWindow
 let appConfig: AppConfigType
@@ -144,7 +142,6 @@ function createWindow(): void {
   if (import.meta.env.MODE === 'development') {
     mainWindow.webContents.openDevTools({ mode: 'right' })
   }
-  
 }
 
 const reactDevToolsPath = path.join(
@@ -189,68 +186,11 @@ app.whenReady().then(async () => {
   })
   ipcMain.on('ping', () => console.log('pong'))
 
-  // Playwright handler for Google search
-  ipcMain.handle('headless-web-search-action', async (event, { action, param }) => {
-    try {
-      console.log('headless-search action received:', action, param);
+  // Playwright handler for web search
+  ipcMain.handle(WEB_SEARCH_ACTION, (event, { action, param }) => handleWebSearch({action, param}))
 
-      
-      const browser = await chromium.launch({ headless: false, args: ['--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'] });
-      // Create a new incognito browser context
-      const context = await browser.newContext();
-      // Create a new page inside context.
-      const page = await context.newPage();
-      
-      // 监听页面内的 console.log 输出
-      // page.on('console', msg => console.log('PAGE LOG:', msg.text()))
-      
-      // Navigate to search page
-      const searchSite = 'www.bing.com'
-      const queryStr = searchSite.includes('google') ? (param as string).replaceAll(' ', '+') : (param as string)
-      const encodedQueryStr = encodeURIComponent(queryStr)
-      await page.goto(`https://${searchSite}/search?q=${encodedQueryStr}`)
-      
-      // Wait for search results to load
-      await page.waitForSelector('ol#b_results', { timeout: 10000 })
-      
-      // Extract the first 5 search result URLs
-      const relevantLinks = await page.evaluate(() => {
-        const results: string[] = [];
-        const searchResultLinks = document.querySelectorAll('ol#b_results li.b_algo div.b_tpcn a[href^="http"]');
-        for (let i = 0; i < Math.min(2, searchResultLinks.length); i++) {
-          const link: any = searchResultLinks[i];
-          // console.log(link.href);
-          if (link.href && !link.href.includes('google.com')) {
-            results.push(link.href)
-          }
-        }
-        return results
-      })
-      console.log('links', relevantLinks)
-      const promises: Promise<string>[] = relevantLinks.map(l => new Promise(async (resolve, rej) => {
-        try {
-          const p = await context.newPage()
-          await p.goto(l)
-          const $ = cheerio.load(await p.content())
-          const allText = $('body > div').text()
-          resolve(allText ? allText.replaceAll(' ', '').replaceAll('\n', '') : '')
-        } catch (error) {
-          rej(error)
-        }
-      }))
-      const results = await Promise.all(promises)
-      // console.log('Promise.all', results);
-
-      await browser.close();
-      
-      // Send result back to renderer
-      return { success: true, links: relevantLinks, result: results };
-    } catch (error: any) {
-      console.error('headless-web-search error:', error);
-      return { success: false, result: error.message };
-    }
-  })
-
+  // IPC handlers 必须在窗口创建前注册
+  // 渲染进程（renderer）可能在窗口创建后立即尝试调用 IPC 方法。如果 handlers 还没注册，这些调用就会失败。
   createWindow()
 
   app.on('activate', function () {
