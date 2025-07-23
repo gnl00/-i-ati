@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository";
 
 const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: GENERATE TITLE FROM **THE QUESTION** OR **THE ACTION**; DO REMEMBER: **RETURN ME THE TITLE ONLY**\n"
+const generateSearchKeywordsPrompt = "Generate some briefly and precisely search keywords from the context below. NOTE: 查询关键词必须与输入内容严格关联,描述准确,并且拆分开的关键词需要有明确的意义. 比如：输入内容=查询北京的天气，查询关键词可以拆分成=[北京天气,北京今天的天气,北京天气预报],**不能**拆分成['今天','北京','的','天气'],没个 keyword 没有完整信息，也破坏了用户意图. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n"
 
 function chatSubmit() {
   const {
@@ -19,6 +20,7 @@ function chatSubmit() {
   } = useChatContext()
   const { 
     provider,
+    getProviderByName,
     providers,
     models, 
     messages, 
@@ -28,6 +30,7 @@ function chatSubmit() {
     setCurrentReqCtrl, 
     setReadStreamState,
     selectedTitleModel,
+    webSearchEnable,
   } = useChatStore()
   
   const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
@@ -37,6 +40,16 @@ function chatSubmit() {
 
     let messageBody: ChatMessage
     const model = selectedModel!
+
+    let searchResults = []
+    if(webSearchEnable) {
+      searchResults = await processWebSearch(textCtx.trim(), model)
+
+      if (searchResults.length === 0) {
+        console.log('break request bacause no searchResults')
+        return
+      }
+    }
 
     const modelType = model.type
     if (modelType === 'llm') {
@@ -184,6 +197,33 @@ function chatSubmit() {
   const afterFetch = () => {
     setFetchState(false)
   }
+  const processWebSearch = async (chatCtx: string, model: IModel) => {
+
+    const keywords = await generateKeyWords(chatCtx, model)
+    const searchResults = await window.electron?.ipcRenderer.invoke('headless-web-search-action', {
+      action: 'navigate',
+      url: chatCtx
+    })
+    return searchResults
+  }
+  const generateKeyWords = async (chatCtx: string, model: IModel) => {
+    console.log("generating Search KeyWords");
+    const provider = getProviderByName(model.provider)!
+    const req: IChatRequest = {
+      url: provider.apiUrl,
+      content: chatCtx,
+      prompt: generateSearchKeywordsPrompt,
+      token: provider.apiKey,
+      model: model.value,
+      stream: false
+    }
+    const keywroldResponse = await chatRequestWithHook(req, () => { }, () => { })
+    console.log('keyword response', keywroldResponse)
+    const resp = await keywroldResponse.body.read()
+    console.log('keywroldResponse.then', resp)
+    const keywords = []
+    return keywords
+  }
   const generateTitle = async (context) => {
     console.log("generateTitle...");
     
@@ -196,7 +236,8 @@ function chatSubmit() {
       content: context,
       prompt: generateTitlePrompt,
       token: titleProvider.apiKey,
-      model: titleModel.value
+      model: titleModel.value,
+      stream: false
     }
 
     const reader = await chatRequestWithHook(titleReq, () => { }, () => { })

@@ -35,6 +35,7 @@ declare interface IChatRequest {
   model: string
   prompt?: string
   content: string
+  stream?: boolean | undefined
 }
 
 declare interface IChatRequestV2 {

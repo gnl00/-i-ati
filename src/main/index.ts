@@ -7,7 +7,9 @@ import { PIN_WINDOW, SAVE_CONFIG, GET_CONFIG, OPEN_EXTERNAL } from '../constants
 import { defaultConfig as embeddedConfig } from '../config'
 import path from 'node:path'
 import os from 'node:os'
-import puppeteer from 'puppeteer'
+// import puppeteer from 'puppeteer'
+import { chromium } from 'playwright'
+import * as cheerio from 'cheerio'
 
 let mainWindow: BrowserWindow
 let appConfig: AppConfigType
@@ -187,44 +189,65 @@ app.whenReady().then(async () => {
   })
   ipcMain.on('ping', () => console.log('pong'))
 
-  // Puppeteer handler
-  ipcMain.handle('puppeteer-action', async (event, { action, url }) => {
+  // Playwright handler for Google search
+  ipcMain.handle('headless-web-search-action', async (event, { action, param }) => {
     try {
-      console.log('Puppeteer action received:', action, url);
+      console.log('headless-search action received:', action, param);
+
       
-      const browser = await puppeteer.launch();
-      const page = await browser.newPage();
+      const browser = await chromium.launch({ headless: false, args: ['--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'] });
+      // Create a new incognito browser context
+      const context = await browser.newContext();
+      // Create a new page inside context.
+      const page = await context.newPage();
       
-      // Navigate the page to a URL
-      await page.goto(url);
+      // 监听页面内的 console.log 输出
+      // page.on('console', msg => console.log('PAGE LOG:', msg.text()))
       
-      // Set screen size
-      await page.setViewport({width: 1080, height: 1024});
+      // Navigate to search page
+      const searchSite = 'www.bing.com'
+      const queryStr = searchSite.includes('google') ? (param as string).replaceAll(' ', '+') : (param as string)
+      const encodedQueryStr = encodeURIComponent(queryStr)
+      await page.goto(`https://${searchSite}/search?q=${encodedQueryStr}`)
       
-      // Type into search box
-      await page.type('.devsite-search-field', 'automate beyond recorder');
+      // Wait for search results to load
+      await page.waitForSelector('ol#b_results', { timeout: 10000 })
       
-      // Wait and click on first result
-      const searchResultSelector = '.devsite-result-item-link';
-      await page.waitForSelector(searchResultSelector);
-      await page.click(searchResultSelector);
-      
-      // Locate the full title with a unique string
-      const textSelector = await page.waitForSelector(
-        'text/Customize and automate',
-      );
-      const fullTitle = await textSelector?.evaluate(el => el.textContent);
-      
-      // Print the full title
-      console.log('The title of this blog post is "%s".', fullTitle);
-      
+      // Extract the first 5 search result URLs
+      const relevantLinks = await page.evaluate(() => {
+        const results: string[] = [];
+        const searchResultLinks = document.querySelectorAll('ol#b_results li.b_algo div.b_tpcn a[href^="http"]');
+        for (let i = 0; i < Math.min(2, searchResultLinks.length); i++) {
+          const link: any = searchResultLinks[i];
+          // console.log(link.href);
+          if (link.href && !link.href.includes('google.com')) {
+            results.push(link.href)
+          }
+        }
+        return results
+      })
+      console.log('links', relevantLinks)
+      const promises: Promise<string>[] = relevantLinks.map(l => new Promise(async (resolve, rej) => {
+        try {
+          const p = await context.newPage()
+          await p.goto(l)
+          const $ = cheerio.load(await p.content())
+          const allText = $('body > div').text()
+          resolve(allText ? allText.replaceAll(' ', '').replaceAll('\n', '') : '')
+        } catch (error) {
+          rej(error)
+        }
+      }))
+      const results = await Promise.all(promises)
+      // console.log('Promise.all', results);
+
       await browser.close();
       
-      // TODO Send result back to renderer
-      // event.reply('puppeteer-result', { success: true, title: fullTitle });
-    } catch (error) {
-      console.error('Puppeteer error:', error);
-      // event.reply('puppeteer-result', { success: false, error: error.message });
+      // Send result back to renderer
+      return { success: true, links: relevantLinks, result: results };
+    } catch (error: any) {
+      console.error('headless-web-search error:', error);
+      return { success: false, result: error.message };
     }
   })
 

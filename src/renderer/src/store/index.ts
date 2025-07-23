@@ -124,6 +124,8 @@ type ChatState = {
   readStreamState: boolean
   titleProvider: IProvider
   selectedTitleModel: string | undefined
+
+  webSearchEnable: boolean
   // chatContent: string
   // setChatContent: (content: string) => void
   // chatId: number | undefined
@@ -148,6 +150,7 @@ type ChatAction = {
     setImageSrcBase64List: (imgs: ClipbordImg[]) => void
     setProviders: (providers: IProvider[]) => void
     setCurrentProviderName: (providerName: string) => void
+    getProviderByName: (providerName: string) => IProvider | undefined
     updateProvider: (providerName: string, updates: Partial<IProvider>) => void
     addProvider: (provider: IProvider) => void
     removeProvider: (providerName: string) => void
@@ -163,6 +166,7 @@ type ChatAction = {
     setTitleProvider: (Provider: IProvider) => void
     setSelectedTitleModel: (mode: string) => void
     setReadStreamState: (state: boolean) => void
+    toggleWebSearch: (state: boolean) => void
 }
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
@@ -200,7 +204,10 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     currentProviderName: providerName,
     provider: state.providers.find(p => p.name === providerName)
   })),
-  
+  getProviderByName: (providerName: string) => {
+    const { providers } = get()
+    return providers.find(p => p.name === providerName)
+  },
   updateProvider: (providerName: string, updates: Partial<IProvider>) => set((state) => ({
     providers: state.providers.map(p => {
         if (p.name === providerName) {
@@ -302,4 +309,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setTitleProvider: (provider: IProvider) => set({ titleProvider: provider }),
   imageSrcBase64List: [],
   setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
+  webSearchEnable: false,
+  toggleWebSearch: (state: boolean) => (set({ webSearchEnable: state}))
 }))

@@ -45,7 +45,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { 
       messages,
       currentReqCtrl, 
-      readStreamState, setReadStreamState, 
+      readStreamState, setReadStreamState,
+      webSearchEnable, toggleWebSearch,
       providers,
       setCurrentProviderName,
       models, 
@@ -187,23 +188,17 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         setReadStreamState(false)
     }
   }
-  const onPpClick = async () => {
-    console.log('pp-click');
+  const onSearchClick = async () => {
+    console.log('onSearchClick-click');
     
-    // 通过 IPC 调用主进程中的 puppeteer
-    window.electron?.ipcRenderer.invoke('puppeteer-action', {
+    // 通过 IPC 调用主进程中的 headless browser search action
+    const { success, result } = await window.electron?.ipcRenderer.invoke('headless-web-search-action', {
       action: 'navigate',
-      url: 'https://developer.chrome.com/'
-    });
-    
-    // 监听主进程的响应
-    window.electron?.ipcRenderer.once('puppeteer-result', (event, result) => {
-      if (result.success) {
-        console.log('Puppeteer操作成功，标题:', result.title);
-      } else {
-        console.error('Puppeteer操作失败:', result.error);
-      }
-    });
+      url: '杭州天气'
+    })
+  }
+  const onWebSearchClick = () => {
+    toggleWebSearch(!webSearchEnable)
   }
   return (
     <div id='chat-window' className="h-svh relative app-undragable" style={{
@@ -347,7 +342,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             )
           )
         }
-        <div><Button onClick={(_) => onPpClick()}>ppClick</Button></div>
+        <div><Button onClick={(_) => onSearchClick()}>ppClick</Button></div>
         {/* just as a padding element */}
         <div className="flex h-20 pt-16 select-none">&nbsp;</div>
       </div>
@@ -502,13 +497,19 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
               <TooltipProvider delayDuration={400}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="secondary" className="bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-blue-100 hover:text-blue-400 flex justify-center rounded-full w-14 h-8"><Globe></Globe></Button>
+                    <Button variant="secondary" 
+                      className={
+                        cn("bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-blue-100 hover:text-blue-400 flex justify-center rounded-full w-14 h-8",
+                        webSearchEnable ? 'bg-blue-100 text-blue-400' : ''
+                        )} 
+                      onClick={onWebSearchClick}><Globe></Globe>
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
                     <p>Web Search</p>
                   </TooltipContent>
                 </Tooltip>
-                </TooltipProvider>
+              </TooltipProvider>
               <div onClick={onSubmitClick} className='absolute right-0 bottom-0'>
                   {!readStreamState 
                     ? (

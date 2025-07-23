@@ -15,6 +15,8 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
     return
   }
 
+  const streamEnable = req.stream ? true : false
+
   const initMessage = req.prompt ? {
     role: 'user',
     content: req.prompt
@@ -27,7 +29,7 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
 
   beforeFetch()
 
-  const stream = await fetch(req.url, {
+  const fetchResponse = await fetch(req.url, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -42,7 +44,7 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
           role: 'user',
           content: req.content
         }],
-      stream: true,
+      stream: streamEnable,
       max_tokens: 1024,
       temperature: 0.7,
       top_p: 0.7,
@@ -52,15 +54,17 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
     })
   })
 
-  if (!stream.ok) {
-    throw new Error(`HTTP error! Status: ${stream.status}`);
+  if (!fetchResponse.ok) {
+    throw new Error(`HTTP error! Status: ${fetchResponse.status}`);
   }
-
-  const reader = stream.body?.pipeThrough(new TextDecoderStream()).getReader()
 
   afterFetch()
 
-  return reader
+  if (streamEnable) {
+    const readableStream = fetchResponse.body?.pipeThrough(new TextDecoderStream()).getReader()
+    return readableStream
+  }
+  return fetchResponse
 }
 
 export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSignal, beforeFetch: Function, afterFetch: Function): Promise<any> => {
