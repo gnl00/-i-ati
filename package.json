@@ -79,7 +79,6 @@
   "devDependencies": {
     "@electron-toolkit/eslint-config-ts": "^2.0.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
-    "@playwright/test": "^1.54.1",
     "@tailwindcss/typography": "^0.5.13",
     "@types/node": "^20.14.14",
     "@types/react": "^18.3.3",
