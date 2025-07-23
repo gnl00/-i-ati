@@ -20,7 +20,7 @@ const handleWebSearch = async ({ action, param }) => {
     await page.goto(`https://${searchSite}/search?q=${encodedQueryStr}`)
     
     // Wait for search results to load
-    await page.waitForSelector('ol#b_results', { timeout: 10000 })
+    await page.waitForSelector('ol#b_results', { timeout: 15000 })
     
     // Extract the first 2 search result URLs
     const relevantLinks = await page.evaluate(() => {

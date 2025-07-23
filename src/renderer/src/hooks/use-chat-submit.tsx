@@ -223,6 +223,8 @@ function chatSubmit() {
       action: 'navigate',
       param: keywords[0]
     })
+    console.log('searchResults', searchResults)
+    
     return {success: searchResults.success, keywords, result: searchResults.result}
   }
   const generateKeyWords = async (chatCtx: string, model: IModel) => {
