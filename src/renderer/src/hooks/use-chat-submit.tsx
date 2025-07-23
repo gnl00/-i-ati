@@ -220,6 +220,8 @@ function chatSubmit() {
   const processWebSearch = async (chatCtx: string, model: IModel) => {
     const keywords: string[] = await generateKeyWords(chatCtx, model)
     keywords.length === 0 && keywords.push(chatCtx)
+    console.log('processWebSearch keywords', keywords)
+    
     const searchResults = await window.electron?.ipcRenderer.invoke(WEB_SEARCH_ACTION, {
       action: 'navigate',
       param: keywords[0]
@@ -242,9 +244,13 @@ function chatSubmit() {
     const keywroldResponse = await chatRequestWithHook(req, () => { }, () => { })
     // console.log('keyword response', keywroldResponse)
     const resp = await keywroldResponse.json()
-    const keywordsStr: string = resp.choices[0].message.content
-    // console.log('keywroldResponse.json', resp)
-    return keywordsStr.includes(',') ? keywordsStr.split(',') : []
+    let keywordsStr: string = resp.choices[0].message.content
+    if (keywordsStr.includes('<think>') && keywordsStr.includes('</think>')) {
+      keywordsStr = keywordsStr.substring(keywordsStr.indexOf('</think>') + '</think>'.length)
+    }
+    const keywords = keywordsStr.includes(',') ? keywordsStr.split(',') : []
+    console.log('keywords response', keywords)
+    return keywords
   }
   const generateTitle = async (context) => {
     console.log("generateTitle...");

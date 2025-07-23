@@ -15,7 +15,7 @@ const handleWebSearch = async ({ action, param }) => {
     
     // Navigate to search page
     const searchSite = 'www.bing.com'
-    const queryStr = searchSite.includes('google') ? (param as string).replaceAll(' ', '+') : (param as string)
+    const queryStr = searchSite.includes('google') ? (param as string).trim().replaceAll(' ', '+') : (param as string)
     const encodedQueryStr = encodeURIComponent(queryStr)
     await page.goto(`https://${searchSite}/search?q=${encodedQueryStr}`)
     
@@ -42,7 +42,9 @@ const handleWebSearch = async ({ action, param }) => {
         await p.goto(l)
         const $ = cheerio.load(await p.content())
         const allText = $('body > div').text()
-        resolve(allText ? allText.replaceAll(' ', '').replaceAll('\n', '') : '')
+        const unCleanText = allText ? allText.replaceAll(' ', '').replaceAll('\n', '').replaceAll('\t', '') : ''
+        const cleanedText = postClean(unCleanText)
+        resolve(cleanedText)
       } catch (error) {
         rej(error)
       }
@@ -58,6 +60,17 @@ const handleWebSearch = async ({ action, param }) => {
     console.error('headless-web-search error:', error);
     return { success: false, result: error.message };
   }
+}
+
+function postClean(text: string): string {
+  return text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 2)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/(分享到|广告|推广|Copyright|备案号).*$/gim, '');
 }
 
 export {
