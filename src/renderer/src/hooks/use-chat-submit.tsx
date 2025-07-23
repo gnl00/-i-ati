@@ -244,8 +244,7 @@ function chatSubmit() {
     const resp = await keywroldResponse.json()
     const keywordsStr: string = resp.choices[0].message.content
     // console.log('keywroldResponse.json', resp)
-    const keywords = keywordsStr.split(',')
-    return keywords
+    return keywordsStr.includes(',') ? keywordsStr.split(',') : []
   }
   const generateTitle = async (context) => {
     console.log("generateTitle...");
