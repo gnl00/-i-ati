@@ -187,6 +187,24 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         setReadStreamState(false)
     }
   }
+  const onPpClick = async () => {
+    console.log('pp-click');
+    
+    // 通过 IPC 调用主进程中的 puppeteer
+    window.electron?.ipcRenderer.invoke('puppeteer-action', {
+      action: 'navigate',
+      url: 'https://developer.chrome.com/'
+    });
+    
+    // 监听主进程的响应
+    window.electron?.ipcRenderer.once('puppeteer-result', (event, result) => {
+      if (result.success) {
+        console.log('Puppeteer操作成功，标题:', result.title);
+      } else {
+        console.error('Puppeteer操作失败:', result.error);
+      }
+    });
+  }
   return (
     <div id='chat-window' className="h-svh relative app-undragable" style={{
       backgroundColor: '#f9f9f9',
@@ -329,6 +347,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             )
           )
         }
+        <div><Button onClick={(_) => onPpClick()}>ppClick</Button></div>
         {/* just as a padding element */}
         <div className="flex h-20 pt-16 select-none">&nbsp;</div>
       </div>
