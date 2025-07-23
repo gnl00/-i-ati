@@ -218,7 +218,9 @@ function chatSubmit() {
     setFetchState(false)
   }
   const processWebSearch = async (chatCtx: string, model: IModel) => {
-    const keywords = await generateKeyWords(chatCtx, model)
+    let keywords: string[] = []
+    keywords = await generateKeyWords(chatCtx, model)
+    keywords.length === 0 && keywords.push(chatCtx)
     const searchResults = await window.electron?.ipcRenderer.invoke(WEB_SEARCH_ACTION, {
       action: 'navigate',
       param: keywords[0]
