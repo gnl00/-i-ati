@@ -1,7 +1,6 @@
 import { VList, VListHandle } from "virtua"
-import { VariableSizeList as List } from 'react-window';
-import React, { useEffect, useRef, Ref, RefObject, useMemo, useLayoutEffect } from "react"
-import { UserChatItem, UserChatItemRef, AssistantChatItem, AssistantChatItemRef } from "./ChatItemComponent"
+import React, { useEffect, useRef, useMemo, useLayoutEffect } from "react"
+import { UserChatItemRef, AssistantChatItemRef } from "./ChatItemComponent"
 import { debounce } from 'lodash'
 
 interface ChatComponentProps {
@@ -66,9 +65,7 @@ export const ChatComponent = (props: ChatComponentProps) => {
                         idx={index}
                         message={message}
                         msgSize={messages.length}
-                        lastMsgStatus={lastMsgStatus}
                         reGenerate={reGenerate}
-                        toast={toast}
                         />
                     :
                     <AssistantChatItemRef
@@ -79,7 +76,6 @@ export const ChatComponent = (props: ChatComponentProps) => {
                         message={message}
                         editableContentId={editableContentId}
                         setEditableContentId={setEditableContentId}
-                        toast={toast}
                     />
                 })
             }

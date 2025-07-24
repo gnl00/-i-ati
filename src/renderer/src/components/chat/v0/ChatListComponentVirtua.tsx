@@ -1,11 +1,7 @@
 import { VList, VListHandle } from "virtua"
 import React, { useEffect, useRef, useMemo, useLayoutEffect, useState } from "react"
 import { UserChatItemRef, AssistantChatItemRef } from "./ChatItemComponent"
-import { debounce } from 'lodash'
-import AnimateHeight, { Height } from 'react-animate-height'
-import { Transition } from 'react-transition-group'
 import { useChatStore } from "@renderer/store"
-import { Link, Button, Element, Events, animateScroll as scroll, scrollSpy, scroller } from 'react-scroll'
 import { useChatContext } from "@renderer/context/ChatContext"
 
 interface ChatListProps {

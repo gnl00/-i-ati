@@ -49,12 +49,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     const { 
         appVersion,
         appConfig,
-        loadAppConfig,
         setAppConfig, 
         models, 
         providers, 
         setProviders,
-        provider: currentProvider,
+        getProviderByName,
         currentProviderName,
         setCurrentProviderName,
         updateProvider,
@@ -67,6 +66,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         setSelectedTitleModel,
     } = useChatStore()
 
+    const [currentProvider, setCurrentProvider] = useState<IProvider | undefined>(undefined)
     const [editProviderName, setEditProviderName] = useState<string>(currentProvider?.name || '')
     const [editProviderApiUrl, setEditProviderApiUrl] = useState<string>(currentProvider?.apiUrl || '')
     const [editProviderApiKey, setEditProviderApiKey] = useState<string>(currentProvider?.apiKey || '')
@@ -110,12 +110,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     }, [])
 
     useEffect(() => {
-        if (currentProvider) {
-            setEditProviderName(currentProvider.name)
-            setEditProviderApiUrl(currentProvider.apiUrl)
-            setEditProviderApiKey(currentProvider.apiKey)
+        if (currentProviderName) {
+            const p = getProviderByName(currentProviderName)!
+            setCurrentProvider(p)
+            setEditProviderName(p.name)
+            setEditProviderApiUrl(p.apiUrl)
+            setEditProviderApiKey(p.apiKey)
         }
-    }, [currentProvider])
+    }, [currentProviderName, providers])
 
     useEffect(() => {}, [editProviderName, editProviderApiUrl, editProviderApiKey])
 
@@ -168,6 +170,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             apiUrl: editProviderApiUrl,
             apiKey: editProviderApiKey
         })
+
+        console.log('updatedProvider', {
+            name: editProviderName,
+            apiUrl: editProviderApiUrl,
+            apiKey: editProviderApiKey
+        })
+        
         
         // If provider name changed, update current provider reference
         if (editProviderName !== currentProvider.name) {

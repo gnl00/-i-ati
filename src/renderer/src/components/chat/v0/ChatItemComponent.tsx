@@ -1,22 +1,22 @@
 import React, { forwardRef, Ref, useEffect} from 'react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from "@renderer/lib/utils"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuTrigger } from "../ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuTrigger } from "../../ui/context-menu"
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "../ui/accordion"
-import { Button } from "../ui/button"
-import { Textarea } from "../ui/textarea"
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
+} from "../../ui/accordion"
+import { Button } from "../../ui/button"
+import { Textarea } from "../../ui/textarea"
+import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
 import { CopyIcon, ReloadIcon, Cross2Icon, Pencil2Icon, ArrowDownIcon } from "@radix-ui/react-icons"
-import { updateMessage } from "../../db/MessageRepository"
+import { updateMessage } from "../../../db/MessageRepository"
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { toast } from "@renderer/components/ui/use-toast"
-import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '../md/SyntaxHighlighterWrapper'
+import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '../../md/SyntaxHighlighterWrapper'
 import { useChatContext } from '@renderer/context/ChatContext'
 
 interface UserChatItemProps {

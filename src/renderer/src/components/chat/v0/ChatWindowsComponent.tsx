@@ -7,7 +7,7 @@ import {
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { cn } from "@renderer/lib/utils"
 import bgSvgBlack128 from '../../assets/black-icon-128x128.svg'
-import ChatListComponent from "@renderer/components/chat/ChatListComponent"
+import ChatListComponent from "@renderer/components/chat/v0/ChatListComponent"
 import ImageGalleryComponent from "@renderer/components/input/ImageGalleryComponent"
 import ToolBarComponent from "@renderer/components/input/ToolBarComponent"
 import InputAreaComponent from "@renderer/components/input/InputAreaComponent"

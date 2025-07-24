@@ -1,5 +1,4 @@
-import { VList, VListHandle } from "virtua"
-import React, { useEffect, useRef, useMemo, useLayoutEffect, useState } from "react"
+import React, { useRef, useMemo, useLayoutEffect, useState } from "react"
 import { UserChatItemRef, AssistantChatItemRef } from "./ChatItemComponent"
 import { useChatStore } from "@renderer/store"
 import { useChatContext } from "@renderer/context/ChatContext"
