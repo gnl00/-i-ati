@@ -63,15 +63,15 @@ pnpm build:mac
 - [X] smooth scrool
 - [X] use virtual list for chat list
 - [X] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
-- [ ] input area toolbar
+- [X] input area toolbar
 - [X] Copy and Edit tooltips
 - [ ] fetch models from api(if API provider supports)
 - [X] save chat list
 - [ ] chat list ~~title~~ and hisoty summary
 - [X] dark/light mode
 - [ ] artifacts supports(maybe)
-- [ ] default model for chat
-- [ ] add provider
+- [X] default model for chat
+- [X] add provider
 - [ ] chat config topK/topP/maxToken...
 - [X] copyCode button
 
