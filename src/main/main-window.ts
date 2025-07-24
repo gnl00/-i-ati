@@ -32,7 +32,8 @@ function createWindow(): void {
       sandbox: false,
       // Currently, electron-vite not support nodeIntegration. 
       // nodeIntegration: true,
-      contextIsolation: true
+      contextIsolation: true,
+      webSecurity: false
     }
   })
 

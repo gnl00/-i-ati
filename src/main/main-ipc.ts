@@ -16,6 +16,19 @@ function mainIPCSetup() {
   })
   ipcMain.on('ping', () => console.log('pong'))
 
+  // HTTP request handler
+  ipcMain.handle('http-request', async (_, { url, options }) => {
+    try {
+      const response = await fetch(url, options)
+      const data = options.stream 
+        ? { body: response.body, headers: Object.fromEntries(response.headers), ok: response.ok, status: response.status }
+        : { data: await response.json(), headers: Object.fromEntries(response.headers), ok: response.ok, status: response.status }
+      return data
+    } catch (error) {
+      throw error
+    }
+  })
+
   // Playwright handler for web search
   ipcMain.handle(WEB_SEARCH_ACTION, (event, { action, param }) => handleWebSearch({action, param}))
 }
