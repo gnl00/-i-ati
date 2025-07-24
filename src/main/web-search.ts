@@ -5,7 +5,7 @@ const handleWebSearch = async ({ action, param }) => {
   let browser
   try {
     // console.log('headless-search action received:', action, param);
-    browser = await chromium.launch({ headless: false })
+    browser = await chromium.launch({ headless: true })
     // Create a new incognito browser context
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
