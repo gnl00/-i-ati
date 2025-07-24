@@ -381,7 +381,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   <CommandInput placeholder="Search model" className="h-auto" />
                   <CommandList>
                     {(models.findIndex(fm => fm.enable === true) != -1) && <CommandEmpty>Oops...NotFound</CommandEmpty>}
-                    {providers.map((p) => p.models.length > 0 && (
+                    {providers.map((p) => p.models.length > 0 && p.models.findIndex(m => m.enable) !== -1 && (
                           <CommandGroup
                               key={p.name}
                               value={p.name}

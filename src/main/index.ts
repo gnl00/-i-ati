@@ -1,148 +1,10 @@
-import { app, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
-import { join } from 'path'
-import * as fs from 'node:fs'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
-import { PIN_WINDOW, SAVE_CONFIG, GET_CONFIG, OPEN_EXTERNAL, WEB_SEARCH_ACTION } from '../constants'
-import { defaultConfig as embeddedConfig } from '../config'
-import { handleWebSearch } from './web-search'
+import { app, BrowserWindow, globalShortcut } from 'electron'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
 import path from 'node:path'
 import os from 'node:os'
-
-let mainWindow: BrowserWindow
-let appConfig: AppConfigType
-
-const configPath = app.getPath('userData')
-const configFile = join(configPath, 'appConfig.json')
-
-function tryInitConfig(): void {
-  if (!fs.existsSync(configPath)) {
-    console.log('no local config PATH, creating...', configPath)
-    fs.mkdirSync(configPath)
-  }
-
-  if (!fs.existsSync(configFile)) {
-    console.log('no local config FILE, creating...', configFile)
-    const { configForUpdate, ...omitedConfig } = embeddedConfig
-    fs.writeFileSync(configFile, JSON.stringify({ ...omitedConfig }, null, 2))
-  }
-}
-
-function handleConfig(): void {
-  console.log('handling configurations...')
-
-  tryInitConfig()
-
-  console.log('local config file\n', configFile)
-  const localConfigStr = fs.readFileSync(configFile).toString('utf8')
-  const localConfig: AppConfigType = JSON.parse(localConfigStr)
-  console.log('got local config\n', JSON.stringify(localConfig))
-  appConfig = {
-    ...localConfig
-  }
-  // update local config when default config update
-  if (!localConfig.version || embeddedConfig!.version! > localConfig.version) {
-    const { configForUpdate } = embeddedConfig
-    appConfig = {
-      ...appConfig,
-      ...configForUpdate
-    }
-    saveConfig(appConfig)
-    console.log('refresh local config\n', appConfig)
-  }
-}
-
-const saveConfig = (configData: AppConfigType): void => {
-  const { configForUpdate, ...omitedConfig } = embeddedConfig
-  const mergedConfig: AppConfigType = {
-    ...omitedConfig, 
-    ...configData 
-  }
-  
-  console.log('saving merged config\n', JSON.stringify(mergedConfig))
-  
-  fs.writeFileSync(configFile, JSON.stringify(mergedConfig, null, 2))
-  console.log('configurations save success')
-}
-
-handleConfig()
-
-const pinWindow = (pin: boolean): void => {
-  mainWindow.setAlwaysOnTop(pin, 'floating')
-}
-
-const getWinPosition = (): number[] => {
-  return mainWindow.getPosition()
-}
-
-const setWinPosition = ({x, y, animation= true}): void => {
-  mainWindow.setPosition(x, y, animation)
-}
-
-function createWindow(): void {
-  // Create the browser window.
-  mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 1200,
-    show: false,
-    // alwaysOnTop: true,
-    frame: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      // Currently, electron-vite not support nodeIntegration. 
-      // nodeIntegration: true,
-      contextIsolation: true
-    }
-  })
-
-  mainWindow.on('ready-to-show', async () => {
-    mainWindow.show()
-  })
-
-  // 监听 new-window 事件
-  // mainWindow.webContents.on('new-window', (event, url) => {
-  //   event.preventDefault() // 阻止默认行为（在应用内打开新窗口）
-  //   shell.openExternal(url) // 使用系统默认浏览器打开链接
-  // })
-
-  // mainWindow.on('resize', async () => {
-  //   const [width, height] = mainWindow.getSize();
-  //   //console.log(`Window resized to ${width}x${height}`);
-  // })
-
-  // mainWindow.on('show', async () => {
-  // })
-
-  // mainWindow.on('focus', async () => {
-  //   console.log('on-focus')
-  // })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  // mainWindow.webContents.on('did-finish-load', () => {
-  //   // mainWindow.webContents.send('main-process-message', new Date().toLocaleString())
-  //   mainWindow.setTitle('New Async Title')
-  // })
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-
-  // @ts-ignore
-  if (import.meta.env.MODE === 'development') {
-    mainWindow.webContents.openDevTools({ mode: 'right' })
-  }
-}
+import { loadConfig } from './app-config'
+import { createWindow } from './main-window'
+import { mainIPCSetup as ipcSetup } from './main-ipc'
 
 const reactDevToolsPath = path.join(
   os.homedir(),
@@ -169,25 +31,11 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // get config
-  // macOS  /Users/{USERNAME}/Library/'Application Support'/electron-app
-  // Linux /home/{USERNAME}/.config/electron-app
-  console.log(app.getPath('userData'))
+  // load app config
+  loadConfig()
 
-  // IPC
-  ipcMain.handle(PIN_WINDOW, (_, pinState) => pinWindow(pinState))
-  ipcMain.handle(SAVE_CONFIG, (_, config) => saveConfig(config))
-  ipcMain.handle('get-win-position', (): number[] => getWinPosition())
-  ipcMain.handle('set-position', (_, options) => setWinPosition(options))
-  ipcMain.handle(GET_CONFIG, (): IAppConfig => appConfig)
-  ipcMain.handle(OPEN_EXTERNAL, (_, url) => {
-    console.log('main received url', url);
-    shell.openExternal(url)
-  })
-  ipcMain.on('ping', () => console.log('pong'))
-
-  // Playwright handler for web search
-  ipcMain.handle(WEB_SEARCH_ACTION, (event, { action, param }) => handleWebSearch({action, param}))
+  // setup mainIPC
+  ipcSetup()
 
   // IPC handlers 必须在窗口创建前注册
   // 渲染进程（renderer）可能在窗口创建后立即尝试调用 IPC 方法。如果 handlers 还没注册，这些调用就会失败。

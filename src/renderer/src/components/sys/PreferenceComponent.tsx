@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { cn } from '@renderer/lib/utils'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@renderer/components/ui/tabs"
 import {
     Table,
     TableBody,
@@ -8,8 +8,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "../ui/table"
-import { Checkbox } from "../ui/checkbox"
+} from "@renderer/components/ui/table"
+import { Checkbox } from "@renderer/components/ui/checkbox"
 import {
     Select,
     SelectContent,
@@ -18,18 +18,18 @@ import {
     SelectLabel,
     SelectTrigger,
     SelectValue,
-    } from "../ui/select"
-import { Carousel, CarouselItem, CarouselContent, CarouselNext, CarouselPrevious, type CarouselApi } from '../ui/carousel'
-import { Button } from "../ui/button"
-import { Badge } from '../ui/badge'
-import { Label } from '../ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
-import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandInput } from '../ui/command'
+    } from "@renderer/components/ui/select"
+import { Carousel, CarouselItem, CarouselContent, CarouselNext, CarouselPrevious, type CarouselApi } from '@renderer/components/ui/carousel'
+import { Button } from "@renderer/components/ui/button"
+import { Badge } from '@renderer/components/ui/badge'
+import { Label } from '@renderer/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
+import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandInput } from '@renderer/components/ui/command'
 import { Check, ChevronsUpDown } from "lucide-react"
-import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from '../ui/drawer'
-import { Input } from '../ui/input'
-import { Switch } from '../ui/switch'
-import { toast } from '../ui/use-toast'
+import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from '@renderer/components/ui/drawer'
+import { Input } from '@renderer/components/ui/input'
+import { Switch } from '@renderer/components/ui/switch'
+import { toast } from '@renderer/components/ui/use-toast'
 import { useChatStore } from '@renderer/store'
 import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
@@ -102,14 +102,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         }
     }
 
-    async function loadAppCfg() {
-        await loadAppConfig()
-    }
-
     useEffect(() => {
-        // loadAppCfg()
         // fetchModels()
-
         setEditProviderName('')
         setEditProviderApiUrl('')
         setEditProviderApiKey('')
@@ -180,14 +174,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             setCurrentProviderName(editProviderName)
         }
         
-        // TODO save configuration to local config file
-        const nextAppConfig = {
+        const updatedAppConfig = {
             ...appConfig,
             providers: providers,
         }
-        setAppConfig(nextAppConfig)
-        // window.electron.ipcRenderer.invoke(SAVE_CONFIG, nextAppConfig)
-        // console.log('configurations to save: ', nextAppConfig)
+        setAppConfig(updatedAppConfig)
         
         toast({
             className: 'buttom-1 right-1 flex',
@@ -216,7 +207,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             apiKey: newProviderApiKey
         }
         addProvider(newProvider)
-        console.log('new-provider', newProvider)
+        // console.log('add new povider', newProvider)
         toast({
             variant: 'default',
             duration: 800,
@@ -287,6 +278,17 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             }
             updateProvider(currentProvider.name, updatedProvider)
         }
+    }
+    const toggleEnableAllModels = (checked: boolean) => {
+        const updatedModels = currentProvider?.models.map(m => {
+            m.enable = checked
+            return m
+        })
+        // console.log('updatedModels', updatedModels)
+        updateProvider(currentProvider?.name!, {
+            ...currentProvider,
+            models: updatedModels
+        })
     }
     return (
         <div className="grid gap-4">
@@ -407,11 +409,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                 }}
                                 />
                         </div>
-                        <div className='flex-grow h-full overflow-scroll'>
+                        <div className='flex-grow overflow-scroll'>
                             <Table>
                                 <TableHeader className=''>
                                     <TableRow>
-                                        <TableHead className='text-center'>Enable</TableHead>
+                                        <TableHead className='text-center flex items-center space-x-1'><Checkbox onCheckedChange={toggleEnableAllModels} /><span>Enable</span></TableHead>
                                         <TableHead className='text-center'>DisplayName</TableHead>
                                         <TableHead className='text-center'>Value</TableHead>
                                         <TableHead className='text-center'>Type</TableHead>

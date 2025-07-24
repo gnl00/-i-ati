@@ -173,14 +173,15 @@ type ChatAction = {
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   // Core data
-  appConfig: {providers: providersData},
+  appConfig: localAppConfig,
   async loadAppConfig() {
     const localConfig = await window.electron.ipcRenderer.invoke(GET_CONFIG)
     // console.log('store get local app config', localConfig);
     return localConfig
   },
-  setAppConfig: (updatedConfig: IAppConfig) => set((_) => {
+  setAppConfig: (updatedConfig: IAppConfig) => set((state) => {
     window.electron.ipcRenderer.invoke(SAVE_CONFIG, updatedConfig)
+    // console.log('setAppConfig-updatedConfig', updatedConfig)
     return { appConfig: updatedConfig }
   }),
   // @ts-ignore
@@ -195,7 +196,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   
   get provider() {
     const { providers, currentProviderName } = get()
-    console.log('from store', currentProviderName, providers)
+    // console.log('provider from store', currentProviderName, providers)
     return providers.find(p => p.name === currentProviderName)
   },
   
@@ -223,7 +224,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   })),
   
   addProvider: (provider: IProvider) => set((state) => ({
-    providers: [...state.providers, provider],
+    providers: [provider, ...state.providers],
     currentProviderName: provider.name
   })),
   

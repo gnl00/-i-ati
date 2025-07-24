@@ -9,7 +9,7 @@ import { saveChat } from "@renderer/db/ChatRepository"
 import { WEB_SEARCH_ACTION } from "@constants/index"
 
 const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: GENERATE TITLE FROM **THE QUESTION** OR **THE ACTION**; DO REMEMBER: **RETURN ME THE TITLE ONLY**\n"
-const generateSearchKeywordsPrompt = "Generate some briefly and precisely search keywords from the context below. NOTE: 查询关键词必须与输入内容严格关联,描述准确,并且拆分开的关键词需要有明确的意义. 比如：输入内容=查询北京的天气，查询关键词可以拆分成=[北京天气,北京今天的天气,北京天气预报],**不能**拆分成['今天','北京','的','天气'],没个 keyword 没有完整信息，也破坏了用户意图. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n"
+const generateSearchKeywordsPrompt = "[/no_think /no_thinking /do_not_think]\nGenerate some briefly and precisely search keywords from the context below. NOTE: 查询关键词必须与输入内容严格关联,描述准确,并且拆分开的关键词需要有明确的意义. 比如：输入内容=查询北京的天气，查询关键词可以拆分成=[北京天气,北京今天的天气,北京天气预报],**不能**拆分成['今天','北京','的','天气'],没个 keyword 没有完整信息，也破坏了用户意图. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n"
 
 function chatSubmit() {
   const {
@@ -42,8 +42,8 @@ function chatSubmit() {
 
     setReadStreamState(true)
 
+    // build user message
     let messageBody: ChatMessage
-
     const model = selectedModel!
     const modelType = model.type
     if (modelType === 'llm') {
@@ -63,7 +63,9 @@ function chatSubmit() {
 
     const userMessageEntity: MessageEntity = { body: messageBody }
     const usrMsgId = await saveMessage(userMessageEntity) as number
-    // console.log(`modelType=${modelType} msgId=${usrMsgId}`, userMessageEntity)
+
+    const messageEntities = [...messages, userMessageEntity]
+    setMessages(messageEntities)
 
     let currChatId = chatId
     let chatEntity: ChatEntity
@@ -83,9 +85,7 @@ function chatSubmit() {
     }
     updateChatList(chatEntity)
 
-    const messageEntities = [...messages, userMessageEntity]
-    setMessages(messageEntities)
-
+    // processing search action
     let keywords: string[] = []
     let searchResults = []
     if(webSearchEnable) {
@@ -93,13 +93,16 @@ function chatSubmit() {
       try {
         const {keywords: k, result: r} = await processWebSearch(textCtx.trim(), model)
         keywords = k, searchResults = r
+        
         if (searchResults.length === 0) {
-          // TODO add search failed flag
-          console.log('break request bacause no searchResults')
-          return
+          throw Error('There is no search result.')
         }
       } catch(error: any) {
-        console.log('processWebSearch error', error.message)
+        toast({
+          variant: "destructive",
+          title: "Uh oh! WebSearch went wrong.",
+          description: error.message
+        })
         return
       } finally {
         setWebSearchProcessState(false)
@@ -107,12 +110,13 @@ function chatSubmit() {
       }
     }
 
-    let searchMessageEntity: ChatMessage = {role: 'function', name: 'web_search', content: searchResults.length > 0 ? searchResults.join('\n') : ''}
-    
+    // build search fucntion message
+    let searchFunctionMessage: ChatMessage = {role: 'function', name: 'web_search', content: searchResults.length > 0 ? searchResults.join('\n') : ''}
+
     const p: IProvider = providers.findLast(p => p.name === model.provider)!
     const req: IChatRequestV2 = {
       url: p.apiUrl,
-      messages: [...messageEntities.map(msg => msg.body), searchMessageEntity],
+      messages: [...messageEntities.map(msg => msg.body), searchFunctionMessage],
       token: p.apiKey,
       prompt: '',
       model: model.value,

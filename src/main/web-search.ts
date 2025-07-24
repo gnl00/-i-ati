@@ -11,7 +11,7 @@ const handleWebSearch = async ({ action, param }) => {
     const page = await context.newPage();
     
     // 监听页面内的 console.log 输出
-    // page.on('console', msg => console.log('PAGE LOG:', msg.text()))
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()))
     
     // Navigate to search page
     const searchSite = 'www.bing.com'
@@ -24,10 +24,10 @@ const handleWebSearch = async ({ action, param }) => {
     
     // Extract the first 2 search result URLs
     const relevantLinks = await page.evaluate(() => {
-      const results: string[] = [];
-      const searchResultLinks = document.querySelectorAll('ol#b_results li.b_algo div.b_tpcn a[href^="http"]');
-      for (let i = 0; i < Math.min(2, searchResultLinks.length); i++) {
-        const link: any = searchResultLinks[i];
+      const results: string[] = []
+      const searchResultLinks = document.querySelectorAll('ol#b_results li.b_algo div.b_tpcn a[href^="http"]')
+      for (let i = 0; i < Math.min(1, searchResultLinks.length); i++) {
+        const link: any = searchResultLinks[i]
         // console.log(link.href);
         if (link.href && !link.href.includes('google.com')) {
           results.push(link.href)
@@ -40,7 +40,19 @@ const handleWebSearch = async ({ action, param }) => {
       try {
         const p = await context.newPage()
         await p.goto(l)
-        const $ = cheerio.load(await p.content())
+        await p.evaluate(() => {
+          const noiseSelectors = [
+            'script', 'style', 'nav', 'header', 'footer',
+            '.ad', '.advertisement', '.sidebar', '.comments',
+            '[class*="related"]', '[class*="recommend"]'
+          ]
+          noiseSelectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => el.remove());
+          })
+        })
+        const pContent = await p.content()
+        console.log('pContent', pContent)
+        const $ = cheerio.load(pContent)
         const allText = $('body > div').text()
         const unCleanText = allText ? allText.replaceAll(' ', '').replaceAll('\n', '').replaceAll('\t', '') : ''
         const cleanedText = postClean(unCleanText)
