@@ -67,10 +67,9 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
   return fetchResponse
 }
 
-export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSignal, beforeFetch: Function, afterFetch: Function): Promise<any> => {
-
+export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
   if (!req.messages) {
-    console.log('IChatRequestV2.messages is empty')
+    console.log('chatRequestWithHookV2 req.messages is empty')
     return
   }
 
@@ -90,7 +89,8 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     const { reasoning, ...props } = msg
     return props
   })
-  const stream = await fetch(req.url, {
+  const enableStream = req.stream === true ? true : (req.stream === undefined ? true : false)
+  const fetchResponse = await fetch(req.url, {
     method: 'POST',
     headers,
     signal,
@@ -100,24 +100,22 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
         {...initMessage},
         ...cacheMessage
       ] : [...cacheMessage],
-      stream: true,
+      stream: enableStream,
       max_tokens: 1024,
       temperature: 0.7,
       top_p: 0.7,
       // top_k: 50,
       frequency_penalty: 0.5,
-      n: 1
+      n: 1,
     })
   })
 
-  if (!stream.ok) {
-    const resp = await stream.json()
-    throw new Error(`Error=${JSON.stringify(resp)}, Text=${stream.statusText}`)
+  if (!fetchResponse.ok) {
+    const resp = await fetchResponse.json()
+    throw new Error(`Error=${JSON.stringify(resp)}, Text=${fetchResponse.statusText}`)
   }
-
-  const reader = stream.body?.pipeThrough(new TextDecoderStream()).getReader()
 
   afterFetch()
 
-  return reader
+  return enableStream ? fetchResponse.body?.pipeThrough(new TextDecoderStream()).getReader() : fetchResponse
 }

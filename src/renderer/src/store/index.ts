@@ -196,7 +196,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   
   get provider() {
     const { providers, currentProviderName } = get()
-    console.log('provider from store', currentProviderName, providers)
+    // console.log('provider from store', currentProviderName, providers)
     return providers.find(p => p.name === currentProviderName)
   },
   

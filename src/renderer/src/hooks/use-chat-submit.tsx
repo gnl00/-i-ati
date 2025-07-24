@@ -9,7 +9,7 @@ import { saveChat } from "@renderer/db/ChatRepository"
 import { WEB_SEARCH_ACTION } from "@constants/index"
 
 const generateTitlePrompt = "[/no_think /no_thinking /do_not_think]\nGenerate a briefly and precisely title from the context below. NOTE: GENERATE TITLE FROM **THE QUESTION** OR **THE ACTION**; DO REMEMBER: **RETURN ME THE TITLE ONLY**\n"
-const generateSearchKeywordsPrompt = "[/no_think /no_thinking /do_not_think]\nGenerate some briefly and precisely search keywords from the context below. NOTE: 查询关键词必须与输入内容严格关联,描述准确,并且拆分开的关键词需要有明确的意义. 比如：输入内容=查询北京的天气，查询关键词可以拆分成=[北京天气,北京今天的天气,北京天气预报],**不能**拆分成['今天','北京','的','天气'],没个 keyword 没有完整信息，也破坏了用户意图. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n"
+const generateSearchKeywordsPrompt = "[/no_think /no_thinking /do_not_think]\nGenerate some briefly and precisely search keywords from the context up and down. NOTE: 查询关键词必须与最后一个用户输入内容严格关联,描述准确,并且拆分开的关键词需要有明确的意义. 比如: 输入内容='查询北京的天气',查询关键词可以拆分成 '北京天气,北京今天的天气,北京天气预报',**不能**拆分成 '今天','北京','的','天气',这会导致 keyword 没有完整信息,也破坏了用户意图.如果用户输入的信息比较模糊,尝试从上下文推断,比如:用户第一步问: '明天北京的天气怎么样？',你的回答可能是:'明天北京天气,北京明天天气,北京天气预报'在得到你的回答之后,用户第二步问:'那上海呢?'你需要从上下文中提取出关键的,准确的时间信息,你生成的查询关键词应该是 '明天上海天气预报,上海天气,上海天气预报'.注意: OUTPUT THE KEYWORDS STRING ONLY!!!. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n"
 
 function chatSubmit() {
   const {
@@ -135,18 +135,16 @@ function chatSubmit() {
           while (true) {
             const { done, value } = await reader.read()
             if (done) {
+              sysMessageEntity.body.content = gatherContent
+              sysMessageEntity.body.reasoning = gatherReasoning
               break
             }
-            let eventDone = false
             const lines = value
               .split("\n")
               .filter((line) => line.trim() !== "")
               .map((line) => line.replace(/^data: /, ""))
             for (const line of lines) {
-              if (line === "[DONE]") {
-                eventDone = true
-                return
-              }
+              // console.log('line', line)
               try {
                 const delta = JSON.parse(line).choices?.[0]?.delta
                 if (delta) {
@@ -180,11 +178,6 @@ function chatSubmit() {
                 // 忽略解析失败的行
               }
             }
-            if (eventDone) {
-              sysMessageEntity.body.content = gatherContent
-              sysMessageEntity.body.reasoning = gatherReasoning
-              break
-            }
           }
         }
         setLastMsgStatus(true)
@@ -198,7 +191,6 @@ function chatSubmit() {
           setChatTitle(roughlyTitle)
         }
       }).catch(err => {
-        console.log('use-chat-submmit error', err)
         if (err.name !== 'AbortError') {
           toast({
             variant: "destructive",
@@ -208,9 +200,9 @@ function chatSubmit() {
         }
         setLastMsgStatus(false)
       }).finally(async () => {
-        // console.log('save messageEntity');
         setReadStreamState(false)
         if (gatherContent || gatherReasoning) {
+          console.log('save messageEntity');
           const sysMsgId = await saveMessage(sysMessageEntity) as number
           chatEntity.messages = [...chatEntity.messages, sysMsgId]
           chatEntity.updateTime = new Date().getTime()
@@ -228,27 +220,29 @@ function chatSubmit() {
   const processWebSearch = async (chatCtx: string, model: IModel) => {
     const keywords: string[] = await generateKeyWords(chatCtx, model)
     keywords.length === 0 && keywords.push(chatCtx)
-    console.log('processWebSearch keywords', keywords)
+    console.log('web-search keywords', keywords)
     
     const searchResults = await window.electron?.ipcRenderer.invoke(WEB_SEARCH_ACTION, {
       action: 'navigate',
       param: keywords[0]
     })
-    console.log('searchResults', searchResults)
+    // console.log('web-search searchResults', searchResults)
     return {success: searchResults.success, keywords, result: searchResults.result}
   }
   const generateKeyWords = async (chatCtx: string, model: IModel) => {
-    // console.log("generating search keywords");
+    // console.log("generating search keywords")
     const provider = getProviderByName(model.provider)!
-    const req: IChatRequest = {
+    console.log('web-search context', messages);
+    
+    const reqWithContext: IChatRequestV2 = {
       url: provider.apiUrl,
-      content: chatCtx,
-      prompt: generateSearchKeywordsPrompt,
+      messages: [...messages.slice(messages.length - 3).map(msg => msg.body), {role: 'user', content: chatCtx}],
       token: provider.apiKey,
+      prompt: generateSearchKeywordsPrompt,
       model: model.value,
-      stream: false
+      stream: false,
     }
-    const keywroldResponse = await chatRequestWithHook(req, () => {}, () => {})
+    const keywroldResponse = await chatRequestWithHookV2(reqWithContext, null, () => {}, () => {})
     // console.log('keyword response', keywroldResponse)
     const resp = await keywroldResponse.json()
     let keywordsStr: string = resp.choices[0].message.content
@@ -256,7 +250,6 @@ function chatSubmit() {
       keywordsStr = keywordsStr.substring(keywordsStr.indexOf('</think>') + '</think>'.length)
     }
     const keywords = keywordsStr.includes(',') ? keywordsStr.split(',') : []
-    console.log('keywords response', keywords)
     return keywords
   }
   const generateTitle = async (context) => {

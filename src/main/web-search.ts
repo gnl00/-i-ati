@@ -2,14 +2,17 @@ import { chromium } from 'playwright'
 import * as cheerio from 'cheerio'
 
 const handleWebSearch = async ({ action, param }) => {
+  let browser
   try {
     // console.log('headless-search action received:', action, param);
-    const browser = await chromium.launch({ headless: true, args: ['--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'] });
+    browser = await chromium.launch({ headless: false })
     // Create a new incognito browser context
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+      viewport: { width: 1366, height: 768 },
+    })
     // Create a new page inside context.
-    const page = await context.newPage();
-    
+    const page = await context.newPage()
     // 监听页面内的 console.log 输出
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
     
@@ -18,7 +21,7 @@ const handleWebSearch = async ({ action, param }) => {
     const queryStr = searchSite.includes('google') ? (param as string).trim().replaceAll(' ', '+') : (param as string)
     const encodedQueryStr = encodeURIComponent(queryStr)
     await page.goto(`https://${searchSite}/search?q=${encodedQueryStr}`)
-    
+    await page.reload({ waitUntil: 'networkidle' }); // avoid empty content
     // Wait for search results to load
     await page.waitForSelector('ol#b_results', { timeout: 15000 })
     
@@ -62,15 +65,20 @@ const handleWebSearch = async ({ action, param }) => {
       }
     }))
     const results = await Promise.all(promises)
-    // console.log('Promise.all', results);
+    // console.log('Promise.all', results)
 
-    await browser.close();
+    await browser.close()
     
     // Send result back to renderer
-    return { success: true, links: relevantLinks, result: results };
+    return { success: true, links: relevantLinks, result: results }
   } catch (error: any) {
-    console.error('headless-web-search error:', error);
-    return { success: false, result: error.message };
+    console.error('headless-web-search error:', error)
+    
+    return { success: false, result: error.message }
+  } finally {
+    if (browser) {
+      await browser.close()
+    }
   }
 }
 

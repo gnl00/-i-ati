@@ -44,6 +44,7 @@ declare interface IChatRequestV2 {
   model: string
   prompt: string
   messages: ChatMessage[]
+  stream?: boolean
 }
 
 declare interface ChatEntity {

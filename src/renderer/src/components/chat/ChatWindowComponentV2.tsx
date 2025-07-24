@@ -65,6 +65,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   useEffect(() => {
+    // console.log(messages)
     calculateChatListHeight()
     scrollToBottom()
   }, [messages])
