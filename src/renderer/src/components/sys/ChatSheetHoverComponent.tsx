@@ -7,7 +7,7 @@ const ChatSheetHoverComponent: React.FC<ChatSheetHoverProps> = (props: ChatSheet
   const {setSheetOpenState} = useSheetStore()
   return (
       <div
-          className="h-[35vh] fixed left-0 top-1/4 cursor-pointer w-[0.5vh] rounded-full hover:shadow-blue-600/100 hover:shadow-lg"
+          className="h-[25vh] fixed left-0 bottom-40 cursor-pointer w-[0.5vh] rounded-full hover:shadow-blue-600/100 hover:shadow-3xl"
           onMouseEnter={_ => {setSheetOpenState(true)}}
           style={{ userSelect: 'none' }}
       />

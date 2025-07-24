@@ -105,7 +105,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             break
         }
     }
-    console.log(`findImg? ${findImg}`)
+    // console.log(`findImg? ${findImg}`)
     if (blob) {
         const reader = new FileReader()
         reader.readAsDataURL(blob)
@@ -160,7 +160,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                                 p.models.map((m) => m.enable && (
                                     <CommandItem
                                       key={m.provider + '/' +m.value}
-                                      value={m.value}
+                                      value={m.provider + '/' +m.value}
                                       onSelect={(_) => {
                                         setSelectedModel(m)
                                         const p = providers.findLast(p => p.name == m.provider)!

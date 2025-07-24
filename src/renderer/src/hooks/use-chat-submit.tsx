@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository"
 import { WEB_SEARCH_ACTION } from "@constants/index"
 
-const generateTitlePrompt = "Generate a briefly and precisely title from the context below. NOTE: GENERATE TITLE FROM **THE QUESTION** OR **THE ACTION**; DO REMEMBER: **RETURN ME THE TITLE ONLY**\n"
+const generateTitlePrompt = "[/no_think /no_thinking /do_not_think]\nGenerate a briefly and precisely title from the context below. NOTE: GENERATE TITLE FROM **THE QUESTION** OR **THE ACTION**; DO REMEMBER: **RETURN ME THE TITLE ONLY**\n"
 const generateSearchKeywordsPrompt = "[/no_think /no_thinking /do_not_think]\nGenerate some briefly and precisely search keywords from the context below. NOTE: 查询关键词必须与输入内容严格关联,描述准确,并且拆分开的关键词需要有明确的意义. 比如：输入内容=查询北京的天气，查询关键词可以拆分成=[北京天气,北京今天的天气,北京天气预报],**不能**拆分成['今天','北京','的','天气'],没个 keyword 没有完整信息，也破坏了用户意图. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n"
 
 function chatSubmit() {
@@ -138,43 +138,48 @@ function chatSubmit() {
               break
             }
             let eventDone = false
-            const arr = value.split('\n')
-            arr.forEach((data: any) => {
-              if (data.length === 0) return // ignore empty message
-              if (data.startsWith(':')) return // ignore sse comment message
-              if (data === 'data: [DONE]') {
+            const lines = value
+              .split("\n")
+              .filter((line) => line.trim() !== "")
+              .map((line) => line.replace(/^data: /, ""))
+            for (const line of lines) {
+              if (line === "[DONE]") {
                 eventDone = true
                 return
               }
-              const json = JSON.parse(data.substring(('data:'.length + 1))) // stream response with a "data:" prefix
-              if (json.error) {
-                throw Error(json.error)
+              try {
+                const delta = JSON.parse(line).choices?.[0]?.delta
+                if (delta) {
+                  if (isContentHasThinkTag) {
+                    if (!gatherReasoning) {
+                      gatherReasoning = gatherContent
+                      gatherContent = ''
+                    }
+                    if (delta.content) {
+                      gatherReasoning += delta.content
+                    }
+                    if (gatherReasoning.includes('</think>')) {
+                      gatherReasoning = gatherReasoning.replace('</think>', '')
+                      isContentHasThinkTag = false
+                    }
+                  } else {
+                    if (gatherContent.includes('<think>')) {
+                      isContentHasThinkTag = true
+                      if (delta.content) {
+                        gatherContent = delta.content
+                      }
+                    } else if (delta.content) {
+                      gatherContent += delta.content
+                    } else if (delta.reasoning) {
+                      gatherReasoning += delta.reasoning || ''
+                    }
+                  }
+                }
+                setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherContent, reasoning: gatherReasoning} }])
+              } catch {
+                // 忽略解析失败的行
               }
-              if (isContentHasThinkTag) {
-                if (!gatherReasoning) {
-                  gatherReasoning = gatherContent
-                  gatherContent = ''
-                }
-                gatherReasoning += json.choices[0].delta.content
-                if (gatherReasoning.includes('</think>')) {
-                  gatherReasoning = gatherReasoning.replace('</think>', '')
-                  isContentHasThinkTag = false
-                }
-              } else {
-                if (gatherContent.includes('<think>')) {
-                  isContentHasThinkTag = true
-                  // gatherContent += json.choices[0].delta.content
-                  gatherContent = json.choices[0].delta.content
-                } else if (json.choices[0].delta.content) {
-                  gatherContent += json.choices[0].delta.content
-                } else if (json.choices[0].delta.reasoning) {
-                  gatherReasoning += json.choices[0].delta.reasoning || '';
-                }
-              }
-              // console.log(gatherReasoning)
-              // console.log(gatherContent)
-              setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherContent, reasoning: gatherReasoning} }])
-            })
+            }
             if (eventDone) {
               sysMessageEntity.body.content = gatherContent
               sysMessageEntity.body.reasoning = gatherReasoning
@@ -192,8 +197,8 @@ function chatSubmit() {
           chatEntity.title = roughlyTitle
           setChatTitle(roughlyTitle)
         }
-
       }).catch(err => {
+        console.log('use-chat-submmit error', err)
         if (err.name !== 'AbortError') {
           toast({
             variant: "destructive",
@@ -203,8 +208,7 @@ function chatSubmit() {
         }
         setLastMsgStatus(false)
       }).finally(async () => {
-        console.log('save messageEntity');
-        
+        // console.log('save messageEntity');
         setReadStreamState(false)
         if (gatherContent || gatherReasoning) {
           const sysMsgId = await saveMessage(sysMessageEntity) as number
@@ -231,7 +235,6 @@ function chatSubmit() {
       param: keywords[0]
     })
     console.log('searchResults', searchResults)
-    
     return {success: searchResults.success, keywords, result: searchResults.result}
   }
   const generateKeyWords = async (chatCtx: string, model: IModel) => {
@@ -245,7 +248,7 @@ function chatSubmit() {
       model: model.value,
       stream: false
     }
-    const keywroldResponse = await chatRequestWithHook(req, () => { }, () => { })
+    const keywroldResponse = await chatRequestWithHook(req, () => {}, () => {})
     // console.log('keyword response', keywroldResponse)
     const resp = await keywroldResponse.json()
     let keywordsStr: string = resp.choices[0].message.content
@@ -272,39 +275,11 @@ function chatSubmit() {
       stream: false
     }
 
-    const reader = await chatRequestWithHook(titleReq, () => { }, () => { })
-    if (!reader) {
-      return
-    }
-    let title = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) {
-        break
-      }
-      let eventDone = false
-      const arr = value.split('\n')
-      arr.forEach((data: any) => {
-        if (data.length === 0) return
-        if (data.startsWith(':')) return
-        if (data === 'data: [DONE]') {
-          eventDone = true
-          return
-        }
-        try {
-          const json = JSON.parse(data.substring(('data:'.length + 1)))
-          const resultText = json.choices[0].delta.content
-          title += resultText || ''
-          console.log(title);
-        } catch (error: any) {
-          console.log("Generate title ERROR: ", error.message)
-        }
-      })
-      setChatTitle(title)
-      if (eventDone) {
-        break
-      }
-    }
+    const response = await chatRequestWithHook(titleReq, () => {}, () => {})
+    const json = await response.json()
+    // console.log('generateTitle response', json)
+    let title: string = json.choices[0].message.content
+    setChatTitle(title)
     return title
   }
 
