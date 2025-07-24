@@ -1,4 +1,4 @@
-import { app, shell, ipcMain } from 'electron'
+import { app } from 'electron'
 import { join } from 'path'
 import * as fs from 'node:fs'
 import { defaultConfig as embeddedConfig } from '../config'
