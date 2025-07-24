@@ -112,10 +112,10 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
               </div>
             </div>
           </TooltipTrigger>
-          <TooltipContent className='bg-blue-gray-50 p-1 px-2 border-none' side='bottom' align='end'>
-            <div className="space-x-2 flex text-gray-500">
-              <CopyIcon className='w-6 h-6 hover:bg-gray-200 p-1 rounded-full' onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
-              <Pencil2Icon className='w-6 h-6 hover:bg-gray-200 p-1 rounded-full'></Pencil2Icon>
+          <TooltipContent className='bg-white/5 backdrop-blur-xl p-1 px-2 border-none' side='bottom' align='end'>
+            <div className="space-x-2 flex">
+              <CopyIcon className='w-6 h-6 hover:bg-gray-200 p-1 rounded-xl text-gray-500' onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
+              <Pencil2Icon className='w-6 h-6 hover:bg-gray-200 p-1 rounded-xl text-gray-500'></Pencil2Icon>
             </div>
           </TooltipContent>
         </Tooltip>
