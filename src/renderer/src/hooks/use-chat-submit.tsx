@@ -116,7 +116,9 @@ function chatSubmit() {
     const p: IProvider = providers.findLast(p => p.name === model.provider)!
     const req: IChatRequestV2 = {
       url: p.apiUrl,
-      messages: [...messageEntities.map(msg => msg.body), searchFunctionMessage],
+      messages: webSearchEnable 
+      ? [...messageEntities.map(msg => msg.body), searchFunctionMessage] 
+      : messageEntities.map(msg => msg.body),
       token: p.apiKey,
       prompt: '',
       model: model.value,
