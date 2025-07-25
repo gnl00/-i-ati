@@ -18,7 +18,7 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
   const streamEnable = (req.stream || req.stream === undefined) ? true : false
 
   const initMessage = req.prompt ? {
-    role: 'user',
+    role: 'system',
     content: req.prompt
   } : null
 

@@ -62,6 +62,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         addModel,
         toggleModelEnable,
         titleGenerateModel, setTitleGenerateModel,
+        titleGenerateEnabled, setTitleGenerateEnabled
     } = useChatStore()
 
     const [currentProvider, setCurrentProvider] = useState<IProvider | undefined>(undefined)
@@ -80,8 +81,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     const [newProviderApi, setNewProviderApi] = useState<string>()
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
     
-    const [titleGenerateEnabled, setTitleGenerateEnabled] = useState(true)
-
     // const [carouselApi, setCarouselApi] = useState<CarouselApi>()
 
     async function fetchModels() {
@@ -313,8 +312,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                     <TabsTrigger value="misc">Misc</TabsTrigger>
                 </TabsList>
                 <TabsContent value="providers" className='w-[640px] h-[600px]'>
-                    <Carousel className="m-2 h-20">
-                        <CarouselContent className={cn('select-none h-20', providers.length === 0 ? 'flex justify-center' : '')}>
+                    <Carousel className="m-2 h-20 overflow-hidden scroll-smooth">
+                        <CarouselContent className={cn('select-none h-20 overflow-x-auto scrollbar-hide', providers.length === 0 ? 'flex justify-center' : '')}>
                             <CarouselItem className={cn('bg-gray-100 rounded-md flex-none w-28 pl-0')}>
                                 <Drawer>
                                     <DrawerTrigger className='text-gray-400 flex justify-center items-center bg-gray-100 rounded-xl h-full w-full'>
@@ -368,7 +367,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                             </CarouselItem>
                             {
                                 providers.map(fProvider => (
-                                    <CarouselItem key={fProvider.name} className='basis-1/5'>
+                                    <CarouselItem key={fProvider.name} className='basis-1/5 flex-shrink-0'>
                                         <div className='flex flex-col justify-center items-center bg-gray-100 rounded' onClick={_ => onProviderCardClick(fProvider)}>
                                             {getIcon(fProvider.name)}
                                             <p className='select-none'>{fProvider.name}</p>

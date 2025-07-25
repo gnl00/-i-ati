@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository"
 import { WEB_SEARCH_ACTION } from "@constants/index"
 
-const generateTitlePrompt = "[/no_think /no_thinking /do_not_think]\nGenerate a briefly and precisely title from the context below. NOTE: GENERATE TITLE FROM **THE QUESTION** OR **THE ACTION**; DO REMEMBER: **RETURN ME THE TITLE ONLY**\n"
+const generateTitlePrompt = "[/no_think /no_thinking /do_not_think]\nGenerate a briefly and precisely title from the context below. NOTE: GENERATE TITLE FROM **THE QUESTION** OR **THE ACTION**. NEVER EVER EXPAIN. DO REMEMBER: **RETURN ME THE TITLE ONLY**\n"
 const generateSearchKeywordsPrompt = `[/no_think /no_thinking /do_not_think]\nGenerate some briefly and precisely search keywords from the context up and down. 
 - 查询关键词必须与最后一个用户输入内容严格关联,描述准确,并且拆分开的关键词需要有明确的意义. 
   比如: 输入内容='查询北京的天气',查询关键词可以拆分成 '北京天气,北京今天的天气,北京天气预报',**不能**拆分成 '今天','北京','的','天气',这会导致 keyword 没有完整信息,也破坏了用户意图.
@@ -69,7 +69,7 @@ function chatSubmit() {
     setFetchState, 
     setCurrentReqCtrl, 
     setReadStreamState,
-    titleGenerateModel,
+    titleGenerateModel, titleGenerateEnabled,
     webSearchEnable,
     webSearchProcessing, setWebSearchProcessState,
     artifacts,
@@ -248,11 +248,14 @@ function chatSubmit() {
       }).then(async () => {
         // console.log('generate chatTitle');
         if (!chatTitle || chatTitle === 'NewChat') {
-          // TODO fix generateTitle
-          // const title = await generateTitle(textCtx) as string
-          const roughlyTitle = webSearchEnable ? keywords[0] : textCtx.substring(0, 30)
-          chatEntity.title = roughlyTitle
-          setChatTitle(roughlyTitle)
+          let title = textCtx.substring(0, 30) // roughlyTitle
+          if (titleGenerateEnabled) {
+            title = await generateTitle(textCtx) as string
+          } else if (webSearchEnable) {
+            title = keywords[0]
+          }
+          chatEntity.title = title
+          setChatTitle(title)
         }
       }).catch(err => {
         if (err.name !== 'AbortError') {
@@ -320,7 +323,7 @@ function chatSubmit() {
     if (!titleGenerateModel) {
       return
     }
-    console.log("generateTitle...");
+    // console.log("generateTitle...")
     const titleProvider: IProvider = providers.findLast(p => p.name === titleGenerateModel?.provider)!
     const titleReq: IChatRequest = {
       url: titleProvider.apiUrl,

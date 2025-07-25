@@ -122,8 +122,8 @@ type ChatState = {
   fetchState: boolean
   currentReqCtrl: AbortController | undefined
   readStreamState: boolean
+  titleGenerateEnabled: boolean
   titleGenerateModel: IModel | undefined
-
   webSearchEnable: boolean
   webSearchProcessing: boolean
   artifacts: boolean
@@ -169,6 +169,7 @@ type ChatAction = {
     toggleWebSearch: (state: boolean) => void
     setWebSearchProcessState: (state: boolean) => void
     toggleArtifacts: (state: boolean) => void
+    setTitleGenerateEnabled: (state: boolean) => void
 }
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
@@ -303,4 +304,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setWebSearchProcessState: (state: boolean) => (set({ webSearchProcessing: state})),
   artifacts: false,
   toggleArtifacts: (state: boolean) => (set({ artifacts: state})),
+  titleGenerateEnabled: true,
+  setTitleGenerateEnabled: (state: boolean) => (set({ titleGenerateEnabled: state})),
 }))
