@@ -123,7 +123,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [imageSrcBase64List, setImageSrcBase64List])
 
   const startNewChat = () => {
-    if (!chatId) {
+    if (chatId) {
       setChatId(undefined)
       setChatUuid(undefined)
       setChatTitle('NewChat')
