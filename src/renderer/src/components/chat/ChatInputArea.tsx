@@ -59,7 +59,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setSelectedModel,
     setCurrentProviderName
   } = useChatStore()
-  const {setChatTitle, setChatUuid, setChatId} = useChatContext()
+  const {setChatTitle, setChatUuid, chatId, setChatId} = useChatContext()
   const [inputContent, setInputContent] = useState<string>('')
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
@@ -123,13 +123,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [imageSrcBase64List, setImageSrcBase64List])
 
   const startNewChat = () => {
-    setChatId(undefined)
-    setChatUuid(undefined)
-    setChatTitle('NewChat')
-    setMessages([])
-
-    toggleArtifacts(false)
-    toggleWebSearch(false)
+    if (!chatId) {
+      setChatId(undefined)
+      setChatUuid(undefined)
+      setChatTitle('NewChat')
+      setMessages([])
+  
+      toggleArtifacts(false)
+      toggleWebSearch(false)
+    }
   }
 
   return (
