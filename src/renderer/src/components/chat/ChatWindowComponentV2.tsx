@@ -13,11 +13,14 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       messages,
       webSearchEnable,
       webSearchProcessing,
+      readStreamState,
   } = useChatStore()
 
   const chatWindowRef = useRef<HTMLDivElement>(null)
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const chatListRef = useRef<HTMLDivElement>(null)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastScrollTopRef = useRef<number>(0)
   
   const [chatListHeight, setChatListHeight] = useState<number>(0)
   const [selectedMcpTools, setSelectedMcpTools] = useState<string[]>([])
@@ -61,13 +64,17 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     window.addEventListener('resize', handleResize)
     return () => {
       window.removeEventListener('resize', handleResize)
+      // 清理定时器
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
     }
   }, [])
 
   useEffect(() => {
     // console.log(messages)
     calculateChatListHeight()
-    scrollToBottom()
+    scrollToBottomOptimized()
   }, [messages])
 
   useEffect(() => {
@@ -86,17 +93,57 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [])
 
-  const scrollToBottom = useCallback(() => {
+  const isAtBottom = useCallback(() => {
+    if (!chatListRef.current) return false
+    const { scrollTop, scrollHeight, clientHeight } = chatListRef.current
+    return Math.abs(scrollHeight - scrollTop - clientHeight) < 5
+  }, [])
+
+  const scrollToBottom = useCallback((smooth = false) => {
     if (chatListRef.current) {
-      chatListRef.current.scrollTop = chatListRef.current.scrollHeight
+      const scrollElement = chatListRef.current
+      if (smooth) {
+        scrollElement.style.scrollBehavior = 'smooth'
+      } else {
+        scrollElement.style.scrollBehavior = 'auto'
+      }
+      scrollElement.scrollTop = scrollElement.scrollHeight
+      lastScrollTopRef.current = scrollElement.scrollTop
     }
   }, [])
 
-  const onSubmit = () => {
-    // 延迟滚动到底部，确保新消息已经渲染
+  const scrollToBottomOptimized = useCallback(() => {
+    if (!chatListRef.current) return
+
+    // 清除之前的定时器
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
+    }
+
+    // 检查用户是否在底部附近，如果不在就不自动滚动
+    if (!isAtBottom()) return
+
+    if (readStreamState) {
+      // 流式输出时使用即时滚动，避免动画冲突
+      scrollToBottom(false)
+    } else {
+      // 非流式输出时使用防抖的平滑滚动
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrollToBottom(true)
+      }, 100)
+    }
+  }, [readStreamState, isAtBottom, scrollToBottom])
+
+  const scrollToBottomForced = useCallback(() => {
+    // 强制滚动到底部，用于用户主动提交消息后
     setTimeout(() => {
-      scrollToBottom()
+      scrollToBottom(true)
     }, 100)
+  }, [scrollToBottom])
+
+  const onSubmit = () => {
+    // 用户提交消息后强制滚动到底部
+    scrollToBottomForced()
   }
 
   return (
@@ -106,7 +153,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       backgroundSize: '50px 50px'
     }}>
       <ChatHeaderComponent />
-      <div ref={chatListRef} id='chat-list' className="mt-14 w-full overflow-scroll flex flex-col space-y-2 px-2" style={{ height: `${chatListHeight}px` }}>
+      <div ref={chatListRef} id='chat-list' className="mt-14 w-full overflow-scroll flex flex-col space-y-2 px-2 scroll-smooth" style={{ height: `${chatListHeight}px` }}>
         {messages.length !== 0 && messages.map((message, index) => (
           <ChatMessageComponent
             key={index}

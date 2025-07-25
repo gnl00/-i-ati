@@ -73,7 +73,7 @@ export const CodeCopyWrapper = React.memo(({ children, code, language }: { child
             variant: 'destructive',
             duration: 1000,
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '❌ Code copy failed',
+            description: '❌ Copy failed',
         })
     }
   }

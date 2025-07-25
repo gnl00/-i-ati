@@ -24,9 +24,48 @@ interface ChatMessageComponentProps {
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
 
+  const extractArtifactContent = (content: string): string => {
+    // 匹配 <antArtifact> 标签并提取其中的内容
+    const antArtifactRegex = /<antArtifact[^>]*>([\s\S]*?)<\/antArtifact>/
+    const match = content.match(antArtifactRegex)
+    
+    if (match && match[1]) {
+      // 返回 antArtifact 标签中的内容，去除首尾空白
+      return match[1].trim() // 第 1 个捕获组，它匹配 <antArtifact> 和 </antArtifact> 之间的所有内容（包括换行符）。
+    }
+    
+    // 如果没有找到 antArtifact 标签，返回原内容
+    return content
+  }
+
+  const extractArtifactAttributes = (content: string) => {
+    const antArtifactRegex = /<antArtifact\s+([^>]*?)>([\s\S]*?)<\/antArtifact>/
+    const match = content.match(antArtifactRegex)
+    
+    if (match) {
+      const attributes = match[1]
+      const innerContent = match[2].trim()
+      
+      // 解析属性
+      const identifierMatch = attributes.match(/identifier=["']([^"']*?)["']/)
+      const typeMatch = attributes.match(/type=["']([^"']*?)["']/)
+      const titleMatch = attributes.match(/title=["']([^"']*?)["']/)
+      
+      return {
+        identifier: identifierMatch ? identifierMatch[1] : '',
+        type: typeMatch ? typeMatch[1] : '',
+        title: titleMatch ? titleMatch[1] : '',
+        content: innerContent
+      }
+    }
+    
+    return null
+  }
+
   const onCopyClick = (content: string) => {
     if (content) {
-      navigator.clipboard.writeText(content)
+      const extractedContent = extractArtifactContent(content)
+      navigator.clipboard.writeText(extractedContent)
       toast({
           variant: 'default',
           duration: 800,
@@ -54,6 +93,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                             <ReactMarkdown
                               key={idx}
                               remarkPlugins={[remarkGfm]}
+                              // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
                               skipHtml={false}
                               className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
                               components={{
@@ -85,6 +125,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                 ) : (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
+                    // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
                     skipHtml={false}
                     className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
                     components={{
@@ -141,32 +182,73 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
             </AccordionItem>
           </Accordion>
         )}
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw]}
-          remarkRehypeOptions={{ passThrough: ['link'] }}
-          className="prose px-2 py-2 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
-          components={{
-            code(props) {
-              const { children, className, node, ...rest } = props
-              const match = /language-(\w+)/.exec(className || '')
-              return match ? (
-                <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
-                  <SyntaxHighlighterWrapper
-                  children={String(children).replace(/\n$/, '')}
-                  language={match[1]}
-                  />
-                </CodeCopyWrapper>
-              ) : (
-                <code {...rest} className={className}>
-                  {children}
-                </code>
-              )
-            }
-          }}
-        >
-          {m.content as string}
-        </ReactMarkdown>
+        {
+          m.artifatcs
+          ? (
+            <div id="artifacts" className="border rounded-lg overflow-hidden">
+              {(() => {
+                const artifactData = extractArtifactAttributes(m.content as string)
+                if (artifactData) {
+                  return (
+                    <div>
+                      <div className="bg-gray-100 px-3 py-2 border-b text-sm text-gray-600">
+                        <span className="font-medium">{artifactData.title}</span>
+                        {artifactData.type && (
+                          <span className="ml-2 text-xs bg-gray-200 px-2 py-1 rounded">
+                            {artifactData.type}
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <iframe
+                          srcDoc={artifactData.content}
+                          className="w-full h-96 border-none"
+                          title={artifactData.title}
+                          sandbox="allow-scripts allow-same-origin"
+                        />
+                      </div>
+                    </div>
+                  )
+                } else {
+                  return (
+                    <div className="p-4 text-gray-500 text-center">
+                      Artifacts loading
+                    </div>
+                  )
+                }
+              })()}
+            </div>
+          )
+          : (
+            <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
+            skipHtml={false}
+            remarkRehypeOptions={{ passThrough: ['link'] }}
+            className="prose px-2 py-2 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+            components={{
+              code(props) {
+                const { children, className, node, ...rest } = props
+                const match = /language-(\w+)/.exec(className || '')
+                return match ? (
+                  <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
+                    <SyntaxHighlighterWrapper
+                    children={String(children).replace(/\n$/, '')}
+                    language={match[1]}
+                    />
+                  </CodeCopyWrapper>
+                ) : (
+                  <code {...rest} className={className}>
+                    {children}
+                  </code>
+                )
+              }
+            }}
+          >
+            {m.content as string}
+            </ReactMarkdown>
+          ) 
+        }
       </div>
       <div className="pl-2 space-x-1 flex text-gray-500">
         <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">

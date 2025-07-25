@@ -69,6 +69,7 @@ declare interface ChatMessage {
   content: string | VLMContent[]
   reasoning?: string
   name?: string
+  artifatcs?: boolean
 }
 
 declare type LLMContent = string;

@@ -127,6 +127,7 @@ type ChatState = {
 
   webSearchEnable: boolean
   webSearchProcessing: boolean
+  artifacts: boolean
   // chatContent: string
   // setChatContent: (content: string) => void
   // chatId: number | undefined
@@ -169,6 +170,7 @@ type ChatAction = {
     setReadStreamState: (state: boolean) => void
     toggleWebSearch: (state: boolean) => void
     setWebSearchProcessState: (state: boolean) => void
+    toggleArtifacts: (state: boolean) => void
 }
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
@@ -315,5 +317,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   webSearchEnable: false,
   toggleWebSearch: (state: boolean) => (set({ webSearchEnable: state})),
   webSearchProcessing: false,
-  setWebSearchProcessState: (state: boolean) => (set({ webSearchProcessing: state}))
+  setWebSearchProcessState: (state: boolean) => (set({ webSearchProcessing: state})),
+  artifacts: false,
+  toggleArtifacts: (state: boolean) => (set({ artifacts: state})),
 }))

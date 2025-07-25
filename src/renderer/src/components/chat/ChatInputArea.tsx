@@ -19,7 +19,8 @@ import {
   CirclePlus,
   Boxes,
   CornerDownLeft,
-  ArrowBigUp
+  ArrowBigUp,
+  Atom
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
@@ -49,6 +50,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     readStreamState, setReadStreamState,
     webSearchEnable, toggleWebSearch,
     webSearchProcessing, setWebSearchProcessState,
+    artifacts, toggleArtifacts,
     providers,
     models,
     selectedModel,
@@ -81,7 +83,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const onWebSearchClick = useCallback(() => {
     toggleWebSearch(!webSearchEnable)
   }, [toggleWebSearch, webSearchEnable])
-
+  const onArtifactsClick = useCallback(() => {
+    toggleArtifacts(!artifacts)
+  }, [artifacts, toggleArtifacts])
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputContent(e.target.value)
   }, [setInputContent])
@@ -257,10 +261,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="secondary" className='bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-blue-100 hover:text-blue-400 flex justify-center rounded-full w-14 h-8'><BadgePercent></BadgePercent></Button>
+                  <Button 
+                    variant="secondary" 
+                    className={
+                      cn('bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-black/5 flex justify-center rounded-full w-14 h-8',
+                        artifacts ? 'bg-blue-100 text-blue-400 hover:bg-blue-100' : 'hover:text-black/90'
+                      )}
+                    onClick={onArtifactsClick}
+                    >
+                      <Atom></Atom>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
-                  <p>Thinking</p>
+                  <p>Artifacts</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -269,8 +282,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 <TooltipTrigger asChild>
                   <Button variant="secondary" 
                     className={
-                      cn("bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-blue-100 hover:text-blue-400 flex justify-center rounded-full w-14 h-8",
-                      webSearchEnable ? 'bg-blue-100 text-blue-400' : ''
+                      cn("bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-black/5 flex justify-center rounded-full w-14 h-8",
+                      webSearchEnable ? 'bg-blue-100 text-blue-400 hover:bg-blue-100' : 'hover:text-black/90'
                       )} 
                     onClick={onWebSearchClick}><Globe></Globe>
                   </Button>

@@ -35,7 +35,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
 
     const {chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList} = useChatContext()
-    const {setMessages} = useChatStore()
+    const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
 
     useEffect(() => {
         if(sheetOpenState) {
@@ -63,22 +63,30 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
         setChatUuid(undefined)
         setChatTitle('NewChat')
         setMessages([])
+
+        toggleArtifacts(false)
+        toggleWebSearch(false)
     }
 
     const onChatClick = (_, chat: ChatEntity) => {
         setSheetOpenState(false)
-        setChatTitle(chat.title)
-        setChatUuid(chat.uuid)
-        setChatId(chat.id)
-        getMessageByIds(chat.messages).then(messageList => {
-            setMessages(messageList)
-        }).catch(err => {
-            toast({
-                variant: "destructive",
-                title: "Uh oh! Something went wrong.",
-                description: `There was a problem: ${err.message}`
+        if (chatId != chat.id) {
+            toggleArtifacts(false)
+            toggleWebSearch(false)
+
+            setChatTitle(chat.title)
+            setChatUuid(chat.uuid)
+            setChatId(chat.id)
+            getMessageByIds(chat.messages).then(messageList => {
+                setMessages(messageList)
+            }).catch(err => {
+                toast({
+                    variant: "destructive",
+                    title: "Uh oh! Something went wrong.",
+                    description: `There was a problem: ${err.message}`
+                })
             })
-        })
+        }
     }
     const onChatItemTitleChange = (e, chat: ChatEntity) => {
         chat.title = e.target.value

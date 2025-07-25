@@ -45,7 +45,7 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
           content: req.content
         }],
       stream: streamEnable,
-      max_tokens: 1024,
+      max_tokens: 4096,
       temperature: 0.7,
       top_p: 0.7,
       // top_k: 50,
@@ -73,8 +73,8 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     return
   }
 
-  const initMessage = req.prompt ? {
-    role: 'user',
+  const systemPromptMessage = req.prompt ? {
+    role: 'system',
     content: req.prompt
   } : null
 
@@ -96,12 +96,12 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     signal,
     body: JSON.stringify({
       model: req.model,
-      messages: initMessage != null ? [
-        {...initMessage},
+      messages: systemPromptMessage != null ? [
+        {...systemPromptMessage},
         ...cacheMessage
       ] : [...cacheMessage],
       stream: enableStream,
-      max_tokens: 1024,
+      max_tokens: 4096,
       temperature: 0.7,
       top_p: 0.7,
       // top_k: 50,

@@ -69,7 +69,7 @@ pnpm build:mac
 - [X] save chat list
 - [ ] chat list ~~title~~ and hisoty summary
 - [X] dark/light mode
-- [ ] artifacts supports(maybe)
+- [X] artifacts supports(~~THANKS CLAUDECODE :P~~)
 - [X] default model for chat
 - [X] add provider
 - [ ] chat config topK/topP/maxToken...
