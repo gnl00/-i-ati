@@ -122,8 +122,7 @@ type ChatState = {
   fetchState: boolean
   currentReqCtrl: AbortController | undefined
   readStreamState: boolean
-  titleProvider: IProvider
-  selectedTitleModel: string | undefined
+  titleGenerateModel: IModel | undefined
 
   webSearchEnable: boolean
   webSearchProcessing: boolean
@@ -165,8 +164,7 @@ type ChatAction = {
     setChatWindowHeight: (height: number) => void
     setFetchState: (state: boolean) => void
     setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
-    setTitleProvider: (Provider: IProvider) => void
-    setSelectedTitleModel: (mode: string) => void
+    setTitleGenerateModel: (titleModel: IModel) => void
     setReadStreamState: (state: boolean) => void
     toggleWebSearch: (state: boolean) => void
     setWebSearchProcessState: (state: boolean) => void
@@ -285,8 +283,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   
   selectedModel: undefined,
   setSelectedModel: (mode: IModel) => set({ selectedModel: mode }),
-  selectedTitleModel: 'qwen/qwen3-14b:free',
-  setSelectedTitleModel: (mode: string) => set({ selectedTitleModel: mode }),
   messages: [],
   setMessages: (msgs: MessageEntity[]) => set({ messages: msgs }),
   chatWindowHeight: 800,
@@ -297,21 +293,8 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setCurrentReqCtrl: (ctrl: AbortController | undefined) => set({ currentReqCtrl: ctrl }),
   readStreamState: false,
   setReadStreamState: (state: boolean) => set({ readStreamState: state }),
-  titleProvider: {
-    name: "OpenAI",
-    models: [
-        {
-            provider: "OpenAI",
-            name: "gpt-4o-mini",
-            value: "gpt-4o-mini",
-            type: 'llm',
-            ability: ['functioncalling']
-        },
-    ],
-    apiUrl: "https://api.openai.com/v1/chat/completions",
-    apiKey: 'sk-xxx'
-  },
-  setTitleProvider: (provider: IProvider) => set({ titleProvider: provider }),
+  titleGenerateModel: undefined,
+  setTitleGenerateModel: (tmodel: IModel) => set({ titleGenerateModel: tmodel }),
   imageSrcBase64List: [],
   setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
   webSearchEnable: false,

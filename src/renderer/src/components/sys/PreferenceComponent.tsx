@@ -61,9 +61,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         removeProvider,
         addModel,
         toggleModelEnable,
-        titleProvider, 
-        selectedTitleModel, 
-        setSelectedTitleModel,
+        titleGenerateModel, setTitleGenerateModel,
     } = useChatStore()
 
     const [currentProvider, setCurrentProvider] = useState<IProvider | undefined>(undefined)
@@ -186,6 +184,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         const updatedAppConfig = {
             ...appConfig,
             providers: providers,
+            // titleModel: titleGenerateModel // TODO save title generation model to config file
         }
         setAppConfig(updatedAppConfig)
         
@@ -466,61 +465,66 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                     </div>
                 </TabsContent>
                 <TabsContent value="misc" className='w-[640px] min-h-96'>
-                    <div className='w-full'>
-                        <p className="text-xl font-medium text-gray-800 cursor-pointer text-muted-foreground">Title Generation</p>
-                        <div className="grid gap-2">
-                            <div className="grid grid-cols-4 items-center gap-1">
-                                <Label htmlFor="provider">Enable</Label>
-                                <div className='flex items-center space-x-1'>
-                                    <Switch checked={titleGenerateEnabled} onCheckedChange={setTitleGenerateEnabled} />
-                                </div>
+                    <div className='w-full space-y-1'>
+                        <Label className="hover:bg-accent/50 flex items-start gap-3 rounded-lg border p-3 has-[[aria-checked=true]]:bg-blue-50">
+                            <Checkbox
+                            checked={titleGenerateEnabled}
+                            onCheckedChange={_ => setTitleGenerateEnabled(!titleGenerateEnabled)}
+                            id="toggle-title-generation"
+                            defaultChecked
+                            className="data-[state=checked]:text-white"
+                            />
+                            <div className="grid gap-1.5 font-normal">
+                            <p className="text-sm leading-none font-medium">
+                                Title generation
+                            </p>
+                            <p className="text-muted-foreground text-sm">
+                                Enable or disable title generation.
+                            </p>
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-1">
-                                <Label htmlFor="provider">Model</Label>
-                                <div className="app-undragable flex items-center space-x-1">
-                                    <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                aria-expanded={selectTitleModelPopoutState}
-                                                className="flex justify-between pl-1 pr-1 space-x-2"
-                                            >
-                                                <span className="flex flex-grow overflow-x-hidden">
-                                                    {
-                                                        selectedTitleModel ? selectedTitleModel : "Select model..."
-                                                    }
-                                                </span>
-                                                <ChevronsUpDown className="flex opacity-50" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-full p-0">
-                                            <Command>
-                                                <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
-                                                <CommandList>
-                                                    <CommandEmpty>Oops...NotFound</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {models.map((md) => (
-                                                            <CommandItem
-                                                                key={md.name}
-                                                                value={md.name}
-                                                                onSelect={(currentValue) => {
-                                                                    setSelectTitleModelPopoutState(false)
-                                                                    setSelectedTitleModel(currentValue)
-                                                                }}
-                                                            >
-                                                                {md.name}
-                                                                <Check className={cn("ml-auto", titleProvider?.name === md.name ? "opacity-100" : "opacity-0")} />
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
+                            <div className="app-undragable flex items-center space-x-1">
+                                <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
+                                    <PopoverTrigger disabled={!titleGenerateEnabled} asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={selectTitleModelPopoutState}
+                                            className="flex justify-between pl-1 pr-1 space-x-2"
+                                        >
+                                            <span className="flex flex-grow overflow-x-hidden">
+                                                {
+                                                    titleGenerateModel ? titleGenerateModel.name : "Select model..."
+                                                }
+                                            </span>
+                                            <ChevronsUpDown className="flex opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0">
+                                        <Command>
+                                            <CommandInput id="provider" placeholder="Search provider..." className="h-9" />
+                                            <CommandList>
+                                                <CommandEmpty>Oops...NotFound</CommandEmpty>
+                                                <CommandGroup>
+                                                    {models.map((md, idx) => (
+                                                        <CommandItem
+                                                            key={idx}
+                                                            value={(md.name as string).concat('/').concat(md.provider)}
+                                                            onSelect={(_) => {
+                                                                setSelectTitleModelPopoutState(false)
+                                                                setTitleGenerateModel(md)
+                                                            }}
+                                                        >
+                                                            {(md.name as string).concat('@').concat(md.provider)}
+                                                            <Check className={cn("ml-auto", titleGenerateModel && titleGenerateModel.value === md.value && titleGenerateModel.provider === md.provider ? "opacity-100" : "opacity-0")} />
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
-                        </div>
+                        </Label>
                     </div>
                 </TabsContent>
                 <div className='space-y-1 mt-1'>

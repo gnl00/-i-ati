@@ -15,7 +15,8 @@ import {
   ChevronsUpDown, 
   Check, 
   Globe, 
-  BadgePercent, 
+  BadgePercent,
+  BadgePlus,
   CirclePlus,
   Boxes,
   CornerDownLeft,
@@ -44,6 +45,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const {setChatContent} = useChatContext()
   // Get state and actions from store
   const {
+    setMessages,
     imageSrcBase64List,
     setImageSrcBase64List,
     currentReqCtrl, 
@@ -57,6 +59,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setSelectedModel,
     setCurrentProviderName
   } = useChatStore()
+  const {setChatTitle, setChatUuid, setChatId} = useChatContext()
   const [inputContent, setInputContent] = useState<string>('')
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
@@ -119,12 +122,25 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     }
   }, [imageSrcBase64List, setImageSrcBase64List])
 
+  const startNewChat = () => {
+    setChatId(undefined)
+    setChatUuid(undefined)
+    setChatTitle('NewChat')
+    setMessages([])
+
+    toggleArtifacts(false)
+    toggleWebSearch(false)
+  }
+
   return (
     <div ref={ref} id='input-area' className={cn('p-6 pt-0 rounded-md fixed w-full h-52', imageSrcBase64List.length !== 0 ? 'bottom-36' : 'bottom-8')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
           <ChatImgGalleryComponent></ChatImgGalleryComponent>
       </div>
       <div className='rounded-xl flex items-center space-x-2 pr-2 mb-2 select-none'>
+        {/* <div className="app-undragable">
+          <Button variant={'ghost'} className='rounded-full shadow bg-white/20 hover:bg-black/5 backdrop-blur-xl text-gray-500'>new-chat</Button>
+        </div> */}
         <div className="app-undragable">
           <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
             <PopoverTrigger asChild>
@@ -132,7 +148,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectModelPopoutState}
-                className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl"
+                className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl border-none shadow"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedModel ? (
@@ -148,7 +164,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   <ChevronsUpDown className="flex opacity-50 pl-1 pr-0.5 w-5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full border-[1px] ml-1 rounded-xl">
+            <PopoverContent className="w-full shadow ml-1 rounded-xl">
               <Command className='z-10 rounded-xl bg-white/30 backdrop-blur-xl'>
                 <CommandInput placeholder="Search model" className="h-auto" />
                 <CommandList>
@@ -192,7 +208,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectMCPPopoutState}
-                className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1"
+                className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedMcpTools.length === 0 ? 'Mcp Tool' : selectedMcpTools[0] }
@@ -201,7 +217,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full border-[1px] ml-1 rounded-xl">
+            <PopoverContent className="w-full shadow ml-1 rounded-xl">
               <Command className='z-10 rounded-xl bg-white/30 backdrop-blur-xl'>
                 <CommandInput placeholder="Search tool" className="h-auto" />
                 <CommandList>
@@ -247,14 +263,16 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           onPaste={onTextAreaPaste}
           ></Textarea>
         <div className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px] flex-none h-10">
-          <div className='flex-grow flex space-x-2 select-none relative'>
+          <div className='flex-grow flex items-center space-x-2 select-none relative'>
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size={'xs'} variant="ghost" className="rounded-full"><CirclePlus className='text-gray-600 flex justify-center border-none hover:text-gray-400'></CirclePlus></Button>
+                  <Button size={'xs'} variant="ghost" className="rounded-full" onClick={startNewChat}>
+                    <BadgePlus className='text-gray-600 flex justify-center border-none hover:text-gray-400'></BadgePlus>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
-                  <p>Upload files or pictures</p>
+                  <p>New Chat</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -264,7 +282,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   <Button 
                     variant="secondary" 
                     className={
-                      cn('bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-black/5 flex justify-center rounded-full w-14 h-8',
+                      cn('bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-black/5 flex justify-center rounded-full w-12 h-6',
                         artifacts ? 'bg-blue-100 text-blue-400 hover:bg-blue-100' : 'hover:text-black/90'
                       )}
                     onClick={onArtifactsClick}
@@ -282,7 +300,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 <TooltipTrigger asChild>
                   <Button variant="secondary" 
                     className={
-                      cn("bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-black/5 flex justify-center rounded-full w-14 h-8",
+                      cn("bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-black/5 flex justify-center rounded-full w-12 h-6",
                       webSearchEnable ? 'bg-blue-100 text-blue-400 hover:bg-blue-100' : 'hover:text-black/90'
                       )} 
                     onClick={onWebSearchClick}><Globe></Globe>

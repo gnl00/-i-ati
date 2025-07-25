@@ -169,11 +169,11 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
       </TooltipProvider>
     ) : null
   }
-
+  
   return (m.content || m.reasoning) ? (
     <div id='assistant-message' className={cn("flex justify-start flex-col pb-0.5", index === 0 ? 'mt-2' : '')}>
       <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
-        {m.reasoning && (
+        {m.reasoning && !m.artifatcs && (
           <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
             <AccordionItem value={'reasoning-' + index}>
               <AccordionTrigger className='text-sm h-10'>

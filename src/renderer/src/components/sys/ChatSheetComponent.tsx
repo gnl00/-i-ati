@@ -21,6 +21,9 @@ interface ChatSheetProps {}
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
+    const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
+    const {chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList} = useChatContext()
+    
     const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])
     const bgGradientColors = useMemo(() => [
         { from: 'from-[#FFD26F]', via: 'via-[#3687FF]', to: 'to-[#3677FF]' },
@@ -33,9 +36,6 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
     const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
     const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
-
-    const {chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList} = useChatContext()
-    const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
 
     useEffect(() => {
         if(sheetOpenState) {

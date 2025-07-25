@@ -19,7 +19,7 @@ const generateSearchKeywordsPrompt = `[/no_think /no_thinking /do_not_think]\nGe
 NOTE: NEVER EXPIAN, OUTPUT THE KEYWORDS STRING ONLY!!!. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n
 `
 const artifactsTool = '/artifacts_tool'
-const artifactsSystemPrompt = `当用户输入以 ${artifactsTool} 开头时，直接生成一个可运行的 HTML 或 SVG 示例，**不要输出任何解释文字**，只返回一段用 <antArtifact> 包裹的内容，并附带 identifier、type、title 三个属性。
+const artifactsSystemPrompt = `[/no_think /no_thinking /do_not_think]\n当用户输入以 ${artifactsTool} 开头时，直接生成一个可运行的 HTML 或 SVG 示例，**不要输出任何解释文字**，只返回一段用 <antArtifact> 包裹的内容，并附带 identifier、type、title 三个属性。
 
 示例 1（HTML）：
 <antArtifact identifier="hello-html" type="text/html" title="Hello Page">
@@ -69,7 +69,7 @@ function chatSubmit() {
     setFetchState, 
     setCurrentReqCtrl, 
     setReadStreamState,
-    selectedTitleModel,
+    titleGenerateModel,
     webSearchEnable,
     webSearchProcessing, setWebSearchProcessState,
     artifacts,
@@ -200,7 +200,7 @@ function chatSubmit() {
             const { done, value } = await reader.read()
             if (done) {
               sysMessageEntity.body.content = gatherContent
-              sysMessageEntity.body.reasoning = gatherReasoning
+              sysMessageEntity.body.reasoning = gatherReasoning.trim()
               break
             }
             const lines = value
@@ -250,7 +250,7 @@ function chatSubmit() {
         if (!chatTitle || chatTitle === 'NewChat') {
           // TODO fix generateTitle
           // const title = await generateTitle(textCtx) as string
-          const roughlyTitle = webSearchEnable ? keywords[0] : textCtx.substring(0, 12)
+          const roughlyTitle = webSearchEnable ? keywords[0] : textCtx.substring(0, 30)
           chatEntity.title = roughlyTitle
           setChatTitle(roughlyTitle)
         }
@@ -317,24 +317,21 @@ function chatSubmit() {
     return keywords
   }
   const generateTitle = async (context) => {
+    if (!titleGenerateModel) {
+      return
+    }
     console.log("generateTitle...");
-    
-    const titleModel = models.find(md => selectedTitleModel === md.value)!
-    const titleProvider: IProvider = providers.findLast(p => p.name === titleModel.provider)!
-    console.log(titleModel, titleProvider);
-    
+    const titleProvider: IProvider = providers.findLast(p => p.name === titleGenerateModel?.provider)!
     const titleReq: IChatRequest = {
       url: titleProvider.apiUrl,
       content: context,
       prompt: generateTitlePrompt,
       token: titleProvider.apiKey,
-      model: titleModel.value,
+      model: titleGenerateModel.value,
       stream: false
     }
-
     const response = await chatRequestWithHook(titleReq, () => {}, () => {})
     const json = await response.json()
-    // console.log('generateTitle response', json)
     let title: string = json.choices[0].message.content
     setChatTitle(title)
     return title
