@@ -86,7 +86,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
   beforeFetch()
 
   const cacheMessage: ChatMessage[] = req.messages.map(msg => {
-    const { reasoning, ...props } = msg
+    const { reasoning, artifatcs, ...props } = msg
     return props
   })
   const enableStream = req.stream === true ? true : (req.stream === undefined ? true : false)

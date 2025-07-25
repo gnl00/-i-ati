@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import React, { memo, useState } from 'react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
 import { toast } from '@renderer/components/ui/use-toast'
 import { Badge } from "@renderer/components/ui/badge"
@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@renderer/components/ui/tooltip"
-import { CopyIcon, ReloadIcon, Pencil2Icon } from '@radix-ui/react-icons'
+import { CopyIcon, ReloadIcon, Pencil2Icon, CodeIcon } from '@radix-ui/react-icons'
 import { BadgePercent } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '@renderer/components/md/SyntaxHighlighterWrapper'
@@ -23,6 +23,8 @@ interface ChatMessageComponentProps {
 }
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
+
+  const [showArtifactsCode, setShowArtifactsCode] = useState<boolean>(false)
 
   const extractArtifactContent = (content: string): string => {
     // 匹配 <antArtifact> 标签并提取其中的内容
@@ -73,6 +75,10 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
           description: `✅ Copied`,
       })
     }
+  }
+
+  const toggleShowCode = () => {
+    setShowArtifactsCode(!showArtifactsCode)
   }
 
   if (m.role === 'user') {
@@ -183,7 +189,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
           </Accordion>
         )}
         {
-          m.artifatcs
+          m.artifatcs && !showArtifactsCode
           ? (
             <div id="artifacts" className="border rounded-lg overflow-hidden">
               {(() => {
@@ -212,7 +218,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                 } else {
                   return (
                     <div className="p-4 text-gray-500 text-center">
-                      Artifacts loading
+                      ...
                     </div>
                   )
                 }
@@ -245,12 +251,14 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
               }
             }}
           >
-            {m.content as string}
+            {
+              showArtifactsCode ? `\`\`\`\n${extractArtifactContent(m.content as string)}\n\`\`\`` : m.content as string
+            }
             </ReactMarkdown>
           ) 
         }
       </div>
-      <div className="pl-2 space-x-1 flex text-gray-500">
+      <div className="mt-0.5 pl-2 space-x-1 flex text-gray-500">
         <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
           <CopyIcon onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
         </div>
@@ -262,6 +270,13 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
           <Pencil2Icon></Pencil2Icon>
         </div>
+        {
+          m.artifatcs && (
+            <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+              <CodeIcon onClick={_ => toggleShowCode()}></CodeIcon>
+            </div>
+          )
+        }
       </div>
     </div>
   ) : null
