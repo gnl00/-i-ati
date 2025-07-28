@@ -1,20 +1,12 @@
 import React, { useMemo, useRef } from 'react'
-import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { dracula, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { toast } from "@renderer/components/ui/use-toast"
 import { Button } from "../ui/button"
-import { ClipboardCopyIcon } from "@radix-ui/react-icons"
+import { ClipboardCopyIcon, CopyIcon } from "@radix-ui/react-icons"
+import { Badge } from '../ui/badge'
 
 const MemoSyntaxHighlighter = React.memo(SyntaxHighlighter)
-
-const PreTag = ({ children }: { children: React.ReactNode }) => {
-  const codeRef = useRef<HTMLDivElement>(null)
-  return (
-      <div className="preTag relative" ref={codeRef}>
-          {children}
-      </div>
-  )
-}
 
 export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { children: string, language: string }) => {
   const copyToClipboard = async () => {
@@ -36,24 +28,30 @@ export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { ch
     }
   }
   return (
-    <div className='relative'>
-      <MemoSyntaxHighlighter
-      // customStyle={{ padding: '0', maxHeight: '300px', overflow: 'scroll' }}
-      customStyle={{ padding: '0' }}
-      PreTag={'div'}
-      children={String(children).replace(/\n$/, '')}
-      language={language}
-      style={dracula}
-      wrapLongLines={true}
-      />
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute -top-2 -right-2 rounded-full backdrop-blur hover:bg-gray-500 dark:hover:bg-gray-700 transition-colors"
-        onClick={copyToClipboard}
+    <div className='relative border rounded-lg overflow-hidden'>
+      {/* Header with language and copy button */}
+      <div className='flex justify-between items-center bg-black/5 dark:bg-gray-800 px-3 py-1 border-b'>
+        <Badge variant={'outline'} className='text-sm text-gray-600 bg-gray-300 dark:text-gray-300 font-medium select-none'>
+          {language}
+        </Badge>
+        <Button
+          size={'sm'}
+          variant={'ghost'}
+          onClick={copyToClipboard}
+          className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
         >
-          <ClipboardCopyIcon className="w-4 h-4" />
-      </Button>
+          <CopyIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
+        </Button>
+      </div>
+      {/* Code content */}
+      <MemoSyntaxHighlighter
+        customStyle={{ padding: '12px', margin: '0' }}
+        PreTag={'pre'}
+        children={String(children).replace(/\n$/, '')}
+        language={language}
+        style={dracula}
+        wrapLongLines={true}
+      />
     </div>
   )
 })

@@ -227,30 +227,32 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
           )
           : (
             <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
-            skipHtml={false}
-            remarkRehypeOptions={{ passThrough: ['link'] }}
-            className="prose px-2 py-2 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
-            components={{
-              code(props) {
-                const { children, className, node, ...rest } = props
-                const match = /language-(\w+)/.exec(className || '')
-                return match ? (
-                  <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
+              remarkPlugins={[remarkGfm]}
+              // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
+              skipHtml={false}
+              remarkRehypeOptions={{ passThrough: ['link'] }}
+              className="prose px-2 py-2 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+              components={{
+                pre(props) {
+                  const { children, ...rest } = props
+                  return <>{children}</>
+                },
+                code(props) {
+                  const { children, className, node, ...rest } = props
+                  const match = /language-(\w+)/.exec(className || '')
+                  return match ? (
                     <SyntaxHighlighterWrapper
-                    children={String(children).replace(/\n$/, '')}
-                    language={match[1]}
+                      children={String(children).replace(/\n$/, '')}
+                      language={match[1]}
                     />
-                  </CodeCopyWrapper>
-                ) : (
-                  <code {...rest} className={className}>
-                    {children}
-                  </code>
-                )
-              }
-            }}
-          >
+                  ) : (
+                    <code {...rest} className={className}>
+                      {children}
+                    </code>
+                  )
+                }
+              }}
+            >
             {
               showArtifactsCode ? `\`\`\`\n${extractArtifactContent(m.content as string)}\n\`\`\`` : m.content as string
             }
