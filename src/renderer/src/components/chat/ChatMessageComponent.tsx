@@ -15,6 +15,7 @@ import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '@renderer/components/
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
+import { useChatStore } from '@renderer/store'
 
 interface ChatMessageComponentProps {
   index: number
@@ -23,6 +24,8 @@ interface ChatMessageComponentProps {
 }
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
+
+const {readStreamState} = useChatStore()
 
   const [showArtifactsCode, setShowArtifactsCode] = useState<boolean>(false)
 
@@ -191,7 +194,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         {
           m.artifatcs && !showArtifactsCode
           ? (
-            <div id="artifacts" className="border rounded-lg overflow-hidden">
+            <div id="artifacts" className={cn("border rounded-lg overflow-hidden", readStreamState ? "animate-pulse" : "")}>
               {(() => {
                 const artifactData = extractArtifactAttributes(m.content as string)
                 if (artifactData) {

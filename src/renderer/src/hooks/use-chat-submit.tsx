@@ -245,9 +245,10 @@ function chatSubmit() {
           }
         }
         setLastMsgStatus(true)
+        setReadStreamState(false)
       }).then(async () => {
         // console.log('generate chatTitle');
-        if (!chatTitle || chatTitle === 'NewChat') {
+        if (!chatTitle || (chatTitle === 'NewChat')) {
           let title = textCtx.substring(0, 30) // roughlyTitle
           if (titleGenerateEnabled) {
             title = await generateTitle(textCtx) as string
