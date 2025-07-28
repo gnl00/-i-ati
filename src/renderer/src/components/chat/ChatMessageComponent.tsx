@@ -11,7 +11,7 @@ import {
 import { CopyIcon, ReloadIcon, Pencil2Icon, CodeIcon } from '@radix-ui/react-icons'
 import { BadgePercent } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '@renderer/components/md/SyntaxHighlighterWrapper'
+import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'

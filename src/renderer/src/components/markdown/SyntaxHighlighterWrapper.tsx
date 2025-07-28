@@ -45,7 +45,7 @@ export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { ch
       </div>
       {/* Code content */}
       <MemoSyntaxHighlighter
-        customStyle={{ padding: '12px', margin: '0' }}
+        customStyle={{ padding: '12px', margin: '0', borderRadius: '0 0 0 0' }}
         PreTag={'pre'}
         children={String(children).replace(/\n$/, '')}
         language={language}

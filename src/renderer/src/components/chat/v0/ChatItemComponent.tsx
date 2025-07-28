@@ -16,7 +16,7 @@ import { updateMessage } from "../../../db/MessageRepository"
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { toast } from "@renderer/components/ui/use-toast"
-import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '../../md/SyntaxHighlighterWrapper'
+import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '../../markdown/SyntaxHighlighterWrapper'
 import { useChatContext } from '@renderer/context/ChatContext'
 
 interface UserChatItemProps {
