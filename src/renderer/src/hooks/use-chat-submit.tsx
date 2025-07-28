@@ -324,8 +324,13 @@ function chatSubmit() {
     if (!titleGenerateModel) {
       return
     }
+    let titleProvider: IProvider
+    if(titleGenerateModel) {
+      titleProvider = providers.findLast(p => p.name === titleGenerateModel?.provider)!
+    } else {
+      titleProvider = providers.findLast(p => p.name === selectedModel?.provider)!
+    }
     // console.log("generateTitle...")
-    const titleProvider: IProvider = providers.findLast(p => p.name === titleGenerateModel?.provider)!
     const titleReq: IChatRequest = {
       url: titleProvider.apiUrl,
       content: context,

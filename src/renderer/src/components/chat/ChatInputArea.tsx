@@ -21,7 +21,8 @@ import {
   Boxes,
   CornerDownLeft,
   ArrowBigUp,
-  Atom
+  Atom,
+  Settings2
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
@@ -257,7 +258,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           <div className='flex justify-end w-auto'>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant={'ghost'} className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-500 backdrop-blur-xl border-none shadow">Chat Settings</Button>
+                <Button variant={'ghost'} 
+                  className=
+                    "flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 hover:text-gray-700 backdrop-blur-xl border-none shadow"
+                  >
+                  <span>Chat Settings</span><Settings2 className="h-4 w-4 ml-1" />
+                </Button>
               </PopoverTrigger>
               <PopoverContent>
                 <div className="grid gap-4 mr-2 bg-white/30 backdrop-blur-3xl border-[1px] border-gray-300 rounded-xl p-2 text-gray-700">
