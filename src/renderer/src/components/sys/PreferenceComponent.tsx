@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@renderer/components/ui/tabs"
 import {
@@ -15,11 +15,9 @@ import {
     SelectContent,
     SelectGroup,
     SelectItem,
-    SelectLabel,
     SelectTrigger,
     SelectValue,
     } from "@renderer/components/ui/select"
-import { Carousel, CarouselItem, CarouselContent, CarouselNext, CarouselPrevious, type CarouselApi } from '@renderer/components/ui/carousel'
 import { Button } from "@renderer/components/ui/button"
 import { Badge } from '@renderer/components/ui/badge'
 import { Label } from '@renderer/components/ui/label'
@@ -28,7 +26,6 @@ import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandI
 import { Check, ChevronsUpDown } from "lucide-react"
 import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from '@renderer/components/ui/drawer'
 import { Input } from '@renderer/components/ui/input'
-import { Switch } from '@renderer/components/ui/switch'
 import { toast } from '@renderer/components/ui/use-toast'
 import { useChatStore } from '@renderer/store'
 import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
@@ -80,9 +77,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     const [newProviderName, setNewProviderName] = useState<string>()
     const [newProviderApi, setNewProviderApi] = useState<string>()
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
-    
-    // const [carouselApi, setCarouselApi] = useState<CarouselApi>()
 
+    const providerCardRef = useRef<HTMLDivElement>(null)
+    const theEndProviderCardRef = useRef<HTMLDivElement>(null)
+    
     async function fetchModels() {
         try {
             const response = await fetch('https://raw.githubusercontent.com/gnl00/-i-ati/refs/heads/main/data/models.json');
@@ -117,21 +115,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     }, [currentProviderName, providers])
 
     useEffect(() => {}, [editProviderName, editProviderApiUrl, editProviderApiKey])
-
-    // useEffect(() => {
-    //     carouselApi?.on('select', () => {
-    //         const index = carouselApi.selectedScrollSnap()
-    //         console.log(index);
-            
-    //         if (index < providers.length) {
-    //             const nextProvider: IProvider = providers[index]
-    //             setProvider(nextProvider)
-    //             setEditProviderName(nextProvider.name)
-    //             setEditProviderApiUrl(nextProvider.apiUrl)
-    //             setEditProviderApiKey(nextProvider.apiKey)
-    //         }
-    //     })
-    // }, [carouselApi])
 
     const onAddModelClick = () => {
         console.log('onAddModelClick currentProvider=', currentProvider);
@@ -259,7 +242,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             default:
                 break
         }
-        return <img src={iconSrc} alt="OpenAI" className="w-14 h-14" />
+        return <img draggable={false} src={iconSrc} alt="OpenAI" className="w-14 h-14" />
     }
     const onModelTableCellClick = (val: string) => {
         navigator.clipboard.writeText(val)
@@ -312,9 +295,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                     <TabsTrigger value="misc">Misc</TabsTrigger>
                 </TabsList>
                 <TabsContent value="providers" className='w-[640px] h-[600px]'>
-                    <Carousel className="m-2 h-20 overflow-hidden scroll-smooth">
-                        <CarouselContent className={cn('select-none h-20 overflow-x-auto scrollbar-hide', providers.length === 0 ? 'flex justify-center' : '')}>
-                            <CarouselItem className={cn('bg-gray-100 rounded-md flex-none w-28 pl-0')}>
+                    <div ref={providerCardRef} className="m-2 h-20 overflow-scroll scroll-smooth no-scrollbar">
+                        <div className={cn('select-none h-20 flex space-x-2 relative', providers.length === 0 ? 'flex justify-center' : '')}>
+                            <div className={cn('bg-gray-100 rounded-md flex-none w-24 h-20')}>
                                 <Drawer>
                                     <DrawerTrigger className='text-gray-400 flex justify-center items-center bg-gray-100 rounded-xl h-full w-full'>
                                         <p className='text-5xl'><i className="ri-add-circle-line"></i></p>
@@ -364,21 +347,19 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                         </DrawerFooter>
                                     </DrawerContent>
                                 </Drawer>
-                            </CarouselItem>
+                            </div>
                             {
-                                providers.map(fProvider => (
-                                    <CarouselItem key={fProvider.name} className='basis-1/5 flex-shrink-0'>
-                                        <div className='flex flex-col justify-center items-center bg-gray-100 rounded' onClick={_ => onProviderCardClick(fProvider)}>
+                                providers.map((fProvider, idx) => (
+                                    <div key={fProvider.name}>
+                                        <div ref={idx === providers.length - 1 ? theEndProviderCardRef : null} className='flex flex-col justify-center items-center bg-gray-100 rounded w-24 h-20 select-none' onClick={_ => onProviderCardClick(fProvider)}>
                                             {getIcon(fProvider.name)}
                                             <p className='select-none'>{fProvider.name}</p>
                                         </div>
-                                    </CarouselItem>
+                                    </div>
                                 ))
                             }
-                        </CarouselContent>
-                        <CarouselPrevious className='left-0 -translate-y-4' />
-                        <CarouselNext className='right-0 -translate-y-4' />
-                    </Carousel>
+                        </div>
+                    </div>
                     <div className='h-[84%] flex flex-col mt-2 pl-2 pr-2'>
                         <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
                             <Label className='flex-none' htmlFor="provider">Provider</Label>

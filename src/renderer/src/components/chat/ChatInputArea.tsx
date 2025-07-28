@@ -28,6 +28,8 @@ import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryCom
 import { useChatStore } from '@renderer/store'
 import { useChatContext } from '@renderer/context/ChatContext'
 import chatSubmit from '@renderer/hooks/use-chat-submit'
+import { Label } from '@renderer/components/ui/label'
+import { Input } from '@renderer/components/ui/input'
 
 interface ChatInputAreaProps {
   onSubmit: () => void
@@ -251,7 +253,56 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             </PopoverContent>
           </Popover>
         </div>
-        <div className='flex-grow w-full'></div>
+        <div className='flex-grow w-full'>
+          <div className='flex justify-end w-auto'>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant={'ghost'} className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-500 backdrop-blur-xl border-none shadow">Chat Settings</Button>
+              </PopoverTrigger>
+              <PopoverContent>
+                <div className="grid gap-4 mr-2 bg-white/30 backdrop-blur-3xl border-[1px] border-gray-300 rounded-xl p-2 text-gray-700">
+                  <div className="space-y-2">
+                    <h4 className="leading-none font-medium text-gray-800">Chat Settings</h4>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <Label htmlFor="temperature">Temperature</Label>
+                      <Input
+                        id="temperature"
+                        defaultValue="0.7"
+                        className="col-span-2 h-8"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <Label htmlFor="topk">TopK</Label>
+                      <Input
+                        id="topk"
+                        defaultValue="0.7"
+                        className="col-span-2 h-8"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <Label htmlFor="topp">TopP</Label>
+                      <Input
+                        id="topp"
+                        defaultValue="0.7"
+                        className="col-span-2 h-8"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <Label htmlFor="maxTokens">MaxTokens</Label>
+                      <Input
+                        id="maxTokens"
+                        defaultValue="4096"
+                        className="col-span-2 h-8"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
       </div>
       <div className='relative bg-gray-50 h-full rounded-2xl -z-10 flex flex-col'>
         <Textarea 
