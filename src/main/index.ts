@@ -5,6 +5,7 @@ import os from 'node:os'
 import { loadConfig } from './app-config'
 import { createWindow } from './main-window'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
+import { close as mcpClientClose } from '../mcp/client'
 
 const reactDevToolsPath = path.join(
   os.homedir(),
@@ -56,6 +57,7 @@ app.on('window-all-closed', () => {
     app.quit()
   }
   globalShortcut.unregisterAll()
+  mcpClientClose()
 })
 
 // In this file you can include the rest of your app"s specific main process

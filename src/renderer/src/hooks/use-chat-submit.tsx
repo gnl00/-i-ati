@@ -3,6 +3,7 @@ import { getChatById, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
 import { useChatStore } from "@renderer/store"
 import { chatRequestWithHook, chatRequestWithHookV2 } from "@request/index"
+import { openAIRequestWithHook } from "@request/request-openai"
 import { toast } from '@renderer/components/ui/use-toast'
 import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository"
@@ -75,7 +76,7 @@ function chatSubmit() {
     artifacts,
   } = useChatStore()
   
-  const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[]): Promise<void> => {
+  const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], tools?: any[]): Promise<void> => {
     if (!textCtx) {
       return
     }
@@ -179,11 +180,12 @@ function chatSubmit() {
 
     const p: IProvider = providers.findLast(p => p.name === model.provider)!
     const req: IChatRequestV2 = {
-      url: p.apiUrl,
+      baseUrl: p.apiUrl,
       messages: webSearchEnable ? [...chatMessages, searchFunctionMessage] : chatMessages,
-      token: p.apiKey,
+      apiKey: p.apiKey,
       prompt: [artifacts ? artifactsSystemPrompt : ''].join('\n\n'),
       model: model.value,
+      tools: tools
     }
 
     const controller = new AbortController()
@@ -194,6 +196,56 @@ function chatSubmit() {
     let gatherReasoning = ''
     let sysMessageEntity: MessageEntity = { body: { role: 'system', content: '', artifatcs: artifacts } }
     let isContentHasThinkTag = false // 标记是否在<think>标签内
+    // const streamResponse = await openAIRequestWithHook(req, signal, beforeFetch, afterFetch)
+    // while (true && streamResponse && Symbol.asyncIterator in streamResponse) {
+    //   let done = false
+    //   for await (const event of streamResponse) {
+    //     console.log(event);
+    //     if ('response.output_text.delta' === event.type) {
+    //       try {
+    //         const delta = event.delta
+    //         if (delta) {
+    //           if (isContentHasThinkTag) {
+    //             if (!gatherReasoning) {
+    //               gatherReasoning = gatherContent
+    //               gatherContent = ''
+    //             }
+    //             if (delta.content) {
+    //               gatherReasoning += delta.content
+    //             }
+    //             if (gatherReasoning.includes('</think>')) {
+    //               gatherReasoning = gatherReasoning.replace('</think>', '')
+    //               isContentHasThinkTag = false
+    //             }
+    //           } else {
+    //             if (gatherContent.includes('<think>')) {
+    //               isContentHasThinkTag = true
+    //               if (delta.content) {
+    //                 gatherContent = delta.content
+    //               }
+    //             } else if (delta.content) {
+    //               gatherContent += delta.content
+    //             } else if (delta.reasoning) {
+    //               gatherReasoning += delta.reasoning || ''
+    //             }
+    //           }
+    //         }
+    //         setMessages([...messages, userMessageEntity, { body: { role: 'system', content: gatherContent, reasoning: gatherReasoning, artifatcs: artifacts} }])
+    //       } catch {
+    //         // 忽略解析失败的行
+    //       }
+    //     } else if ('response.output_item.done' === event.type) {
+    //       done = true
+    //     }
+    //   }
+    //   if (done) {
+    //     sysMessageEntity.body.content = gatherContent
+    //     sysMessageEntity.body.reasoning = gatherReasoning.trim()
+    //     break
+    //   }
+
+    // }
+    // return
     chatRequestWithHookV2(req, signal, beforeFetch, afterFetch).then(async (reader) => {
         if (reader) {
           while (true) {
@@ -303,9 +355,9 @@ function chatSubmit() {
     console.log('web-search context', messages);
     
     const reqWithContext: IChatRequestV2 = {
-      url: provider.apiUrl,
+      baseUrl: provider.apiUrl,
       messages: [...messages.slice(messages.length - 3).map(msg => msg.body), {role: 'user', content: chatCtx}],
-      token: provider.apiKey,
+      apiKey: provider.apiKey,
       prompt: generateSearchKeywordsPrompt,
       model: model.value,
       stream: false,
@@ -332,10 +384,10 @@ function chatSubmit() {
     }
     // console.log("generateTitle...")
     const titleReq: IChatRequest = {
-      url: titleProvider.apiUrl,
+      baseUrl: titleProvider.apiUrl,
       content: context,
       prompt: generateTitlePrompt,
-      token: titleProvider.apiKey,
+      apiKey: titleProvider.apiKey,
       model: titleGenerateModel.value,
       stream: false
     }

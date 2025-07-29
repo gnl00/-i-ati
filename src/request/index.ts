@@ -24,12 +24,12 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
 
   const headers = {
     ...postHeanders,
-    authorization: authorizationPreffix + req.token
+    authorization: authorizationPreffix + req.apiKey
   }
 
   beforeFetch()
 
-  const fetchResponse = await fetch(req.url, {
+  const fetchResponse = await fetch(req.baseUrl, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -80,7 +80,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
 
   const headers = {
     ...postHeanders,
-    authorization: authorizationPreffix + req.token
+    authorization: authorizationPreffix + req.apiKey
   }
 
   beforeFetch()
@@ -89,17 +89,29 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     const { reasoning, artifatcs, ...props } = msg
     return props
   })
+  const gatherMessages = () => {
+    let ms = cacheMessage
+    if (systemPromptMessage) {
+      ms = [systemPromptMessage, ...cacheMessage]
+    }
+    if (req.tools) {
+      const toolsMessage = {
+        role: 'user',
+        content: JSON.stringify(req.tools)
+      }
+      ms = [toolsMessage, ...cacheMessage]
+    }
+    return ms
+  }
   const enableStream = req.stream === true ? true : (req.stream === undefined ? true : false)
-  const fetchResponse = await fetch(req.url, {
+  const fetchResponse = await fetch(req.baseUrl, {
     method: 'POST',
     headers,
     signal,
     body: JSON.stringify({
       model: req.model,
-      messages: systemPromptMessage != null ? [
-        {...systemPromptMessage},
-        ...cacheMessage
-      ] : [...cacheMessage],
+      messages: gatherMessages(),
+      // tools: req.tools,
       stream: enableStream,
       max_tokens: 4096,
       temperature: 0.7,
@@ -112,6 +124,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
 
   if (!fetchResponse.ok) {
     const resp = await fetchResponse.json()
+    console.log(resp, fetchResponse.statusText)
     throw new Error(`Error=${JSON.stringify(resp)}, Text=${fetchResponse.statusText}`)
   }
 

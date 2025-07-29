@@ -30,8 +30,8 @@ declare interface IHeaders {
 }
 
 declare interface IChatRequest {
-  url: string
-  token: string
+  baseUrl: string
+  apiKey: string
   model: string
   prompt?: string
   content: string
@@ -39,12 +39,13 @@ declare interface IChatRequest {
 }
 
 declare interface IChatRequestV2 {
-  url: string
-  token: string
+  baseUrl: string
+  apiKey: string
   model: string
   prompt: string
   messages: ChatMessage[]
   stream?: boolean
+  tools?: any[]
 }
 
 declare interface ChatEntity {

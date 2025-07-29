@@ -23,36 +23,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const lastScrollTopRef = useRef<number>(0)
   
   const [chatListHeight, setChatListHeight] = useState<number>(0)
-  const [selectedMcpTools, setSelectedMcpTools] = useState<string[]>([])
-  const [mcpConfig, setMcpConfig] = useState({
-    "mcpServers": {
-      "filesystem": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "@modelcontextprotocol/server-filesystem",
-          "/Users/username/Desktop",
-          "/path/to/other/allowed/dir"
-        ]
-      },
-      "fetch": {
-        "command": "uvx",
-        "args": ["mcp-server-fetch"]
-      },
-      "everything": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "@modelcontextprotocol/server-everything"
-        ]
-      },
-      "git": {
-        "command": "uvx",
-        "args": ["mcp-server-git"]
-      }
-    }
-  })
-  const [mcpTools, setMcpTools] = useState<string[]>([])
 
   useEffect(() => {
     calculateChatListHeight()
@@ -76,14 +46,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     calculateChatListHeight()
     scrollToBottomOptimized()
   }, [messages])
-
-  useEffect(() => {
-    const tools: string[] = []
-    for (const [name, cfg] of Object.entries(mcpConfig.mcpServers)) {
-      tools.push(name)
-    }
-    setMcpTools(tools)
-  }, [mcpConfig])
 
   const calculateChatListHeight = useCallback(() => {
     if (chatWindowRef.current && inputAreaRef.current) {
@@ -174,9 +136,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       <ChatInputArea
         ref={inputAreaRef}
         onSubmit={onSubmit}
-        selectedMcpTools={selectedMcpTools}
-        setSelectedMcpTools={setSelectedMcpTools}
-        mcpTools={mcpTools}
       />
     </div>
   )

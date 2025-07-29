@@ -3,6 +3,7 @@ import { PIN_WINDOW, SAVE_CONFIG, GET_CONFIG, OPEN_EXTERNAL, WEB_SEARCH_ACTION }
 import { appConfig, saveConfig } from './app-config'
 import { pinWindow, getWinPosition, setWinPosition } from './main-window'
 import { handleWebSearch } from './web-search'
+import { connect as mcpConnect, close as mcpClose, toolCall as mcpToolCall } from '../mcp/client'
 
 function mainIPCSetup() {
   ipcMain.handle(PIN_WINDOW, (_, pinState) => pinWindow(pinState))
@@ -31,6 +32,11 @@ function mainIPCSetup() {
 
   // Playwright handler for web search
   ipcMain.handle(WEB_SEARCH_ACTION, (event, { action, param }) => handleWebSearch({action, param}))
+
+  ipcMain.handle('mcp-connect', (_, { name, command, args }) => mcpConnect({name, command, args}))
+  ipcMain.handle('mcp-disconnect', (_, { name }) => mcpClose(name))
+  ipcMain.handle('mcp-tool-call', (_, { server, tool, args }) => mcpToolCall(server, tool, args))
+
 }
 
 export {

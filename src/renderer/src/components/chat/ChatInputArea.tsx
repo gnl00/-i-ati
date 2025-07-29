@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
@@ -22,7 +22,8 @@ import {
   CornerDownLeft,
   ArrowBigUp,
   Atom,
-  Settings2
+  Settings2,
+  LoaderCircle
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
@@ -31,19 +32,15 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import chatSubmit from '@renderer/hooks/use-chat-submit'
 import { Label } from '@renderer/components/ui/label'
 import { Input } from '@renderer/components/ui/input'
+import { toast } from 'sonner'
 
 interface ChatInputAreaProps {
   onSubmit: () => void
-  selectedMcpTools: string[]
-  setSelectedMcpTools: (tools: string[]) => void
-  mcpTools: string[]
 }
+const availableMcpTools = new Map()
 
 const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onSubmit,
-  selectedMcpTools,
-  setSelectedMcpTools,
-  mcpTools
 }, ref) => {
   const {setChatContent} = useChatContext()
   // Get state and actions from store
@@ -66,10 +63,38 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [inputContent, setInputContent] = useState<string>('')
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
-
+  const [selectedMcpServerNames, setSelectedMcpServerNames] = useState<string[]>([])
+  const [mcpServerConfig, setMcpServerConfig] = useState({
+    "mcpServers": {
+      "filesystem": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-filesystem",
+          "/Users/gnl/workspace/code/-i-ati",
+        ]
+      },
+      "fetch": {
+        "command": "uvx",
+        "args": ["mcp-server-fetch"]
+      },
+      "everything": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-everything"
+        ]
+      },
+      "git": {
+        "command": "uvx",
+        "args": ["mcp-server-git"]
+      }
+    }
+  })
+  const [connectingMcpServers, setConnectingMcpServers] = useState<string[]>([])
   const useSubmit = chatSubmit()
   const onSubmitClick = useCallback((_) => {
-    useSubmit(inputContent, imageSrcBase64List)
+    useSubmit(inputContent, imageSrcBase64List, ...availableMcpTools.values().toArray())
 
     onSubmit() // for chat-window scroll to the end
 
@@ -135,6 +160,43 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       toggleArtifacts(false)
       toggleWebSearch(false)
     }
+  }
+  const onMcpToolSelected = async (mcpServerName, mcpServerConfig) => {
+    console.log('mcp-server-config', mcpServerName, mcpServerConfig)
+    let isEnableMcpServer = false
+    let sMcpTools
+    if (selectedMcpServerNames.includes(mcpServerName)) {
+      sMcpTools = selectedMcpServerNames.filter(mcp => mcp !== mcpServerName)
+    } else {
+      isEnableMcpServer = true
+      sMcpTools = [...selectedMcpServerNames, mcpServerName]
+    }
+    if (isEnableMcpServer) {
+      setConnectingMcpServers([...connectingMcpServers, mcpServerName])
+      const {result, tools, msg} = await window.electron?.ipcRenderer.invoke('mcp-connect', {
+        name: mcpServerName,
+        command: mcpServerConfig.command,
+        args: mcpServerConfig.args
+      })
+      setConnectingMcpServers(connectingMcpServers.filter(m => m !== mcpServerName))
+      if (result) {
+        setSelectedMcpServerNames(sMcpTools)
+        availableMcpTools.set(mcpServerName, tools)
+        console.log('connected availableMcpTools', availableMcpTools)
+        toast.success(msg)
+      } else {
+        toast.error(msg)
+      }
+    } else {
+      setSelectedMcpServerNames(sMcpTools)
+      availableMcpTools.delete(mcpServerName)
+      console.log('disconnected availableMcpTools', availableMcpTools)
+      await window.electron?.ipcRenderer.invoke('mcp-disconnect', {
+        name: mcpServerName
+      })
+      toast.warning(`Disconnected mcp-server '${mcpServerName}'`)
+    }
+    // setSelectMCPPopoutState(false)
   }
 
   return (
@@ -216,9 +278,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
-                    {selectedMcpTools.length === 0 ? 'Mcp Tool' : selectedMcpTools[0] }
+                    {selectedMcpServerNames.length === 0 ? 'Mcp Tool' : selectedMcpServerNames[0] }
                   </span>
-                  {selectedMcpTools.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 hover:bg-blue-gray-200 text-blue-gray-500 backdrop-blur-xl">+{selectedMcpTools.length - 1}</Badge>}
+                  {selectedMcpServerNames.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 hover:bg-blue-gray-200 text-blue-gray-500 backdrop-blur-xl">+{selectedMcpServerNames.length - 1}</Badge>}
                   <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
               </Button>
             </PopoverTrigger>
@@ -230,21 +292,17 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   className='scroll-smooth'
                   >
                     {
-                      mcpTools.map((mcpToolName) =>  (
+                      mcpServerConfig && mcpServerConfig.mcpServers && Object.entries(mcpServerConfig.mcpServers).map(([mcpName, mcpCfg], idx) =>  (
                           <CommandItem
-                            key={mcpToolName}
-                            value={mcpToolName}
+                            key={idx}
+                            value={mcpName}
                             onSelect={(selectVal) => {
-                              if (selectedMcpTools.includes(selectVal)) {
-                                setSelectedMcpTools(selectedMcpTools.filter(mcp => mcp !== selectVal))
-                              } else {
-                                setSelectedMcpTools([...selectedMcpTools, selectVal])
-                              }
-                              setSelectMCPPopoutState(false)
+                              onMcpToolSelected(selectVal, mcpCfg)
                             }}
                           >
-                            {mcpToolName}
-                            {(selectedMcpTools && selectedMcpTools.includes(mcpToolName)) && <Check className={cn("ml-auto")} />}
+                            {mcpName}
+                            {connectingMcpServers.includes(mcpName) && <LoaderCircle className='ml-auto animate-spin' />}
+                            {(selectedMcpServerNames && selectedMcpServerNames.includes(mcpName)) && <Check className={cn("ml-auto")} />}
                         </CommandItem>
                       ))
                     }
@@ -260,7 +318,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               <PopoverTrigger asChild>
                 <Button variant={'ghost'} 
                   className=
-                    "flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 hover:text-gray-700 backdrop-blur-xl border-none shadow"
+                    "flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-700 backdrop-blur-xl border-none shadow"
                   >
                   <span>Chat Settings</span><Settings2 className="h-4 w-4 ml-1" />
                 </Button>
