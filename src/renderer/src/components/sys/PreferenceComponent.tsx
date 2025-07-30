@@ -296,7 +296,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             <Tabs defaultValue="providers">
                 <TabsList>
                     <TabsTrigger value="providers">Providers</TabsTrigger>
-                    <TabsTrigger value="misc">Misc</TabsTrigger>
+                    <TabsTrigger value="tool">Tool</TabsTrigger>
                 </TabsList>
                 <TabsContent value="providers" className='w-[640px] h-[600px]'>
                     <div ref={providerCardRef} className="m-2 h-20 overflow-scroll scroll-smooth no-scrollbar">
@@ -448,7 +448,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                         </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="misc" className='w-[640px] min-h-96'>
+                <TabsContent value="tool" className='w-[640px] min-h-96 space-y-1'>
                     <div className='w-full space-y-1'>
                         <Label className="hover:bg-accent/50 flex items-start gap-3 rounded-lg border p-3 has-[[aria-checked=true]]:bg-blue-50">
                             <Checkbox
@@ -459,12 +459,12 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                             className="data-[state=checked]:text-white"
                             />
                             <div className="grid gap-1.5 font-normal">
-                            <p className="text-sm leading-none font-medium">
-                                Title generation
-                            </p>
-                            <p className="text-muted-foreground text-sm">
-                                Enable or disable title generation.
-                            </p>
+                                <p className="text-sm leading-none font-medium">
+                                    Title generation
+                                </p>
+                                <p className="text-muted-foreground text-sm">
+                                    Enable or disable title generation.
+                                </p>
                             </div>
                             <div className="app-undragable flex items-center space-x-1">
                                 <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
@@ -507,6 +507,23 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                         </Command>
                                     </PopoverContent>
                                 </Popover>
+                            </div>
+                        </Label>
+                    </div>
+                    <div className='w-full space-y-1'>
+                        <Label className="hover:bg-accent/50 flex items-start rounded-lg border p-2">
+                            <div className="grid grid-cols-7 gap-1.5 font-normal w-full p-2">
+                                <div className='col-span-3'>
+                                    <p className="text-sm leading-none font-medium">
+                                        WebSearch Items
+                                    </p>
+                                    <p className="text-muted-foreground text-sm">
+                                        Larger items means more tokens cost.
+                                    </p>
+                                </div>
+                                <div className='col-span-1'>
+                                    <Input defaultValue={2} />
+                                </div>
                             </div>
                         </Label>
                     </div>
