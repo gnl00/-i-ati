@@ -231,11 +231,15 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   
   removeProvider: (providerName: string) => set((state) => {
     const newProviders = state.providers.filter(p => p.name !== providerName)
+    const shouldClearTitleModel = state.titleGenerateModel && 
+      state.titleGenerateModel.provider === providerName;
+    
     return {
       providers: newProviders,
       currentProviderName: state.currentProviderName === providerName 
         ? (newProviders[0]?.name || undefined)
-        : state.currentProviderName
+        : state.currentProviderName,
+      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
     }
   }),
   
@@ -261,26 +265,45 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     models: [...state.models, model]
   })),
   
-  removeModel: (providerName: string, modelValue: string) => set((state) => ({
-    providers: state.providers.map(p => 
-      p.name === providerName 
-        ? { ...p, models: p.models.filter(m => m.value !== modelValue) }
-        : p
-    )
-  })),
+  removeModel: (providerName: string, modelValue: string) => set((state) => {
+    const shouldClearTitleModel = state.titleGenerateModel && 
+      state.titleGenerateModel.provider === providerName && 
+      state.titleGenerateModel.value === modelValue;
+
+    return {
+      providers: state.providers.map(p => 
+        p.name === providerName 
+          ? { ...p, models: p.models.filter(m => m.value !== modelValue) }
+          : p
+      ),
+      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
+    };
+  }),
   
-  toggleModelEnable: (providerName: string, modelValue: string) => set((state) => ({
-    providers: state.providers.map(p => 
-      p.name === providerName 
-        ? {
-            ...p,
-            models: p.models.map(m => 
-              m.value === modelValue ? { ...m, enable: !m.enable } : m
-            )
-          }
-        : p
-    )
-  })),
+  toggleModelEnable: (providerName: string, modelValue: string) => set((state) => {
+    const targetModel = state.providers
+      .find(p => p.name === providerName)
+      ?.models.find(m => m.value === modelValue);
+    
+    const shouldClearTitleModel = state.titleGenerateModel && 
+      state.titleGenerateModel.provider === providerName && 
+      state.titleGenerateModel.value === modelValue &&
+      targetModel?.enable === true; // Only clear if we're disabling (currently enabled)
+
+    return {
+      providers: state.providers.map(p => 
+        p.name === providerName 
+          ? {
+              ...p,
+              models: p.models.map(m => 
+                m.value === modelValue ? { ...m, enable: !m.enable } : m
+              )
+            }
+          : p
+      ),
+      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
+    };
+  }),
   
   selectedModel: undefined,
   setSelectedModel: (mode: IModel) => set({ selectedModel: mode }),
@@ -294,7 +317,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setCurrentReqCtrl: (ctrl: AbortController | undefined) => set({ currentReqCtrl: ctrl }),
   readStreamState: false,
   setReadStreamState: (state: boolean) => set({ readStreamState: state }),
-  titleGenerateModel: undefined,
+  titleGenerateModel: localAppConfig.tools?.titleGenerateModel || undefined,
   setTitleGenerateModel: (tmodel: IModel) => set({ titleGenerateModel: tmodel }),
   imageSrcBase64List: [],
   setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
@@ -304,6 +327,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setWebSearchProcessState: (state: boolean) => (set({ webSearchProcessing: state})),
   artifacts: false,
   toggleArtifacts: (state: boolean) => (set({ artifacts: state})),
-  titleGenerateEnabled: true,
+  titleGenerateEnabled: localAppConfig.tools?.titleGenerateEnabled ?? true,
   setTitleGenerateEnabled: (state: boolean) => (set({ titleGenerateEnabled: state})),
 }))

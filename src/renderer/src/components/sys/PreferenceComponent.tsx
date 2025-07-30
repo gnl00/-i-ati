@@ -166,7 +166,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         const updatedAppConfig = {
             ...appConfig,
             providers: providers,
-            // titleModel: titleGenerateModel // TODO save title generation model to config file
+            tools: {
+                ...appConfig.tools,
+                titleGenerateModel: titleGenerateModel,
+                titleGenerateEnabled: titleGenerateEnabled
+            }
         }
         setAppConfig(updatedAppConfig)
         

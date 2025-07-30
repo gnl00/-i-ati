@@ -16,6 +16,11 @@ declare interface IProvider {
 
 declare interface IAppConfig {
   providers?: IProvider[]
+  tools?: {
+    titleGenerateModel?: IModel
+    titleGenerateEnabled?: boolean
+    maxWebSearchItems?: number
+  }
   version?: number
   configForUpdate?: IAppConfig
 }
