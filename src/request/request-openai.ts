@@ -1,10 +1,5 @@
 import OpenAI from "openai";
 import { ResponseInput } from "openai/resources/responses/responses";
-// const c = new OpenAI();
-// const response = await c.responses.create({
-//   model: "gpt-4.1",
-//   input: "Write a one-sentence bedtime story about a unicorn."
-// });
 
 declare type OpenAIMessageType = {
   role: string,
@@ -35,7 +30,7 @@ const openAIRequestWithHook = async (req: IChatRequestV2, signal: AbortSignal | 
   }
   const client = new OpenAI({
     apiKey: req.apiKey,
-    baseURL: 'https://api2.aigcbest.top/v1',
+    baseURL: req.baseUrl,
     dangerouslyAllowBrowser: true,
   });
   beforeFetch()
@@ -46,16 +41,8 @@ const openAIRequestWithHook = async (req: IChatRequestV2, signal: AbortSignal | 
       input: memorizedMessage.map(m => {
         return {role: m.role, content: m.content}
       }) as string | ResponseInput | undefined,
-      stream: enableStream
+      stream: enableStream,
     });
-    
-    // if (enableStream && Symbol.asyncIterator in streamResponse) {
-    //   for await (const event of streamResponse) {
-    //     console.log(event);
-    //   }
-    // } else {
-    //   console.log(streamResponse);
-    // }
     return streamResponse
   } catch (error: any) {
     

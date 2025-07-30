@@ -48,6 +48,15 @@ declare interface IChatRequestV2 {
   tools?: any[]
 }
 
+declare interface MCPTool {
+  type: 'function'
+  function: {
+    name: string
+    description?: string
+    parameters?: Record<string, unknown>
+  }
+}
+
 declare interface ChatEntity {
   id?: number // 自增 id
   uuid: string
@@ -71,6 +80,7 @@ declare interface ChatMessage {
   reasoning?: string
   name?: string
   artifatcs?: boolean
+  toolCallResults?: any
 }
 
 declare type LLMContent = string;

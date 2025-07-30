@@ -31,9 +31,9 @@ export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { ch
     <div className='relative border rounded-lg overflow-hidden'>
       {/* Header with language and copy button */}
       <div className='flex justify-between items-center bg-black/5 dark:bg-gray-800 px-3 py-1 border-b'>
-        <Badge variant={'outline'} className='text-sm text-gray-600 bg-gray-300 dark:text-gray-300 font-medium select-none'>
+        <span className='text-sm text-gray-500 dark:text-gray-300 font-medium select-none'>
           {language}
-        </Badge>
+        </span>
         <Button
           size={'sm'}
           variant={'ghost'}

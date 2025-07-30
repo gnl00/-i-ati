@@ -9,7 +9,79 @@ export type ClientProps = {
   env?: string[]
 }
 
-const mcpMap = new Map<string, Client>()
+type ToolProps = {
+  name: string
+  description: string
+  inputSchema: any
+}
+
+class McpClient {
+  private serverClientMap = new Map<string, Client>()
+  private serverToolsMap = new Map<string, ToolProps[]>()
+
+  addServer(name: string, client: Client, tools: ToolProps[]) {
+    this.serverClientMap.set(name, client)
+    this.serverToolsMap.set(name, tools)
+  }
+
+  removeServer(name: string): boolean {
+    const client = this.serverClientMap.get(name)
+    if (client) {
+      client.close()
+      this.serverClientMap.delete(name)
+      this.serverToolsMap.delete(name)
+      return true
+    }
+    return false
+  }
+
+  removeAllServers() {
+    this.serverClientMap.forEach((client) => {
+      client.close()
+    })
+    this.serverClientMap.clear()
+    this.serverToolsMap.clear()
+  }
+
+  hasTool(toolName: string): boolean {
+    for (const tools of this.serverToolsMap.values()) {
+      if (tools.some(tool => tool.name === toolName)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  getClient(serverName: string): Client | undefined {
+    return this.serverClientMap.get(serverName)
+  }
+
+  getAllClients(): [string, Client][] {
+    return Array.from(this.serverClientMap.entries())
+  }
+
+  getTools(serverName: string): ToolProps[] | undefined {
+    return this.serverToolsMap.get(serverName)
+  }
+
+  hasServer(serverName: string): boolean {
+    return this.serverClientMap.has(serverName)
+  }
+
+  getServerCount(): number {
+    return this.serverClientMap.size
+  }
+
+  getServerNames(): string[] {
+    return Array.from(this.serverClientMap.keys())
+  }
+
+  isEmpty(): boolean {
+    return this.serverClientMap.size === 0
+  }
+}
+
+const mcpClient = new McpClient()
 
 const checkCommandExists = (command: string): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -45,10 +117,10 @@ const connect = async (props: ClientProps) => {
 
     console.log('[@i] mcp-client connecting')
     await client.connect(transport)
-    mcpMap.set(props.name, client)
     // List tools
     const tools = await client.listTools()
-    console.log('[@i] mcp-tools', JSON.stringify(tools))
+    mcpClient.addServer(props.name, client, tools.tools)
+    console.log('[@i] mcp-tools\n', JSON.stringify(tools))
     return {result: true, tools: tools.tools, msg: `Connnected to '${props.name}'`}
   } catch (error: any) {
     console.error(`[@i] mcp-server '${props.name}' connect error: ${error.message}`)
@@ -68,33 +140,54 @@ const connect = async (props: ClientProps) => {
   // }
 }
 
-const toolCall = async (mcpServer: string, toolName: string, args: { [x: string]: unknown } | undefined) => {
-  if (mcpMap && mcpMap.has(mcpServer)) {
-    const c = mcpMap.get(mcpServer)
-    if (c) {
-      const result = await c.callTool({name: toolName, arguments: args})
-      return result // TODO push to message
-    }
+const toolCall = async (toolName: string, args: { [x: string]: unknown } | undefined) => {
+  console.log(`[@i] toolCall ${toolName} start`);
+  if (!mcpClient.isEmpty()) {
+    console.log(`[@i] toolCall ${toolName} processing`);
+    const promises = mcpClient.getAllClients().map(async ([serverName, c]) => {
+      const tools = mcpClient.getTools(serverName)
+      if (!tools || tools.filter(item => item.name === toolName).length === 0) {
+        console.log(`[@i] mcp-server: ${serverName} does not have tool: ${toolName}`);
+        return null
+      }
+      console.log(`[@i] Call mcp-server: ${serverName}, tool: ${toolName}, args: ${JSON.stringify(args)}`);
+      try {
+        const result = await c.callTool({name: toolName, arguments: args})
+        console.log(`[@i] Call mcp-server: ${serverName}, tool: ${toolName}, result: ${JSON.stringify(result)}`);
+        // Serialize the result to ensure it can be cloned across processes
+        return JSON.parse(JSON.stringify(result))
+      } catch (error: any) {
+        console.error(`[@i] Error calling tool on ${serverName}:`, error);
+        return { error: error.message, serverName: serverName }
+      }
+    })
+    const results = await Promise.all(promises)
+    return results
   }
+  console.log(`[@i] toolCall ${toolName} end`);
+  return []
 }
 
-const close = (mcpServerName) => {
-  if (mcpMap.size > 0) {
+const close = (mcpServerName: string) => {
+  if (!mcpClient.isEmpty()) {
     console.log('[@i] mcp-client closing')
-    const c = mcpMap.get(mcpServerName)
-    if (c) {
-      c.close()
-      console.log('[@i] mcp-client closed')
+    if (!mcpClient.hasServer(mcpServerName)) {
+      return true
     }
+    const success = mcpClient.removeServer(mcpServerName)
+    if (success) {
+      console.log('[@i] mcp-client closed')
+      return true
+    }
+    return false
   }
+  return true
 }
 
 const closeAll = () => {
-  if (mcpMap.size > 0) {
+  if (!mcpClient.isEmpty()) {
     console.log('[@i] mcp-client closing')
-    mcpMap.forEach((mClient, _) => {
-      mClient && mClient.close()
-    })
+    mcpClient.removeAllServers()
     console.log('[@i] mcp-client closed')
   }
 }
@@ -106,6 +199,6 @@ const closeAll = () => {
 
 export {
   connect, close, closeAll,
-  toolCall
+  toolCall, McpClient, mcpClient
 }
 

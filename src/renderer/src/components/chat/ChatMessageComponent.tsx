@@ -9,7 +9,7 @@ import {
   TooltipProvider
 } from "@renderer/components/ui/tooltip"
 import { CopyIcon, ReloadIcon, Pencil2Icon, CodeIcon } from '@radix-ui/react-icons'
-import { BadgePercent } from 'lucide-react'
+import { BadgePercent, BadgeCheck, BadgeX } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
 import ReactMarkdown from 'react-markdown'
@@ -191,6 +191,51 @@ const {readStreamState} = useChatStore()
             </AccordionItem>
           </Accordion>
         )}
+        {
+          m.toolCallResults && m.toolCallResults.length > 0 && m.toolCallResults.map((tc, idx) => (
+            <Accordion key={idx} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
+              <AccordionItem value={'tool-use-' + index}>
+                <AccordionTrigger className='text-sm h-10 flex'>
+                  <Badge variant={'outline'} className={cn("bg-blue-gray-100 hover:bg-blue-gray-200 space-x-1", tc.content && tc.content.length > 0 ? 'text-green-600' : 'text-red-500')}>
+                    {
+                      tc.content && tc.content.length > 0 ? <BadgeCheck className="w-4" /> : <BadgeX className="w-4" />
+                    }
+                    <span>{tc.name}</span>
+                  </Badge>
+                </AccordionTrigger>
+                <AccordionContent className="border-none rounded-xl">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
+                    skipHtml={false}
+                    remarkRehypeOptions={{ passThrough: ['link'] }}
+                    className="text-sm transition-all duration-400 ease-in-out"
+                    components={{
+                      pre(props) {
+                        const { children, ...rest } = props
+                        return <>{children}</>
+                      },
+                      code(props) {
+                        const { children, className, node, ...rest } = props
+                        const match = /language-(\w+)/.exec(className || '')
+                        return match ? (
+                          <SyntaxHighlighterWrapper
+                            children={String(children).replace(/\n$/, '')}
+                            language={match[1]}
+                          />
+                        ) : (
+                          <code {...rest} className={className}>
+                            {children}
+                          </code>
+                        )
+                      }
+                    }}
+                  >{`\`\`\`json\n${JSON.stringify(tc.content[0], null, 2)}\n\`\`\``}</ReactMarkdown>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          ))
+        }
         {
           m.artifatcs && !showArtifactsCode
           ? (

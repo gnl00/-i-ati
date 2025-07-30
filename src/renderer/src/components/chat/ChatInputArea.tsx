@@ -43,7 +43,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onSubmit,
 }, ref) => {
   const {setChatContent} = useChatContext()
-  // Get state and actions from store
   const {
     setMessages,
     imageSrcBase64List,
@@ -94,7 +93,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [connectingMcpServers, setConnectingMcpServers] = useState<string[]>([])
   const useSubmit = chatSubmit()
   const onSubmitClick = useCallback((_) => {
-    useSubmit(inputContent, imageSrcBase64List, ...availableMcpTools.values().toArray())
+    useSubmit(inputContent, imageSrcBase64List, Array.from(availableMcpTools.values()).flatMap(i => i))
 
     onSubmit() // for chat-window scroll to the end
 
@@ -151,27 +150,17 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [imageSrcBase64List, setImageSrcBase64List])
 
   const startNewChat = () => {
-    if (chatId) {
-      setChatId(undefined)
-      setChatUuid(undefined)
-      setChatTitle('NewChat')
-      setMessages([])
-  
-      toggleArtifacts(false)
-      toggleWebSearch(false)
-    }
+    setChatId(undefined)
+    setChatUuid(undefined)
+    setChatTitle('NewChat')
+    setMessages([])
+
+    toggleArtifacts(false)
+    toggleWebSearch(false)
   }
   const onMcpToolSelected = async (mcpServerName, mcpServerConfig) => {
     console.log('mcp-server-config', mcpServerName, mcpServerConfig)
-    let isEnableMcpServer = false
-    let sMcpTools
-    if (selectedMcpServerNames.includes(mcpServerName)) {
-      sMcpTools = selectedMcpServerNames.filter(mcp => mcp !== mcpServerName)
-    } else {
-      isEnableMcpServer = true
-      sMcpTools = [...selectedMcpServerNames, mcpServerName]
-    }
-    if (isEnableMcpServer) {
+    if (!selectedMcpServerNames.includes(mcpServerName)) {
       setConnectingMcpServers([...connectingMcpServers, mcpServerName])
       const {result, tools, msg} = await window.electron?.ipcRenderer.invoke('mcp-connect', {
         name: mcpServerName,
@@ -180,23 +169,20 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       })
       setConnectingMcpServers(connectingMcpServers.filter(m => m !== mcpServerName))
       if (result) {
-        setSelectedMcpServerNames(sMcpTools)
+        setSelectedMcpServerNames([...selectedMcpServerNames, mcpServerName])
         availableMcpTools.set(mcpServerName, tools)
-        console.log('connected availableMcpTools', availableMcpTools)
         toast.success(msg)
       } else {
         toast.error(msg)
       }
     } else {
-      setSelectedMcpServerNames(sMcpTools)
+      setSelectedMcpServerNames(selectedMcpServerNames.filter(item => item != mcpServerName))
       availableMcpTools.delete(mcpServerName)
-      console.log('disconnected availableMcpTools', availableMcpTools)
       await window.electron?.ipcRenderer.invoke('mcp-disconnect', {
         name: mcpServerName
       })
       toast.warning(`Disconnected mcp-server '${mcpServerName}'`)
     }
-    // setSelectMCPPopoutState(false)
   }
 
   return (
@@ -205,9 +191,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           <ChatImgGalleryComponent></ChatImgGalleryComponent>
       </div>
       <div className='rounded-xl flex items-center space-x-2 pr-2 mb-2 select-none'>
-        {/* <div className="app-undragable">
-          <Button variant={'ghost'} className='rounded-full shadow bg-white/20 hover:bg-black/5 backdrop-blur-xl text-gray-500'>new-chat</Button>
-        </div> */}
         <div className="app-undragable">
           <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
             <PopoverTrigger asChild>

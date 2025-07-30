@@ -86,7 +86,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
   beforeFetch()
 
   const cacheMessage: ChatMessage[] = req.messages.map(msg => {
-    const { reasoning, artifatcs, ...props } = msg
+    const { reasoning, artifatcs, toolCallResults: tool, ...props } = msg
     return props
   })
   const gatherMessages = () => {
@@ -104,6 +104,16 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     return ms
   }
   const enableStream = req.stream === true ? true : (req.stream === undefined ? true : false)
+  const functionTools = req.tools ? req.tools.map(tool => {
+    return {
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.inputSchema
+      }
+    }
+  }) : []
   const fetchResponse = await fetch(req.baseUrl, {
     method: 'POST',
     headers,
@@ -111,7 +121,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     body: JSON.stringify({
       model: req.model,
       messages: gatherMessages(),
-      // tools: req.tools,
+      tools: functionTools,
       stream: enableStream,
       max_tokens: 4096,
       temperature: 0.7,
