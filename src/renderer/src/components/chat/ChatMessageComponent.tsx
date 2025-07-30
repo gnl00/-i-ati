@@ -202,9 +202,9 @@ const {readStreamState} = useChatStore()
             <Accordion key={idx} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
               <AccordionItem value={'tool-use-' + index}>
                 <AccordionTrigger className='text-sm h-10 flex'>
-                  <Badge variant={'outline'} className={cn("bg-blue-gray-100 hover:bg-blue-gray-200 space-x-1", tc.content && tc.content.length > 0 ? 'text-green-600' : 'text-red-500')}>
+                  <Badge variant={'outline'} className={cn("bg-blue-gray-100 hover:bg-blue-gray-200 space-x-1", !tc.isError ? 'text-green-600' : 'text-red-500')}>
                     {
-                      tc.content && tc.content.length > 0 ? <BadgeCheck className="w-4" /> : <BadgeX className="w-4" />
+                      !tc.isError ? <BadgeCheck className="w-4" /> : <BadgeX className="w-4" />
                     }
                     <span>{tc.name}</span>
                   </Badge>
@@ -236,7 +236,7 @@ const {readStreamState} = useChatStore()
                         )
                       }
                     }}
-                  >{`\`\`\`json\n${JSON.stringify(tc.content[0], null, 2)}\n\`\`\``}</ReactMarkdown>
+                  >{`\`\`\`json\n${JSON.stringify(tc.content, null, 2)}\n\`\`\``}</ReactMarkdown>
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
