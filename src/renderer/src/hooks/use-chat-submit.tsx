@@ -10,6 +10,18 @@ import { saveChat } from "@renderer/db/ChatRepository"
 import { WEB_SEARCH_ACTION } from "@constants/index"
 import { toolCallPrompt, artifactsTool, artifactsSystemPrompt, webSearchSystemPrompt, generateTitlePrompt, generateSearchKeywordsPrompt } from '../constant/prompts'
 
+interface ToolCallProps {
+  function: string
+  args?: string
+}
+
+interface ToolCallResult {
+  name: string
+  content: string
+  completed: boolean
+  error?: Error
+}
+
 // 管道上下文接口
 interface ChatPipelineContext {
   // 输入数据
@@ -45,7 +57,8 @@ interface ChatPipelineContext {
   isContentHasThinkTag: boolean
   
   // 工具调用相关
-  toolCalls: boolean
+  hasToolCall: boolean
+  toolCalls: ToolCallProps[]
   toolCallFunctionName: string
   toolCallFunctionArgs: string
   toolCallResults?: any[]
@@ -160,7 +173,9 @@ function chatSubmit() {
       gatherReasoning: '',
       sysMessageEntity: { body: { role: 'system', content: '', artifatcs: artifacts } },
       isContentHasThinkTag: false,
-      toolCalls: false,
+      hasToolCall: false,
+      toolCalls: [],
+      toolCallResults: [],
       toolCallFunctionName: '',
       toolCallFunctionArgs: '',
       completed: false
@@ -258,11 +273,14 @@ function chatSubmit() {
           if (delta) {
             // 检测工具调用
             if (delta.tool_calls && delta.tool_calls.length > 0) {
-              if(!context.toolCalls) context.toolCalls = true
+              if(!context.hasToolCall) context.hasToolCall = true
               if (delta.tool_calls[0].function.name) {
-                context.toolCallFunctionName += delta.tool_calls[0].function.name
+                context.toolCalls.push({
+                  function: delta.tool_calls[0].function.name,
+                  args: ''
+                })
               } else if (delta.tool_calls[0].function.arguments) {
-                context.toolCallFunctionArgs += delta.tool_calls[0].function.arguments
+                context.toolCalls[context.toolCalls.length - 1].args += delta.tool_calls[0].function.arguments
               }
             }
             
@@ -312,47 +330,60 @@ function chatSubmit() {
 
   // 管道函数：处理工具调用
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
-    if (context.toolCalls && context.toolCallFunctionName) {
-      console.log(context.toolCallFunctionName, context.toolCallFunctionArgs)
+    if (context.hasToolCall && context.toolCalls.length > 0) {
+      console.log('context.toolCalls', context.toolCalls)
       
-      try {
-        const results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', { 
-          tool: context.toolCallFunctionName, 
-          args: context.toolCallFunctionArgs 
-        })
-        console.log('tool-call-results', results)
-        
-        // 构建工具调用结果消息
-        const mcpToolFunctionMessage: ChatMessage = {
-          role: 'function', 
-          name: context.toolCallFunctionName, 
-          content: JSON.stringify(results)
-        }
-
-        if (!context.toolCallResults) {
-          context.toolCallResults = [{
-            name: context.toolCallFunctionName,
-            content: results
-          }]
-        } else {
-          context.toolCallResults.push({
-            name: context.toolCallFunctionName,
-            content: results
+      // 使用 for...of 循环以支持 await，并收集成功执行的工具调用索引
+      const completedIndices: number[] = []
+      
+      for (let i = 0; i < context.toolCalls.length; i++) {
+        const toolCall = context.toolCalls[i]
+        try {
+          const results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', { 
+            tool: toolCall.function, 
+            args: toolCall.args 
           })
+          console.log('tool-call-results', results)
+          
+          // 构建工具调用结果消息
+          const mcpToolFunctionMessage: ChatMessage = {
+            role: 'function', 
+            name: toolCall.function, 
+            content: JSON.stringify(results)
+          }
+  
+          if (!context.toolCallResults) {
+            context.toolCallResults = [{
+              name: toolCall.function,
+              content: results
+            }]
+          } else {
+            context.toolCallResults.push({
+              name: toolCall.function,
+              content: results
+            })
+          }
+          
+          // 更新请求消息，添加工具调用结果
+          context.request.messages.push(mcpToolFunctionMessage)
+          
+          // 记录成功执行的工具调用索引
+          completedIndices.push(i)
+        } catch (error: any) {
+          console.error('Tool call error:', error)
+          context.error = error
         }
-        
-        // 更新请求消息，添加工具调用结果
-        context.request.messages.push(mcpToolFunctionMessage)
-        
-        // 重置工具调用状态，准备下一轮流式处理
-        context.toolCalls = false
-        context.toolCallFunctionName = ''
-        context.toolCallFunctionArgs = ''
-        
-      } catch (error: any) {
-        console.error('Tool call error:', error)
-        context.error = error
       }
+      
+      // 从后往前移除已完成的工具调用，避免索引问题
+      for (let i = completedIndices.length - 1; i >= 0; i--) {
+        context.toolCalls.splice(completedIndices[i], 1)
+      }
+      
+      // 重置工具调用状态，准备下一轮流式处理
+      context.hasToolCall = false
+      context.toolCallFunctionName = ''
+      context.toolCallFunctionArgs = ''
     }
 
     return context
@@ -364,7 +395,7 @@ function chatSubmit() {
     context = await processStream(context)
     
     // 如果有工具调用，处理工具调用后继续处理响应
-    if (context.toolCalls && context.toolCallFunctionName) {
+    if (context.hasToolCall && context.toolCalls.length > 0) {
       context = await handleToolCall(context)
       // 递归调用，处理工具调用后的响应
       return await processStreamWithToolCall(context)
