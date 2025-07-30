@@ -186,7 +186,13 @@ const {readStreamState} = useChatStore()
                 </Badge>
               </AccordionTrigger>
               <AccordionContent className="bg-blue-gray-100 p-1 border-none rounded-xl">
-                <div className='text-blue-gray-500 pb-2 pl-1 pr-1 border-none'>{(m.reasoning as string)}</div>
+                <div className='text-blue-gray-500 pb-2 pl-1 pr-1 border-none'>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    skipHtml={false}
+                    className="prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 transition-all duration-400 ease-in-out"
+                    >{(m.reasoning as string)}</ReactMarkdown>
+                </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
