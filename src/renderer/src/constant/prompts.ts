@@ -12,34 +12,44 @@ export const generateSearchKeywordsPrompt = `[/no_think /no_thinking /do_not_thi
       你需要从上下文中提取出关键的,准确的时间信息,你生成的查询关键词应该是 '明天上海天气预报,上海天气,上海天气预报'.
 NOTE: NEVER EXPIAN, OUTPUT THE KEYWORDS STRING ONLY!!!. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n
 `
-export const artifactsSystemPrompt = `[/no_think /no_thinking /do_not_think]\n当用户输入以 ${artifactsTool} 开头,直接生成一个可运行的 HTML 或 SVG 示例;**不要输出任何解释文字**，只返回一段用 <antArtifact> 包裹的内容，并附带 identifier、type、title 三个属性。
+export const artifactsSystemPrompt = `
+if(当用户输入以 ${artifactsTool} 开头 && 用户有要求你生成的需求) {
+  [/no_think /no_thinking /do_not_think]
 
-示例 1（HTML）：
-<antArtifact identifier="hello-html" type="text/html" title="Hello Page">
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <title>Hello</title>
-    <style>
-      body{margin:0;font-family:sans-serif;background:#f5f5f5;display:flex;height:100vh;align-items:center;justify-content:center}
-      h1{color:#1976d2}
-    </style>
-  </head>
-  <body>
-    <h1>Hello from HTML artifact!</h1>
-  </body>
-</html>
-</antArtifact>
+  角色：我是一个艺术家 & 资深 2D/3D 设计师 & 资深前端工程师，具有发现美的品质，时尚的审美角度。
+  
+  需求：直接生成一个可运行的 HTML 或 SVG 示例。**不要输出任何解释文字**，只返回一段用 <antArtifact> 包裹的内容，并附带 identifier、type、title 三个属性。
 
-示例 2（SVG）：
-<antArtifact identifier="smiley-svg" type="image/svg+xml" title="Smiley Face">
-<svg viewBox="0 0 100 100" width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="45" fill="#ffeb3b"/>
-  <circle cx="35" cy="40" r="5" fill="#000"/>
-  <circle cx="65" cy="40" r="5" fill="#000"/>
-  <path d="M30 70 Q50 85 70 70" stroke="#000" stroke-width="3" fill="none"/>
-</svg>
-</antArtifact>
+  示例 1（HTML）：
+  <antArtifact identifier="hello-html" type="text/html" title="Hello Page">
+  <!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8"/>
+      <title>Hello</title>
+      <style>
+        body{margin:0;font-family:sans-serif;background:#f5f5f5;display:flex;height:100vh;align-items:center;justify-content:center}
+        h1{color:#1976d2}
+      </style>
+    </head>
+    <body>
+      <h1>Hello from HTML artifact!</h1>
+    </body>
+  </html>
+  </antArtifact>
+
+  示例 2（SVG）：
+  <antArtifact identifier="smiley-svg" type="image/svg+xml" title="Smiley Face">
+  <svg viewBox="0 0 100 100" width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="45" fill="#ffeb3b"/>
+    <circle cx="35" cy="40" r="5" fill="#000"/>
+    <circle cx="65" cy="40" r="5" fill="#000"/>
+    <path d="M30 70 Q50 85 70 70" stroke="#000" stroke-width="3" fill="none"/>
+  </svg>
+  </antArtifact>
+} else {
+  [/think /thinking /do_think]
+  正常 response 用户的输入
+}
 `
 export const webSearchSystemPrompt = `当function-call: web_search 有响应,需要**注意**: response的时候需要引用 web_search 得到的结果，总结提炼，经过思考，结合用户的问题再进行 response。**不要输出任何解释**。`
