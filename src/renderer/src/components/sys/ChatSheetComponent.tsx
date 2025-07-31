@@ -219,7 +219,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                     <div className="sheet-content h-full w-full">
                         <div className="flex flex-col justify-center w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg dark:shadow-gray-900 bg-inherit text-inherit">
                             <div className={cn("flex items-center justify-center rounded-md sticky top-0 bg-opacity-100 z-10")}>
-                                <Button onClick={onNewChatClick} variant={"default"} className="w-full dark:w-[95%] p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start a NewChat</Button>
+                                <Button onClick={onNewChatClick} variant={"default"} className="w-full dark:w-[95%] p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start NewChat</Button>
                             </div>
                             <div className="flex flex-col p-1 space-y-1 font-sans text-base font-normal overflow-x-scroll">
                                 {

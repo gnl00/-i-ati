@@ -39,12 +39,12 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
   return (
     <div className="header shadow-lg fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black/100" style={{ userSelect: 'none' }}>
       <div className="app-dragable flex-1 space-x-2 flex">
-        <Button className="app-undragable" variant="outline" size="icon" onClick={_ => {setSheetOpenState(true)}}>
+        <Button className="app-undragable" variant="outline" size="sm" onClick={_ => {setSheetOpenState(true)}}>
           <ActivityLogIcon />
         </Button>
         <Popover>
           <PopoverTrigger asChild className="app-undragable">
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="sm">
               <GearIcon />
             </Button>
           </PopoverTrigger>
@@ -56,11 +56,11 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
         </Popover>
       </div>
       <div className='app-dragable flex-1 flex justify-center'>
-        <Button className='app-undragable h-auto w-auto' variant='secondary'>{chatTitle}</Button>
+        <Button className='app-undragable' size="sm" variant='secondary'>{chatTitle}</Button>
       </div>
       <div className="app-dragable flex-1 flex justify-end space-x-1">
         <div className="app-undragable"><ModeToggle /></div>
-        <Button className="app-undragable" size="icon" variant="outline" onClick={onPinToggleClick}>
+        <Button className="app-undragable" size="sm" variant="outline" onClick={onPinToggleClick}>
           {pinState ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
         </Button>
       </div>
