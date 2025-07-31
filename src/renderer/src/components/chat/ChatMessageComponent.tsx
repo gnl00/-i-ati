@@ -167,9 +167,9 @@ const {readStreamState} = useChatStore()
             </div>
           </TooltipTrigger>
           <TooltipContent className='bg-white/5 backdrop-blur-xl p-1 px-2 border-none' side='bottom' align='end'>
-            <div className="space-x-2 flex">
-              <CopyIcon className='w-6 h-6 hover:bg-gray-200 p-1 rounded-xl text-gray-500' onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
-              <Pencil2Icon className='w-6 h-6 hover:bg-gray-200 p-1 rounded-xl text-gray-500'></Pencil2Icon>
+            <div className="">
+              <CopyIcon className='w-7 h-6 hover:bg-gray-200 p-1 rounded-xl text-gray-500' onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
+              <Pencil2Icon className='w-7 h-6 hover:bg-gray-200 p-1 rounded-xl text-gray-500'></Pencil2Icon>
             </div>
           </TooltipContent>
         </Tooltip>

@@ -115,7 +115,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       backgroundSize: '50px 50px'
     }}>
       <ChatHeaderComponent />
-      <div ref={chatListRef} id='chat-list' className="mt-14 w-full overflow-scroll flex flex-col space-y-2 px-2 scroll-smooth" style={{ height: `${chatListHeight}px` }}>
+      <div ref={chatListRef} id='chat-list' className="mt-12 w-full overflow-scroll flex flex-col space-y-2 px-2 scroll-smooth" style={{ height: `${chatListHeight}px` }}>
         {messages.length !== 0 && messages.map((message, index) => (
           <ChatMessageComponent
             key={index}
@@ -131,7 +131,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           </div>
         )}
         {/* just as a padding element */}
-        <div className="flex h-20 pt-16 select-none">&nbsp;</div>
+        <div className="flex h-20 pt-14 select-none">&nbsp;</div>
       </div>
       <ChatInputArea
         ref={inputAreaRef}
