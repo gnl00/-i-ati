@@ -56,47 +56,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     models,
     selectedModel,
     setSelectedModel,
-    setCurrentProviderName
+    setCurrentProviderName,
+    mcpServerConfig
   } = useChatStore()
   const {setChatTitle, setChatUuid, chatId, setChatId} = useChatContext()
   const [inputContent, setInputContent] = useState<string>('')
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
   const [selectedMcpServerNames, setSelectedMcpServerNames] = useState<string[]>([])
-  const [mcpServerConfig, setMcpServerConfig] = useState({
-    "mcpServers": {
-      "filesystem": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "@modelcontextprotocol/server-filesystem",
-          "/Users/gnl/workspace/code/-i-ati",
-        ]
-      },
-      "fetch": {
-        "command": "uvx",
-        "args": ["mcp-server-fetch"]
-      },
-      "everything": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "@modelcontextprotocol/server-everything"
-        ]
-      },
-      "git": {
-        "command": "uvx",
-        "args": ["mcp-server-git"]
-      },
-      "iterm-mcp": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "iterm-mcp"
-        ]
-      }
-    }
-  })
+
   const [connectingMcpServers, setConnectingMcpServers] = useState<string[]>([])
   const useSubmit = chatSubmit()
   const onSubmitClick = useCallback((_) => {
@@ -165,30 +133,30 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     toggleArtifacts(false)
     toggleWebSearch(false)
   }
-  const onMcpToolSelected = async (mcpServerName, mcpServerConfig) => {
-    console.log('mcp-server-config', mcpServerName, mcpServerConfig)
-    if (!selectedMcpServerNames.includes(mcpServerName)) {
-      setConnectingMcpServers([...connectingMcpServers, mcpServerName])
+  const onMcpToolSelected = async (serverName, serverConfig) => {
+    console.log('mcp-server-config', serverName, serverConfig)
+    if (!selectedMcpServerNames.includes(serverName)) {
+      setConnectingMcpServers([...connectingMcpServers, serverName])
       const {result, tools, msg} = await window.electron?.ipcRenderer.invoke('mcp-connect', {
-        name: mcpServerName,
-        command: mcpServerConfig.command,
-        args: mcpServerConfig.args
+        name: serverName,
+        command: serverConfig.command,
+        args: serverConfig.args
       })
-      setConnectingMcpServers(connectingMcpServers.filter(m => m !== mcpServerName))
+      setConnectingMcpServers(connectingMcpServers.filter(m => m !== serverName))
       if (result) {
-        setSelectedMcpServerNames([...selectedMcpServerNames, mcpServerName])
-        availableMcpTools.set(mcpServerName, tools)
+        setSelectedMcpServerNames([...selectedMcpServerNames, serverName])
+        availableMcpTools.set(serverName, tools)
         toast.success(msg)
       } else {
         toast.error(msg)
       }
     } else {
-      setSelectedMcpServerNames(selectedMcpServerNames.filter(item => item != mcpServerName))
-      availableMcpTools.delete(mcpServerName)
+      setSelectedMcpServerNames(selectedMcpServerNames.filter(item => item != serverName))
+      availableMcpTools.delete(serverName)
       await window.electron?.ipcRenderer.invoke('mcp-disconnect', {
-        name: mcpServerName
+        name: serverName
       })
-      toast.warning(`Disconnected mcp-server '${mcpServerName}'`)
+      toast.warning(`Disconnected mcp-server '${serverName}'`)
     }
   }
 
@@ -310,7 +278,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   className=
                     "flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-700 backdrop-blur-xl border-none shadow"
                   >
-                  <span>Chat Settings</span><Settings2 className="h-4 w-4 ml-1" />
+                  <span>Custom</span><Settings2 className="h-4 w-4 ml-1" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent>

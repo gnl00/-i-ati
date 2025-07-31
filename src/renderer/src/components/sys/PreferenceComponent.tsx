@@ -26,8 +26,11 @@ import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandI
 import { Check, ChevronsUpDown } from "lucide-react"
 import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from '@renderer/components/ui/drawer'
 import { Input } from '@renderer/components/ui/input'
-import { toast } from '@renderer/components/ui/use-toast'
+import { toast as sonnerToast } from 'sonner'
 import { useChatStore } from '@renderer/store'
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+
 import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
 import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
@@ -59,7 +62,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         addModel,
         toggleModelEnable,
         titleGenerateModel, setTitleGenerateModel,
-        titleGenerateEnabled, setTitleGenerateEnabled
+        titleGenerateEnabled, setTitleGenerateEnabled,
+        mcpServerConfig, setMcpServerConfig,
     } = useChatStore()
 
     const [currentProvider, setCurrentProvider] = useState<IProvider | undefined>(undefined)
@@ -141,6 +145,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     }
     const saveConfigurationClick = (): void => {
         console.log('saveConfigurationClick', editProviderName, editProviderApiUrl, editProviderApiKey)
+        console.log('saveConfigurationClick mcpServerConfig', mcpServerConfig)
         
         if (currentProvider) {
             // Update provider with new values
@@ -173,15 +178,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         }
 
         setAppConfig(updatedAppConfig)
-        
-        toast({
-            className: 'buttom-1 right-1 flex',
-            variant: 'default',
-            // title: 'Save Configuration',
-            description: '✅ Save configurations success',
-            duration: 1000
-            // action: <ToastAction altText="Try again">Try again</ToastAction>
-        })
+
+        sonnerToast.success('Save configurations success')
     }
     const onAddProviderBtnClick = e => {
         if (!newProviderName || !newProviderApi || !newProviderApiKey) {
@@ -201,14 +199,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             apiKey: newProviderApiKey
         }
         addProvider(newProvider)
-        // console.log('add new povider', newProvider)
-        toast({
-            variant: 'default',
-            duration: 800,
-            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: `✅ ${newProviderName} added`,
-        })
-        // TODO save provider to local config
+
+        sonnerToast.success(`Added ${newProviderName}`)
     }
     const onDelProviderBtnClick = (e, providerName) => {
         e.preventDefault()
@@ -250,12 +242,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     }
     const onModelTableCellClick = (val: string) => {
         navigator.clipboard.writeText(val)
-        toast({
-            variant: 'default',
-            duration: 800,
-            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: `✅ Copied`,
-        })
+        sonnerToast(`✅ Copied`)
     }
     const onProviderCardClick = (p: IProvider) => {
         setCurrentProviderName(p.name)
@@ -284,6 +271,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             models: updatedModels
         })
     }
+    const onMcpServerConfigChange = config => {
+        try {
+            console.log(config)
+            console.log(JSON.parse(config))
+            setMcpServerConfig(JSON.parse(config))
+            sonnerToast.success('All syntax right.')
+        } catch(error: any) {
+            sonnerToast.error(error.message)
+        }
+    }
     return (
         <div className="grid gap-4">
             <div className="space-y-2 select-none">
@@ -297,6 +294,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                 <TabsList>
                     <TabsTrigger value="providers">Providers</TabsTrigger>
                     <TabsTrigger value="tool">Tool</TabsTrigger>
+                    <TabsTrigger value="mcp-server">MCP Server</TabsTrigger>
                 </TabsList>
                 <TabsContent value="providers" className='w-[640px] h-[600px]'>
                     <div ref={providerCardRef} className="m-2 h-20 overflow-scroll scroll-smooth no-scrollbar">
@@ -527,6 +525,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                             </div>
                         </Label>
                     </div>
+                </TabsContent>
+                <TabsContent value="mcp-server" className='w-[640px] min-h-96 max-h-[600px] overflow-scroll space-y-1 rounded-md'>
+                    <SyntaxHighlighter   SyntaxHighlighter language="javascript" style={docco} contentEditable='true' suppressContentEditableWarning={true} onInput={e => onMcpServerConfigChange(e.currentTarget.textContent)}>
+                        {JSON.stringify(mcpServerConfig, null, 2)}
+                    </SyntaxHighlighter>
                 </TabsContent>
                 <div className='space-y-1 mt-1'>
                     <div className="grid grid-cols-4 items-center gap-4">

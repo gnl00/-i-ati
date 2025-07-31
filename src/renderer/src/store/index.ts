@@ -127,6 +127,7 @@ type ChatState = {
   webSearchEnable: boolean
   webSearchProcessing: boolean
   artifacts: boolean
+  mcpServerConfig: {}
   // chatContent: string
   // setChatContent: (content: string) => void
   // chatId: number | undefined
@@ -170,6 +171,7 @@ type ChatAction = {
     setWebSearchProcessState: (state: boolean) => void
     toggleArtifacts: (state: boolean) => void
     setTitleGenerateEnabled: (state: boolean) => void
+    setMcpServerConfig: (config) => void
 }
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
@@ -329,4 +331,39 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   toggleArtifacts: (state: boolean) => (set({ artifacts: state})),
   titleGenerateEnabled: localAppConfig.tools?.titleGenerateEnabled ?? true,
   setTitleGenerateEnabled: (state: boolean) => (set({ titleGenerateEnabled: state})),
+  mcpServerConfig: {
+    "mcpServers": {
+      "filesystem": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-filesystem",
+          "/Users/gnl/workspace/code/-i-ati",
+        ]
+      },
+      "fetch": {
+        "command": "uvx",
+        "args": ["mcp-server-fetch"]
+      },
+      "everything": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-everything"
+        ]
+      },
+      "git": {
+        "command": "uvx",
+        "args": ["mcp-server-git"]
+      },
+      "iterm-mcp": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "iterm-mcp"
+        ]
+      }
+    }
+  },
+  setMcpServerConfig: (config) => (set({mcpServerConfig: config}))
 }))

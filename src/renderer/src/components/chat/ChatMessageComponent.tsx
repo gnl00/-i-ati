@@ -17,6 +17,9 @@ import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { useChatStore } from '@renderer/store'
 
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+
 interface ChatMessageComponentProps {
   index: number
   message: ChatMessage
@@ -217,33 +220,9 @@ const {readStreamState} = useChatStore()
                   </Badge>
                 </AccordionTrigger>
                 <AccordionContent className="border-none rounded-xl pb-0">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
-                    skipHtml={false}
-                    remarkRehypeOptions={{ passThrough: ['link'] }}
-                    className="text-sm transition-all duration-400 ease-in-out"
-                    components={{
-                      pre(props) {
-                        const { children, ...rest } = props
-                        return <>{children}</>
-                      },
-                      code(props) {
-                        const { children, className, node, ...rest } = props
-                        const match = /language-(\w+)/.exec(className || '')
-                        return match ? (
-                          <SyntaxHighlighterWrapperNoHeader
-                            children={String(children).replace(/\n$/, '')}
-                            language={match[1]}
-                          />
-                        ) : (
-                          <code {...rest} className={className}>
-                            {children}
-                          </code>
-                        )
-                      }
-                    }}
-                  >{`\`\`\`json\n${JSON.stringify(tc.content, null, 2)}\n\`\`\``}</ReactMarkdown>
+                  <SyntaxHighlighter language="json" style={docco}>
+                    {JSON.stringify(tc.content, null, 2)}
+                  </SyntaxHighlighter>
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

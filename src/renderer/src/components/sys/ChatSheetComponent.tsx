@@ -9,8 +9,8 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Separator } from '../ui/separator'
 import { deleteChat, getAllChat } from '@renderer/db/ChatRepository'
-import { toast } from '../ui/use-toast'
-import { ToastAction } from '../ui/toast'
+import { toast as sonnerToast } from 'sonner'
+import { toast } from '@renderer/components/ui/use-toast'
 import { updateChat } from '@renderer/db/ChatRepository'
 import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { useChatContext } from '@renderer/context/ChatContext'
@@ -113,15 +113,12 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
         if (chat.id === chatId) {
             startNewChat()
         }
-        toast({
-            variant: 'default',
-            className: 'flex fixed bottom-1 right-1 w-1/3',
-            description: '💬 Chat deleted',
-            duration: 3000,
-            action: (
-                <ToastAction onClick={_ => onSheetChatItemDeleteUndo(chat)} className="bg-primary text-primary-foreground hover:bg-primary/90" altText="Undo delete chat">Undo</ToastAction>
-            ),
-        })
+        sonnerToast.warning('Chat deleted', {
+            action: {
+              label: 'Undo',
+              onClick: () => onSheetChatItemDeleteUndo(chat)
+            },
+          })
     }
 
     const onSheetChatItemEditConformClick = (e, _: ChatEntity) => {
