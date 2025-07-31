@@ -318,7 +318,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                                         <Input
                                                             id="name"
                                                             placeholder="OpenAI"
-                                                            className="w-full h-10"
+                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
                                                             onChange={e => { setNewProviderName(e.target.value) }}
                                                         />
                                                     </div>
@@ -327,7 +327,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                                         <Input
                                                             id="apiUrl"
                                                             placeholder="https://api.openai.com/v1/chat/completions"
-                                                            className="w-full h-10"
+                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
                                                             onChange={e => { setNewProviderApi(e.target.value) }}
                                                         />
                                                     </div>
@@ -336,7 +336,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                                         <Input
                                                             id="apiKey"
                                                             placeholder="sk-********"
-                                                            className="w-full h-10"
+                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
                                                             onChange={e => { setNewProviderApiKey(e.target.value) }}
                                                         />
                                                     </div>
@@ -368,7 +368,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                         <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
                             <Label className='flex-none' htmlFor="provider">Provider</Label>
                             <Input id="provider" 
-                                className='flex-grow' 
+                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 flex-grow' 
                                 value={editProviderName}
                                 placeholder="Custom provider name"
                                 onChange={(e) => {
@@ -380,7 +380,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                         <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
                             <Label className='flex-none' htmlFor="provider">ApiUrl&emsp;</Label>
                             <Input id="provider" 
-                                className='flex-grow'
+                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 flex-grow'
                                 value={editProviderApiUrl}
                                 placeholder="https://provider-api.com/v1/chat/x"
                                 onChange={(e) => {
@@ -392,7 +392,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                         <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
                             <Label className='flex-none' htmlFor="provider">ApiKey&ensp;</Label>
                             <Input id="provider" 
-                                className='flex-grow'
+                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 flex-grow'
                                 placeholder="Custom API key"
                                 value={editProviderApiKey}
                                 onChange={(e) => {
@@ -415,8 +415,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                 <TableBody>
                                     <TableRow>
                                         <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
-                                        <TableCell><Input className='h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
-                                        <TableCell><Input className='h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
+                                        <TableCell><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
+                                        <TableCell><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
                                         <TableCell>
                                             <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
                                                 <SelectTrigger className="h-8">
@@ -522,7 +522,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                                     </p>
                                 </div>
                                 <div className='col-span-1'>
-                                    <Input defaultValue={2} />
+                                    <Input className='focus-visible:ring-transparent focus-visible:ring-offset-0' defaultValue={2} />
                                 </div>
                             </div>
                         </Label>

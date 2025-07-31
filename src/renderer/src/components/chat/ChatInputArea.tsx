@@ -324,7 +324,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                       <Input
                         id="temperature"
                         defaultValue="0.7"
-                        className="col-span-2 h-8"
+                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8 focus-visible:ring-0"
                       />
                     </div>
                     <div className="grid grid-cols-3 items-center gap-4">
@@ -332,7 +332,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                       <Input
                         id="topk"
                         defaultValue="0.7"
-                        className="col-span-2 h-8"
+                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
                       />
                     </div>
                     <div className="grid grid-cols-3 items-center gap-4">
@@ -340,7 +340,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                       <Input
                         id="topp"
                         defaultValue="0.7"
-                        className="col-span-2 h-8"
+                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
                       />
                     </div>
                     <div className="grid grid-cols-3 items-center gap-4">
@@ -348,7 +348,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                       <Input
                         id="maxTokens"
                         defaultValue="4096"
-                        className="col-span-2 h-8"
+                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <Label htmlFor="systemPrompt">SystemPrompt</Label>
+                      <Textarea
+                        id="systemPrompt"
+                        placeholder='Input your custom system prmopt here'
+                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
                       />
                     </div>
                   </div>
