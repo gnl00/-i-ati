@@ -107,7 +107,7 @@ function chatSubmit() {
 
     // 构建用户消息
     const model = selectedModel
-    let messageBody: ChatMessage = { role: "user", content: '', model: model.name }
+    let messageBody: ChatMessage = { role: "user", content: '' }
     if (model.type === 'llm') {
       messageBody = {...messageBody, content: textCtx.trim()}
     } else if (model.type === 'vlm') {
@@ -409,6 +409,7 @@ function chatSubmit() {
 
     // 保存消息到本地数据库
     if (context.gatherContent || context.gatherReasoning) {
+      context.sysMessageEntity.body.model = context.model.name
       const sysMsgId = await saveMessage(context.sysMessageEntity) as number
       context.chatEntity.messages = [...context.chatEntity.messages, sysMsgId]
       context.chatEntity.updateTime = new Date().getTime()
