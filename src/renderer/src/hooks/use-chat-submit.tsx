@@ -3,7 +3,6 @@ import { getChatById, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
 import { useChatStore } from "@renderer/store"
 import { chatRequestWithHook, chatRequestWithHookV2 } from "@request/index"
-import { openAIRequestWithHook } from "@request/request-openai"
 import { toast } from '@renderer/components/ui/use-toast'
 import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository"
@@ -332,52 +331,39 @@ function chatSubmit() {
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     if (context.hasToolCall && context.toolCalls.length > 0) {
       console.log('context.toolCalls', context.toolCalls)
-      
-      // 使用 for...of 循环以支持 await，并收集成功执行的工具调用索引
-      const completedIndices: number[] = []
-      
-      for (let i = 0; i < context.toolCalls.length; i++) {
-        const toolCall = context.toolCalls[i]
-        try {
-          const results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', { 
-            tool: toolCall.function, 
-            args: toolCall.args 
-          })
-          console.log('tool-call-results', results)
-          
-          // 构建工具调用结果消息
-          const mcpToolFunctionMessage: ChatMessage = {
-            role: 'function', 
-            name: toolCall.function, 
-            content: JSON.stringify(results)
-          }
-  
-          if (!context.toolCallResults) {
-            context.toolCallResults = [{
-              name: toolCall.function,
-              content: results
-            }]
-          } else {
-            context.toolCallResults.push({
-              name: toolCall.function,
-              content: results
-            })
-          }
-          
-          // 更新请求消息，添加工具调用结果
-          context.request.messages.push(mcpToolFunctionMessage)
-          
-          // 记录成功执行的工具调用索引
-          completedIndices.push(i)
-        } catch (error: any) {
-          console.error('Tool call error:', error)
-          context.error = error
+      const toolCall = (context.toolCalls.shift())! // 从第一个 tool 开始调用，逐个返回结果
+      try {
+        const results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', { 
+          tool: toolCall.function, 
+          args: toolCall.args 
+        })
+        console.log('tool-call-results', results)
+        
+        // 构建工具调用结果消息
+        const mcpToolFunctionMessage: ChatMessage = {
+          role: 'function', 
+          name: toolCall.function, 
+          content: JSON.stringify(results)
         }
-      }
-      
-      // 从后往前移除已完成的工具调用，避免索引问题
-      for (let i = completedIndices.length - 1; i >= 0; i--) {
-        context.toolCalls.splice(completedIndices[i], 1)
+
+        if (!context.toolCallResults) {
+          context.toolCallResults = [{
+            name: toolCall.function,
+            content: results
+          }]
+        } else {
+          context.toolCallResults.push({
+            name: toolCall.function,
+            content: results
+          })
+        }
+        
+        // 更新请求消息，添加工具调用结果
+        context.request.messages.push(mcpToolFunctionMessage)
+
+      } catch (error: any) {
+        console.error('Tool call error:', error)
+        context.error = error
       }
       
       // 重置工具调用状态，准备下一轮流式处理
