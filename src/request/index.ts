@@ -86,7 +86,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
   beforeFetch()
 
   const cacheMessage: ChatMessage[] = req.messages.map(msg => {
-    const { reasoning, artifatcs, toolCallResults: tool, ...props } = msg
+    const { reasoning, artifatcs, toolCallResults: tool, model, ...props } = msg
     return props
   })
   const gatherMessages = () => {

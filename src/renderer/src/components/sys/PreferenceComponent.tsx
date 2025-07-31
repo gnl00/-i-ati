@@ -140,27 +140,26 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         setNextAddModelEnable(val)
     }
     const saveConfigurationClick = (): void => {
-        if (!currentProvider) return
-        
         console.log('saveConfigurationClick', editProviderName, editProviderApiUrl, editProviderApiKey)
         
-        // Update provider with new values
-        updateProvider(currentProvider.name, {
-            name: editProviderName,
-            apiUrl: editProviderApiUrl,
-            apiKey: editProviderApiKey
-        })
+        if (currentProvider) {
+            // Update provider with new values
+            updateProvider(currentProvider.name, {
+                name: editProviderName,
+                apiUrl: editProviderApiUrl,
+                apiKey: editProviderApiKey
+            })
 
-        console.log('updatedProvider', {
-            name: editProviderName,
-            apiUrl: editProviderApiUrl,
-            apiKey: editProviderApiKey
-        })
-        
-        
-        // If provider name changed, update current provider reference
-        if (editProviderName !== currentProvider.name) {
-            setCurrentProviderName(editProviderName)
+            console.log('updatedProvider', {
+                name: editProviderName,
+                apiUrl: editProviderApiUrl,
+                apiKey: editProviderApiKey
+            })
+            
+            // If provider name changed, update current provider reference
+            if (editProviderName !== currentProvider.name) {
+                setCurrentProviderName(editProviderName)
+            }
         }
         
         const updatedAppConfig = {
@@ -172,6 +171,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                 titleGenerateEnabled: titleGenerateEnabled
             }
         }
+
         setAppConfig(updatedAppConfig)
         
         toast({

@@ -28,7 +28,7 @@ export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { ch
     }
   }
   return (
-    <div className='relative border rounded-lg overflow-hidden'>
+    <div className='relative border rounded-2xl overflow-hidden'>
       {/* Header with language and copy button */}
       <div className='flex justify-between items-center bg-black/5 dark:bg-gray-800 px-3 py-1 border-b'>
         <span className='text-sm text-gray-500 dark:text-gray-300 font-medium select-none'>
@@ -43,6 +43,22 @@ export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { ch
           <CopyIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
         </Button>
       </div>
+      {/* Code content */}
+      <MemoSyntaxHighlighter
+        customStyle={{ padding: '12px', margin: '0', borderRadius: '0 0 0 0' }}
+        PreTag={'pre'}
+        children={String(children).replace(/\n$/, '')}
+        language={language}
+        style={dracula}
+        wrapLongLines={true}
+      />
+    </div>
+  )
+})
+
+export const SyntaxHighlighterWrapperNoHeader = React.memo(({ children, language }: { children: string, language: string }) => {
+  return (
+    <div className='relative rounded-b-lg overflow-hidden'>
       {/* Code content */}
       <MemoSyntaxHighlighter
         customStyle={{ padding: '12px', margin: '0', borderRadius: '0 0 0 0' }}

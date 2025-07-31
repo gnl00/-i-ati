@@ -11,7 +11,7 @@ import {
 import { CopyIcon, ReloadIcon, Pencil2Icon, CodeIcon } from '@radix-ui/react-icons'
 import { BadgePercent, BadgeCheck, BadgeX } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
+import { SyntaxHighlighterWrapper, CodeCopyWrapper, SyntaxHighlighterWrapperNoHeader } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -90,7 +90,7 @@ const {readStreamState} = useChatStore()
         <Tooltip>
           <TooltipTrigger asChild>
             <div id='use-message' className={cn("flex justify-end mr-1", index === 0 ? 'mt-2' : '')}>
-              <div className={cn("max-w-[85%] rounded-xl py-3 px-3 bg-blue-50 dark:bg-gray-100")}>
+              <div className={cn("max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-100")}>
                 {typeof m.content !== 'string' ? (
                   <>
                     <div className="">
@@ -106,16 +106,18 @@ const {readStreamState} = useChatStore()
                               skipHtml={false}
                               className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
                               components={{
+                                pre(props) {
+                                  const { children, ...rest } = props
+                                  return <>{children}</>
+                                },
                                 code(props) {
                                   const { children, className, node, ...rest } = props
                                   const match = /language-(\w+)/.exec(className || '')
                                   return match ? (
-                                    <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
-                                      <SyntaxHighlighterWrapper
+                                    <SyntaxHighlighterWrapper
                                       children={String(children).replace(/\n$/, '')}
                                       language={match[1]}
-                                      />
-                                    </CodeCopyWrapper>
+                                    />
                                   ) : (
                                     <code {...rest} className={className}>
                                       {children}
@@ -138,16 +140,18 @@ const {readStreamState} = useChatStore()
                     skipHtml={false}
                     className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
                     components={{
+                      pre(props) {
+                        const { children, ...rest } = props
+                        return <>{children}</>
+                      },
                       code(props) {
                         const { children, className, node, ...rest } = props
                         const match = /language-(\w+)/.exec(className || '')
                         return match ? (
-                          <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
-                            <SyntaxHighlighterWrapper
+                          <SyntaxHighlighterWrapper
                             children={String(children).replace(/\n$/, '')}
                             language={match[1]}
-                            />
-                          </CodeCopyWrapper>
+                          />
                         ) : (
                           <code {...rest} className={className}>
                             {children}
@@ -199,8 +203,8 @@ const {readStreamState} = useChatStore()
         )}
         {
           m.toolCallResults && m.toolCallResults.length > 0 && m.toolCallResults.map((tc, idx) => (
-            <Accordion key={idx} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
-              <AccordionItem value={'tool-use-' + index}>
+            <Accordion id="accordion-tool-call-result" key={idx} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl shadow-inner border-[1px]'>
+              <AccordionItem value={'tool-use-' + index} className='border-none'>
                 <AccordionTrigger className='text-sm h-10 flex'>
                   <Badge variant={'outline'} className={cn("bg-blue-gray-100 hover:bg-blue-gray-200 space-x-1", !tc.isError ? 'text-green-600' : 'text-red-500')}>
                     {
@@ -209,7 +213,7 @@ const {readStreamState} = useChatStore()
                     <span>{tc.name}</span>
                   </Badge>
                 </AccordionTrigger>
-                <AccordionContent className="border-none rounded-xl">
+                <AccordionContent className="border-none rounded-xl pb-0">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
@@ -225,7 +229,7 @@ const {readStreamState} = useChatStore()
                         const { children, className, node, ...rest } = props
                         const match = /language-(\w+)/.exec(className || '')
                         return match ? (
-                          <SyntaxHighlighterWrapper
+                          <SyntaxHighlighterWrapperNoHeader
                             children={String(children).replace(/\n$/, '')}
                             language={match[1]}
                           />
@@ -285,7 +289,7 @@ const {readStreamState} = useChatStore()
               // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
               skipHtml={false}
               remarkRehypeOptions={{ passThrough: ['link'] }}
-              className="prose px-2 py-2 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+              className="prose px-2 py-2 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-p:mb-4 prose-p:mt-4 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
               components={{
                 pre(props) {
                   const { children, ...rest } = props

@@ -80,10 +80,11 @@ declare interface MessageEntity {
 }
 
 declare interface ChatMessage {
+  model?: string
   role: string;
   content: string | VLMContent[]
   reasoning?: string
-  name?: string
+  name?: string // for role=function
   artifatcs?: boolean
   toolCallResults?: any
 }
