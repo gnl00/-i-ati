@@ -177,11 +177,11 @@ const {readStreamState} = useChatStore()
     ) : null
   }
 
-  return (m.content || m.reasoning) ? (
+  return (m) ? (
     <div id='assistant-message' className={cn("flex justify-start flex-col pb-0.5", index === 0 ? 'mt-2' : '')}>
       <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
         {m.model && (
-          <Badge variant="outline" className='select-none text-gray-700'>@{m.model}</Badge>
+          <Badge variant="outline" className='select-none text-gray-700 mb-1'>@{m.model}</Badge>
         )}
         {m.reasoning && !m.artifatcs && (
           <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
@@ -286,13 +286,13 @@ const {readStreamState} = useChatStore()
               })()}
             </div>
           )
-          : (
+          : m.content && (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
               skipHtml={false}
               remarkRehypeOptions={{ passThrough: ['link'] }}
-              className="prose px-2 pb-0.5 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-p:mb-4 prose-p:mt-4 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+              className="prose px-2 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-p:mb-4 prose-p:mt-4 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
               components={{
                 pre(props) {
                   const { children, ...rest } = props
@@ -315,7 +315,7 @@ const {readStreamState} = useChatStore()
               }}
             >
             {
-              showArtifactsCode ? `\`\`\`\n${extractArtifactContent(m.content as string)}\n\`\`\`` : m.content as string
+              showArtifactsCode ? `\`\`\`html\n${extractArtifactContent(m.content as string)}\n\`\`\`` : m.content as string
             }
             </ReactMarkdown>
           ) 

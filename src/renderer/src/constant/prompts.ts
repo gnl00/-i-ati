@@ -12,7 +12,7 @@ export const generateSearchKeywordsPrompt = `[/no_think /no_thinking /do_not_thi
       你需要从上下文中提取出关键的,准确的时间信息,你生成的查询关键词应该是 '明天上海天气预报,上海天气,上海天气预报'.
 NOTE: NEVER EXPIAN, OUTPUT THE KEYWORDS STRING ONLY!!!. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n
 `
-export const artifactsSystemPrompt = `[/no_think /no_thinking /do_not_think]\n当用户输入以 ${artifactsTool} 开头，并且用户想要你生成某些内容时，直接生成一个可运行的 HTML 或 SVG 示例;如果用户不要求你生成,可以正常response。**不要输出任何解释文字**，只返回一段用 <antArtifact> 包裹的内容，并附带 identifier、type、title 三个属性。
+export const artifactsSystemPrompt = `[/no_think /no_thinking /do_not_think]\n当用户输入以 ${artifactsTool} 开头,直接生成一个可运行的 HTML 或 SVG 示例;**不要输出任何解释文字**，只返回一段用 <antArtifact> 包裹的内容，并附带 identifier、type、title 三个属性。
 
 示例 1（HTML）：
 <antArtifact identifier="hello-html" type="text/html" title="Hello Page">

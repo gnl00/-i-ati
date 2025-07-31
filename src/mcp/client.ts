@@ -162,9 +162,9 @@ const toolCall = async (toolName: string, args: { [x: string]: unknown } | undef
       }
     })
     const results = await Promise.all(promises)
+    console.log(`[@i] toolCall ${toolName} end`);
     return results
   }
-  console.log(`[@i] toolCall ${toolName} end`);
   return []
 }
 

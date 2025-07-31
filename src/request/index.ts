@@ -73,11 +73,6 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     return
   }
 
-  const systemPromptMessage = req.prompt ? {
-    role: 'system',
-    content: req.prompt
-  } : null
-
   const headers = {
     ...postHeanders,
     authorization: authorizationPreffix + req.apiKey
@@ -90,17 +85,26 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     return props
   })
   const gatherMessages = () => {
+    console.log('cacheMessage', cacheMessage);
     let ms = cacheMessage
-    if (systemPromptMessage) {
-      ms = [systemPromptMessage, ...cacheMessage]
+    if (req.prompt) {
+      ms = [
+        {
+          role: 'system',
+          content: req.prompt
+        },
+        ...ms
+      ]
     }
-    if (req.tools) {
+    console.log('req.tools', req.tools);
+    if (req.tools && req.tools?.length > 0) {
       const toolsMessage = {
         role: 'user',
         content: JSON.stringify(req.tools)
       }
-      ms = [toolsMessage, ...cacheMessage]
+      ms = [toolsMessage, ...ms]
     }
+    console.log('sendTo messages', ms);
     return ms
   }
   const enableStream = req.stream === true ? true : (req.stream === undefined ? true : false)

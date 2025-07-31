@@ -87,6 +87,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       "git": {
         "command": "uvx",
         "args": ["mcp-server-git"]
+      },
+      "iterm-mcp": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "iterm-mcp"
+        ]
       }
     }
   })

@@ -232,14 +232,14 @@ function chatSubmit() {
       })
     }
 
-    const nextSendMessages = webSearchEnable && context.searchFunctionMessage ? 
-      [...chatMessages, context.searchFunctionMessage] : chatMessages
-
+    const nextSendMessages = webSearchEnable && context.searchFunctionMessage ? [...chatMessages, context.searchFunctionMessage] : chatMessages
+    const systemPrompts = [artifacts ? artifactsSystemPrompt : '', webSearchEnable ? webSearchSystemPrompt : '', toolCallPrompt].join('\n\n')
+    
     context.request = {
       baseUrl: context.provider.apiUrl,
       messages: nextSendMessages,
       apiKey: context.provider.apiKey,
-      prompt: [toolCallPrompt, artifacts ? artifactsSystemPrompt : '', webSearchEnable ? webSearchSystemPrompt : ''].join('\n\n'),
+      prompt: systemPrompts,
       model: context.model.value,
       tools: context.tools
     }
@@ -248,7 +248,7 @@ function chatSubmit() {
   }
 
   // 管道函数：处理流式响应
-  const processStream = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
+  const processRequest = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     const streamReader = await chatRequestWithHookV2(context.request, context.signal, beforeFetch, afterFetch)
     
     while (streamReader && true) {
@@ -329,9 +329,10 @@ function chatSubmit() {
 
   // 管道函数：处理工具调用
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
-    if (context.hasToolCall && context.toolCalls.length > 0) {
+    while(context.toolCalls.length > 0) {
       console.log('context.toolCalls', context.toolCalls)
       const toolCall = (context.toolCalls.shift())! // 从第一个 tool 开始调用，逐个返回结果
+  
       try {
         const results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', { 
           tool: toolCall.function, 
@@ -343,9 +344,9 @@ function chatSubmit() {
         const mcpToolFunctionMessage: ChatMessage = {
           role: 'function', 
           name: toolCall.function, 
-          content: JSON.stringify(results)
+          content: JSON.stringify({...results, functionCallCimpleted: true})
         }
-
+  
         if (!context.toolCallResults) {
           context.toolCallResults = [{
             name: toolCall.function,
@@ -357,34 +358,55 @@ function chatSubmit() {
             content: results
           })
         }
+
+        setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, { 
+          body: { 
+            role: 'system', 
+            content: context.gatherContent, 
+            reasoning: context.gatherReasoning,
+            artifatcs: artifacts,
+            toolCallResults: context.toolCallResults,
+            model: context.model.name
+          } 
+        }])
         
         // 更新请求消息，添加工具调用结果
         context.request.messages.push(mcpToolFunctionMessage)
-
+  
       } catch (error: any) {
         console.error('Tool call error:', error)
         context.error = error
+        setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, { 
+          body: { 
+            role: 'system', 
+            content: context.gatherContent, 
+            reasoning: context.gatherReasoning,
+            artifatcs: artifacts,
+            toolCallResults: context.toolCallResults,
+            model: context.model.name
+          } 
+        }])
       }
-      
-      // 重置工具调用状态，准备下一轮流式处理
-      context.hasToolCall = false
-      context.toolCallFunctionName = ''
-      context.toolCallFunctionArgs = ''
     }
-
+    
+    // 重置工具调用状态，准备下一轮流式处理
+    context.hasToolCall = false
+    context.toolCalls = []
+    context.toolCallFunctionName = ''
+    context.toolCallFunctionArgs = ''
     return context
   }
 
   // 递归处理流式响应和工具调用
-  const processStreamWithToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
+  const processRequestWithToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     // 处理流式响应
-    context = await processStream(context)
+    context = await processRequest(context)
     
     // 如果有工具调用，处理工具调用后继续处理响应
     if (context.hasToolCall && context.toolCalls.length > 0) {
       context = await handleToolCall(context)
       // 递归调用，处理工具调用后的响应
-      return await processStreamWithToolCall(context)
+      return await processRequestWithToolCall(context)
     }
     
     return context
@@ -425,7 +447,7 @@ function chatSubmit() {
       let context = await prepareMessageAndChat(textCtx, mediaCtx, tools)
       context = await handleWebSearch(context)
       context = buildRequest(context)
-      context = await processStreamWithToolCall(context)
+      context = await processRequestWithToolCall(context)
       await finalize(context)
     } catch (error: any) {
       if (error.name !== 'AbortError') {
