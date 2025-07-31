@@ -106,18 +106,17 @@ function chatSubmit() {
     }
 
     // 构建用户消息
-    let messageBody: ChatMessage
     const model = selectedModel
-    const modelType = model.type
-    if (modelType === 'llm') {
-      messageBody = { role: "user", content: textCtx.trim() } as ChatMessage
-    } else if (modelType === 'vlm') {
+    let messageBody: ChatMessage = { role: "user", content: '', model: model.name }
+    if (model.type === 'llm') {
+      messageBody = {...messageBody, content: textCtx.trim()}
+    } else if (model.type === 'vlm') {
       const imgContents: VLMContent[] = []
       mediaCtx.forEach(imgBase64 => {
         imgContents.push({ type: 'image_url', image_url: { url: imgBase64 as string, detail: 'auto' } })
       })
       messageBody = { 
-        role: "user", 
+        ...messageBody,
         content: [...imgContents, { type: 'text', text: textCtx.trim() } ]
       }
     } else {
@@ -317,7 +316,8 @@ function chatSubmit() {
               content: context.gatherContent, 
               reasoning: context.gatherReasoning,
               artifatcs: artifacts,
-              toolCallResults: context.toolCallResults
+              toolCallResults: context.toolCallResults,
+              model: context.model.name
             } 
           }])
         } catch(error: any) {} // 忽略解析失败的行
