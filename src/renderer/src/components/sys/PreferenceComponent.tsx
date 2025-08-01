@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Cross1Icon } from "@radix-ui/react-icons"
 import { cn } from '@renderer/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@renderer/components/ui/tabs"
 import {
@@ -49,7 +50,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         appConfig,
         setAppConfig, 
         models, 
-        providers, 
+        providers, setProviders,
         getProviderByName,
         currentProviderName,
         setCurrentProviderName,
@@ -80,6 +81,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
 
     const [msConfig, setmsConfig] = useState<string>(JSON.stringify(mcpServerConfig, null, 2))
+
+    const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
 
     const providerCardRef = useRef<HTMLDivElement>(null)
     const theEndProviderCardRef = useRef<HTMLDivElement>(null)
@@ -270,6 +273,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             sonnerToast.error(error.message)
         }
     }
+    const onProviderCardHover = (idx) => {
+        setHoverProviderCardIdx(idx)
+    }
+    const onProviderCardDelClick = (idx) => {
+        console.log('onProviderCardDelClick', idx)
+        setProviders(providers.filter((_, i) => i !== idx))
+    }
     return (
         <div className="grid gap-4">
             <div className="space-y-2 select-none">
@@ -285,7 +295,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <TabsTrigger value="tool">Tool</TabsTrigger>
                     <TabsTrigger value="mcp-server">MCP Server</TabsTrigger>
                 </TabsList>
-                <TabsContent value="providers" className='w-[640px] h-[600px]'>
+                <TabsContent value="providers" className='w-[640px] h-[600px] focus:ring-0 focus-visible:ring-0'>
                     <div ref={providerCardRef} className="m-2 h-20 overflow-scroll scroll-smooth no-scrollbar">
                         <div className={cn('select-none h-20 flex space-x-2 relative', providers.length === 0 ? 'flex justify-center' : '')}>
                             <div className={cn('bg-gray-100 rounded-md flex-none w-24 h-20')}>
@@ -341,7 +351,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             </div>
                             {
                                 providers.map((fProvider, idx) => (
-                                    <div key={fProvider.name}>
+                                    <div key={fProvider.name} className='relative' onMouseEnter={_ => onProviderCardHover(idx)}>
+                                        {
+                                            hoverProviderCardIdx === idx && (
+                                                <div className='absolute top-0 right-0' onClick={_ => onProviderCardDelClick(idx)}>
+                                                    <Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 transition-all duration-300 ease-in-out hover:transform hover:rotate-180" />
+                                                </div>
+                                            )
+                                        }
                                         <div ref={idx === providers.length - 1 ? theEndProviderCardRef : null} className='flex flex-col justify-center items-center bg-gray-100 rounded w-24 h-20 select-none' onClick={_ => onProviderCardClick(fProvider)}>
                                             {getIcon(fProvider.name)}
                                             <p className='select-none'>{fProvider.name}</p>
@@ -436,7 +453,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="tool" className='w-[640px] min-h-96 space-y-1'>
+                <TabsContent value="tool" className='w-[640px] min-h-96 space-y-1 focus:ring-0 focus-visible:ring-0'>
                     <div className='w-full space-y-1'>
                         <Label className="hover:bg-accent/50 flex items-start gap-3 rounded-lg border p-3 has-[[aria-checked=true]]:bg-blue-50">
                             <Checkbox
@@ -516,7 +533,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </Label>
                     </div>
                 </TabsContent>
-                <TabsContent value="mcp-server" className='w-[640px] min-h-96 max-h-[600px] overflow-scroll space-y-1 rounded-md'>
+                <TabsContent value="mcp-server" className='w-[640px] min-h-96 max-h-[600px] overflow-scroll space-y-1 rounded-md focus:ring-0 focus-visible:ring-0'>
                     <CodeEditor
                         value={msConfig}
                         language="json"
