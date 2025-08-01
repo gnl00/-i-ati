@@ -65,15 +65,18 @@ pnpm build:mac
 - [X] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
 - [X] input area toolbar
 - [X] Copy and Edit tooltips
-- [ ] fetch models from api(if API provider supports)
+- [X] ~~fetch models from api(if API provider supports)~~ maybe no need
 - [X] save chat list
 - [ ] chat list ~~title~~ and hisoty summary
 - [X] dark/light mode
 - [X] artifacts supports(~~THANKS CLAUDECODE :P~~)
 - [X] default model for chat
 - [X] add provider
-- [ ] chat config topK/topP/maxToken...
-- [X] copyCode button
+- [ ] chat config topK/topP/maxToken(very soon~)
+- [X] web search
+- [ ] web search items setting
+- [X] mcp(yes it is here~)
+- [ ] re-design provider card...
 
 ## Reference
 
