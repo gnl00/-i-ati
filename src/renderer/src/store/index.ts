@@ -120,6 +120,10 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
         if (p.name === providerName) {
             const nextP = { ...p, ...updates }
             // console.log('store updated', nextP)
+            nextP.models = nextP.models.map(m => {
+              m.provider = nextP.name
+              return m
+            })
             return nextP
         } else {
             return p

@@ -238,11 +238,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     }
     const updateCurrentProvider = (key: string, value: Object) => {
         if (currentProvider) {
-            const updatedProvider = {
-                ...currentProvider,
+            const oldProvider = currentProvider
+            const newProvider = {
+                ...oldProvider,
                 [key]: value
             }
-            updateProvider(currentProvider.name, updatedProvider)
+            setCurrentProvider(newProvider)
+            updateProvider(oldProvider.name, newProvider)
         }
     }
     const toggleEnableAllModels = (checked: boolean) => {
@@ -358,6 +360,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                 placeholder="Custom provider name"
                                 onChange={(e) => {
                                     setEditProviderName(e.target.value)
+                                    setCurrentProviderName(e.target.value)
                                     updateCurrentProvider('name', e.target.value)
                                 }}
                                 />

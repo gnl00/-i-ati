@@ -125,7 +125,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     body: JSON.stringify({
       model: req.model,
       messages: gatherMessages(),
-      tools: functionTools,
+      ...(functionTools?.length && { tools: functionTools }),
       stream: enableStream,
       max_tokens: 4096,
       temperature: 0.7,

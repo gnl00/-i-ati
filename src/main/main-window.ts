@@ -1,7 +1,7 @@
 import { shell, BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
-import icon from '../../resources/icon.png?asset'
+import icon from '../../build/icon.png?asset'
 
 let mainWindow: BrowserWindow
 
