@@ -307,6 +307,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             models: updatedModels
         })
     }
+    
+    // 计算全选checkbox的状态
+    const getAllModelsCheckedState = () => {
+        const models = currentProvider?.models || []
+        if (models.length === 0) return false
+        return models.every(m => m.enable)
+    }
     const onMcpServerConfigChange = e => {
         try {
             const config = e.target.value
@@ -347,9 +354,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             <div className={cn('bg-gray-100 rounded-md')}>
                                 <Drawer>
                                     <DrawerTrigger className='text-gray-400 flex justify-center items-center bg-gray-100 rounded-xl h-full w-full'>
-                                        <p id='add-new-provider' className='sticky bottom-0 w-full h-14 bg-gray-50 rounded-md flex justify-center items-center'>
+                                        <div id='add-new-provider' className='sticky bottom-0 w-full h-14 bg-gray-50 rounded-md flex justify-center items-center'>
                                             <span className='bg-gray-200 w-full h-full flex justify-center items-center mx-1 my-1 rounded-md text-gray-600 text-2xl hover:bg-black/5 hover:text-gray-400'><i className="ri-add-circle-line"></i></span>
-                                        </p>
+                                        </div>
                                     </DrawerTrigger>
                                     <DrawerContent>
                                         <DrawerHeader>
@@ -400,7 +407,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             {
                                 providers.map((p, idx) => (
                                     <div key={idx} className='flex flex-col pl-1 py-0.5 justify-center items-center select-none' onMouseEnter={_ => onProviderCardHover(idx)} onMouseLeave={_ => onProviderCardHover(-1)} onClick={_ => onProviderCardClick(p)}>
-                                        <p className='flex items-center bg-gray-100 hover:bg-blue-gray-200 rounded-md w-full py-2 px-1 text-gray-700 space-x-2 relative'>
+                                        <div className={cn('flex items-center bg-gray-100 hover:bg-blue-gray-200 rounded-md w-full py-2 px-1 text-gray-700 space-x-2 relative', p.name === currentProviderName ? 'bg-blue-gray-200' : '')}>
                                             <img draggable={false} src={getIconSrc(p.name)} alt="OpenAI" className="w-5 h-5" />
                                             <span>{p.name}</span>
                                             {
@@ -410,7 +417,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                     </div>
                                                 )
                                             }
-                                        </p>
+                                        </div>
                                     </div>
                                 ))
                             }
@@ -449,9 +456,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             <Table id="provider-models-table" className='relative'>
                                 <TableHeader className='text-sm select-none sticky top-0 bg-gray-100 z-10'>
                                     <TableRow>
-                                        <TableHead className='text-center flex items-center space-x-1'><Checkbox onCheckedChange={toggleEnableAllModels} /><span>Enable</span></TableHead>
-                                        <TableHead className='text-center'>DisplayName</TableHead>
-                                        <TableHead className='text-center'>ModelValue</TableHead>
+                                        <TableHead className='text-center flex items-center space-x-1'><Checkbox checked={getAllModelsCheckedState()} onCheckedChange={toggleEnableAllModels} /><span>Enable</span></TableHead>
+                                        <TableHead className='text-center'>Label</TableHead>
+                                        <TableHead className='text-center'>Value</TableHead>
                                         <TableHead className='text-center'>Type</TableHead>
                                         <TableHead className='text-center'>Operation</TableHead>
                                     </TableRow>
@@ -525,7 +532,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="providers" className='w-[640px] h-[600px] focus:ring-0 focus-visible:ring-0'>
+                {/* <TabsContent value="providers" className='w-[640px] h-[600px] focus:ring-0 focus-visible:ring-0'>
                     <div ref={providerCardRef} className="m-2 h-20 overflow-scroll scroll-smooth no-scrollbar">
                         <div className={cn('select-none h-20 flex space-x-2 relative', providers.length === 0 ? 'flex justify-center' : '')}>
                             <div className={cn('bg-gray-100 rounded-md flex-none w-24 h-20')}>
@@ -640,7 +647,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             <Table>
                                 <TableHeader className=''>
                                     <TableRow>
-                                        <TableHead className='text-center flex items-center space-x-1'><Checkbox onCheckedChange={toggleEnableAllModels} /><span>Enable</span></TableHead>
+                                        <TableHead className='text-center flex items-center space-x-1'><Checkbox checked={getAllModelsCheckedState()} onCheckedChange={toggleEnableAllModels} /><span>Enable</span></TableHead>
                                         <TableHead className='text-center'>DisplayName</TableHead>
                                         <TableHead className='text-center'>Value</TableHead>
                                         <TableHead className='text-center'>Type</TableHead>
@@ -682,7 +689,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             </Table>
                         </div>
                     </div>
-                </TabsContent>
+                </TabsContent> */}
                 <TabsContent value="tool" className='w-[640px] min-h-96 space-y-1 focus:ring-0 focus-visible:ring-0'>
                     <div className='w-full space-y-1'>
                         <Label className="hover:bg-accent/50 flex items-start gap-3 rounded-lg border p-3 has-[[aria-checked=true]]:bg-blue-50">
