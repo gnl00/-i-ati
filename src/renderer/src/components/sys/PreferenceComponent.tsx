@@ -435,7 +435,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                     />
                                 </Label>
                                 <Label>
-                                    <p className='pl-1 pb-0.5 text-gray-400'>ApiUrl</p>
+                                    <p className='pl-1 pb-0.5 text-gray-400'>API Url</p>
                                     <Input className='w-full' placeholder='api url' value={editProviderApiUrl}
                                         onChange={(e) => {
                                             setEditProviderApiUrl(e.target.value)
@@ -444,7 +444,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                     />
                                 </Label>
                                 <Label>
-                                    <p className='pl-1 pb-0.5 text-gray-400'>ApiKey</p>
+                                    <p className='pl-1 pb-0.5 text-gray-400'>API Key</p>
                                     <Input className='w-full' placeholder='api key' value={editProviderApiKey}
                                         onChange={(e) => {
                                             setEditProviderApiKey(e.target.value)
