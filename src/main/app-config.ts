@@ -3,17 +3,17 @@ import { join } from 'path'
 import * as fs from 'node:fs'
 import { defaultConfig as embeddedConfig } from '../config'
 
-const configPath = app.getPath('userData')
-console.log('[@i] configPath=', configPath);
+const appDataPath = app.getPath('userData')
+console.log('[@i] appDataPath=', appDataPath);
 
-const configFile = join(configPath, 'appConfig.json')
+const configFile = join(appDataPath, 'appConfig.json')
 
 let appConfig: AppConfigType
 
 function tryInitConfig(): void {
-  if (!fs.existsSync(configPath)) {
-    console.log('[@i] Local config path not found, creating', configPath)
-    fs.mkdirSync(configPath)
+  if (!fs.existsSync(appDataPath)) {
+    console.log('[@i] Local config path not found, creating', appDataPath)
+    fs.mkdirSync(appDataPath)
   }
 
   if (!fs.existsSync(configFile)) {
@@ -46,7 +46,6 @@ function loadConfig(): void {
       ...configForUpdate
     }
     saveConfig(appConfig)
-    console.log('[@i] Refresh local config\n', appConfig)
   }
 }
 
@@ -57,7 +56,7 @@ const saveConfig = (configData: AppConfigType): void => {
     ...configData 
   }
   fs.writeFileSync(configFile, JSON.stringify(mergedConfig, null, 2))
-  console.log('[@i] Merged config saved\n', JSON.stringify(mergedConfig))
+  console.log('[@i] Save merged config\n', JSON.stringify(mergedConfig))
 }
 
 export {

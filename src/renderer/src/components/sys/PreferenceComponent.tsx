@@ -28,8 +28,6 @@ import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, Drawer
 import { Input } from '@renderer/components/ui/input'
 import { toast as sonnerToast } from 'sonner'
 import { useChatStore } from '@renderer/store'
-import SyntaxHighlighter from 'react-syntax-highlighter';
-import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
@@ -40,11 +38,11 @@ import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
 import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
 import groqIcon from '@renderer/assets/provider-icons/groq.svg'
 import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
-interface PreferenceProps {
-    onTokenQuestionClick: (url: string) => void;
-}
+import CodeEditor from '@uiw/react-textarea-code-editor'
 
-const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) => {
+interface PreferenceProps {}
+
+const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
     const { 
         appVersion,
@@ -52,7 +50,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
         setAppConfig, 
         models, 
         providers, 
-        setProviders,
         getProviderByName,
         currentProviderName,
         setCurrentProviderName,
@@ -82,32 +79,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     const [newProviderApi, setNewProviderApi] = useState<string>()
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
 
+    const [msConfig, setmsConfig] = useState<string>(JSON.stringify(mcpServerConfig, null, 2))
+
     const providerCardRef = useRef<HTMLDivElement>(null)
     const theEndProviderCardRef = useRef<HTMLDivElement>(null)
     
-    async function fetchModels() {
-        try {
-            const response = await fetch('https://raw.githubusercontent.com/gnl00/-i-ati/refs/heads/main/data/models.json');
-            // console.log('Response received:', response.status, response.statusText);
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            const data = await response.json();
-            console.log('models fetched:', data);
-            // fs.writeFileSync(path.join(__dirname, '../../data/models.json'), JSON.stringify(data, null, 2));
-            // console.log('Models written to file successfully.');
-        } catch (error: any) {
-            console.info('Error fetching models:', error.message);
-        }
-    }
-
     useEffect(() => {
-        // fetchModels()
         setEditProviderName('')
         setEditProviderApiUrl('')
         setEditProviderApiKey('')
     }, [])
-
     useEffect(() => {
         if (currentProviderName) {
             const p = getProviderByName(currentProviderName)!
@@ -117,8 +98,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             setEditProviderApiKey(p.apiKey)
         }
     }, [currentProviderName, providers])
-
-    useEffect(() => {}, [editProviderName, editProviderApiUrl, editProviderApiKey])
+    useEffect(() => {
+        setmsConfig(JSON.stringify(mcpServerConfig, null, 2))
+    }, [mcpServerConfig])
 
     const onAddModelClick = () => {
         console.log('onAddModelClick currentProvider=', currentProvider);
@@ -146,7 +128,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
     const saveConfigurationClick = (): void => {
         console.log('saveConfigurationClick', editProviderName, editProviderApiUrl, editProviderApiKey)
         console.log('saveConfigurationClick mcpServerConfig', mcpServerConfig)
-        
+
         if (currentProvider) {
             // Update provider with new values
             updateProvider(currentProvider.name, {
@@ -174,6 +156,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                 ...appConfig.tools,
                 titleGenerateModel: titleGenerateModel,
                 titleGenerateEnabled: titleGenerateEnabled
+            },
+            mcp: {
+                ...JSON.parse(msConfig)
             }
         }
 
@@ -271,10 +256,12 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
             models: updatedModels
         })
     }
-    const onMcpServerConfigChange = config => {
+    const onMcpServerConfigChange = e => {
         try {
+            const config = e.target.value
             console.log(config)
-            console.log(JSON.parse(config))
+            // console.log(JSON.parse(config))
+            setmsConfig(config)
             setMcpServerConfig(JSON.parse(config))
             sonnerToast.success('All syntax right.')
         } catch(error: any) {
@@ -527,9 +514,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = ({onTokenQuestionClick}) 
                     </div>
                 </TabsContent>
                 <TabsContent value="mcp-server" className='w-[640px] min-h-96 max-h-[600px] overflow-scroll space-y-1 rounded-md'>
-                    <SyntaxHighlighter   SyntaxHighlighter language="javascript" style={docco} contentEditable='true' suppressContentEditableWarning={true} onInput={e => onMcpServerConfigChange(e.currentTarget.textContent)}>
-                        {JSON.stringify(mcpServerConfig, null, 2)}
-                    </SyntaxHighlighter>
+                    <CodeEditor
+                        value={msConfig}
+                        language="json"
+                        placeholder="Please enter JSON code."
+                        onChange={(e) => onMcpServerConfigChange(e)}
+                        style={{
+                            backgroundColor: "#f5f5f5",
+                            fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
+                        }}
+                        />
                 </TabsContent>
                 <div className='space-y-1 mt-1'>
                     <div className="grid grid-cols-4 items-center gap-4">

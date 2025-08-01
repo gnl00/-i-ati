@@ -21,6 +21,7 @@ declare interface IAppConfig {
     titleGenerateEnabled?: boolean
     maxWebSearchItems?: number
   }
+  mcp?: {mcpServers?: {}}
   version?: number
   configForUpdate?: IAppConfig
 }

@@ -31,11 +31,6 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
     window.electron.ipcRenderer.invoke(PIN_WINDOW, !pinState) // pin window
   }
 
-  const onTokenQuestionClick = (url: string): void => {
-    console.log('token question click')
-    window.electron.ipcRenderer.invoke(OPEN_EXTERNAL, url)
-  }
-
   return (
     <div className="header shadow-lg fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black/100" style={{ userSelect: 'none' }}>
       <div className="app-dragable flex-1 space-x-2 flex">
@@ -49,9 +44,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
             </Button>
           </PopoverTrigger>
           <PopoverContent className="m-2 app-undragable w-auto h-full">
-            <PreferenceComponent
-              onTokenQuestionClick={onTokenQuestionClick}
-            />
+            <PreferenceComponent />
           </PopoverContent>
         </Popover>
       </div>
