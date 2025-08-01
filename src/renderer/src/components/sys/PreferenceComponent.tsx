@@ -409,7 +409,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                     <div key={idx} className='flex flex-col pl-1 py-0.5 justify-center items-center select-none' onMouseEnter={_ => onProviderCardHover(idx)} onMouseLeave={_ => onProviderCardHover(-1)} onClick={_ => onProviderCardClick(p)}>
                                         <div className={cn('flex items-center bg-gray-100 hover:bg-blue-gray-200 rounded-md w-full py-2 px-1 text-gray-700 space-x-2 relative', p.name === currentProviderName ? 'bg-blue-gray-200' : '')}>
                                             <img draggable={false} src={getIconSrc(p.name)} alt="OpenAI" className="w-5 h-5" />
-                                            <span>{p.name}</span>
+                                            <span className='font-medium'>{p.name}</span>
                                             {
                                                 hoverProviderCardIdx === idx && (
                                                     <div className='absolute top-0 right-0' onClick={_ => onProviderCardDelClick(idx)}>
