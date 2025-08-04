@@ -28,7 +28,7 @@ type ChatState = {
   webSearchEnable: boolean
   webSearchProcessing: boolean
   artifacts: boolean
-  mcpServerConfig: {}
+  mcpServerConfig: {mcpServers: {}}
   // chatContent: string
   // setChatContent: (content: string) => void
   // chatId: number | undefined

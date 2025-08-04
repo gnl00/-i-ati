@@ -30,6 +30,7 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import chatSubmit from '@renderer/hooks/use-chat-submit'
 import { Label } from '@renderer/components/ui/label'
 import { Input } from '@renderer/components/ui/input'
+import { Slider } from "@renderer/components/ui/slider"
 import { toast } from 'sonner'
 
 interface ChatInputAreaProps {
@@ -64,6 +65,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [selectedMcpServerNames, setSelectedMcpServerNames] = useState<string[]>([])
 
   const [connectingMcpServers, setConnectingMcpServers] = useState<string[]>([])
+  const [chatTemperature, setChatTemperature] = useState<number[]>([1])
+  const [chatTopP, setChatTopP] = useState<number[]>([1])
   const useSubmit = chatSubmit()
   const onSubmitClick = useCallback((_) => {
     useSubmit(inputContent, imageSrcBase64List, Array.from(availableMcpTools.values()).flatMap(i => i))
@@ -156,6 +159,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       })
       toast.warning(`Disconnected mcp-server '${serverName}'`)
     }
+  }
+  const onChatTopPChange = (val) => {
+    setChatTopP([val])
+  }
+  const onChatTemperatureChange = (val) => {
+    setChatTemperature([val])
   }
 
   return (
@@ -287,32 +296,22 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   <div className="grid gap-2">
                     <div className="grid grid-cols-3 items-center gap-4">
                       <Label htmlFor="temperature">Temperature</Label>
-                      <Input
-                        id="temperature"
-                        defaultValue="0.7"
-                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8 focus-visible:ring-0"
-                      />
+                      <div id="slider-topp" className="flex items-center space-x-1 col-span-2">
+                        <Slider id="temperature" value={chatTemperature} min={0.1} max={1} step={0.1} onValueChange={value => onChatTemperatureChange(value)} />
+                        <Badge variant={'outline'}>{chatTemperature}</Badge>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <Label htmlFor="topk">TopK</Label>
-                      <Input
-                        id="topk"
-                        defaultValue="0.7"
-                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 items-center gap-4">
+                    <div className="grid grid-cols-3 items-center gap-4 text-gray-600">
                       <Label htmlFor="topp">TopP</Label>
-                      <Input
-                        id="topp"
-                        defaultValue="0.7"
-                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
-                      />
+                      <div id="slider-topp" className="flex items-center space-x-1 col-span-2">
+                        <Slider id="topp" value={chatTopP} min={0.1} max={1} step={0.1} onValueChange={value => onChatTopPChange(value)} />
+                        <Badge variant={'outline'}>{chatTopP}</Badge>
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 items-center gap-4">
-                      <Label htmlFor="maxTokens">MaxTokens</Label>
+                      <Label htmlFor="maxCompletionTokens">MaxTokens</Label>
                       <Input
-                        id="maxTokens"
+                        id="maxCompletionTokens"
                         defaultValue="4096"
                         className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
                       />
