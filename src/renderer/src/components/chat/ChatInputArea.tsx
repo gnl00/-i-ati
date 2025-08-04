@@ -297,14 +297,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                     <div className="grid grid-cols-3 items-center gap-4">
                       <Label htmlFor="temperature">Temperature</Label>
                       <div id="slider-topp" className="flex items-center space-x-1 col-span-2">
-                        <Slider id="temperature" value={chatTemperature} min={0.1} max={1} step={0.1} onValueChange={value => onChatTemperatureChange(value)} />
+                        <Slider id="temperature" value={chatTemperature} min={0} max={1} step={0.1} onValueChange={value => onChatTemperatureChange(value)} />
                         <Badge variant={'outline'}>{chatTemperature}</Badge>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 items-center gap-4 text-gray-600">
                       <Label htmlFor="topp">TopP</Label>
                       <div id="slider-topp" className="flex items-center space-x-1 col-span-2">
-                        <Slider id="topp" value={chatTopP} min={0.1} max={1} step={0.1} onValueChange={value => onChatTopPChange(value)} />
+                        <Slider id="topp" value={chatTopP} min={0} max={1} step={0.1} onValueChange={value => onChatTopPChange(value)} />
                         <Badge variant={'outline'}>{chatTopP}</Badge>
                       </div>
                     </div>
