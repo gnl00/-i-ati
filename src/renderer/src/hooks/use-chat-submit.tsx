@@ -67,7 +67,7 @@ interface ChatPipelineContext {
   error?: Error
 }
 
-function chatSubmit() {
+function useChatSubmit() {
   const {
     chatId, setChatId,
     chatUuid, setChatUuid,
@@ -525,4 +525,4 @@ function chatSubmit() {
   return onSubmit
 }
 
-export default chatSubmit
+export default useChatSubmit

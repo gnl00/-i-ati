@@ -27,7 +27,7 @@ import { cn } from '@renderer/lib/utils'
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
 import { useChatStore } from '@renderer/store'
 import { useChatContext } from '@renderer/context/ChatContext'
-import chatSubmit from '@renderer/hooks/use-chat-submit'
+import useChatSubmit from '@renderer/hooks/use-chat-submit'
 import { Label } from '@renderer/components/ui/label'
 import { Input } from '@renderer/components/ui/input'
 import { Slider } from "@renderer/components/ui/slider"
@@ -67,15 +67,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [connectingMcpServers, setConnectingMcpServers] = useState<string[]>([])
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
-  const useSubmit = chatSubmit()
+  const handleSubmit = useChatSubmit()
   const onSubmitClick = useCallback((_) => {
-    useSubmit(inputContent, imageSrcBase64List, Array.from(availableMcpTools.values()).flatMap(i => i))
+    handleSubmit(inputContent, imageSrcBase64List, Array.from(availableMcpTools.values()).flatMap(i => i))
 
     onSubmit() // for chat-window scroll to the end
 
     setInputContent('')
     setImageSrcBase64List([])
-  }, [inputContent, imageSrcBase64List, setChatContent, useSubmit])
+  }, [inputContent, imageSrcBase64List, setChatContent, handleSubmit])
 
   const onStopClick = useCallback((_) => {
     if (currentReqCtrl) {
