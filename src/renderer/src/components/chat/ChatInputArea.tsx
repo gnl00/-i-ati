@@ -138,10 +138,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     console.log('mcp-server-config', serverName, serverConfig)
     if (!selectedMcpServerNames.includes(serverName)) {
       setConnectingMcpServers([...connectingMcpServers, serverName])
+      
       const {result, tools, msg} = await window.electron?.ipcRenderer.invoke('mcp-connect', {
         name: serverName,
-        command: serverConfig.command,
-        args: serverConfig.args
+        ...serverConfig
       })
       setConnectingMcpServers(connectingMcpServers.filter(m => m !== serverName))
       if (result) {

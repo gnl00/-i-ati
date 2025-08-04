@@ -34,7 +34,7 @@ function mainIPCSetup() {
   // Playwright handler for web search
   ipcMain.handle(WEB_SEARCH_ACTION, (event, { action, param }) => handleWebSearch({action, param}))
 
-  ipcMain.handle('mcp-connect', (_, { name, command, args }) => mcpConnect({name, command, args}))
+  ipcMain.handle('mcp-connect', (_, mcpProps) => mcpConnect(mcpProps))
   ipcMain.handle('mcp-disconnect', (_, { name }) => mcpClose(name))
   ipcMain.handle('mcp-tool-call', (_, { tool, args }) => {
     // init, @NOTE: We need to assign a new lexer for each JSON stream.

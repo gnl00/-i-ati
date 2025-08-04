@@ -1,10 +1,14 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { spawn } from 'child_process';
 
 export type ClientProps = {
   name: string
-  command: string
+  type?: string
+  url?: string
+  command?: string
   args?: string[]
   env?: string[]
 }
@@ -96,25 +100,43 @@ const checkCommandExists = (command: string): Promise<boolean> => {
 }
 
 const connect = async (props: ClientProps) => {
-  console.log('[@i] mcp-client connect to server:', props.name);
-  
-  try {
-    // Check if command exists locally
-    const commandExists = await checkCommandExists(props.command);
-    if (!commandExists) {
-      throw new Error(`Connect to '${props.name} error. 'Command '${props.command}' not found!`)
-    }
-    
-    const client = new Client({
-      name: "mcp-client-" + props.name,
-      version: "1.0.0"
-    })
-    
-    const transport = new StdioClientTransport({
-      command: props.command,
-      args: props.args
-    })
+  console.log('[@i] mcp-client connect to server:', props.name, JSON.stringify(props));
 
+  const client = new Client({
+    name: "ati-mcp-client-" + props.name,
+    version: "1.0.0"
+  })
+
+  let transport
+  if (props.command) {
+    try {
+      // Check if command exists locally
+      const commandExists = await checkCommandExists(props.command);
+      if (!commandExists) {
+        throw new Error(`Connect to '${props.name} error. 'Command '${props.command}' not found!`)
+      }
+      console.log('[@i] creating StdioClientTransport');
+      transport = new StdioClientTransport({
+        command: props.command,
+        args: props.args
+      })
+    } catch (error: any) {
+      console.error(`[@i] mcp-server '${props.name}' connect error: ${error.message}`)
+      return {result: false, msg: error.message}
+    }
+  } else if(props.url && props.type) {
+    if (props.type === 'sse') {
+      console.log('[@i] creating SSEClientTransport');
+      transport = new SSEClientTransport(new URL(props.url))
+    } else if (props.type === 'streamableHttp') {
+      console.log('[@i] creating StreamableHTTPClientTransport');
+      transport = new StreamableHTTPClientTransport(new URL(props.url))
+    }
+  }
+
+  console.log('[@i] mcp transport protocol', JSON.stringify(transport));
+  
+  if (transport) {
     console.log('[@i] mcp-client connecting')
     await client.connect(transport)
     // List tools
@@ -122,11 +144,8 @@ const connect = async (props: ClientProps) => {
     mcpClient.addServer(props.name, client, tools.tools)
     console.log('[@i] mcp-tools\n', JSON.stringify(tools))
     return {result: true, tools: tools.tools, msg: `Connnected to '${props.name}'`}
-  } catch (error: any) {
-    console.error(`[@i] mcp-server '${props.name}' connect error: ${error.message}`)
-    return {result: false, msg: error.message}
   }
-  
+
   // // List resources
   // if (client.listResources) {
   //   const resources = await client.listResources();
@@ -138,10 +157,11 @@ const connect = async (props: ClientProps) => {
   //   const prompts = await client.listPrompts();
   //   console.log('[@i] mcp-prompts', prompts);
   // }
+  return {result: false, tools: {}, msg: `Connnected to '${props.name}' Error`}
 }
 
 const toolCall = async (toolName: string, args: { [x: string]: unknown } | undefined) => {
-  console.log(`[@i] toolCall ${toolName} start`);
+  console.log(`[@i] toolCall ${toolName} start, getAllClients.length=${mcpClient.getAllClients().length}`);
   if (!mcpClient.isEmpty()) {
     console.log(`[@i] toolCall ${toolName} processing`);
     const promises = mcpClient.getAllClients().map(async ([serverName, c]) => {
