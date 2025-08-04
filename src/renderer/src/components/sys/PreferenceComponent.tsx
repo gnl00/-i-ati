@@ -97,9 +97,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
 
-    const providerCardRef = useRef<HTMLDivElement>(null)
-    const theEndProviderCardRef = useRef<HTMLDivElement>(null)
-    
     useEffect(() => {
         setEditProviderName('')
         setEditProviderApiUrl('')
@@ -333,6 +330,15 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         console.log('onProviderCardDelClick', idx)
         setProviders(providers.filter((_, i) => i !== idx))
     }
+    const onModelDelClick = (model: IModel) => {
+        if (currentProvider) {
+            const nextModels = currentProvider.models.filter(m => m.name !== model.name && m.value !== model.value)
+            updateProvider(currentProvider.name, {
+                ...currentProvider,
+                models: nextModels
+            })
+        }
+    }
     return (
         <div className="grid gap-4">
             <div className="space-y-2 select-none">
@@ -520,7 +526,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                         <DropdownMenuContent className="w-auto" align="start">
                                                             <DropdownMenuItem>Edit</DropdownMenuItem>
                                                             <DropdownMenuSeparator />
-                                                            <DropdownMenuItem>Delete</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={_ => onModelDelClick(m)} className='text-red-300 focus:text-red-400'>Delete</DropdownMenuItem>
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
