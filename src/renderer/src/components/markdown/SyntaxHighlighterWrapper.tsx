@@ -1,14 +1,17 @@
-import React, { useMemo, useRef } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { dracula, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { toast } from "@renderer/components/ui/use-toast"
 import { Button } from "../ui/button"
-import { ClipboardCopyIcon, CopyIcon } from "@radix-ui/react-icons"
-import { Badge } from '../ui/badge'
+import { ClipboardCopyIcon, CopyIcon, EyeOpenIcon, CodeIcon } from "@radix-ui/react-icons"
+import { cn } from '@renderer/lib/utils'
+
+const renderableLanguage = ['html', 'svg', 'jsx', 'tsx']
 
 const MemoSyntaxHighlighter = React.memo(SyntaxHighlighter)
 
-export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { children: string, language: string }) => {
+export const CodeWrapper = React.memo(({ children, language }: { children: string, language: string }) => {
+  const [showCodeRender, setShowCodeRender] = useState<boolean>(false)
   const copyToClipboard = async () => {
     try {
         await navigator.clipboard.writeText(String(children));
@@ -23,9 +26,12 @@ export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { ch
             variant: 'destructive',
             duration: 1000,
             className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '❌ Code copy failed',
+            description: '❌ Copy failed',
         })
     }
+  }
+  const onViewClick = () => {
+    setShowCodeRender(!showCodeRender)
   }
   return (
     <div className='relative border rounded-2xl overflow-hidden'>
@@ -34,29 +40,71 @@ export const SyntaxHighlighterWrapper = React.memo(({ children, language }: { ch
         <span className='text-sm text-gray-500 dark:text-gray-300 font-medium select-none'>
           {language}
         </span>
-        <Button
-          size={'sm'}
-          variant={'ghost'}
-          onClick={copyToClipboard}
-          className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
-        >
-          <CopyIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
-        </Button>
+        <div className='flex justify-end'>
+          {
+            renderableLanguage.includes(language) && !showCodeRender && (
+              <Button
+              size={'sm'}
+              variant={'ghost'}
+              onClick={onViewClick}
+              className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
+            >
+              <EyeOpenIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
+            </Button>
+            )
+          }
+          {
+            showCodeRender && (
+              <Button
+              size={'sm'}
+              variant={'ghost'}
+              onClick={onViewClick}
+              className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
+              >
+                <CodeIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
+              </Button>
+            )
+          }
+          <Button
+            size={'sm'}
+            variant={'ghost'}
+            onClick={copyToClipboard}
+            className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
+          >
+            <CopyIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
+          </Button>
+        </div>
       </div>
       {/* Code content */}
-      <MemoSyntaxHighlighter
-        customStyle={{ padding: '12px', margin: '0', borderRadius: '0 0 0 0' }}
-        PreTag={'pre'}
-        children={String(children).replace(/\n$/, '')}
-        language={language}
-        style={dracula}
-        wrapLongLines={true}
-      />
+      {
+        !showCodeRender ? 
+        (
+          <MemoSyntaxHighlighter
+            customStyle={{ padding: '12px', margin: '0', borderRadius: '0 0 0 0' }}
+            PreTag={'pre'}
+            children={String(children).replace(/\n$/, '')}
+            language={language}
+            style={dracula}
+            wrapLongLines={true}
+          />
+        ) : (
+          <div id="artifacts" className={cn("border rounded-lg overflow-hidden", "")}>
+          <div className="relative">
+            <iframe
+              srcDoc={children}
+              className="w-full h-96 border-none"
+              title={language}
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+        </div>
+        )
+      }
     </div>
   )
 })
 
-export const SyntaxHighlighterWrapperNoHeader = React.memo(({ children, language }: { children: string, language: string }) => {
+export const CodeWrapperNoHeader = React.memo(({ children, language }: { children: string, language: string }) => {
   return (
     <div className='relative rounded-b-lg overflow-hidden'>
       {/* Code content */}

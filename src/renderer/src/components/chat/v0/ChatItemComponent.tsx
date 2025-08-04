@@ -16,7 +16,7 @@ import { updateMessage } from "../../../db/MessageRepository"
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { toast } from "@renderer/components/ui/use-toast"
-import { SyntaxHighlighterWrapper, CodeCopyWrapper } from '../../markdown/SyntaxHighlighterWrapper'
+import { CodeWrapper, CodeCopyWrapper } from '../../markdown/SyntaxHighlighterWrapper'
 import { useChatContext } from '@renderer/context/ChatContext'
 
 interface UserChatItemProps {
@@ -89,7 +89,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
                                 const match = /language-(\w+)/.exec(className || '')
                                 return match ? (
                                   <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
-                                    <SyntaxHighlighterWrapper
+                                    <CodeWrapper
                                     children={String(children).replace(/\n$/, '')}
                                     language={match[1]}
                                     />
@@ -122,7 +122,7 @@ export const UserChatItemRef: React.FC<UserChatItemProps> = forwardRef<HTMLDivEl
                       const match = /language-(\w+)/.exec(className || '')
                       return match ? (
                         <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
-                          <SyntaxHighlighterWrapper
+                          <CodeWrapper
                           children={String(children).replace(/\n$/, '')}
                           language={match[1]}
                           />
@@ -202,7 +202,7 @@ export const AssistantChatItemRef: React.FC<AssistantChatItemProps> = forwardRef
                     const match = /language-(\w+)/.exec(className || '')
                     return match ? (
                       <CodeCopyWrapper code={String(children).replace(/\n$/, '')}>
-                        <SyntaxHighlighterWrapper
+                        <CodeWrapper
                         children={String(children).replace(/\n$/, '')}
                         language={match[1]}
                         />

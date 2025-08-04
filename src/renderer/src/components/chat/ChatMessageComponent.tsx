@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react'
+import React, { memo } from 'react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
 import { toast } from '@renderer/components/ui/use-toast'
 import { Badge } from "@renderer/components/ui/badge"
@@ -8,10 +8,10 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@renderer/components/ui/tooltip"
-import { CopyIcon, ReloadIcon, Pencil2Icon, CodeIcon } from '@radix-ui/react-icons'
+import { CopyIcon, ReloadIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { BadgePercent, BadgeCheck, BadgeX } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { SyntaxHighlighterWrapper, CodeCopyWrapper, SyntaxHighlighterWrapperNoHeader } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
+import { CodeWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -28,52 +28,9 @@ interface ChatMessageComponentProps {
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
 
-const {readStreamState} = useChatStore()
-
-  const [showArtifactsCode, setShowArtifactsCode] = useState<boolean>(false)
-
-  const extractArtifactContent = (content: string): string => {
-    // 匹配 <antArtifact> 标签并提取其中的内容
-    const antArtifactRegex = /<antArtifact[^>]*>([\s\S]*?)<\/antArtifact>/
-    const match = content.match(antArtifactRegex)
-    
-    if (match && match[1]) {
-      // 返回 antArtifact 标签中的内容，去除首尾空白
-      return match[1].trim() // 第 1 个捕获组，它匹配 <antArtifact> 和 </antArtifact> 之间的所有内容（包括换行符）。
-    }
-    
-    // 如果没有找到 antArtifact 标签，返回原内容
-    return content
-  }
-
-  const extractArtifactAttributes = (content: string) => {
-    const antArtifactRegex = /<antArtifact\s+([^>]*?)>([\s\S]*?)<\/antArtifact>/
-    const match = content.match(antArtifactRegex)
-    
-    if (match) {
-      const attributes = match[1]
-      const innerContent = match[2].trim()
-      
-      // 解析属性
-      const identifierMatch = attributes.match(/identifier=["']([^"']*?)["']/)
-      const typeMatch = attributes.match(/type=["']([^"']*?)["']/)
-      const titleMatch = attributes.match(/title=["']([^"']*?)["']/)
-      
-      return {
-        identifier: identifierMatch ? identifierMatch[1] : '',
-        type: typeMatch ? typeMatch[1] : '',
-        title: titleMatch ? titleMatch[1] : '',
-        content: innerContent
-      }
-    }
-    
-    return null
-  }
-
   const onCopyClick = (content: string) => {
     if (content) {
-      const extractedContent = extractArtifactContent(content)
-      navigator.clipboard.writeText(extractedContent)
+      navigator.clipboard.writeText(content)
       toast({
           variant: 'default',
           duration: 800,
@@ -81,10 +38,6 @@ const {readStreamState} = useChatStore()
           description: `✅ Copied`,
       })
     }
-  }
-
-  const toggleShowCode = () => {
-    setShowArtifactsCode(!showArtifactsCode)
   }
 
   if (m.role === 'user') {
@@ -117,7 +70,7 @@ const {readStreamState} = useChatStore()
                                   const { children, className, node, ...rest } = props
                                   const match = /language-(\w+)/.exec(className || '')
                                   return match ? (
-                                    <SyntaxHighlighterWrapper
+                                    <CodeWrapper
                                       children={String(children).replace(/\n$/, '')}
                                       language={match[1]}
                                     />
@@ -151,7 +104,7 @@ const {readStreamState} = useChatStore()
                         const { children, className, node, ...rest } = props
                         const match = /language-(\w+)/.exec(className || '')
                         return match ? (
-                          <SyntaxHighlighterWrapper
+                          <CodeWrapper
                             children={String(children).replace(/\n$/, '')}
                             language={match[1]}
                           />
@@ -229,43 +182,7 @@ const {readStreamState} = useChatStore()
           ))
         }
         {
-          m.artifatcs && !showArtifactsCode
-          ? (
-            <div id="artifacts" className={cn("border rounded-lg overflow-hidden", readStreamState ? "animate-pulse" : "")}>
-              {(() => {
-                const artifactData = extractArtifactAttributes(m.content as string)
-                if (artifactData) {
-                  return (
-                    <div>
-                      <div className="bg-gray-100 px-3 py-2 border-b text-sm text-gray-600">
-                        <span className="font-medium">{artifactData.title}</span>
-                        {artifactData.type && (
-                          <span className="ml-2 text-xs bg-gray-200 px-2 py-1 rounded">
-                            {artifactData.type}
-                          </span>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <iframe
-                          srcDoc={artifactData.content}
-                          className="w-full h-96 border-none"
-                          title={artifactData.title}
-                          sandbox="allow-scripts allow-same-origin"
-                        />
-                      </div>
-                    </div>
-                  )
-                } else {
-                  return (
-                    <div className="p-4 text-gray-500 text-center">
-                      ...
-                    </div>
-                  )
-                }
-              })()}
-            </div>
-          )
-          : m.content && (
+          m.content && (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
@@ -281,7 +198,7 @@ const {readStreamState} = useChatStore()
                   const { children, className, node, ...rest } = props
                   const match = /language-(\w+)/.exec(className || '')
                   return match ? (
-                    <SyntaxHighlighterWrapper
+                    <CodeWrapper
                       children={String(children).replace(/\n$/, '')}
                       language={match[1]}
                     />
@@ -293,11 +210,9 @@ const {readStreamState} = useChatStore()
                 }
               }}
             >
-            {
-              showArtifactsCode ? `\`\`\`html\n${extractArtifactContent(m.content as string)}\n\`\`\`` : m.content as string
-            }
+            {m.content as string}
             </ReactMarkdown>
-          ) 
+          )
         }
       </div>
       <div className="mt-0.5 pl-2 space-x-1 flex text-gray-500">
@@ -312,13 +227,6 @@ const {readStreamState} = useChatStore()
         <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
           <Pencil2Icon></Pencil2Icon>
         </div>
-        {
-          m.artifatcs && (
-            <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
-              <CodeIcon onClick={_ => toggleShowCode()}></CodeIcon>
-            </div>
-          )
-        }
       </div>
     </div>
   ) : null
