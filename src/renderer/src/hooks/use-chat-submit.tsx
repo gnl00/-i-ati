@@ -2,7 +2,8 @@ import { useChatContext } from "@renderer/context/ChatContext"
 import { getChatById, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
 import { useChatStore } from "@renderer/store"
-import { chatRequestWithHook, chatRequestWithHookV2 } from "@request/index"
+import { chatRequestWithHook, chatRequestWithHookV2, unifiedChatRequest } from "@request/index"
+import { UnifiedStreamProcessor } from "@request/stream-processor"
 import { toast } from '@renderer/components/ui/use-toast'
 import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository"
@@ -12,13 +13,6 @@ import { toolCallPrompt, artifactsTool, artifactsSystemPrompt, webSearchSystemPr
 interface ToolCallProps {
   function: string
   args?: string
-}
-
-interface ToolCallResult {
-  name: string
-  content: string
-  completed: boolean
-  error?: Error
 }
 
 // 管道上下文接口
@@ -44,6 +38,7 @@ interface ChatPipelineContext {
   
   // 请求相关
   request: IChatRequestV2
+  unifiedRequest?: IUnifiedChatRequest  // 统一请求格式支持
   provider: IProvider
   model: IModel
   controller: AbortController
@@ -216,7 +211,54 @@ function useChatSubmit() {
     return context
   }
 
-  // 管道函数：构建请求
+  // 管道函数：构建统一请求
+  const buildUnifiedRequest = (context: ChatPipelineContext): ChatPipelineContext => {
+    // 构建发送消息
+    let chatMessages = context.chatMessages
+
+    if (artifacts) {
+      chatMessages = chatMessages.map((m, idx) => {
+        if ((idx === chatMessages.length - 1) && (typeof m.content) === 'string') {
+          // 创建对象的深拷贝，避免修改原始对象
+          let nextM = { ...m }
+          nextM.content = artifactsTool.concat('\n\n').concat(m.content as string)
+          return nextM
+        }
+        return m
+      })
+    }
+
+    const nextSendMessages = webSearchEnable && context.searchFunctionMessage ? [...chatMessages, context.searchFunctionMessage] : chatMessages
+    const systemPrompts = [artifacts ? artifactsSystemPrompt : '', webSearchEnable ? webSearchSystemPrompt : '', toolCallPrompt].join('\n\n')
+    
+    // 构建统一请求格式
+    context.unifiedRequest = {
+      providerType: context.provider.type,
+      providerName: context.provider.name,
+      model: context.model.value,
+      messages: nextSendMessages,
+      apiKey: context.provider.apiKey,
+      baseUrl: context.provider.apiUrl,
+      stream: true,
+      tools: context.tools,
+      prompt: systemPrompts,
+      apiVersion: context.provider.apiVersion || 'v1'
+    }
+
+    // 保持向后兼容的旧格式
+    context.request = {
+      baseUrl: context.provider.apiUrl,
+      messages: nextSendMessages,
+      apiKey: context.provider.apiKey,
+      prompt: systemPrompts,
+      model: context.model.value,
+      tools: context.tools
+    }
+
+    return context
+  }
+
+  // 管道函数：构建请求（向后兼容）
   const buildRequest = (context: ChatPipelineContext): ChatPipelineContext => {
     // 构建发送消息
     let chatMessages = context.chatMessages
@@ -247,7 +289,110 @@ function useChatSubmit() {
     return context
   }
 
-  // 管道函数：处理流式响应
+  // 管道函数：处理统一流式响应
+  const processUnifiedRequest = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
+    if (!context.unifiedRequest) {
+      throw new Error('Unified request not built')
+    }
+    
+    const streamResponse = await unifiedChatRequest(context.unifiedRequest, context.signal, beforeFetch, afterFetch)
+    
+    // 检查是否为流式 reader
+    if (streamResponse && typeof streamResponse.read === 'function') {
+      const streamReader = streamResponse as ReadableStreamDefaultReader<string>
+      
+      // 获取适配器来解析流数据
+      const { adapterManager } = await import('@request/adapters')
+      const adapter = adapterManager.getAdapter(context.unifiedRequest.providerType, context.unifiedRequest.apiVersion || 'v1')
+      
+      // 创建统一流处理器
+      const processor = new UnifiedStreamProcessor(adapter, {
+        onDelta: (delta) => {
+          // 处理流式数据
+          if (delta.content) {
+            if (context.isContentHasThinkTag) {
+              if (!context.gatherReasoning) {
+                context.gatherReasoning = context.gatherContent
+                context.gatherContent = ''
+              }
+              context.gatherReasoning += delta.content
+              if (context.gatherReasoning.includes('</think>')) {
+                context.gatherReasoning = context.gatherReasoning.replace('</think>', '')
+                context.isContentHasThinkTag = false
+              }
+            } else {
+              if (context.gatherContent.includes('<think>')) {
+                context.isContentHasThinkTag = true
+                context.gatherContent = delta.content
+              } else {
+                context.gatherContent += delta.content
+              }
+            }
+          }
+          
+          if (delta.reasoning) {
+            context.gatherReasoning += delta.reasoning
+          }
+          
+          if (delta.toolCalls?.length) {
+            context.hasToolCall = true
+            delta.toolCalls.forEach(toolCall => {
+              context.toolCalls.push({
+                function: toolCall.function.name,
+                args: toolCall.function.arguments
+              })
+            })
+          }
+          
+          // 更新消息显示
+          setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, { 
+            body: { 
+              role: 'system', 
+              content: context.gatherContent, 
+              reasoning: context.gatherReasoning,
+              artifatcs: artifacts,
+              toolCallResults: context.toolCallResults,
+              model: context.model.name
+            } 
+          }])
+        },
+        onComplete: (response) => {
+          context.sysMessageEntity.body.content = context.gatherContent
+          context.sysMessageEntity.body.reasoning = context.gatherReasoning.trim()
+          context.sysMessageEntity.body.toolCallResults = context.toolCallResults
+        },
+        onError: (error) => {
+          throw error
+        }
+      })
+      
+      // 处理流
+      await processor.processStream(streamReader)
+      
+    } else {
+      // 非流式响应
+      const response = streamResponse as IUnifiedResponse
+      context.gatherContent = response.content
+      context.gatherReasoning = response.reasoning || ''
+      
+      if (response.toolCalls?.length) {
+        context.hasToolCall = true
+        response.toolCalls.forEach(toolCall => {
+          context.toolCalls.push({
+            function: toolCall.function.name,
+            args: toolCall.function.arguments
+          })
+        })
+      }
+      
+      context.sysMessageEntity.body.content = context.gatherContent
+      context.sysMessageEntity.body.reasoning = context.gatherReasoning
+    }
+
+    return context
+  }
+
+  // 管道函数：处理流式响应（向后兼容）
   const processRequest = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     const streamReader = await chatRequestWithHookV2(context.request, context.signal, beforeFetch, afterFetch)
     
@@ -397,7 +542,26 @@ function useChatSubmit() {
     return context
   }
 
-  // 递归处理流式响应和工具调用
+  // 递归处理统一流式响应和工具调用
+  const processUnifiedRequestWithToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
+    // 处理统一流式响应
+    context = await processUnifiedRequest(context)
+    
+    // 如果有工具调用，处理工具调用后继续处理响应
+    if (context.hasToolCall && context.toolCalls.length > 0) {
+      context = await handleToolCall(context)
+      // 更新统一请求以包含工具调用结果
+      if (context.unifiedRequest) {
+        context.unifiedRequest.messages = context.request.messages
+      }
+      // 递归调用，处理工具调用后的响应
+      return await processUnifiedRequestWithToolCall(context)
+    }
+    
+    return context
+  }
+
+  // 递归处理流式响应和工具调用（向后兼容）
   const processRequestWithToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     // 处理流式响应
     context = await processRequest(context)
@@ -440,8 +604,30 @@ function useChatSubmit() {
     }
   }
 
-  // 重构后的主函数
+  // 重构后的主函数（使用统一请求接口）
   const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], tools?: any[]): Promise<void> => {
+    console.log('use-tools', tools)
+    try {
+      let context = await prepareMessageAndChat(textCtx, mediaCtx, tools)
+      context = await handleWebSearch(context)
+      context = buildUnifiedRequest(context)
+      context = await processUnifiedRequestWithToolCall(context)
+      await finalize(context)
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        toast({
+          variant: "destructive",
+          title: "Uh oh! Request went wrong.",
+          description: `There was a problem with your request. ${error.message}`
+        })
+      }
+      setLastMsgStatus(false)
+      setReadStreamState(false)
+    }
+  }
+
+  // 向后兼容的函数（使用旧的请求接口）
+  const onSubmitLegacy = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], tools?: any[]): Promise<void> => {
     console.log('use-tools', tools)
     try {
       let context = await prepareMessageAndChat(textCtx, mediaCtx, tools)

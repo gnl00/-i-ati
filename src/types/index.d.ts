@@ -7,10 +7,15 @@ declare interface IModel {
   ability?: string[]
 }
 
+// Provider 类型枚举
+declare type ProviderType = 'openai' | 'claude' | 'gemini' | 'azure-openai' | 'ollama' | 'other'
+
 declare interface IProvider {
-  name: string
+  name: string        // 用户自定义名称
+  type: ProviderType  // 标准化的 Provider 类型
   apiUrl: string
   apiKey: string
+  apiVersion?: string // API 版本，如 'v1', 'v2', 'legacy'
   models: IModel[]
 }
 
@@ -104,6 +109,72 @@ declare interface VLMImgContent {
 }
 
 declare type ClipbordImg = string | ArrayBuffer | null
+
+// 统一请求接口
+declare interface IUnifiedChatRequest {
+  providerType: ProviderType  // 使用标准化类型
+  providerName: string        // 保留用户自定义名称用于日志等
+  model: string
+  messages: ChatMessage[]
+  apiKey: string
+  baseUrl: string
+  stream?: boolean
+  tools?: any[]
+  prompt?: string
+  apiVersion?: string
+  options?: {
+    temperature?: number
+    topP?: number
+    maxTokens?: number
+  }
+}
+
+// 工具调用格式
+declare interface IToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
+// Token 使用统计
+declare interface ITokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+// 统一的响应格式
+declare interface IUnifiedResponse {
+  id: string
+  model: string
+  timestamp: number
+  content: string
+  reasoning?: string
+  toolCalls?: IToolCall[]
+  finishReason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'error'
+  usage?: ITokenUsage
+  raw?: any
+}
+
+// 流式响应的 delta 格式
+declare interface IUnifiedStreamDelta {
+  content?: string
+  reasoning?: string
+  toolCalls?: IToolCall[]
+  finishReason?: string
+  usage?: ITokenUsage
+}
+
+// 流式响应的完整格式
+declare interface IUnifiedStreamResponse {
+  id: string
+  model: string
+  delta: IUnifiedStreamDelta
+  raw?: any
+}
 
 declare interface IBaseResponse {
   id: string
