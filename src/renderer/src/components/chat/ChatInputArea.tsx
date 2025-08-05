@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
@@ -19,7 +19,6 @@ import {
   Boxes,
   CornerDownLeft,
   ArrowBigUp,
-  Atom,
   Settings2,
   LoaderCircle
 } from 'lucide-react'
@@ -58,7 +57,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setCurrentProviderName,
     mcpServerConfig
   } = useChatStore()
-  const {setChatTitle, setChatUuid, chatId, setChatId} = useChatContext()
+  const {setChatTitle, setChatUuid, setChatId} = useChatContext()
   const [inputContent, setInputContent] = useState<string>('')
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
@@ -67,15 +66,16 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [connectingMcpServers, setConnectingMcpServers] = useState<string[]>([])
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
-  const handleSubmit = useChatSubmit()
+  const handleChatSubmit = useChatSubmit()
+  const handleChatSubmitCallback = useCallback((text, img, tools) => {
+    handleChatSubmit(text, img, tools)
+  }, [handleChatSubmit])
   const onSubmitClick = useCallback((_) => {
-    handleSubmit(inputContent, imageSrcBase64List, Array.from(availableMcpTools.values()).flatMap(i => i))
-
     onSubmit() // for chat-window scroll to the end
-
+    handleChatSubmitCallback(inputContent, imageSrcBase64List, Array.from(availableMcpTools.values()).flatMap(i => i))
     setInputContent('')
     setImageSrcBase64List([])
-  }, [inputContent, imageSrcBase64List, setChatContent, handleSubmit])
+  }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])
 
   const onStopClick = useCallback((_) => {
     if (currentReqCtrl) {
@@ -89,9 +89,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const onWebSearchClick = useCallback(() => {
     toggleWebSearch(!webSearchEnable)
   }, [toggleWebSearch, webSearchEnable])
-  const onArtifactsClick = useCallback(() => {
-    toggleArtifacts(!artifacts)
-  }, [artifacts, toggleArtifacts])
+  // const onArtifactsClick = useCallback(() => {
+  //   toggleArtifacts(!artifacts)
+  // }, [artifacts, toggleArtifacts])
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputContent(e.target.value)
   }, [setInputContent])
@@ -170,7 +170,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   return (
     <div ref={ref} id='input-area' className={cn('p-6 pt-0 rounded-md fixed w-full h-52', imageSrcBase64List.length !== 0 ? 'bottom-36' : 'bottom-8')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
-          <ChatImgGalleryComponent></ChatImgGalleryComponent>
+          <ChatImgGalleryComponent />
       </div>
       <div className='rounded-xl flex items-center space-x-2 pr-2 mb-2 select-none'>
         <div className="app-undragable">
