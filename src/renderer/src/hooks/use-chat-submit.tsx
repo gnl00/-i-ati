@@ -232,8 +232,63 @@ function useChatSubmit() {
     const stream = await commonOpenAIChatCompletionRequest(context.request as IUnifiedRequest, context.signal, beforeFetch, afterFetch)
     for await (const chunk of stream) {
       console.log(chunk)
-      const retVal = chunk as IUnifiedResponse
+      const resp = chunk as IUnifiedResponse
+
+      if (resp.toolCalls && resp.toolCalls.length > 0) {
+        if(!context.hasToolCall) context.hasToolCall = true
+        if (resp.toolCalls[0].function.name) {
+          context.toolCalls.push({
+            function: resp.toolCalls[0].function.name,
+            args: ''
+          })
+        } else if (resp.toolCalls[0].function.arguments) {
+          context.toolCalls[context.toolCalls.length - 1].args += resp.toolCalls[0].function.arguments
+        }
+      }
+
+      if (context.isContentHasThinkTag) {
+        if (!context.gatherReasoning) {
+          context.gatherReasoning = context.gatherContent
+          context.gatherContent = ''
+        }
+        if (resp.content) {
+          context.gatherReasoning += resp.content
+        }
+        if (context.gatherReasoning.includes('</think>')) {
+          context.gatherReasoning = context.gatherReasoning.replace('</think>', '')
+          context.isContentHasThinkTag = false
+        }
+      } else {
+        if (context.gatherContent.includes('<think>')) {
+          context.isContentHasThinkTag = true
+          if (resp.content) {
+            context.gatherContent = resp.content
+          }
+        } else if (resp.content) {
+          context.gatherContent += resp.content
+        } else if (resp.reasoning) {
+          context.gatherReasoning += resp.reasoning || ''
+        }
+      }
+
+      setMessages([...context.messageEntities, context.userMessageEntity, 
+        {
+          body: { 
+            role: 'system', 
+            model: context.model.name,
+            content: context.gatherContent, 
+            reasoning: context.gatherReasoning,
+            toolCallResults: context.toolCallResults,
+          } 
+        }
+      ])
     }
+
+    context.sysMessageEntity.body.model = context.model.name
+    context.sysMessageEntity.body.content = context.gatherContent
+    context.sysMessageEntity.body.reasoning = context.gatherReasoning.trim()
+    context.sysMessageEntity.body.toolCallResults = context.toolCallResults
+
     return context
   }
 

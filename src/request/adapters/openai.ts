@@ -82,14 +82,13 @@ export class OpenAIAdapter extends BaseAdapter {
         try {
           const respObject = JSON.parse(line)
           const delta = respObject.choices?.[0]?.delta
-          // 实现具体的响应转换逻辑
           const unifiedResponse: IUnifiedResponse = {
-            id: respObject.id || 'stream',
+            id: respObject.id || 'chatcmpl-' + Date.now(),
             model: respObject.model || 'unknown',
             timestamp: Date.now(),
             content: delta.content || '',
             reasoning: delta.reasoning,
-            toolCalls: this.transformToolCalls(respObject.tool_calls),
+            toolCalls: this.transformToolCalls(delta.tool_calls),
             finishReason: this.mapFinishReason(respObject.finish_reason),
             raw: respObject
           }
