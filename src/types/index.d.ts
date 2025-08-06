@@ -44,6 +44,68 @@ declare interface IChatRequest {
   stream?: boolean | undefined
 }
 
+declare type ProviderType = string | 'openai' | 'claude' | 'azure-openai'
+declare type ProviderAPIVersion = string | 'v1' | 'v2'
+
+declare interface IUnifiedRequest {
+  providerType?: ProviderType
+  apiVersion?: ProviderAPIVersion
+  baseUrl: string
+  apiKey: string
+  model: string
+  prompt: string
+  messages: ChatMessage[]
+  stream?: boolean
+  tools?: any[]
+  options: {
+    temperature?: number
+    maxTokens?: number
+    topP?: number
+  }
+}
+
+// 工具调用格式
+declare interface IToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
+// Token 使用统计
+declare interface ITokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+declare interface IUnifiedResponse {
+  id: string
+  model: string
+  timestamp: number
+  content: string
+  reasoning?: string
+  toolCalls?: IToolCall[]
+  finishReason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'error'
+  usage?: ITokenUsage
+  raw?: any
+}
+
+// 流式响应增量数据
+declare interface IUnifiedStreamResponse {
+  id: string
+  model: string
+  delta?: {
+    content?: string
+    reasoning?: string
+    toolCalls?: IToolCall[]
+    finishReason?: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'error'
+  }
+  raw?: any
+}
+
 declare interface IChatRequestV2 {
   baseUrl: string
   apiKey: string

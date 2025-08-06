@@ -1,3 +1,8 @@
+import { adapterManager } from './adapters/manager'
+import { initializeAdapters } from './adapters/index'
+
+initializeAdapters()
+
 const authorizationPreffix = 'Bearer '
 
 // const getHeanders: IHeaders = {}
@@ -145,4 +150,52 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
   afterFetch()
 
   return enableStream ? fetchResponse.body?.pipeThrough(new TextDecoderStream()).getReader() : fetchResponse
+}
+
+export const commonOpenAIChatCompletionRequest = async (req: IUnifiedRequest, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
+
+  const adapter = adapterManager.getAdapter(req.providerType ?? 'openai', req.apiVersion ?? 'v1')
+
+  const headers = adapter.buildHeaders(req)
+  const customHeaders = adapter.getHeaders?.(req)
+  if (customHeaders) {
+    Object.assign(headers, customHeaders)
+  }
+
+  const requestBody = adapter.transformRequest(req)
+
+  beforeFetch()
+  try {
+    const fetchResponse = await fetch(req.baseUrl, {
+      method: 'POST',
+      headers,
+      signal,
+      body: JSON.stringify({
+        ...requestBody
+      })
+    })
+  
+    if (!fetchResponse.ok) {
+      const resp = await fetchResponse.json()
+      throw new Error(`Error=${JSON.stringify(resp)}, Text=${fetchResponse.statusText}`)
+    }
+    const streamEnabled = req.stream ?? true
+    if (streamEnabled) {
+      console.log('build streaming response');
+      
+      const reader = fetchResponse.body?.pipeThrough(new TextDecoderStream()).getReader()
+      // console.log('request/index reader', reader?.read());
+      return reader && adapter.transformStreamResponse(reader)
+    } else {
+      console.log('build non-stream response');
+
+      const response = adapter.transformNotStreamResponse(await fetchResponse.json())
+      return response
+    }
+    
+  } catch (error: any) {
+    throw error
+  } finally {
+    afterFetch()
+  }
 }

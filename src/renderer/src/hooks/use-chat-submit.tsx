@@ -2,23 +2,16 @@ import { useChatContext } from "@renderer/context/ChatContext"
 import { getChatById, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
 import { useChatStore } from "@renderer/store"
-import { chatRequestWithHook, chatRequestWithHookV2 } from "@request/index"
+import { chatRequestWithHook, chatRequestWithHookV2, commonOpenAIChatCompletionRequest } from "@request/index"
 import { toast } from '@renderer/components/ui/use-toast'
 import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository"
 import { WEB_SEARCH_ACTION } from "@constants/index"
-import { toolCallPrompt, artifactsTool, artifactsSystemPrompt, webSearchSystemPrompt, generateTitlePrompt, generateSearchKeywordsPrompt } from '../constant/prompts'
+import { toolCallPrompt, artifactsSystemPrompt, webSearchSystemPrompt, generateTitlePrompt, generateSearchKeywordsPrompt } from '../constant/prompts'
 
 interface ToolCallProps {
   function: string
   args?: string
-}
-
-interface ToolCallResult {
-  name: string
-  content: string
-  completed: boolean
-  error?: Error
 }
 
 // 管道上下文接口
@@ -43,7 +36,7 @@ interface ChatPipelineContext {
   searchFunctionMessage?: ChatMessage
   
   // 请求相关
-  request: IChatRequestV2
+  request: IChatRequestV2 | IUnifiedRequest
   provider: IProvider
   model: IModel
   controller: AbortController
@@ -90,7 +83,7 @@ function useChatSubmit() {
     artifacts,
   } = useChatStore()
 
-  // 管道函数：准备消息和聊天
+  // 管道上下文：准备消息
   const prepareMessageAndChat = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], tools?: any[]): Promise<ChatPipelineContext> => {
     if (!textCtx) {
       throw new Error('Text content is required')
@@ -151,6 +144,7 @@ function useChatSubmit() {
     setCurrentReqCtrl(controller)
     setReadStreamState(true)
 
+    // init context
     return {
       textCtx,
       mediaCtx,
@@ -180,7 +174,7 @@ function useChatSubmit() {
     }
   }
 
-  // 管道函数：处理网络搜索
+  // 管道上下文：处理网络搜索
   const handleWebSearch = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     if (webSearchEnable) {
       setWebSearchProcessState(true)
@@ -216,28 +210,14 @@ function useChatSubmit() {
     return context
   }
 
-  // 管道函数：构建请求
+  // 管道上下文：构建请求
   const buildRequest = (context: ChatPipelineContext): ChatPipelineContext => {
-    // 构建发送消息
-    let chatMessages = context.chatMessages
-    if (artifacts) {
-      chatMessages = chatMessages.map((m, idx) => {
-        if ((idx === chatMessages.length - 1) && (typeof m.content) === 'string') {
-          // 创建对象的深拷贝，避免修改原始对象
-          let nextM = { ...m }
-          nextM.content = artifactsTool.concat('\n\n').concat(m.content as string)
-          return nextM
-        }
-        return m
-      })
-    }
-
-    const nextSendMessages = webSearchEnable && context.searchFunctionMessage ? [...chatMessages, context.searchFunctionMessage] : chatMessages
+    const memoriesMessages = webSearchEnable && context.searchFunctionMessage ? [...context.chatMessages, context.searchFunctionMessage] : context.chatMessages
     const systemPrompts = [artifacts ? artifactsSystemPrompt : '', webSearchEnable ? webSearchSystemPrompt : '', toolCallPrompt].join('\n\n')
     
     context.request = {
       baseUrl: context.provider.apiUrl,
-      messages: nextSendMessages,
+      messages: memoriesMessages,
       apiKey: context.provider.apiKey,
       prompt: systemPrompts,
       model: context.model.value,
@@ -247,7 +227,17 @@ function useChatSubmit() {
     return context
   }
 
-  // 管道函数：处理流式响应
+  // 管道上下文：处理流式响应
+  const processRequestV2 = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
+    const stream = await commonOpenAIChatCompletionRequest(context.request as IUnifiedRequest, context.signal, beforeFetch, afterFetch)
+    for await (const chunk of stream) {
+      console.log(chunk)
+      const retVal = chunk as IUnifiedResponse
+    }
+    return context
+  }
+
+  // 管道上下文：处理流式响应
   const processRequest = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     const streamReader = await chatRequestWithHookV2(context.request, context.signal, beforeFetch, afterFetch)
     
@@ -326,7 +316,7 @@ function useChatSubmit() {
 
     return context
   }
-
+  
   // 管道函数：处理工具调用
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     while(context.toolCalls.length > 0) {
@@ -400,7 +390,7 @@ function useChatSubmit() {
   // 递归处理流式响应和工具调用
   const processRequestWithToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     // 处理流式响应
-    context = await processRequest(context)
+    context = await processRequestV2(context)
     
     // 如果有工具调用，处理工具调用后继续处理响应
     if (context.hasToolCall && context.toolCalls.length > 0) {
