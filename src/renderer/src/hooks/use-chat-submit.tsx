@@ -231,7 +231,6 @@ function useChatSubmit() {
   const processRequestV2 = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     const stream = await commonOpenAIChatCompletionRequest(context.request as IUnifiedRequest, context.signal, beforeFetch, afterFetch)
     for await (const chunk of stream) {
-      console.log(chunk)
       const resp = chunk as IUnifiedResponse
 
       if (resp.toolCalls && resp.toolCalls.length > 0) {
@@ -271,7 +270,7 @@ function useChatSubmit() {
         }
       }
 
-      setMessages([...context.messageEntities, context.userMessageEntity, 
+      setMessages([...context.messageEntities.splice(0, -1), context.userMessageEntity, 
         {
           body: { 
             role: 'system', 
@@ -288,86 +287,6 @@ function useChatSubmit() {
     context.sysMessageEntity.body.content = context.gatherContent
     context.sysMessageEntity.body.reasoning = context.gatherReasoning.trim()
     context.sysMessageEntity.body.toolCallResults = context.toolCallResults
-
-    return context
-  }
-
-  // 管道上下文：处理流式响应
-  const processRequest = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
-    const streamReader = await chatRequestWithHookV2(context.request, context.signal, beforeFetch, afterFetch)
-    
-    while (streamReader && true) {
-      const { done, value } = await streamReader.read()
-      if (done) {
-        context.sysMessageEntity.body.content = context.gatherContent
-        context.sysMessageEntity.body.reasoning = context.gatherReasoning.trim()
-        context.sysMessageEntity.body.toolCallResults = context.toolCallResults
-        break
-      }
-      
-      const lines = value
-        .split("\n")
-        .filter((line) => line.trim() !== "")
-        .map((line) => line.replace(/^data: /, ""))
-        
-      for (const line of lines) {
-        try {
-          const delta = JSON.parse(line).choices?.[0]?.delta
-          if (delta) {
-            // 检测工具调用
-            if (delta.tool_calls && delta.tool_calls.length > 0) {
-              if(!context.hasToolCall) context.hasToolCall = true
-              if (delta.tool_calls[0].function.name) {
-                context.toolCalls.push({
-                  function: delta.tool_calls[0].function.name,
-                  args: ''
-                })
-              } else if (delta.tool_calls[0].function.arguments) {
-                context.toolCalls[context.toolCalls.length - 1].args += delta.tool_calls[0].function.arguments
-              }
-            }
-            
-            // 处理思考标签
-            if (context.isContentHasThinkTag) {
-              if (!context.gatherReasoning) {
-                context.gatherReasoning = context.gatherContent
-                context.gatherContent = ''
-              }
-              if (delta.content) {
-                context.gatherReasoning += delta.content
-              }
-              if (context.gatherReasoning.includes('</think>')) {
-                context.gatherReasoning = context.gatherReasoning.replace('</think>', '')
-                context.isContentHasThinkTag = false
-              }
-            } else {
-              if (context.gatherContent.includes('<think>')) {
-                context.isContentHasThinkTag = true
-                if (delta.content) {
-                  context.gatherContent = delta.content
-                }
-              } else if (delta.content) {
-                context.gatherContent += delta.content
-              } else if (delta.reasoning) {
-                context.gatherReasoning += delta.reasoning || ''
-              }
-            }
-          }
-          
-          // 更新消息显示
-          setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, { 
-            body: { 
-              role: 'system', 
-              content: context.gatherContent, 
-              reasoning: context.gatherReasoning,
-              artifatcs: artifacts,
-              toolCallResults: context.toolCallResults,
-              model: context.model.name
-            } 
-          }])
-        } catch(error: any) {} // 忽略解析失败的行
-      }
-    }
 
     return context
   }

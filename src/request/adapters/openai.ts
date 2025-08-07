@@ -75,7 +75,6 @@ export class OpenAIAdapter extends BaseAdapter {
       .map((line: string) => line.replace(/^data: /, ""))
 
       for (const line of lines) {
-        console.log(line)
         if (line === '[DONE]') {
           break
         }
@@ -102,7 +101,6 @@ export class OpenAIAdapter extends BaseAdapter {
   
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
     try {
-      // OpenAI 流式响应格式: "data: {...}\n\n"
       if (chunk.startsWith('data: ')) {
         const jsonStr = chunk.slice(6).trim()
         if (jsonStr === '[DONE]') {
@@ -144,18 +142,15 @@ export class OpenAIV2Adapter extends BaseAdapter {
   transformRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
-      messages: req.messages,
+      input: req.messages,
       stream: req.stream ?? true,
-      parameters: {
-        temperature: req.options?.temperature ?? 0.7,
-        max_tokens: req.options?.maxTokens ?? 4096,
-        top_p: req.options?.topP ?? 0.7,
-        frequency_penalty: 0.5
-      }
+      temperature: req.options?.temperature ?? 1,
+      max_output_tokens: req.options?.maxTokens ?? 4096,
+      top_p: req.options?.topP ?? 1,
     }
     
     if (req.prompt) {
-      requestBody.messages = [
+      requestBody.input = [
         { role: 'system', content: req.prompt },
         ...requestBody.messages
       ]
