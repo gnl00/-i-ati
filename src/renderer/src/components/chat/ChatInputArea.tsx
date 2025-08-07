@@ -66,13 +66,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [connectingMcpServers, setConnectingMcpServers] = useState<string[]>([])
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
+  const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
   const handleChatSubmit = useChatSubmit()
-  const handleChatSubmitCallback = useCallback((text, img, tools) => {
-    handleChatSubmit(text, img, tools)
+  const handleChatSubmitCallback = useCallback((text, img, options) => {
+    handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
   const onSubmitClick = useCallback((_) => {
     onSubmit() // for chat-window scroll to the end
-    handleChatSubmitCallback(inputContent, imageSrcBase64List, Array.from(availableMcpTools.values()).flatMap(i => i))
+    handleChatSubmitCallback(inputContent, imageSrcBase64List, {tools: Array.from(availableMcpTools.values()).flatMap(i => i), prompt: currentSystemPrompt})
     setInputContent('')
     setImageSrcBase64List([])
   }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])
@@ -320,8 +321,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                       <Label htmlFor="systemPrompt">SystemPrompt</Label>
                       <Textarea
                         id="systemPrompt"
+                        value={currentSystemPrompt}
                         placeholder='Input your custom system prmopt here'
                         className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
+                        onChange={e => setCurrentSystemPrompt(e.target.value)}
                       />
                     </div>
                   </div>

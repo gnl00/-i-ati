@@ -57,8 +57,6 @@ export class OpenAIAdapter extends BaseAdapter {
   }
 
   async *transformStreamResponse(streamReader: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
-    console.log('openai v1 transformStreamResponse', streamReader);
-    
     if (!streamReader || typeof streamReader.read !== 'function') {
       console.error('Invalid streamReader provided:', streamReader);
       return;

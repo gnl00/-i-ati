@@ -211,15 +211,17 @@ function useChatSubmit() {
   }
 
   // 管道上下文：构建请求
-  const buildRequest = (context: ChatPipelineContext): ChatPipelineContext => {
+  const buildRequest = (context: ChatPipelineContext, prompt: string): ChatPipelineContext => {
     const memoriesMessages = webSearchEnable && context.searchFunctionMessage ? [...context.chatMessages, context.searchFunctionMessage] : context.chatMessages
-    const systemPrompts = [artifacts ? artifactsSystemPrompt : '', webSearchEnable ? webSearchSystemPrompt : '', toolCallPrompt].join('\n\n')
-    
+    let systemPrompts = [artifacts ? artifactsSystemPrompt : '', webSearchEnable ? webSearchSystemPrompt : '', toolCallPrompt]
+    if (prompt) {
+      systemPrompts = [prompt, ...systemPrompts]
+    }
     context.request = {
       baseUrl: context.provider.apiUrl,
       messages: memoriesMessages,
       apiKey: context.provider.apiKey,
-      prompt: systemPrompts,
+      prompt: systemPrompts.join('\n'),
       model: context.model.value,
       tools: context.tools
     }
@@ -270,7 +272,7 @@ function useChatSubmit() {
         }
       }
 
-      setMessages([...context.messageEntities.splice(0, -1), context.userMessageEntity, 
+      setMessages([...context.messageEntities, 
         {
           body: { 
             role: 'system', 
@@ -405,12 +407,12 @@ function useChatSubmit() {
   }
 
   // 重构后的主函数
-  const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], tools?: any[]): Promise<void> => {
-    console.log('use-tools', tools)
+  const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], options: {tools?: any[], prompt: string}): Promise<void> => {
+    console.log('use-tools', options.tools)
     try {
-      let context = await prepareMessageAndChat(textCtx, mediaCtx, tools)
+      let context = await prepareMessageAndChat(textCtx, mediaCtx, options.tools)
       context = await handleWebSearch(context)
-      context = buildRequest(context)
+      context = buildRequest(context, options.prompt)
       context = await processRequestWithToolCall(context)
       await finalize(context)
     } catch (error: any) {
