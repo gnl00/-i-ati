@@ -182,7 +182,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                         </CarouselItem>
                                     ))
                                 }
-                                <CarouselItem onClick={e => { console.log('add new assistant') }}>
+                                <CarouselItem onClick={_ => { console.log('add new assistant') }}>
                                     <div className="p-1">
                                         <Card>
                                             <CardContent className="flex flex-col aspect-square items-center justify-center p-6 select-none text-gray-300 hover:bg-gray-50">
@@ -193,7 +193,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                     </DrawerTrigger>
                                                     <DrawerContent>
                                                         <DrawerHeader>
-                                                            <DrawerTitle>Are you absolutely sure?</DrawerTitle>
+                                                            <DrawerTitle>Add Assiat</DrawerTitle>
                                                             <DrawerDescription>This action cannot be undone.</DrawerDescription>
                                                         </DrawerHeader>
                                                         <DrawerFooter>
