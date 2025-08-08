@@ -16,12 +16,24 @@ import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { useSheetStore } from '@renderer/store/sheet'
 import { useChatStore } from '@renderer/store'
+import { Label } from '../ui/label'
+import { Textarea } from '../ui/textarea'
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+  } from "@renderer/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
+import { ChevronsUpDown } from 'lucide-react'
 
 interface ChatSheetProps {}
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
-    const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
+    const { setMessages, toggleArtifacts, toggleWebSearch, providers } = useChatStore()
     const {chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList} = useChatContext()
     
     const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])
@@ -200,11 +212,60 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                     </DrawerTrigger>
                                                     <DrawerContent>
                                                         <DrawerHeader>
-                                                            <DrawerTitle>Add Assiat</DrawerTitle>
-                                                            <DrawerDescription>This action cannot be undone.</DrawerDescription>
+                                                            <DrawerTitle>Add Assistant</DrawerTitle>
+                                                            <DrawerDescription>Add your own custom assiatant.</DrawerDescription>
                                                         </DrawerHeader>
+                                                        <div className='px-4 space-y-3'>
+                                                            <div className="grid gap-3">
+                                                                <Label>Name</Label>
+                                                                <Input placeholder='Your assiatant name?' />
+                                                            </div>
+                                                            <div className="grid gap-3">
+                                                                <Label>Model</Label>
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            role="combobox"
+                                                                            className="w-[200px] justify-between"
+                                                                            >
+                                                                            {"Select framework..."}
+                                                                            <ChevronsUpDown className="opacity-50" />
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-[200px] overflow-scroll p-0">
+                                                                        <Command className='bg-red-100'>
+                                                                            <CommandInput placeholder="Search framework..." className="h-9" />
+                                                                            <CommandList className='overflow-scroll'>
+                                                                                <CommandEmpty>No framework found.</CommandEmpty>
+                                                                                {
+                                                                                    providers.map(p => {
+                                                                                        return p.models.length != 0 && p.models.findIndex(m => m.enable) !== -1 && (
+                                                                                            <CommandGroup key={p.name}>
+                                                                                                <p className='text-sm text-gray-400 select-none'>{p.name}</p>
+                                                                                                {
+                                                                                                    p.models.map(m => m.enable && (
+                                                                                                        <CommandItem key={m.value.concat('/').concat(m.provider)} value={m.value.concat('/').concat(m.provider)}>
+                                                                                                            {m.name}
+                                                                                                        </CommandItem>
+                                                                                                    ))
+                                                                                                }
+                                                                                            </CommandGroup>
+                                                                                        )
+                                                                                    })
+                                                                                }
+                                                                            </CommandList>
+                                                                        </Command>
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            </div>
+                                                            <div className="grid gap-3">
+                                                                <Label>Prompt</Label>
+                                                                <Textarea placeholder="Your assistant prompts" />
+                                                            </div>
+                                                        </div>
                                                         <DrawerFooter>
-                                                            <Button>Submit</Button>
+                                                            <Button>Add</Button>
                                                             <DrawerClose asChild>
                                                                 <Button variant="outline">Cancel</Button>
                                                             </DrawerClose>
