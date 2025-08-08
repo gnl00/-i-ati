@@ -242,7 +242,8 @@ function useChatSubmit() {
             function: resp.toolCalls[0].function.name,
             args: ''
           })
-        } else if (resp.toolCalls[0].function.arguments) {
+        }
+        if (resp.toolCalls[0].function.arguments) {
           context.toolCalls[context.toolCalls.length - 1].args += resp.toolCalls[0].function.arguments
         }
       }
@@ -296,7 +297,7 @@ function useChatSubmit() {
   // 管道函数：处理工具调用
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     while(context.toolCalls.length > 0) {
-      console.log('context.toolCalls', context.toolCalls)
+      console.log('context.toolCalls', JSON.stringify(context.toolCalls), context.toolCalls.length)
       const toolCall = (context.toolCalls.shift())! // 从第一个 tool 开始调用，逐个返回结果
   
       try {
