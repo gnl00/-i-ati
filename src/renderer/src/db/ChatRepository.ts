@@ -27,7 +27,8 @@ const updateChat = async (data) => {
 // 删除数据
 const deleteChat = async (id) => {
   const db = await dbPromise;
-  return db.delete(STORE_NAME, id);
+  await db.delete(STORE_NAME, id);
+  return true
 };
 
 export { saveChat, getAllChat, getChatById, updateChat, deleteChat };

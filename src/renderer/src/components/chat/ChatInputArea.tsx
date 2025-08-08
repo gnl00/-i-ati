@@ -331,10 +331,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                       />
                     </div>
                     <div className='space-x-2 flex justify-between'>
-                      <Button variant={'ghost'} className='rounded-lg'>
+                      <Button size={'xs'} variant={'outline'} className='rounded-lg'>
                           Save as Assiatant
                       </Button>
-                      <Button variant={'outline'} className='rounded-lg' onClick={_ => setCustomSettingsPopoverState(!customSettingsPopoverState)}>Save Settings</Button>
+                      <Button size={'xs'} className='rounded-lg' onClick={_ => setCustomSettingsPopoverState(!customSettingsPopoverState)}>Save</Button>
                     </div>
                   </div>
                 </div>
