@@ -122,11 +122,6 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
               <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
                 <CopyIcon onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
               </div>
-              {isLatest && (
-                <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
-                  <ReloadIcon></ReloadIcon>
-                </div>
-              )}
               <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
                 <Pencil2Icon></Pencil2Icon>
               </div>
