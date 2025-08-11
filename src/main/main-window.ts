@@ -5,18 +5,6 @@ import icon from '../../build/icon.png?asset'
 
 let mainWindow: BrowserWindow
 
-const pinWindow = (pin: boolean): void => {
-  mainWindow.setAlwaysOnTop(pin, 'floating')
-}
-
-const getWinPosition = (): number[] => {
-  return mainWindow.getPosition()
-}
-
-const setWinPosition = ({x, y, animation= true}): void => {
-  mainWindow.setPosition(x, y, animation)
-}
-
 function createWindow(): void {
   // Create the browser window.
   mainWindow = new BrowserWindow({
@@ -82,10 +70,27 @@ function createWindow(): void {
   }
 }
 
+const pinWindow = (pin: boolean): void => {
+  mainWindow.setAlwaysOnTop(pin, 'floating')
+}
+
+const getWinPosition = (): number[] => {
+  return mainWindow.getPosition()
+}
+
+const setWinPosition = ({x, y, animation= true}): void => {
+  mainWindow.setPosition(x, y, animation)
+}
+
+const windowsMinimize = () => {
+  mainWindow.minimize()
+}
+
 export {
   mainWindow,
   createWindow,
   pinWindow,
   getWinPosition,
   setWinPosition,
+  windowsMinimize
 }

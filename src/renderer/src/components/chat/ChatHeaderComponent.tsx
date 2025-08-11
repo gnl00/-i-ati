@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { GearIcon, DrawingPinIcon, DrawingPinFilledIcon, ActivityLogIcon } from '@radix-ui/react-icons'
+import { GearIcon, DrawingPinIcon, DrawingPinFilledIcon, ActivityLogIcon, MinusIcon } from '@radix-ui/react-icons'
 import PreferenceComponent from '@renderer/components/sys/PreferenceComponent'
 import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
@@ -31,6 +31,10 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
     window.electron.ipcRenderer.invoke(PIN_WINDOW, !pinState) // pin window
   }
 
+  const onMinimizeBtnClick = () => {
+    console.log('onMinimalBtnClick')
+    window.electron.ipcRenderer.invoke('win-minimize')
+  }
   return (
     <div className="header shadow-lg fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black/100" style={{ userSelect: 'none' }}>
       <div className="app-dragable flex-1 space-x-2 flex">
@@ -55,6 +59,9 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
         <div className="app-undragable"><ModeToggle /></div>
         <Button className="app-undragable" size="sm" variant="outline" onClick={onPinToggleClick}>
           {pinState ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
+        </Button>
+        <Button className="app-undragable" size="sm" variant="outline" onClick={onMinimizeBtnClick}>
+          <MinusIcon className='font-semibold' />
         </Button>
       </div>
     </div>

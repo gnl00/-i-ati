@@ -5,7 +5,7 @@ import os from 'node:os'
 import { loadConfig } from './app-config'
 import { createWindow } from './main-window'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
-import { close as mcpClientClose } from '../mcp/client'
+import { closeAll as mcpClientClose } from '../mcp/client'
 
 const reactDevToolsPath = path.join(
   os.homedir(),
