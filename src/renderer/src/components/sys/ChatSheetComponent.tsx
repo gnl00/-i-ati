@@ -290,62 +290,68 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                 {
                                     chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
                                         return (
-                                            index === chatList.length - 1 ?
-                                                <div key={-1} className="flex justify-center text-gray-300 dark:text-gray-700 select-none p-1">No more chats</div> :
-                                                (
-                                                    ((index === 0) || (item.id != -1) && (getDate(item.updateTime) != getDate(chatList[index-1].updateTime))) ? <div key={index}><span className='text-gray-500 text-xs'>{getDate(item.updateTime)}</span><Separator></Separator></div> :
-                                                    <div id="chat-item"
-                                                        key={index}
-                                                        onMouseOver={_ => onMouseOverSheetChat(item.id as number)}
-                                                        onMouseLeave={onMouseLeaveSheetChat}
-                                                        onClick={(event) => onChatClick(event, item)}
-                                                        className={
-                                                            cn("w-full flex item-center min-h-[4.8vh] pl-2 pr-2 space-x-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800",
-                                                                chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200 dark:bg-blue-gray-700" : "hover:bg-blue-gray-200 dark:hover:bg-blue-gray-700",
-                                                                index === chatList.length - 1 ? "" : ""
-                                                            )}
-                                                        >
-                                                        <div className="flex items-center w-full flex-[0.8] overflow-x-hidden relative">
-                                                            {
-                                                                showChatItemEditConform && chatItemEditId === item.id ?
-                                                                    <Input
-                                                                        className="focus-visible:ring-offset-0 focus-visible:ring-0 focus:ring-0 focus:outline-none focus:border-0 border-0"
-                                                                        onClick={e => e.stopPropagation()}
-                                                                        onChange={e => onChatItemTitleChange(e, item)}
-                                                                        value={item.title}
-                                                                    />
-                                                                    :
-                                                                    (<div className="flex items-center">
-                                                                        <span className="text-ellipsis line-clamp-1 whitespace-no-wrap">{index} {item.title}</span>
-                                                                    </div>)
-                                                            }
-                                                        </div>
-                                                        <div className="w-full flex flex-[0.2] items-center justify-center">
-                                                            {(sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
-                                                                <div className="flex space-x-2 item-center">
-                                                                    {showChatItemEditConform && chatItemEditId === item.id ?
-                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                            <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-1 py-1"><CheckIcon /></span>
-                                                                        </div>
+                                            <div key={index}>
+                                                {
+                                                    (((index === 0) || (item.id != -1) && (getDate(item.updateTime) != getDate(chatList[index-1].updateTime))) && chatList.findIndex(e => e.id === item.id) !== -1 && (<div key={index}><span className='text-gray-500 text-xs'>{getDate(item.updateTime)}</span><Separator></Separator></div>))
+                                                }
+                                                {
+                                                    index === chatList.length - 1 ?
+                                                    <div key={-1} className="flex justify-center text-gray-300 dark:text-gray-700 select-none p-1">No more chats</div> :
+                                                    (
+                                                        <div id="chat-item"
+                                                            onMouseOver={_ => onMouseOverSheetChat(item.id as number)}
+                                                            onMouseLeave={onMouseLeaveSheetChat}
+                                                            onClick={(event) => onChatClick(event, item)}
+                                                            className={
+                                                                cn("w-full flex item-center min-h-[4.8vh] pl-2 pr-2 space-x-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800",
+                                                                    chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200 dark:bg-blue-gray-700" : "hover:bg-blue-gray-200 dark:hover:bg-blue-gray-700",
+                                                                    index === chatList.length - 1 ? "" : ""
+                                                                )}
+                                                            >
+                                                            <div className="flex items-center w-full flex-[0.8] overflow-x-hidden relative">
+                                                                {
+                                                                    showChatItemEditConform && chatItemEditId === item.id ?
+                                                                        <Input
+                                                                            className="focus-visible:ring-offset-0 focus-visible:ring-0 focus:ring-0 focus:outline-none focus:border-0 border-0"
+                                                                            onClick={e => e.stopPropagation()}
+                                                                            onChange={e => onChatItemTitleChange(e, item)}
+                                                                            value={item.title}
+                                                                        />
                                                                         :
-                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                            <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-1 py-1"><Pencil2Icon /></span>
+                                                                        (<div className="flex items-center">
+                                                                            <span className="text-ellipsis line-clamp-1 whitespace-no-wrap">{item.title}</span>
+                                                                        </div>)
+                                                                }
+                                                            </div>
+                                                            <div className="w-full flex flex-[0.2] items-center justify-center">
+                                                                {(sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
+                                                                    <div className="flex space-x-2 item-center">
+                                                                        {showChatItemEditConform && chatItemEditId === item.id ?
+                                                                            <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                                <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-1 py-1"><CheckIcon /></span>
+                                                                            </div>
+                                                                            :
+                                                                            <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400  hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                                <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-1 py-1"><Pencil2Icon /></span>
+                                                                            </div>
+                                                                        }
+                                                                        <div className="flex items-center justify-center p-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap text-gray-200 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
+                                                                            <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-1 py-1 text-lg"><Cross2Icon /></span>
                                                                         </div>
-                                                                    }
-                                                                    <div className="flex items-center justify-center p-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap text-gray-200 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                        <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-1 py-1 text-lg"><Cross2Icon /></span>
                                                                     </div>
-                                                                </div>
-                                                                :
-                                                                <div className="flex items-center px-2 py-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-500">
-                                                                    <span>{item.messages.length}</span>
-                                                                </div>
-                                                            )}
+                                                                    :
+                                                                    <div className="flex items-center px-2 py-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-500">
+                                                                        <span>{item.messages.length}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )
+                                                    )
+                                                }
+                                            </div>
                                         )
                                     }) :
+                                    (
                                         <div className={cn("flex items-center w-full p-3 rounded-md hover:bg-gray-100")} onClick={onNewChatClick}>
                                             NewChat
                                             <div className="grid ml-auto place-items-center justify-self-end">
@@ -354,6 +360,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                 </div>
                                             </div>
                                         </div>
+                                    )
                                 }
                             </div>
                         </div>
