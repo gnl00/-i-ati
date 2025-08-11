@@ -19,6 +19,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const chatWindowRef = useRef<HTMLDivElement>(null)
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const chatListRef = useRef<HTMLDivElement>(null)
+  const chatPaddingElRef = useRef<HTMLDivElement>(null)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastScrollTopRef = useRef<number>(0)
   
@@ -44,7 +45,12 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   useEffect(() => {
     // console.log(messages)
     calculateChatListHeight()
-    scrollToBottomOptimized()
+    // scrollToBottomOptimized()
+    if(chatPaddingElRef && chatPaddingElRef.current) {
+      chatPaddingElRef.current.scrollIntoView({
+        behavior: "smooth"
+      })
+    }
   }, [messages])
 
   const calculateChatListHeight = useCallback(() => {
@@ -103,7 +109,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }, 100)
   }, [scrollToBottom])
 
-  const onSubmit = () => {
+  const onMessagesUpdate = () => {
     // 用户提交消息后强制滚动到底部
     scrollToBottomForced()
   }
@@ -131,11 +137,11 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           </div>
         )}
         {/* just as a padding element */}
-        <div className="flex h-20 pt-14 select-none">&nbsp;</div>
+        <div ref={chatPaddingElRef} className="flex h-20 pt-14 select-none">&nbsp;</div>
       </div>
       <ChatInputArea
         ref={inputAreaRef}
-        onSubmit={onSubmit}
+        onMessagesUpdate={onMessagesUpdate}
       />
     </div>
   )

@@ -33,12 +33,12 @@ import { Slider } from "@renderer/components/ui/slider"
 import { toast } from 'sonner'
 
 interface ChatInputAreaProps {
-  onSubmit: () => void
+  onMessagesUpdate: () => void
 }
 const availableMcpTools = new Map()
 
 const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
-  onSubmit,
+  onMessagesUpdate,
 }, ref) => {
   const {setChatContent} = useChatContext()
   const {
@@ -73,7 +73,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
   const onSubmitClick = useCallback((_) => {
-    onSubmit() // for chat-window scroll to the end
+    onMessagesUpdate() // for chat-window scroll to the end
     handleChatSubmitCallback(inputContent, imageSrcBase64List, {tools: Array.from(availableMcpTools.values()).flatMap(i => i), prompt: currentSystemPrompt})
     setInputContent('')
     setImageSrcBase64List([])
