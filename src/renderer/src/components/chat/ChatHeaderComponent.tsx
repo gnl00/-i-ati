@@ -47,7 +47,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
               <GearIcon />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="m-2 app-undragable w-auto h-full">
+          <PopoverContent className="m-1 app-undragable w-auto h-full">
             <PreferenceComponent />
           </PopoverContent>
         </Popover>
