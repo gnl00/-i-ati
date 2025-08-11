@@ -1,13 +1,7 @@
-import React, { memo } from 'react'
+import React, { memo, useState } from 'react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
 import { toast } from '@renderer/components/ui/use-toast'
 import { Badge } from "@renderer/components/ui/badge"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider
-} from "@renderer/components/ui/tooltip"
 import { CopyIcon, ReloadIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { BadgePercent, BadgeCheck, BadgeX } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
@@ -28,6 +22,8 @@ interface ChatMessageComponentProps {
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
 
+  const [userMessageOperationIdx, setUserMessageOperationIdx] = useState<number>(-1)
+
   const onCopyClick = (content: string) => {
     if (content) {
       navigator.clipboard.writeText(content)
@@ -39,97 +35,105 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
       })
     }
   }
+  const onMouseHoverUsrMsg = (idx: number) => {
+    setUserMessageOperationIdx(idx)
+  }
 
   if (m.role === 'user') {
     return m.content ? (
-      <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div id='use-message' className={cn("flex justify-end mr-1", index === 0 ? 'mt-2' : '')}>
-              <div className={cn("max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-100")}>
-                {typeof m.content !== 'string' ? (
-                  <>
-                    <div className="">
-                      {m.content.map((vlmContent: VLMContent, idx) => {
-                        if (vlmContent.image_url) {
-                          return <img key={idx} src={vlmContent.image_url?.url} onDoubleClick={e => e}></img>
-                        } else {
-                          return (
-                            <ReactMarkdown
-                              key={idx}
-                              remarkPlugins={[remarkGfm]}
-                              // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
-                              skipHtml={false}
-                              className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
-                              components={{
-                                pre(props) {
-                                  const { children, ...rest } = props
-                                  return <>{children}</>
-                                },
-                                code(props) {
-                                  const { children, className, node, ...rest } = props
-                                  const match = /language-(\w+)/.exec(className || '')
-                                  return match ? (
-                                    <CodeWrapper
-                                      children={String(children).replace(/\n$/, '')}
-                                      language={match[1]}
-                                    />
-                                  ) : (
-                                    <code {...rest} className={className}>
-                                      {children}
-                                    </code>
-                                  )
-                                }
-                              }}
-                            >
-                              {vlmContent.text}
-                            </ReactMarkdown>
-                          )
-                        }
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
-                    skipHtml={false}
-                    className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
-                    components={{
-                      pre(props) {
-                        const { children, ...rest } = props
-                        return <>{children}</>
-                      },
-                      code(props) {
-                        const { children, className, node, ...rest } = props
-                        const match = /language-(\w+)/.exec(className || '')
-                        return match ? (
-                          <CodeWrapper
-                            children={String(children).replace(/\n$/, '')}
-                            language={match[1]}
-                          />
-                        ) : (
-                          <code {...rest} className={className}>
-                            {children}
-                          </code>
-                        )
-                      }
-                    }}
-                  >
-                    {m.content as string}
-                  </ReactMarkdown>
-                )}
+      <div id='usr-message' className={cn("flex flex-col items-end mr-1", index === 0 ? 'mt-2' : '')}>
+        <div id="usr-msg-content" onMouseEnter={_ => onMouseHoverUsrMsg(index)} onMouseLeave={_ => onMouseHoverUsrMsg(-1)} className={cn("max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-100")}>
+          {typeof m.content !== 'string' ? (
+            <>
+              <div className="">
+                {m.content.map((vlmContent: VLMContent, idx) => {
+                  if (vlmContent.image_url) {
+                    return <img key={idx} src={vlmContent.image_url?.url} onDoubleClick={e => e}></img>
+                  } else {
+                    return (
+                      <ReactMarkdown
+                        key={idx}
+                        remarkPlugins={[remarkGfm]}
+                        // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
+                        skipHtml={false}
+                        className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
+                        components={{
+                          pre(props) {
+                            const { children, ...rest } = props
+                            return <>{children}</>
+                          },
+                          code(props) {
+                            const { children, className, node, ...rest } = props
+                            const match = /language-(\w+)/.exec(className || '')
+                            return match ? (
+                              <CodeWrapper
+                                children={String(children).replace(/\n$/, '')}
+                                language={match[1]}
+                              />
+                            ) : (
+                              <code {...rest} className={className}>
+                                {children}
+                              </code>
+                            )
+                          }
+                        }}
+                      >
+                        {vlmContent.text}
+                      </ReactMarkdown>
+                    )
+                  }
+                })}
+              </div>
+            </>
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
+              skipHtml={false}
+              className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
+              components={{
+                pre(props) {
+                  const { children, ...rest } = props
+                  return <>{children}</>
+                },
+                code(props) {
+                  const { children, className, node, ...rest } = props
+                  const match = /language-(\w+)/.exec(className || '')
+                  return match ? (
+                    <CodeWrapper
+                      children={String(children).replace(/\n$/, '')}
+                      language={match[1]}
+                    />
+                  ) : (
+                    <code {...rest} className={className}>
+                      {children}
+                    </code>
+                  )
+                }
+              }}
+            >
+              {m.content as string}
+            </ReactMarkdown>
+          )}
+        </div>
+        {
+          true && (
+            <div id="usr-msg-operation" className="mt-0.5 pr-2 space-x-1 flex text-gray-400">
+              <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+                <CopyIcon onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
+              </div>
+              {isLatest && (
+                <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+                  <ReloadIcon></ReloadIcon>
+                </div>
+              )}
+              <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+                <Pencil2Icon></Pencil2Icon>
               </div>
             </div>
-          </TooltipTrigger>
-          <TooltipContent className='bg-white/5 backdrop-blur-xl p-1 px-2 border-none' side='bottom' align='end'>
-            <div className="">
-              <CopyIcon className='w-7 h-6 hover:bg-gray-200 p-1 rounded-xl text-gray-500' onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
-              <Pencil2Icon className='w-7 h-6 hover:bg-gray-200 p-1 rounded-xl text-gray-500'></Pencil2Icon>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+          )
+        }
+      </div>
     ) : null
   }
 
