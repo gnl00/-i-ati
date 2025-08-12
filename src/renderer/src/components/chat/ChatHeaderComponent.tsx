@@ -36,7 +36,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
     window.electron.ipcRenderer.invoke('win-minimize')
   }
   return (
-    <div className="header shadow-lg fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black/100" style={{ userSelect: 'none' }}>
+    <div className="header shadow-lg fixed top-0 w-full pb-1 pr-2 pl-2 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black/100 z-10" style={{ userSelect: 'none' }}>
       <div className="app-dragable flex-1 space-x-2 flex">
         <Button className="app-undragable" variant="outline" size="sm" onClick={_ => {setSheetOpenState(true)}}>
           <ActivityLogIcon />
