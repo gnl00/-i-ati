@@ -67,7 +67,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
-  const [customSettingsPopoverState, setCustomSettingsPopoverState] = useState<boolean>(false)
   const handleChatSubmit = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
@@ -282,20 +281,22 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         </div>
         <div className='flex-grow w-full'>
           <div className='flex justify-end w-auto'>
-            <Popover open={customSettingsPopoverState}>
+            <Popover>
               <PopoverTrigger asChild>
                 <Button variant={'ghost'} 
                   className=
                     "flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-700 backdrop-blur-xl border-none shadow"
-                    onClick={_ => setCustomSettingsPopoverState(!customSettingsPopoverState)}
                   >
                   <span>Custom</span><Settings2 className="h-4 w-4 ml-1" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent onMouseLeave={_ => setCustomSettingsPopoverState(false)}>
+              <PopoverContent>
                 <div className="grid gap-4 mr-2 bg-white/30 backdrop-blur-3xl border-[1px] border-gray-200 rounded-xl p-2 text-gray-700">
-                  <div className="space-y-2">
-                    <h4 className="leading-none font-medium text-gray-800">Chat Settings</h4>
+                  <div className="space-y-2 flex justify-evenly">
+                    <p className="flex justify-between w-full">
+                      <span className='leading-none font-medium text-gray-800'>Chat Settings</span>
+                      <Badge variant={'outline'} className='text-xs text-gray-600 hover:bg-gray-200'>Save as Assiatant</Badge>
+                    </p>
                   </div>
                   <div className="grid gap-2">
                     <div className="grid grid-cols-3 items-center gap-4">
@@ -329,12 +330,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                         className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
                         onChange={e => setCurrentSystemPrompt(e.target.value)}
                       />
-                    </div>
-                    <div className='space-x-2 flex justify-between'>
-                      <Button size={'xs'} variant={'outline'} className='rounded-lg'>
-                          Save as Assiatant
-                      </Button>
-                      <Button size={'xs'} className='rounded-lg' onClick={_ => setCustomSettingsPopoverState(!customSettingsPopoverState)}>Save</Button>
                     </div>
                   </div>
                 </div>
