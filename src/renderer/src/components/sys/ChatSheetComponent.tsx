@@ -292,7 +292,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                         return (
                                             <div key={index}>
                                                 {
-                                                    (((index === 0) || (item.id != -1) && (getDate(item.updateTime) != getDate(chatList[index-1].updateTime))) && chatList.findIndex(e => e.id === item.id) !== -1 && (<div key={index}><span className='text-gray-500 text-xs'>{getDate(item.updateTime)}</span><Separator></Separator></div>))
+                                                    (((item.id != -1) && (getDate(item.updateTime) != getDate(chatList[index-1].updateTime))) && chatList.findIndex(e => e.id === item.id) !== -1 && (<div key={index}><span className='text-gray-500 text-xs'>{getDate(item.updateTime)}</span><Separator></Separator></div>))
                                                 }
                                                 {
                                                     index === chatList.length - 1 ?
