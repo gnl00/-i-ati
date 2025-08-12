@@ -103,8 +103,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setEditProviderApiKey('')
     }, [])
     useEffect(() => {
-        if (currentProviderName) {
-            const p = getProviderByName(currentProviderName)!
+        console.log('currentProviderName', currentProviderName);
+        let p: IProvider | undefined
+        if (currentProviderName && (p = getProviderByName(currentProviderName))) {
             setCurrentProvider(p)
             setEditProviderName(p.name)
             setEditProviderApiUrl(p.apiUrl)
@@ -200,44 +201,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
         sonnerToast.success(`Added ${newProviderName}`)
     }
-    const onDelProviderBtnClick = (e, providerName) => {
-        e.preventDefault()
-        e.stopPropagation()
-        removeProvider(providerName)
-    }
-    const getIcon = (provider: string) => {
-        let iconSrc = robotIcon
-        const pName = provider.toLowerCase()
-        switch (pName) {
-            case "OpenAI".toLowerCase():
-                iconSrc = openaiIcon
-                break
-            case "Anthropic".toLowerCase():
-                iconSrc = anthropicIcon
-                break
-            case "DeepSeek".toLowerCase():
-                iconSrc = deepseekIcon
-                break
-            case "MoonShot".toLowerCase():
-                iconSrc = moonshotIcon
-                break
-            case "SilliconFlow".toLowerCase() || "SiliconCloud".toLowerCase():
-                iconSrc = siliconcloudIcon
-                break
-            case "OpenRouter".toLowerCase():
-                iconSrc = openrouterIcon
-                break
-            case "Ollamma".toLowerCase():
-                iconSrc = ollamaIcon
-                break
-            case "Groq".toLowerCase():
-                iconSrc = groqIcon
-                break
-            default:
-                break
-        }
-        return <img draggable={false} src={iconSrc} alt="OpenAI" className="w-14 h-14" />
-    }
     const getIconSrc = (provider: string) => {
         let iconSrc = robotIcon
         const pName = provider.toLowerCase()
@@ -326,9 +289,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const onProviderCardHover = (idx) => {
         setHoverProviderCardIdx(idx)
     }
-    const onProviderCardDelClick = (idx) => {
-        console.log('onProviderCardDelClick', idx)
-        setProviders(providers.filter((_, i) => i !== idx))
+    const onProviderCardDelClick = (_, provider: IProvider) => {
+        if(currentProvider && currentProvider.name === provider.name) {
+            setCurrentProvider(undefined)
+        }
+        if(currentProviderName && currentProviderName === provider.name) {
+            setCurrentProviderName('')
+        }
+        removeProvider(provider.name)
     }
     const onModelDelClick = (model: IModel) => {
         if (currentProvider) {
@@ -357,7 +325,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 <TabsContent value="provider-list" className='w-[670px] h-[600px] focus:ring-0 focus-visible:ring-0'>
                     <div className='flex h-full bg-gray-50 p-1 rounded-md'>
                         <div className='w-1/4 flex flex-col overflow-scroll scroll-smooth relative'>
-                            <div className={cn('bg-gray-100 rounded-md')}>
+                            <div className={cn('bg-gray-100 rounded-md sticky top-0 z-10')}>
                                 <Drawer>
                                     <DrawerTrigger className='text-gray-400 flex justify-center items-center bg-gray-100 rounded-xl h-full w-full'>
                                         <div id='add-new-provider' className='sticky bottom-0 w-full h-14 bg-gray-50 rounded-md flex justify-center items-center'>
@@ -427,7 +395,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                             </TooltipProvider>
                                             {
                                                 hoverProviderCardIdx === idx && (
-                                                    <div className='absolute top-0 right-0' onClick={_ => onProviderCardDelClick(idx)}>
+                                                    <div className='absolute top-0 right-0' onClick={_ => onProviderCardDelClick(idx, p)}>
                                                         <Cross1Icon className="rounded-full bg-red-400 text-white p-0.5 w-4 h-4 transition-all duration-300 ease-in-out hover:transform hover:rotate-180" />
                                                     </div>
                                                 )
