@@ -492,6 +492,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                     <SelectGroup>
                                                         <SelectItem value="llm">LLM</SelectItem>
                                                         <SelectItem value="vlm">VLM</SelectItem>
+                                                        <SelectItem value="t2i">T2I</SelectItem>
                                                     </SelectGroup>
                                                 </SelectContent>
                                             </Select>
