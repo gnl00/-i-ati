@@ -115,7 +115,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }
 
   return (
-    <div ref={chatWindowRef} id='chat-window' className="h-full flex flex-col relative app-undragable" style={{
+    <div ref={chatWindowRef} id='chat-window' className="h-full min-h-screen flex flex-col relative app-undragable" style={{
       backgroundColor: '#f9f9f9',
       backgroundImage: `radial-gradient(circle at 1px 1px, rgba(139,125,102,0.15) 1px, transparent 0)`,
       backgroundSize: '50px 50px'

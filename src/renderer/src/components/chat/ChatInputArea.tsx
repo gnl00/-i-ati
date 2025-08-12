@@ -170,11 +170,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }
 
   return (
-    <div ref={ref} id='input-area' className={cn('p-6 pt-0 rounded-md fixed w-full h-52', imageSrcBase64List.length !== 0 ? 'bottom-36' : 'bottom-8')}>
+    <div ref={ref} id='input-area' className={cn('rounded-md fixed w-full h-52', imageSrcBase64List.length !== 0 ? 'bottom-36' : 'bottom-8')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
           <ChatImgGalleryComponent />
       </div>
-      <div className='rounded-xl flex items-center space-x-2 pr-2 mb-2 select-none'>
+      <div className='rounded-xl flex items-center space-x-2 mb-2 select-none px-4'>
         <div className="app-undragable">
           <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
             <PopoverTrigger asChild>
@@ -338,7 +338,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           </div>
         </div>
       </div>
-      <div className='relative bg-gray-50 h-full rounded-2xl -z-10 flex flex-col'>
+      <div className='relative bg-gray-50 h-full rounded-2xl -z-10 flex flex-col pb-6 px-4'>
         <Textarea 
           style={{maxHeight: 'calc(100% - 2rem)'}}
           className="bg-white/5 focus:bg-white/50 backdrop-blur-3xl text-base p-2 border-b-[0px] rounded-bl-none rounded-br-none
