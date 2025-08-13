@@ -120,7 +120,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       backgroundSize: '50px 50px'
     }}>
     <ChatHeaderComponent />
-    <div className="flex-grow app-undragable mt-12 overflow-scroll">
+    <div className="flex-grow app-undragable mt-12 overflow-scroll scroll-smooth">
       <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
         {messages.length !== 0 && messages.map((message, index) => (
           <ChatMessageComponent
