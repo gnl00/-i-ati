@@ -338,10 +338,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           </div>
         </div>
       </div>
-      <div className='relative bg-gray-50 h-full rounded-2xl -z-10 flex flex-col pb-6 px-4'>
+      <div className='relative h-full -z-10 flex flex-col pb-6 px-4'>
         <Textarea 
           style={{maxHeight: 'calc(100% - 2rem)'}}
-          className="bg-white/5 focus:bg-white/50 backdrop-blur-3xl text-base p-2 border-b-[0px] rounded-bl-none rounded-br-none
+          className="bg-gray-50 focus:bg-white/50 backdrop-blur-3xl text-base p-2 border-b-[0px] rounded-bl-none rounded-br-none
             rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto flex-grow" 
           placeholder='Type anything to chat'
           value={inputContent}
@@ -363,25 +363,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            {/* <TooltipProvider delayDuration={400}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="secondary" 
-                    className={
-                      cn('bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-black/5 flex justify-center rounded-full w-12 h-6',
-                        artifacts ? 'bg-blue-100 text-blue-400 hover:bg-blue-100' : 'hover:text-black/90'
-                      )}
-                    onClick={onArtifactsClick}
-                    >
-                      <Atom></Atom>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
-                  <p>Artifacts</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider> */}
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
