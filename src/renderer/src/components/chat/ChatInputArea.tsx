@@ -100,6 +100,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault()
+      if (!inputContent) {
+        toast.error('Input text content is required')
+        return
+      }
+      if (!selectedModel) {
+        toast.error('Please select a model')
+        return
+      }
       onSubmitClick(e)
     }
   }, [onSubmitClick])
