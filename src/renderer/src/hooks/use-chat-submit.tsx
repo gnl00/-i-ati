@@ -85,21 +85,8 @@ function useChatSubmit() {
 
   // 管道上下文：准备消息
   const prepareMessageAndChat = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], tools?: any[]): Promise<ChatPipelineContext> => {
-    if (!textCtx) {
-      throw new Error('Text content is required')
-    }
-
-    if (!selectedModel) {
-      toast({
-        variant: "destructive",
-        title: "Uh oh! Request went wrong.",
-        description: 'Please select a model first!'
-      })
-      throw new Error('No model selected')
-    }
-
     // 构建用户消息
-    const model = selectedModel
+    const model = selectedModel!
     let messageBody: ChatMessage = { role: "user", content: '' }
     if (model.type === 'llm') {
       messageBody = {...messageBody, content: textCtx.trim()}
