@@ -6,7 +6,6 @@ import { Skeleton } from "@renderer/components/ui/skeleton"
 import { useChatStore } from '@renderer/store'
 import React, { useState, forwardRef, useEffect, useCallback, useRef } from 'react'
 
-
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { 
       messages,

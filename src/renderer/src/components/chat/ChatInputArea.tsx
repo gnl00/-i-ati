@@ -374,13 +374,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="secondary" 
+                  <Globe 
                     className={
-                      cn("bg-black/5 backdrop-blur-3xl text-gray-600 hover:bg-black/5 flex justify-center rounded-full w-12 h-6",
-                      webSearchEnable ? 'bg-blue-100 text-blue-400 hover:bg-blue-100' : 'hover:text-black/90'
+                      cn("backdrop-blur-3xl text-gray-600 flex justify-center",
+                      webSearchEnable ? 'text-blue-400' : 'hover:text-gray-400'
                       )} 
-                    onClick={onWebSearchClick}><Globe></Globe>
-                  </Button>
+                    onClick={onWebSearchClick}>
+                  </Globe>
                 </TooltipTrigger>
                 <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
                   <p>Web Search</p>
