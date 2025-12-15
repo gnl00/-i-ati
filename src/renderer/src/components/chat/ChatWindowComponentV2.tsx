@@ -5,6 +5,7 @@ import ChatMessageComponent from "@renderer/components/chat/ChatMessageComponent
 import { Skeleton } from "@renderer/components/ui/skeleton"
 import { useChatStore } from '@renderer/store'
 import React, { useState, forwardRef, useEffect, useCallback, useRef } from 'react'
+import { Badge } from "@renderer/components/ui/badge"
 
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { 
@@ -12,6 +13,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       webSearchEnable,
       webSearchProcessing,
       readStreamState,
+      selectedModel,
+      showLoadingIndicator,
   } = useChatStore()
 
   const chatWindowRef = useRef<HTMLDivElement>(null)
@@ -121,20 +124,36 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     <ChatHeaderComponent />
     <div className="flex-grow app-undragable mt-12 overflow-scroll scroll-smooth">
       <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
-        {messages.length !== 0 && messages.map((message, index) => (
-          <ChatMessageComponent
-            key={index}
-            message={message.body}
-            index={index}
-            isLatest={index === messages.length - 1}
-          />
-        ))}
-        {webSearchEnable && webSearchProcessing && (
-          <div className="space-y-1">
-            <Skeleton className=" mt-3 h-5 w-[60%] rounded-full bg-black/5"></Skeleton>
-            <Skeleton className=" mt-3 h-5 w-[40%] rounded-full bg-black/5"></Skeleton>
+        {messages.length !== 0 && messages.map((message, index) => {
+          return (
+            <ChatMessageComponent
+              key={index}
+              message={message.body}
+              index={index}
+              isLatest={index === messages.length - 1}
+            />
+          )
+        })}
+
+        {/* 流式响应加载指示器 */}
+        {showLoadingIndicator && selectedModel && (
+          <div className="flex justify-start flex-col pb-0.5 w-20">
+            <Badge variant="outline" className='select-none text-gray-700 mb-1 animate-pulse'>
+              @{selectedModel.name}
+            </Badge>
+            <div className="space-y-2 mt-2">
+              <Skeleton className="h-4 w-32 rounded-full bg-black/5" />
+            </div>
           </div>
         )}
+
+        {/* WebSearch 加载指示器 */}
+        {/* {webSearchEnable && webSearchProcessing && (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[60%] rounded-full bg-black/5" />
+            <Skeleton className="h-4 w-[40%] rounded-full bg-black/5" />
+          </div>
+        )} */}
       </div>
       <div ref={chatPaddingElRef}></div>
     </div>

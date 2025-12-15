@@ -96,7 +96,20 @@ export class OpenAIAdapter extends BaseAdapter {
 
         try {
           const respObject = JSON.parse(line)
-          const delta = respObject.choices?.[0]?.delta
+
+          // 跳过没有 choices 的响应（如内容过滤结果）
+          if (!respObject.choices || respObject.choices.length === 0) {
+            console.log('Skipping response without choices:', respObject)
+            continue
+          }
+
+          const delta = respObject.choices[0]?.delta
+
+          // 跳过没有 delta 的响应
+          if (!delta) {
+            continue
+          }
+
           const unifiedResponse: IUnifiedResponse = {
             id: respObject.id || 'chatcmpl-' + Date.now(),
             model: respObject.model || 'unknown',
@@ -104,7 +117,7 @@ export class OpenAIAdapter extends BaseAdapter {
             content: delta.content || '',
             reasoning: delta.reasoning,
             toolCalls: this.transformToolCalls(delta.tool_calls),
-            finishReason: this.mapFinishReason(respObject.finish_reason),
+            finishReason: this.mapFinishReason(respObject.choices[0]?.finish_reason),
             raw: respObject
           }
           yield unifiedResponse

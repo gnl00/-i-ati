@@ -23,6 +23,7 @@ type ChatState = {
   fetchState: boolean
   currentReqCtrl: AbortController | undefined
   readStreamState: boolean
+  showLoadingIndicator: boolean
   titleGenerateEnabled: boolean
   titleGenerateModel: IModel | undefined
   webSearchEnable: boolean
@@ -68,6 +69,7 @@ type ChatAction = {
     setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
     setTitleGenerateModel: (titleModel: IModel) => void
     setReadStreamState: (state: boolean) => void
+    setShowLoadingIndicator: (show: boolean) => void
     toggleWebSearch: (state: boolean) => void
     setWebSearchProcessState: (state: boolean) => void
     toggleArtifacts: (state: boolean) => void
@@ -232,6 +234,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   toggleWebSearch: (state: boolean) => (set({ webSearchEnable: state})),
   webSearchProcessing: false,
   setWebSearchProcessState: (state: boolean) => (set({ webSearchProcessing: state})),
+  setShowLoadingIndicator: (state: boolean) => (set({ showLoadingIndicator: state})),
   artifacts: false,
   toggleArtifacts: (state: boolean) => (set({ artifacts: state})),
   titleGenerateEnabled: localAppConfig.tools?.titleGenerateEnabled ?? true,

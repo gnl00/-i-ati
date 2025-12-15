@@ -55,7 +55,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     selectedModel,
     setSelectedModel,
     setCurrentProviderName,
-    mcpServerConfig
+    mcpServerConfig,
   } = useChatStore()
   useEffect(() => {
     if (models && models.length === 1) {
@@ -258,7 +258,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 className="min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
-                    {selectedMcpServerNames.length === 0 ? 'Mcp Tool' : selectedMcpServerNames[0] }
+                    {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0] }
                   </span>
                   {selectedMcpServerNames.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 hover:bg-blue-gray-200 text-blue-gray-500 backdrop-blur-xl">+{selectedMcpServerNames.length - 1}</Badge>}
                   <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />

@@ -81,6 +81,7 @@ function useChatSubmit() {
     webSearchEnable,
     setWebSearchProcessState,
     artifacts,
+    setShowLoadingIndicator,
   } = useChatStore()
 
   // 管道上下文：准备消息
@@ -133,6 +134,7 @@ function useChatSubmit() {
     const controller = new AbortController()
     setCurrentReqCtrl(controller)
     setReadStreamState(true)
+    setShowLoadingIndicator(true)
 
     // init context
     return {
@@ -222,6 +224,7 @@ function useChatSubmit() {
 
   const processRequestV2 = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     const response = await commonOpenAIChatCompletionRequest(context.request as IUnifiedRequest, context.signal, beforeFetch, afterFetch)
+    setShowLoadingIndicator(false)
     if (false === context.request.stream) {
       const resp = response as IUnifiedResponse
       console.log('non stream resp', resp)

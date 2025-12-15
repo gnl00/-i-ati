@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { CheckIcon, Pencil2Icon, Cross2Icon } from '@radix-ui/react-icons'
-import { Card, CardContent } from '../ui/card'
-import { Carousel, CarouselItem, CarouselContent, CarouselNext, CarouselPrevious } from '../ui/carousel'
-import { Sheet, SheetDescription, SheetTitle, SheetHeader, SheetContent } from '../ui/sheet'
+import { Card, CardContent } from '@renderer/components/ui/card'
+import { Carousel, CarouselItem, CarouselContent, CarouselNext, CarouselPrevious } from '@renderer/components/ui/carousel'
+import { Sheet, SheetDescription, SheetTitle, SheetHeader, SheetContent } from '@renderer/components/ui/sheet'
 import { cn } from '@renderer/lib/utils'
-import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '../ui/drawer'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { Separator } from '../ui/separator'
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@renderer/components/ui/drawer'
+import { Button } from '@renderer/components/ui/button'
+import { Input } from '@renderer/components/ui/input'
+import { Separator } from '@renderer/components/ui/separator'
 import { deleteChat, getAllChat } from '@renderer/db/ChatRepository'
 import { toast as sonnerToast } from 'sonner'
 import { toast } from '@renderer/components/ui/use-toast'
@@ -16,8 +16,8 @@ import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { useSheetStore } from '@renderer/store/sheet'
 import { useChatStore } from '@renderer/store'
-import { Label } from '../ui/label'
-import { Textarea } from '../ui/textarea'
+import { Label } from '@renderer/components/ui/label'
+import { Textarea } from '@renderer/components/ui/textarea'
 import {
     Command,
     CommandEmpty,
@@ -26,8 +26,8 @@ import {
     CommandItem,
     CommandList,
   } from "@renderer/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
-import { ChevronsUpDown } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
+import { ChevronsUpDown, BadgePlus } from 'lucide-react'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 
 interface ChatSheetProps {}
@@ -289,7 +289,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                     <div className="sheet-content h-full w-full">
                         <div className="flex flex-col justify-center w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg dark:shadow-gray-900 bg-inherit text-inherit">
                             <div className={cn("flex items-center justify-center rounded-md sticky top-0 bg-opacity-100 z-10")}>
-                                <Button onClick={onNewChatClick} variant={"default"} className="w-full dark:w-[95%] p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md">Start NewChat</Button>
+                                <Button onClick={onNewChatClick} variant={"default"} className="w-full dark:w-[95%] p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md"><BadgePlus className='flex justify-center border-none'></BadgePlus>&nbsp;Start NewChat</Button>
                             </div>
                             <div className="flex flex-col p-1 space-y-1 font-sans text-base font-normal overflow-x-scroll">
                                 {
@@ -297,7 +297,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                         return (
                                             <div key={index}>
                                                 {
-                                                    (item.id !== -1 && item.updateTime > 0 && (index === 0 || (getDate(item.updateTime) != getDate(chatList[index-1].updateTime))) && (<div key={index}><span className='text-gray-500 text-xs'>{getDate(item.updateTime)}</span></div>))
+                                                    (item.id !== -1 && item.updateTime > 0 && (index === 0 || (getDate(item.updateTime) != getDate(chatList[index-1].updateTime))) && (<div key={index}><span className='text-gray-500 shadow-sm text-xs'>{getDate(item.updateTime)}</span></div>))
                                                 }
                                                 {
                                                     index === chatList.length - 1 ?
