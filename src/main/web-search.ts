@@ -2,10 +2,10 @@ import { chromium } from 'playwright-extra'
 import stealth from 'puppeteer-extra-plugin-stealth'
 import * as cheerio from 'cheerio'
 
-const handleWebSearch = async ({ action, param }) => {
+const handleWebSearch = async ({ fetchCounts, param }) => {
   let browser
   try {
-    // console.log('headless-search action received:', action, param);
+    console.log('headless-search action received:', fetchCounts, param);
     const stealthPlugin = stealth()
     chromium.use(stealthPlugin)
     browser = await chromium.launch({ headless: true, timeout: 50000 })
@@ -29,10 +29,10 @@ const handleWebSearch = async ({ action, param }) => {
     await page.waitForSelector('ol#b_results', { timeout: 30000 })
     
     // Extract the first 2 search result URLs
-    const relevantLinks = await page.evaluate(() => {
+    const relevantLinks = await page.evaluate((count) => {
       const results: string[] = []
-      const searchResultLinks = document.querySelectorAll('ol#b_results li.b_algo div.b_tpcn a[href^="http"]')
-      for (let i = 0; i < Math.min(1, searchResultLinks.length); i++) {
+      const searchResultLinks = document.querySelectorAll('ol#b_results li.b_algo h2 a[href^="http"]')
+      for (let i = 0; i < Math.min(count, searchResultLinks.length); i++) {
         const link: any = searchResultLinks[i]
         // console.log(link.href);
         if (link.href && !link.href.includes('google.com')) {
@@ -40,7 +40,7 @@ const handleWebSearch = async ({ action, param }) => {
         }
       }
       return results
-    })
+    }, fetchCounts)
     console.log('links', relevantLinks)
     const promises: Promise<string>[] = relevantLinks.map(l => new Promise(async (resolve, rej) => {
       let p

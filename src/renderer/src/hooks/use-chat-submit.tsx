@@ -465,7 +465,7 @@ function useChatSubmit() {
     console.log('web-search keywords', keywords)
     
     const searchResults = await window.electron?.ipcRenderer.invoke(WEB_SEARCH_ACTION, {
-      action: 'navigate',
+      fetchCounts: 3,
       param: keywords[0]
     })
     // console.log('web-search searchResults', searchResults)

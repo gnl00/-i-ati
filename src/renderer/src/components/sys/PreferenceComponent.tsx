@@ -788,7 +788,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                 <div className="w-24">
                                     <Input
                                         className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-14'
-                                        defaultValue={2}
+                                        defaultValue={3}
                                     />
                                 </div>
                             </div>
