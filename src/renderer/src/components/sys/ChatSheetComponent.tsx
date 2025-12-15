@@ -324,7 +324,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                         />
                                                                         :
                                                                         (<div className="flex items-center">
-                                                                            <span className="text-ellipsis line-clamp-1 whitespace-no-wrap">{item.title}</span>
+                                                                            <span className="text-ellipsis line-clamp-1 whitespace-no-wrap text-gray-600 text-sm font-semibold">{item.title}</span>
                                                                         </div>)
                                                                 }
                                                             </div>

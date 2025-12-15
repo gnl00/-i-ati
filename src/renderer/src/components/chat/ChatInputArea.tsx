@@ -195,7 +195,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectModelPopoutState}
-                className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl border-none shadow"
+                className="min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl border-none shadow"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedModel ? (
@@ -255,7 +255,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectMCPPopoutState}
-                className="min-w-20 w-auto flex justify-between p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow"
+                className="min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedMcpServerNames.length === 0 ? 'Mcp Tool' : selectedMcpServerNames[0] }
@@ -298,7 +298,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               <PopoverTrigger asChild>
                 <Button variant={'ghost'} 
                   className=
-                    "flex p-1 rounded-full bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-700 backdrop-blur-xl border-none shadow"
+                    "flex p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-700 backdrop-blur-xl border-none shadow"
                   >
                   <span>Custom</span><Settings2 className="h-4 w-4 ml-1" />
                 </Button>
@@ -379,13 +379,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Globe 
-                    className={
-                      cn("backdrop-blur-3xl text-gray-600 flex justify-center",
-                      webSearchEnable ? 'text-blue-400' : 'hover:text-gray-400'
-                      )} 
-                    onClick={onWebSearchClick}>
-                  </Globe>
+                  <div className={cn('px-2 py-0.5 rounded-2xl', webSearchEnable ? 'bg-blue-200' : 'hover:bg-gray-100')}>
+                    <Globe
+                      className={
+                        cn("backdrop-blur-3xl text-gray-600 flex justify-center",
+                        webSearchEnable ? 'text-blue-400' : 'hover:text-gray-400'
+                        )}
+                      onClick={onWebSearchClick}>
+                    </Globe>
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
                   <p>Web Search</p>
