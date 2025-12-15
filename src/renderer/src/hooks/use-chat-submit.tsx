@@ -169,6 +169,7 @@ function useChatSubmit() {
   // 管道上下文：处理网络搜索
   const handleWebSearch = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     if (webSearchEnable) {
+      const startTime = new Date().getTime()
       setWebSearchProcessState(true)
       try {
         const {keywords: k, result: r} = await processWebSearch(context.textCtx.trim(), context.model)
@@ -178,15 +179,18 @@ function useChatSubmit() {
         if (context.searchResults.length === 0) {
           throw Error('There is no search result.')
         }
+        const spentTime = new Date().getTime() - startTime
         if (!context.toolCallResults) {
           context.toolCallResults = [{
             name: "web-search",
-            content: r
+            content: r,
+            timeCosts: spentTime
           }]
         } else {
           context.toolCallResults.push({
             name: "web-search",
-            content: r
+            content: r,
+            timeCosts: spentTime
           })
         }
       } catch(error: any) {
@@ -317,7 +321,7 @@ function useChatSubmit() {
     while(context.toolCalls.length > 0) {
       console.log('context.toolCalls', JSON.stringify(context.toolCalls), context.toolCalls.length)
       const toolCall = (context.toolCalls.shift())! // 从第一个 tool 开始调用，逐个返回结果
-  
+      const startTime = new Date().getTime()
       try {
         const results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', { 
           tool: toolCall.function, 
@@ -331,16 +335,18 @@ function useChatSubmit() {
           name: toolCall.function, 
           content: JSON.stringify({...results, functionCallCimpleted: true})
         }
-  
+        const spentTime = new Date().getTime() - startTime
         if (!context.toolCallResults) {
           context.toolCallResults = [{
             name: toolCall.function,
-            content: results
+            content: results,
+            timeCosts: spentTime
           }]
         } else {
           context.toolCallResults.push({
             name: toolCall.function,
-            content: results
+            content: results,
+            timeCosts: spentTime
           })
         }
 

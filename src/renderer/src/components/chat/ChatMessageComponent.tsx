@@ -3,7 +3,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@r
 import { toast } from 'sonner'
 import { Badge } from "@renderer/components/ui/badge"
 import { CopyIcon, ReloadIcon, Pencil2Icon } from '@radix-ui/react-icons'
-import { BadgePercent, BadgeCheck, BadgeX } from 'lucide-react'
+import { BadgePercent, BadgeCheck, BadgeX, Timer } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { CodeWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
 import ReactMarkdown from 'react-markdown'
@@ -181,6 +181,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                       !tc.isError ? <BadgeCheck className="w-4" /> : <BadgeX className="w-4" />
                     }
                     <span>{tc.name}</span>
+                    {tc.timeCosts && <span className='text-gray-400 flex items-center justify-center'><Timer className="w-4" /><span>{tc.timeCosts ? tc.timeCosts / 1000 : 0}s</span></span>}
                   </Badge>
                 </AccordionTrigger>
                 <AccordionContent className="border-none rounded-xl pb-0">
