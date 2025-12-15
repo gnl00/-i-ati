@@ -41,8 +41,13 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
 
   if (m.role === 'user') {
     return m.content ? (
-      <div id='usr-message' className={cn("flex flex-col items-end mr-1", index === 0 ? 'mt-2' : '')}>
-        <div id="usr-msg-content" onMouseEnter={_ => onMouseHoverUsrMsg(index)} onMouseLeave={_ => onMouseHoverUsrMsg(-1)} className={cn("max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-100")}>
+      <div
+        id='usr-message'
+        onMouseEnter={_ => onMouseHoverUsrMsg(index)}
+        onMouseLeave={_ => onMouseHoverUsrMsg(-1)}
+        className={cn("flex flex-col items-end mr-1", index === 0 ? 'mt-2' : '')}
+      >
+        <div id="usr-msg-content" className={cn("max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-100")}>
           {typeof m.content !== 'string' ? (
             <>
               <div className="">
@@ -135,12 +140,13 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   }
 
   return (m) ? (
-    <div id='assistant-message' className={cn("flex justify-start flex-col pb-0.5", index === 0 ? 'mt-2' : '')}>
-      <div
-        onMouseEnter={_ => onMouseHoverAssistantMsg(true)}
-        onMouseLeave={_ => onMouseHoverAssistantMsg(false)}
-        className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll"
-      >
+    <div
+      id='assistant-message'
+      onMouseEnter={_ => onMouseHoverAssistantMsg(true)}
+      onMouseLeave={_ => onMouseHoverAssistantMsg(false)}
+      className={cn("flex justify-start flex-col pb-0.5", index === 0 ? 'mt-2' : '')}
+    >
+      <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
         {m.model && (
           <Badge variant="outline" className='select-none text-gray-700 mb-1'>@{m.model}</Badge>
         )}
