@@ -52,6 +52,7 @@ declare interface IUnifiedRequest {
   apiVersion?: ProviderAPIVersion
   baseUrl: string
   apiKey: string
+  modelType?: string
   model: string
   prompt: string
   messages: ChatMessage[]

@@ -1,14 +1,17 @@
-import { chromium } from 'playwright'
+import { chromium } from 'playwright-extra'
+import stealth from 'puppeteer-extra-plugin-stealth'
 import * as cheerio from 'cheerio'
 
 const handleWebSearch = async ({ action, param }) => {
   let browser
   try {
     // console.log('headless-search action received:', action, param);
-    browser = await chromium.launch({ headless: true })
+    const stealthPlugin = stealth()
+    chromium.use(stealthPlugin)
+    browser = await chromium.launch({ headless: true, timeout: 50000 })
     // Create a new incognito browser context
     const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+      // userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
       viewport: { width: 1366, height: 768 },
     })
     // Create a new page inside context.
@@ -23,7 +26,7 @@ const handleWebSearch = async ({ action, param }) => {
     await page.goto(`https://${searchSite}/search?q=${encodedQueryStr}`)
     await page.reload({ waitUntil: 'networkidle' }); // avoid empty content
     // Wait for search results to load
-    await page.waitForSelector('ol#b_results', { timeout: 15000 })
+    await page.waitForSelector('ol#b_results', { timeout: 30000 })
     
     // Extract the first 2 search result URLs
     const relevantLinks = await page.evaluate(() => {
@@ -40,9 +43,16 @@ const handleWebSearch = async ({ action, param }) => {
     })
     console.log('links', relevantLinks)
     const promises: Promise<string>[] = relevantLinks.map(l => new Promise(async (resolve, rej) => {
+      let p
       try {
-        const p = await context.newPage()
-        await p.goto(l)
+        p = await context.newPage()
+        // 等待页面完全加载，避免导航冲突
+        await p.goto(l, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        // 等待页面稳定
+        await p.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
+          console.log(`Network idle timeout for ${l}, continuing anyway`)
+        })
+
         await p.evaluate(() => {
           const noiseSelectors = [
             'script', 'style', 'nav', 'header', 'footer',
@@ -54,14 +64,21 @@ const handleWebSearch = async ({ action, param }) => {
           })
         })
         const pContent = await p.content()
-        console.log('pContent', pContent)
+        // console.log('pContent', pContent)
         const $ = cheerio.load(pContent)
         const allText = $('body > div').text()
         const unCleanText = allText ? allText.replaceAll(' ', '').replaceAll('\n', '').replaceAll('\t', '') : ''
         const cleanedText = postClean(unCleanText)
         resolve(cleanedText)
       } catch (error) {
-        rej(error)
+        console.log(`navigate error ${l}`, error)
+        // 返回空字符串而不是拒绝，避免单个链接失败导致整体失败
+        resolve('')
+      } finally {
+        // 确保页面被关闭，避免资源泄漏
+        if (p) {
+          await p.close().catch(() => {})
+        }
       }
     }))
     const results = await Promise.all(promises)

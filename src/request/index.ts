@@ -85,10 +85,12 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
 
   beforeFetch()
 
-  const cacheMessage: ChatMessage[] = req.messages.map(msg => {
-    const { reasoning, artifatcs, toolCallResults: tool, model, ...props } = msg
-    return props
-  })
+  const cacheMessage: Pick<ChatMessage, 'role' | 'content'>[] = req.messages.map(
+    msg => ({
+      role: msg.role,
+      content: msg.content
+    })
+  )
   const gatherMessages = () => {
     console.log('cacheMessage', cacheMessage);
     let ms = cacheMessage
@@ -154,7 +156,12 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
 
 export const commonOpenAIChatCompletionRequest = async (req: IUnifiedRequest, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
 
-  const adapter = adapterManager.getAdapter(req.providerType ?? 'openai', req.apiVersion ?? 'v1')
+  let adapter
+  if (req.modelType === 't2i') {
+    adapter = adapterManager.getAdapter(req.providerType ?? 'openai', req.apiVersion ?? 'gpt-image-1')
+  } else {
+    adapter = adapterManager.getAdapter(req.providerType ?? 'openai', req.apiVersion ?? 'v1')
+  }
   const headers = adapter.buildHeaders(req)
   const customHeaders = adapter.getHeaders?.(req)
   if (customHeaders) {

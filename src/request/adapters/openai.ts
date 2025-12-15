@@ -64,21 +64,36 @@ export class OpenAIAdapter extends BaseAdapter {
       console.error('Invalid streamReader provided:', streamReader);
       return;
     }
-    
+
+    let buffer = '' // 用于存储不完整的数据
+
     while(true) {
       const { done, value } = await streamReader.read()
       if (done) {
         break
       }
-      const lines = value
-      .split("\n")
-      .filter((line: string) => line.trim() !== "")
-      .map((line: string) => line.replace(/^data: /, ""))
 
-      for (const line of lines) {
+      // 将新数据追加到缓冲区
+      buffer += value
+
+      // 按行分割，但保留最后一个可能不完整的行
+      const lines = buffer.split("\n")
+      // 最后一行可能不完整，保留在缓冲区中
+      buffer = lines.pop() || ''
+
+      for (let line of lines) {
+        line = line.trim()
+        if (!line) continue
+
+        // 移除 "data: " 前缀
+        if (line.startsWith('data: ')) {
+          line = line.slice(6)
+        }
+
         if (line === '[DONE]') {
           break
         }
+
         try {
           const respObject = JSON.parse(line)
           const delta = respObject.choices?.[0]?.delta
@@ -94,7 +109,7 @@ export class OpenAIAdapter extends BaseAdapter {
           }
           yield unifiedResponse
         } catch (error) {
-          console.warn('Failed to parse stream response:', error)
+          console.warn('Failed to parse stream response:', line, error)
         }
       }
     }
@@ -188,18 +203,27 @@ export class OpenAIV2Adapter extends BaseAdapter {
       console.error('Invalid streamReader provided:', streamReader);
       return;
     }
-    
+
+    let buffer = '' // 用于存储不完整的数据
+
     while(true) {
       const { done, value } = await streamReader.read()
       if (done) {
         break
       }
-      
-      const lines = value
-        .split("\n")
-        .filter((line: string) => line.trim() !== "")
 
-      for (const line of lines) {
+      // 将新数据追加到缓冲区
+      buffer += value
+
+      // 按行分割，但保留最后一个可能不完整的行
+      const lines = buffer.split("\n")
+      // 最后一行可能不完整，保留在缓冲区中
+      buffer = lines.pop() || ''
+
+      for (let line of lines) {
+        line = line.trim()
+        if (!line) continue
+
         const streamResponse = this.parseStreamChunk(line)
         if (streamResponse) {
           const unifiedResponse: IUnifiedResponse = {
@@ -243,38 +267,153 @@ export class OpenAIV2Adapter extends BaseAdapter {
   }
 }
 
-// Azure OpenAI 适配器
-export class AzureOpenAIAdapter extends BaseAdapter {
-  providerType: ProviderType = 'azure-openai'
-  apiVersion = 'v1'
+// OpenAI Image1
+export class OpenAIImage1Adapter extends BaseAdapter {
+  providerType: ProviderType = 'openai'
+  apiVersion = 'gpt-image-1'
   
   getEndpoint(baseUrl: string): string {
-    // Azure OpenAI 的端点格式不同，但这里简化处理
-    return `${baseUrl}/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview`
-  }
-  
-  getHeaders(req: IUnifiedRequest): Record<string, string> {
-    return {
-      'api-key': req.apiKey // Azure 使用 api-key 而不是 Authorization
-    }
+    return `${baseUrl}/v1/images/generations`
   }
   
   transformRequest(req: IUnifiedRequest): any {
-    // Azure OpenAI 的请求格式与 OpenAI 基本相同
-    return new OpenAIAdapter().transformRequest(req)
+    const requestBody: any = {
+      model: req.model,
+      prompt: req.messages.map(m => {
+        const { reasoning, artifatcs, toolCallResults: tool, model, ...msg } = m
+        return msg
+      })[req.messages.length - 1].content,
+      size: "1024x1024",
+      n: 1
+    }
+    
+    return requestBody
   }
   
-  transformNotStreamResponse(response: any): IUnifiedResponse {
-    return new OpenAIAdapter().transformNotStreamResponse(response)
+  transformStreamResponse(_: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
+    throw new Error('Method not supports.')
   }
 
-  async *transformStreamResponse(streamReader: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
-    // 直接使用 OpenAIAdapter 的实现
-    const openAIAdapter = new OpenAIAdapter()
-    yield* openAIAdapter.transformStreamResponse(streamReader)
+  transformNotStreamResponse(response: any): IUnifiedResponse {
+    console.log('response', response);
+    
+    const data = response.data
+    if (!data) {
+      throw new Error('Invalid OpenAI response: no data')
+    }
+    
+    return {
+      id: response.id || 'unknown',
+      model: response.model || 'unknown',
+      timestamp: response.created ? response.created * 1000 : Date.now(),
+      content: response.data,
+      finishReason: "stop",
+      raw: response
+    }
   }
   
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
-    return new OpenAIAdapter().parseStreamChunk(chunk)
+    try {
+      if (chunk.startsWith('data: ')) {
+        const jsonStr = chunk.slice(6).trim()
+        if (jsonStr === '[DONE]') {
+          return null
+        }
+        
+        const data = JSON.parse(jsonStr)
+        const choice = data.choices?.[0]
+        if (!choice) return null
+        
+        const delta = choice.delta
+        return {
+          id: data.id || 'stream',
+          model: data.model || 'unknown',
+          delta: {
+            content: delta?.content,
+            toolCalls: this.transformToolCalls(delta?.tool_calls),
+            finishReason: this.mapFinishReason(choice.finish_reason)
+          },
+          raw: data
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to parse OpenAI stream chunk:', error)
+    }
+    return null
+  }
+}
+
+// OpenAI Image1
+export class GoogleOpenAIImageCompatibleAdapter extends BaseAdapter {
+  providerType: ProviderType = 'google-openai-compatible'
+  apiVersion = 'image'
+  
+  getEndpoint(baseUrl: string): string {
+    return `${baseUrl}/v1/chat/completions`
+  }
+  
+  transformRequest(req: IUnifiedRequest): any {
+    const requestBody: any = {
+      model: req.model,
+      messages: req.messages.map(m => {
+        const { reasoning, artifatcs, toolCallResults: tool, model, ...msg } = m
+        return msg
+      })[req.messages.length - 1],
+      stream: true,
+    }
+    
+    return requestBody
+  }
+  
+  transformStreamResponse(_: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
+    throw new Error('Method not supports.')
+  }
+
+  transformNotStreamResponse(response: any): IUnifiedResponse {
+    console.log('response', response);
+    
+    const data = response.data
+    if (!data) {
+      throw new Error('Invalid OpenAI response: no data')
+    }
+    
+    return {
+      id: response.id || 'unknown',
+      model: response.model || 'unknown',
+      timestamp: response.created ? response.created * 1000 : Date.now(),
+      content: response.data,
+      finishReason: "stop",
+      raw: response
+    }
+  }
+  
+  parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
+    try {
+      if (chunk.startsWith('data: ')) {
+        const jsonStr = chunk.slice(6).trim()
+        if (jsonStr === '[DONE]') {
+          return null
+        }
+        
+        const data = JSON.parse(jsonStr)
+        const choice = data.choices?.[0]
+        if (!choice) return null
+        
+        const delta = choice.delta
+        return {
+          id: data.id || 'stream',
+          model: data.model || 'unknown',
+          delta: {
+            content: delta?.content,
+            toolCalls: this.transformToolCalls(delta?.tool_calls),
+            finishReason: this.mapFinishReason(choice.finish_reason)
+          },
+          raw: data
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to parse OpenAI stream chunk:', error)
+    }
+    return null
   }
 }

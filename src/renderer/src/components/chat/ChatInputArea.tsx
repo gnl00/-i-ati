@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
@@ -57,6 +57,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setCurrentProviderName,
     mcpServerConfig
   } = useChatStore()
+  useEffect(() => {
+    if (models && models.length === 1) {
+      setSelectedModel(models[0])
+    }
+  }, [models])
   const {setChatTitle, setChatUuid, setChatId} = useChatContext()
   const [inputContent, setInputContent] = useState<string>('')
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
