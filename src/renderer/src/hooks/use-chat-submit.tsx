@@ -178,6 +178,17 @@ function useChatSubmit() {
         if (context.searchResults.length === 0) {
           throw Error('There is no search result.')
         }
+        if (!context.toolCallResults) {
+          context.toolCallResults = [{
+            name: "web-search",
+            content: r
+          }]
+        } else {
+          context.toolCallResults.push({
+            name: "web-search",
+            content: r
+          })
+        }
       } catch(error: any) {
         context.error = error
         toast({

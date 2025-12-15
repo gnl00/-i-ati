@@ -535,7 +535,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                                 </DropdownMenu>
                                                             </TableCell> */}
                                                             {/* <TableCell className='py-2'><Checkbox checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell> */}
-                                                            <TableCell className='py-2'><Switch checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell>
+                                                            <TableCell className='py-2'><Switch className={'h-6'} checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell>
                                                             <TableCell className='py-2'><Trash className='w-4 h-4 text-red-400 cursor-pointer' onClick={_ => onModelDelClick(m)}/></TableCell>
                                                         </TableRow>
                                                     ))

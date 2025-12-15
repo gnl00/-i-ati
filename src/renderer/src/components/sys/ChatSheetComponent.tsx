@@ -317,7 +317,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                 {
                                                                     showChatItemEditConform && chatItemEditId === item.id ?
                                                                         <Input
-                                                                            className="focus-visible:ring-offset-0 focus-visible:ring-0 focus:ring-0 focus:outline-none focus:border-0 border-0"
+                                                                            className="focus-visible:ring-offset-0 focus-visible:ring-0 focus:ring-0 focus:outline-none focus:border-0 border-0 h-8"
                                                                             onClick={e => e.stopPropagation()}
                                                                             onChange={e => onChatItemTitleChange(e, item)}
                                                                             value={item.title}
