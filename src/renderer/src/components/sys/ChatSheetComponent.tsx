@@ -28,6 +28,7 @@ import {
   } from "@renderer/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { ChevronsUpDown } from 'lucide-react'
+import TrafficLights from '@renderer/components/ui/traffic-lights'
 
 interface ChatSheetProps {}
 
@@ -158,7 +159,11 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     return (
         <Sheet open={sheetOpenState} onOpenChange={() => {setSheetOpenState(!sheetOpenState)}}>
             <SheetContent side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0 select-none">
-                <SheetHeader>
+                {/* Traffic Lights in Sheet */}
+                <div className="absolute top-4 left-4 z-50">
+                    <TrafficLights />
+                </div>
+                <SheetHeader className="pt-2">
                     <SheetTitle>@i-ati</SheetTitle>
                     <SheetDescription>
                         - Just an AI API client.
@@ -292,7 +297,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                         return (
                                             <div key={index}>
                                                 {
-                                                    ((index === 0 || ((item.id != -1) && (getDate(item.updateTime) != getDate(chatList[index-1].updateTime)))) && chatList.findIndex(e => e.id === item.id) !== -1 && (<div key={index}><span className='text-gray-500 text-xs'>{getDate(item.updateTime)}</span><Separator></Separator></div>))
+                                                    (item.id !== -1 && item.updateTime > 0 && (index === 0 || (getDate(item.updateTime) != getDate(chatList[index-1].updateTime))) && (<div key={index}><span className='text-gray-500 text-xs'>{getDate(item.updateTime)}</span><Separator></Separator></div>))
                                                 }
                                                 {
                                                     index === chatList.length - 1 ?

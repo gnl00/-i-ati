@@ -86,11 +86,25 @@ const windowsMinimize = () => {
   mainWindow.minimize()
 }
 
+const windowsMaximize = () => {
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize()
+  } else {
+    mainWindow.maximize()
+  }
+}
+
+const windowsClose = () => {
+  mainWindow.close()
+}
+
 export {
   mainWindow,
   createWindow,
   pinWindow,
   getWinPosition,
   setWinPosition,
-  windowsMinimize
+  windowsMinimize,
+  windowsMaximize,
+  windowsClose
 }

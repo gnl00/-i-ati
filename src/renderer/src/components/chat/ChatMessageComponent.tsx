@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
-import { toast } from '@renderer/components/ui/use-toast'
+import { toast } from 'sonner'
 import { Badge } from "@renderer/components/ui/badge"
 import { CopyIcon, ReloadIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { BadgePercent, BadgeCheck, BadgeX } from 'lucide-react'
@@ -28,12 +28,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   const onCopyClick = (content: string) => {
     if (content) {
       navigator.clipboard.writeText(content)
-      toast({
-          variant: 'default',
-          duration: 800,
-          className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-          description: `✅ Copied`,
-      })
+      toast.success('Copied', {duration: 800})
     }
   }
   const onMouseHoverUsrMsg = (idx: number) => {
