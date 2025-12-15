@@ -163,7 +163,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                 <div className="absolute top-4 left-4 z-50">
                     <TrafficLights />
                 </div>
-                <SheetHeader className="pt-2">
+                <SheetHeader className="pt-4">
                     <SheetTitle>@i-ati</SheetTitle>
                     <SheetDescription>
                         - Just an AI API client.

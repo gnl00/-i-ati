@@ -24,6 +24,7 @@ interface ChatMessageComponentProps {
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
 
   const [userMessageOperationIdx, setUserMessageOperationIdx] = useState<number>(-1)
+  const [assistantMessageHovered, setAssistantMessageHovered] = useState<boolean>(false)
 
   const onCopyClick = (content: string) => {
     if (content) {
@@ -33,6 +34,9 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   }
   const onMouseHoverUsrMsg = (idx: number) => {
     setUserMessageOperationIdx(idx)
+  }
+  const onMouseHoverAssistantMsg = (hovered: boolean) => {
+    setAssistantMessageHovered(hovered)
   }
 
   if (m.role === 'user') {
@@ -112,25 +116,31 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
             </ReactMarkdown>
           )}
         </div>
-        {
-          true && (
-            <div id="usr-msg-operation" className="mt-0.5 pr-2 space-x-1 flex text-gray-400">
-              <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
-                <CopyIcon onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
-              </div>
-              <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
-                <Pencil2Icon></Pencil2Icon>
-              </div>
-            </div>
-          )
-        }
+        <div
+          id="usr-msg-operation"
+          className={cn(
+            "mt-0.5 pr-2 space-x-1 flex text-gray-400 min-h-[1.5rem] transition-opacity duration-200",
+            userMessageOperationIdx === index ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+        >
+          <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+            <CopyIcon onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
+          </div>
+          <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+            <Pencil2Icon></Pencil2Icon>
+          </div>
+        </div>
       </div>
     ) : null
   }
 
   return (m) ? (
     <div id='assistant-message' className={cn("flex justify-start flex-col pb-0.5", index === 0 ? 'mt-2' : '')}>
-      <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
+      <div
+        onMouseEnter={_ => onMouseHoverAssistantMsg(true)}
+        onMouseLeave={_ => onMouseHoverAssistantMsg(false)}
+        className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll"
+      >
         {m.model && (
           <Badge variant="outline" className='select-none text-gray-700 mb-1'>@{m.model}</Badge>
         )}
@@ -211,7 +221,12 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
           )
         }
       </div>
-      <div className="mt-0.5 pl-2 space-x-1 flex text-gray-500">
+      <div
+        className={cn(
+          "mt-0.5 pl-2 space-x-1 flex text-gray-500 min-h-[1.5rem] transition-opacity duration-200",
+          assistantMessageHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+      >
         <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
           <CopyIcon onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
         </div>
