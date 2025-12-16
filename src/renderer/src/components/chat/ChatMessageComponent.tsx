@@ -61,7 +61,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                         remarkPlugins={[remarkGfm]}
                         // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
                         skipHtml={false}
-                        className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
+                        className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
                         components={{
                           pre(props) {
                             const { children, ...rest } = props
@@ -95,7 +95,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
               remarkPlugins={[remarkGfm]}
               // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
               skipHtml={false}
-              className={cn("prose prose-code:text-gray-400 text-base text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
+              className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
               components={{
                 pre(props) {
                   const { children, ...rest } = props
@@ -184,7 +184,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                     {tc.timeCosts && <span className='text-gray-400 flex items-center justify-center'><Timer className="w-4" /><span>{tc.timeCosts ? tc.timeCosts / 1000 : 0}s</span></span>}
                   </Badge>
                 </AccordionTrigger>
-                <AccordionContent className="border-none rounded-xl pb-0">
+                <AccordionContent className="border-none rounded-xl pb-0 text-xs">
                   <SyntaxHighlighter language="json" style={docco}>
                     {JSON.stringify(tc.content, null, 2)}
                   </SyntaxHighlighter>
@@ -201,7 +201,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
               rehypePlugins={[rehypeKatex]}
               skipHtml={false}
               remarkRehypeOptions={{ passThrough: ['link'] }}
-              className="prose px-2 text-base text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-p:mb-4 prose-p:mt-4 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+              className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-p:mb-4 prose-p:mt-4 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
               components={{
                 pre(props) {
                   const { children, ...rest } = props
