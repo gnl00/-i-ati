@@ -10,8 +10,6 @@ import { Badge } from "@renderer/components/ui/badge"
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { 
       messages,
-      webSearchEnable,
-      webSearchProcessing,
       readStreamState,
       selectedModel,
       showLoadingIndicator,

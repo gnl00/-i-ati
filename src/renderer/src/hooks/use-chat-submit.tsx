@@ -64,7 +64,6 @@ function useChatSubmit() {
     setLastMsgStatus,
   } = useChatContext()
   const { 
-    getProviderByName,
     providers,
     messages, 
     selectedModel, 
@@ -178,7 +177,6 @@ function useChatSubmit() {
 
   const processRequestV2 = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     const response = await commonOpenAIChatCompletionRequest(context.request as IUnifiedRequest, context.signal, beforeFetch, afterFetch)
-    setShowLoadingIndicator(false)
     if (false === context.request.stream) {
       const resp = response as IUnifiedResponse
       console.log('non stream resp', resp)
@@ -366,6 +364,8 @@ function useChatSubmit() {
       context = await handleToolCall(context)
       // 递归调用，处理工具调用后的响应
       return await processRequestWithToolCall(context)
+    } else {
+      setShowLoadingIndicator(false)
     }
     
     return context
