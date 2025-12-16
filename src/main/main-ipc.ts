@@ -39,14 +39,14 @@ function mainIPCSetup() {
 
   ipcMain.handle('mcp-connect', (_, mcpProps) => mcpConnect(mcpProps))
   ipcMain.handle('mcp-disconnect', (_, { name }) => mcpClose(name))
-  ipcMain.handle('mcp-tool-call', (_, { tool, args }) => {
+  ipcMain.handle('mcp-tool-call', (_, { callId, tool, args }) => {
     // init, @NOTE: We need to assign a new lexer for each JSON stream.
     const lexer = new streamingjson.Lexer()
     // append your JSON segment
     lexer.AppendString(args)
     // console.log('CompleteJSON', lexer.CompleteJSON())
     // console.log('JSON.parse CompleteJSON', JSON.parse(lexer.CompleteJSON()))
-    return mcpToolCall(tool, JSON.parse(lexer.CompleteJSON()))
+    return mcpToolCall(callId, tool, JSON.parse(lexer.CompleteJSON()))
   })
 
 }

@@ -31,6 +31,7 @@ import { Label } from '@renderer/components/ui/label'
 import { Input } from '@renderer/components/ui/input'
 import { Slider } from "@renderer/components/ui/slider"
 import { toast } from 'sonner'
+import { embeddedToolsRegistry, type ToolDefinition } from "@tools/registry"
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
@@ -78,7 +79,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [handleChatSubmit])
   const onSubmitClick = useCallback((_) => {
     onMessagesUpdate() // for chat-window scroll to the end
-    handleChatSubmitCallback(inputContent, imageSrcBase64List, {tools: Array.from(availableMcpTools.values()).flatMap(i => i), prompt: currentSystemPrompt})
+    const tools = Array.from(availableMcpTools.values()).flatMap(i => i)
+    if (webSearchEnable) {
+      const f: ToolDefinition = embeddedToolsRegistry.getTool('web_search')
+      // console.log('web_search', f.function)
+      tools.push({
+        ...f.function
+      })
+    }
+    handleChatSubmitCallback(inputContent, imageSrcBase64List, {tools: tools, prompt: currentSystemPrompt})
     setInputContent('')
     setImageSrcBase64List([])
   }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])

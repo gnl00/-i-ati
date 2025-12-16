@@ -2,12 +2,12 @@ import { useChatContext } from "@renderer/context/ChatContext"
 import { getChatById, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
 import { useChatStore } from "@renderer/store"
-import { chatRequestWithHook, chatRequestWithHookV2, commonOpenAIChatCompletionRequest } from "@request/index"
+import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request/index"
 import { toast } from '@renderer/components/ui/use-toast'
 import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository"
-import { WEB_SEARCH_ACTION } from "@constants/index"
-import { toolCallPrompt, artifactsSystemPrompt, webSearchSystemPrompt, generateTitlePrompt, generateSearchKeywordsPrompt } from '../constant/prompts'
+import { toolCallPrompt, artifactsSystemPrompt, generateTitlePrompt, toolsCallSystemPrompt } from '../constant/prompts'
+import { embeddedToolsRegistry } from '@tools/index'
 
 interface ToolCallProps {
   function: string
@@ -29,11 +29,6 @@ interface ChatPipelineContext {
   // 聊天相关
   chatEntity: ChatEntity
   currChatId: number | undefined
-  
-  // 搜索相关
-  keywords: string[]
-  searchResults: any[]
-  searchFunctionMessage?: ChatMessage
   
   // 请求相关
   request: IChatRequestV2 | IUnifiedRequest
@@ -78,8 +73,6 @@ function useChatSubmit() {
     setCurrentReqCtrl, 
     setReadStreamState,
     titleGenerateModel, titleGenerateEnabled,
-    webSearchEnable,
-    setWebSearchProcessState,
     artifacts,
     setShowLoadingIndicator,
   } = useChatStore()
@@ -146,8 +139,6 @@ function useChatSubmit() {
       chatMessages: messageEntities.map(msg => msg.body),
       chatEntity,
       currChatId,
-      keywords: [],
-      searchResults: [],
       request: {} as IChatRequestV2, // 将在后续管道中填充
       provider: providers.findLast(p => p.name === model.provider)!,
       model,
@@ -166,67 +157,15 @@ function useChatSubmit() {
     }
   }
 
-  // 管道上下文：处理网络搜索
-  const handleWebSearch = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
-    if (webSearchEnable) {
-      const startTime = new Date().getTime()
-      setWebSearchProcessState(true)
-      try {
-        const {keywords: k, result: r} = await processWebSearch(context.textCtx.trim(), context.model)
-        context.keywords = k
-        context.searchResults = r
-        
-        if (context.searchResults.length === 0) {
-          throw Error('There is no search result.')
-        }
-        const spentTime = new Date().getTime() - startTime
-        if (!context.toolCallResults) {
-          context.toolCallResults = [{
-            name: "web-search",
-            content: r,
-            timeCosts: spentTime
-          }]
-        } else {
-          context.toolCallResults.push({
-            name: "web-search",
-            content: r,
-            timeCosts: spentTime
-          })
-        }
-      } catch(error: any) {
-        context.error = error
-        toast({
-          variant: "destructive",
-          title: "Uh oh! WebSearch went wrong.",
-          description: error.message
-        })
-        throw error
-      } finally {
-        setWebSearchProcessState(false)
-        setReadStreamState(false)
-      }
-    }
-
-    // 构建搜索函数消息
-    context.searchFunctionMessage = {
-      role: 'function', 
-      name: 'web_search', 
-      content: context.searchResults.length > 0 ? context.searchResults.join('\n') : ''
-    }
-
-    return context
-  }
-
   // 管道上下文：构建请求
   const buildRequest = (context: ChatPipelineContext, prompt: string): ChatPipelineContext => {
-    const memoriesMessages = webSearchEnable && context.searchFunctionMessage ? [...context.chatMessages, context.searchFunctionMessage] : context.chatMessages
-    let systemPrompts = [artifacts ? artifactsSystemPrompt : '', webSearchEnable ? webSearchSystemPrompt : '', toolCallPrompt]
+    let systemPrompts = [artifacts ? artifactsSystemPrompt : '', context.tools ? toolsCallSystemPrompt : '', toolCallPrompt]
     if (prompt) {
       systemPrompts = [prompt, ...systemPrompts]
     }
     context.request = {
       baseUrl: context.provider.apiUrl,
-      messages: memoriesMessages,
+      messages: context.chatMessages,
       apiKey: context.provider.apiKey,
       prompt: systemPrompts.join('\n'),
       model: context.model.value,
@@ -258,13 +197,25 @@ function useChatSubmit() {
   
         if (resp.toolCalls && resp.toolCalls.length > 0) {
           if(!context.hasToolCall) context.hasToolCall = true
+
+          // 检查是否需要创建新的 tool call
           if (resp.toolCalls[0].function.name) {
-            context.toolCalls.push({
-              function: resp.toolCalls[0].function.name,
-              args: ''
-            })
+            // 检查是否已经存在同名的 tool call
+            const existingToolCall = context.toolCalls.find(
+              tc => tc.function === resp.toolCalls[0].function.name
+            )
+
+            if (!existingToolCall) {
+              // 只有不存在时才添加新的 tool call
+              context.toolCalls.push({
+                function: resp.toolCalls[0].function.name,
+                args: ''
+              })
+            }
           }
-          if (resp.toolCalls[0].function.arguments) {
+
+          // 追加参数到最后一个 tool call
+          if (resp.toolCalls[0].function.arguments && context.toolCalls.length > 0) {
             context.toolCalls[context.toolCalls.length - 1].args += resp.toolCalls[0].function.arguments
           }
         }
@@ -323,63 +274,80 @@ function useChatSubmit() {
       const toolCall = (context.toolCalls.shift())! // 从第一个 tool 开始调用，逐个返回结果
       const startTime = new Date().getTime()
       try {
-        const results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', { 
-          tool: toolCall.function, 
-          args: toolCall.args 
-        })
+        let results: any
+
+        // 检查是否是 embedded tool
+        if (embeddedToolsRegistry.isRegistered(toolCall.function)) {
+          console.log(`[handleToolCall] Using embedded tool handler for: ${toolCall.function}`)
+
+          // 解析参数
+          const args = typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args
+
+          // 使用 embedded tool 处理器
+          results = await embeddedToolsRegistry.execute(toolCall.function, args)
+        } else {
+          // 使用 MCP tool 处理器
+          console.log(`[handleToolCall] Using MCP tool handler for: ${toolCall.function}`)
+          results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', {
+            callId: 'call_' + uuidv4(),
+            tool: toolCall.function,
+            args: toolCall.args
+          })
+        }
+
         console.log('tool-call-results', results)
-        
+        const timeCosts = new Date().getTime() - startTime
+
         // 构建工具调用结果消息
-        const mcpToolFunctionMessage: ChatMessage = {
-          role: 'function', 
-          name: toolCall.function, 
+        const toolFunctionMessage: ChatMessage = {
+          role: 'function',
+          name: toolCall.function,
           content: JSON.stringify({...results, functionCallCimpleted: true})
         }
-        const spentTime = new Date().getTime() - startTime
         if (!context.toolCallResults) {
           context.toolCallResults = [{
             name: toolCall.function,
             content: results,
-            timeCosts: spentTime
+            cost: timeCosts
           }]
         } else {
           context.toolCallResults.push({
             name: toolCall.function,
             content: results,
-            timeCosts: spentTime
+            cost: timeCosts
           })
         }
 
-        setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, { 
-          body: { 
-            role: 'system', 
-            content: context.gatherContent, 
+        setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, {
+          body: {
+            role: 'system',
+            content: context.gatherContent,
             reasoning: context.gatherReasoning,
             artifatcs: artifacts,
             toolCallResults: context.toolCallResults,
             model: context.model.name
-          } 
+          }
         }])
-        
+
         // 更新请求消息，添加工具调用结果
-        context.request.messages.push(mcpToolFunctionMessage)
-  
+        context.request.messages.push(toolFunctionMessage)
+
       } catch (error: any) {
         console.error('Tool call error:', error)
         context.error = error
-        setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, { 
-          body: { 
-            role: 'system', 
-            content: context.gatherContent, 
+        setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, {
+          body: {
+            role: 'system',
+            content: context.gatherContent,
             reasoning: context.gatherReasoning,
             artifatcs: artifacts,
             toolCallResults: context.toolCallResults,
             model: context.model.name
-          } 
+          }
         }])
       }
     }
-    
+
     // 重置工具调用状态，准备下一轮流式处理
     context.hasToolCall = false
     context.toolCalls = []
@@ -413,14 +381,12 @@ function useChatSubmit() {
       let title = context.textCtx.substring(0, 30) // roughlyTitle
       if (titleGenerateEnabled) {
         title = await generateTitle(context.textCtx) as string
-      } else if (webSearchEnable && context.keywords.length > 0) {
-        title = context.keywords[0]
       }
       context.chatEntity.title = title
       setChatTitle(title)
     }
 
-    // 保存消息到本地数据库
+    // 保存消息到本地
     if (context.gatherContent || context.gatherReasoning) {
       context.sysMessageEntity.body.model = context.model.name
       const sysMsgId = await saveMessage(context.sysMessageEntity) as number
@@ -435,8 +401,7 @@ function useChatSubmit() {
   const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], options: {tools?: any[], prompt: string}): Promise<void> => {
     console.log('use-tools', options.tools)
     try {
-      let context = await prepareMessageAndChat(textCtx, mediaCtx, options.tools)
-      context = await handleWebSearch(context)
+      let context: ChatPipelineContext = await prepareMessageAndChat(textCtx, mediaCtx, options.tools)
       context = buildRequest(context, options.prompt)
       context = await processRequestWithToolCall(context)
       await finalize(context)
@@ -459,45 +424,9 @@ function useChatSubmit() {
   const afterFetch = () => {
     setFetchState(false)
   }
-  const processWebSearch = async (chatCtx: string, model: IModel) => {
-    const keywords: string[] = await generateKeyWords(chatCtx, model)
-    keywords.length === 0 && keywords.push(chatCtx)
-    console.log('web-search keywords', keywords)
-    
-    const searchResults = await window.electron?.ipcRenderer.invoke(WEB_SEARCH_ACTION, {
-      fetchCounts: 3,
-      param: keywords[0]
-    })
-    // console.log('web-search searchResults', searchResults)
-    return {success: searchResults.success, keywords, result: searchResults.result}
-  }
-  const generateKeyWords = async (chatCtx: string, model: IModel) => {
-    // console.log("generating search keywords")
-    const provider = getProviderByName(model.provider)!
-    console.log('web-search context', messages);
-    
-    const reqWithContext: IChatRequestV2 = {
-      baseUrl: provider.apiUrl,
-      messages: [...messages.slice(messages.length - 3).map(msg => msg.body), {role: 'user', content: chatCtx}],
-      apiKey: provider.apiKey,
-      prompt: generateSearchKeywordsPrompt,
-      model: model.value,
-      stream: false,
-    }
-    const keywroldResponse = await chatRequestWithHookV2(reqWithContext, null, () => {}, () => {})
-    // console.log('keyword response', keywroldResponse)
-    const resp = await keywroldResponse.json()
-    let keywordsStr: string = resp.choices[0].message.content
-    if (keywordsStr.includes('<think>') && keywordsStr.includes('</think>')) {
-      keywordsStr = keywordsStr.substring(keywordsStr.indexOf('</think>') + '</think>'.length)
-    }
-    const keywords = keywordsStr.includes(',') ? keywordsStr.split(',') : []
-    return keywords
-  }
   const generateTitle = async (context) => {
     const model = (titleGenerateModel || selectedModel)!
     let titleProvider = providers.findLast(p => p.name === model.provider)!
-    // console.log("generateTitle...")
     const titleReq: IChatRequest = {
       baseUrl: titleProvider.apiUrl,
       content: context,

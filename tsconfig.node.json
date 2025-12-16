@@ -4,7 +4,8 @@
   "include": [
     "electron.vite.config.*", 
     "src/**/*",
-    "resources/**/*"],
+    "resources/**/*"
+  ],
   "compilerOptions": {
     "composite": true,
     "types": ["electron-vite/node"]

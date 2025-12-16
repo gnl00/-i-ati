@@ -10,7 +10,9 @@
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts", 
-    "src/renderer/src/components"  ],
+    "src/renderer/src/components",
+    "src/llmTools/*"
+  ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
@@ -24,6 +26,7 @@
       "~types/*": ["src/types/*"],
       "@request/*": ["src/request/*"],
       "@resources/*": ["resources/*"],
+      "@tools/*": ["src/llmTools/*"],
     }
   }
 }

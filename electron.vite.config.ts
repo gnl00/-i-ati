@@ -19,7 +19,8 @@ export default defineConfig({
         '~types': resolve('src/types'),
         '@request': resolve('src/request'),
         '@config': resolve('src/config'),
-        '@resources': resolve('resources')
+        '@resources': resolve('resources'),
+        '@tools': resolve('src/llmTools')
       }
     },
     plugins: [react()],

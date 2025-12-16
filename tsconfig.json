@@ -10,7 +10,8 @@
       "@constants/*": ["./src/constants/*"],
       "@config/*": ["./src/config/*"],
       "~types/*": ["./src/types/*"],
-      "@request/*": ["./src/request/*"]
+      "@request/*": ["./src/request/*"],
+      "@tools/*": ["./src/llmTools/*"]
     }
   }
 }

@@ -85,6 +85,7 @@ class McpClient {
   }
 }
 
+
 const mcpClient = new McpClient()
 
 const checkCommandExists = (command: string): Promise<boolean> => {
@@ -160,10 +161,11 @@ const connect = async (props: ClientProps) => {
   return {result: false, tools: {}, msg: `Connnected to '${props.name}' Error`}
 }
 
-const toolCall = async (toolName: string, args: { [x: string]: unknown } | undefined) => {
+let toolCallCountMap: Map<string, number> = new Map()
+const toolCall = async (tcId: string, toolName: string, args: { [x: string]: unknown } | undefined) => {
   console.log(`[@i] toolCall ${toolName} start, getAllClients.length=${mcpClient.getAllClients().length}`);
   if (!mcpClient.isEmpty()) {
-    console.log(`[@i] toolCall ${toolName} processing`);
+    console.log(`[@i] toolCall ${toolName} ID ${tcId} processing`);
     const promises = mcpClient.getAllClients().map(async ([serverName, c]) => {
       const tools = mcpClient.getTools(serverName)
       if (!tools || tools.filter(item => item.name === toolName).length === 0) {
@@ -172,6 +174,11 @@ const toolCall = async (toolName: string, args: { [x: string]: unknown } | undef
       }
       console.log(`[@i] Call mcp-server: ${serverName}, tool: ${toolName}, args: ${JSON.stringify(args)}`);
       try {
+        const currentCount = toolCallCountMap.get(tcId) ?? 0
+        if (currentCount >= 3) {
+          throw new Error('tool call reached max count=3')
+        }
+        toolCallCountMap.set(tcId, currentCount + 1)
         const result = await c.callTool({name: toolName, arguments: args})
         console.log(`[@i] Call mcp-server: ${serverName}, tool: ${toolName}, result: ${JSON.stringify(result)}`);
         // Serialize the result to ensure it can be cloned across processes

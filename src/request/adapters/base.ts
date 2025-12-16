@@ -40,15 +40,30 @@ export abstract class BaseAdapter {
   // 工具调用转换的通用方法
   protected transformTools(tools: any[]): any[] {
     if (!tools?.length) return []
-    
-    return tools.map(tool => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.inputSchema
+
+    return tools.map(tool => {
+      // 如果已经是标准的 OpenAI tools 格式（包含 type 和 function）
+      if (tool.type === 'function' && tool.function) {
+        return {
+          type: 'function',
+          function: {
+            name: tool.function.name,
+            description: tool.function.description,
+            parameters: tool.function.parameters || tool.function.inputSchema
+          }
+        }
       }
-    }))
+
+      // 如果是扁平化的 MCP 格式
+      return {
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.inputSchema || tool.parameters
+        }
+      }
+    })
   }
   
   // 通用的结束原因映射
