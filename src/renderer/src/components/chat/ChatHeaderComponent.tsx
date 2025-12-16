@@ -42,12 +42,12 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
       <div className="flex items-center space-x-3">
         <TrafficLights />
         <div className="app-dragable flex space-x-2">
-          <Button className="app-undragable" variant="outline" size="sm" onClick={_ => {setSheetOpenState(true)}}>
+          <Button className="app-undragable rounded-xl bg-gray-100" variant="ghost" size="sm" onClick={_ => {setSheetOpenState(true)}}>
             <ActivityLogIcon />
           </Button>
           <Popover>
             <PopoverTrigger asChild className="app-undragable">
-              <Button variant="outline" size="sm">
+              <Button className="rounded-xl bg-gray-100" variant="ghost" size="sm">
                 <GearIcon />
               </Button>
             </PopoverTrigger>
@@ -66,7 +66,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
       {/* Right Controls */}
       <div className="app-dragable flex justify-end space-x-1">
         <div className="app-undragable"><ModeToggle /></div>
-        <Button className="app-undragable" size="sm" variant="outline" onClick={onPinToggleClick}>
+        <Button className="app-undragable rounded-xl bg-gray-100" size="sm" variant="ghost" onClick={onPinToggleClick}>
           {pinState ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
         </Button>
       </div>

@@ -196,7 +196,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
           <ChatImgGalleryComponent />
       </div>
-      <div className='rounded-xl flex items-center space-x-2 mb-2 select-none px-4'>
+      <div className='rounded-xl flex items-center space-x-2 mb-1 select-none px-4'>
         <div className="app-undragable">
           <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
             <PopoverTrigger asChild>
@@ -204,7 +204,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectModelPopoutState}
-                className="min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl border-none shadow"
+                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl border-none shadow"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedModel ? (
@@ -264,7 +264,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectMCPPopoutState}
-                className="min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow"
+                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0] }
@@ -307,7 +307,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               <PopoverTrigger asChild>
                 <Button variant={'ghost'} 
                   className=
-                    "flex p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-700 backdrop-blur-xl border-none shadow"
+                    "h-8 flex p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-700 backdrop-blur-xl border-none shadow"
                   >
                   <span>Custom</span><Settings2 className="h-4 w-4 ml-1" />
                 </Button>
@@ -360,11 +360,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           </div>
         </div>
       </div>
-      <div className='relative h-full -z-10 flex flex-col pb-6 px-4'>
-        <Textarea 
+      <div className='relative h-full -z-10 flex flex-col pb-3 px-4'>
+        <Textarea
           style={{maxHeight: 'calc(100% - 2rem)'}}
-          className="bg-gray-50 focus:bg-white/50 backdrop-blur-3xl text-base p-2 border-b-[0px] rounded-bl-none rounded-br-none
-            rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto flex-grow" 
+          className="bg-gray-50 focus:bg-white/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none
+            rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto flex-grow font-mono typewriter-cursor"
           placeholder='Type anything to chat'
           value={inputContent}
           onChange={onTextAreaChange}

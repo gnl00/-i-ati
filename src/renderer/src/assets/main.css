@@ -141,3 +141,22 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Typewriter cursor animation */
+@keyframes typewriterBlink {
+  0%, 49% {
+    caret-color: #2563eb;
+  }
+  50%, 100% {
+    caret-color: transparent;
+  }
+}
+
+.typewriter-cursor {
+  caret-color: #2563eb;
+  animation: typewriterBlink 1s step-end infinite;
+}
+
+.typewriter-cursor:focus {
+  animation: typewriterBlink 0.8s step-end infinite;
+}
