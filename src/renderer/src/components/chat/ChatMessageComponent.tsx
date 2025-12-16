@@ -14,6 +14,7 @@ import rehypeKatex from 'rehype-katex'
 
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import { useChatStore } from '../../store'
 
 interface ChatMessageComponentProps {
   index: number
@@ -22,6 +23,8 @@ interface ChatMessageComponentProps {
 }
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
+
+  const { showLoadingIndicator } = useChatStore()
 
   const [userMessageOperationIdx, setUserMessageOperationIdx] = useState<number>(-1)
   const [assistantMessageHovered, setAssistantMessageHovered] = useState<boolean>(false)
@@ -148,7 +151,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
     >
       <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
         {m.model && (
-          <Badge variant="outline" className='select-none text-gray-700 mb-1'>@{m.model}</Badge>
+          <Badge variant="outline" className={cn('select-none text-gray-700 mb-1', showLoadingIndicator && isLatest ? 'animate-pulse' : '')}>@{m.model}</Badge>
         )}
         {m.reasoning && !m.artifatcs && (
           <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>

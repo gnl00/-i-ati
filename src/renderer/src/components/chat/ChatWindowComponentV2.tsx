@@ -134,7 +134,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         })}
 
         {/* 流式响应加载指示器 */}
-        {showLoadingIndicator && selectedModel && (
+        {/* {showLoadingIndicator && selectedModel && (
           <div className="flex justify-start flex-col pb-0.5 w-20">
             <Badge variant="outline" className='select-none text-gray-700 mb-1 animate-pulse'>
               @{selectedModel.name}
@@ -143,7 +143,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
               <Skeleton className="h-4 w-32 rounded-full bg-black/5" />
             </div>
           </div>
-        )}
+        )} */}
 
         {/* WebSearch 加载指示器 */}
         {/* {webSearchEnable && webSearchProcessing && (

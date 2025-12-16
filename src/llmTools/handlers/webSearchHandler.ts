@@ -12,6 +12,7 @@ export interface WebSearchArgs {
 export interface WebSearchResult {
   success: boolean
   result: string[]
+  links: string[]
   error?: string
 }
 
@@ -32,6 +33,7 @@ export async function webSearchHandler(args: WebSearchArgs): Promise<WebSearchRe
     return {
       success: searchResults.success,
       result: searchResults.result || [],
+      links: searchResults.links,
       error: searchResults.error
     }
   } catch (error: any) {
@@ -39,6 +41,7 @@ export async function webSearchHandler(args: WebSearchArgs): Promise<WebSearchRe
     return {
       success: false,
       result: [],
+      links: [],
       error: error.message || 'Unknown error occurred'
     }
   }
