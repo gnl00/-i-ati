@@ -377,7 +377,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button size={'xs'} variant="ghost" className="rounded-full" onClick={startNewChat}>
-                    <BadgePlus className='text-gray-600 flex justify-center border-none hover:text-gray-400'></BadgePlus>
+                    <BadgePlus className='w-5 text-gray-600 flex justify-center border-none hover:text-gray-400'></BadgePlus>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
@@ -391,7 +391,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   <div className={cn('px-2 py-0.5 rounded-2xl', webSearchEnable ? 'bg-blue-200' : 'hover:bg-gray-100')}>
                     <Globe
                       className={
-                        cn("backdrop-blur-3xl text-gray-600 flex justify-center",
+                        cn("backdrop-blur-3xl text-gray-600 flex justify-center w-5",
                         webSearchEnable ? 'text-blue-400' : 'hover:text-gray-400'
                         )}
                       onClick={onWebSearchClick}>
