@@ -2,7 +2,7 @@ import { shell, ipcMain } from 'electron'
 import { PIN_WINDOW, SAVE_CONFIG, GET_CONFIG, OPEN_EXTERNAL, WEB_SEARCH_ACTION } from '../constants'
 import { appConfig, saveConfig } from './app-config'
 import { pinWindow, getWinPosition, setWinPosition, windowsMinimize, windowsMaximize, windowsClose } from './main-window'
-import { handleWebSearch } from './web-search'
+import { handleWebSearch } from './web-search-optimized'
 import { connect as mcpConnect, close as mcpClose, toolCall as mcpToolCall } from '../mcp/client'
 import streamingjson from 'streaming-json'
 

@@ -14,6 +14,7 @@ const handleWebSearch = async ({ fetchCounts, param }) => {
       // userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
       viewport: { width: 1366, height: 768 },
     })
+    await context.route('**/*.{png,jpg,jpeg}', route => route.abort());
     // Create a new page inside context.
     const page = await context.newPage()
     // 监听页面内的 console.log 输出
@@ -24,6 +25,14 @@ const handleWebSearch = async ({ fetchCounts, param }) => {
     const queryStr = searchSite.includes('google') ? (param as string).trim().replaceAll(' ', '+') : (param as string)
     const encodedQueryStr = encodeURIComponent(queryStr)
     await page.goto(`https://${searchSite}/search?q=${encodedQueryStr}`)
+    await page.route('**/*', route => {
+      const request = route.request();
+      const url = request.url();
+      if (url.includes('ads') || url.includes('tracker')) {
+        return route.abort();
+      }
+      route.continue();
+    });
     await page.reload({ waitUntil: 'networkidle' }); // avoid empty content
     // Wait for search results to load
     await page.waitForSelector('ol#b_results', { timeout: 30000 })
