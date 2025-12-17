@@ -54,7 +54,7 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
       temperature: 0.7,
       top_p: 0.7,
       // top_k: 50,
-      frequency_penalty: 0.5,
+      // frequency_penalty: 0.5,
       n: 1
     })
   })
@@ -138,7 +138,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
       temperature: 0.7,
       top_p: 0.7,
       // top_k: 50,
-      frequency_penalty: 0.5,
+      // frequency_penalty: 0.5,
       n: 1,
     })
   })

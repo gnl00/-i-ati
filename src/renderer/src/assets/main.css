@@ -119,6 +119,22 @@
   animation: slideInRight 300ms ease-out forwards;
 }
 
+/* ScrollToBottom 按钮滑入动画 */
+@keyframes slideUp {
+  from {
+    transform: translate(-50%, 10px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 200ms ease-out forwards;
+}
+
 #think {
   padding-top: 3px;
   padding-left: 8px;

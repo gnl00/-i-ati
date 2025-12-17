@@ -8,7 +8,7 @@ let mainWindow: BrowserWindow
 function createWindow(): void {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 780,
+    width: 770,
     height: 850,
     show: false,
     // alwaysOnTop: true,

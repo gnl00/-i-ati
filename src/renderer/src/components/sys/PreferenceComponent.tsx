@@ -104,7 +104,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setEditProviderApiKey('')
     }, [])
     useEffect(() => {
-        console.log('currentProviderName', currentProviderName);
+        // console.log('currentProviderName', currentProviderName);
         let p: IProvider | undefined
         if (currentProviderName && (p = getProviderByName(currentProviderName))) {
             setCurrentProvider(p)
@@ -118,12 +118,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     }, [mcpServerConfig])
 
     const onAddModelClick = () => {
-        console.log('onAddModelClick currentProvider=', currentProvider);
-        
+        // console.log('onAddModelClick currentProvider=', currentProvider);
         if (!currentProvider) return
-        
         const newModel: IModel = {
-            enable: nextAddModelEnable, 
+            enable: true, 
             provider: currentProvider.name, 
             name: nextAddModelLabel, 
             value: nextAddModelValue, 
@@ -324,9 +322,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         <TabsTrigger value="tool">Tool</TabsTrigger>
                         <TabsTrigger value="mcp-server">MCP Server</TabsTrigger>
                     </TabsList>
-                    <div className="flex items-center gap-2">
-                        <p className='text-xs text-orange-400 select-none'>Remember to save changes</p>
-                        <Button size="sm" onClick={saveConfigurationClick} className="shadow-sm">
+                    <div className="flex items-end gap-2">
+                        <p className='text-xs text-orange-300 select-none'>Remember to save changes</p>
+                        <Button size="xs" onClick={saveConfigurationClick} className="shadow-sm">
                             <i className="ri-save-line mr-1.5"></i>
                             Save
                         </Button>
@@ -479,7 +477,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                             </TableHeader> */}
                                             <TableBody>
                                                 <TableRow className='border-b w-full'>
-                                                    <TableCell className='py-2'><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} placeholder="ShowName" /></TableCell>
+                                                    <TableCell className='py-2'><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} placeholder="Name" /></TableCell>
                                                     <TableCell className='py-2'><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} placeholder="ModelID" /></TableCell>
                                                     <TableCell className='py-2'>
                                                         <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
@@ -715,7 +713,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                     checked={titleGenerateEnabled}
                                     onCheckedChange={_ => setTitleGenerateEnabled(!titleGenerateEnabled)}
                                     id="toggle-title-generation"
-                                    className="mt-1 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                                    className="mt-1"
                                 />
                                 <div className="flex-1 space-y-3">
                                     <div className="space-y-1">
