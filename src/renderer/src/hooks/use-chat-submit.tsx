@@ -3,7 +3,7 @@ import { getChatById, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
 import { useChatStore } from "@renderer/store"
 import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request/index"
-import { toast } from '@renderer/components/ui/use-toast'
+import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import { saveChat } from "@renderer/db/ChatRepository"
 import { toolCallPrompt, artifactsSystemPrompt, generateTitlePrompt, toolsCallSystemPrompt } from '../constant/prompts'
@@ -191,8 +191,14 @@ function useChatSubmit() {
       ])
     } else {
       for await (const chunk of response) {
+        // Check if request was aborted before processing each chunk
+        if (context.signal.aborted) {
+          // console.log('[processRequestV2] Abort detected, stopping stream processing')
+          throw new DOMException('Request aborted', 'AbortError')
+        }
+
         const resp = chunk as IUnifiedResponse
-  
+
         if (resp.toolCalls && resp.toolCalls.length > 0) {
           if(!context.hasToolCall) context.hasToolCall = true
 
@@ -268,6 +274,12 @@ function useChatSubmit() {
   // 管道函数：处理工具调用
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     while(context.toolCalls.length > 0) {
+      // Check if request was aborted before processing each tool call
+      if (context.signal.aborted) {
+        // console.log('[handleToolCall] Abort detected, stopping tool call processing')
+        throw new DOMException('Request aborted', 'AbortError')
+      }
+
       console.log('context.toolCalls', JSON.stringify(context.toolCalls), context.toolCalls.length)
       const toolCall = (context.toolCalls.shift())! // 从第一个 tool 开始调用，逐个返回结果
       const startTime = new Date().getTime()
@@ -406,15 +418,33 @@ function useChatSubmit() {
       context = await processRequestWithToolCall(context)
       await finalize(context)
     } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        toast({
-          variant: "destructive",
-          title: "Uh oh! Request went wrong.",
-          description: `There was a problem with your request. ${error.message}`
-        })
-      }
-      setLastMsgStatus(false)
+      // console.log('[onSubmit] Error caught:', error.name, error.message)
+
+      // Unified state cleanup - happens for both AbortError and other errors
+      // console.log('[onSubmit] Cleaning up all states...')
+      setCurrentReqCtrl(undefined)
       setReadStreamState(false)
+      setFetchState(false)
+      setShowLoadingIndicator(false)
+      setLastMsgStatus(false)
+
+      // Handle different error types
+      if (error.name === 'AbortError') {
+        // console.log('[onSubmit] Request was aborted by user')
+        // toast({
+        //   variant: "destructive",
+        //   title: "Request stopped",
+        //   description: "The request has been cancelled successfully."
+        // })
+      } else {
+        // console.error('[onSubmit] Request failed with error:', error)
+        // toast({
+        //   variant: "destructive",
+        //   title: "Request Exception.",
+        //   description: `${error.message}`
+        // })
+        toast.error(error.message)
+      }
     }
   }
 

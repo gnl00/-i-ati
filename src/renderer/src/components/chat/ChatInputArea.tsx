@@ -46,10 +46,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setMessages,
     imageSrcBase64List,
     setImageSrcBase64List,
-    currentReqCtrl, 
-    readStreamState, setReadStreamState,
+    currentReqCtrl,
+    readStreamState,
     webSearchEnable, toggleWebSearch,
-    webSearchProcessing, setWebSearchProcessState,
     artifacts, toggleArtifacts,
     providers,
     models,
@@ -78,6 +77,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
   const onSubmitClick = useCallback((_) => {
+    if(!inputContent) {
+      return
+    }
+    if (!selectedModel) {
+      toast.warning('Please select one model')
+      return
+    }
     onMessagesUpdate() // for chat-window scroll to the end
     const tools = Array.from(availableMcpTools.values()).flatMap(i => i)
     if (webSearchEnable) {
@@ -92,15 +98,25 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setImageSrcBase64List([])
   }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])
 
-  const onStopClick = useCallback((_) => {
-    if (currentReqCtrl) {
-        currentReqCtrl.abort()
-        setReadStreamState(false)
+  const onStopClick = () => {
+    console.log('[onStopClick] Triggered, currentReqCtrl:', currentReqCtrl)
+
+    if (!currentReqCtrl) {
+      // console.warn('[onStopClick] No active request to stop')
+      // toast.warning('No active request')
+      return
     }
-    if (webSearchProcessing) {
-      setWebSearchProcessState(false)
+
+    // Only call abort - state cleanup will be handled by the catch block in use-chat-submit
+    try {
+      // console.log('[onStopClick] Calling abort()...')
+      currentReqCtrl.abort()
+      // toast.warning('Stopping request...')
+    } catch (error) {
+      // console.error('[onStopClick] Error calling abort():', error)
+      toast.error('Failed to stop request')
     }
-  }, [currentReqCtrl, setReadStreamState, webSearchProcessing, setWebSearchProcessState])
+  }
   const onWebSearchClick = useCallback(() => {
     toggleWebSearch(!webSearchEnable)
   }, [toggleWebSearch, webSearchEnable])
@@ -415,15 +431,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <div onClick={onSubmitClick} className='absolute right-0 bottom-0'>
+            <div className='absolute right-0 bottom-0'>
                 {!readStreamState 
                   ? (
-                    <Button variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 hover:bg-gray-600'>
+                    <Button onClick={onSubmitClick} variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 hover:bg-gray-600'>
                       <PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8" />
                       <sub className="text-gray-400 flex"><ArrowBigUp className="w-3" /><CornerDownLeft className="w-3" /></sub>
                     </Button>
                   )
-                  : <Button variant={'destructive'} size={'sm'} className={cn('rounded-full border-[1px] hover:bg-red-400 animate-pulse transition-transform duration-800')} onClick={onStopClick}><StopIcon />&nbsp;Stop</Button>
+                  : <Button variant={'destructive'} size={'sm'} 
+                      className={cn('rounded-full border-[1px] hover:bg-red-400 animate-pulse transition-transform duration-800')} 
+                      onClick={onStopClick}>
+                        <StopIcon />&nbsp;Stop
+                    </Button>
                 }
             </div>
           </div>

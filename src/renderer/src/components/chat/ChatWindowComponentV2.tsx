@@ -57,7 +57,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   const scrollToBottom = useCallback((smooth = false) => {
-    console.log('toBottom', smooth, chatPaddingElRef)
     if (chatPaddingElRef.current) {
       const scrollElement = chatPaddingElRef.current
       if (smooth) {
