@@ -160,3 +160,39 @@
 .typewriter-cursor:focus {
   animation: typewriterBlink 0.8s step-end infinite;
 }
+
+/* Popover 弹出动画 */
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes popoverFadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98) translateY(-4px);
+  }
+}
+
+/* Radix UI Popover 动画 - 只针对 PopoverContent */
+[data-state="open"][data-side="bottom"],
+[data-state="open"][data-side="top"] {
+  animation: popoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* 只针对有 data-side 的元素（PopoverContent），避免影响 PopoverTrigger */
+[data-state="closed"][data-side="bottom"],
+[data-state="closed"][data-side="top"] {
+  animation: popoverFadeOut 0.1s cubic-bezier(0.4, 0, 1, 1) forwards;
+}

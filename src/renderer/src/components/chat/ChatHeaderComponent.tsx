@@ -60,7 +60,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
 
       {/* Center Title */}
       <div className='app-dragable flex-1 flex justify-center'>
-        <Button className='app-undragable text-gray-500 font-semibold' size="sm" variant='secondary'>{chatTitle}</Button>
+        <span className='text-gray-500 font-semibold text-sm bg-gray-100 p-1 px-2 rounded-xl'>{chatTitle}</span>
       </div>
 
       {/* Right Controls */}

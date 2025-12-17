@@ -197,14 +197,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           <ChatImgGalleryComponent />
       </div>
       <div className='rounded-xl flex items-center space-x-2 mb-1 select-none px-4'>
-        <div className="app-undragable">
+        <div id="modelSelector" className="app-undragable">
           <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectModelPopoutState}
-                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl border-none shadow"
+                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 hover:bg-black/5 text-gray-700 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedModel ? (
@@ -220,8 +220,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   <ChevronsUpDown className="flex opacity-50 pl-1 pr-0.5 w-5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full shadow ml-1 rounded-xl">
-              <Command className='z-10 rounded-xl bg-white/30 backdrop-blur-xl'>
+            <PopoverContent
+              className="w-full shadow-lg ml-1 rounded-xl overflow-hidden border border-gray-200/50 bg-white"
+              sideOffset={8}
+              align="start"
+            >
+              <Command className='rounded-xl bg-white'>
                 <CommandInput placeholder="Search model" className="h-auto" />
                 <CommandList>
                   {(models.findIndex(fm => fm.enable === true) != -1) && <CommandEmpty>Oops...NotFound</CommandEmpty>}
@@ -257,14 +261,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             </PopoverContent>
           </Popover>
         </div>
-        <div className="app-undragable">
+        <div id="mcpSelector" className="app-undragable">
           <Popover open={selectMCPPopoutState} onOpenChange={setSelectMCPPopoutState}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectMCPPopoutState}
-                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow"
+                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0] }
@@ -273,8 +277,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full shadow ml-1 rounded-xl">
-              <Command className='z-10 rounded-xl bg-white/30 backdrop-blur-xl'>
+            <PopoverContent
+              className="w-full shadow-lg ml-1 rounded-xl overflow-hidden border border-gray-200/50 bg-white"
+              sideOffset={8}
+              align="start"
+            >
+              <Command className='rounded-xl bg-white'>
                 <CommandInput placeholder="Search tool" className="h-auto" />
                 <CommandList>
                 <CommandGroup
@@ -301,19 +309,23 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             </PopoverContent>
           </Popover>
         </div>
-        <div className='flex-grow w-full'>
+        <div id="customPanel" className='flex-grow w-full'>
           <div className='flex justify-end w-auto'>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant={'ghost'} 
+                <Button variant={'ghost'}
                   className=
-                    "h-8 flex p-1 rounded-2xl bg-white/20 hover:bg-black/5 text-gray-500 hover:text-gray-700 backdrop-blur-xl border-none shadow"
+                    "h-8 flex p-1 rounded-2xl bg-gray-100 hover:bg-black/5 text-gray-500 hover:text-gray-600 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                   >
                   <span>Custom</span><Settings2 className="h-4 w-4 ml-1" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent>
-                <div className="grid gap-4 mr-2 bg-white/30 backdrop-blur-3xl border-[1px] border-gray-200 rounded-xl p-2 text-gray-700">
+              <PopoverContent
+                className="overflow-hidden"
+                sideOffset={8}
+                align="end"
+              >
+                <div className="grid gap-4 mr-2 bg-white border-[1px] border-gray-200 rounded-xl p-2 text-gray-700 shadow-lg">
                   <div className="space-y-2 flex justify-evenly">
                     <p className="flex justify-between w-full">
                       <span className='leading-none font-medium text-gray-800'>Chat Settings</span>
@@ -364,7 +376,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         <Textarea
           style={{maxHeight: 'calc(100% - 2rem)'}}
           className="bg-gray-50 focus:bg-white/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none
-            rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto flex-grow font-mono typewriter-cursor"
+            rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto flex-grow font-mono typewriter-cursor text-gray-700"
           placeholder='Type anything to chat'
           value={inputContent}
           onChange={onTextAreaChange}
