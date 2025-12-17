@@ -142,23 +142,34 @@
   scrollbar-width: none;
 }
 
-/* Typewriter cursor animation */
-@keyframes typewriterBlink {
-  0%, 49% {
-    caret-color: #2563eb;
+/* 呼吸灯效果 - 只影响输入光标（caret）的颜色 */
+@keyframes caretBreathing {
+  0% {
+    caret-color: #3b82f6;
   }
-  50%, 100% {
-    caret-color: transparent;
+  25% {
+    caret-color: #fa6060;
+  }
+  50% {
+    caret-color: rgba(58, 201, 55, 0.704);
+  }
+  75% {
+    caret-color: #e4c136;
+  }
+  100% {
+    caret-color: #8787eae3;
   }
 }
 
 .typewriter-cursor {
-  caret-color: #2563eb;
-  animation: typewriterBlink 1s step-end infinite;
+  caret-color: #3b82f6;
+  /* 只使用颜色呼吸，避免 filter 影响整个 textarea */
+  animation: caretBreathing 2s ease-in-out infinite;
 }
 
 .typewriter-cursor:focus {
-  animation: typewriterBlink 0.8s step-end infinite;
+  /* 聚焦时加快呼吸频率 */
+  animation: caretBreathing 1.5s ease-in-out infinite;
 }
 
 /* Popover 弹出动画 */
