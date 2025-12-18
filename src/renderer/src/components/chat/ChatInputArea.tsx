@@ -28,7 +28,7 @@ import { cn } from '@renderer/lib/utils'
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
 import { useChatStore } from '@renderer/store'
 import { useChatContext } from '@renderer/context/ChatContext'
-import useChatSubmit from '@renderer/hooks/use-chat-submit'
+import useChatSubmit from '@renderer/hooks/useChatSubmit'
 import { Label } from '@renderer/components/ui/label'
 import { Input } from '@renderer/components/ui/input'
 import { Slider } from "@renderer/components/ui/slider"
