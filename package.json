@@ -52,6 +52,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.0",
     "embla-carousel-react": "^8.5.1",
+    "flowtoken": "^1.0.40",
     "idb": "^8.0.1",
     "install": "^0.13.0",
     "lodash": "^4.17.21",

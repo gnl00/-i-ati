@@ -245,6 +245,17 @@
   }
 }
 
+@keyframes assistantMessageSlideIn {
+  0% {
+    transform: translateY(10px) translateX(-10px) scale(0.98);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
 @layer utilities {
   .animate-shine {
     position: relative;
@@ -281,6 +292,10 @@
 
   .animate-message-in {
     animation: messageSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .animate-assistant-message-in {
+    animation: assistantMessageSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
 }
 

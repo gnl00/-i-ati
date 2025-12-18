@@ -77,19 +77,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   // Textarea ref and expand functionality
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const textareaDefaultHeight: number = 120
-  const textareaMaxHeight: number = 450
-  const [textareaHeight, setTextareaHeight] = useState<number>(textareaDefaultHeight) // Use state to manage height
+  const textareaDefaultHeight = useRef<number>(150)
+  const textareaMaxHeight = useRef<number>(450)
+  const [textareaHeight, setTextareaHeight] = useState<number>(textareaDefaultHeight.current) // Use state to manage height
   const [isTextareaExpanded, setIsTextareaExpanded] = useState<boolean>(false) // Track expand state
 
   const handleToggleTextarea = () => {
     if (isTextareaExpanded) {
       // Collapse to default height
-      setTextareaHeight(textareaDefaultHeight)
+      setTextareaHeight(textareaDefaultHeight.current)
       setIsTextareaExpanded(false)
     } else {
       // Expand to max height
-      setTextareaHeight(textareaMaxHeight)
+      setTextareaHeight(textareaMaxHeight.current)
       setIsTextareaExpanded(true)
     }
   }
@@ -430,7 +430,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           style={{
             height: `${textareaHeight}px`,
             // minHeight: textareaHeight,
-            maxHeight: `${textareaMaxHeight}px`,
+            maxHeight: `${textareaMaxHeight.current}px`,
             marginTop: 'auto' // Push to bottom, grow upward
           }}
           className={

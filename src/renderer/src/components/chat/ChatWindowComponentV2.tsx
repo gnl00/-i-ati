@@ -3,57 +3,61 @@ import ChatInputArea from "@renderer/components/chat/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/ChatMessageComponent"
 import { ArrowDown } from 'lucide-react'
 import { useChatStore } from '@renderer/store'
+import { useChatContext } from '@renderer/context/ChatContext'
 import React, { useState, forwardRef, useEffect, useCallback, useRef } from 'react'
 
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { messages } = useChatStore()
+  const { chatUuid } = useChatContext()
 
-  const chatWindowRef = useRef<HTMLDivElement>(null)
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const chatListRef = useRef<HTMLDivElement>(null)
   const chatPaddingElRef = useRef<HTMLDivElement>(null)
   const lastScrollTopRef = useRef<number>(0)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const scrollRAFRef = useRef<number>(0)
+  const lastChatUuidRef = useRef<string | undefined>(undefined)
 
-  const [ chatListHeight, setChatListHeight ] = useState<number>(0)
   const [ showScrollToBottom, setShowScrollToBottom ] = useState<boolean>(false)
 
-  useEffect(() => {
-    calculateChatListHeight()
+  // 所有函数定义
+  // 节流 + RAF 优化的滚动函数（用于流式输出）
+  const scrollToBottomThrottled = useCallback(() => {
+    console.log('[1] scrollToBottomThrottled called ==> ', new Date().getTime());
 
-    const handleResize = () => {
-      calculateChatListHeight()
+    // 取消之前的 RAF（如果有）
+    if (scrollRAFRef.current) {
+      cancelAnimationFrame(scrollRAFRef.current)
     }
 
-    // 监听聊天列表容器的滚动，而不是 window
-    const chatListElement = chatListRef.current?.parentElement
-    if (chatListElement) {
-      chatListElement.addEventListener('scroll', onChatListScroll)
+    // 清除之前的 timeout（如果有）
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
     }
 
-    window.addEventListener('resize', handleResize)
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      if (chatListElement) {
-        chatListElement.removeEventListener('scroll', onChatListScroll)
-      }
-    }
-  }, [])
+    // 设置新的 timeout
+    console.log('[3] setting timeout');
+    scrollTimeoutRef.current = setTimeout(() => {
+      console.log('[4] timeout callback fired');
 
-  useEffect(() => {
-    calculateChatListHeight()
-    if(chatPaddingElRef && chatPaddingElRef.current) {
-      chatPaddingElRef.current.scrollIntoView({
-        behavior: "smooth"
+      // 使用 RAF 与浏览器重绘同步
+      scrollRAFRef.current = requestAnimationFrame(() => {
+        console.log('[6] RAF callback fired');
+        if (chatPaddingElRef.current) {
+          console.log('[7] scrollIntoView called on:', chatPaddingElRef.current);
+          chatPaddingElRef.current.scrollIntoView({
+            behavior: "auto",
+            block: "end"
+          })
+        } else {
+          console.log('[7] ERROR: chatPaddingElRef.current is null!');
+        }
+        scrollRAFRef.current = 0
       })
-    }
-  }, [messages])
 
-  const calculateChatListHeight = useCallback(() => {
-    if (chatWindowRef.current && inputAreaRef.current) {
-      const chatWindowHeight = chatWindowRef.current.offsetHeight
-      const inputAreaHeight = inputAreaRef.current.offsetHeight
-      setChatListHeight(chatWindowHeight - inputAreaHeight)
-    }
+      scrollTimeoutRef.current = null
+      console.log('[8] timeout cleared');
+    }, 100) // 100ms 去抖
   }, [])
 
   const scrollToBottom = useCallback((smooth = false) => {
@@ -64,7 +68,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       } else {
         scrollElement.style.scrollBehavior = 'auto'
       }
-      scrollElement.scrollIntoView()
+      scrollElement.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end'
+      })
       // 滚动后隐藏按钮
       setShowScrollToBottom(false)
     }
@@ -102,6 +109,56 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       setShowScrollToBottom(false)
     }
   }, [])
+
+  // useEffect hooks
+  useEffect(() => {
+    // 监听聊天列表容器的滚动，而不是 window
+    const chatListElement = chatListRef.current?.parentElement
+    if (chatListElement) {
+      chatListElement.addEventListener('scroll', onChatListScroll)
+    }
+
+    return () => {
+      if (chatListElement) {
+        chatListElement.removeEventListener('scroll', onChatListScroll)
+      }
+      // 清理定时器和动画帧
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+      if (scrollRAFRef.current) {
+        cancelAnimationFrame(scrollRAFRef.current)
+      }
+    }
+  }, [onChatListScroll])
+
+  // 1. 聊天切换时：强制立即滚动
+  useEffect(() => {
+    const prevChatUuid = lastChatUuidRef.current
+    const currentChatUuid = chatUuid
+    // 检测是否是聊天切换（chatUuid 发生变化）
+    const isChatSwitch = prevChatUuid !== currentChatUuid
+    // 更新 chatUuid 记录
+    lastChatUuidRef.current = currentChatUuid
+    if (isChatSwitch) {
+      // 聊天切换时立即滚动，不节流
+      if (chatPaddingElRef.current) {
+        console.log('toBottom ==> isChatSwitch', isChatSwitch);
+        scrollToBottom(true)
+      }
+    }
+  }, [chatUuid])
+
+  useEffect(() => {
+    // 滚动逻辑：
+    // 2. 用户在底部（按钮不可见）：节流滚动
+    // 3. 用户向上滚动（按钮可见）：不滚动
+    if (!showScrollToBottom) {
+      console.log('useEffect [messages, showScrollToBottom, scrollToBottomThrottled]) ==> showScrollToBottom', showScrollToBottom, new Date().getTime());
+      // 正常流式输出时使用节流滚动（仅当用户在底部）
+      scrollToBottomThrottled()
+    }
+  }, [messages, showScrollToBottom, scrollToBottomThrottled])
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
@@ -149,10 +206,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           </div>
         )}
       </div>
-      <div ref={chatPaddingElRef}></div>
+      <div id="scrollBottomEl" ref={chatPaddingElRef}></div>
     </div>
     {/* just as a padding element */}
-    <div className="pb-56 bg-transparent select-none">&nbsp;</div>
+    <div className="pb-52 bg-transparent select-none">&nbsp;</div>
     <ChatInputArea
       ref={inputAreaRef}
       onMessagesUpdate={onMessagesUpdate}

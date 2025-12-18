@@ -11,6 +11,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
+import { AnimatedMarkdown } from 'flowtoken'
 
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { docco, tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
@@ -151,7 +152,11 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
       id='assistant-message'
       onMouseEnter={_ => onMouseHoverAssistantMsg(true)}
       onMouseLeave={_ => onMouseHoverAssistantMsg(false)}
-      className={cn("flex justify-start flex-col pb-0.5", index === 0 ? 'mt-2' : '')}
+      className={cn(
+        "flex justify-start flex-col pb-0.5",
+        index === 0 ? 'mt-2' : '',
+        isLatest && "animate-assistant-message-in"
+      )}
     >
       <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
         {m.model && (
