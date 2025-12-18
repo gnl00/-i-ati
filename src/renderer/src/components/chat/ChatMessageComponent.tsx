@@ -8,7 +8,7 @@ import { cn } from '@renderer/lib/utils'
 import { CodeWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-// import rehypeRaw from 'rehype-raw'
+import rehypeRaw from 'rehype-raw'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 
@@ -20,6 +20,35 @@ interface ChatMessageComponentProps {
   index: number
   message: ChatMessage
   isLatest: boolean
+}
+
+// Shared markdown code components for both user and assistant messages
+const markdownCodeComponent = {
+  pre(props) {
+    const { children, ...rest } = props
+    return <>{children}</>
+  },
+  code(props) {
+    const { children, className, node, ...rest } = props
+    const match = /language-(\w+)/.exec(className || '')
+
+    // Exclude 'language-math' - let rehypeKatex handle it
+    if (match && match[1] !== 'math') {
+      return (
+        <CodeWrapper
+          children={String(children).replace(/\n$/, '')}
+          language={match[1]}
+        />
+      )
+    }
+
+    // For math or inline code, use default rendering
+    return (
+      <code {...rest} className={className}>
+        {children}
+      </code>
+    )
+  }
 }
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
@@ -61,30 +90,12 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                     return (
                       <ReactMarkdown
                         key={idx}
-                        remarkPlugins={[remarkGfm]}
+                        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+                        rehypePlugins={[rehypeKatex]}
                         // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
                         skipHtml={false}
                         className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
-                        components={{
-                          pre(props) {
-                            const { children, ...rest } = props
-                            return <>{children}</>
-                          },
-                          code(props) {
-                            const { children, className, node, ...rest } = props
-                            const match = /language-(\w+)/.exec(className || '')
-                            return match ? (
-                              <CodeWrapper
-                                children={String(children).replace(/\n$/, '')}
-                                language={match[1]}
-                              />
-                            ) : (
-                              <code {...rest} className={className}>
-                                {children}
-                              </code>
-                            )
-                          }
-                        }}
+                        components={markdownCodeComponent}
                       >
                         {vlmContent.text}
                       </ReactMarkdown>
@@ -95,30 +106,12 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
             </>
           ) : (
             <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
+              remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+              rehypePlugins={[rehypeKatex]}
               // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
               skipHtml={false}
               className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
-              components={{
-                pre(props) {
-                  const { children, ...rest } = props
-                  return <>{children}</>
-                },
-                code(props) {
-                  const { children, className, node, ...rest } = props
-                  const match = /language-(\w+)/.exec(className || '')
-                  return match ? (
-                    <CodeWrapper
-                      children={String(children).replace(/\n$/, '')}
-                      language={match[1]}
-                    />
-                  ) : (
-                    <code {...rest} className={className}>
-                      {children}
-                    </code>
-                  )
-                }
-              }}
+              components={markdownCodeComponent}
             >
               {m.content as string}
             </ReactMarkdown>
@@ -199,32 +192,13 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         {
           m.content && (
             <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              // rehypePlugins={[rehypeRaw]} // rehypeRaw 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
-              rehypePlugins={[rehypeKatex]}
+              remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+              rehypePlugins={[rehypeRaw, rehypeKatex]} // rehypeRaw 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
+              // rehypePlugins={[rehypeKatex]}
               skipHtml={false}
               remarkRehypeOptions={{ passThrough: ['link'] }}
               className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-p:mb-4 prose-p:mt-4 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
-              components={{
-                pre(props) {
-                  const { children, ...rest } = props
-                  return <>{children}</>
-                },
-                code(props) {
-                  const { children, className, node, ...rest } = props
-                  const match = /language-(\w+)/.exec(className || '')
-                  return match ? (
-                    <CodeWrapper
-                      children={String(children).replace(/\n$/, '')}
-                      language={match[1]}
-                    />
-                  ) : (
-                    <code {...rest} className={className}>
-                      {children}
-                    </code>
-                  )
-                }
-              }}
+              components={markdownCodeComponent}
             >
             {m.content as string}
             </ReactMarkdown>
