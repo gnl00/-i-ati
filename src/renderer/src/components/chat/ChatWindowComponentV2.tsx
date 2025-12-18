@@ -104,11 +104,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   return (
-    <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable" style={{
-      backgroundColor: '#f9f9f9',
-      backgroundImage: `radial-gradient(circle at 1px 1px, rgba(139,125,102,0.15) 1px, transparent 0)`,
-      backgroundSize: '50px 50px'
-    }}>
+    <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
     <ChatHeaderComponent />
     <div className="flex-grow app-undragable mt-12 overflow-scroll scroll-smooth">
       <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2" onScroll={onChatListScroll}>

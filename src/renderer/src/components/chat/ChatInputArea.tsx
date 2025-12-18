@@ -4,7 +4,7 @@ import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
 import { PaperPlaneIcon, StopIcon } from '@radix-ui/react-icons'
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@renderer/components/ui/command'
-import { Popover, PopoverTrigger, PopoverContent } from '@radix-ui/react-popover'
+import { Popover, PopoverTrigger, PopoverContent } from '@renderer/components/ui/popover'
 import {
   Tooltip,
   TooltipContent,
@@ -242,7 +242,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectModelPopoutState}
-                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 hover:bg-black/5 text-gray-700 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedModel ? (
@@ -259,11 +259,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-full shadow-lg ml-1 rounded-xl overflow-hidden border border-gray-200/50 bg-white"
+              className="w-full shadow-lg ml-1 rounded-xl overflow-hidden border border-gray-200/50 dark:border-gray-700 bg-white dark:bg-gray-900"
               sideOffset={8}
               align="start"
             >
-              <Command className='rounded-xl bg-white'>
+              <Command className='rounded-xl bg-white dark:bg-gray-900'>
                 <CommandInput placeholder="Search model" className="h-auto" />
                 <CommandList>
                   {(models.findIndex(fm => fm.enable === true) != -1) && <CommandEmpty>Oops...NotFound</CommandEmpty>}
@@ -273,7 +273,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                             value={p.name}
                             className='scroll-smooth'
                         >
-                            <span className="text-xs text-gray-400">{p.name}</span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500">{p.name}</span>
                             {
                                 p.models.map((m) => m.enable && (
                                     <CommandItem
@@ -306,21 +306,21 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectMCPPopoutState}
-                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 hover:bg-black/5 text-gray-700 backdrop-blur-xl space-x-1 border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 backdrop-blur-xl space-x-1 border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                 >
                   <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
                     {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0] }
                   </span>
-                  {selectedMcpServerNames.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 hover:bg-blue-gray-200 text-blue-gray-500 backdrop-blur-xl">+{selectedMcpServerNames.length - 1}</Badge>}
+                  {selectedMcpServerNames.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 dark:bg-gray-700 hover:bg-blue-gray-200 dark:hover:bg-gray-600 text-blue-gray-500 dark:text-gray-400 backdrop-blur-xl">+{selectedMcpServerNames.length - 1}</Badge>}
                   <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-full shadow-lg ml-1 rounded-xl overflow-hidden border border-gray-200/50 bg-white"
+              className="w-full shadow-lg ml-1 rounded-xl overflow-hidden border border-gray-200/50 dark:border-gray-700 bg-white dark:bg-gray-900"
               sideOffset={8}
               align="start"
             >
-              <Command className='rounded-xl bg-white'>
+              <Command className='rounded-xl bg-white dark:bg-gray-900'>
                 <CommandInput placeholder="Search tool" className="h-auto" />
                 <CommandList>
                 <CommandGroup
@@ -353,7 +353,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               <PopoverTrigger asChild>
                 <Button variant={'ghost'}
                   className=
-                    "h-8 flex p-1 rounded-2xl bg-gray-100 hover:bg-black/5 text-gray-500 hover:text-gray-600 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                    "h-8 flex p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                   >
                   <span>Custom</span><Settings2 className="h-4 w-4 ml-1" />
                 </Button>
@@ -363,11 +363,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 sideOffset={8}
                 align="end"
               >
-                <div className="grid gap-4 mr-2 bg-white border-[1px] border-gray-200 rounded-xl p-2 text-gray-700 shadow-lg">
+                <div className="grid gap-4 mr-2 bg-white dark:bg-gray-900 border-[1px] border-gray-200 dark:border-gray-700 rounded-xl p-2 text-gray-700 dark:text-gray-300 shadow-lg">
                   <div className="space-y-2 flex justify-evenly">
                     <p className="flex justify-between w-full">
-                      <span className='leading-none font-medium text-gray-800'>Chat Settings</span>
-                      <Badge variant={'outline'} className='text-xs text-gray-600 hover:bg-gray-200'>Save as Assiatant</Badge>
+                      <span className='leading-none font-medium text-gray-800 dark:text-gray-200'>Chat Settings</span>
+                      <Badge variant={'outline'} className='text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'>Save as Assiatant</Badge>
                     </p>
                   </div>
                   <div className="grid gap-2">
@@ -415,13 +415,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         <Button
           size="icon"
           variant="ghost"
-          className="absolute top-1 right-5 z-20 h-6 w-6 rounded-full hover:bg-gray-200/50 transition-colors"
+          className="absolute top-1 right-5 z-20 h-6 w-6 rounded-full hover:bg-gray-200/50 dark:hover:bg-gray-700/50 transition-colors"
           onClick={handleToggleTextarea}
         >
           {isTextareaExpanded ? (
-            <Minimize2 className="h-3 w-3 text-gray-500 hover:text-gray-700" />
+            <Minimize2 className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" />
           ) : (
-            <Maximize2 className="h-3 w-3 text-gray-500 hover:text-gray-700" />
+            <Maximize2 className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" />
           )}
         </Button>
 
@@ -434,8 +434,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             marginTop: 'auto' // Push to bottom, grow upward
           }}
           className={
-            cn('bg-gray-50 focus:bg-white/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none',
-              'rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto font-mono typewriter-cursor text-gray-700',
+            cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none',
+              'rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto font-mono typewriter-cursor text-gray-700 dark:text-gray-300',
               ) // Override default min-height
           }
           placeholder='Type anything to chat'
@@ -444,13 +444,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           onKeyDown={onTextAreaKeyDown}
           onPaste={onTextAreaPaste}
         />
-        <div className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px] flex-none h-10">
+        <div className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px] dark:border-gray-700 flex-none h-10">
           <div className='flex-grow flex items-center space-x-2 select-none relative'>
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button size={'xs'} variant="ghost" className="rounded-full" onClick={startNewChat}>
-                    <BadgePlus className='w-5 text-gray-600 flex justify-center border-none hover:text-gray-400'></BadgePlus>
+                    <BadgePlus className='w-5 text-gray-600 dark:text-gray-400 flex justify-center border-none hover:text-gray-400 dark:hover:text-gray-300'></BadgePlus>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
@@ -461,11 +461,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={cn('px-2 py-0.5 rounded-2xl', webSearchEnable ? 'bg-blue-200' : 'hover:bg-gray-100')}>
+                  <div className={cn('px-2 py-0.5 rounded-2xl', webSearchEnable ? 'bg-blue-200 dark:bg-blue-900' : 'hover:bg-gray-100 dark:hover:bg-gray-700')}>
                     <Globe
                       className={
-                        cn("backdrop-blur-3xl text-gray-600 flex justify-center w-5",
-                        webSearchEnable ? 'text-blue-400' : 'hover:text-gray-400'
+                        cn("backdrop-blur-3xl text-gray-600 dark:text-gray-400 flex justify-center w-5",
+                        webSearchEnable ? 'text-blue-400 dark:text-blue-300' : 'hover:text-gray-400 dark:hover:text-gray-300'
                         )}
                       onClick={onWebSearchClick}>
                     </Globe>
@@ -477,15 +477,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               </Tooltip>
             </TooltipProvider>
             <div className='absolute right-0 bottom-0'>
-                {!readStreamState 
+                {!readStreamState
                   ? (
-                    <Button onClick={onSubmitClick} variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 hover:bg-gray-600'>
-                      <PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8" />
-                      <sub className="text-gray-400 flex"><ArrowBigUp className="w-3" /><CornerDownLeft className="w-3" /></sub>
+                    <Button onClick={onSubmitClick} variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 dark:border-gray-600 hover:bg-gray-600 dark:hover:bg-gray-500'>
+                      <PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8 dark:text-gray-400" />
+                      <sub className="text-gray-400 dark:text-gray-400 flex"><ArrowBigUp className="w-3" /><CornerDownLeft className="w-3" /></sub>
                     </Button>
                   )
-                  : <Button variant={'destructive'} size={'sm'} 
-                      className={cn('rounded-full border-[1px] hover:bg-red-400 animate-pulse transition-transform duration-800')} 
+                  : <Button variant={'destructive'} size={'sm'}
+                      className={cn('rounded-full border-[1px] hover:bg-red-400 dark:hover:bg-red-500 animate-pulse transition-transform duration-800')}
                       onClick={onStopClick}>
                         <StopIcon />&nbsp;Stop
                     </Button>

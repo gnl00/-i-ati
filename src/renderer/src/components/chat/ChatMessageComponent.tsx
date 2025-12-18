@@ -13,8 +13,9 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import { docco, tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { useChatStore } from '../../store'
+import { useTheme } from '@renderer/components/theme-provider'
 
 interface ChatMessageComponentProps {
   index: number
@@ -54,9 +55,13 @@ const markdownCodeComponent = {
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
 
   const { showLoadingIndicator } = useChatStore()
+  const { theme } = useTheme()
 
   const [userMessageOperationIdx, setUserMessageOperationIdx] = useState<number>(-1)
   const [assistantMessageHovered, setAssistantMessageHovered] = useState<boolean>(false)
+
+  // Determine if dark mode is active
+  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   const onCopyClick = (content: string) => {
     if (content) {
@@ -79,7 +84,13 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         onMouseLeave={_ => onMouseHoverUsrMsg(-1)}
         className={cn("flex flex-col items-end mr-1", index === 0 ? 'mt-2' : '')}
       >
-        <div id="usr-msg-content" className={cn("max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-100")}>
+        <div
+          id="usr-msg-content"
+          className={cn(
+            "max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-800",
+            isLatest && "animate-shine"
+          )}
+        >
           {typeof m.content !== 'string' ? (
             <>
               <div className="">
@@ -110,7 +121,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
               rehypePlugins={[rehypeKatex]}
               // rehypePlugins={[rehypeRaw]} // 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
               skipHtml={false}
-              className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-700 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
+              className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
               components={markdownCodeComponent}
             >
               {m.content as string}
@@ -120,14 +131,14 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         <div
           id="usr-msg-operation"
           className={cn(
-            "mt-0.5 pr-2 space-x-1 flex text-gray-400 min-h-[1.5rem] transition-opacity duration-200",
+            "mt-0.5 pr-2 space-x-1 flex text-gray-400 dark:text-gray-500 min-h-[1.5rem] transition-opacity duration-200",
             userMessageOperationIdx === index ? "opacity-100" : "opacity-0 pointer-events-none"
           )}
         >
-          <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+          <div className="hover:bg-gray-200 dark:hover:bg-gray-700 w-6 h-6 p-1 rounded-full flex justify-center items-center">
             <CopyIcon onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
           </div>
-          <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+          <div className="hover:bg-gray-200 dark:hover:bg-gray-700 w-6 h-6 p-1 rounded-full flex justify-center items-center">
             <Pencil2Icon></Pencil2Icon>
           </div>
         </div>
@@ -144,18 +155,18 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
     >
       <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
         {m.model && (
-          <Badge variant="outline" className={cn('select-none text-gray-700 mb-1', showLoadingIndicator && isLatest ? 'animate-pulse' : '')}>@{m.model}</Badge>
+          <Badge variant="outline" className={cn('select-none text-gray-700 dark:text-gray-300 mb-1', showLoadingIndicator && isLatest ? 'animate-pulse' : '')}>@{m.model}</Badge>
         )}
         {m.reasoning && !m.artifatcs && (
           <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
             <AccordionItem value={'reasoning-' + index}>
               <AccordionTrigger className='text-sm h-10'>
-                <Badge variant={'secondary'} className="text-gray-600 bg-blue-gray-100 hover:bg-blue-gray-200 space-x-1">
+                <Badge variant={'secondary'} className="text-gray-600 dark:text-gray-300 bg-blue-gray-100 dark:bg-gray-800 hover:bg-blue-gray-200 dark:hover:bg-gray-700 space-x-1">
                   <BadgePercent className="w-4" />
                   <span>Thinking</span>
                 </Badge>
               </AccordionTrigger>
-              <AccordionContent className="bg-blue-gray-100 p-1 border-none rounded-xl">
+              <AccordionContent className="bg-blue-gray-100 dark:bg-gray-800 p-1 border-none rounded-xl">
                 <div className='text-blue-gray-500 pb-2 pl-1 pr-1 border-none'>
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
@@ -172,16 +183,16 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
             <Accordion id="accordion-tool-call-result" key={idx} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
               <AccordionItem value={'tool-use-' + index} className='border-none'>
                 <AccordionTrigger className='text-sm h-10 flex'>
-                  <Badge variant={'outline'} className={cn("bg-blue-gray-100 hover:bg-blue-gray-200 space-x-1", !tc.isError ? 'text-green-600' : 'text-red-500')}>
+                  <Badge variant={'outline'} className={cn("bg-blue-gray-100 dark:bg-gray-800 hover:bg-blue-gray-200 dark:hover:bg-gray-700 space-x-1", !tc.isError ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400')}>
                     {
                       !tc.isError ? <BadgeCheck className="w-4" /> : <BadgeX className="w-4" />
                     }
                     <span>{tc.name}</span>
-                    {tc.cost && <span className='text-gray-400 flex items-center justify-center'><Timer className="w-4" /><span>{tc.cost ? tc.cost / 1000 : 0}s</span></span>}
+                    {tc.cost && <span className='text-gray-400 dark:text-gray-500 flex items-center justify-center'><Timer className="w-4" /><span>{tc.cost ? tc.cost / 1000 : 0}s</span></span>}
                   </Badge>
                 </AccordionTrigger>
                 <AccordionContent className="rounded-xl pb-0 text-xs">
-                  <SyntaxHighlighter language="json" style={docco} className={'rounded-xl shadow-inner'}>
+                  <SyntaxHighlighter language="json" style={isDarkMode ? tomorrowNight : docco} className={'rounded-xl shadow-inner'}>
                     {JSON.stringify(tc.content, null, 2)}
                   </SyntaxHighlighter>
                 </AccordionContent>
@@ -207,19 +218,19 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
       </div>
       <div
         className={cn(
-          "mt-0.5 pl-2 space-x-1 flex text-gray-500 min-h-[1.5rem] transition-opacity duration-200",
+          "mt-0.5 pl-2 space-x-1 flex text-gray-500 dark:text-gray-400 min-h-[1.5rem] transition-opacity duration-200",
           assistantMessageHovered ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
-        <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+        <div className="hover:bg-gray-200 dark:hover:bg-gray-700 w-6 h-6 p-1 rounded-full flex justify-center items-center">
           <CopyIcon onClick={_ => onCopyClick(m.content as string)}></CopyIcon>
         </div>
         {isLatest && (
-          <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+          <div className="hover:bg-gray-200 dark:hover:bg-gray-700 w-6 h-6 p-1 rounded-full flex justify-center items-center">
             <ReloadIcon></ReloadIcon>
           </div>
         )}
-        <div className="hover:bg-gray-200 w-6 h-6 p-1 rounded-full flex justify-center items-center">
+        <div className="hover:bg-gray-200 dark:hover:bg-gray-700 w-6 h-6 p-1 rounded-full flex justify-center items-center">
           <Pencil2Icon></Pencil2Icon>
         </div>
       </div>

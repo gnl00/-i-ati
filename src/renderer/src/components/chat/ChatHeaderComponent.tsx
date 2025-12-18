@@ -42,13 +42,13 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
       <div className="flex items-center space-x-3">
         <TrafficLights />
         <div className="app-dragable flex space-x-2">
-          <Button className="app-undragable rounded-xl bg-gray-100" variant="ghost" size="sm" onClick={_ => {setSheetOpenState(true)}}>
-            <ActivityLogIcon />
+          <Button className="app-undragable rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" variant="ghost" size="sm" onClick={_ => {setSheetOpenState(true)}}>
+            <ActivityLogIcon className="dark:text-gray-300" />
           </Button>
           <Popover>
             <PopoverTrigger asChild className="app-undragable">
-              <Button className="rounded-xl bg-gray-100" variant="ghost" size="sm">
-                <GearIcon />
+              <Button className="rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" variant="ghost" size="sm">
+                <GearIcon className="dark:text-gray-300" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="m-1 app-undragable w-auto h-full">
@@ -60,14 +60,14 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
 
       {/* Center Title */}
       <div className='app-dragable flex-1 flex justify-center'>
-        <span className='text-gray-500 font-semibold text-sm bg-gray-100 p-1 px-2 rounded-xl'>{chatTitle}</span>
+        <span className='text-gray-500 dark:text-gray-300 font-semibold text-sm bg-gray-100 dark:bg-gray-800 p-1 px-2 rounded-xl'>{chatTitle}</span>
       </div>
 
       {/* Right Controls */}
       <div className="app-dragable flex justify-end space-x-1">
         <div className="app-undragable"><ModeToggle /></div>
-        <Button className="app-undragable rounded-xl bg-gray-100" size="sm" variant="ghost" onClick={onPinToggleClick}>
-          {pinState ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
+        <Button className="app-undragable rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" size="sm" variant="ghost" onClick={onPinToggleClick}>
+          {pinState ? <DrawingPinFilledIcon className="dark:text-gray-300" /> : <DrawingPinIcon className="dark:text-gray-300" />}
         </Button>
       </div>
     </div>
