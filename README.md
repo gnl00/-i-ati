@@ -76,7 +76,8 @@ pnpm build:mac
 - [X] web search
 - [ ] web search items setting
 - [X] mcp(yes it is here~)
-- [ ] re-design provider card...
+- [ ] re-design provider card
+- [X] math(LaTex) render(only `$` and `$$` supports,[ref](https://github.com/remarkjs/remark-math?tab=readme-ov-file#example-katex)))
 
 ## Reference
 
