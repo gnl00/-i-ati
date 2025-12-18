@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
@@ -11,16 +11,18 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@renderer/components/ui/tooltip"
-import { 
-  ChevronsUpDown, 
-  Check, 
-  Globe, 
+import {
+  ChevronsUpDown,
+  Check,
+  Globe,
   BadgePlus,
   Boxes,
   CornerDownLeft,
   ArrowBigUp,
   Settings2,
-  LoaderCircle
+  LoaderCircle,
+  Maximize2,
+  Minimize2
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
@@ -72,6 +74,26 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
+
+  // Textarea ref and expand functionality
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const textareaDefaultHeight: number = 120
+  const textareaMaxHeight: number = 450
+  const [textareaHeight, setTextareaHeight] = useState<number>(textareaDefaultHeight) // Use state to manage height
+  const [isTextareaExpanded, setIsTextareaExpanded] = useState<boolean>(false) // Track expand state
+
+  const handleToggleTextarea = () => {
+    if (isTextareaExpanded) {
+      // Collapse to default height
+      setTextareaHeight(textareaDefaultHeight)
+      setIsTextareaExpanded(false)
+    } else {
+      // Expand to max height
+      setTextareaHeight(textareaMaxHeight)
+      setIsTextareaExpanded(true)
+    }
+  }
+
   const handleChatSubmit = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
@@ -208,7 +230,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }
 
   return (
-    <div ref={ref} id='input-area' className={cn('rounded-md fixed w-full h-52', imageSrcBase64List.length !== 0 ? 'bottom-36' : 'bottom-8')}>
+    <div ref={ref} id='inputArea' className={cn('rounded-md fixed w-full -bottom-1')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
           <ChatImgGalleryComponent />
       </div>
@@ -388,17 +410,40 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           </div>
         </div>
       </div>
-      <div className='relative h-full -z-10 flex flex-col pb-3 px-4'>
+      <div className='relative flex flex-col pb-3 px-4'>
+        {/* Expand/Collapse button in top-right corner */}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="absolute top-1 right-5 z-20 h-6 w-6 rounded-full hover:bg-gray-200/50 transition-colors"
+          onClick={handleToggleTextarea}
+        >
+          {isTextareaExpanded ? (
+            <Minimize2 className="h-3 w-3 text-gray-500 hover:text-gray-700" />
+          ) : (
+            <Maximize2 className="h-3 w-3 text-gray-500 hover:text-gray-700" />
+          )}
+        </Button>
+
         <Textarea
-          style={{maxHeight: 'calc(100% - 2rem)'}}
-          className="bg-gray-50 focus:bg-white/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none
-            rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto flex-grow font-mono typewriter-cursor text-gray-700"
+          ref={textareaRef}
+          style={{
+            height: `${textareaHeight}px`,
+            // minHeight: textareaHeight,
+            maxHeight: `${textareaMaxHeight}px`,
+            marginTop: 'auto' // Push to bottom, grow upward
+          }}
+          className={
+            cn('bg-gray-50 focus:bg-white/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none',
+              'rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto font-mono typewriter-cursor text-gray-700',
+              ) // Override default min-height
+          }
           placeholder='Type anything to chat'
           value={inputContent}
           onChange={onTextAreaChange}
           onKeyDown={onTextAreaKeyDown}
           onPaste={onTextAreaPaste}
-          ></Textarea>
+        />
         <div className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px] flex-none h-10">
           <div className='flex-grow flex items-center space-x-2 select-none relative'>
             <TooltipProvider delayDuration={400}>
