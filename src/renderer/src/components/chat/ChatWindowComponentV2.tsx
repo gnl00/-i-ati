@@ -23,8 +23,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   // 所有函数定义
   // 节流 + RAF 优化的滚动函数（用于流式输出）
   const scrollToBottomThrottled = useCallback(() => {
-    console.log('[1] scrollToBottomThrottled called ==> ', new Date().getTime());
-
     // 取消之前的 RAF（如果有）
     if (scrollRAFRef.current) {
       cancelAnimationFrame(scrollRAFRef.current)
@@ -36,27 +34,18 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
 
     // 设置新的 timeout
-    console.log('[3] setting timeout');
     scrollTimeoutRef.current = setTimeout(() => {
-      console.log('[4] timeout callback fired');
-
       // 使用 RAF 与浏览器重绘同步
       scrollRAFRef.current = requestAnimationFrame(() => {
-        console.log('[6] RAF callback fired');
         if (chatPaddingElRef.current) {
-          console.log('[7] scrollIntoView called on:', chatPaddingElRef.current);
           chatPaddingElRef.current.scrollIntoView({
             behavior: "auto",
             block: "end"
           })
-        } else {
-          console.log('[7] ERROR: chatPaddingElRef.current is null!');
         }
         scrollRAFRef.current = 0
       })
-
       scrollTimeoutRef.current = null
-      console.log('[8] timeout cleared');
     }, 100) // 100ms 去抖
   }, [])
 
@@ -143,7 +132,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     if (isChatSwitch) {
       // 聊天切换时立即滚动，不节流
       if (chatPaddingElRef.current) {
-        console.log('toBottom ==> isChatSwitch', isChatSwitch);
         scrollToBottom(true)
       }
     }
@@ -154,7 +142,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     // 2. 用户在底部（按钮不可见）：节流滚动
     // 3. 用户向上滚动（按钮可见）：不滚动
     if (!showScrollToBottom) {
-      console.log('useEffect [messages, showScrollToBottom, scrollToBottomThrottled]) ==> showScrollToBottom', showScrollToBottom, new Date().getTime());
       // 正常流式输出时使用节流滚动（仅当用户在底部）
       scrollToBottomThrottled()
     }
