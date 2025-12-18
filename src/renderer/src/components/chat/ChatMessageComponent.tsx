@@ -88,7 +88,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
           id="usr-msg-content"
           className={cn(
             "max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-800",
-            isLatest && "animate-shine"
+            isLatest && "animate-shine animate-message-in"
           )}
         >
           {typeof m.content !== 'string' ? (

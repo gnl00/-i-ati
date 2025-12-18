@@ -234,26 +234,54 @@
   }
 }
 
-.animate-shine {
-  position: relative;
-  overflow: hidden;
+@keyframes messageSlideIn {
+  0% {
+    transform: translateY(10px) translateX(10px) scale(2);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 1;
+  }
 }
 
-.animate-shine::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    transparent 100%
-  );
-  animation: shine 1.2s ease-in-out forwards;
-  pointer-events: none;
+@layer utilities {
+  .animate-shine {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .animate-shine::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Light mode: 深色光效 */
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.08) 50%,
+      transparent 100%
+    );
+    animation: shine 1.2s ease-in-out forwards;
+    pointer-events: none;
+  }
+
+  /* Dark mode: 亮色光效 */
+  .dark .animate-shine::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%
+    );
+  }
+
+  .animate-message-in {
+    animation: messageSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
 }
 
 /* Chat window background - paper texture */
