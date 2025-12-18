@@ -169,7 +169,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         )}
         {
           m.toolCallResults && m.toolCallResults.length > 0 && m.toolCallResults.map((tc, idx) => (
-            <Accordion id="accordion-tool-call-result" key={idx} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl shadow-inner border-[1px]'>
+            <Accordion id="accordion-tool-call-result" key={idx} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
               <AccordionItem value={'tool-use-' + index} className='border-none'>
                 <AccordionTrigger className='text-sm h-10 flex'>
                   <Badge variant={'outline'} className={cn("bg-blue-gray-100 hover:bg-blue-gray-200 space-x-1", !tc.isError ? 'text-green-600' : 'text-red-500')}>
@@ -180,8 +180,8 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                     {tc.cost && <span className='text-gray-400 flex items-center justify-center'><Timer className="w-4" /><span>{tc.cost ? tc.cost / 1000 : 0}s</span></span>}
                   </Badge>
                 </AccordionTrigger>
-                <AccordionContent className="border-none rounded-xl pb-0 text-xs">
-                  <SyntaxHighlighter language="json" style={docco}>
+                <AccordionContent className="rounded-xl pb-0 text-xs">
+                  <SyntaxHighlighter language="json" style={docco} className={'rounded-xl shadow-inner'}>
                     {JSON.stringify(tc.content, null, 2)}
                   </SyntaxHighlighter>
                 </AccordionContent>
