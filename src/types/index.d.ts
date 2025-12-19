@@ -21,7 +21,7 @@ declare interface IAppConfig {
     titleGenerateEnabled?: boolean
     maxWebSearchItems?: number
   }
-  mcp?: {mcpServers?: {}}
+  mcp?: { mcpServers?: {} }
   version?: number
   configForUpdate?: IAppConfig
 }
@@ -151,6 +151,7 @@ declare interface ChatMessage {
   name?: string // for role=function
   artifatcs?: boolean
   toolCallResults?: any
+  typewriterCompleted?: boolean
 }
 
 declare type LLMContent = string;

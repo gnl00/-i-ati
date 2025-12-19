@@ -5,6 +5,7 @@ interface TypewriterOptions {
   maxSpeed?: number // Maximum interval in ms (slower typing)
   enabled?: boolean // Whether typewriter effect is enabled
   onTyping?: () => void // Callback when typing occurs
+  onComplete?: () => void // Callback when typing completes
 }
 
 export const useTypewriter = (text: string, options: TypewriterOptions = {}) => {
@@ -12,7 +13,8 @@ export const useTypewriter = (text: string, options: TypewriterOptions = {}) => 
     minSpeed = 20,
     maxSpeed = 50,
     enabled = true,
-    onTyping
+    onTyping,
+    onComplete
   } = options
 
   const [displayedText, setDisplayedText] = useState('')
@@ -21,11 +23,13 @@ export const useTypewriter = (text: string, options: TypewriterOptions = {}) => 
   const lastUpdateRef = useRef<number>(0)
   const previousTextRef = useRef('')
   const onTypingRef = useRef(onTyping)
+  const onCompleteRef = useRef(onComplete)
 
-  // Keep onTypingRef up to date
+  // Keep refs up to date
   useEffect(() => {
     onTypingRef.current = onTyping
-  }, [onTyping])
+    onCompleteRef.current = onComplete
+  }, [onTyping, onComplete])
 
   useEffect(() => {
     // If disabled, show full text immediately
@@ -76,6 +80,8 @@ export const useTypewriter = (text: string, options: TypewriterOptions = {}) => 
         animationFrameRef.current = requestAnimationFrame(animate)
       } else {
         animationFrameRef.current = null
+        // 队列清空，打字完成，调用完成回调
+        onCompleteRef.current?.()
       }
     }
 
