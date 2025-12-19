@@ -1,4 +1,4 @@
-import { CheckIcon, Cross2Icon, DoubleArrowDownIcon, DoubleArrowRightIcon, Pencil2Icon } from '@radix-ui/react-icons'
+import { CheckIcon, Cross2Icon, DoubleArrowRightIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { Button } from '@renderer/components/ui/button'
 import { Card, CardContent } from '@renderer/components/ui/card'
 import {
@@ -203,17 +203,13 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                 {/* 主内容区 - 占据剩余空间 */}
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                     {/* Carousel 区域 - 可折叠 */}
-                    <div className="flex-shrink-0 px-4 pt-2">
+                    <div className="flex-shrink-0 px-4 pt-2 border rounded-xl">
                         <div className="flex items-center justify-between mb-2" onClick={() => setIsCarouselExpanded(!isCarouselExpanded)}>
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Assistants</h3>
                             <button
                                 className="p-1 rounded-md text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
                             >
-                                {isCarouselExpanded ? (
-                                    <DoubleArrowDownIcon className="w-4 h-4 transition-transform duration-300" />
-                                ) : (
-                                    <DoubleArrowRightIcon className="w-4 h-4 transition-transform duration-300" />
-                                )}
+                                <DoubleArrowRightIcon className={cn("w-4 h-4 transition-transform duration-300", isCarouselExpanded ? 'rotate-90' : '')} />
                             </button>
                         </div>
 

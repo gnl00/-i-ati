@@ -104,8 +104,8 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   const assistantContent = useTypewriter(
     m.role === 'system' && m.content ? (m.content as string) : '',
     {
-      minSpeed: 10,
-      maxSpeed: 25,
+      minSpeed: 5,
+      maxSpeed: 20,
       enabled: shouldAnimate,
       onTyping: onTypingChange,
       onComplete: handleTypewriterComplete
