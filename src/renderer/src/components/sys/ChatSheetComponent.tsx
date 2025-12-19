@@ -406,71 +406,109 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
 
                                             {/* 该分组下的聊天项 */}
                                             <div className="space-y-0.5 px-1">
-                                                {items.map((item) => (
-                                                    <div
-                                                        key={item.id}
-                                                        id="chat-item"
-                                                        onMouseOver={() => onMouseOverSheetChat(item.id as number)}
-                                                        onMouseLeave={onMouseLeaveSheetChat}
-                                                        onClick={(event) => onChatClick(event, item)}
-                                                        className={cn(
-                                                            "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150",
-                                                            item.id === chatId
-                                                                ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500"
-                                                                : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                                                        )}
-                                                    >
-                                                        {/* 聊天标题 */}
-                                                        <div className="flex-1 min-w-0">
-                                                            {showChatItemEditConform && chatItemEditId === item.id ? (
-                                                                <Input
-                                                                    className="h-7 text-sm border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent px-0"
-                                                                    onClick={e => e.stopPropagation()}
-                                                                    onChange={e => onChatItemTitleChange(e, item)}
-                                                                    value={item.title}
-                                                                    autoFocus
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 line-clamp-1">
-                                                                    {item.title}
-                                                                </span>
+                                                {items.map((item) => {
+                                                    const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
+                                                    const isActive = item.id === chatId
+                                                    
+                                                    return (
+                                                        <div
+                                                            key={item.id}
+                                                            id="chat-item"
+                                                            onMouseOver={() => onMouseOverSheetChat(item.id as number)}
+                                                            onMouseLeave={onMouseLeaveSheetChat}
+                                                            onClick={(event) => onChatClick(event, item)}
+                                                            className={cn(
+                                                                "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer",
+                                                                "transition-all duration-200 ease-out",
+                                                                isActive
+                                                                    ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500 shadow-sm"
+                                                                    : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-sm hover:scale-[1.01]"
                                                             )}
-                                                        </div>
+                                                        >
+                                                            {/* 聊天标题 */}
+                                                            <div className="flex-1 min-w-0">
+                                                                {showChatItemEditConform && chatItemEditId === item.id ? (
+                                                                    <Input
+                                                                        className="h-7 text-sm border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent px-0"
+                                                                        onClick={e => e.stopPropagation()}
+                                                                        onChange={e => onChatItemTitleChange(e, item)}
+                                                                        value={item.title}
+                                                                        autoFocus
+                                                                    />
+                                                                ) : (
+                                                                    <span className={cn(
+                                                                        "text-sm font-medium text-gray-700 dark:text-gray-300 line-clamp-1 transition-colors duration-200",
+                                                                        isHovered && "text-gray-900 dark:text-gray-100"
+                                                                    )}>
+                                                                        {item.title}
+                                                                    </span>
+                                                                )}
+                                                            </div>
 
-                                                        {/* 消息数量 / 操作按钮 */}
-                                                        <div className="flex-shrink-0 flex items-center gap-1 h-7">
-                                                            {sheetChatItemHover && sheetChatItemHoverChatId === item.id ? (
-                                                                <div className="flex items-center gap-1">
+                                                            {/* 消息数量 / 操作按钮 */}
+                                                            <div className="flex-shrink-0 flex items-center gap-1 h-7 relative w-16">
+                                                                {/* 消息数量标签 */}
+                                                                <span 
+                                                                    className={cn(
+                                                                        "absolute inset-0 flex items-center justify-center px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full transition-all duration-200 ease-out",
+                                                                        isHovered 
+                                                                            ? "opacity-0 scale-75 translate-x-2 pointer-events-none" 
+                                                                            : "opacity-100 scale-100 translate-x-0"
+                                                                    )}
+                                                                >
+                                                                    {item.messages.length}
+                                                                </span>
+
+                                                                {/* 操作按钮组 */}
+                                                                <div 
+                                                                    className={cn(
+                                                                        "absolute inset-0 flex items-center gap-1 transition-all duration-200 ease-out",
+                                                                        isHovered
+                                                                            ? "opacity-100 scale-100 translate-x-0"
+                                                                            : "opacity-0 scale-75 -translate-x-2 pointer-events-none"
+                                                                    )}
+                                                                >
                                                                     {showChatItemEditConform && chatItemEditId === item.id ? (
                                                                         <button
                                                                             onClick={e => onSheetChatItemEditConformClick(e, item)}
-                                                                            className="p-1 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:scale-110 transition-transform"
+                                                                            className={cn(
+                                                                                "p-1 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+                                                                                "transition-all duration-200 ease-out",
+                                                                                "hover:scale-110 hover:bg-green-200 dark:hover:bg-green-900/50 hover:shadow-md",
+                                                                                "active:scale-95"
+                                                                            )}
                                                                         >
                                                                             <CheckIcon className="w-4 h-4" />
                                                                         </button>
                                                                     ) : (
                                                                         <button
                                                                             onClick={e => onSheetChatItemEditClick(e, item)}
-                                                                            className="p-1 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:scale-110 transition-transform"
+                                                                            className={cn(
+                                                                                "p-1 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300",
+                                                                                "transition-all duration-200 ease-out",
+                                                                                "hover:scale-110 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md",
+                                                                                "active:scale-95"
+                                                                            )}
                                                                         >
                                                                             <Pencil2Icon className="w-4 h-4" />
                                                                         </button>
                                                                     )}
                                                                     <button
                                                                         onClick={e => onSheetChatItemDeleteClick(e, item)}
-                                                                        className="p-1 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:scale-110 transition-transform hover:rotate-180"
+                                                                        className={cn(
+                                                                            "p-1 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+                                                                            "transition-all duration-200 ease-out",
+                                                                            "hover:scale-110 hover:rotate-90 hover:bg-red-200 dark:hover:bg-red-900/50 hover:shadow-md",
+                                                                            "active:scale-95"
+                                                                        )}
                                                                     >
                                                                         <Cross2Icon className="w-4 h-4" />
                                                                     </button>
                                                                 </div>
-                                                            ) : (
-                                                                <span className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full">
-                                                                    {item.messages.length}
-                                                                </span>
-                                                            )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
+                                                    )
+                                                })}
                                             </div>
                                         </div>
                                     ))}

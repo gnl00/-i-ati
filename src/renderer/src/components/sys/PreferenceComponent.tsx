@@ -393,39 +393,52 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                         <div
                                             key={idx}
                                             className={cn(
-                                                'flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer select-none transition-all duration-150 relative group',
+                                                'flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer select-none relative group',
+                                                'transition-all duration-200 ease-out',
                                                 p.name === currentProviderName
-                                                    ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500'
-                                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                    ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500 shadow-sm'
+                                                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow-sm hover:scale-[1.02]'
                                             )}
                                             onMouseEnter={_ => onProviderCardHover(idx)}
                                             onMouseLeave={_ => onProviderCardHover(-1)}
                                             onClick={_ => onProviderCardClick(p)}
                                         >
-                                            <img id="providerIcon" draggable={false} src={getIconSrc(p.name)} alt={p.name} className="w-5 h-5 flex-none dark:invert dark:brightness-90" />
+                                            <img 
+                                                id="providerIcon" 
+                                                draggable={false} 
+                                                src={getIconSrc(p.name)} 
+                                                alt={p.name} 
+                                                className={cn(
+                                                    "w-5 h-5 flex-none dark:invert dark:brightness-90 transition-transform duration-200",
+                                                    hoverProviderCardIdx === idx && "scale-110"
+                                                )} 
+                                            />
                                             <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                        <p className='truncate font-medium text-sm text-gray-700 dark:text-gray-300 flex-1'>{p.name}</p>
+                                                        <p className='truncate font-medium text-sm text-gray-700 dark:text-gray-300 flex-1 transition-colors duration-200'>
+                                                            {p.name}
+                                                        </p>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
                                                         <p>{p.name}</p>
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>
-                                            {
-                                                hoverProviderCardIdx === idx && (
-                                                    <div
-                                                        className='absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity'
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            onProviderCardDelClick(idx, p)
-                                                        }}
-                                                    >
-                                                        <Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 transition-all duration-300 ease-in-out hover:transform hover:rotate-180 hover:scale-110 shadow-md" />
-                                                    </div>
-                                                )
-                                            }
+                                            <div
+                                                className={cn(
+                                                    'absolute -top-1 -right-1 transition-all duration-200 ease-out cursor-pointer z-10',
+                                                    hoverProviderCardIdx === idx
+                                                        ? 'opacity-100 scale-100 translate-x-0 translate-y-0'
+                                                        : 'opacity-0 scale-75 translate-x-1 -translate-y-1 pointer-events-none'
+                                                )}
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    onProviderCardDelClick(idx, p)
+                                                }}
+                                            >
+                                                <Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 shadow-lg transition-all duration-200 hover:bg-red-600 hover:scale-110 hover:rotate-90 active:scale-95" />
+                                            </div>
                                         </div>
                                     ))
                                 }
