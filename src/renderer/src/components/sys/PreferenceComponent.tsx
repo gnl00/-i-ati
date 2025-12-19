@@ -551,57 +551,99 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                 }
                             </div>
                         </div>
-                        <div className='w-3/4 px-1 pt-1 flex flex-col h-full'>
-                            <div className='flex-none flex flex-col space-y-1 mb-2 bg-white dark:bg-gray-800 p-2 rounded-md shadow-sm'>
-                                <Label>
-                                    <p className='pl-1 pb-0.5 text-gray-400 dark:text-gray-500 text-xs'>Provider Name</p>
-                                    <Input className='w-full h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-0 focus-visible:ring-offset-0' placeholder='provider name' value={editProviderName}
-                                        onChange={(e) => {
-                                            setEditProviderName(e.target.value)
-                                            setCurrentProviderName(e.target.value)
-                                            updateCurrentProvider('name', e.target.value)
-                                        }}
-                                    />
-                                </Label>
-                                <Label>
-                                    <p className='pl-1 pb-0.5 text-gray-400 dark:text-gray-500 text-xs'>API Url</p>
-                                    <Input className='w-full h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-0 focus-visible:ring-offset-0' placeholder='api url' value={editProviderApiUrl}
-                                        onChange={(e) => {
-                                            setEditProviderApiUrl(e.target.value)
-                                            updateCurrentProvider('apiUrl', e.target.value)
-                                        }}
-                                    />
-                                </Label>
-                                <Label>
-                                    <p className='pl-1 pb-0.5 text-gray-400 dark:text-gray-500 text-xs'>API Key</p>
-                                    <Input className='w-full h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-0 focus-visible:ring-offset-0' placeholder='api key' value={editProviderApiKey}
-                                        onChange={(e) => {
-                                            setEditProviderApiKey(e.target.value)
-                                            updateCurrentProvider('apiKey', e.target.value)
-                                        }}
-                                    />
-                                </Label>
+                        <div id="providerDetails" className='w-3/4 flex flex-col h-full gap-3 px-2 pt-2'>
+                            {/* Provider 配置表单区域 */}
+                            <div className='flex-none bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden'>
+                                <div className='p-4 space-y-4'>
+                                    <div className='space-y-1'>
+                                        <Label htmlFor="provider-name" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
+                                            Provider Name
+                                        </Label>
+                                        <Input 
+                                            id="provider-name"
+                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all' 
+                                            placeholder='provider name' 
+                                            value={editProviderName}
+                                            onChange={(e) => {
+                                                setEditProviderName(e.target.value)
+                                                setCurrentProviderName(e.target.value)
+                                                updateCurrentProvider('name', e.target.value)
+                                            }}
+                                        />
+                                    </div>
+                                    <div className='space-y-1'>
+                                        <Label htmlFor="provider-api-url" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
+                                            API Url
+                                        </Label>
+                                        <Input 
+                                            id="provider-api-url"
+                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all' 
+                                            placeholder='https://api.example.com/v1/chat/completions' 
+                                            value={editProviderApiUrl}
+                                            onChange={(e) => {
+                                                setEditProviderApiUrl(e.target.value)
+                                                updateCurrentProvider('apiUrl', e.target.value)
+                                            }}
+                                        />
+                                    </div>
+                                    <div className='space-y-1'>
+                                        <Label htmlFor="provider-api-key" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
+                                            API Key
+                                        </Label>
+                                        <Input 
+                                            id="provider-api-key"
+                                            type="password"
+                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all' 
+                                            placeholder='sk-********' 
+                                            value={editProviderApiKey}
+                                            onChange={(e) => {
+                                                setEditProviderApiKey(e.target.value)
+                                                updateCurrentProvider('apiKey', e.target.value)
+                                            }}
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className='flex-1 overflow-hidden bg-white dark:bg-gray-800 rounded-md shadow-sm'>
-                                <div className='h-full overflow-y-auto scroll-smooth relative'>
+                            
+                            {/* Models 列表区域 */}
+                            <div className='flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
+                                <div className='flex-none px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
+                                    <h3 className='text-sm font-semibold text-gray-700 dark:text-gray-300'>Models</h3>
+                                </div>
+                                <div className='flex-1 overflow-y-auto scroll-smooth'>
                                     <TooltipProvider>
                                         <Table id="provider-models-table" className='relative'>
-                                            {/* <TableHeader className='text-sm select-none sticky top-0 bg-white z-20 shadow-sm'>
-                                                <TableRow className='border-b border-gray-200'>
-                                                    <TableHead className='text-center flex items-center space-x-1 h-10 py-2 bg-white'><Checkbox checked={getAllModelsCheckedState()} onCheckedChange={toggleEnableAllModels} /><span>Enable</span></TableHead>
-                                                    <TableHead className='text-center h-10 py-2 bg-white'>Label</TableHead>
-                                                    <TableHead className='text-center h-10 py-2 bg-white'>Value</TableHead>
-                                                    <TableHead className='text-center h-10 py-2 bg-white'>Type</TableHead>
-                                                    <TableHead className='text-center h-10 py-2 bg-white'>Operation</TableHead>
+                                            <TableHeader className='sticky top-0 z-10 bg-gray-50 dark:bg-gray-900/50 backdrop-blur-sm'>
+                                                <TableRow className='border-b border-gray-200 dark:border-gray-700'>
+                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Name</TableHead>
+                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Model ID</TableHead>
+                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Type</TableHead>
+                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Status</TableHead>
+                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Action</TableHead>
                                                 </TableRow>
-                                            </TableHeader> */}
+                                            </TableHeader>
                                             <TableBody>
-                                                <TableRow className='border-b dark:border-gray-700 w-full'>
-                                                    <TableCell className='py-2'><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} placeholder="Name" /></TableCell>
-                                                    <TableCell className='py-2'><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} placeholder="ModelID" /></TableCell>
-                                                    <TableCell className='py-2'>
+                                                {/* 添加新模型行 */}
+                                                <TableRow className='border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30'>
+                                                    <TableCell className='px-4 py-3'>
+                                                        <Input 
+                                                            className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0' 
+                                                            value={nextAddModelLabel} 
+                                                            onChange={e => setNextAddModelLabel(e.target.value)} 
+                                                            placeholder="Model Name" 
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className='px-4 py-3'>
+                                                        <Input 
+                                                            className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0' 
+                                                            value={nextAddModelValue} 
+                                                            onChange={e => setNextAddModelValue(e.target.value)} 
+                                                            placeholder="model-id" 
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className='px-4 py-3'>
                                                         <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
-                                                            <SelectTrigger className="h-8 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
+                                                            <SelectTrigger className="h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
                                                                 <SelectValue placeholder="Type" />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -613,33 +655,67 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                             </SelectContent>
                                                         </Select>
                                                     </TableCell>
-                                                    <TableCell className='text-center py-2'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg">&nbsp;</i>Add</Button></TableCell>
-                                                    <TableCell className='py-2'></TableCell>
+                                                    <TableCell className='px-4 py-3 text-center'>
+                                                        <span className='text-xs text-gray-400 dark:text-gray-500'>-</span>
+                                                    </TableCell>
+                                                    <TableCell className='px-4 py-3 text-center'>
+                                                        <Button 
+                                                            onClick={onAddModelClick} 
+                                                            size={'sm'} 
+                                                            variant={'default'}
+                                                            className='h-9 px-4 shadow-sm hover:shadow-md transition-all'
+                                                        >
+                                                            <i className="ri-add-circle-line mr-1.5"></i>
+                                                            Add
+                                                        </Button>
+                                                    </TableCell>
                                                 </TableRow>
+                                                {/* 模型列表 */}
                                                 {
                                                     providers.find(p => p.name === currentProviderName)?.models.map((m, idx) => (
-                                                        <TableRow key={idx} className={cn('border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors', idx % 2 === 0 ? 'bg-blue-gray-50/50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800')}>
-                                                            <TableCell className='text-left max-w-0 py-2 cursor-pointer' onClick={_ => onModelTableCellClick(m.name)}>
+                                                        <TableRow 
+                                                            key={idx} 
+                                                            className={cn(
+                                                                'border-b border-gray-200 dark:border-gray-700 transition-all duration-150',
+                                                                'hover:bg-gray-50 dark:hover:bg-gray-700/50',
+                                                                idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/30 dark:bg-gray-800/50'
+                                                            )}
+                                                        >
+                                                            <TableCell className='px-4 py-3 text-left max-w-0'>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <p className='truncate text-sm text-gray-700 dark:text-gray-300'>{m.name}</p>
+                                                                        <p 
+                                                                            className='truncate text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 transition-colors'
+                                                                            onClick={_ => onModelTableCellClick(m.name)}
+                                                                        >
+                                                                            {m.name}
+                                                                        </p>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>
                                                                         <p>{m.name}</p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </TableCell>
-                                                            <TableCell className='text-left max-w-0 py-2 cursor-pointer' onClick={_ => onModelTableCellClick(m.value)}>
+                                                            <TableCell className='px-4 py-3 text-left max-w-0'>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <p className='truncate text-sm text-gray-700 dark:text-gray-300'>{m.value}</p>
+                                                                        <p 
+                                                                            className='truncate text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-mono'
+                                                                            onClick={_ => onModelTableCellClick(m.value)}
+                                                                        >
+                                                                            {m.value}
+                                                                        </p>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>
                                                                         <p>{m.value}</p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </TableCell>
-                                                            <TableCell className='text-center py-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300'>{m.type}</TableCell>
+                                                            <TableCell className='px-4 py-3 text-center'>
+                                                                <span className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'>
+                                                                    {m.type.toUpperCase()}
+                                                                </span>
+                                                            </TableCell>
                                                             {/* <TableCell className='text-center py-2'>
                                                                 <DropdownMenu>
                                                                     <DropdownMenuTrigger asChild>
@@ -651,13 +727,37 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                                         <DropdownMenuItem onClick={_ => onModelDelClick(m)} className='text-red-300 focus:text-red-400'>Delete</DropdownMenuItem>
                                                                     </DropdownMenuContent>
                                                                 </DropdownMenu>
-                                                            </TableCell> */}
-                                                            {/* <TableCell className='py-2'><Checkbox checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell> */}
-                                                            <TableCell className='py-2'><Switch className={'h-6'} checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell>
-                                                            <TableCell className='py-2'><Trash className='w-4 h-4 text-red-400 cursor-pointer' onClick={_ => onModelDelClick(m)}/></TableCell>
+                                                            </TableCell>
+                                                            <TableCell className='px-4 py-3 text-center'>
+                                                                <Switch 
+                                                                    className='h-5' 
+                                                                    checked={m.enable} 
+                                                                    onCheckedChange={checked => onModelEnableStatusChange(checked, m)}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell className='px-4 py-3 text-center'>
+                                                                <button
+                                                                    onClick={_ => onModelDelClick(m)}
+                                                                    className='inline-flex items-center justify-center p-1.5 rounded-md text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-300 transition-all duration-200 hover:scale-110 active:scale-95'
+                                                                    title="Delete model"
+                                                                >
+                                                                    <Trash className='w-4 h-4' />
+                                                                </button>
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))
                                                 }
+                                                {/* 空状态提示 */}
+                                                {providers.find(p => p.name === currentProviderName)?.models.length === 0 && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className='px-4 py-12 text-center'>
+                                                            <div className='flex flex-col items-center justify-center text-gray-400 dark:text-gray-500'>
+                                                                <p className='text-sm'>No models yet</p>
+                                                                <p className='text-xs mt-1'>Add a model using the form above</p>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
                                             </TableBody>
                                         </Table>
                                     </TooltipProvider>
@@ -666,164 +766,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </div>
                     </div>
                 </TabsContent>
-                {/* <TabsContent value="providers" className='w-[640px] h-[600px] focus:ring-0 focus-visible:ring-0'>
-                    <div ref={providerCardRef} className="m-2 h-20 overflow-scroll scroll-smooth no-scrollbar">
-                        <div className={cn('select-none h-20 flex space-x-2 relative', providers.length === 0 ? 'flex justify-center' : '')}>
-                            <div className={cn('bg-gray-100 rounded-md flex-none w-24 h-20')}>
-                                <Drawer>
-                                    <DrawerTrigger className='text-gray-400 flex justify-center items-center bg-gray-100 rounded-xl h-full w-full'>
-                                        <p className='text-5xl'><i className="ri-add-circle-line"></i></p>
-                                    </DrawerTrigger>
-                                    <DrawerContent>
-                                        <DrawerHeader>
-                                            <DrawerTitle>Add new provider</DrawerTitle>
-                                        </DrawerHeader>
-                                        <DrawerFooter>
-                                            <div id='add-new-provider-drawer' className="grid gap-4 app-undragable">
-                                                <div className="flex flex-col gap-2">
-                                                    <div className="flex flex-col items-start gap-2">
-                                                        <Label htmlFor="name">Name</Label>
-                                                        <Input
-                                                            id="name"
-                                                            placeholder="OpenAI"
-                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                            onChange={e => { setNewProviderName(e.target.value) }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col items-start gap-2">
-                                                        <Label htmlFor="apiUrl">API URL</Label>
-                                                        <Input
-                                                            id="apiUrl"
-                                                            placeholder="https://api.openai.com/v1/chat/completions"
-                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                            onChange={e => { setNewProviderApi(e.target.value) }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col items-start gap-2">
-                                                        <Label htmlFor="apiKey">API Key</Label>
-                                                        <Input
-                                                            id="apiKey"
-                                                            placeholder="sk-********"
-                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                            onChange={e => { setNewProviderApiKey(e.target.value) }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <DrawerTrigger asChild>
-                                                <Button onClick={onAddProviderBtnClick}>Save</Button>
-                                            </DrawerTrigger>
-                                            <DrawerClose asChild>
-                                                <Button variant="outline">Cancel</Button>
-                                            </DrawerClose>
-                                        </DrawerFooter>
-                                    </DrawerContent>
-                                </Drawer>
-                            </div>
-                            {
-                                providers.map((fProvider, idx) => (
-                                    <div key={fProvider.name} className='relative' onMouseEnter={_ => onProviderCardHover(idx)}>
-                                        {
-                                            hoverProviderCardIdx === idx && (
-                                                <div className='absolute top-0 right-0' onClick={_ => onProviderCardDelClick(idx)}>
-                                                    <Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 transition-all duration-300 ease-in-out hover:transform hover:rotate-180" />
-                                                </div>
-                                            )
-                                        }
-                                        <div ref={idx === providers.length - 1 ? theEndProviderCardRef : null} className='flex flex-col justify-center items-center bg-gray-100 rounded w-24 h-20 select-none' onClick={_ => onProviderCardClick(fProvider)}>
-                                            {getIcon(fProvider.name)}
-                                            <p className='select-none'>{fProvider.name}</p>
-                                        </div>
-                                    </div>
-                                ))
-                            }
-                        </div>
-                    </div>
-                    <div className='h-[84%] flex flex-col mt-2 pl-2 pr-2'>
-                        <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
-                            <Label className='flex-none' htmlFor="provider">Provider</Label>
-                            <Input id="provider" 
-                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 flex-grow' 
-                                value={editProviderName}
-                                placeholder="Custom provider name"
-                                onChange={(e) => {
-                                    setEditProviderName(e.target.value)
-                                    setCurrentProviderName(e.target.value)
-                                    updateCurrentProvider('name', e.target.value)
-                                }}
-                                />
-                        </div>
-                        <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
-                            <Label className='flex-none' htmlFor="provider">ApiUrl&emsp;</Label>
-                            <Input id="provider" 
-                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 flex-grow'
-                                value={editProviderApiUrl}
-                                placeholder="https://provider-api.com/v1/chat/x"
-                                onChange={(e) => {
-                                    setEditProviderApiUrl(e.target.value)
-                                    updateCurrentProvider('apiUrl', e.target.value)
-                                }}
-                                />
-                        </div>
-                        <div className='flex-none h-14 pl-1 pr-1 space-x-2 flex justify-center items-center'>
-                            <Label className='flex-none' htmlFor="provider">ApiKey&ensp;</Label>
-                            <Input id="provider" 
-                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 flex-grow'
-                                placeholder="Custom API key"
-                                value={editProviderApiKey}
-                                onChange={(e) => {
-                                    setEditProviderApiKey(e.target.value)
-                                    updateCurrentProvider('apiKey', e.target.value)
-                                }}
-                                />
-                        </div>
-                        <div className='flex-grow overflow-scroll'>
-                            <Table>
-                                <TableHeader className=''>
-                                    <TableRow>
-                                        <TableHead className='text-center flex items-center space-x-1'><Checkbox checked={getAllModelsCheckedState()} onCheckedChange={toggleEnableAllModels} /><span>Enable</span></TableHead>
-                                        <TableHead className='text-center'>DisplayName</TableHead>
-                                        <TableHead className='text-center'>Value</TableHead>
-                                        <TableHead className='text-center'>Type</TableHead>
-                                        <TableHead className='text-center'>Operation</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell><Checkbox checked={nextAddModelEnable} onCheckedChange={onNextAddModelEnableChange} /></TableCell>
-                                        <TableCell><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8' value={nextAddModelLabel} onChange={e => setNextAddModelLabel(e.target.value)} /></TableCell>
-                                        <TableCell><Input className='focus-visible:ring-transparent focus-visible:ring-offset-0 h-8' value={nextAddModelValue} onChange={e => setNextAddModelValue(e.target.value)} /></TableCell>
-                                        <TableCell>
-                                            <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
-                                                <SelectTrigger className="h-8">
-                                                    <SelectValue placeholder="Type" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectGroup>
-                                                        <SelectItem value="llm">LLM</SelectItem>
-                                                        <SelectItem value="vlm">VLM</SelectItem>
-                                                    </SelectGroup>
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell className='text-center'><Button onClick={onAddModelClick} size={'xs'} variant={'outline'}><i className="ri-add-circle-line text-lg"></i></Button></TableCell>
-                                    </TableRow>
-                                    {
-                                        providers.find(p => p.name === currentProviderName)?.models.map((m, idx) => (
-                                            <TableRow key={idx}>
-                                                <TableCell><Checkbox checked={m.enable} onCheckedChange={checked => onModelEnableStatusChange(checked, m)}/></TableCell>
-                                                <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.name)}>{m.name}</TableCell>
-                                                <TableCell className='text-left' onClick={_ => onModelTableCellClick(m.value)}>{m.value}</TableCell>
-                                                <TableCell className='text-center'>{m.type}</TableCell>
-                                                <TableCell className='text-left'></TableCell>
-                                            </TableRow>
-                                        ))
-                                    }
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </div>
-                </TabsContent> */}
                 <TabsContent value="tool" className='w-[700px] min-h-96 space-y-3 focus:ring-0 focus-visible:ring-0'>
                     <div className='w-full space-y-3'>
                         {/* Title Generation Setting */}
