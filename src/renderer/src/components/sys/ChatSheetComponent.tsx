@@ -1,7 +1,6 @@
-import { CheckIcon, Cross2Icon, Pencil2Icon } from '@radix-ui/react-icons'
+import { CheckIcon, Cross2Icon, DoubleArrowDownIcon, DoubleArrowRightIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { Button } from '@renderer/components/ui/button'
 import { Card, CardContent } from '@renderer/components/ui/card'
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@renderer/components/ui/carousel'
 import {
     Command,
     CommandEmpty,
@@ -14,7 +13,6 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, Dr
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
-import { Separator } from '@renderer/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@renderer/components/ui/sheet'
 import { Textarea } from '@renderer/components/ui/textarea'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
@@ -25,7 +23,7 @@ import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
-import { BadgePlus, ChevronsUpDown } from 'lucide-react'
+import { BadgePlus, ChevronsUpDown, } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
@@ -48,6 +46,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
     const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
     const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
+    const [isCarouselExpanded, setIsCarouselExpanded] = useState(false)
 
     useEffect(() => {
         if (sheetOpenState) {
@@ -155,234 +154,356 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
         const dd = String(date.getDate()).padStart(2, '0')
         return `${yyyy}-${mm}-${dd}`
     }
+
+    const getDateGroup = (timestamp: number) => {
+        const now = Date.now()
+        const diff = now - timestamp
+        const day = 24 * 60 * 60 * 1000
+
+        if (diff < day) return 'Today'
+        if (diff < 2 * day) return 'Yesterday'
+        if (diff < 7 * day) return 'This Week'
+        return getDate(timestamp)
+    }
+
+    // 排序后的聊天列表
+    const sortedChatList = useMemo(() => {
+        return [...chatList].sort((a, b) => b.updateTime - a.updateTime)
+    }, [chatList])
+
+    // 按日期分组的聊天列表
+    const groupedChatList = useMemo(() => {
+        const groups: { [key: string]: ChatEntity[] } = {}
+        sortedChatList.forEach(item => {
+            if (item.id === -1) return
+            const group = getDateGroup(item.updateTime)
+            if (!groups[group]) {
+                groups[group] = []
+            }
+            groups[group].push(item)
+        })
+        return groups
+    }, [sortedChatList])
     return (
         <Sheet open={sheetOpenState} onOpenChange={() => { setSheetOpenState(!sheetOpenState) }}>
-            <SheetContent side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0 select-none">
+            <SheetContent side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0 select-none flex flex-col h-full">
                 {/* Traffic Lights in Sheet */}
                 <div className="absolute top-4 left-4 z-50">
                     <TrafficLights />
                 </div>
-                <SheetHeader className="pt-4">
+
+                {/* Header - 固定高度 */}
+                <SheetHeader className="flex-shrink-0 pt-4 pb-2">
                     <SheetTitle>@i-ati</SheetTitle>
                     <SheetDescription>
                         - Just an AI API client.
                     </SheetDescription>
                 </SheetHeader>
-                <div className="w-full h-full p-0 m-0 relative">
-                    <div className="pl-8 pr-8 pt-4">
-                        <Carousel className="w-full max-w-xs">
-                            <CarouselContent>
-                                <CarouselItem>
-                                    <div className="h-full w-full">
-                                        <Card>
-                                            <CardContent className="bg-gradient-to-tl from-[#43CBFF] to-[#9708CC] bg-blur-lg flex h-full w-full aspect-square items-center justify-center p-6 select-none">
-                                                <div className="">
-                                                    <div className="container h-full w-full mx-auto px-4 py-12 text-white">
-                                                        <p className="text-3xl">Hi</p>
+
+                {/* 主内容区 - 占据剩余空间 */}
+                <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+                    {/* Carousel 区域 - 可折叠 */}
+                    <div className="flex-shrink-0 px-4 pt-2">
+                        <div className="flex items-center justify-between mb-2" onClick={() => setIsCarouselExpanded(!isCarouselExpanded)}>
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Assistants</h3>
+                            <button
+                                className="p-1 rounded-md text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                            >
+                                {isCarouselExpanded ? (
+                                    <DoubleArrowDownIcon className="w-4 h-4 transition-transform duration-300" />
+                                ) : (
+                                    <DoubleArrowRightIcon className="w-4 h-4 transition-transform duration-300" />
+                                )}
+                            </button>
+                        </div>
+
+                        <div className={cn(
+                            "overflow-hidden transition-all duration-300 ease-out",
+                            isCarouselExpanded ? "max-h-[240px]" : "max-h-[110px]"
+                        )}>
+                            <div className="grid grid-cols-4 gap-2 pb-2">
+                                {/* 第一行：始终显示 */}
+                                {/* Hi 卡片 */}
+                                <Card className="border-none shadow-sm">
+                                    <CardContent className="bg-gradient-to-br from-[#43CBFF] to-[#9708CC] flex items-center justify-center p-4 h-24 rounded-lg">
+                                        <p className="text-lg font-semibold text-white">Hi</p>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Assistant 1-3 */}
+                                {Array.from({ length: 3 }).map((_, index) => (
+                                    <Card key={index} className="border-none shadow-sm">
+                                        <CardContent className={cn(
+                                            "flex items-center justify-center p-4 h-24 rounded-lg text-white",
+                                            bgGradientTypes[index % bgGradientTypes.length],
+                                            bgGradientColors[index % bgGradientColors.length].from,
+                                            bgGradientColors[index % bgGradientColors.length].via,
+                                            bgGradientColors[index % bgGradientColors.length].to,
+                                        )}>
+                                            <span className="text-sm font-semibold">A-{index + 1}</span>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+
+                                {/* 第二行：展开时显示，带淡入淡出动画 */}
+                                {Array.from({ length: 2 }).map((_, index) => (
+                                    <Card
+                                        key={`second-row-${index}`}
+                                        className={cn(
+                                            "border-none shadow-sm transition-all duration-300",
+                                            isCarouselExpanded
+                                                ? "opacity-100 translate-y-0"
+                                                : "opacity-0 -translate-y-2 pointer-events-none"
+                                        )}
+                                    >
+                                        <CardContent className={cn(
+                                            "flex items-center justify-center p-4 h-24 rounded-lg text-white",
+                                            bgGradientTypes[(index + 3) % bgGradientTypes.length],
+                                            bgGradientColors[(index + 3) % bgGradientColors.length].from,
+                                            bgGradientColors[(index + 3) % bgGradientColors.length].via,
+                                            bgGradientColors[(index + 3) % bgGradientColors.length].to,
+                                        )}>
+                                            <span className="text-sm font-semibold">A-{index + 4}</span>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+
+                                {/* Add 按钮 */}
+                                <Card
+                                    className={cn(
+                                        "border-none shadow-sm transition-all duration-300",
+                                        isCarouselExpanded
+                                            ? "opacity-100 translate-y-0"
+                                            : "opacity-0 -translate-y-2 pointer-events-none"
+                                    )}
+                                >
+                                    <CardContent className="flex flex-col items-center justify-center p-4 h-24 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                                        <Drawer>
+                                            <DrawerTrigger asChild>
+                                                <div className="flex flex-col items-center">
+                                                    <p className="text-2xl text-gray-400"><i className="ri-add-circle-line"></i></p>
+                                                    <p className="text-xs text-gray-500 mt-1">Add</p>
+                                                </div>
+                                            </DrawerTrigger>
+                                            <DrawerContent className="max-h-[85vh]">
+                                                <DrawerHeader>
+                                                    <DrawerTitle>Create Assistant</DrawerTitle>
+                                                    <DrawerDescription>Customize your AI assistant with a name, model, and system prompt.</DrawerDescription>
+                                                </DrawerHeader>
+                                                <div className='px-4 pb-4 space-y-4 overflow-y-auto'>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="assistant-name" className="text-sm font-medium">
+                                                            Name <span className="text-red-500">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            id="assistant-name"
+                                                            placeholder='e.g., Code Helper, Writing Assistant'
+                                                            className="w-full"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="assistant-model" className="text-sm font-medium">
+                                                            Model <span className="text-red-500">*</span>
+                                                        </Label>
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
+                                                                <Button
+                                                                    id="assistant-model"
+                                                                    variant="outline"
+                                                                    role="combobox"
+                                                                    className="w-full justify-between"
+                                                                >
+                                                                    {"Select a model..."}
+                                                                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                                                </Button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-full p-0" align="start">
+                                                                <Command>
+                                                                    <CommandInput placeholder="Search models..." className="h-9" />
+                                                                    <CommandList className='overflow-scroll'>
+                                                                        <CommandEmpty>No model found.</CommandEmpty>
+                                                                        {
+                                                                            providers.map(p => {
+                                                                                return p.models.length != 0 && p.models.findIndex(m => m.enable) !== -1 && (
+                                                                                    <CommandGroup key={p.name}>
+                                                                                        <p className='text-sm text-gray-400 select-none'>{p.name}</p>
+                                                                                        {
+                                                                                            p.models.map(m => m.enable && (
+                                                                                                <CommandItem key={m.value.concat('/').concat(m.provider)} value={m.value.concat('/').concat(m.provider)}>
+                                                                                                    {m.name}
+                                                                                                </CommandItem>
+                                                                                            ))
+                                                                                        }
+                                                                                    </CommandGroup>
+                                                                                )
+                                                                            })
+                                                                        }
+                                                                    </CommandList>
+                                                                </Command>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="assistant-prompt" className="text-sm font-medium">
+                                                            System Prompt <span className="text-red-500">*</span>
+                                                        </Label>
+                                                        <Textarea
+                                                            id="assistant-prompt"
+                                                            placeholder="You are a helpful assistant that..."
+                                                            className="w-full min-h-[120px] resize-none"
+                                                        />
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            Define how your assistant should behave and respond.
+                                                        </p>
                                                     </div>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                </CarouselItem>
-                                {
-                                    Array.from({ length: 5 }).map((_, index) => (
-                                        <CarouselItem key={index}>
-                                            <div className="p-1">
-                                                {/* TODO - Pinned assistant */}
-                                                <Card>
-                                                    <CardContent className={cn(
-                                                        "flex bg-blur-xl h-full w-full aspect-square items-center justify-center p-6 select-none text-slate-50",
-                                                        bgGradientTypes[index % bgGradientTypes.length],
-                                                        bgGradientColors[index % bgGradientColors.length].from,
-                                                        bgGradientColors[index % bgGradientColors.length].via,
-                                                        bgGradientColors[index % bgGradientColors.length].to,
-                                                    )}>
-                                                        <span className="text-4xl font-semibold">Assistant-{index + 1}</span>
-                                                    </CardContent>
-                                                </Card>
+                                                <DrawerFooter className="flex-row gap-2">
+                                                    <DrawerClose asChild>
+                                                        <Button variant="outline" className="flex-1">Cancel</Button>
+                                                    </DrawerClose>
+                                                    <Button className="flex-1">Create Assistant</Button>
+                                                </DrawerFooter>
+                                            </DrawerContent>
+                                        </Drawer>
+                                    </CardContent>
+                                </Card>
+
+                                {/* 第 8 个位置占位 */}
+                                <div
+                                    className={cn(
+                                        "h-24 transition-all duration-300",
+                                        isCarouselExpanded
+                                            ? "opacity-100 translate-y-0"
+                                            : "opacity-0 -translate-y-2"
+                                    )}
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 聊天列表区域 - 占据剩余空间 */}
+                    <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                        {/* New Chat 按钮 */}
+                        <div className="flex-shrink-0 py-3">
+                            <Button
+                                onClick={onNewChatClick}
+                                variant={"default"}
+                                className="w-full p-2.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-lg shadow-sm bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
+                            >
+                                <BadgePlus className='w-4 h-4' />
+                                <span className="ml-2">New Chat</span>
+                            </Button>
+                        </div>
+
+                        {/* 聊天历史列表 */}
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth">
+                            {Object.keys(groupedChatList).length > 0 ? (
+                                <div>
+                                    {Object.entries(groupedChatList).map(([groupName, items]) => (
+                                        <div key={groupName} className="mb-2">
+                                            {/* 日期分组标题 - sticky */}
+                                            <div className="sticky top-0 bg-background/98 backdrop-blur-md z-10 pt-3 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+                                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
+                                                    {groupName}
+                                                </h4>
                                             </div>
-                                        </CarouselItem>
-                                    ))
-                                }
-                                <CarouselItem onClick={_ => { console.log('add new assistant') }}>
-                                    <div className="p-1">
-                                        <Card>
-                                            <CardContent className="flex flex-col aspect-square items-center justify-center p-6 select-none text-gray-300 hover:bg-gray-50">
-                                                <Drawer>
-                                                    <DrawerTrigger>
-                                                        <p className="text-5xl font-semibold"><i className="ri-add-circle-line"></i></p>
-                                                        <p>add new assistant</p>
-                                                    </DrawerTrigger>
-                                                    <DrawerContent>
-                                                        <DrawerHeader>
-                                                            <DrawerTitle>Add Assistant</DrawerTitle>
-                                                            <DrawerDescription>Add your own custom assiatant.</DrawerDescription>
-                                                        </DrawerHeader>
-                                                        <div className='px-4 space-y-3'>
-                                                            <div className="grid gap-3">
-                                                                <Label>Name</Label>
-                                                                <Input placeholder='Your assiatant name?' />
-                                                            </div>
-                                                            <div className="grid gap-3">
-                                                                <Label>Model</Label>
-                                                                <Popover>
-                                                                    <PopoverTrigger asChild>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            role="combobox"
-                                                                            className="w-[200px] justify-between"
-                                                                        >
-                                                                            {"Select framework..."}
-                                                                            <ChevronsUpDown className="opacity-50" />
-                                                                        </Button>
-                                                                    </PopoverTrigger>
-                                                                    <PopoverContent className="w-[200px] overflow-scroll p-0">
-                                                                        <Command className='bg-red-100'>
-                                                                            <CommandInput placeholder="Search framework..." className="h-9" />
-                                                                            <CommandList className='overflow-scroll'>
-                                                                                <CommandEmpty>No framework found.</CommandEmpty>
-                                                                                {
-                                                                                    providers.map(p => {
-                                                                                        return p.models.length != 0 && p.models.findIndex(m => m.enable) !== -1 && (
-                                                                                            <CommandGroup key={p.name}>
-                                                                                                <p className='text-sm text-gray-400 select-none'>{p.name}</p>
-                                                                                                {
-                                                                                                    p.models.map(m => m.enable && (
-                                                                                                        <CommandItem key={m.value.concat('/').concat(m.provider)} value={m.value.concat('/').concat(m.provider)}>
-                                                                                                            {m.name}
-                                                                                                        </CommandItem>
-                                                                                                    ))
-                                                                                                }
-                                                                                            </CommandGroup>
-                                                                                        )
-                                                                                    })
-                                                                                }
-                                                                            </CommandList>
-                                                                        </Command>
-                                                                    </PopoverContent>
-                                                                </Popover>
-                                                            </div>
-                                                            <div className="grid gap-3">
-                                                                <Label>Prompt</Label>
-                                                                <Textarea placeholder="Your assistant prompts" />
-                                                            </div>
+
+                                            {/* 该分组下的聊天项 */}
+                                            <div className="space-y-0.5 px-1">
+                                                {items.map((item) => (
+                                                    <div
+                                                        key={item.id}
+                                                        id="chat-item"
+                                                        onMouseOver={() => onMouseOverSheetChat(item.id as number)}
+                                                        onMouseLeave={onMouseLeaveSheetChat}
+                                                        onClick={(event) => onChatClick(event, item)}
+                                                        className={cn(
+                                                            "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150",
+                                                            item.id === chatId
+                                                                ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500"
+                                                                : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                        )}
+                                                    >
+                                                        {/* 聊天标题 */}
+                                                        <div className="flex-1 min-w-0">
+                                                            {showChatItemEditConform && chatItemEditId === item.id ? (
+                                                                <Input
+                                                                    className="h-7 text-sm border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent px-0"
+                                                                    onClick={e => e.stopPropagation()}
+                                                                    onChange={e => onChatItemTitleChange(e, item)}
+                                                                    value={item.title}
+                                                                    autoFocus
+                                                                />
+                                                            ) : (
+                                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 line-clamp-1">
+                                                                    {item.title}
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                        <DrawerFooter>
-                                                            <Button>Add</Button>
-                                                            <DrawerClose asChild>
-                                                                <Button variant="outline">Cancel</Button>
-                                                            </DrawerClose>
-                                                        </DrawerFooter>
-                                                    </DrawerContent>
-                                                </Drawer>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                </CarouselItem>
-                            </CarouselContent>
-                            <CarouselPrevious />
-                            <CarouselNext />
-                        </Carousel>
-                    </div>
-                    <div className="sheet-content h-full w-full">
-                        <div className="flex flex-col justify-center w-full mt-8 max-h-[45%] overflow-y-scroll scroll-smooth rounded-md shadow-lg dark:shadow-gray-900 bg-inherit text-inherit">
-                            <div className={cn("flex items-center justify-center rounded-md sticky top-0 bg-opacity-100 z-10")}>
-                                <Button onClick={onNewChatClick} variant={"default"} className="w-full dark:w-[95%] p-2 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md"><BadgePlus className='flex justify-center border-none'></BadgePlus>&nbsp;Start NewChat</Button>
-                            </div>
-                            <div className="flex flex-col p-1 space-y-1 font-sans text-base font-normal overflow-x-scroll">
-                                {
-                                    chatList.length > 0 ? chatList.sort((a, b) => a.updateTime > b.updateTime ? -1 : 0).map((item, index) => {
-                                        return (
-                                            <div key={index}>
-                                                {
-                                                    (item.id !== -1 && item.updateTime > 0 && (index === 0 || (getDate(item.updateTime) != getDate(chatList[index - 1].updateTime))) && (<div key={index}><span className='text-gray-500 shadow-sm text-xs'>{getDate(item.updateTime)}</span></div>))
-                                                }
-                                                {
-                                                    index === chatList.length - 1 ?
-                                                        <div key={-1} className="flex justify-center text-gray-300 dark:text-gray-700 select-none p-1">No more chats</div> :
-                                                        (
-                                                            <div id="chat-item"
-                                                                onMouseOver={_ => onMouseOverSheetChat(item.id as number)}
-                                                                onMouseLeave={onMouseLeaveSheetChat}
-                                                                onClick={(event) => onChatClick(event, item)}
-                                                                className={
-                                                                    cn("w-full flex item-center min-h-[4.8vh] pl-2 pr-2 space-x-2 rounded-lg select-none outline-dashed outline-1 outline-gray-100 dark:outline-gray-800",
-                                                                        chatList.length !== 1 && item.id === chatId ? "bg-blue-gray-200 dark:bg-blue-gray-700" : "hover:bg-blue-gray-200 dark:hover:bg-blue-gray-700",
-                                                                        index === chatList.length - 1 ? "" : ""
+
+                                                        {/* 消息数量 / 操作按钮 */}
+                                                        <div className="flex-shrink-0 flex items-center gap-1 h-7">
+                                                            {sheetChatItemHover && sheetChatItemHoverChatId === item.id ? (
+                                                                <div className="flex items-center gap-1">
+                                                                    {showChatItemEditConform && chatItemEditId === item.id ? (
+                                                                        <button
+                                                                            onClick={e => onSheetChatItemEditConformClick(e, item)}
+                                                                            className="p-1 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:scale-110 transition-transform"
+                                                                        >
+                                                                            <CheckIcon className="w-4 h-4" />
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={e => onSheetChatItemEditClick(e, item)}
+                                                                            className="p-1 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:scale-110 transition-transform"
+                                                                        >
+                                                                            <Pencil2Icon className="w-4 h-4" />
+                                                                        </button>
                                                                     )}
-                                                            >
-                                                                <div className="flex items-center w-full flex-[0.8] overflow-x-hidden relative">
-                                                                    {
-                                                                        showChatItemEditConform && chatItemEditId === item.id ?
-                                                                            <Input
-                                                                                className="focus-visible:ring-offset-0 focus-visible:ring-0 focus:ring-0 focus:outline-none focus:border-0 border-0 h-8"
-                                                                                onClick={e => e.stopPropagation()}
-                                                                                onChange={e => onChatItemTitleChange(e, item)}
-                                                                                value={item.title}
-                                                                            />
-                                                                            :
-                                                                            (<div className="flex items-center">
-                                                                                <span className="text-ellipsis line-clamp-1 whitespace-no-wrap text-gray-600 dark:text-gray-400 text-sm font-semibold">{item.title}</span>
-                                                                            </div>)
-                                                                    }
+                                                                    <button
+                                                                        onClick={e => onSheetChatItemDeleteClick(e, item)}
+                                                                        className="p-1 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:scale-110 transition-transform"
+                                                                    >
+                                                                        <Cross2Icon className="w-4 h-4" />
+                                                                    </button>
                                                                 </div>
-                                                                <div className="w-full flex flex-[0.2] items-center justify-center">
-                                                                    {(sheetChatItemHover && sheetChatItemHoverChatId === item.id ?
-                                                                        <div className="flex space-x-2 item-center">
-                                                                            {showChatItemEditConform && chatItemEditId === item.id ?
-                                                                                <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400 hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                                    <span onClick={e => onSheetChatItemEditConformClick(e, item)} className="rounded-full px-1 py-1"><CheckIcon /></span>
-                                                                                </div>
-                                                                                :
-                                                                                <div className="flex items-center justify-center p-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-400 hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                                    <span onClick={e => onSheetChatItemEditClick(e, item)} className="rounded-full px-1 py-1"><Pencil2Icon /></span>
-                                                                                </div>
-                                                                            }
-                                                                            <div className="flex items-center justify-center p-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap text-gray-200 bg-red-500 hover:scale-125 transition-transform duration-300 ease-in-out">
-                                                                                <span onClick={e => onSheetChatItemDeleteClick(e, item)} className="rounded-full px-1 py-1 text-lg"><Cross2Icon /></span>
-                                                                            </div>
-                                                                        </div>
-                                                                        :
-                                                                        <div className="flex items-center px-2 py-1 font-sans text-xs font-bold uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10 dark:bg-gray-500">
-                                                                            <span>{item.messages.length}</span>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                }
-                                            </div>
-                                        )
-                                    }) :
-                                        (
-                                            <div className={cn("flex items-center w-full p-3 rounded-md hover:bg-gray-100")} onClick={onNewChatClick}>
-                                                NewChat
-                                                <div className="grid ml-auto place-items-center justify-self-end">
-                                                    <div className="grid items-center px-2 py-1 font-sans text-xs font-bold text-gray-900 uppercase rounded-full select-none whitespace-nowrap bg-gray-900/10">
-                                                        <span>0</span>
+                                                            ) : (
+                                                                <span className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full">
+                                                                    {item.messages.length}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                ))}
                                             </div>
-                                        )
-                                }
-                            </div>
+                                        </div>
+                                    ))}
+
+                                    {/* 底部提示 */}
+                                    <div className="py-4 text-center">
+                                        <span className="text-xs text-gray-400 dark:text-gray-600">No more chats</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center h-full">
+                                    <div className="text-center text-gray-400 dark:text-gray-600">
+                                        <p className="text-sm">No chats yet</p>
+                                        <p className="text-xs mt-1">Start a new conversation</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                    <div className="sheet-footer absolute bottom-12 w-full select-none">
-                        <div className="space-y-1">
-                            <h4 className="text-sm font-medium leading-none">-</h4>
-                            <p className="text-sm text-muted-foreground">
-                                Based on React & Electron & ShadcnUI.
-                            </p>
-                        </div>
-                        <Separator className="my-4" />
-                        <div className="flex h-5 items-center space-x-4 text-sm">
-                            <div>...</div>
-                            <Separator orientation="vertical" />
-                            <div>...</div>
-                            <Separator orientation="vertical" />
-                            <div>Source</div>
+                </div>
+
+                {/* Footer - 固定在底部 */}
+                <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                        <span>v1.0.0</span>
+                        <div className="flex items-center gap-2">
+                            <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors">GitHub</a>
+                            <span>·</span>
+                            <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Docs</a>
                         </div>
                     </div>
                 </div>
