@@ -1,39 +1,39 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Textarea } from '@renderer/components/ui/textarea'
+import { PaperPlaneIcon, StopIcon } from '@radix-ui/react-icons'
+import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
-import { PaperPlaneIcon, StopIcon } from '@radix-ui/react-icons'
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@renderer/components/ui/command'
-import { Popover, PopoverTrigger, PopoverContent } from '@renderer/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@renderer/components/ui/command'
+import { Input } from '@renderer/components/ui/input'
+import { Label } from '@renderer/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
+import { Slider } from "@renderer/components/ui/slider"
+import { Textarea } from '@renderer/components/ui/textarea'
 import {
   Tooltip,
   TooltipContent,
-  TooltipTrigger,
-  TooltipProvider
+  TooltipProvider,
+  TooltipTrigger
 } from "@renderer/components/ui/tooltip"
-import {
-  ChevronsUpDown,
-  Check,
-  Globe,
-  BadgePlus,
-  Boxes,
-  CornerDownLeft,
-  ArrowBigUp,
-  Settings2,
-  LoaderCircle,
-  Maximize2,
-  Minimize2
-} from 'lucide-react'
-import { cn } from '@renderer/lib/utils'
-import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
-import { useChatStore } from '@renderer/store'
 import { useChatContext } from '@renderer/context/ChatContext'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
-import { Label } from '@renderer/components/ui/label'
-import { Input } from '@renderer/components/ui/input'
-import { Slider } from "@renderer/components/ui/slider"
-import { toast } from 'sonner'
+import { cn } from '@renderer/lib/utils'
+import { useChatStore } from '@renderer/store'
 import { embeddedToolsRegistry, type ToolDefinition } from "@tools/registry"
+import {
+  ArrowBigUp,
+  BadgePlus,
+  Boxes,
+  Check,
+  ChevronsUpDown,
+  CornerDownLeft,
+  Globe,
+  LoaderCircle,
+  Maximize2,
+  Minimize2,
+  Settings2
+} from 'lucide-react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
@@ -43,7 +43,7 @@ const availableMcpTools = new Map()
 const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onMessagesUpdate,
 }, ref) => {
-  const {setChatContent} = useChatContext()
+  const { setChatContent } = useChatContext()
   const {
     setMessages,
     imageSrcBase64List,
@@ -64,7 +64,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       setSelectedModel(models[0])
     }
   }, [models])
-  const {setChatTitle, setChatUuid, setChatId} = useChatContext()
+  const { setChatTitle, setChatUuid, setChatId } = useChatContext()
   const [inputContent, setInputContent] = useState<string>('')
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
@@ -99,7 +99,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
   const onSubmitClick = useCallback((_) => {
-    if(!inputContent) {
+    if (!inputContent) {
       return
     }
     if (!selectedModel) {
@@ -115,7 +115,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         ...f.function
       })
     }
-    handleChatSubmitCallback(inputContent, imageSrcBase64List, {tools: tools, prompt: currentSystemPrompt})
+    handleChatSubmitCallback(inputContent, imageSrcBase64List, { tools: tools, prompt: currentSystemPrompt })
     setInputContent('')
     setImageSrcBase64List([])
   }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])
@@ -170,19 +170,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
     let findImg: boolean = false
     for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-            blob = items[i].getAsFile()
-            findImg = true
-            break
-        }
+      if (items[i].type.indexOf('image') !== -1) {
+        blob = items[i].getAsFile()
+        findImg = true
+        break
+      }
     }
     // console.log(`findImg? ${findImg}`)
     if (blob) {
-        const reader = new FileReader()
-        reader.readAsDataURL(blob)
-        reader.onloadend = () => {
-            setImageSrcBase64List([...imageSrcBase64List, reader.result as string])
-        }
+      const reader = new FileReader()
+      reader.readAsDataURL(blob)
+      reader.onloadend = () => {
+        setImageSrcBase64List([...imageSrcBase64List, reader.result as string])
+      }
     }
   }, [imageSrcBase64List, setImageSrcBase64List])
 
@@ -200,8 +200,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     console.log('mcp-server-config', serverName, serverConfig)
     if (!selectedMcpServerNames.includes(serverName)) {
       setConnectingMcpServers([...connectingMcpServers, serverName])
-      
-      const {result, tools, msg} = await window.electron?.ipcRenderer.invoke('mcp-connect', {
+
+      const { result, tools, msg } = await window.electron?.ipcRenderer.invoke('mcp-connect', {
         name: serverName,
         ...serverConfig
       })
@@ -232,7 +232,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   return (
     <div ref={ref} id='inputArea' className={cn('rounded-md fixed w-full -bottom-1')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
-          <ChatImgGalleryComponent />
+        <ChatImgGalleryComponent />
       </div>
       <div className='rounded-xl flex items-center space-x-2 mb-1 select-none px-4'>
         <div id="modelSelector" className="app-undragable">
@@ -243,56 +243,56 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 role="combobox"
                 aria-expanded={selectModelPopoutState}
                 className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
-                >
-                  <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
-                    {selectedModel ? (
-                      (() => {
-                        return selectedModel.type === 'vlm' ? (
-                          <span className="flex space-x-2">
-                            <span>{selectedModel.value}</span>
-                            <i className="ri-eye-line text-green-500"></i>
-                          </span>
-                        ) : <span>{selectedModel.value}</span>
-                      })()) : ("Select Model")}
-                  </span>
-                  <ChevronsUpDown className="flex opacity-50 pl-1 pr-0.5 w-5" />
+              >
+                <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
+                  {selectedModel ? (
+                    (() => {
+                      return selectedModel.type === 'vlm' ? (
+                        <span className="flex space-x-2">
+                          <span>{selectedModel.value}</span>
+                          <i className="ri-eye-line text-green-500"></i>
+                        </span>
+                      ) : <span>{selectedModel.value}</span>
+                    })()) : ("Select Model")}
+                </span>
+                <ChevronsUpDown className="flex opacity-50 pl-1 pr-0.5 w-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-full shadow-lg ml-1 rounded-xl overflow-hidden border border-gray-200/50 dark:border-gray-700 bg-white dark:bg-gray-900"
+              className="w-full shadow-lg p-0 rounded-xl overflow-hidden bg-white/10 backdrop-blur-xl dark:bg-gray-900"
               sideOffset={8}
               align="start"
             >
-              <Command className='rounded-xl bg-white dark:bg-gray-900'>
+              <Command className='rounded-xl bg-transparent dark:bg-gray-900'>
                 <CommandInput placeholder="Search model" className="h-auto" />
                 <CommandList>
                   {(models.findIndex(fm => fm.enable === true) != -1) && <CommandEmpty>Oops...NotFound</CommandEmpty>}
                   {providers.map((p) => p.models.length > 0 && p.models.findIndex(m => m.enable) !== -1 && (
-                        <CommandGroup
-                            key={p.name}
-                            value={p.name}
-                            className='scroll-smooth'
-                        >
-                            <span className="text-xs text-gray-400 dark:text-gray-500">{p.name}</span>
-                            {
-                                p.models.map((m) => m.enable && (
-                                    <CommandItem
-                                      key={m.provider + '/' +m.value}
-                                      value={m.provider + '/' +m.value}
-                                      onSelect={(_) => {
-                                        setSelectedModel(m)
-                                        const p = providers.findLast(p => p.name == m.provider)!
-                                        setCurrentProviderName(p.name)
-                                        setSelectModelPopoutState(false)
-                                      }}
-                                    >
-                                        {m.name}
-                                        {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
-                                        {(selectedModel && selectedModel.value === m.value && selectedModel.provider === p.name) && <Check className={cn("ml-auto")} />}
-                                    </CommandItem>
-                                ))
-                            }
-                        </CommandGroup>
+                    <CommandGroup
+                      key={p.name}
+                      value={p.name}
+                      className='scroll-smooth'
+                    >
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{p.name}</span>
+                      {
+                        p.models.map((m) => m.enable && (
+                          <CommandItem
+                            key={m.provider + '/' + m.value}
+                            value={m.provider + '/' + m.value}
+                            onSelect={(_) => {
+                              setSelectedModel(m)
+                              const p = providers.findLast(p => p.name == m.provider)!
+                              setCurrentProviderName(p.name)
+                              setSelectModelPopoutState(false)
+                            }}
+                          >
+                            {m.name}
+                            {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
+                            {(selectedModel && selectedModel.value === m.value && selectedModel.provider === p.name) && <Check className={cn("ml-auto")} />}
+                          </CommandItem>
+                        ))
+                      }
+                    </CommandGroup>
                   ))}
                 </CommandList>
               </Command>
@@ -307,37 +307,37 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 role="combobox"
                 aria-expanded={selectMCPPopoutState}
                 className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 backdrop-blur-xl space-x-1 border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
-                >
-                  <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
-                    {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0] }
-                  </span>
-                  {selectedMcpServerNames.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 dark:bg-gray-700 hover:bg-blue-gray-200 dark:hover:bg-gray-600 text-blue-gray-500 dark:text-gray-400 backdrop-blur-xl">+{selectedMcpServerNames.length - 1}</Badge>}
-                  <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
+              >
+                <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
+                  {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0]}
+                </span>
+                {selectedMcpServerNames.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 dark:bg-gray-700 hover:bg-blue-gray-200 dark:hover:bg-gray-600 text-blue-gray-500 dark:text-gray-400 backdrop-blur-xl">+{selectedMcpServerNames.length - 1}</Badge>}
+                <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-full shadow-lg ml-1 rounded-xl overflow-hidden border border-gray-200/50 dark:border-gray-700 bg-white dark:bg-gray-900"
+              className="w-full p-0 shadow-lg ml-1 rounded-xl overflow-hidden bg-white/10 backdrop-blur-xl dark:bg-gray-900"
               sideOffset={8}
               align="start"
             >
-              <Command className='rounded-xl bg-white dark:bg-gray-900'>
+              <Command className='rounded-xl bg-transparent dark:bg-gray-900'>
                 <CommandInput placeholder="Search tool" className="h-auto" />
                 <CommandList>
-                <CommandGroup
-                  className='scroll-smooth'
+                  <CommandGroup
+                    className='scroll-smooth'
                   >
                     {
-                      mcpServerConfig && mcpServerConfig.mcpServers && Object.entries(mcpServerConfig.mcpServers).map(([mcpName, mcpCfg], idx) =>  (
-                          <CommandItem
-                            key={idx}
-                            value={mcpName}
-                            onSelect={(selectVal) => {
-                              onMcpToolSelected(selectVal, mcpCfg)
-                            }}
-                          >
-                            {mcpName}
-                            {connectingMcpServers.includes(mcpName) && <LoaderCircle className='ml-auto animate-spin' />}
-                            {(selectedMcpServerNames && selectedMcpServerNames.includes(mcpName)) && <Check className={cn("ml-auto")} />}
+                      mcpServerConfig && mcpServerConfig.mcpServers && Object.entries(mcpServerConfig.mcpServers).map(([mcpName, mcpCfg], idx) => (
+                        <CommandItem
+                          key={idx}
+                          value={mcpName}
+                          onSelect={(selectVal) => {
+                            onMcpToolSelected(selectVal, mcpCfg)
+                          }}
+                        >
+                          {(selectedMcpServerNames && selectedMcpServerNames.includes(mcpName)) ? <span className="text-green-600">{mcpName}</span> : <span>{mcpName}</span>}
+                          {connectingMcpServers.includes(mcpName) && <LoaderCircle className='ml-auto animate-spin' />}
+                          {(selectedMcpServerNames && selectedMcpServerNames.includes(mcpName)) && <Check className={cn("ml-auto text-green-600")} />}
                         </CommandItem>
                       ))
                     }
@@ -353,17 +353,17 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               <PopoverTrigger asChild>
                 <Button variant={'ghost'}
                   className=
-                    "h-8 flex p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
-                  >
-                  <span>Custom</span><Settings2 className="h-4 w-4 ml-1" />
+                  "h-8 flex p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                >
+                  <span>Prefer</span><Settings2 className="h-4 w-4 ml-1" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="overflow-hidden"
+                className="overflow-hidden p-0 rounded-2xl"
                 sideOffset={8}
                 align="end"
               >
-                <div className="grid gap-4 mr-2 bg-white dark:bg-gray-900 border-[1px] border-gray-200 dark:border-gray-700 rounded-xl p-2 text-gray-700 dark:text-gray-300 shadow-lg">
+                <div className="grid gap-4 bg-red-200 dark:bg-gray-900 p-2 text-gray-700 dark:text-gray-300 shadow-lg">
                   <div className="space-y-2 flex justify-evenly">
                     <p className="flex justify-between w-full">
                       <span className='leading-none font-medium text-gray-800 dark:text-gray-200'>Chat Settings</span>
@@ -436,7 +436,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           className={
             cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none',
               'rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto font-mono typewriter-cursor text-gray-700 dark:text-gray-300',
-              ) // Override default min-height
+            ) // Override default min-height
           }
           placeholder='Type anything to chat'
           value={inputContent}
@@ -465,7 +465,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                     <Globe
                       className={
                         cn("backdrop-blur-3xl text-gray-600 dark:text-gray-400 flex justify-center w-5",
-                        webSearchEnable ? 'text-blue-400 dark:text-blue-300' : 'hover:text-gray-400 dark:hover:text-gray-300'
+                          webSearchEnable ? 'text-blue-400 dark:text-blue-300' : 'hover:text-gray-400 dark:hover:text-gray-300'
                         )}
                       onClick={onWebSearchClick}>
                     </Globe>
@@ -477,19 +477,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               </Tooltip>
             </TooltipProvider>
             <div className='absolute right-0 bottom-0'>
-                {!readStreamState
-                  ? (
-                    <Button onClick={onSubmitClick} variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 dark:border-gray-600 hover:bg-gray-600 dark:hover:bg-gray-500'>
-                      <PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8 dark:text-gray-400" />
-                      <sub className="text-gray-400 dark:text-gray-400 flex"><ArrowBigUp className="w-3" /><CornerDownLeft className="w-3" /></sub>
-                    </Button>
-                  )
-                  : <Button variant={'destructive'} size={'sm'}
-                      className={cn('rounded-full border-[1px] hover:bg-red-400 dark:hover:bg-red-500 animate-pulse transition-transform duration-800')}
-                      onClick={onStopClick}>
-                        <StopIcon />&nbsp;Stop
-                    </Button>
-                }
+              {!readStreamState
+                ? (
+                  <Button onClick={onSubmitClick} variant={'default'} size={'sm'} className='rounded-full border-[1px] border-gray-300 dark:border-gray-600 hover:bg-gray-600 dark:hover:bg-gray-500'>
+                    <PaperPlaneIcon className="-rotate-45 mb-0.5 ml-0.5 w-8 dark:text-gray-400" />
+                    <sub className="text-gray-400 dark:text-gray-400 flex"><ArrowBigUp className="w-3" /><CornerDownLeft className="w-3" /></sub>
+                  </Button>
+                )
+                : <Button variant={'destructive'} size={'sm'}
+                  className={cn('rounded-full border-[1px] hover:bg-red-400 dark:hover:bg-red-500 animate-pulse transition-transform duration-800')}
+                  onClick={onStopClick}>
+                  <StopIcon />&nbsp;Stop
+                </Button>
+              }
             </div>
           </div>
         </div>
