@@ -2,6 +2,7 @@ import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea from "@renderer/components/chat/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/ChatMessageComponent"
 import { useChatContext } from '@renderer/context/ChatContext'
+import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { ArrowDown } from 'lucide-react'
 import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
@@ -20,8 +21,73 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const lastChatUuidRef = useRef<string | undefined>(undefined)
   const isAutoScrollingRef = useRef<boolean>(false) // 标记是否正在自动滚动
   const lastTypingScrollTimeRef = useRef<number>(0) // 上次打字机滚动的时间
+  const smoothScrollRAFRef = useRef<number>(0) // 平滑滚动的 RAF ref
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
+  const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
+
+  // 缓动函数：easeOutCubic - 快速开始，缓慢结束
+  const easeOutCubic = useCallback((t: number): number => {
+    return 1 - Math.pow(1 - t, 3)
+  }, [])
+
+  // 自定义平滑滚动到底部
+  const smoothScrollToBottom = useCallback(() => {
+    const container = chatListRef.current?.parentElement
+    if (!container) return
+
+    // 取消之前的滚动动画
+    if (smoothScrollRAFRef.current) {
+      cancelAnimationFrame(smoothScrollRAFRef.current)
+      smoothScrollRAFRef.current = 0
+    }
+
+    const startPos = container.scrollTop
+    const endPos = container.scrollHeight - container.clientHeight
+    const distance = endPos - startPos
+
+    // 如果已经在底部，直接返回
+    if (Math.abs(distance) < 1) {
+      setShowScrollToBottom(false)
+      setIsButtonFadingOut(false)
+      return
+    }
+
+    // 根据滚动距离动态调整动画时长（最小 300ms，最大 800ms）
+    const duration = Math.min(Math.max(Math.abs(distance) * 0.5, 300), 800)
+    const startTime = performance.now()
+
+    // 标记自动滚动开始
+    isAutoScrollingRef.current = true
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = easeOutCubic(progress)
+
+      container.scrollTop = startPos + distance * eased
+
+      if (progress < 1) {
+        smoothScrollRAFRef.current = requestAnimationFrame(animate)
+      } else {
+        // 动画完成
+        smoothScrollRAFRef.current = 0
+
+        // 重置自动滚动标志
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            isAutoScrollingRef.current = false
+          })
+        })
+
+        // 隐藏按钮
+        setShowScrollToBottom(false)
+        setIsButtonFadingOut(false)
+      }
+    }
+
+    smoothScrollRAFRef.current = requestAnimationFrame(animate)
+  }, [easeOutCubic])
 
   // 所有函数定义
   // 节流 + RAF 优化的滚动函数（用于流式输出）
@@ -61,26 +127,38 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   const scrollToBottom = useCallback((smooth = false) => {
-    if (chatPaddingElRef.current) {
-      const scrollElement = chatPaddingElRef.current
+    if (smooth) {
+      // 使用自定义平滑滚动
+      // 先触发按钮淡出动画
+      setIsButtonFadingOut(true)
 
-      // 标记开始自动滚动
-      isAutoScrollingRef.current = true
-
-      scrollElement.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'end'
-      })
-
-      // 滚动完成后重置标志
+      // 延迟一点开始滚动，让用户看到按钮淡出
       setTimeout(() => {
-        isAutoScrollingRef.current = false
-      }, smooth ? 500 : 50) // smooth 滚动需要更长时间
+        smoothScrollToBottom()
+      }, 150)
+    } else {
+      // 快速滚动（用于聊天切换等场景）
+      if (chatPaddingElRef.current) {
+        const scrollElement = chatPaddingElRef.current
 
-      // 滚动后隐藏按钮
-      setShowScrollToBottom(false)
+        // 标记开始自动滚动
+        isAutoScrollingRef.current = true
+
+        scrollElement.scrollIntoView({
+          behavior: 'auto',
+          block: 'end'
+        })
+
+        // 滚动完成后重置标志
+        setTimeout(() => {
+          isAutoScrollingRef.current = false
+        }, 50)
+
+        // 滚动后隐藏按钮
+        setShowScrollToBottom(false)
+      }
     }
-  }, [messages])
+  }, [smoothScrollToBottom])
 
   const scrollToBottomForced = useCallback(() => {
     // 强制滚动到底部，用于用户主动提交消息后
@@ -107,7 +185,13 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     // 核心逻辑：如果在底部，隐藏按钮；如果不在底部，显示按钮
     // 不再判断滚动方向，只看位置
     if (isAtBottom) {
-      setShowScrollToBottom(false)
+      // 使用函数式更新，只在状态真正改变时才触发更新
+      setShowScrollToBottom(prev => {
+        if (prev !== false) {
+          setIsButtonFadingOut(false)
+        }
+        return false
+      })
       // 更新 lastScrollTop，避免下次误判
       lastScrollTopRef.current = scrollTop
     } else {
@@ -123,6 +207,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
       if (isScrollingUp) {
         setShowScrollToBottom(true)
+        setIsButtonFadingOut(false) // 重置淡出状态
       }
     }
   }, [])
@@ -148,6 +233,9 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       }
       if (typingScrollRAFRef.current) {
         cancelAnimationFrame(typingScrollRAFRef.current)
+      }
+      if (smoothScrollRAFRef.current) {
+        cancelAnimationFrame(smoothScrollRAFRef.current)
       }
     }
   }, [onChatListScroll])
@@ -285,7 +373,13 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             <div
               id="scrollToBottom"
               onClick={() => scrollToBottom(true)}
-              className="fixed bottom-60 left-1/2 -translate-x-1/2 bg-black/5 hover:bg-white backdrop-blur-xl cursor-pointer rounded-full shadow-lg border border-gray-200/50 transition-all duration-200 hover:scale-110 animate-slide-up z-50"
+              className={cn(
+                "fixed bottom-60 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border border-gray-200/50 z-50",
+                "transition-all duration-300 ease-out hover:scale-110",
+                isButtonFadingOut
+                  ? "opacity-0 translate-y-5 scale-75"
+                  : "opacity-100 translate-y-0"
+              )}
             >
               <ArrowDown className="text-gray-400 p-1 m-1" />
             </div>
