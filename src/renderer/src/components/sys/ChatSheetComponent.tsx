@@ -458,7 +458,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                     )}
                                                                     <button
                                                                         onClick={e => onSheetChatItemDeleteClick(e, item)}
-                                                                        className="p-1 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:scale-110 transition-transform"
+                                                                        className="p-1 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:scale-110 transition-transform hover:rotate-180"
                                                                     >
                                                                         <Cross2Icon className="w-4 h-4" />
                                                                     </button>
