@@ -716,18 +716,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                                     {m.type.toUpperCase()}
                                                                 </span>
                                                             </TableCell>
-                                                            {/* <TableCell className='text-center py-2'>
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button variant="outline" size='xs' className='rounded-lg h-7'><SquarePen className='w-3'></SquarePen></Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent className="w-auto" align="start">
-                                                                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                                                                        <DropdownMenuSeparator />
-                                                                        <DropdownMenuItem onClick={_ => onModelDelClick(m)} className='text-red-300 focus:text-red-400'>Delete</DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            </TableCell>
                                                             <TableCell className='px-4 py-3 text-center'>
                                                                 <Switch 
                                                                     className='h-5' 
