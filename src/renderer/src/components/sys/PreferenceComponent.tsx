@@ -333,56 +333,69 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 <TabsContent value="provider-list" className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
                     <div className='flex h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md gap-2'>
                         <div className='w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-md shadow-sm overflow-hidden'>
-                            <div className='flex-none bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b dark:border-gray-700'>
+                            <div className='flex-none bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b dark:border-gray-700 p-2'>
                                 <Drawer>
-                                    <DrawerTrigger className='w-full p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors'>
+                                    <DrawerTrigger className={cn(
+                                        'group w-full p-0 rounded-lg',
+                                        'text-gray-600 dark:text-gray-400',
+                                        'hover:text-gray-900 dark:hover:text-gray-100',
+                                        'hover:bg-white dark:hover:bg-gray-700',
+                                        'hover:shadow-md hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50',
+                                        'active:scale-[0.98]',
+                                        'transition-all duration-200 ease-out',
+                                        'border border-transparent hover:border-gray-200 dark:hover:border-gray-600',
+                                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+                                    )}>
                                         <div className='flex items-center justify-center gap-2 py-2'>
-                                            <i className="ri-add-circle-line text-xl"></i>
-                                            <span className='text-sm font-medium'>Add Provider</span>
+                                            <i className={cn(
+                                                "ri-add-circle-line text-xl transition-all duration-200 ease-out",
+                                                "group-hover:scale-110 group-hover:rotate-90"
+                                            )}></i>
+                                            <span className='text-sm font-medium transition-colors duration-200'>Add Provider</span>
                                         </div>
                                     </DrawerTrigger>
                                     <DrawerContent>
                                         <DrawerHeader>
                                             <DrawerTitle>Add new provider</DrawerTitle>
                                         </DrawerHeader>
-                                        <DrawerFooter>
-                                            <div id='add-new-provider-drawer' className="grid gap-4 app-undragable">
-                                                <div className="flex flex-col gap-2">
-                                                    <div className="flex flex-col items-start gap-2">
-                                                        <Label htmlFor="name">Name</Label>
-                                                        <Input
-                                                            id="name"
-                                                            placeholder="OpenAI"
-                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                            onChange={e => { setNewProviderName(e.target.value) }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col items-start gap-2">
-                                                        <Label htmlFor="apiUrl">API URL</Label>
-                                                        <Input
-                                                            id="apiUrl"
-                                                            placeholder="https://api.openai.com/v1/chat/completions"
-                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                            onChange={e => { setNewProviderApi(e.target.value) }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col items-start gap-2">
-                                                        <Label htmlFor="apiKey">API Key</Label>
-                                                        <Input
-                                                            id="apiKey"
-                                                            placeholder="sk-********"
-                                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                            onChange={e => { setNewProviderApiKey(e.target.value) }}
-                                                        />
-                                                    </div>
+                                        <div id='add-new-provider-drawer' className="px-4 pb-4 app-undragable">
+                                            <div className="flex flex-col gap-4">
+                                                <div className="flex flex-col items-start gap-2">
+                                                    <Label htmlFor="name" className="text-sm font-medium">Name</Label>
+                                                    <Input
+                                                        id="name"
+                                                        placeholder="OpenAI"
+                                                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
+                                                        onChange={e => { setNewProviderName(e.target.value) }}
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col items-start gap-2">
+                                                    <Label htmlFor="apiUrl" className="text-sm font-medium">API URL</Label>
+                                                    <Input
+                                                        id="apiUrl"
+                                                        placeholder="https://api.openai.com/v1/chat/completions"
+                                                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
+                                                        onChange={e => { setNewProviderApi(e.target.value) }}
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col items-start gap-2">
+                                                    <Label htmlFor="apiKey" className="text-sm font-medium">API Key</Label>
+                                                    <Input
+                                                        id="apiKey"
+                                                        placeholder="sk-********"
+                                                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
+                                                        onChange={e => { setNewProviderApiKey(e.target.value) }}
+                                                    />
                                                 </div>
                                             </div>
-                                            <DrawerTrigger asChild>
-                                                <Button onClick={onAddProviderBtnClick}>Save</Button>
-                                            </DrawerTrigger>
+                                        </div>
+                                        <DrawerFooter className="flex-row gap-2 px-4 pb-4">
                                             <DrawerClose asChild>
-                                                <Button variant="outline">Cancel</Button>
+                                                <Button variant="outline" className="flex-1">Cancel</Button>
                                             </DrawerClose>
+                                            <DrawerTrigger asChild>
+                                                <Button onClick={onAddProviderBtnClick} className="flex-1">Save</Button>
+                                            </DrawerTrigger>
                                         </DrawerFooter>
                                     </DrawerContent>
                                 </Drawer>
