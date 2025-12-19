@@ -43,18 +43,20 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
 
     const startPos = container.scrollTop
-    const endPos = container.scrollHeight - container.clientHeight
-    const distance = endPos - startPos
+    // 在每一帧都重新计算目标位置，以应对内容高度变化
+    const getEndPos = () => container.scrollHeight - container.clientHeight
+    const initialEndPos = getEndPos()
+    const initialDistance = initialEndPos - startPos
 
     // 如果已经在底部，直接返回
-    if (Math.abs(distance) < 1) {
+    if (Math.abs(initialDistance) < 1) {
       setShowScrollToBottom(false)
       setIsButtonFadingOut(false)
       return
     }
 
     // 根据滚动距离动态调整动画时长（最小 300ms，最大 800ms）
-    const duration = Math.min(Math.max(Math.abs(distance) * 0.5, 300), 800)
+    const duration = Math.min(Math.max(Math.abs(initialDistance) * 0.5, 300), 800)
     const startTime = performance.now()
 
     // 标记自动滚动开始
@@ -65,11 +67,23 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       const progress = Math.min(elapsed / duration, 1)
       const eased = easeOutCubic(progress)
 
-      container.scrollTop = startPos + distance * eased
+      // 在每一帧重新计算目标位置，确保滚动到真正的底部
+      const currentEndPos = getEndPos()
+      const currentDistance = currentEndPos - startPos
+      
+      // 使用当前计算的距离和目标位置
+      container.scrollTop = startPos + currentDistance * eased
 
-      if (progress < 1) {
+      // 检查是否已经到达底部（允许一些误差）
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+      const isAtBottom = distanceFromBottom < 1
+
+      if (progress < 1 && !isAtBottom) {
         smoothScrollRAFRef.current = requestAnimationFrame(animate)
       } else {
+        // 确保滚动到真正的底部
+        container.scrollTop = currentEndPos
+        
         // 动画完成
         smoothScrollRAFRef.current = 0
 
@@ -196,8 +210,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       lastScrollTopRef.current = scrollTop
     } else {
       // 不在底部
-      // 如果是自动滚动触发的，忽略（因为自动滚动可能在滚动过程中）
+      // 如果是自动滚动触发的，只更新 lastScrollTop，不显示按钮
       if (isAutoScrollingRef.current) {
+        // 仍然更新 lastScrollTop 以保持状态同步
+        lastScrollTopRef.current = scrollTop
         return
       }
 
@@ -336,7 +352,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
       <ChatHeaderComponent />
       <div className="flex-grow app-undragable mt-12 overflow-scroll">
-        <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2" onScroll={onChatListScroll}>
+        <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
           {messages.length !== 0 && messages.map((message, index) => {
             return (
               <ChatMessageComponent
