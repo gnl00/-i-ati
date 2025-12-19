@@ -206,9 +206,9 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         isLatest && "animate-assistant-message-in"
       )}
     >
-      <div className="rounded-xl bg-gray-50 dark:bg-gray-900 overflow-y-scroll">
+      <div className="rounded-xl dark:bg-gray-900 overflow-y-scroll">
         {m.model && (
-          <Badge variant="outline" className={cn('select-none text-gray-700 dark:text-gray-300 mb-1', showLoadingIndicator && isLatest ? 'animate-pulse' : '')}>@{m.model}</Badge>
+          <Badge variant="outline" className={cn('select-none text-gray-700 dark:text-gray-300 mb-1 dark:border-white/20', showLoadingIndicator && isLatest ? 'animate-shine' : '')}>@{m.model}</Badge>
         )}
         {m.reasoning && !m.artifatcs && (
           <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>

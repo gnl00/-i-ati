@@ -359,11 +359,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="overflow-hidden p-0 rounded-2xl"
+                className="overflow-hidden p-0 rounded-2xl bg-white/20 backdrop-blur-xl dark:bg-gray-900 "
                 sideOffset={8}
                 align="end"
               >
-                <div className="grid gap-4 bg-red-200 dark:bg-gray-900 p-2 text-gray-700 dark:text-gray-300 shadow-lg">
+                <div className="grid gap-4 p-2 text-gray-700 dark:text-gray-300 shadow-lg">
                   <div className="space-y-2 flex justify-evenly">
                     <p className="flex justify-between w-full">
                       <span className='leading-none font-medium text-gray-800 dark:text-gray-200'>Chat Settings</span>
