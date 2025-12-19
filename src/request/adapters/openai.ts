@@ -99,7 +99,7 @@ export class OpenAIAdapter extends BaseAdapter {
 
           // 跳过没有 choices 的响应（如内容过滤结果）
           if (!respObject.choices || respObject.choices.length === 0) {
-            console.log('Skipping response without choices:', respObject)
+            // console.log('Skipping response without choices:', respObject)
             continue
           }
 

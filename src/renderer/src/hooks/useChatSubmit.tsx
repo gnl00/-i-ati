@@ -1,13 +1,12 @@
 import { useChatContext } from "@renderer/context/ChatContext"
-import { getChatById, updateChat } from "@renderer/db/ChatRepository"
+import { getChatById, saveChat, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
 import { useChatStore } from "@renderer/store"
 import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request/index"
+import { embeddedToolsRegistry } from '@tools/index'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
-import { saveChat } from "@renderer/db/ChatRepository"
-import { toolCallPrompt, artifactsSystemPrompt, generateTitlePrompt, toolsCallSystemPrompt } from '../constant/prompts'
-import { embeddedToolsRegistry } from '@tools/index'
+import { artifactsSystemPrompt, generateTitlePrompt, toolCallPrompt, toolsCallSystemPrompt } from '../constant/prompts'
 
 interface ToolCallProps {
   function: string
@@ -20,36 +19,36 @@ interface ChatPipelineContext {
   textCtx: string
   mediaCtx: ClipbordImg[] | string[]
   tools?: any[]
-  
+
   // 消息相关
   userMessageEntity: MessageEntity
   messageEntities: MessageEntity[]
   chatMessages: ChatMessage[]
-  
+
   // 聊天相关
   chatEntity: ChatEntity
   currChatId: number | undefined
-  
+
   // 请求相关
   request: IChatRequestV2 | IUnifiedRequest
   provider: IProvider
   model: IModel
   controller: AbortController
   signal: AbortSignal
-  
+
   // 流式处理相关
   gatherContent: string
   gatherReasoning: string
   sysMessageEntity: MessageEntity
   isContentHasThinkTag: boolean
-  
+
   // 工具调用相关
   hasToolCall: boolean
   toolCalls: ToolCallProps[]
   toolCallFunctionName: string
   toolCallFunctionArgs: string
   toolCallResults?: any[]
-  
+
   // 状态
   completed: boolean
   error?: Error
@@ -63,13 +62,13 @@ function useChatSubmit() {
     updateChatList,
     setLastMsgStatus,
   } = useChatContext()
-  const { 
+  const {
     providers,
-    messages, 
-    selectedModel, 
-    setMessages, 
-    setFetchState, 
-    setCurrentReqCtrl, 
+    messages,
+    selectedModel,
+    setMessages,
+    setFetchState,
+    setCurrentReqCtrl,
     setReadStreamState,
     titleGenerateModel, titleGenerateEnabled,
     artifacts,
@@ -82,19 +81,19 @@ function useChatSubmit() {
     const model = selectedModel!
     let messageBody: ChatMessage = { role: "user", content: '' }
     if (model.type === 'llm') {
-      messageBody = {...messageBody, content: textCtx.trim()}
+      messageBody = { ...messageBody, content: textCtx.trim() }
     } else if (model.type === 'vlm') {
       const imgContents: VLMContent[] = []
       mediaCtx.forEach(imgBase64 => {
         imgContents.push({ type: 'image_url', image_url: { url: imgBase64 as string, detail: 'auto' } })
       })
-      messageBody = { 
+      messageBody = {
         ...messageBody,
-        content: [...imgContents, { type: 'text', text: textCtx.trim() } ]
+        content: [...imgContents, { type: 'text', text: textCtx.trim() }]
       }
     } else if (model.type === 't2i') {
       console.log('text to image')
-      messageBody = {...messageBody, content: textCtx.trim()}
+      messageBody = { ...messageBody, content: textCtx.trim() }
     } else {
       throw new Error('Unsupported model type')
     }
@@ -180,14 +179,14 @@ function useChatSubmit() {
     if (false === context.request.stream) {
       const resp = response as IUnifiedResponse
       console.log('non stream resp', resp)
-      setMessages([...context.messageEntities, 
-        {
-          body: { 
-            role: 'system', 
-            model: context.model.name,
-            content: resp.content 
-          } 
+      setMessages([...context.messageEntities,
+      {
+        body: {
+          role: 'system',
+          model: context.model.name,
+          content: resp.content
         }
+      }
       ])
     } else {
       for await (const chunk of response) {
@@ -198,9 +197,9 @@ function useChatSubmit() {
         }
 
         const resp = chunk as IUnifiedResponse
-
+        // console.log('resp', resp)
         if (resp.toolCalls && resp.toolCalls.length > 0) {
-          if(!context.hasToolCall) context.hasToolCall = true
+          if (!context.hasToolCall) context.hasToolCall = true
 
           // 检查是否需要创建新的 tool call
           if (resp.toolCalls[0].function.name) {
@@ -223,7 +222,7 @@ function useChatSubmit() {
             context.toolCalls[context.toolCalls.length - 1].args += resp.toolCalls[0].function.arguments
           }
         }
-  
+
         if (context.isContentHasThinkTag) {
           if (!context.gatherReasoning) {
             context.gatherReasoning = context.gatherContent
@@ -248,17 +247,17 @@ function useChatSubmit() {
             context.gatherReasoning += resp.reasoning || ''
           }
         }
-  
-        setMessages([...context.messageEntities, 
-          {
-            body: { 
-              role: 'system', 
-              model: context.model.name,
-              content: context.gatherContent, 
-              reasoning: context.gatherReasoning,
-              toolCallResults: context.toolCallResults,
-            } 
+
+        setMessages([...context.messageEntities,
+        {
+          body: {
+            role: 'system',
+            model: context.model.name,
+            content: context.gatherContent,
+            reasoning: context.gatherReasoning,
+            toolCallResults: context.toolCallResults,
           }
+        }
         ])
       }
     }
@@ -270,10 +269,10 @@ function useChatSubmit() {
 
     return context
   }
-  
+
   // 管道函数：处理工具调用
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
-    while(context.toolCalls.length > 0) {
+    while (context.toolCalls.length > 0) {
       // Check if request was aborted before processing each tool call
       if (context.signal.aborted) {
         // console.log('[handleToolCall] Abort detected, stopping tool call processing')
@@ -312,7 +311,7 @@ function useChatSubmit() {
         const toolFunctionMessage: ChatMessage = {
           role: 'function',
           name: toolCall.function,
-          content: JSON.stringify({...results, functionCallCimpleted: true})
+          content: JSON.stringify({ ...results, functionCallCimpleted: true })
         }
         if (!context.toolCallResults) {
           context.toolCallResults = [{
@@ -370,7 +369,7 @@ function useChatSubmit() {
   const processRequestWithToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
     // 处理流式响应
     context = await processRequestV2(context)
-    
+
     // 如果有工具调用，处理工具调用后继续处理响应
     if (context.hasToolCall && context.toolCalls.length > 0) {
       context = await handleToolCall(context)
@@ -379,7 +378,7 @@ function useChatSubmit() {
     } else {
       setShowLoadingIndicator(false)
     }
-    
+
     return context
   }
 
@@ -387,7 +386,7 @@ function useChatSubmit() {
   const finalize = async (context: ChatPipelineContext): Promise<void> => {
     setLastMsgStatus(true)
     setReadStreamState(false)
-    
+
     // 生成聊天标题
     if (!chatTitle || (chatTitle === 'NewChat')) {
       let title = context.textCtx.substring(0, 30) // roughlyTitle
@@ -410,7 +409,7 @@ function useChatSubmit() {
   }
 
   // 重构后的主函数
-  const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], options: {tools?: any[], prompt: string}): Promise<void> => {
+  const onSubmit = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], options: { tools?: any[], prompt: string }): Promise<void> => {
     console.log('use-tools', options.tools)
     try {
       let context: ChatPipelineContext = await prepareMessageAndChat(textCtx, mediaCtx, options.tools)
@@ -465,7 +464,7 @@ function useChatSubmit() {
       model: model.value,
       stream: false
     }
-    const response = await chatRequestWithHook(titleReq, () => {}, () => {})
+    const response = await chatRequestWithHook(titleReq, () => { }, () => { })
     const json = await response.json()
     let title: string = json.choices[0].message.content
     setChatTitle(title)

@@ -1,27 +1,28 @@
-import React, { memo, useState } from 'react'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
-import { toast } from 'sonner'
-import { Badge } from "@renderer/components/ui/badge"
-import { CopyIcon, ReloadIcon, Pencil2Icon } from '@radix-ui/react-icons'
-import { BadgePercent, BadgeCheck, BadgeX, Timer } from 'lucide-react'
-import { cn } from '@renderer/lib/utils'
+import { CopyIcon, Pencil2Icon, ReloadIcon } from '@radix-ui/react-icons'
 import { CodeWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
+import { Badge } from "@renderer/components/ui/badge"
+import { cn } from '@renderer/lib/utils'
+import { BadgeCheck, BadgePercent, BadgeX, Timer } from 'lucide-react'
+import React, { memo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeRaw from 'rehype-raw'
-import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
-import { AnimatedMarkdown } from 'flowtoken'
+import rehypeRaw from 'rehype-raw'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import { toast } from 'sonner'
 
-import SyntaxHighlighter from 'react-syntax-highlighter';
-import { docco, tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
-import { useChatStore } from '../../store'
 import { useTheme } from '@renderer/components/theme-provider'
+import { useTypewriter } from '@renderer/hooks/useTypewriter'
+import SyntaxHighlighter from 'react-syntax-highlighter'
+import { docco, tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs'
+import { useChatStore } from '../../store'
 
 interface ChatMessageComponentProps {
   index: number
   message: ChatMessage
   isLatest: boolean
+  onTypingChange?: (isTyping: boolean) => void
 }
 
 // Shared markdown code components for both user and assistant messages
@@ -53,7 +54,7 @@ const markdownCodeComponent = {
   }
 }
 
-const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
+const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest, onTypingChange }) => {
 
   const { showLoadingIndicator } = useChatStore()
   const { theme } = useTheme()
@@ -64,10 +65,21 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   // Determine if dark mode is active
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
+  // Apply typewriter effect only to assistant messages and only for the latest message
+  const assistantContent = useTypewriter(
+    m.role === 'system' && m.content ? (m.content as string) : '',
+    {
+      minSpeed: 10,
+      maxSpeed: 25,
+      enabled: m.role === 'system' && isLatest,
+      onTyping: onTypingChange
+    }
+  )
+
   const onCopyClick = (content: string) => {
     if (content) {
       navigator.clipboard.writeText(content)
-      toast.success('Copied', {duration: 800})
+      toast.success('Copied', { duration: 800 })
     }
   }
   const onMouseHoverUsrMsg = (idx: number) => {
@@ -177,7 +189,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
                     remarkPlugins={[remarkGfm]}
                     skipHtml={false}
                     className="prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 transition-all duration-400 ease-in-out"
-                    >{(m.reasoning as string)}</ReactMarkdown>
+                  >{(m.reasoning as string)}</ReactMarkdown>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -216,7 +228,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
               className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-p:mb-4 prose-p:mt-4 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
               components={markdownCodeComponent}
             >
-            {m.content as string}
+              {assistantContent}
             </ReactMarkdown>
           )
         }

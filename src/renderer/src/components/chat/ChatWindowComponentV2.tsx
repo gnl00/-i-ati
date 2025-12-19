@@ -1,10 +1,10 @@
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea from "@renderer/components/chat/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/ChatMessageComponent"
-import { ArrowDown } from 'lucide-react'
-import { useChatStore } from '@renderer/store'
 import { useChatContext } from '@renderer/context/ChatContext'
-import React, { useState, forwardRef, useEffect, useCallback, useRef } from 'react'
+import { useChatStore } from '@renderer/store'
+import { ArrowDown } from 'lucide-react'
+import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
 
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { messages } = useChatStore()
@@ -18,7 +18,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const scrollRAFRef = useRef<number>(0)
   const lastChatUuidRef = useRef<string | undefined>(undefined)
 
-  const [ showScrollToBottom, setShowScrollToBottom ] = useState<boolean>(false)
+  const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
 
   // 所有函数定义
   // 节流 + RAF 优化的滚动函数（用于流式输出）
@@ -50,13 +50,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   const scrollToBottom = useCallback((smooth = false) => {
+    // console.log('scrollToBottom', chatPaddingElRef.current);
+
     if (chatPaddingElRef.current) {
       const scrollElement = chatPaddingElRef.current
-      if (smooth) {
-        scrollElement.style.scrollBehavior = 'smooth'
-      } else {
-        scrollElement.style.scrollBehavior = 'auto'
-      }
       scrollElement.scrollIntoView({
         behavior: smooth ? 'smooth' : 'auto',
         block: 'end'
@@ -147,24 +144,44 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [messages, showScrollToBottom, scrollToBottomThrottled])
 
+  // 打字机效果的滚动回调
+  const handleTyping = useCallback(() => {
+    if (!showScrollToBottom) {
+      // 使用 RAF 节流，避免每次打字都滚动
+      // 如果已经有待处理的 RAF，就跳过这次调用
+      if (!scrollRAFRef.current) {
+        scrollRAFRef.current = requestAnimationFrame(() => {
+          if (chatPaddingElRef.current) {
+            chatPaddingElRef.current.scrollIntoView({
+              behavior: "auto",
+              block: "end"
+            })
+          }
+          scrollRAFRef.current = 0
+        })
+      }
+    }
+  }, [showScrollToBottom])
+
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
-    <ChatHeaderComponent />
-    <div className="flex-grow app-undragable mt-12 overflow-scroll scroll-smooth">
-      <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2" onScroll={onChatListScroll}>
-        {messages.length !== 0 && messages.map((message, index) => {
-          return (
-            <ChatMessageComponent
-              key={index}
-              message={message.body}
-              index={index}
-              isLatest={index === messages.length - 1}
-            />
-          )
-        })}
+      <ChatHeaderComponent />
+      <div className="flex-grow app-undragable mt-12 overflow-scroll scroll-smooth">
+        <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2" onScroll={onChatListScroll}>
+          {messages.length !== 0 && messages.map((message, index) => {
+            return (
+              <ChatMessageComponent
+                key={index}
+                message={message.body}
+                index={index}
+                isLatest={index === messages.length - 1}
+                onTypingChange={handleTyping}
+              />
+            )
+          })}
 
-        {/* 流式响应加载指示器 */}
-        {/* {showLoadingIndicator && selectedModel && (
+          {/* 流式响应加载指示器 */}
+          {/* {showLoadingIndicator && selectedModel && (
           <div className="flex justify-start flex-col pb-0.5 w-20">
             <Badge variant="outline" className='select-none text-gray-700 mb-1 animate-pulse'>
               @{selectedModel.name}
@@ -175,31 +192,31 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           </div>
         )} */}
 
-        {/* WebSearch 加载指示器 */}
-        {/* {webSearchEnable && webSearchProcessing && (
+          {/* WebSearch 加载指示器 */}
+          {/* {webSearchEnable && webSearchProcessing && (
           <div className="space-y-2">
             <Skeleton className="h-4 w-[60%] rounded-full bg-black/5" />
             <Skeleton className="h-4 w-[40%] rounded-full bg-black/5" />
           </div>
         )} */}
-        {/* ScrollToBottom 按钮 - 根据滚动状态显示/隐藏 */}
-        {showScrollToBottom && (
-          <div
-            id="scrollToBottom"
-            onClick={() => { scrollToBottom(true) }}
-            className="fixed bottom-60 left-1/2 -translate-x-1/2 bg-black/5 hover:bg-white backdrop-blur-xl cursor-pointer rounded-full shadow-lg border border-gray-200/50 transition-all duration-200 hover:scale-110 animate-slide-up z-50"
-          >
-            <ArrowDown className="text-gray-400 p-1 m-1" />
-          </div>
-        )}
+          {/* ScrollToBottom 按钮 - 根据滚动状态显示/隐藏 */}
+          {showScrollToBottom && (
+            <div
+              id="scrollToBottom"
+              onClick={() => { scrollToBottom(true) }}
+              className="fixed bottom-60 left-1/2 -translate-x-1/2 bg-black/5 hover:bg-white backdrop-blur-xl cursor-pointer rounded-full shadow-lg border border-gray-200/50 transition-all duration-200 hover:scale-110 animate-slide-up z-50"
+            >
+              <ArrowDown className="text-gray-400 p-1 m-1" />
+            </div>
+          )}
+        </div>
+        <div id="scrollBottomEl" ref={chatPaddingElRef} className="h-px"></div>
       </div>
-      <div id="scrollBottomEl" ref={chatPaddingElRef}></div>
-    </div>
-    {/* just as a padding element */}
-    <div className="pb-52 bg-transparent select-none">&nbsp;</div>
-    <ChatInputArea
-      ref={inputAreaRef}
-      onMessagesUpdate={onMessagesUpdate}
+      {/* just as a padding element */}
+      <div className="pb-52 bg-transparent select-none">&nbsp;</div>
+      <ChatInputArea
+        ref={inputAreaRef}
+        onMessagesUpdate={onMessagesUpdate}
       />
     </div>
   )
