@@ -16,7 +16,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const lastScrollTopRef = useRef<number>(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollRAFRef = useRef<number>(0)
+  const typingScrollRAFRef = useRef<number>(0) // 独立的 RAF ref 用于打字机滚动
   const lastChatUuidRef = useRef<string | undefined>(undefined)
+  const isAutoScrollingRef = useRef<boolean>(false) // 标记是否正在自动滚动
+  const lastTypingScrollTimeRef = useRef<number>(0) // 上次打字机滚动的时间
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
 
@@ -38,10 +41,18 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       // 使用 RAF 与浏览器重绘同步
       scrollRAFRef.current = requestAnimationFrame(() => {
         if (chatPaddingElRef.current) {
+          // 标记开始自动滚动
+          isAutoScrollingRef.current = true
+
           chatPaddingElRef.current.scrollIntoView({
             behavior: "auto",
             block: "end"
           })
+
+          // 滚动完成后重置标志
+          setTimeout(() => {
+            isAutoScrollingRef.current = false
+          }, 50)
         }
         scrollRAFRef.current = 0
       })
@@ -52,10 +63,20 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const scrollToBottom = useCallback((smooth = false) => {
     if (chatPaddingElRef.current) {
       const scrollElement = chatPaddingElRef.current
+
+      // 标记开始自动滚动
+      isAutoScrollingRef.current = true
+
       scrollElement.scrollIntoView({
         behavior: smooth ? 'smooth' : 'auto',
         block: 'end'
       })
+
+      // 滚动完成后重置标志
+      setTimeout(() => {
+        isAutoScrollingRef.current = false
+      }, smooth ? 500 : 50) // smooth 滚动需要更长时间
+
       // 滚动后隐藏按钮
       setShowScrollToBottom(false)
     }
@@ -78,19 +99,31 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     const scrollTop = target.scrollTop
     const scrollHeight = target.scrollHeight
     const clientHeight = target.clientHeight
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight
 
-    // 判断滚动方向：向上滚动时显示按钮
-    const isScrollingUp = scrollTop < lastScrollTopRef.current
-    lastScrollTopRef.current = scrollTop
+    // 判断是否接近底部（距离底部小于 10px 认为在底部）
+    const isAtBottom = distanceFromBottom < 10
 
-    // 判断是否接近底部（距离底部小于 100px）
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
-
-    // 向上滚动且不在底部时显示按钮，否则隐藏
-    if (isScrollingUp && !isNearBottom) {
-      setShowScrollToBottom(true)
-    } else if (isNearBottom) {
+    // 核心逻辑：如果在底部，隐藏按钮；如果不在底部，显示按钮
+    // 不再判断滚动方向，只看位置
+    if (isAtBottom) {
       setShowScrollToBottom(false)
+      // 更新 lastScrollTop，避免下次误判
+      lastScrollTopRef.current = scrollTop
+    } else {
+      // 不在底部
+      // 如果是自动滚动触发的，忽略（因为自动滚动可能在滚动过程中）
+      if (isAutoScrollingRef.current) {
+        return
+      }
+
+      // 判断滚动方向：只有向上滚动才显示按钮
+      const isScrollingUp = scrollTop < lastScrollTopRef.current
+      lastScrollTopRef.current = scrollTop
+
+      if (isScrollingUp) {
+        setShowScrollToBottom(true)
+      }
     }
   }, [])
 
@@ -113,8 +146,30 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       if (scrollRAFRef.current) {
         cancelAnimationFrame(scrollRAFRef.current)
       }
+      if (typingScrollRAFRef.current) {
+        cancelAnimationFrame(typingScrollRAFRef.current)
+      }
     }
   }, [onChatListScroll])
+
+  // 当用户向上滚动时，取消所有自动滚动
+  useEffect(() => {
+    if (showScrollToBottom) {
+      // 用户向上滚动了，取消所有待执行的自动滚动
+      if (typingScrollRAFRef.current) {
+        cancelAnimationFrame(typingScrollRAFRef.current)
+        typingScrollRAFRef.current = 0
+      }
+      if (scrollRAFRef.current) {
+        cancelAnimationFrame(scrollRAFRef.current)
+        scrollRAFRef.current = 0
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+        scrollTimeoutRef.current = null
+      }
+    }
+  }, [showScrollToBottom])
 
   // 1. 聊天切换时：强制立即滚动
   useEffect(() => {
@@ -125,11 +180,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     // 更新 chatUuid 记录
     lastChatUuidRef.current = currentChatUuid
     if (isChatSwitch) {
-      console.log('🔄 chatUuid changed', {
-        chatUuid: currentChatUuid,
-        messagesCount: messages.length,
-        hasRef: !!chatPaddingElRef.current
-      })
       // 聊天切换时需要延迟滚动，等待 DOM 渲染完成
       // 使用 requestAnimationFrame + setTimeout 确保 DOM 已经更新
       if (chatPaddingElRef.current) {
@@ -137,7 +187,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           setTimeout(() => {
             // 使用 auto 而不是 smooth，立即滚动
             scrollToBottom(false)
-          }, 100)  // 增加延迟到 100ms
+          }, 100)
         })
       }
     }
@@ -153,20 +203,42 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [messages, showScrollToBottom, scrollToBottomThrottled])
 
-  // 打字机效果的滚动回调
+  // 打字机效果的滚动回调（节流版本）
   const handleTyping = useCallback(() => {
     if (!showScrollToBottom) {
-      // 使用 RAF 节流，避免每次打字都滚动
+      const now = Date.now()
+      const timeSinceLastScroll = now - lastTypingScrollTimeRef.current
+
+      // 节流：每 100ms 最多滚动一次
+      if (timeSinceLastScroll < 100) {
+        return
+      }
+
+      // 使用独立的 RAF ref，避免与其他滚动逻辑冲突
       // 如果已经有待处理的 RAF，就跳过这次调用
-      if (!scrollRAFRef.current) {
-        scrollRAFRef.current = requestAnimationFrame(() => {
+      if (!typingScrollRAFRef.current) {
+        lastTypingScrollTimeRef.current = now
+
+        typingScrollRAFRef.current = requestAnimationFrame(() => {
           if (chatPaddingElRef.current) {
+            // 标记开始自动滚动
+            isAutoScrollingRef.current = true
+
             chatPaddingElRef.current.scrollIntoView({
               behavior: "auto",
               block: "end"
             })
+
+            // 滚动完成后重置标志
+            // 使用 requestAnimationFrame 确保滚动已经开始
+            requestAnimationFrame(() => {
+              // 再等待一帧，确保滚动事件已触发
+              requestAnimationFrame(() => {
+                isAutoScrollingRef.current = false
+              })
+            })
           }
-          scrollRAFRef.current = 0
+          typingScrollRAFRef.current = 0
         })
       }
     }
@@ -212,7 +284,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           {showScrollToBottom && (
             <div
               id="scrollToBottom"
-              onClick={() => { console.log('scrollToBottomClick'); scrollToBottom(true) }}
+              onClick={() => scrollToBottom(true)}
               className="fixed bottom-60 left-1/2 -translate-x-1/2 bg-black/5 hover:bg-white backdrop-blur-xl cursor-pointer rounded-full shadow-lg border border-gray-200/50 transition-all duration-200 hover:scale-110 animate-slide-up z-50"
             >
               <ArrowDown className="text-gray-400 p-1 m-1" />

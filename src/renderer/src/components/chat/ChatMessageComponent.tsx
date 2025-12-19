@@ -4,7 +4,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@r
 import { Badge } from "@renderer/components/ui/badge"
 import { cn } from '@renderer/lib/utils'
 import { BadgeCheck, BadgePercent, BadgeX, Timer } from 'lucide-react'
-import React, { memo, useEffect, useState } from 'react'
+import React, { memo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
@@ -13,11 +13,11 @@ import remarkMath from 'remark-math'
 import { toast } from 'sonner'
 
 import { useTheme } from '@renderer/components/theme-provider'
+import { updateMessage } from '@renderer/db/MessageRepository'
 import { useTypewriter } from '@renderer/hooks/useTypewriter'
 import SyntaxHighlighter from 'react-syntax-highlighter'
 import { docco, tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import { useChatStore } from '../../store'
-import { updateMessage } from '@renderer/db/MessageRepository'
 
 interface ChatMessageComponentProps {
   index: number
@@ -124,12 +124,6 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   const onMouseHoverAssistantMsg = (hovered: boolean) => {
     setAssistantMessageHovered(hovered)
   }
-
-  useEffect(() => {
-    if (isLatest) {
-      console.log('Latest', m)
-    }
-  }, [isLatest])
 
   if (m.role === 'user') {
     return m.content ? (
