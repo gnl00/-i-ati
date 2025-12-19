@@ -97,12 +97,50 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [msConfig, setmsConfig] = useState<string>(JSON.stringify(mcpServerConfig, null, 2))
 
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
+    
+    // Tabs 滑动指示器相关 state
+    const [activeTab, setActiveTab] = useState<string>('provider-list')
+    const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 0 })
+    const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
+    const tabsListRef = useRef<HTMLDivElement | null>(null)
 
     useEffect(() => {
         setEditProviderName('')
         setEditProviderApiUrl('')
         setEditProviderApiKey('')
     }, [])
+    
+    // 更新滑动指示器位置
+    useEffect(() => {
+        const updateIndicator = () => {
+            const activeTabElement = tabRefs.current[activeTab]
+            const tabsListElement = tabsListRef.current
+            
+            if (activeTabElement && tabsListElement) {
+                const tabsListRect = tabsListElement.getBoundingClientRect()
+                const tabRect = activeTabElement.getBoundingClientRect()
+                
+                setIndicatorStyle({
+                    left: tabRect.left - tabsListRect.left,
+                    width: tabRect.width
+                })
+            }
+        }
+        
+        // 使用 requestAnimationFrame 确保 DOM 已渲染
+        const rafId = requestAnimationFrame(() => {
+            updateIndicator()
+            // 再次延迟以确保样式已应用
+            setTimeout(updateIndicator, 0)
+        })
+        
+        // 监听窗口 resize，确保窗口大小改变时指示器位置正确
+        window.addEventListener('resize', updateIndicator)
+        return () => {
+            cancelAnimationFrame(rafId)
+            window.removeEventListener('resize', updateIndicator)
+        }
+    }, [activeTab])
     useEffect(() => {
         // console.log('currentProviderName', currentProviderName);
         let p: IProvider | undefined
@@ -306,6 +344,18 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             })
         }
     }
+    // TabsTrigger 公共样式
+    const tabsTriggerClassName = cn(
+        "px-4 py-1.5 text-sm font-medium rounded-md relative z-10",
+        "transition-all duration-200 ease-out",
+        "text-gray-600 dark:text-gray-400",
+        "hover:text-gray-900 dark:hover:text-gray-200",
+        "hover:bg-transparent",
+        "data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100",
+        "data-[state=active]:font-semibold",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+    )
+
     return (
         <div className="grid gap-4">
             <div className="space-y-2 select-none">
@@ -315,12 +365,56 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 </h4>
                 <p className="text-sm text-muted-foreground dark:text-gray-400">Set the preferences for @i</p>
             </div>
-            <Tabs defaultValue="provider-list">
+            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list">
                 <div className="flex items-center justify-between mb-2">
-                    <TabsList className="bg-gray-100 dark:bg-gray-800">
-                        <TabsTrigger value="provider-list" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">Providers</TabsTrigger>
-                        <TabsTrigger value="tool" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">Tool</TabsTrigger>
-                        <TabsTrigger value="mcp-server" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">MCP Server</TabsTrigger>
+                    <TabsList 
+                        ref={tabsListRef}
+                        className={cn(
+                            "bg-gray-100 dark:bg-gray-800",
+                            "p-1 rounded-lg",
+                            "inline-flex h-10 items-center justify-center",
+                            "shadow-sm border border-gray-200/50 dark:border-gray-700/50",
+                            "relative"
+                        )}
+                    >
+                        {/* 滑动指示器 */}
+                        {indicatorStyle.width > 0 && (
+                            <div
+                                className={cn(
+                                    "absolute bottom-1 top-1 rounded-md",
+                                    "bg-white dark:bg-gray-700",
+                                    "shadow-sm",
+                                    "transition-all duration-300 ease-out",
+                                    "z-0"
+                                )}
+                                style={{
+                                    left: `${indicatorStyle.left}px`,
+                                    width: `${indicatorStyle.width}px`,
+                                }}
+                            />
+                        )}
+                        
+                        <TabsTrigger 
+                            ref={(el) => { tabRefs.current['provider-list'] = el }}
+                            value="provider-list" 
+                            className={tabsTriggerClassName}
+                        >
+                            Providers
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            ref={(el) => { tabRefs.current['tool'] = el }}
+                            value="tool" 
+                            className={tabsTriggerClassName}
+                        >
+                            Tool
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            ref={(el) => { tabRefs.current['mcp-server'] = el }}
+                            value="mcp-server" 
+                            className={tabsTriggerClassName}
+                        >
+                            MCP Server
+                        </TabsTrigger>
                     </TabsList>
                     <div className="flex items-end gap-2">
                         <p className='text-xs text-orange-400 dark:text-orange-300 select-none'>Remember to save changes</p>
