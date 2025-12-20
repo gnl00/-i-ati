@@ -450,7 +450,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                     </DrawerTrigger>
                                     <DrawerContent>
                                         <DrawerHeader>
-                                            <DrawerTitle>Add new provider</DrawerTitle>
+                                            <DrawerTitle>Add New Provider</DrawerTitle>
                                         </DrawerHeader>
                                         <div id='add-new-provider-drawer' className="px-4 pb-4 app-undragable">
                                             <div className="flex flex-col gap-4">
@@ -718,7 +718,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                             </TableCell>
                                                             <TableCell className='px-4 py-3 text-center'>
                                                                 <Switch 
-                                                                    className='h-5' 
+                                                                    className='h-6' 
                                                                     checked={m.enable} 
                                                                     onCheckedChange={checked => onModelEnableStatusChange(checked, m)}
                                                                 />
