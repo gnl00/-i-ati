@@ -11,7 +11,7 @@ import {
     TableHeader,
     TableRow,
 } from "@renderer/components/ui/table"
-import { Checkbox } from "@renderer/components/ui/checkbox"
+
 import {
     Select,
     SelectContent,
@@ -19,20 +19,20 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-    } from "@renderer/components/ui/select"
+} from "@renderer/components/ui/select"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-    } from "@renderer/components/ui/dropdown-menu"
+} from "@renderer/components/ui/dropdown-menu"
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
     TooltipProvider
-    } from "@renderer/components/ui/tooltip"
+} from "@renderer/components/ui/tooltip"
 import { Button } from "@renderer/components/ui/button"
 import { Badge } from '@renderer/components/ui/badge'
 import { Label } from '@renderer/components/ui/label'
@@ -55,21 +55,21 @@ import groqIcon from '@renderer/assets/provider-icons/groq.svg'
 import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
 import CodeEditor from '@uiw/react-textarea-code-editor'
 
-interface PreferenceProps {}
+interface PreferenceProps { }
 
 const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
-    const { 
+    const {
         appVersion,
         appConfig,
-        setAppConfig, 
-        models, 
+        setAppConfig,
+        models,
         providers, setProviders,
         getProviderByName,
         currentProviderName,
         setCurrentProviderName,
         updateProvider,
-        addProvider, 
+        addProvider,
         removeProvider,
         addModel,
         toggleModelEnable,
@@ -87,9 +87,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [nextAddModelLabel, setNextAddModelLabel] = useState<string>('')
     const [nextAddModelValue, setNextAddModelValue] = useState<string>('')
     const [nextAddModelType, setNextAddModelType] = useState<string>('')
-    
+
     const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
-    
+
     const [newProviderName, setNewProviderName] = useState<string>()
     const [newProviderApi, setNewProviderApi] = useState<string>()
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
@@ -97,7 +97,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [msConfig, setmsConfig] = useState<string>(JSON.stringify(mcpServerConfig, null, 2))
 
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
-    
+
     // Tabs 滑动指示器相关 state
     const [activeTab, setActiveTab] = useState<string>('provider-list')
     const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 0 })
@@ -109,31 +109,31 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setEditProviderApiUrl('')
         setEditProviderApiKey('')
     }, [])
-    
+
     // 更新滑动指示器位置
     useEffect(() => {
         const updateIndicator = () => {
             const activeTabElement = tabRefs.current[activeTab]
             const tabsListElement = tabsListRef.current
-            
+
             if (activeTabElement && tabsListElement) {
                 const tabsListRect = tabsListElement.getBoundingClientRect()
                 const tabRect = activeTabElement.getBoundingClientRect()
-                
+
                 setIndicatorStyle({
                     left: tabRect.left - tabsListRect.left,
                     width: tabRect.width
                 })
             }
         }
-        
+
         // 使用 requestAnimationFrame 确保 DOM 已渲染
         const rafId = requestAnimationFrame(() => {
             updateIndicator()
             // 再次延迟以确保样式已应用
             setTimeout(updateIndicator, 0)
         })
-        
+
         // 监听窗口 resize，确保窗口大小改变时指示器位置正确
         window.addEventListener('resize', updateIndicator)
         return () => {
@@ -159,13 +159,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         // console.log('onAddModelClick currentProvider=', currentProvider);
         if (!currentProvider) return
         const newModel: IModel = {
-            enable: true, 
-            provider: currentProvider.name, 
-            name: nextAddModelLabel, 
-            value: nextAddModelValue, 
+            enable: true,
+            provider: currentProvider.name,
+            name: nextAddModelLabel,
+            value: nextAddModelValue,
             type: nextAddModelType || 'llm'
         }
-        
+
         addModel(currentProvider.name, newModel)
 
         setNextAddModelEnable(false)
@@ -193,13 +193,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 apiUrl: editProviderApiUrl,
                 apiKey: editProviderApiKey
             })
-            
+
             // If provider name changed, update current provider reference
             if (editProviderName !== currentProvider.name) {
                 setCurrentProviderName(editProviderName)
             }
         }
-        
+
         const updatedAppConfig = {
             ...appConfig,
             providers: providers,
@@ -304,7 +304,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             models: updatedModels
         })
     }
-    
+
     // 计算全选checkbox的状态
     const getAllModelsCheckedState = () => {
         const models = currentProvider?.models || []
@@ -319,7 +319,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             setmsConfig(config)
             setMcpServerConfig(JSON.parse(config))
             sonnerToast.success('All syntax right.')
-        } catch(error: any) {
+        } catch (error: any) {
             sonnerToast.error(error.message)
         }
     }
@@ -327,10 +327,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setHoverProviderCardIdx(idx)
     }
     const onProviderCardDelClick = (_, provider: IProvider) => {
-        if(currentProvider && currentProvider.name === provider.name) {
+        if (currentProvider && currentProvider.name === provider.name) {
             setCurrentProvider(undefined)
         }
-        if(currentProviderName && currentProviderName === provider.name) {
+        if (currentProviderName && currentProviderName === provider.name) {
             setCurrentProviderName('')
         }
         removeProvider(provider.name)
@@ -367,7 +367,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             </div>
             <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list">
                 <div className="flex items-center justify-between mb-2">
-                    <TabsList 
+                    <TabsList
                         ref={tabsListRef}
                         className={cn(
                             "bg-gray-100 dark:bg-gray-800",
@@ -393,24 +393,24 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                 }}
                             />
                         )}
-                        
-                        <TabsTrigger 
+
+                        <TabsTrigger
                             ref={(el) => { tabRefs.current['provider-list'] = el }}
-                            value="provider-list" 
+                            value="provider-list"
                             className={tabsTriggerClassName}
                         >
                             Providers
                         </TabsTrigger>
-                        <TabsTrigger 
+                        <TabsTrigger
                             ref={(el) => { tabRefs.current['tool'] = el }}
-                            value="tool" 
+                            value="tool"
                             className={tabsTriggerClassName}
                         >
                             Tool
                         </TabsTrigger>
-                        <TabsTrigger 
+                        <TabsTrigger
                             ref={(el) => { tabRefs.current['mcp-server'] = el }}
-                            value="mcp-server" 
+                            value="mcp-server"
                             className={tabsTriggerClassName}
                         >
                             MCP Server
@@ -510,15 +510,15 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                             onMouseLeave={_ => onProviderCardHover(-1)}
                                             onClick={_ => onProviderCardClick(p)}
                                         >
-                                            <img 
-                                                id="providerIcon" 
-                                                draggable={false} 
-                                                src={getIconSrc(p.name)} 
-                                                alt={p.name} 
+                                            <img
+                                                id="providerIcon"
+                                                draggable={false}
+                                                src={getIconSrc(p.name)}
+                                                alt={p.name}
                                                 className={cn(
                                                     "w-5 h-5 flex-none dark:invert dark:brightness-90 transition-transform duration-200",
                                                     hoverProviderCardIdx === idx && "scale-110"
-                                                )} 
+                                                )}
                                             />
                                             <TooltipProvider>
                                                 <Tooltip>
@@ -559,10 +559,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                         <Label htmlFor="provider-name" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
                                             Provider Name
                                         </Label>
-                                        <Input 
+                                        <Input
                                             id="provider-name"
-                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all' 
-                                            placeholder='provider name' 
+                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
+                                            placeholder='provider name'
                                             value={editProviderName}
                                             onChange={(e) => {
                                                 setEditProviderName(e.target.value)
@@ -575,10 +575,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                         <Label htmlFor="provider-api-url" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
                                             API Url
                                         </Label>
-                                        <Input 
+                                        <Input
                                             id="provider-api-url"
-                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all' 
-                                            placeholder='https://api.example.com/v1/chat/completions' 
+                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
+                                            placeholder='https://api.example.com/v1/chat/completions'
                                             value={editProviderApiUrl}
                                             onChange={(e) => {
                                                 setEditProviderApiUrl(e.target.value)
@@ -590,11 +590,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                         <Label htmlFor="provider-api-key" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
                                             API Key
                                         </Label>
-                                        <Input 
+                                        <Input
                                             id="provider-api-key"
                                             type="password"
-                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all' 
-                                            placeholder='sk-********' 
+                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
+                                            placeholder='sk-********'
                                             value={editProviderApiKey}
                                             onChange={(e) => {
                                                 setEditProviderApiKey(e.target.value)
@@ -604,7 +604,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* Models 列表区域 */}
                             <div className='flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
                                 <div className='flex-none px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
@@ -626,19 +626,19 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                 {/* 添加新模型行 */}
                                                 <TableRow className='border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30'>
                                                     <TableCell className='px-4 py-3'>
-                                                        <Input 
-                                                            className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0' 
-                                                            value={nextAddModelLabel} 
-                                                            onChange={e => setNextAddModelLabel(e.target.value)} 
-                                                            placeholder="Model Name" 
+                                                        <Input
+                                                            className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0'
+                                                            value={nextAddModelLabel}
+                                                            onChange={e => setNextAddModelLabel(e.target.value)}
+                                                            placeholder="Model Name"
                                                         />
                                                     </TableCell>
                                                     <TableCell className='px-4 py-3'>
-                                                        <Input 
-                                                            className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0' 
-                                                            value={nextAddModelValue} 
-                                                            onChange={e => setNextAddModelValue(e.target.value)} 
-                                                            placeholder="model-id" 
+                                                        <Input
+                                                            className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0'
+                                                            value={nextAddModelValue}
+                                                            onChange={e => setNextAddModelValue(e.target.value)}
+                                                            placeholder="model-id"
                                                         />
                                                     </TableCell>
                                                     <TableCell className='px-4 py-3'>
@@ -659,9 +659,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                         <span className='text-xs text-gray-400 dark:text-gray-500'>-</span>
                                                     </TableCell>
                                                     <TableCell className='px-4 py-3 text-center'>
-                                                        <Button 
-                                                            onClick={onAddModelClick} 
-                                                            size={'sm'} 
+                                                        <Button
+                                                            onClick={onAddModelClick}
+                                                            size={'sm'}
                                                             variant={'default'}
                                                             className='h-9 px-4 shadow-sm hover:shadow-md transition-all'
                                                         >
@@ -673,8 +673,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                 {/* 模型列表 */}
                                                 {
                                                     providers.find(p => p.name === currentProviderName)?.models.map((m, idx) => (
-                                                        <TableRow 
-                                                            key={idx} 
+                                                        <TableRow
+                                                            key={idx}
                                                             className={cn(
                                                                 'border-b border-gray-200 dark:border-gray-700 transition-all duration-150',
                                                                 'hover:bg-gray-50 dark:hover:bg-gray-700/50',
@@ -684,7 +684,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                             <TableCell className='px-4 py-3 text-left max-w-0'>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <p 
+                                                                        <p
                                                                             className='truncate text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 transition-colors'
                                                                             onClick={_ => onModelTableCellClick(m.name)}
                                                                         >
@@ -699,7 +699,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                             <TableCell className='px-4 py-3 text-left max-w-0'>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <p 
+                                                                        <p
                                                                             className='truncate text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-mono'
                                                                             onClick={_ => onModelTableCellClick(m.value)}
                                                                         >
@@ -717,9 +717,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                                 </span>
                                                             </TableCell>
                                                             <TableCell className='px-4 py-3 text-center'>
-                                                                <Switch 
-                                                                    className='h-6' 
-                                                                    checked={m.enable} 
+                                                                <Switch
+                                                                    className='h-6'
+                                                                    checked={m.enable}
                                                                     onCheckedChange={checked => onModelEnableStatusChange(checked, m)}
                                                                 />
                                                             </TableCell>
@@ -754,51 +754,67 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="tool" className='w-[700px] min-h-96 space-y-3 focus:ring-0 focus-visible:ring-0'>
-                    <div className='w-full space-y-3'>
+                <TabsContent value="tool" className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
+                    <div className='w-full space-y-4 p-1'>
                         {/* Title Generation Setting */}
-                        <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm p-4 hover:shadow-md transition-shadow">
-                            <div className="flex items-start gap-4">
-                                <Checkbox
-                                    checked={titleGenerateEnabled}
-                                    onCheckedChange={_ => setTitleGenerateEnabled(!titleGenerateEnabled)}
-                                    id="toggle-title-generation"
-                                    className="mt-1"
-                                />
-                                <div className="flex-1 space-y-3">
-                                    <div className="space-y-1">
-                                        <Label htmlFor="toggle-title-generation" className="text-sm font-semibold text-gray-900 dark:text-gray-100 cursor-pointer">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+                            <div className="p-5 flex items-start gap-4">
+                                <div className="flex-1 space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="toggle-title-generation" className="text-base font-medium text-gray-900 dark:text-gray-100">
                                             Title Generation
                                         </Label>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Automatically generate conversation titles based on content
-                                        </p>
+                                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                                            AI
+                                        </Badge>
                                     </div>
-                                    <div className="app-undragable">
-                                        <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1.5 block">Model Selection</Label>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                        Automatically analyze conversation context and generate concise, meaningful titles using AI models.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={titleGenerateEnabled}
+                                    onCheckedChange={setTitleGenerateEnabled}
+                                    id="toggle-title-generation"
+                                    className="data-[state=checked]:bg-blue-600 mt-1"
+                                />
+                            </div>
+
+                            {/* Model Selection Area - Conditionally rendered with animation */}
+                            <div className={cn(
+                                "grid transition-all duration-300 ease-in-out bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50",
+                                titleGenerateEnabled ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                            )}>
+                                <div className="overflow-hidden">
+                                    <div className="p-4 pt-3 flex items-center justify-between gap-4">
+                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Target Model</span>
                                         <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
                                             <PopoverTrigger disabled={!titleGenerateEnabled} asChild>
                                                 <Button
                                                     variant="outline"
                                                     role="combobox"
                                                     aria-expanded={selectTitleModelPopoutState}
-                                                    className={cn(
-                                                        "w-full justify-between",
-                                                        !titleGenerateEnabled && "opacity-50 cursor-not-allowed"
-                                                    )}
+                                                    className="w-[300px] justify-between bg-white dark:bg-gray-800 h-9 text-sm"
                                                 >
-                                                    <span className="truncate">
-                                                        {titleGenerateModel ? titleGenerateModel.name : "Select model..."}
-                                                    </span>
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        <span className="truncate font-medium">
+                                                            {titleGenerateModel ? titleGenerateModel.name : "Select model..."}
+                                                        </span>
+                                                        {titleGenerateModel && (
+                                                            <span className="text-xs text-gray-400 font-mono">
+                                                                {titleGenerateModel.provider}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-full p-0">
+                                            <PopoverContent className="w-[300px] p-0" align="end">
                                                 <Command>
                                                     <CommandInput placeholder="Search model..." className="h-9" />
                                                     <CommandList>
                                                         <CommandEmpty>No model found.</CommandEmpty>
-                                                        <CommandGroup>
+                                                        <CommandGroup className="max-h-[300px] overflow-y-auto">
                                                             {models.map((md, idx) => (
                                                                 <CommandItem
                                                                     key={idx}
@@ -807,8 +823,12 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                                         setSelectTitleModelPopoutState(false)
                                                                         setTitleGenerateModel(md)
                                                                     }}
+                                                                    className="cursor-pointer"
                                                                 >
-                                                                    {(md.name as string).concat('@').concat(md.provider)}
+                                                                    <div className="flex flex-col">
+                                                                        <span>{md.name}</span>
+                                                                        <span className="text-[10px] text-gray-400">{md.provider}</span>
+                                                                    </div>
                                                                     <Check className={cn("ml-auto h-4 w-4", titleGenerateModel && titleGenerateModel.value === md.value && titleGenerateModel.provider === md.provider ? "opacity-100" : "opacity-0")} />
                                                                 </CommandItem>
                                                             ))}
@@ -823,21 +843,24 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </div>
 
                         {/* WebSearch Items Setting */}
-                        <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm p-4 hover:shadow-md transition-shadow">
-                            <div className="flex items-center justify-between gap-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-center justify-between gap-6">
                                 <div className="flex-1 space-y-1">
-                                    <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                        WebSearch Items
-                                    </Label>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        Number of search results to fetch. The more items means more tokens use and longer times waiting.
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                            Web Search Limit
+                                        </Label>
+                                    </div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                        Max number of search results to process (1-10). Higher values provide more context but increase token usage and latency.
                                     </p>
                                 </div>
-                                <div className="w-24">
+                                <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
                                     <Input
-                                        className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-14 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200'
+                                        className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm transition-all focus:w-20 font-mono font-medium'
                                         defaultValue={3}
                                     />
+                                    <span className="text-xs font-medium text-gray-400 pr-2">items</span>
                                 </div>
                             </div>
                         </div>
@@ -855,7 +878,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
                         }}
                         data-color-mode="auto"
-                        />
+                    />
                 </TabsContent>
             </Tabs>
         </div>
