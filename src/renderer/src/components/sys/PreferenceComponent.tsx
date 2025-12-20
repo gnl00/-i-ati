@@ -83,7 +83,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [editProviderApiUrl, setEditProviderApiUrl] = useState<string>(currentProvider?.apiUrl || '')
     const [editProviderApiKey, setEditProviderApiKey] = useState<string>(currentProvider?.apiKey || '')
 
-    const [nextAddModelEnable, setNextAddModelEnable] = useState<boolean>(false)
+
     const [nextAddModelLabel, setNextAddModelLabel] = useState<string>('')
     const [nextAddModelValue, setNextAddModelValue] = useState<string>('')
     const [nextAddModelType, setNextAddModelType] = useState<string>('')
@@ -168,14 +168,12 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
         addModel(currentProvider.name, newModel)
 
-        setNextAddModelEnable(false)
+
         setNextAddModelLabel('')
         setNextAddModelValue('')
         setNextAddModelType('')
     }
-    const onNextAddModelEnableChange = (val) => {
-        setNextAddModelEnable(val)
-    }
+
     const saveConfigurationClick = (): void => {
         console.log('saveConfigurationClick', editProviderName, editProviderApiUrl, editProviderApiKey)
         console.log('saveConfigurationClick mcpServerConfig', mcpServerConfig)
@@ -607,10 +605,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
                             {/* Models 列表区域 */}
                             <div className='flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
-                                <div className='flex-none px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
+                                {/* <div className='flex-none px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
                                     <h3 className='text-sm font-semibold text-gray-700 dark:text-gray-300'>Models</h3>
-                                </div>
-                                <div className='flex-1 overflow-y-auto scroll-smooth'>
+                                </div> */}
+                                <div className='flex-1 overflow-y-auto scroll-smooth [&>div]:!overflow-visible'>
                                     <TooltipProvider>
                                         <Table id="provider-models-table" className='relative'>
                                             <TableHeader className='sticky top-0 z-10 bg-gray-50 dark:bg-gray-900/50 backdrop-blur-sm'>
@@ -625,20 +623,20 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                             <TableBody>
                                                 {/* 添加新模型行 */}
                                                 <TableRow className='border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30'>
-                                                    <TableCell className='px-4 py-3'>
+                                                    <TableCell className='px-3 py-3'>
                                                         <Input
                                                             className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0'
                                                             value={nextAddModelLabel}
                                                             onChange={e => setNextAddModelLabel(e.target.value)}
-                                                            placeholder="Model Name"
+                                                            placeholder="Name"
                                                         />
                                                     </TableCell>
-                                                    <TableCell className='px-4 py-3'>
+                                                    <TableCell className='px-3 py-3'>
                                                         <Input
                                                             className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0'
                                                             value={nextAddModelValue}
                                                             onChange={e => setNextAddModelValue(e.target.value)}
-                                                            placeholder="model-id"
+                                                            placeholder="ID"
                                                         />
                                                     </TableCell>
                                                     <TableCell className='px-4 py-3'>
