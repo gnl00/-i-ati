@@ -1,17 +1,11 @@
 export const artifactsTool = '/artifacts_tool'
-export const webSearchTool = '/web_search'
 export const toolCallPrompt = `[/no_think /no_thinking /do_not_think]\n当有 tools 可以使用的时候,总是尝试至少调用一种 function tool,再根据tool返回结果给用户response.\n`
 
-export const generateTitlePrompt = `[/no_think /no_thinking /do_not_think]\nGenerate a briefly and precisely title from the context below. NOTE: GENERATE TITLE FROM **THE QUESTION** OR **THE ACTION**. NEVER EVER EXPAIN. DO REMEMBER: **RETURN ME THE TITLE ONLY**\n`
-export const generateSearchKeywordsPrompt = `[/no_think /no_thinking /do_not_think]\nGenerate some briefly and precisely search keywords from the context up and down. 
-- 查询关键词必须与最后一个用户输入内容严格关联,描述准确,并且拆分开的关键词需要有明确的意义. 
-  比如: 输入内容='查询北京的天气',查询关键词可以拆分成 '北京天气,北京今天的天气,北京天气预报',**不能**拆分成 '今天','北京','的','天气',这会导致 keyword 没有完整信息,也破坏了用户意图.
-- 如果用户输入的信息比较模糊,尝试从上下文推断。
-  比如:用户第一步问: '明天北京的天气怎么样？',你的回答可能是:'明天北京天气,北京明天天气,北京天气预报'.
-      在得到你的回答之后,用户第二步问:'那上海呢?'
-      你需要从上下文中提取出关键的,准确的时间信息,你生成的查询关键词应该是 '明天上海天气预报,上海天气,上海天气预报'.
-NOTE: NEVER EXPIAN, OUTPUT THE KEYWORDS STRING ONLY!!!. DO REMEMBER: **RETURN ME THE KEYWORDS SPLIT BY ','**\n
-`
+export const generateTitlePrompt = `
+**/no_think /no_thinking /do_not_think**\n
+Generate a briefly and precisely title from the context below. 
+NEVER EVER EXPAIN. DO REMEMBER: **RETURN ME THE TITLE ONLY**\n`
+
 export const artifactsSystemPrompt = `
 if(当用户输入以 ${artifactsTool} 开头 && 用户有要求你生成的需求) {
   [/no_think /no_thinking /do_not_think]
@@ -58,5 +52,6 @@ export const toolsCallSystemPrompt = `
 - 如果问题涉及实时信息（如当前日期、新闻、股价、天气等）、需要外部验证、或你不确定答案的准确性，请主动选择合适的工具进行查询。
 - 每次只能调用一个工具，并以指定格式输出工具调用请求。
 - 如果工具返回结果，请结合结果给出最终回答；如果无需工具，请直接回答。
+- 今天的日期是 ${new Date().toLocaleDateString()}。
 请始终保持回答简洁、准确、可靠。
 `
