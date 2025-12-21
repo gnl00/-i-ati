@@ -41,7 +41,7 @@ import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandI
 import { Check, ChevronsUpDown, SquarePen, Trash } from "lucide-react"
 import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from '@renderer/components/ui/drawer'
 import { Input } from '@renderer/components/ui/input'
-import { toast as sonnerToast } from 'sonner'
+import { toast } from 'sonner'
 import { useChatStore } from '@renderer/store'
 
 import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
@@ -213,7 +213,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
         setAppConfig(updatedAppConfig)
 
-        sonnerToast.success('Save configurations success')
+        toast.success('Save configurations success')
     }
     const onAddProviderBtnClick = e => {
         if (!newProviderName || !newProviderApi || !newProviderApiKey) {
@@ -234,7 +234,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         }
         addProvider(newProvider)
 
-        sonnerToast.success(`Added ${newProviderName}`)
+        toast.success(`Added ${newProviderName}`)
     }
     const getIconSrc = (provider: string) => {
         let iconSrc = robotIcon
@@ -271,7 +271,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     }
     const onModelTableCellClick = (val: string) => {
         navigator.clipboard.writeText(val)
-        sonnerToast(`✅ Copied`)
+        toast.success('Copied')
     }
     const onProviderCardClick = (p: IProvider) => {
         setCurrentProviderName(p.name)
@@ -316,9 +316,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             // console.log(JSON.parse(config))
             setmsConfig(config)
             setMcpServerConfig(JSON.parse(config))
-            sonnerToast.success('All syntax right.')
+            toast.success('All syntax right.')
         } catch (error: any) {
-            sonnerToast.error(error.message)
+            toast.error(error.message)
         }
     }
     const onProviderCardHover = (idx) => {
@@ -608,10 +608,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             </div>
 
                             {/* Models 列表区域 */}
-                            <div className='flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
-                                {/* <div className='flex-none px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
-                                    <h3 className='text-sm font-semibold text-gray-700 dark:text-gray-300'>Models</h3>
-                                </div> */}
+                            <div className='flex-1 flex justify-between flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
+                                <div className='flex justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
+                                    <h3 className='text-sm font-medium flex items-center text-gray-700 dark:text-gray-300'>Models</h3>
+                                    <Button size="xs" variant="outline" className='text-xs text-gray-400 font-medium transition-all' onClick={() => { toast.warning('Not implemented yet') }}>Fetch Models</Button>
+                                </div>
                                 <div className='flex-1 overflow-y-auto scroll-smooth [&>div]:!overflow-visible'>
                                     <TooltipProvider>
                                         <Table id="provider-models-table" className='relative'>

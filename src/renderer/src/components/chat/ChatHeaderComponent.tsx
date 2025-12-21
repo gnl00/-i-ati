@@ -10,19 +10,19 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
 
-interface ChatHeaderProps {}
+interface ChatHeaderProps { }
 
 const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) => {
   const [pinState, setPinState] = useState<boolean>(false)
   const { chatTitle } = useChatContext()
   const { appConfig, setAppConfig } = useChatStore()
-  const {setSheetOpenState} = useSheetStore()
+  const { setSheetOpenState } = useSheetStore()
 
   useEffect(() => {
     window.electron.ipcRenderer.invoke(GET_CONFIG).then((config: IAppConfig) => {
       setAppConfig({
-          ...appConfig,
-          ...config
+        ...appConfig,
+        ...config
       })
     })
   }, [])
@@ -42,7 +42,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
       <div className="flex items-center space-x-3">
         <TrafficLights />
         <div className="app-dragable flex space-x-2">
-          <Button className="app-undragable rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" variant="ghost" size="sm" onClick={_ => {setSheetOpenState(true)}}>
+          <Button className="app-undragable rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" variant="ghost" size="sm" onClick={_ => { setSheetOpenState(true) }}>
             <ActivityLogIcon className="dark:text-gray-300" />
           </Button>
           <Popover>
@@ -51,7 +51,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
                 <GearIcon className="dark:text-gray-300" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="m-1 app-undragable w-auto h-full">
+            <PopoverContent className="ml-1 mt-1 p-0 pt-2 px-2 app-undragable w-auto h-full">
               <PreferenceComponent />
             </PopoverContent>
           </Popover>
