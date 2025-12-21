@@ -85,6 +85,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   // Custom Caret State
   const [caretPos, setCaretPos] = useState({ top: 0, left: 0, height: 20, visible: false })
+  const lastCaretPos = useRef<{ top: number, left: number } | null>(null)
+  const [motionTrail, setMotionTrail] = useState<{ x: number, y: number, w: number, h: number, active: boolean, isDelete: boolean, id: number }>({
+    x: 0, y: 0, w: 0, h: 0, active: false, isDelete: false, id: 0
+  })
+
+  // Track if backspace was just pressed
+  const isBackspaceRef = useRef(false)
 
   const updateCaretPosition = () => {
     const textarea = textareaRef.current
@@ -99,9 +106,32 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     const caretHeight = fontSize + 4
     const verticalOffset = (height - caretHeight) / 2
 
+    // Calculate final positions
+    const finalTop = adjustedTop + verticalOffset - 2.5
+    const finalLeft = adjustedLeft
+
+    // Motion Trail Logic
+    if (lastCaretPos.current && document.activeElement === textarea) {
+      const prev = lastCaretPos.current
+      // Only trail if on same line (approx) and moved horizontally
+      if (Math.abs(prev.top - finalTop) < 5 && Math.abs(prev.left - finalLeft) > 2) {
+        setMotionTrail({
+          x: Math.min(prev.left, finalLeft),
+          y: finalTop,
+          w: Math.abs(prev.left - finalLeft) + 2, // +2 for caret width overlap
+          h: caretHeight,
+          active: true,
+          isDelete: isBackspaceRef.current,
+          id: Date.now()
+        })
+      }
+    }
+    lastCaretPos.current = { top: finalTop, left: finalLeft }
+    isBackspaceRef.current = false // Reset
+
     setCaretPos({
-      top: adjustedTop + verticalOffset - 2.5,
-      left: adjustedLeft,
+      top: finalTop,
+      left: finalLeft,
       height: caretHeight,
       visible: document.activeElement === textarea
     })
@@ -195,6 +225,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [setInputContent])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Backspace') {
+      isBackspaceRef.current = true
+    }
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault()
       if (!inputContent) {
@@ -493,6 +526,36 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           onFocus={updateCaretPosition}
           onBlur={() => setCaretPos(prev => ({ ...prev, visible: false }))}
         />
+
+
+        {/* Motion Trail (Comet Tail) */}
+        {motionTrail.active && (
+          <div
+            key={motionTrail.id} // Re-mount to restart animation on every move
+            className="pointer-events-none absolute rounded-md z-20"
+            style={{
+              top: 0,
+              left: 0,
+              transform: `translate(${motionTrail.x + 16}px, ${motionTrail.y}px)`,
+              width: motionTrail.w,
+              height: motionTrail.h,
+            }}
+          >
+            <div className={cn(
+              "w-full h-full rounded-md animate-trail-fade",
+              motionTrail.isDelete ? "bg-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.4)]" : "bg-blue-400/20 shadow-[0_0_5px_rgba(96,165,250,0.3)]"
+            )} />
+            <style>{`
+               @keyframes trail-fade {
+                 0% { opacity: 1; transform: scaleX(1); }
+                 100% { opacity: 0; transform: scaleX(0.95); }
+               }
+               .animate-trail-fade {
+                 animation: trail-fade 0.3s ease-out forwards;
+               }
+             `}</style>
+          </div>
+        )}
 
         {/* Custom Caret */}
         {caretPos.visible && (
