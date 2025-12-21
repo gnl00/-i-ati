@@ -351,6 +351,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setChatTemperature([val])
   }
 
+  const triggerButtonClassName = cn(
+    "h-8 min-w-20 w-auto flex items-center justify-between px-2 py-1 gap-1 rounded-2xl",
+    "bg-gray-100/80 dark:bg-gray-800/80", // Slightly transparent for backdrop blur
+    "hover:bg-gray-200 dark:hover:bg-gray-700",
+    "text-gray-600 dark:text-gray-400",
+    "hover:text-gray-900 dark:hover:text-gray-100",
+    "text-xs font-medium",
+    "shadow-sm backdrop-blur-md border border-transparent hover:border-gray-200 dark:hover:border-gray-700", // Subtle border on hover
+    // "shadow-sm hover:shadow-md",
+    "transition-all duration-200",
+    "focus-visible:ring-0 focus-visible:ring-offset-0"
+  )
+
   return (
     <div ref={ref} id='inputArea' className={cn('rounded-md fixed w-full -bottom-1')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
@@ -364,20 +377,20 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectModelPopoutState}
-                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                className={triggerButtonClassName}
               >
-                <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
+                <span className="flex flex-grow justify-center overflow-x-hidden">
                   {selectedModel ? (
                     (() => {
                       return selectedModel.type === 'vlm' ? (
-                        <span className="flex space-x-2">
+                        <span className="flex items-center space-x-1.5">
                           <span>{selectedModel.name}</span>
-                          <i className="ri-eye-line text-green-500"></i>
+                          <i className="ri-eye-line text-green-500 text-[10px]"></i>
                         </span>
                       ) : <span>{selectedModel.name}</span>
                     })()) : ("Select Model")}
                 </span>
-                <ChevronsUpDown className="flex opacity-50 pl-1 pr-0.5 w-5" />
+                <ChevronsUpDown className="flex opacity-50 w-3 h-3 ml-1" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -444,13 +457,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 variant="outline"
                 role="combobox"
                 aria-expanded={selectMCPPopoutState}
-                className="h-8 min-w-20 w-auto flex justify-between p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 backdrop-blur-xl space-x-1 border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                className={triggerButtonClassName}
               >
-                <span className="flex flex-grow justify-center overflow-x-hidden opacity-70">
+                <span className="flex flex-grow justify-center overflow-x-hidden">
                   {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0]}
                 </span>
-                {selectedMcpServerNames.length > 1 && <Badge className="w-[5px] justify-center bg-blue-gray-200 dark:bg-gray-700 hover:bg-blue-gray-200 dark:hover:bg-gray-600 text-blue-gray-500 dark:text-gray-400 backdrop-blur-xl">+{selectedMcpServerNames.length - 1}</Badge>}
-                <Boxes className="flex opacity-50 pl-1 pr-0.5 w-5" />
+                {selectedMcpServerNames.length > 1 && <Badge className="h-4 min-w-[16px] px-1 justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-[9px] hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors shadow-none">+{selectedMcpServerNames.length - 1}</Badge>}
+                <Boxes className="flex opacity-50 w-3 h-3 ml-1" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -489,58 +502,90 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           <div className='flex justify-end w-auto'>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant={'ghost'}
-                  className=
-                  "h-8 flex p-1 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-black/5 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 backdrop-blur-xl border-none shadow-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className={triggerButtonClassName}
                 >
-                  <span>Prefer</span><Settings2 className="h-4 w-4 ml-1" />
+                  <span className="flex-grow text-center">Params</span>
+                  <Settings2 className="flex opacity-50 w-3 h-3 ml-1" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="overflow-hidden p-0 rounded-2xl bg-white/20 backdrop-blur-xl dark:bg-gray-900 "
+                className="w-80 p-0 rounded-2xl overflow-hidden bg-white/10 dark:bg-gray-900/90 backdrop-blur-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-2xl"
                 sideOffset={8}
                 align="end"
               >
-                <div className="grid gap-4 p-2 text-gray-700 dark:text-gray-300 shadow-lg">
-                  <div className="space-y-2 flex justify-evenly">
-                    <p className="flex justify-between w-full">
-                      <span className='leading-none font-medium text-gray-800 dark:text-gray-200'>Chat Settings</span>
-                      <Badge variant={'outline'} className='text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'>Save as Assiatant</Badge>
-                    </p>
+                <div className="flex flex-col">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+                    <span className='text-sm font-semibold text-gray-900 dark:text-gray-100'>Chat Configuration</span>
+                    <Badge variant={'outline'} className='text-[10px] h-5 px-1.5 font-normal bg-white dark:bg-gray-800 border-yellow-400 text-yellow-500'>Session</Badge>
                   </div>
-                  <div className="grid gap-2">
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <Label htmlFor="temperature">Temperature</Label>
-                      <div id="slider-topp" className="flex items-center space-x-1 col-span-2">
-                        <Slider id="temperature" value={chatTemperature} min={0} max={1} step={0.1} onValueChange={value => onChatTemperatureChange(value)} />
-                        <Badge variant={'outline'}>{chatTemperature}</Badge>
+
+                  <div className="p-4 space-y-2">
+                    {/* Temperature Slider */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="temperature" className="text-xs font-medium text-gray-700 dark:text-gray-300">Temperature</Label>
+                        <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{chatTemperature}</span>
                       </div>
+                      <Slider
+                        id="temperature"
+                        value={chatTemperature}
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        onValueChange={value => onChatTemperatureChange(value)}
+                        className="[&_.range-thumb]:h-4 [&_.range-thumb]:w-4"
+                      />
                     </div>
-                    <div className="grid grid-cols-3 items-center gap-4 text-gray-600">
-                      <Label htmlFor="topp">TopP</Label>
-                      <div id="slider-topp" className="flex items-center space-x-1 col-span-2">
-                        <Slider id="topp" value={chatTopP} min={0} max={1} step={0.1} onValueChange={value => onChatTopPChange(value)} />
-                        <Badge variant={'outline'}>{chatTopP}</Badge>
+
+                    {/* Top P Slider */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="topp" className="text-xs font-medium text-gray-700 dark:text-gray-300">Top P</Label>
+                        <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{chatTopP}</span>
                       </div>
+                      <Slider
+                        id="topp"
+                        value={chatTopP}
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        onValueChange={value => onChatTopPChange(value)}
+                        className="[&_.range-thumb]:h-4 [&_.range-thumb]:w-4"
+                      />
                     </div>
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <Label htmlFor="maxCompletionTokens">MaxTokens</Label>
+
+                    {/* Max Tokens */}
+                    <div className="space-y-2">
+                      <Label htmlFor="maxCompletionTokens" className="text-xs font-medium text-gray-700 dark:text-gray-300">Max Tokens</Label>
                       <Input
                         id="maxCompletionTokens"
                         defaultValue="4096"
-                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
+                        className="h-8 text-xs bg-white dark:bg-gray-950/50 border-gray-200 dark:border-gray-800 focus-visible:ring-1 focus-visible:ring-blue-500"
                       />
                     </div>
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <Label htmlFor="systemPrompt">Prompt</Label>
+
+                    {/* System Prompt */}
+                    <div className="space-y-2">
+                      <Label htmlFor="systemPrompt" className="text-xs font-medium text-gray-700 dark:text-gray-300">System Prompt</Label>
                       <Textarea
                         id="systemPrompt"
                         value={currentSystemPrompt}
-                        placeholder='Input your custom system prmopt here'
-                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 col-span-2 h-8"
+                        placeholder='You are a helpful assistant...'
+                        className="min-h-[80px] text-xs bg-white dark:bg-gray-950/50 border-gray-200 dark:border-gray-800 focus-visible:ring-1 focus-visible:ring-blue-500 resize-none p-2"
                         onChange={e => setCurrentSystemPrompt(e.target.value)}
                       />
                     </div>
+                  </div>
+
+                  {/* Footer Action */}
+                  <div className="p-2 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
+                    <Button variant="ghost" size="sm" className="w-full h-7 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-gray-100">
+                      Reset to Defaults
+                    </Button>
                   </div>
                 </div>
               </PopoverContent>
