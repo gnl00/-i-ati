@@ -236,6 +236,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     handleChatSubmitCallback(inputContent, imageSrcBase64List, { tools: tools, prompt: currentSystemPrompt })
     setInputContent('')
     setImageSrcBase64List([])
+
+    // Reset caret position after clearing input
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.value = '' // Ensure DOM is synced
+        textareaRef.current.dispatchEvent(new Event('input', { bubbles: true })) // Trigger auto-resize if needed
+        updateCaretPosition()
+      }
+    })
   }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])
 
   const onStopClick = () => {
