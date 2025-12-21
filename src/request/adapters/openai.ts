@@ -12,10 +12,7 @@ export class OpenAIAdapter extends BaseAdapter {
   transformRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
-      messages: req.messages.map(m => {
-        const { reasoning, artifatcs, toolCallResults: tool, model, ...msg } = m
-        return msg
-      }),
+      messages: req.messages,
       stream: req.stream ?? true,
       temperature: req.options?.temperature ?? 1,
       max_tokens: req.options?.maxTokens ?? 4096,

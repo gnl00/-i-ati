@@ -40,15 +40,15 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
     body: JSON.stringify({
       model: req.model,
       messages: initMessage != null ? [
-        {...initMessage},
+        { ...initMessage },
         {
           role: 'user',
           content: req.content
         }
       ] : [{
-          role: 'user',
-          content: req.content
-        }],
+        role: 'user',
+        content: req.content
+      }],
       stream: streamEnable,
       max_tokens: 4096,
       temperature: 0.7,
@@ -169,6 +169,12 @@ export const commonOpenAIChatCompletionRequest = async (req: IUnifiedRequest, si
   }
 
   const requestBody = adapter.transformRequest(req)
+  if (requestBody.messages) {
+    requestBody.messages = requestBody.messages.map(m => {
+      const { role, content, name } = m
+      return { role, content, name }
+    })
+  }
 
   beforeFetch()
   try {
@@ -180,7 +186,7 @@ export const commonOpenAIChatCompletionRequest = async (req: IUnifiedRequest, si
         ...requestBody
       })
     })
-  
+
     if (!fetchResponse.ok) {
       const resp = await fetchResponse.json()
       throw new Error(`Error=${JSON.stringify(resp)}, Text=${fetchResponse.statusText}`)
@@ -193,7 +199,7 @@ export const commonOpenAIChatCompletionRequest = async (req: IUnifiedRequest, si
       const response = adapter.transformNotStreamResponse(await fetchResponse.json())
       return response
     }
-    
+
   } catch (error: any) {
     throw error
   } finally {
