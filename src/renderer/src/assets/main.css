@@ -91,6 +91,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -106,12 +107,13 @@
 
 @keyframes slideInRight {
   from {
-      transform: translateX(5px);
-      opacity: 0;
+    transform: translateX(5px);
+    opacity: 0;
   }
+
   to {
-      transform: translateX(0);
-      opacity: 1;
+    transform: translateX(0);
+    opacity: 1;
   }
 }
 
@@ -125,6 +127,7 @@
     transform: translate(-50%, 10px);
     opacity: 0;
   }
+
   to {
     transform: translate(-50%, 0);
     opacity: 1;
@@ -153,6 +156,7 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -163,15 +167,19 @@
   0% {
     caret-color: #3b82f6;
   }
+
   25% {
     caret-color: #fa6060;
   }
+
   50% {
     caret-color: rgba(58, 201, 55, 0.704);
   }
+
   75% {
     caret-color: #e4c136;
   }
+
   100% {
     caret-color: #8787eae3;
   }
@@ -194,6 +202,7 @@
     opacity: 0;
     transform: scale(0.98) translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -205,6 +214,7 @@
     opacity: 1;
     transform: scale(1) translateY(0);
   }
+
   to {
     opacity: 0;
     transform: scale(0.98) translateY(-4px);
@@ -229,6 +239,7 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(200%);
   }
@@ -239,6 +250,7 @@
     transform: translateY(10px) translateX(10px) scale(2);
     opacity: 0;
   }
+
   100% {
     transform: translateY(0) translateX(0) scale(1);
     opacity: 1;
@@ -250,6 +262,7 @@
     transform: translateY(10px) translateX(-10px) scale(0.98);
     opacity: 0;
   }
+
   100% {
     transform: translateY(0) translateX(0) scale(1);
     opacity: 1;
@@ -270,24 +283,49 @@
     width: 100%;
     height: 100%;
     /* Light mode: 深色光效 */
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(0, 0, 0, 0.08) 50%,
-      transparent 100%
-    );
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.08) 50%,
+        transparent 100%);
     animation: shine 1.2s ease-in-out forwards;
     pointer-events: none;
   }
 
   /* Dark mode: 亮色光效 */
   .dark .animate-shine::after {
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.3) 50%,
-      transparent 100%
-    );
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        transparent 100%);
+  }
+
+  /* Infinite Shine Variant */
+  .animate-shine-infinite {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .animate-shine-infinite::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Light mode */
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.08) 50%,
+        transparent 100%);
+    animation: shine 1.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .dark .animate-shine-infinite::after {
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        transparent 100%);
   }
 
   .animate-message-in {
