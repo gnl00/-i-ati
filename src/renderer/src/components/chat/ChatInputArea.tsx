@@ -36,6 +36,16 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { getCaretCoordinates } from '../../utils/caret-coords'
 
+import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
+import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
+import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
+import moonshotIcon from '@renderer/assets/provider-icons/moonshot.svg'
+import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
+import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
+import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
+import groqIcon from '@renderer/assets/provider-icons/groq.svg'
+import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
+
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
 }
@@ -92,6 +102,40 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   // Track if backspace was just pressed
   const isBackspaceRef = useRef(false)
+
+  const getIconSrc = (provider: string) => {
+    let iconSrc = robotIcon
+    const pName = provider.toLowerCase()
+    switch (pName) {
+      case "OpenAI".toLowerCase():
+        iconSrc = openaiIcon
+        break
+      case "Anthropic".toLowerCase():
+        iconSrc = anthropicIcon
+        break
+      case "DeepSeek".toLowerCase():
+        iconSrc = deepseekIcon
+        break
+      case "MoonShot".toLowerCase():
+        iconSrc = moonshotIcon
+        break
+      case "SilliconFlow".toLowerCase() || "SiliconCloud".toLowerCase():
+        iconSrc = siliconcloudIcon
+        break
+      case "OpenRouter".toLowerCase():
+        iconSrc = openrouterIcon
+        break
+      case "Ollamma".toLowerCase():
+        iconSrc = ollamaIcon
+        break
+      case "Groq".toLowerCase():
+        iconSrc = groqIcon
+        break
+      default:
+        break
+    }
+    return iconSrc
+  }
 
   const updateCaretPosition = () => {
     const textarea = textareaRef.current
@@ -349,27 +393,43 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                     <CommandGroup
                       key={p.name}
                       value={p.name}
-                      className='scroll-smooth'
-                    >
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{p.name}</span>
-                      {
-                        p.models.map((m) => m.enable && (
-                          <CommandItem
-                            key={m.provider + '/' + m.value}
-                            value={m.provider + '/' + m.value}
-                            onSelect={(_) => {
-                              setSelectedModel(m)
-                              const p = providers.findLast(p => p.name == m.provider)!
-                              setCurrentProviderName(p.name)
-                              setSelectModelPopoutState(false)
-                            }}
-                          >
-                            {m.name}
-                            {m.type === 'vlm' && <i className="ri-eye-line text-green-500"></i>}
-                            {(selectedModel && selectedModel.value === m.value && selectedModel.provider === p.name) && <Check className={cn("ml-auto")} />}
-                          </CommandItem>
-                        ))
+                      className='scroll-smooth [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
+                      heading={
+                        <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md -mx-2 sticky top-0 z-10 border-b border-gray-100 dark:border-gray-800">
+                          <img
+                            src={getIconSrc(p.name)}
+                            alt={p.name}
+                            className="w-4 h-4 object-contain dark:invert dark:brightness-90 opacity-70"
+                          />
+                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-tight">
+                            {p.name}
+                          </span>
+                        </div>
                       }
+                    >
+                      <div className="pt-1">
+                        {
+                          p.models.map((m) => m.enable && (
+                            <CommandItem
+                              key={m.provider + '/' + m.value}
+                              value={m.provider + '/' + m.value}
+                              className="aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/20 aria-selected:text-blue-700 dark:aria-selected:text-blue-300 pl-4 py-2"
+                              onSelect={(_) => {
+                                setSelectedModel(m)
+                                const p = providers.findLast(p => p.name == m.provider)!
+                                setCurrentProviderName(p.name)
+                                setSelectModelPopoutState(false)
+                              }}
+                            >
+                              <span className="truncate">{m.name}</span>
+                              {m.type === 'vlm' && <i className="ri-eye-line text-green-500 ml-2 text-xs"></i>}
+                              {(selectedModel && selectedModel.value === m.value && selectedModel.provider === p.name) &&
+                                <Check className={cn("ml-auto w-4 h-4 text-blue-500")} />
+                              }
+                            </CommandItem>
+                          ))
+                        }
+                      </div>
                     </CommandGroup>
                   ))}
                 </CommandList>
