@@ -371,10 +371,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                     (() => {
                       return selectedModel.type === 'vlm' ? (
                         <span className="flex space-x-2">
-                          <span>{selectedModel.value}</span>
+                          <span>{selectedModel.name}</span>
                           <i className="ri-eye-line text-green-500"></i>
                         </span>
-                      ) : <span>{selectedModel.value}</span>
+                      ) : <span>{selectedModel.name}</span>
                     })()) : ("Select Model")}
                 </span>
                 <ChevronsUpDown className="flex opacity-50 pl-1 pr-0.5 w-5" />

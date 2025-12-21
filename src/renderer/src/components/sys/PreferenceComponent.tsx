@@ -542,7 +542,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                                     onProviderCardDelClick(idx, p)
                                                 }}
                                             >
-                                                <Cross1Icon className="rounded-full bg-red-500 text-white p-1 w-5 h-5 shadow-lg transition-all duration-200 hover:bg-red-600 hover:scale-110 hover:rotate-90 active:scale-95" />
+                                                <Cross1Icon className={cn(
+                                                    'rounded-full p-1 w-5 h-5 shadow-lg transition-all duration-200 hover:scale-110 hover:rotate-90 active:scale-95',
+                                                    'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+                                                    'hover:bg-red-200 dark:hover:bg-red-900/50'
+                                                )} />
                                             </div>
                                         </div>
                                     ))
