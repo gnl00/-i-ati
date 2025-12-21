@@ -449,30 +449,40 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size={'xs'} variant="ghost" className="rounded-full" onClick={startNewChat}>
-                    <BadgePlus className='w-5 text-gray-600 dark:text-gray-400 flex justify-center border-none hover:text-gray-400 dark:hover:text-gray-300'></BadgePlus>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+                    onClick={startNewChat}
+                  >
+                    <BadgePlus className='w-5 h-5' strokeWidth={2} />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
+                <TooltipContent className="bg-black/80 backdrop-blur-md border-0 text-gray-100 text-xs px-2 py-1 rounded-md mb-2">
                   <p>New Chat</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={cn('px-2 py-0.5 rounded-2xl', webSearchEnable ? 'bg-blue-200 dark:bg-blue-900' : 'hover:bg-gray-100 dark:hover:bg-gray-700')}>
-                    <Globe
-                      className={
-                        cn("backdrop-blur-3xl text-gray-600 dark:text-gray-400 flex justify-center w-5",
-                          webSearchEnable ? 'text-blue-400 dark:text-blue-300' : 'hover:text-gray-400 dark:hover:text-gray-300'
-                        )}
-                      onClick={onWebSearchClick}>
-                    </Globe>
-                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={cn(
+                      "h-8 w-8 rounded-xl transition-all duration-200",
+                      webSearchEnable
+                        ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 hover:bg-blue-200 hover:text-blue-400 dark:hover:bg-blue-900/60"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    )}
+                    onClick={onWebSearchClick}
+                  >
+                    <Globe className="w-5 h-5" strokeWidth={2} />
+                  </Button>
                 </TooltipTrigger>
-                <TooltipContent className="bg-black/30 backdrop-blur-3xl text-gray-100">
-                  <p>Web Search</p>
+                <TooltipContent className="bg-black/80 backdrop-blur-md border-0 text-gray-100 text-xs px-2 py-1 rounded-md mb-2">
+                  <p>Web Search {webSearchEnable ? 'On' : 'Off'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
