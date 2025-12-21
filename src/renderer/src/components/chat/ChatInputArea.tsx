@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { getCaretCoordinates } from '../../utils/caret-coords'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
@@ -81,6 +82,49 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const textareaMaxHeight = useRef<number>(450)
   const [textareaHeight, setTextareaHeight] = useState<number>(textareaDefaultHeight.current) // Use state to manage height
   const [isTextareaExpanded, setIsTextareaExpanded] = useState<boolean>(false) // Track expand state
+
+  // Custom Caret State
+  const [caretPos, setCaretPos] = useState({ top: 0, left: 0, height: 20, visible: false })
+
+  const updateCaretPosition = () => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const { top, left, height, fontSize } = getCaretCoordinates(textarea, textarea.selectionEnd)
+    // Adjust for scroll
+    const adjustedTop = top - textarea.scrollTop
+    const adjustedLeft = left - textarea.scrollLeft
+
+    // Center the caret vertically relative to the line height
+    const caretHeight = fontSize + 4
+    const verticalOffset = (height - caretHeight) / 2
+
+    setCaretPos({
+      top: adjustedTop + verticalOffset - 2.5,
+      left: adjustedLeft,
+      height: caretHeight,
+      visible: document.activeElement === textarea
+    })
+  }
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (document.activeElement === textareaRef.current) {
+        updateCaretPosition()
+      } else {
+        setCaretPos(prev => ({ ...prev, visible: false }))
+      }
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    window.addEventListener('resize', updateCaretPosition)
+
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+      window.removeEventListener('resize', updateCaretPosition)
+    }
+  }, [])
+
 
   const handleToggleTextarea = () => {
     if (isTextareaExpanded) {
@@ -147,6 +191,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   // }, [artifacts, toggleArtifacts])
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputContent(e.target.value)
+    requestAnimationFrame(updateCaretPosition)
   }, [setInputContent])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -435,7 +480,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           }}
           className={
             cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none',
-              'rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto font-mono typewriter-cursor text-gray-700 dark:text-gray-300',
+              'rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto font-mono text-gray-700 dark:text-gray-300 caret-transparent',
             ) // Override default min-height
           }
           placeholder='Type anything to chat'
@@ -443,7 +488,37 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           onChange={onTextAreaChange}
           onKeyDown={onTextAreaKeyDown}
           onPaste={onTextAreaPaste}
+          onScroll={updateCaretPosition}
+          onClick={updateCaretPosition}
+          onFocus={updateCaretPosition}
+          onBlur={() => setCaretPos(prev => ({ ...prev, visible: false }))}
         />
+
+        {/* Custom Caret */}
+        {caretPos.visible && (
+          <div
+            className="pointer-events-none absolute w-[3px] bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] z-30 animate-caret-breathe"
+            style={{
+              top: 0,
+              left: 0,
+              transform: `translate(${caretPos.left + 16}px, ${caretPos.top}px)`, // 16px to match container padding
+              height: caretPos.height + 1.25,
+              transition: 'transform 0.1s cubic-bezier(0.2, 0, 0, 1), height 0.1s ease',
+            }}
+          >
+            {/* Glow / Comet Tail Effect */}
+            <div className="absolute top-0 bottom-0 -left-[1px] w-[6px] bg-blue-400/20 blur-[2px] rounded-full" />
+            <style>{`
+               @keyframes caret-breathe {
+                 0%, 100% { opacity: 1; }
+                 50% { opacity: 0.3; }
+               }
+               .animate-caret-breathe {
+                 animation: caret-breathe 1.5s ease-in-out infinite;
+               }
+             `}</style>
+          </div>
+        )}
         <div className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px] dark:border-gray-700 flex-none h-10">
           <div className='flex-grow flex items-center space-x-2 select-none relative'>
             <TooltipProvider delayDuration={400}>
