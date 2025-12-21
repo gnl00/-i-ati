@@ -417,7 +417,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                       value={p.name}
                       className='scroll-smooth [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
                       heading={
-                        <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md -mx-2 sticky top-0 z-10 border-b border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2 px-2 py-1.5 dark:bg-gray-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-gray-800">
                           <img
                             src={getIconSrc(p.name)}
                             alt={p.name}
