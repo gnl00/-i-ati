@@ -13,6 +13,10 @@
     "composite": true,
     "types": [
       "electron-vite/node"
-    ]
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@mcp/*": ["src/mcp/*"]
+    }
   }
 }

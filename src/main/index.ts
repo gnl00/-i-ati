@@ -1,23 +1,21 @@
-import { app, BrowserWindow, globalShortcut } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import path from 'node:path'
-import os from 'node:os'
+import { BrowserWindow, app, globalShortcut } from 'electron'
+import { mcpClient } from '@mcp/client'
 import { loadConfig } from './app-config'
-import { createWindow } from './main-window'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
-import { closeAll as mcpClientClose } from '../mcp/client'
+import { createWindow } from './main-window'
 
-const reactDevToolsPath = path.join(
-  os.homedir(),
-  'Library/Application Support/Google/Chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/6.0.1_0'
-)
+// const reactDevToolsPath = path.join(
+//   os.homedir(),
+//   'Library/Application Support/Google/Chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/6.0.1_0'
+// )
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   // await session.defaultSession.loadExtension(reactDevToolsPath)
-  
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
   // globalShortcut.unregister("Esc")
@@ -57,7 +55,9 @@ app.on('window-all-closed', () => {
     app.quit()
   }
   globalShortcut.unregisterAll()
-  mcpClientClose()
+  if (mcpClient) {
+    mcpClient.removeAllServers()
+  }
 })
 
 // In this file you can include the rest of your app"s specific main process

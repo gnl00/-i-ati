@@ -3,7 +3,13 @@ import { defineConfig } from 'electron-vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  main: {},
+  main: {
+    resolve: {
+      alias: {
+        '@mcp': resolve('src/mcp')
+      }
+    }
+  },
   preload: {},
   renderer: {
     resolve: {

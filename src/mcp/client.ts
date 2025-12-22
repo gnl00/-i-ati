@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { spawn } from 'child_process';
 
@@ -15,7 +15,7 @@ export type ClientProps = {
 
 type ToolProps = {
   name: string
-  description: string
+  description?: string
   inputSchema: any
 }
 
@@ -123,9 +123,9 @@ const connect = async (props: ClientProps) => {
       })
     } catch (error: any) {
       console.error(`[@i] mcp-server '${props.name}' connect error: ${error.message}`)
-      return {result: false, msg: error.message}
+      return { result: false, msg: error.message }
     }
-  } else if(props.url && props.type) {
+  } else if (props.url && props.type) {
     if (props.type === 'sse') {
       console.log('[@i] creating SSEClientTransport');
       transport = new SSEClientTransport(new URL(props.url))
@@ -136,7 +136,7 @@ const connect = async (props: ClientProps) => {
   }
 
   console.log('[@i] mcp transport protocol', JSON.stringify(transport));
-  
+
   if (transport) {
     console.log('[@i] mcp-client connecting')
     await client.connect(transport)
@@ -144,7 +144,7 @@ const connect = async (props: ClientProps) => {
     const tools = await client.listTools()
     mcpClient.addServer(props.name, client, tools.tools)
     console.log('[@i] mcp-tools\n', JSON.stringify(tools))
-    return {result: true, tools: tools.tools, msg: `Connnected to '${props.name}'`}
+    return { result: true, tools: tools.tools, msg: `Connnected to '${props.name}'` }
   }
 
   // // List resources
@@ -158,7 +158,7 @@ const connect = async (props: ClientProps) => {
   //   const prompts = await client.listPrompts();
   //   console.log('[@i] mcp-prompts', prompts);
   // }
-  return {result: false, tools: {}, msg: `Connnected to '${props.name}' Error`}
+  return { result: false, tools: {}, msg: `Connnected to '${props.name}' Error` }
 }
 
 let toolCallCountMap: Map<string, number> = new Map()
@@ -179,7 +179,7 @@ const toolCall = async (tcId: string, toolName: string, args: { [x: string]: unk
           throw new Error('tool call reached max count=3')
         }
         toolCallCountMap.set(tcId, currentCount + 1)
-        const result = await c.callTool({name: toolName, arguments: args})
+        const result = await c.callTool({ name: toolName, arguments: args })
         console.log(`[@i] Call mcp-server: ${serverName}, tool: ${toolName}, result: ${JSON.stringify(result)}`);
         // Serialize the result to ensure it can be cloned across processes
         return JSON.parse(JSON.stringify(result))
@@ -224,8 +224,5 @@ const closeAll = () => {
 //   args: ["server.js"]
 // });
 
-export {
-  connect, close, closeAll,
-  toolCall, McpClient, mcpClient
-}
+export { McpClient, close, closeAll, connect, mcpClient, toolCall };
 
