@@ -9,8 +9,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { artifactsSystemPrompt, generateTitlePrompt, toolCallPrompt, toolsCallSystemPrompt } from '../constant/prompts'
 
 interface ToolCallProps {
+  id?: string
+  index?: number
   function: string
-  args?: string
+  args: string
 }
 
 // 管道上下文接口
@@ -201,26 +203,25 @@ function useChatSubmit() {
         if (resp.toolCalls && resp.toolCalls.length > 0) {
           if (!context.hasToolCall) context.hasToolCall = true
 
-          // 检查是否需要创建新的 tool call
-          if (resp.toolCalls[0].function.name) {
-            // 检查是否已经存在同名的 tool call
-            const existingToolCall = context.toolCalls.find(
-              tc => tc.function === resp.toolCalls[0].function.name
+          resp.toolCalls.forEach(tc => {
+            // Find existing tool call by index or id
+            const existingToolCall = context.toolCalls.find(t =>
+              (tc.index !== undefined && t.index === tc.index) ||
+              (tc.id && t.id === tc.id)
             )
 
-            if (!existingToolCall) {
-              // 只有不存在时才添加新的 tool call
+            if (existingToolCall) {
+              if (tc.function.name) existingToolCall.function = tc.function.name
+              if (tc.function.arguments) existingToolCall.args += tc.function.arguments
+            } else {
               context.toolCalls.push({
-                function: resp.toolCalls[0].function.name,
-                args: ''
+                id: tc.id,
+                index: tc.index,
+                function: tc.function.name || '',
+                args: tc.function.arguments || ''
               })
             }
-          }
-
-          // 追加参数到最后一个 tool call
-          if (resp.toolCalls[0].function.arguments && context.toolCalls.length > 0) {
-            context.toolCalls[context.toolCalls.length - 1].args += resp.toolCalls[0].function.arguments
-          }
+          })
         }
 
         if (context.isContentHasThinkTag) {

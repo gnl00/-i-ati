@@ -68,6 +68,7 @@ declare interface IUnifiedRequest {
 // 工具调用格式
 declare interface IToolCall {
   id: string
+  index?: number
   type: 'function'
   function: {
     name: string

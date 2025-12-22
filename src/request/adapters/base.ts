@@ -2,7 +2,7 @@
 export abstract class BaseAdapter {
   abstract providerType: ProviderType
   abstract apiVersion: string
-  
+
   buildHeaders(req: IUnifiedRequest): any {
     const headers: Record<string, string> = {
       'content-type': 'application/json'
@@ -21,22 +21,22 @@ export abstract class BaseAdapter {
 
   // 转换请求格式
   abstract transformRequest(req: IUnifiedRequest): any
-  
+
   // 获取端点URL
   abstract getEndpoint(baseUrl: string): string
-  
+
   // 转换普通响应
   abstract transformNotStreamResponse(response: any): IUnifiedResponse
-  
+
   // 转换stream响应
   abstract transformStreamResponse(streamReader: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown>
 
   // 解析流式响应的单个块
   abstract parseStreamChunk(chunk: string): IUnifiedStreamResponse | null
-  
+
   // 可选：自定义 headers
   getHeaders?(req: IUnifiedRequest): Record<string, string>
-  
+
   // 工具调用转换的通用方法
   protected transformTools(tools: any[]): any[] {
     if (!tools?.length) return []
@@ -65,7 +65,7 @@ export abstract class BaseAdapter {
       }
     })
   }
-  
+
   // 通用的结束原因映射
   protected mapFinishReason(reason: string): IUnifiedResponse['finishReason'] {
     switch (reason?.toLowerCase()) {
@@ -87,13 +87,14 @@ export abstract class BaseAdapter {
         return 'stop'
     }
   }
-  
+
   // 通用的工具调用转换
   protected transformToolCalls(toolCalls: any[]): IToolCall[] | undefined {
     if (!toolCalls?.length) return undefined
-    
+
     return toolCalls.map(tc => ({
       id: tc.id || `tool_${Date.now()}`,
+      index: tc.index,
       type: 'function' as const,
       function: {
         name: tc.function?.name || '',
