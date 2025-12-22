@@ -90,14 +90,13 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
           </div>
         </AccordionTrigger>
 
-        <AccordionContent className="mt-2 pb-1 relative group px-0">
+        <AccordionContent className="mt-2 pb-1 relative px-0">
           {isWebSearch && webSearchData ? (
-            // Web Search 专用渲染 - 使用独立组件
-            <WebSearchResults results={webSearchData.results} isDarkMode={isDarkMode} />
+            <WebSearchResults results={webSearchData.results} />
           ) : (
             // 其他工具保持 JSON 展示（原有代码）
             <div className={cn(
-              "relative rounded-lg overflow-hidden border shadow-inner",
+              "relative rounded-lg overflow-hidden border shadow-inner group",
               isError
                 ? "bg-red-50/30 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
                 : "bg-zinc-50/50 dark:bg-black/20 border-zinc-200/50 dark:border-zinc-800"
