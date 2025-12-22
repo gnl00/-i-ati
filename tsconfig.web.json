@@ -1,17 +1,16 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": [
-    "resources/*",
-    "src/constants/*",
-    "src/config/*",
-    "src/types/*",
-    "src/request/*",
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
-    "src/renderer/src/**/*.tsx",
-    "src/preload/*.d.ts", 
-    "src/renderer/src/components",
-    "src/llmTools/*"
+    "src/preload/*.d.ts",
+    "src/constants/**/*",
+    "src/config/**/*",
+    "src/types/**/*",
+    "src/request/**/*",
+    "src/llmTools/**/*",
+    "resources/**/*",
+    "data/**/*"
   ],
   "compilerOptions": {
     "composite": true,
@@ -21,12 +20,24 @@
       "@renderer/*": [
         "src/renderer/src/*"
       ],
-      "@constants/*": ["src/constants/*"],
-      "@config/*": ["src/config/*"],
-      "~types/*": ["src/types/*"],
-      "@request/*": ["src/request/*"],
-      "@resources/*": ["resources/*"],
-      "@tools/*": ["src/llmTools/*"],
+      "@constants/*": [
+        "src/constants/*"
+      ],
+      "@config/*": [
+        "src/config/*"
+      ],
+      "~types/*": [
+        "src/types/*"
+      ],
+      "@request/*": [
+        "src/request/*"
+      ],
+      "@resources/*": [
+        "resources/*"
+      ],
+      "@tools/*": [
+        "src/llmTools/*"
+      ]
     }
   }
 }

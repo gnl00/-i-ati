@@ -1,13 +1,18 @@
 {
-  // @ts-ignore
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
   "include": [
-    "electron.vite.config.*", 
-    "src/**/*",
-    "resources/**/*"
+    "electron.vite.config.*",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/types/**/*",
+    "src/mcp/**/*",
+    "src/constants/**/*",
+    "src/config/**/*"
   ],
   "compilerOptions": {
     "composite": true,
-    "types": ["electron-vite/node"]
+    "types": [
+      "electron-vite/node"
+    ]
   }
 }
