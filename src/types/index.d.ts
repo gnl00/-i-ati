@@ -144,12 +144,15 @@ declare interface MessageEntity {
   tokens?: number
 }
 
-declare interface ChatMessage {
-  model?: string
-  role: string;
+declare interface BaseChatMessage {
+  role: string
   content: string | VLMContent[]
-  reasoning?: string
   name?: string // for role=function
+}
+
+declare interface ChatMessage extends BaseChatMessage {
+  model?: string
+  reasoning?: string
   artifatcs?: boolean
   toolCallResults?: any
   typewriterCompleted?: boolean

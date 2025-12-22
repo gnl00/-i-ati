@@ -85,10 +85,11 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
 
   beforeFetch()
 
-  const cacheMessage: Pick<ChatMessage, 'role' | 'content'>[] = req.messages.map(
+  const cacheMessage: BaseChatMessage[] = req.messages.map(
     msg => ({
       role: msg.role,
-      content: msg.content
+      content: msg.content,
+      ...(msg.name && { name: msg.name })
     })
   )
   const gatherMessages = () => {
@@ -170,10 +171,11 @@ export const commonOpenAIChatCompletionRequest = async (req: IUnifiedRequest, si
 
   const requestBody = adapter.transformRequest(req)
   if (requestBody.messages) {
-    requestBody.messages = requestBody.messages.map(m => {
-      const { role, content, name } = m
-      return { role, content, name }
-    })
+    requestBody.messages = requestBody.messages.map((m): BaseChatMessage => ({
+      role: m.role,
+      content: m.content,
+      ...(m.name && { name: m.name })
+    }))
   }
 
   beforeFetch()
