@@ -1,10 +1,10 @@
-import React, { useMemo, useRef, useState } from 'react'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { dracula, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { ClipboardCopyIcon, CodeIcon, CopyIcon, EyeOpenIcon } from "@radix-ui/react-icons"
 import { toast } from "@renderer/components/ui/use-toast"
-import { Button } from "../ui/button"
-import { ClipboardCopyIcon, CopyIcon, EyeOpenIcon, CodeIcon } from "@radix-ui/react-icons"
 import { cn } from '@renderer/lib/utils'
+import React, { useMemo, useState } from 'react'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { Button } from "../ui/button"
 
 const renderableLanguage = ['html', 'svg', 'jsx', 'tsx']
 
@@ -14,20 +14,20 @@ export const CodeWrapper = React.memo(({ children, language }: { children: strin
   const [showCodeRender, setShowCodeRender] = useState<boolean>(false)
   const copyToClipboard = async () => {
     try {
-        await navigator.clipboard.writeText(String(children));
-        toast({
-            variant: 'default',
-            duration: 1000,
-            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '✅ Copied',
-        })
+      await navigator.clipboard.writeText(String(children));
+      toast({
+        variant: 'default',
+        duration: 1000,
+        className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+        description: '✅ Copied',
+      })
     } catch (err) {
-        toast({
-            variant: 'destructive',
-            duration: 1000,
-            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '❌ Copy failed',
-        })
+      toast({
+        variant: 'destructive',
+        duration: 1000,
+        className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+        description: '❌ Copy failed',
+      })
     }
   }
   const onViewClick = () => {
@@ -44,22 +44,22 @@ export const CodeWrapper = React.memo(({ children, language }: { children: strin
           {
             renderableLanguage.includes(language) && !showCodeRender && (
               <Button
-              size={'sm'}
-              variant={'ghost'}
-              onClick={onViewClick}
-              className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
-            >
-              <EyeOpenIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
-            </Button>
+                size={'sm'}
+                variant={'ghost'}
+                onClick={onViewClick}
+                className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
+              >
+                <EyeOpenIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
+              </Button>
             )
           }
           {
             showCodeRender && (
               <Button
-              size={'sm'}
-              variant={'ghost'}
-              onClick={onViewClick}
-              className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
+                size={'sm'}
+                variant={'ghost'}
+                onClick={onViewClick}
+                className='h-5 p-1 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md transition-colors'
               >
                 <CodeIcon className='w-4 h-4 text-gray-500 dark:text-gray-400' />
               </Button>
@@ -77,28 +77,28 @@ export const CodeWrapper = React.memo(({ children, language }: { children: strin
       </div>
       {/* Code content */}
       {
-        !showCodeRender ? 
-        (
-          <MemoSyntaxHighlighter
-            customStyle={{ padding: '12px', margin: '0', borderRadius: '0 0 0 0' }}
-            PreTag={'pre'}
-            children={String(children).replace(/\n$/, '')}
-            language={language}
-            style={dracula}
-            wrapLongLines={true}
-          />
-        ) : (
-          <div id="artifacts" className={cn("border rounded-lg overflow-hidden", "")}>
-          <div className="relative">
-            <iframe
-              srcDoc={children}
-              className="w-full h-96 border-none"
-              title={language}
-              sandbox="allow-scripts allow-same-origin"
+        !showCodeRender ?
+          (
+            <MemoSyntaxHighlighter
+              customStyle={{ padding: '12px', margin: '0', borderRadius: '0 0 0 0' }}
+              PreTag={'pre'}
+              children={String(children).replace(/\n$/, '')}
+              language={language}
+              style={dracula}
+              wrapLongLines={true}
             />
-          </div>
-        </div>
-        )
+          ) : (
+            <div id="artifacts" className={cn("border rounded-lg overflow-hidden", "")}>
+              <div className="relative">
+                <iframe
+                  srcDoc={children}
+                  className="w-full h-96 border-none"
+                  title={language}
+                  sandbox="allow-scripts allow-same-origin"
+                />
+              </div>
+            </div>
+          )
       }
     </div>
   )
@@ -120,35 +120,35 @@ export const CodeWrapperNoHeader = React.memo(({ children, language }: { childre
   )
 })
 
-export const CodeCopyWrapper = React.memo(({ children, code, language }: { children: React.ReactNode, code: string, language?: string }) => {
+export const CodeCopyWrapper = React.memo(({ children, code, _language }: { children: React.ReactNode, code: string, _language?: string }) => {
   const copyToClipboard = async () => {
     try {
-        await navigator.clipboard.writeText(String(code));
-        toast({
-            variant: 'default',
-            duration: 1000,
-            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '✅ Copied',
-        })
+      await navigator.clipboard.writeText(String(code));
+      toast({
+        variant: 'default',
+        duration: 1000,
+        className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+        description: '✅ Copied',
+      })
     } catch (err) {
-        toast({
-            variant: 'destructive',
-            duration: 1000,
-            className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-            description: '❌ Copy failed',
-        })
+      toast({
+        variant: 'destructive',
+        duration: 1000,
+        className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
+        description: '❌ Copy failed',
+      })
     }
   }
   const MemolizedCopyBtn = useMemo(() => {
     return (
       <Button
-      variant="ghost"
-      size="icon"
-      className="absolute -top-3 -right-2 rounded-full backdrop-blur hover:bg-gray-500 dark:hover:bg-gray-700 transition-colors"
-      onClick={copyToClipboard}
+        variant="ghost"
+        size="icon"
+        className="absolute -top-3 -right-2 rounded-full backdrop-blur hover:bg-gray-500 dark:hover:bg-gray-700 transition-colors"
+        onClick={copyToClipboard}
       >
         <ClipboardCopyIcon className="w-4 h-4" />
-    </Button>
+      </Button>
     )
   }, [children])
   return (

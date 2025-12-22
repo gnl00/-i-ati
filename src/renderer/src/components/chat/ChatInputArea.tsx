@@ -18,7 +18,7 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
-import { embeddedToolsRegistry, type ToolDefinition } from "@tools/registry"
+import { embeddedToolsRegistry } from "@tools/registry"
 import {
   ArrowBigUp,
   BadgePlus,
@@ -36,15 +36,15 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { getCaretCoordinates } from '../../utils/caret-coords'
 
-import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
 import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
-import moonshotIcon from '@renderer/assets/provider-icons/moonshot.svg'
-import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
-import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
-import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
 import groqIcon from '@renderer/assets/provider-icons/groq.svg'
+import moonshotIcon from '@renderer/assets/provider-icons/moonshot.svg'
+import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
+import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
+import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
 import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
+import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
@@ -62,7 +62,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     currentReqCtrl,
     readStreamState,
     webSearchEnable, toggleWebSearch,
-    artifacts, toggleArtifacts,
+    toggleArtifacts,
     providers,
     models,
     selectedModel,
@@ -216,7 +216,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
-  const onSubmitClick = useCallback((_) => {
+  const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent) => {
     if (!inputContent) {
       return
     }
@@ -227,11 +227,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     onMessagesUpdate() // for chat-window scroll to the end
     const tools = Array.from(availableMcpTools.values()).flatMap(i => i)
     if (webSearchEnable) {
-      const f: ToolDefinition = embeddedToolsRegistry.getTool('web_search')
-      // console.log('web_search', f.function)
-      tools.push({
-        ...f.function
-      })
+      const f = embeddedToolsRegistry.getTool('web_search')
+      if (f) {
+        tools.push({
+          ...f.function
+        })
+      }
     }
     handleChatSubmitCallback(inputContent, imageSrcBase64List, { tools: tools, prompt: currentSystemPrompt })
     setInputContent('')
@@ -299,15 +300,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
     let blob: File | null = null
 
-    let findImg: boolean = false
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
+        // found image from clipboard
         blob = items[i].getAsFile()
-        findImg = true
         break
       }
     }
-    // console.log(`findImg? ${findImg}`)
     if (blob) {
       const reader = new FileReader()
       reader.readAsDataURL(blob)
@@ -327,7 +326,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     toggleArtifacts(false)
     toggleWebSearch(false)
   }
-  const onMcpToolSelected = async (serverName, serverConfig) => {
+  const onMcpToolSelected = async (serverName: string, serverConfig: any) => {
     console.log('mcp-server-config', serverName, serverConfig)
     if (!selectedMcpServerNames.includes(serverName)) {
       setConnectingMcpServers([...connectingMcpServers, serverName])
@@ -353,11 +352,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       toast.warning(`Disconnected mcp-server '${serverName}'`)
     }
   }
-  const onChatTopPChange = (val) => {
-    setChatTopP([val])
+  const onChatTopPChange = (val: number[]) => {
+    setChatTopP(val)
   }
-  const onChatTemperatureChange = (val) => {
-    setChatTemperature([val])
+  const onChatTemperatureChange = (val: number[]) => {
+    setChatTemperature(val)
   }
 
   const triggerButtonClassName = cn(

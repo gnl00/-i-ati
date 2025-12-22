@@ -1,14 +1,14 @@
-import React, { useState } from 'react'
-import { cn } from "@renderer/lib/utils"
 import { Cross1Icon } from "@radix-ui/react-icons"
+import { cn } from "@renderer/lib/utils"
 import { useChatStore } from '@renderer/store'
+import React, { useState } from 'react'
 
-interface ImageGalleryProps {}
+interface ImageGalleryProps { }
 
-const ImageGalleryComponent: React.FC<ImageGalleryProps> = (props: ImageGalleryProps) => {
+const ImageGalleryComponent: React.FC<ImageGalleryProps> = () => {
     const [iptImgHoverIndex, setIptImgHoverIndex] = useState(-1)
     const { imageSrcBase64List, setImageSrcBase64List } = useChatStore()
-    const onInputImgDelClick = (_, delIndex) => {
+    const onInputImgDelClick = (_e: any, delIndex: number): void => {
         setImageSrcBase64List(imageSrcBase64List.filter((_, index) => index != delIndex))
     }
     return (
@@ -18,8 +18,8 @@ const ImageGalleryComponent: React.FC<ImageGalleryProps> = (props: ImageGalleryP
                     <div
                         key={index}
                         className="h-full min-w-[10rem] relative"
-                        onMouseOver={_ => {setIptImgHoverIndex(index)}}
-                        onMouseLeave={_ => {setIptImgHoverIndex(-1)}}
+                        onMouseOver={_ => { setIptImgHoverIndex(index) }}
+                        onMouseLeave={_ => { setIptImgHoverIndex(-1) }}
                     >
                         <img className={cn(
                             "h-full w-full p-0.5 object-cover backdrop-blur rounded-md",

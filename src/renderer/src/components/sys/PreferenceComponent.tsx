@@ -1,8 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react'
 import { Cross1Icon } from "@radix-ui/react-icons"
-import { cn } from '@renderer/lib/utils'
 import { Switch } from "@renderer/components/ui/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@renderer/components/ui/tabs"
 import {
     Table,
     TableBody,
@@ -11,7 +8,17 @@ import {
     TableHeader,
     TableRow,
 } from "@renderer/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@renderer/components/ui/tabs"
+import { cn } from '@renderer/lib/utils'
+import React, { useEffect, useRef, useState } from 'react'
 
+import { Badge } from '@renderer/components/ui/badge'
+import { Button } from "@renderer/components/ui/button"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@renderer/components/ui/command'
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@renderer/components/ui/drawer'
+import { Input } from '@renderer/components/ui/input'
+import { Label } from '@renderer/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import {
     Select,
     SelectContent,
@@ -21,38 +28,24 @@ import {
     SelectValue,
 } from "@renderer/components/ui/select"
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@renderer/components/ui/dropdown-menu"
-import {
     Tooltip,
     TooltipContent,
-    TooltipTrigger,
-    TooltipProvider
+    TooltipProvider,
+    TooltipTrigger
 } from "@renderer/components/ui/tooltip"
-import { Button } from "@renderer/components/ui/button"
-import { Badge } from '@renderer/components/ui/badge'
-import { Label } from '@renderer/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
-import { Command, CommandItem, CommandGroup, CommandEmpty, CommandList, CommandInput } from '@renderer/components/ui/command'
-import { Check, ChevronsUpDown, SquarePen, Trash } from "lucide-react"
-import { Drawer, DrawerHeader, DrawerContent, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from '@renderer/components/ui/drawer'
-import { Input } from '@renderer/components/ui/input'
-import { toast } from 'sonner'
 import { useChatStore } from '@renderer/store'
+import { Check, ChevronsUpDown, Trash } from "lucide-react"
+import { toast } from 'sonner'
 
-import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
 import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
-import moonshotIcon from '@renderer/assets/provider-icons/moonshot.svg'
-import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
-import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
-import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
 import groqIcon from '@renderer/assets/provider-icons/groq.svg'
+import moonshotIcon from '@renderer/assets/provider-icons/moonshot.svg'
+import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
+import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
+import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
 import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
+import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
 import CodeEditor from '@uiw/react-textarea-code-editor'
 
 interface PreferenceProps { }
@@ -64,7 +57,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         appConfig,
         setAppConfig,
         models,
-        providers, setProviders,
+        providers,
         getProviderByName,
         currentProviderName,
         setCurrentProviderName,
@@ -215,7 +208,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
         toast.success('Save configurations success')
     }
-    const onAddProviderBtnClick = e => {
+    const onAddProviderBtnClick = (e: React.MouseEvent) => {
         if (!newProviderName || !newProviderApi || !newProviderApiKey) {
             alert(`Please input providerName/baseUrl/Key(Token)`)
             e.preventDefault()
@@ -276,7 +269,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const onProviderCardClick = (p: IProvider) => {
         setCurrentProviderName(p.name)
     }
-    const onModelEnableStatusChange = (checked, model: IModel) => {
+    const onModelEnableStatusChange = (_checked: boolean, model: IModel) => {
         if (!currentProvider) return
         toggleModelEnable(currentProvider.name, model.value)
     }
@@ -291,25 +284,24 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             updateProvider(oldProvider.name, newProvider)
         }
     }
-    const toggleEnableAllModels = (checked: boolean) => {
-        const updatedModels = currentProvider?.models.map(m => {
-            m.enable = checked
-            return m
-        })
-        // console.log('updatedModels', updatedModels)
-        updateProvider(currentProvider?.name!, {
-            ...currentProvider,
-            models: updatedModels
-        })
-    }
-
+    // const _toggleEnableAllModels = (checked: boolean) => {
+    //     const updatedModels = currentProvider?.models.map(m => {
+    //         m.enable = checked
+    //         return m
+    //     })
+    //     // console.log('updatedModels', updatedModels)
+    //     updateProvider(currentProvider?.name!, {
+    //         ...currentProvider,
+    //         models: updatedModels
+    //     })
+    // }
     // 计算全选checkbox的状态
-    const getAllModelsCheckedState = () => {
-        const models = currentProvider?.models || []
-        if (models.length === 0) return false
-        return models.every(m => m.enable)
-    }
-    const onMcpServerConfigChange = e => {
+    // const _getAllModelsCheckedState = () => {
+    //     const models = currentProvider?.models || []
+    //     if (models.length === 0) return false
+    //     return models.every(m => m.enable)
+    // }
+    const onMcpServerConfigChange = (e: any) => {
         try {
             const config = e.target.value
             console.log(config)
@@ -321,10 +313,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             toast.error(error.message)
         }
     }
-    const onProviderCardHover = (idx) => {
+    const onProviderCardHover = (idx: number) => {
         setHoverProviderCardIdx(idx)
     }
-    const onProviderCardDelClick = (_, provider: IProvider) => {
+    const onProviderCardDelClick = (_e: any, provider: IProvider) => {
         if (currentProvider && currentProvider.name === provider.name) {
             setCurrentProvider(undefined)
         }
@@ -880,7 +872,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             backgroundColor: "#f5f5f5",
                             fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
                         }}
-                        data-color-mode="auto"
+                        padding={15}
+                        data-color-mode="dark"
                     />
                 </TabsContent>
             </Tabs>

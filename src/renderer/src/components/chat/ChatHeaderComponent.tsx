@@ -1,18 +1,18 @@
-import React, { useEffect, useState } from 'react'
-import { GearIcon, DrawingPinIcon, DrawingPinFilledIcon, ActivityLogIcon, MinusIcon } from '@radix-ui/react-icons'
+import { GET_CONFIG, PIN_WINDOW } from '@constants/index'
+import { ActivityLogIcon, DrawingPinFilledIcon, DrawingPinIcon, GearIcon } from '@radix-ui/react-icons'
+import { ModeToggle } from '@renderer/components/mode-toggle'
 import PreferenceComponent from '@renderer/components/sys/PreferenceComponent'
 import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
-import { ModeToggle } from '@renderer/components/mode-toggle'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
-import { GET_CONFIG, OPEN_EXTERNAL, PIN_WINDOW } from '@constants/index'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
+import React, { useEffect, useState } from 'react'
 
 interface ChatHeaderProps { }
 
-const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) => {
+const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps) => {
   const [pinState, setPinState] = useState<boolean>(false)
   const { chatTitle } = useChatContext()
   const { appConfig, setAppConfig } = useChatStore()
@@ -42,7 +42,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (props: ChatHeaderProps) 
       <div className="flex items-center space-x-3">
         <TrafficLights />
         <div className="app-dragable flex space-x-2">
-          <Button className="app-undragable rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" variant="ghost" size="sm" onClick={_ => { setSheetOpenState(true) }}>
+          <Button className="app-undragable rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" variant="ghost" size="sm" onClick={__ => { setSheetOpenState(true) }}>
             <ActivityLogIcon className="dark:text-gray-300" />
           </Button>
           <Popover>
