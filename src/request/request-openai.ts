@@ -19,14 +19,14 @@ const openAIRequest = async (apiKey: string, baseUrl: string, model: string, con
   });
 }
 
-const openAIRequestWithHook = async (req: IChatRequestV2, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function) => {
+const openAIRequestWithHook = async (req: IChatRequestV2, _signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function) => {
   let memorizedMessage = req.messages.map(msg => {
     const { reasoning, artifatcs, name, ...props } = msg
     return props
   })
 
   if (req.prompt) {
-    memorizedMessage = [{role: 'system',content: req.prompt}, ...memorizedMessage]
+    memorizedMessage = [{ role: 'system', content: req.prompt }, ...memorizedMessage]
   }
   const client = new OpenAI({
     apiKey: req.apiKey,
@@ -39,13 +39,13 @@ const openAIRequestWithHook = async (req: IChatRequestV2, signal: AbortSignal | 
     const streamResponse = await client.responses.create({
       model: req.model,
       input: memorizedMessage.map(m => {
-        return {role: m.role, content: m.content}
+        return { role: m.role, content: m.content }
       }) as string | ResponseInput | undefined,
       stream: enableStream,
     });
     return streamResponse
   } catch (error: any) {
-    
+    throw error
   } finally {
     afterFetch()
   }
@@ -54,4 +54,4 @@ const openAIRequestWithHook = async (req: IChatRequestV2, signal: AbortSignal | 
 export {
   openAIRequest,
   openAIRequestWithHook
-}
+};

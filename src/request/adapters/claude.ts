@@ -4,17 +4,17 @@ import { BaseAdapter } from './base'
 export class ClaudeAdapter extends BaseAdapter {
   providerType: ProviderType = 'claude'
   apiVersion = 'v1'
-  
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/v1/messages`
   }
-  
+
   getHeaders(req: IUnifiedRequest): Record<string, string> {
     return {
       'x-api-key': req.apiKey // Claude 使用 x-api-key
     }
   }
-  
+
   transformRequest(req: IUnifiedRequest): any {
     // Claude Messages API 的请求格式
     const requestBody: any = {
@@ -25,19 +25,19 @@ export class ClaudeAdapter extends BaseAdapter {
       stream: req.stream ?? true,
       messages: this.transformMessages(req.messages, req.prompt)
     }
-    
+
     if (req.tools?.length) {
       requestBody.tools = this.transformClaudeTools(req.tools)
     }
-    
+
     return requestBody
   }
-  
+
   transformNotStreamResponse(response: any): IUnifiedResponse {
-    const content = Array.isArray(response.content) 
+    const content = Array.isArray(response.content)
       ? response.content.find(c => c.type === 'text')?.text || ''
       : response.content || ''
-    
+
     return {
       id: response.id || 'unknown',
       model: response.model || 'claude',
@@ -59,13 +59,13 @@ export class ClaudeAdapter extends BaseAdapter {
       console.error('Invalid streamReader provided:', streamReader);
       return;
     }
-    
-    while(true) {
+
+    while (true) {
       const { done, value } = await streamReader.read()
       if (done) {
         break
       }
-      
+
       const lines = value
         .split("\n")
         .filter((line: string) => line.trim() !== "")
@@ -87,14 +87,14 @@ export class ClaudeAdapter extends BaseAdapter {
       }
     }
   }
-  
+
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
     try {
       // Claude 流式响应格式
       if (chunk.startsWith('data: ')) {
         const jsonStr = chunk.slice(6).trim()
         const data = JSON.parse(jsonStr)
-        
+
         if (data.type === 'content_block_delta') {
           return {
             id: 'claude-stream',
@@ -120,17 +120,17 @@ export class ClaudeAdapter extends BaseAdapter {
     }
     return null
   }
-  
-  private transformMessages(messages: ChatMessage[], systemPrompt?: string): any[] {
+
+  private transformMessages(messages: ChatMessage[], _systemPrompt?: string): any[] {
     const claudeMessages = messages.filter(m => m.role !== 'system').map(msg => ({
       role: msg.role === 'system' ? 'assistant' : msg.role,
       content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
     }))
-    
-    // Claude 需要单独处理系统提示
+
+    // Claude 需要单独处理 systemPrompt
     return claudeMessages
   }
-  
+
   private transformClaudeTools(tools: any[]): any[] {
     return tools.map(tool => ({
       name: tool.name,
@@ -138,13 +138,13 @@ export class ClaudeAdapter extends BaseAdapter {
       input_schema: tool.inputSchema
     }))
   }
-  
+
   private transformClaudeToolCalls(content: any[]): IToolCall[] | undefined {
     if (!Array.isArray(content)) return undefined
-    
+
     const toolUses = content.filter(c => c.type === 'tool_use')
     if (!toolUses.length) return undefined
-    
+
     return toolUses.map(tu => ({
       id: tu.id || `tool_${Date.now()}`,
       type: 'function' as const,
@@ -160,18 +160,18 @@ export class ClaudeAdapter extends BaseAdapter {
 export class ClaudeChatAdapter extends BaseAdapter {
   providerType: ProviderType = 'claude'
   apiVersion = 'chat'
-  
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/v1/chat/completions`
   }
-  
+
   getHeaders(req: IUnifiedRequest): Record<string, string> {
     return {
       'anthropic-version': '2023-06-01',
       'x-api-key': req.apiKey
     }
   }
-  
+
   transformRequest(req: IUnifiedRequest): any {
     // 使用类似 OpenAI 的请求格式，但适配 Claude 的特殊需求
     const requestBody: any = {
@@ -182,28 +182,28 @@ export class ClaudeChatAdapter extends BaseAdapter {
       temperature: req.options?.temperature ?? 0.7,
       top_p: req.options?.topP ?? 0.7
     }
-    
+
     if (req.prompt) {
       requestBody.messages = [
         { role: 'system', content: req.prompt },
         ...requestBody.messages
       ]
     }
-    
+
     if (req.tools?.length) {
       requestBody.tools = this.transformClaudeTools(req.tools)
     }
-    
+
     return requestBody
   }
-  
+
   transformNotStreamResponse(response: any): IUnifiedResponse {
     // 适配 Claude 聊天完成格式的响应
     const choice = response.choices?.[0]
     if (!choice) {
       throw new Error('Invalid Claude chat response: no choices')
     }
-    
+
     return {
       id: response.id || 'unknown',
       model: response.model || 'claude',
@@ -214,7 +214,7 @@ export class ClaudeChatAdapter extends BaseAdapter {
       usage: response.usage ? {
         promptTokens: response.usage.prompt_tokens || response.usage.input_tokens,
         completionTokens: response.usage.completion_tokens || response.usage.output_tokens,
-        totalTokens: response.usage.total_tokens || 
+        totalTokens: response.usage.total_tokens ||
           (response.usage.input_tokens + response.usage.output_tokens)
       } : undefined,
       raw: response
@@ -226,13 +226,13 @@ export class ClaudeChatAdapter extends BaseAdapter {
       console.error('Invalid streamReader provided:', streamReader);
       return;
     }
-    
-    while(true) {
+
+    while (true) {
       const { done, value } = await streamReader.read()
       if (done) {
         break
       }
-      
+
       const lines = value
         .split("\n")
         .filter((line: string) => line.trim() !== "")
@@ -254,17 +254,17 @@ export class ClaudeChatAdapter extends BaseAdapter {
       }
     }
   }
-  
+
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
     try {
       if (chunk.startsWith('data: ')) {
         const jsonStr = chunk.slice(6).trim()
         if (jsonStr === '[DONE]') return null
-        
+
         const data = JSON.parse(jsonStr)
         const choice = data.choices?.[0]
         if (!choice) return null
-        
+
         const delta = choice.delta
         return {
           id: data.id || 'claude-chat-stream',
@@ -282,7 +282,7 @@ export class ClaudeChatAdapter extends BaseAdapter {
     }
     return null
   }
-  
+
   private transformClaudeTools(tools: any[]): any[] {
     return tools.map(tool => ({
       name: tool.name,
@@ -290,10 +290,10 @@ export class ClaudeChatAdapter extends BaseAdapter {
       input_schema: tool.inputSchema
     }))
   }
-  
+
   private transformClaudeToolCalls(toolCalls: any[]): IToolCall[] | undefined {
     if (!toolCalls?.length) return undefined
-    
+
     return toolCalls.map(tc => ({
       id: tc.id || `tool_${Date.now()}`,
       type: 'function' as const,
@@ -309,15 +309,15 @@ export class ClaudeChatAdapter extends BaseAdapter {
 export class ClaudeLegacyAdapter extends BaseAdapter {
   providerType: ProviderType = 'claude'
   apiVersion = 'legacy'
-  
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/v1/complete`
   }
-  
+
   transformRequest(req: IUnifiedRequest): any {
     // 转换为 Claude Legacy API 格式
     const prompt = this.buildPrompt(req.messages, req.prompt)
-    
+
     return {
       model: req.model,
       prompt,
@@ -327,7 +327,7 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
       stream: req.stream ?? true
     }
   }
-  
+
   transformNotStreamResponse(response: any): IUnifiedResponse {
     return {
       id: 'claude-legacy-' + Date.now(),
@@ -344,13 +344,13 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
       console.error('Invalid streamReader provided:', streamReader);
       return;
     }
-    
-    while(true) {
+
+    while (true) {
       const { done, value } = await streamReader.read()
       if (done) {
         break
       }
-      
+
       const lines = value
         .split("\n")
         .filter((line: string) => line.trim() !== "")
@@ -372,7 +372,7 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
       }
     }
   }
-  
+
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
     try {
       const data = JSON.parse(chunk)
@@ -390,10 +390,10 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
     }
     return null
   }
-  
+
   private buildPrompt(messages: ChatMessage[], systemPrompt?: string): string {
     let prompt = systemPrompt ? `${systemPrompt}\n\n` : ''
-    
+
     messages.forEach(msg => {
       if (msg.role === 'user') {
         prompt += `Human: ${typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}\n\n`
@@ -401,7 +401,7 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
         prompt += `Assistant: ${typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}\n\n`
       }
     })
-    
+
     prompt += 'Assistant:'
     return prompt
   }
