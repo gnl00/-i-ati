@@ -34,7 +34,6 @@ function mainIPCSetup() {
     }
   })
 
-  // Playwright handler for web search
   ipcMain.handle(WEB_SEARCH_ACTION, (event, { fetchCounts, param }) => handleWebSearch({fetchCounts, param}))
 
   ipcMain.handle('mcp-connect', (_, mcpProps) => mcpConnect(mcpProps))
