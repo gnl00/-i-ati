@@ -1,5 +1,5 @@
 import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
-import { processWebSearch } from '@tools/main/webSearchMainProcess'
+import { processWebSearch } from '@tools/webSearch/webSearchProcessor'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
 import { GET_CONFIG, OPEN_EXTERNAL, PIN_WINDOW, SAVE_CONFIG, WEB_SEARCH_ACTION } from '../constants'

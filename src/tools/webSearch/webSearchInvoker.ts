@@ -19,8 +19,8 @@ export interface WebSearchResult {
 /**
  * Web Search 工具处理器
  */
-export async function webSearchHandler(args: WebSearchArgs): Promise<WebSearchResult> {
-  console.log('[WebSearchHandler] Executing web search with query:', args.query)
+export async function invokeWebSearch(args: WebSearchArgs): Promise<WebSearchResult> {
+  console.log('[WebSearchInvoker] Executing web search with query:', args.query)
 
   try {
     const searchResults = await window.electron?.ipcRenderer.invoke(WEB_SEARCH_ACTION, {
@@ -28,7 +28,7 @@ export async function webSearchHandler(args: WebSearchArgs): Promise<WebSearchRe
       param: args.query
     })
 
-    console.log('[WebSearchHandler] Search results:', searchResults)
+    console.log('[WebSearchInvoker] Search results:', searchResults)
 
     return {
       success: searchResults.success,
@@ -37,7 +37,7 @@ export async function webSearchHandler(args: WebSearchArgs): Promise<WebSearchRe
       error: searchResults.error
     }
   } catch (error: any) {
-    console.error('[WebSearchHandler] Error:', error)
+    console.error('[WebSearchInvoker] Error:', error)
     return {
       success: false,
       result: [],

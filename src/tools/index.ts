@@ -4,15 +4,15 @@
  */
 
 import { embeddedToolsRegistry, type ToolDefinition } from './registry'
-import { webSearchHandler } from './renderer/webSearchRendererBridge'
 import toolsDefinitions from './tools.json'
+import { invokeWebSearch } from './webSearch/webSearchInvoker'
 
 /**
  * 工具处理器映射表
  * 将工具名称映射到对应的处理器函数
  */
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
-  'web_search': webSearchHandler,
+  'web_search': invokeWebSearch,
   // 在这里添加更多工具处理器
   // 'another_tool': anotherToolHandler,
 }
@@ -45,5 +45,6 @@ export function initializeEmbeddedTools(): void {
 
 // 导出注册中心和工具定义
 export { embeddedToolsRegistry } from './registry'
-export { webSearchHandler } from './renderer/webSearchRendererBridge'
+// export { invokeWebSearch } from './renderer/webSearchInvoker'
 export { toolsDefinitions as embeddedToolsDefinitions }
+

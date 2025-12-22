@@ -10,9 +10,6 @@
     "src/config/**/*",
     "src/tools/**/*"
   ],
-  "exclude": [
-      "src/tools/renderer/*"
-  ],
   "compilerOptions": {
     "composite": true,
     "types": [
