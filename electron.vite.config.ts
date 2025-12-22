@@ -6,7 +6,8 @@ export default defineConfig({
   main: {
     resolve: {
       alias: {
-        '@mcp': resolve('src/mcp')
+        '@mcp': resolve('src/mcp'),
+        '@tools': resolve('src/tools')
       }
     }
   },
@@ -20,7 +21,7 @@ export default defineConfig({
         '@request': resolve('src/request'),
         '@config': resolve('src/config'),
         '@resources': resolve('resources'),
-        '@tools': resolve('src/llmTools')
+        '@tools': resolve('src/tools')
       }
     },
     plugins: [react()],

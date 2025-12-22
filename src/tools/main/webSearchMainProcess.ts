@@ -1,13 +1,13 @@
 import { BrowserWindow } from 'electron'
 
-interface WebSearchHandlerArgs {
+interface WebSearchProcessArgs {
   fetchCounts: number
   param: string
 }
 
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
 
-const handleWebSearch = async ({ fetchCounts, param }: WebSearchHandlerArgs) => {
+const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs) => {
   let searchWindow: BrowserWindow | null = null
 
   try {
@@ -186,5 +186,5 @@ function postClean(text: string): string {
 }
 
 export {
-  handleWebSearch
+  processWebSearch
 }

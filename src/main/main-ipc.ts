@@ -1,10 +1,10 @@
+import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
+import { processWebSearch } from '@tools/main/webSearchMainProcess'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
 import { GET_CONFIG, OPEN_EXTERNAL, PIN_WINDOW, SAVE_CONFIG, WEB_SEARCH_ACTION } from '../constants'
-import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
 import { appConfig, saveConfig } from './app-config'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
-import { handleWebSearch } from './web-search-optimized'
 
 function mainIPCSetup() {
   ipcMain.handle(PIN_WINDOW, (_event, pinState) => pinWindow(pinState))
@@ -34,7 +34,7 @@ function mainIPCSetup() {
     }
   })
 
-  ipcMain.handle(WEB_SEARCH_ACTION, (_event, { fetchCounts, param }) => handleWebSearch({ fetchCounts, param }))
+  ipcMain.handle(WEB_SEARCH_ACTION, (_event, { fetchCounts, param }) => processWebSearch({ fetchCounts, param }))
 
   ipcMain.handle('mcp-connect', (_, mcpProps) => mcpConnect(mcpProps))
   ipcMain.handle('mcp-disconnect', (_, { name }) => mcpClose(name))

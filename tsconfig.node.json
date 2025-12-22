@@ -7,7 +7,11 @@
     "src/types/**/*",
     "src/mcp/**/*",
     "src/constants/**/*",
-    "src/config/**/*"
+    "src/config/**/*",
+    "src/tools/**/*"
+  ],
+  "exclude": [
+      "src/tools/renderer/*"
   ],
   "compilerOptions": {
     "composite": true,
@@ -16,7 +20,12 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@mcp/*": ["src/mcp/*"]
+      "@mcp/*": [
+        "src/mcp/*"
+      ],
+      "@tools/*": [
+        "src/tools/*"
+      ]
     }
   }
 }

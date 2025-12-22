@@ -8,7 +8,7 @@
     "src/config/**/*",
     "src/types/**/*",
     "src/request/**/*",
-    "src/llmTools/**/*",
+    "src/tools/**/*",
     "resources/**/*",
     "data/**/*"
   ],
@@ -36,7 +36,7 @@
         "resources/*"
       ],
       "@tools/*": [
-        "src/llmTools/*"
+        "src/tools/*"
       ]
     }
   }

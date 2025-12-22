@@ -4,7 +4,7 @@
  */
 
 import { embeddedToolsRegistry, type ToolDefinition } from './registry'
-import { webSearchHandler } from './handlers/webSearchHandler'
+import { webSearchHandler } from './renderer/webSearchRendererBridge'
 import toolsDefinitions from './tools.json'
 
 /**
@@ -45,5 +45,5 @@ export function initializeEmbeddedTools(): void {
 
 // 导出注册中心和工具定义
 export { embeddedToolsRegistry } from './registry'
-export { webSearchHandler } from './handlers/webSearchHandler'
+export { webSearchHandler } from './renderer/webSearchRendererBridge'
 export { toolsDefinitions as embeddedToolsDefinitions }
