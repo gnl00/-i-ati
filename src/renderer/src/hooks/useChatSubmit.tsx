@@ -56,6 +56,40 @@ interface ChatPipelineContext {
   error?: Error
 }
 
+/**
+ * 格式化 Web Search 结果供 LLM 使用
+ * 只发送成功的结果，截断内容以节省 tokens
+ */
+function formatWebSearchForLLM(response: any): string {
+  if (!response.success || !response.results || response.results.length === 0) {
+    return JSON.stringify({
+      success: false,
+      error: response.error || 'No results found',
+      functionCallCompleted: true
+    })
+  }
+
+  // 只包含成功的结果
+  const formattedResults = response.results
+    .filter((r: any) => r.success)
+    .map((r: any, index: number) => ({
+      index: index + 1,
+      title: r.title,
+      link: r.link,
+      snippet: r.snippet,
+      content: r.content.substring(0, 2000)  // 限制长度节省 tokens
+    }))
+
+  return JSON.stringify({
+    success: true,
+    query: response.results[0]?.query || '',
+    results: formattedResults,
+    totalResults: response.results.length,
+    successfulResults: formattedResults.length,
+    functionCallCompleted: true
+  })
+}
+
 function useChatSubmit() {
   const {
     chatId, setChatId,
@@ -312,7 +346,9 @@ function useChatSubmit() {
         const toolFunctionMessage: ChatMessage = {
           role: 'function',
           name: toolCall.function,
-          content: JSON.stringify({ ...results, functionCallCimpleted: true })
+          content: toolCall.function === 'web_search'
+            ? formatWebSearchForLLM(results)  // Web Search 特殊处理
+            : JSON.stringify({ ...results, functionCallCompleted: true })  // 其他工具保持不变
         }
         if (!context.toolCallResults) {
           context.toolCallResults = [{

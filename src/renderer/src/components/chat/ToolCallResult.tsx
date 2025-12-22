@@ -1,11 +1,12 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion";
 import { Button } from '@renderer/components/ui/button';
 import { cn } from '@renderer/lib/utils';
-import { Check, ChevronDown, Clipboard, X, Clock } from "lucide-react";
+import { Check, ChevronDown, Clipboard, Clock, X } from "lucide-react";
 import React, { useState } from 'react';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { docco, tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { toast } from 'sonner';
+import { WebSearchResults } from './WebSearchResults';
 
 interface ToolCallResultProps {
   toolCall: any
@@ -15,6 +16,10 @@ interface ToolCallResultProps {
 
 export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, index, isDarkMode }) => {
   const [isCopied, setIsCopied] = useState(false);
+
+  // 检测是否为 Web Search 结果
+  const isWebSearch = tc.name === 'web_search'
+  const webSearchData = isWebSearch && tc.content?.results ? tc.content : null
 
   const onCopyClick = (e: React.MouseEvent, content: any) => {
     e.stopPropagation();
@@ -85,40 +90,46 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
           </div>
         </AccordionTrigger>
 
-        <AccordionContent className="pb-0 pt-2 relative group px-1 min-w-[300px] max-w-full">
-          <div className={cn(
-            "relative rounded-lg overflow-hidden border shadow-inner",
-            isError
-              ? "bg-red-50/30 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
-              : "bg-zinc-50/50 dark:bg-black/20 border-zinc-200/50 dark:border-zinc-800"
-          )}>
-            <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 bg-white/80 dark:bg-zinc-800/80 backdrop-blur hover:bg-gray-100 dark:hover:bg-zinc-700"
-                onClick={(e) => onCopyClick(e, tc.content)}
-              >
-                {isCopied ? <Check className="w-3 h-3 text-green-500" /> : <Clipboard className="w-3 h-3 text-zinc-500" />}
-              </Button>
+        <AccordionContent className="mt-2 pb-1 relative group px-0">
+          {isWebSearch && webSearchData ? (
+            // Web Search 专用渲染 - 使用独立组件
+            <WebSearchResults results={webSearchData.results} isDarkMode={isDarkMode} />
+          ) : (
+            // 其他工具保持 JSON 展示（原有代码）
+            <div className={cn(
+              "relative rounded-lg overflow-hidden border shadow-inner",
+              isError
+                ? "bg-red-50/30 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
+                : "bg-zinc-50/50 dark:bg-black/20 border-zinc-200/50 dark:border-zinc-800"
+            )}>
+              <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 bg-white/80 dark:bg-zinc-800/80 backdrop-blur hover:bg-gray-100 dark:hover:bg-zinc-700"
+                  onClick={(e) => onCopyClick(e, tc.content)}
+                >
+                  {isCopied ? <Check className="w-3 h-3 text-green-500" /> : <Clipboard className="w-3 h-3 text-zinc-500" />}
+                </Button>
+              </div>
+              <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                <SyntaxHighlighter
+                  language="json"
+                  style={isDarkMode ? tomorrowNight : docco}
+                  customStyle={{
+                    margin: 0,
+                    padding: '1rem',
+                    fontSize: '0.75rem',
+                    lineHeight: '1.5',
+                    background: 'transparent',
+                  }}
+                  wrapLongLines={true}
+                >
+                  {JSON.stringify(tc.content, null, 2)}
+                </SyntaxHighlighter>
+              </div>
             </div>
-            <div className="max-h-60 overflow-y-auto custom-scrollbar">
-              <SyntaxHighlighter
-                language="json"
-                style={isDarkMode ? tomorrowNight : docco}
-                customStyle={{
-                  margin: 0,
-                  padding: '1rem',
-                  fontSize: '0.75rem', // text-xs
-                  lineHeight: '1.5',
-                  background: 'transparent',
-                }}
-                wrapLongLines={true}
-              >
-                {JSON.stringify(tc.content, null, 2)}
-              </SyntaxHighlighter>
-            </div>
-          </div>
+          )}
         </AccordionContent>
       </AccordionItem>
     </Accordion>

@@ -45,6 +45,5 @@ export function initializeEmbeddedTools(): void {
 
 // 导出注册中心和工具定义
 export { embeddedToolsRegistry } from './registry'
-// export { invokeWebSearch } from './renderer/webSearchInvoker'
 export { toolsDefinitions as embeddedToolsDefinitions }
 
