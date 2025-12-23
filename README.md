@@ -50,9 +50,9 @@ pnpm build:mac
 
 ## ScreenShot
 
-![screenshot-1](./screenshot/screenshot-1.png)
+![chat-windows](./screenshot/20251223223616.png)
 
-![screenshot-2](./screenshot/screenshot-2.png)
+![chat-sheet](./screenshot/20251223223640.png)
 
 ## TODO
 
