@@ -175,7 +175,7 @@ export const ArtifactsPanel: React.FC = () => {
         onValueChange={setArtifactsActiveTab}
       >
         {/* Header with Tabs */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shrink-0">
+        <div className="flex items-center justify-between px-1 py-1 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shrink-0">
           <TabsList className="bg-gray-100/80 dark:bg-gray-900/80 h-8 p-0.5 rounded-lg border border-black/5 dark:border-white/5">
             <TabsTrigger
               value="preview"

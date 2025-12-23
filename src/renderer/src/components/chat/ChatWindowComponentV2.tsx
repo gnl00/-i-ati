@@ -495,7 +495,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       {artifacts && !artifactsPanelOpen && (
         <div
           className={cn(
-            "fixed right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 p-0.5 z-50",
+            "fixed right-2.5 top-1/3 -translate-y-1/2 flex flex-col gap-0.5 p-0.5 z-50",
             "bg-white/10 dark:bg-black/40 backdrop-blur-2xl border border-gray-200/50 dark:border-white/10 rounded-full shadow-2xl animate-in fade-in slide-in-from-right duration-500"
           )}
         >
