@@ -200,7 +200,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
       onMouseEnter={_ => onMouseHoverAssistantMsg(true)}
       onMouseLeave={_ => onMouseHoverAssistantMsg(false)}
       className={cn(
-        "flex justify-start flex-col pb-0.5",
+        "flex justify-start flex-col",
         index === 0 ? 'mt-2' : '',
         isLatest && "animate-assistant-message-in"
       )}
@@ -248,7 +248,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
               // rehypePlugins={[rehypeKatex]}
               skipHtml={false}
               remarkRehypeOptions={{ passThrough: ['link'] }}
-              className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-p:mb-4 prose-p:mt-4 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+              className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
               components={markdownCodeComponent}
             >
               {assistantContent}
@@ -257,6 +257,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         }
       </div>
       <div
+        id="assistant-message-operation"
         className={cn(
           "mt-0.5 pl-2 space-x-1 flex text-gray-500 dark:text-gray-400 min-h-[1.5rem] transition-opacity duration-200",
           assistantMessageHovered ? "opacity-100" : "opacity-0 pointer-events-none"
