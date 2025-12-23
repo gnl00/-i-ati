@@ -33,6 +33,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
+  const [inputAreaTextareaHeight, setInputAreaTextareaHeight] = useState<number>(150) // ChatInputArea 的 textarea 高度
 
   // 缓动函数：easeOutCubic - 快速开始，缓慢结束
   const easeOutCubic = useCallback((t: number): number => {
@@ -356,6 +357,11 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [showScrollToBottom])
 
+  // Handle input area height change
+  const handleInputAreaHeightChange = useCallback((height: number) => {
+    setInputAreaTextareaHeight(height)
+  }, [])
+
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
       <ChatHeaderComponent />
@@ -410,8 +416,11 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                 <div
                   id="scrollToBottom"
                   onClick={() => scrollToBottom(true)}
+                  style={{
+                    bottom: `${inputAreaTextareaHeight + 80}px` // 动态计算：textarea 高度 + 其他元素高度（~90px）+ 间距（~20px）
+                  }}
                   className={cn(
-                    "fixed p-0.5 bottom-60 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
+                    "fixed p-0.5 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
                     "transition-all duration-300 ease-out hover:scale-110",
                     isButtonFadingOut
                       ? "opacity-0 translate-y-5 scale-75"
@@ -462,6 +471,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       <ChatInputArea
         ref={inputAreaRef}
         onMessagesUpdate={onMessagesUpdate}
+        onInputAreaHeightChange={handleInputAreaHeightChange}
       />
 
       {/* Floating Artifacts Toggle - Pill Design */}

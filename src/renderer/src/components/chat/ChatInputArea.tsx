@@ -49,11 +49,13 @@ import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
+  onInputAreaHeightChange?: (height: number) => void
 }
 const availableMcpTools = new Map()
 
 const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onMessagesUpdate,
+  onInputAreaHeightChange,
 }, ref) => {
   const { setChatContent } = useChatContext()
   const {
@@ -208,12 +210,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       // Collapse to default height
       setTextareaHeight(textareaDefaultHeight.current)
       setIsTextareaExpanded(false)
+      onInputAreaHeightChange?.(textareaDefaultHeight.current)
     } else {
       // Expand to max height
       setTextareaHeight(textareaMaxHeight.current)
       setIsTextareaExpanded(true)
+      onInputAreaHeightChange?.(textareaMaxHeight.current)
     }
   }
+
+  // Notify parent component of initial height
+  useEffect(() => {
+    onInputAreaHeightChange?.(textareaDefaultHeight.current)
+  }, [])
 
   const handleChatSubmit = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
