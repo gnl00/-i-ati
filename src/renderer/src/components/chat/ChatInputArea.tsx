@@ -30,6 +30,7 @@ import {
   LoaderCircle,
   Maximize2,
   Minimize2,
+  Package,
   Settings2
 } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -62,7 +63,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     currentReqCtrl,
     readStreamState,
     webSearchEnable, toggleWebSearch,
+    artifacts,
     toggleArtifacts,
+    setArtifactsPanel,
     providers,
     models,
     selectedModel,
@@ -734,6 +737,33 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 </TooltipTrigger>
                 <TooltipContent className="bg-black/80 backdrop-blur-md border-0 text-gray-100 text-xs px-2 py-1 rounded-md mb-2">
                   <p>Web Search {webSearchEnable ? 'On' : 'Off'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider delayDuration={400}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={cn(
+                      "h-8 w-8 rounded-xl transition-all duration-200",
+                      artifacts
+                        ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 hover:bg-blue-200 hover:text-blue-400 dark:hover:bg-blue-900/60"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    )}
+                    onClick={() => {
+                      const newState = !artifacts
+                      toggleArtifacts(newState)
+                      setArtifactsPanel(newState)
+                    }}
+                  >
+                    <Package className="w-5 h-5" strokeWidth={2} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-black/80 backdrop-blur-md border-0 text-gray-100 text-xs px-2 py-1 rounded-md mb-2">
+                  <p>Artifacts {artifacts ? 'On' : 'Off'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

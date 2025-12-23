@@ -6,7 +6,7 @@ import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request
 import { embeddedToolsRegistry } from '@tools/index'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
-import { artifactsSystemPrompt, generateTitlePrompt, toolCallPrompt, toolsCallSystemPrompt } from '../constant/prompts'
+import { generateTitlePrompt, toolCallPrompt, toolsCallSystemPrompt } from '../constant/prompts'
 
 interface ToolCallProps {
   id?: string
@@ -180,7 +180,7 @@ function useChatSubmit() {
       signal: controller.signal,
       gatherContent: '',
       gatherReasoning: '',
-      sysMessageEntity: { body: { role: 'system', content: '', artifatcs: artifacts } },
+      sysMessageEntity: { body: { role: 'system', content: '', artifacts: artifacts } },
       isContentHasThinkTag: false,
       hasToolCall: false,
       toolCalls: [],
@@ -193,7 +193,7 @@ function useChatSubmit() {
 
   // 管道上下文：构建请求
   const buildRequest = (context: ChatPipelineContext, prompt: string): ChatPipelineContext => {
-    let systemPrompts = [artifacts ? artifactsSystemPrompt : '', context.tools ? toolsCallSystemPrompt : '', toolCallPrompt]
+    let systemPrompts = [context.tools ? toolsCallSystemPrompt : '', toolCallPrompt]
     if (prompt) {
       systemPrompts = [prompt, ...systemPrompts]
     }
@@ -369,7 +369,7 @@ function useChatSubmit() {
             role: 'system',
             content: context.gatherContent,
             reasoning: context.gatherReasoning,
-            artifatcs: artifacts,
+            artifacts: artifacts,
             toolCallResults: context.toolCallResults,
             model: context.model.name
           }
@@ -386,7 +386,7 @@ function useChatSubmit() {
             role: 'system',
             content: context.gatherContent,
             reasoning: context.gatherReasoning,
-            artifatcs: artifacts,
+            artifacts: artifacts,
             toolCallResults: context.toolCallResults,
             model: context.model.name
           }

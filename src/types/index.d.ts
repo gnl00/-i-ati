@@ -153,7 +153,7 @@ declare interface BaseChatMessage {
 declare interface ChatMessage extends BaseChatMessage {
   model?: string
   reasoning?: string
-  artifatcs?: boolean
+  artifacts?: boolean
   toolCallResults?: any
   typewriterCompleted?: boolean
 }

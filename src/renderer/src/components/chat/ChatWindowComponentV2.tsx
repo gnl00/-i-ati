@@ -1,14 +1,22 @@
+import { ArtifactsPanel } from '@renderer/components/artifacts'
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea from "@renderer/components/chat/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/ChatMessageComponent"
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
-import { ArrowDown } from 'lucide-react'
+import { ArrowDown, FileCode, Monitor } from 'lucide-react'
 import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
 
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
-  const { messages } = useChatStore()
+  const {
+    messages,
+    artifactsPanelOpen,
+    artifacts,
+    setArtifactsPanel,
+    setArtifactsActiveTab
+  } = useChatStore()
   const { chatUuid } = useChatContext()
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
@@ -70,7 +78,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       // 在每一帧重新计算目标位置，确保滚动到真正的底部
       const currentEndPos = getEndPos()
       const currentDistance = currentEndPos - startPos
-      
+
       // 使用当前计算的距离和目标位置
       container.scrollTop = startPos + currentDistance * eased
 
@@ -83,7 +91,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       } else {
         // 确保滚动到真正的底部
         container.scrollTop = currentEndPos
-        
+
         // 动画完成
         smoothScrollRAFRef.current = 0
 
@@ -351,22 +359,35 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
       <ChatHeaderComponent />
-      <div className="flex-grow app-undragable mt-12 overflow-scroll">
-        <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
-          {messages.length !== 0 && messages.map((message, index) => {
-            return (
-              <ChatMessageComponent
-                key={index}
-                message={message.body}
-                index={index}
-                isLatest={index === messages.length - 1}
-                onTypingChange={handleTyping}
-              />
-            )
-          })}
 
-          {/* 流式响应加载指示器 */}
-          {/* {showLoadingIndicator && selectedModel && (
+      {/* 水平分割容器 - 使用 Resizable 组件 */}
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="flex-grow mt-12 overflow-hidden"
+      >
+        {/* 左侧：聊天区域 */}
+        <ResizablePanel
+          defaultSize={artifactsPanelOpen ? 60 : 100}
+          minSize={30}
+          className="flex flex-col overflow-hidden"
+          id="chat-panel"
+        >
+          <div className="flex-1 app-undragable overflow-scroll">
+            <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
+              {messages.length !== 0 && messages.map((message, index) => {
+                return (
+                  <ChatMessageComponent
+                    key={index}
+                    message={message.body}
+                    index={index}
+                    isLatest={index === messages.length - 1}
+                    onTypingChange={handleTyping}
+                  />
+                )
+              })}
+
+              {/* 流式响应加载指示器 */}
+              {/* {showLoadingIndicator && selectedModel && (
           <div className="flex justify-start flex-col pb-0.5 w-20">
             <Badge variant="outline" className='select-none text-gray-700 mb-1 animate-pulse'>
               @{selectedModel.name}
@@ -377,38 +398,107 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           </div>
         )} */}
 
-          {/* WebSearch 加载指示器 */}
-          {/* {webSearchEnable && webSearchProcessing && (
+              {/* WebSearch 加载指示器 */}
+              {/* {webSearchEnable && webSearchProcessing && (
           <div className="space-y-2">
             <Skeleton className="h-4 w-[60%] rounded-full bg-black/5" />
             <Skeleton className="h-4 w-[40%] rounded-full bg-black/5" />
           </div>
         )} */}
-          {/* ScrollToBottom 按钮 - 根据滚动状态显示/隐藏 */}
-          {showScrollToBottom && (
-            <div
-              id="scrollToBottom"
-              onClick={() => scrollToBottom(true)}
-              className={cn(
-                "fixed p-0.5 bottom-60 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
-                "transition-all duration-300 ease-out hover:scale-110",
-                isButtonFadingOut
-                  ? "opacity-0 translate-y-5 scale-75"
-                  : "opacity-100 translate-y-0"
+              {/* ScrollToBottom 按钮 - 根据滚动状态显示/隐藏 */}
+              {showScrollToBottom && (
+                <div
+                  id="scrollToBottom"
+                  onClick={() => scrollToBottom(true)}
+                  className={cn(
+                    "fixed p-0.5 bottom-60 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
+                    "transition-all duration-300 ease-out hover:scale-110",
+                    isButtonFadingOut
+                      ? "opacity-0 translate-y-5 scale-75"
+                      : "opacity-100 translate-y-0"
+                  )}
+                >
+                  <ArrowDown className="text-gray-400 p-1 m-1" />
+                </div>
               )}
-            >
-              <ArrowDown className="text-gray-400 p-1 m-1" />
             </div>
-          )}
-        </div>
-        <div id="scrollBottomEl" ref={chatPaddingElRef} className="h-px"></div>
-      </div>
+            <div id="scrollBottomEl" ref={chatPaddingElRef} className="h-px"></div>
+          </div>
+        </ResizablePanel>
+
+        {/* 右侧：Artifacts 面板（可调整大小） */}
+        {artifactsPanelOpen && (
+          <>
+            <ResizableHandle
+              withHandle
+              className="hover:bg-primary/20 active:bg-primary/30 transition-colors duration-200"
+            />
+            <ResizablePanel
+              defaultSize={40}
+              minSize={25}
+              maxSize={70}
+              collapsible={true}
+              collapsedSize={0}
+              onResize={(size) => {
+                // 当面板被折叠到 0 时，同步更新 artifactsPanelOpen 状态
+                // 这样 Floating Toggle 就能正常显示了
+                if (size === 0 && artifactsPanelOpen) {
+                  setArtifactsPanel(false)
+                }
+              }}
+              className="bg-background overflow-hidden"
+              id="artifacts-panel"
+            >
+              <div className="h-full w-full overflow-hidden">
+                <ArtifactsPanel />
+              </div>
+            </ResizablePanel>
+          </>
+        )}
+      </ResizablePanelGroup>
+
       {/* just as a padding element */}
       <div className="pb-52 bg-transparent select-none">&nbsp;</div>
       <ChatInputArea
         ref={inputAreaRef}
         onMessagesUpdate={onMessagesUpdate}
       />
+
+      {/* Floating Artifacts Toggle - Pill Design */}
+      {artifacts && !artifactsPanelOpen && (
+        <div
+          className={cn(
+            "fixed right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 p-0.5 z-50",
+            "bg-white/10 dark:bg-black/40 backdrop-blur-2xl border border-gray-200/50 dark:border-white/10 rounded-full shadow-2xl animate-in fade-in slide-in-from-right duration-500"
+          )}
+        >
+          <button
+            className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 transition-all group relative"
+            onClick={() => {
+              setArtifactsActiveTab('preview')
+              setArtifactsPanel(true)
+            }}
+            title="Open Preview"
+          >
+            <Monitor className="w-4 h-4" />
+            <div className="absolute right-full mr-2 px-2 py-1 rounded bg-gray-900 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Preview</div>
+          </button>
+
+          <div className="mx-1.5 h-px bg-gray-200/50 dark:bg-white/10" />
+
+          <button
+            className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 transition-all group relative"
+            onClick={() => {
+              setArtifactsActiveTab('files')
+              setArtifactsPanel(true)
+            }}
+            title="Open Files"
+          >
+            <FileCode className="w-4 h-4" />
+            <div className="absolute right-full mr-2 px-2 py-1 rounded bg-gray-900 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Files</div>
+          </button>
+        </div>
+      )}
     </div>
   )
 })

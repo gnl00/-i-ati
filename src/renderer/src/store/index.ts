@@ -29,22 +29,9 @@ type ChatState = {
   webSearchEnable: boolean
   webSearchProcessing: boolean
   artifacts: boolean
+  artifactsPanelOpen: boolean
+  artifactsActiveTab: string
   mcpServerConfig: { mcpServers?: {} }
-  // chatContent: string
-  // setChatContent: (content: string) => void
-  // chatId: number | undefined
-  // setChatId: (chatId: number | undefined) => void
-  // chatUuid: string | undefined
-  // setChatUuid: (uuid: string | undefined) => void
-  // chatTitle: string | undefined
-  // setChatTitle: (title: string) => void
-  // chatList: ChatEntity[]
-  // setChatList: (list: ChatEntity[]) => void
-  // editableContentId: number | undefined
-  // setEditableContentId: (id: number) => void
-  // updateChatList: (chatEntity: ChatEntity) => void
-  // lastMsgStatus: boolean
-  // setLastMsgStatus: (state: boolean) => void
 }
 
 // Actions
@@ -73,6 +60,9 @@ type ChatAction = {
   toggleWebSearch: (state: boolean) => void
   setWebSearchProcessState: (state: boolean) => void
   toggleArtifacts: (state: boolean) => void
+  toggleArtifactsPanel: () => void
+  setArtifactsPanel: (open: boolean) => void
+  setArtifactsActiveTab: (tab: string) => void
   setTitleGenerateEnabled: (state: boolean) => void
   setMcpServerConfig: (config: any) => void
 }
@@ -237,6 +227,11 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setShowLoadingIndicator: (state: boolean) => (set({ showLoadingIndicator: state })),
   artifacts: false,
   toggleArtifacts: (state: boolean) => (set({ artifacts: state })),
+  artifactsPanelOpen: false,
+  artifactsActiveTab: 'preview',
+  toggleArtifactsPanel: () => set((state) => ({ artifactsPanelOpen: !state.artifactsPanelOpen })),
+  setArtifactsPanel: (open: boolean) => set({ artifactsPanelOpen: open }),
+  setArtifactsActiveTab: (tab: string) => set({ artifactsActiveTab: tab }),
   titleGenerateEnabled: localAppConfig.tools?.titleGenerateEnabled ?? true,
   setTitleGenerateEnabled: (state: boolean) => (set({ titleGenerateEnabled: state })),
   mcpServerConfig: { ...localAppConfig.mcp },
