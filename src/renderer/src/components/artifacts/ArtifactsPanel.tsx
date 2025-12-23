@@ -168,7 +168,7 @@ export const ArtifactsPanel: React.FC = () => {
   }, [files])
 
   return (
-    <div className="h-full flex flex-col bg-background/95 backdrop-blur-xl border-l border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden">
+    <div className="h-full flex flex-col bg-background/95 backdrop-blur-xl rounded-lg dark:border-gray-800 overflow-hidden">
       <Tabs
         value={artifactsActiveTab}
         className="flex-1 flex flex-col min-h-0"

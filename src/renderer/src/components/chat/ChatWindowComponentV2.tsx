@@ -436,7 +436,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
               <>
                 <ResizableHandle
                   withHandle
-                  className="hover:bg-primary/20 active:bg-primary/30 transition-colors duration-200"
+                  className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 mt-2 mb-2"
                 />
                 <ResizablePanel
                   defaultSize={40}
@@ -449,7 +449,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       setArtifactsPanel(false)
                     }
                   }}
-                  className="bg-background overflow-hidden"
+                  className="bg-transparent overflow-hidden"
                   id="artifacts-panel"
                 >
                   <div className="h-full w-full overflow-hidden">
@@ -464,7 +464,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         {/* ========== 垂直分隔符 ========== */}
         <ResizableHandle
           withHandle
-          className="bg-transparent hover:bg-black/5 active:bg-black/20 transition-all duration-200 group [&>div]:opacity-0 [&>div]:hover:opacity-100 [&>div]:transition-opacity [&>div]:duration-200"
+          className="bg-transparent hover:bg-primary/10 active:bg-primary/20 mr-8 transition-all duration-200 group [&>div]:opacity-0 [&>div]:hover:opacity-100 [&>div]:transition-opacity [&>div]:duration-200"
         />
 
         {/* ========== 下部面板：ChatInputArea ========== */}
