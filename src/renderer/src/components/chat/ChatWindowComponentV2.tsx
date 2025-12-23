@@ -413,7 +413,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       id="scrollToBottom"
                       onClick={() => scrollToBottom(true)}
                       style={{
-                        bottom: `${inputAreaPanelHeight + 20}px`
+                        bottom: `${inputAreaPanelHeight + 8}px`
                       }}
                       className={cn(
                         "fixed p-0.5 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
