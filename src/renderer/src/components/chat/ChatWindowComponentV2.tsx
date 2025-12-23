@@ -33,7 +33,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
-  const [inputAreaTextareaHeight, setInputAreaTextareaHeight] = useState<number>(150) // ChatInputArea 的 textarea 高度
+  const [inputAreaPanelHeight, setInputAreaPanelHeight] = useState<number>(0) // ChatInputArea Panel 的总高度
 
   // 缓动函数：easeOutCubic - 快速开始，缓慢结束
   const easeOutCubic = useCallback((t: number): number => {
@@ -357,122 +357,139 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [showScrollToBottom])
 
-  // Handle input area height change
-  const handleInputAreaHeightChange = useCallback((height: number) => {
-    setInputAreaTextareaHeight(height)
+  // Handle input area panel resize
+  const handleInputAreaPanelResize = useCallback((height: number) => {
+    setInputAreaPanelHeight(height)
   }, [])
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
       <ChatHeaderComponent />
 
-      {/* 水平分割容器 - 使用 Resizable 组件 */}
+      {/* 外层垂直分割容器 */}
       <ResizablePanelGroup
-        direction="horizontal"
+        direction="vertical"
         className="flex-grow mt-12 overflow-hidden"
+        id="vertical-panel-group"
       >
-        {/* 左侧：聊天区域 */}
+        {/* ========== 上部面板：包含聊天和 Artifacts ========== */}
         <ResizablePanel
-          defaultSize={artifactsPanelOpen ? 60 : 100}
+          id="main-content-panel"
+          defaultSize={75}
           minSize={30}
+          maxSize={85}
           className="flex flex-col overflow-hidden"
-          id="chat-panel"
         >
-          <div className="flex-1 app-undragable overflow-scroll">
-            <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
-              {messages.length !== 0 && messages.map((message, index) => {
-                return (
-                  <ChatMessageComponent
-                    key={index}
-                    message={message.body}
-                    index={index}
-                    isLatest={index === messages.length - 1}
-                    onTypingChange={handleTyping}
-                  />
-                )
-              })}
-
-              {/* 流式响应加载指示器 */}
-              {/* {showLoadingIndicator && selectedModel && (
-          <div className="flex justify-start flex-col pb-0.5 w-20">
-            <Badge variant="outline" className='select-none text-gray-700 mb-1 animate-pulse'>
-              @{selectedModel.name}
-            </Badge>
-            <div className="space-y-2 mt-2">
-              <Skeleton className="h-4 w-32 rounded-full bg-black/5" />
-            </div>
-          </div>
-        )} */}
-
-              {/* WebSearch 加载指示器 */}
-              {/* {webSearchEnable && webSearchProcessing && (
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-[60%] rounded-full bg-black/5" />
-            <Skeleton className="h-4 w-[40%] rounded-full bg-black/5" />
-          </div>
-        )} */}
-              {/* ScrollToBottom 按钮 - 根据滚动状态显示/隐藏 */}
-              {showScrollToBottom && (
-                <div
-                  id="scrollToBottom"
-                  onClick={() => scrollToBottom(true)}
-                  style={{
-                    bottom: `${inputAreaTextareaHeight + 80}px` // 动态计算：textarea 高度 + 其他元素高度（~90px）+ 间距（~20px）
-                  }}
-                  className={cn(
-                    "fixed p-0.5 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
-                    "transition-all duration-300 ease-out hover:scale-110",
-                    isButtonFadingOut
-                      ? "opacity-0 translate-y-5 scale-75"
-                      : "opacity-100 translate-y-0"
-                  )}
-                >
-                  <ArrowDown className="text-gray-400 p-1 m-1" />
-                </div>
-              )}
-            </div>
-            <div id="scrollBottomEl" ref={chatPaddingElRef} className="h-px"></div>
-          </div>
-        </ResizablePanel>
-
-        {/* 右侧：Artifacts 面板（可调整大小） */}
-        {artifactsPanelOpen && (
-          <>
-            <ResizableHandle
-              withHandle
-              className="hover:bg-primary/20 active:bg-primary/30 transition-colors duration-200"
-            />
+          {/* 内层水平分割容器 */}
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="flex-1 overflow-hidden"
+            id="horizontal-panel-group"
+          >
+            {/* 左侧：聊天区域 */}
             <ResizablePanel
-              defaultSize={40}
-              minSize={25}
-              maxSize={70}
-              collapsible={true}
-              collapsedSize={0}
-              onResize={(size) => {
-                // 当面板被折叠到 0 时，同步更新 artifactsPanelOpen 状态
-                // 这样 Floating Toggle 就能正常显示了
-                if (size === 0 && artifactsPanelOpen) {
-                  setArtifactsPanel(false)
-                }
-              }}
-              className="bg-background overflow-hidden"
-              id="artifacts-panel"
+              defaultSize={artifactsPanelOpen ? 60 : 100}
+              minSize={30}
+              className="flex flex-col overflow-hidden"
+              id="chat-panel"
             >
-              <div className="h-full w-full overflow-hidden">
-                <ArtifactsPanel />
+              <div className="flex-1 app-undragable overflow-scroll">
+                <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
+                  {messages.length !== 0 && messages.map((message, index) => {
+                    return (
+                      <ChatMessageComponent
+                        key={index}
+                        message={message.body}
+                        index={index}
+                        isLatest={index === messages.length - 1}
+                        onTypingChange={handleTyping}
+                      />
+                    )
+                  })}
+
+                  {/* ScrollToBottom 按钮 - 更新定位逻辑 */}
+                  {showScrollToBottom && (
+                    <div
+                      id="scrollToBottom"
+                      onClick={() => scrollToBottom(true)}
+                      style={{
+                        bottom: `${inputAreaPanelHeight + 20}px`
+                      }}
+                      className={cn(
+                        "fixed p-0.5 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
+                        "transition-all duration-300 ease-out hover:scale-110",
+                        isButtonFadingOut
+                          ? "opacity-0 translate-y-5 scale-75"
+                          : "opacity-100 translate-y-0"
+                      )}
+                    >
+                      <ArrowDown className="text-gray-400 p-1 m-1" />
+                    </div>
+                  )}
+                </div>
+                <div id="scrollBottomEl" ref={chatPaddingElRef} className="h-px"></div>
               </div>
             </ResizablePanel>
-          </>
-        )}
-      </ResizablePanelGroup>
 
-      {/* just as a padding element */}
-      <div className="pb-52 bg-transparent select-none">&nbsp;</div>
-      <ChatInputArea
-        ref={inputAreaRef}
-        onMessagesUpdate={onMessagesUpdate}
-        onInputAreaHeightChange={handleInputAreaHeightChange}
-      />
+            {/* 右侧：Artifacts 面板 */}
+            {artifactsPanelOpen && (
+              <>
+                <ResizableHandle
+                  withHandle
+                  className="hover:bg-primary/20 active:bg-primary/30 transition-colors duration-200"
+                />
+                <ResizablePanel
+                  defaultSize={40}
+                  minSize={25}
+                  maxSize={70}
+                  collapsible={true}
+                  collapsedSize={0}
+                  onResize={(size) => {
+                    if (size === 0 && artifactsPanelOpen) {
+                      setArtifactsPanel(false)
+                    }
+                  }}
+                  className="bg-background overflow-hidden"
+                  id="artifacts-panel"
+                >
+                  <div className="h-full w-full overflow-hidden">
+                    <ArtifactsPanel />
+                  </div>
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
+        </ResizablePanel>
+
+        {/* ========== 垂直分隔符 ========== */}
+        <ResizableHandle
+          withHandle
+          className="bg-transparent hover:bg-black/5 active:bg-black/20 transition-all duration-200 group [&>div]:opacity-0 [&>div]:hover:opacity-100 [&>div]:transition-opacity [&>div]:duration-200"
+        />
+
+        {/* ========== 下部面板：ChatInputArea ========== */}
+        <ResizablePanel
+          id="input-area-panel"
+          defaultSize={25}
+          minSize={25}
+          maxSize={50}
+          onResize={(size) => {
+            // 计算实际像素高度
+            const container = document.getElementById('vertical-panel-group')
+            if (container) {
+              const totalHeight = container.clientHeight
+              const panelHeight = (totalHeight * size) / 100
+              handleInputAreaPanelResize(panelHeight)
+            }
+          }}
+          className="flex flex-col overflow-hidden"
+        >
+          <ChatInputArea
+            ref={inputAreaRef}
+            onMessagesUpdate={onMessagesUpdate}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Floating Artifacts Toggle - Pill Design */}
       {artifacts && !artifactsPanelOpen && (

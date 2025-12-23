@@ -28,8 +28,6 @@ import {
   CornerDownLeft,
   Globe,
   LoaderCircle,
-  Maximize2,
-  Minimize2,
   Package,
   Settings2
 } from 'lucide-react'
@@ -49,13 +47,11 @@ import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
-  onInputAreaHeightChange?: (height: number) => void
 }
 const availableMcpTools = new Map()
 
 const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onMessagesUpdate,
-  onInputAreaHeightChange,
 }, ref) => {
   const { setChatContent } = useChatContext()
   const {
@@ -91,12 +87,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
 
-  // Textarea ref and expand functionality
+  // Textarea ref
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const textareaDefaultHeight = useRef<number>(150)
-  const textareaMaxHeight = useRef<number>(450)
-  const [textareaHeight, setTextareaHeight] = useState<number>(textareaDefaultHeight.current) // Use state to manage height
-  const [isTextareaExpanded, setIsTextareaExpanded] = useState<boolean>(false) // Track expand state
 
   // Custom Caret State
   const [caretPos, setCaretPos] = useState({ top: 0, left: 0, height: 20, visible: false })
@@ -202,26 +194,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       document.removeEventListener('selectionchange', handleSelectionChange)
       window.removeEventListener('resize', updateCaretPosition)
     }
-  }, [])
-
-
-  const handleToggleTextarea = () => {
-    if (isTextareaExpanded) {
-      // Collapse to default height
-      setTextareaHeight(textareaDefaultHeight.current)
-      setIsTextareaExpanded(false)
-      onInputAreaHeightChange?.(textareaDefaultHeight.current)
-    } else {
-      // Expand to max height
-      setTextareaHeight(textareaMaxHeight.current)
-      setIsTextareaExpanded(true)
-      onInputAreaHeightChange?.(textareaMaxHeight.current)
-    }
-  }
-
-  // Notify parent component of initial height
-  useEffect(() => {
-    onInputAreaHeightChange?.(textareaDefaultHeight.current)
   }, [])
 
   const handleChatSubmit = useChatSubmit()
@@ -385,7 +357,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   )
 
   return (
-    <div ref={ref} id='inputArea' className={cn('rounded-md fixed w-full -bottom-1')}>
+    <div ref={ref} id='inputArea' className={cn('rounded-md w-full h-full flex flex-col')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
         <ChatImgGalleryComponent />
       </div>
@@ -613,33 +585,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           </div>
         </div>
       </div>
-      <div className='relative flex flex-col pb-3 px-4'>
-        {/* Expand/Collapse button in top-right corner */}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="absolute top-1 right-5 z-20 h-6 w-6 rounded-full hover:bg-gray-200/50 dark:hover:bg-gray-700/50 transition-colors"
-          onClick={handleToggleTextarea}
-        >
-          {isTextareaExpanded ? (
-            <Minimize2 className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" />
-          ) : (
-            <Maximize2 className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" />
-          )}
-        </Button>
-
+      <div className='relative flex flex-col pb-3 px-4 flex-1 overflow-hidden'>
         <Textarea
           ref={textareaRef}
-          style={{
-            height: `${textareaHeight}px`,
-            // minHeight: textareaHeight,
-            maxHeight: `${textareaMaxHeight.current}px`,
-            marginTop: 'auto' // Push to bottom, grow upward
-          }}
           className={
             cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 backdrop-blur-3xl text-sm p-2 border-b-[0px] rounded-bl-none rounded-br-none',
-              'rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto font-mono text-gray-700 dark:text-gray-300 caret-transparent',
-            ) // Override default min-height
+              'rounded-t-2xl resize-none pr-12 pb-12 overflow-y-auto font-mono text-gray-700 dark:text-gray-300 caret-transparent flex-1',
+            )
           }
           placeholder='Type anything to chat'
           value={inputContent}
