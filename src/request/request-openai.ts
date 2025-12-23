@@ -21,7 +21,7 @@ const openAIRequest = async (apiKey: string, baseUrl: string, model: string, con
 
 const openAIRequestWithHook = async (req: IChatRequestV2, _signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function) => {
   let memorizedMessage = req.messages.map(msg => {
-    const { reasoning, artifatcs, name, ...props } = msg
+    const { reasoning, artifacts, name, ...props } = msg
     return props
   })
 

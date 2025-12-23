@@ -4,11 +4,11 @@ import { BaseAdapter } from './base'
 export class OpenAIAdapter extends BaseAdapter {
   providerType: ProviderType = 'openai'
   apiVersion = 'v1'
-  
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/v1/chat/completions`
   }
-  
+
   transformRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
@@ -19,27 +19,27 @@ export class OpenAIAdapter extends BaseAdapter {
       top_p: req.options?.topP ?? 1,
       n: 1
     }
-    
+
     if (req.prompt) {
       requestBody.messages = [
         { role: 'system', content: req.prompt },
         ...requestBody.messages
       ]
     }
-    
+
     if (req.tools?.length) {
       requestBody.tools = this.transformTools(req.tools)
     }
-    
+
     return requestBody
   }
-  
+
   transformNotStreamResponse(response: any): IUnifiedResponse {
     const choice = response.choices?.[0]
     if (!choice) {
       throw new Error('Invalid OpenAI response: no choices')
     }
-    
+
     return {
       id: response.id || 'unknown',
       model: response.model || 'unknown',
@@ -64,7 +64,7 @@ export class OpenAIAdapter extends BaseAdapter {
 
     let buffer = '' // 用于存储不完整的数据
 
-    while(true) {
+    while (true) {
       const { done, value } = await streamReader.read()
       if (done) {
         break
@@ -124,7 +124,7 @@ export class OpenAIAdapter extends BaseAdapter {
       }
     }
   }
-  
+
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
     try {
       if (chunk.startsWith('data: ')) {
@@ -132,11 +132,11 @@ export class OpenAIAdapter extends BaseAdapter {
         if (jsonStr === '[DONE]') {
           return null
         }
-        
+
         const data = JSON.parse(jsonStr)
         const choice = data.choices?.[0]
         if (!choice) return null
-        
+
         const delta = choice.delta
         return {
           id: data.id || 'stream',
@@ -160,11 +160,11 @@ export class OpenAIAdapter extends BaseAdapter {
 export class OpenAIV2Adapter extends BaseAdapter {
   providerType: ProviderType = 'openai'
   apiVersion = 'v2'
-  
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/v1/response`
   }
-  
+
   transformRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
@@ -174,21 +174,21 @@ export class OpenAIV2Adapter extends BaseAdapter {
       max_output_tokens: req.options?.maxTokens ?? 4096,
       top_p: req.options?.topP ?? 1,
     }
-    
+
     if (req.prompt) {
       requestBody.input = [
         { role: 'system', content: req.prompt },
         ...requestBody.messages
       ]
     }
-    
+
     if (req.tools?.length) {
       requestBody.tools = this.transformTools(req.tools)
     }
-    
+
     return requestBody
   }
-  
+
   transformNotStreamResponse(response: any): IUnifiedResponse {
     // OpenAI v2 使用不同的响应格式
     return {
@@ -201,7 +201,7 @@ export class OpenAIV2Adapter extends BaseAdapter {
       usage: response.usage ? {
         promptTokens: response.usage.prompt_tokens || response.usage.input_tokens,
         completionTokens: response.usage.completion_tokens || response.usage.output_tokens,
-        totalTokens: response.usage.total_tokens || 
+        totalTokens: response.usage.total_tokens ||
           (response.usage.input_tokens + response.usage.output_tokens)
       } : undefined,
       raw: response
@@ -216,7 +216,7 @@ export class OpenAIV2Adapter extends BaseAdapter {
 
     let buffer = '' // 用于存储不完整的数据
 
-    while(true) {
+    while (true) {
       const { done, value } = await streamReader.read()
       if (done) {
         break
@@ -250,15 +250,15 @@ export class OpenAIV2Adapter extends BaseAdapter {
       }
     }
   }
-  
+
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
     try {
       if (chunk.startsWith('data: ')) {
         const jsonStr = chunk.slice(6).trim()
         if (jsonStr === '[DONE]') return null
-        
+
         const data = JSON.parse(jsonStr)
-        
+
         return {
           id: data.response_id || 'stream',
           model: data.model || 'unknown',
@@ -281,37 +281,37 @@ export class OpenAIV2Adapter extends BaseAdapter {
 export class OpenAIImage1Adapter extends BaseAdapter {
   providerType: ProviderType = 'openai'
   apiVersion = 'gpt-image-1'
-  
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/v1/images/generations`
   }
-  
+
   transformRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
       prompt: req.messages.map(m => {
-        const { reasoning, artifatcs, toolCallResults: tool, model, ...msg } = m
+        const { reasoning, artifacts, toolCallResults: tool, model, ...msg } = m
         return msg
       })[req.messages.length - 1].content,
       size: "1024x1024",
       n: 1
     }
-    
+
     return requestBody
   }
-  
+
   transformStreamResponse(_: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
     throw new Error('Method not supports.')
   }
 
   transformNotStreamResponse(response: any): IUnifiedResponse {
     console.log('response', response);
-    
+
     const data = response.data
     if (!data) {
       throw new Error('Invalid OpenAI response: no data')
     }
-    
+
     return {
       id: response.id || 'unknown',
       model: response.model || 'unknown',
@@ -321,7 +321,7 @@ export class OpenAIImage1Adapter extends BaseAdapter {
       raw: response
     }
   }
-  
+
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
     try {
       if (chunk.startsWith('data: ')) {
@@ -329,11 +329,11 @@ export class OpenAIImage1Adapter extends BaseAdapter {
         if (jsonStr === '[DONE]') {
           return null
         }
-        
+
         const data = JSON.parse(jsonStr)
         const choice = data.choices?.[0]
         if (!choice) return null
-        
+
         const delta = choice.delta
         return {
           id: data.id || 'stream',
@@ -357,36 +357,36 @@ export class OpenAIImage1Adapter extends BaseAdapter {
 export class GoogleOpenAIImageCompatibleAdapter extends BaseAdapter {
   providerType: ProviderType = 'google-openai-compatible'
   apiVersion = 'image'
-  
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/v1/chat/completions`
   }
-  
+
   transformRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
       messages: req.messages.map(m => {
-        const { reasoning, artifatcs, toolCallResults: tool, model, ...msg } = m
+        const { reasoning, artifacts, toolCallResults: tool, model, ...msg } = m
         return msg
       })[req.messages.length - 1],
       stream: true,
     }
-    
+
     return requestBody
   }
-  
+
   transformStreamResponse(_: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
     throw new Error('Method not supports.')
   }
 
   transformNotStreamResponse(response: any): IUnifiedResponse {
     console.log('response', response);
-    
+
     const data = response.data
     if (!data) {
       throw new Error('Invalid OpenAI response: no data')
     }
-    
+
     return {
       id: response.id || 'unknown',
       model: response.model || 'unknown',
@@ -396,7 +396,7 @@ export class GoogleOpenAIImageCompatibleAdapter extends BaseAdapter {
       raw: response
     }
   }
-  
+
   parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
     try {
       if (chunk.startsWith('data: ')) {
@@ -404,11 +404,11 @@ export class GoogleOpenAIImageCompatibleAdapter extends BaseAdapter {
         if (jsonStr === '[DONE]') {
           return null
         }
-        
+
         const data = JSON.parse(jsonStr)
         const choice = data.choices?.[0]
         if (!choice) return null
-        
+
         const delta = choice.delta
         return {
           id: data.id || 'stream',
