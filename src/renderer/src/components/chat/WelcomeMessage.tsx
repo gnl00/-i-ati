@@ -48,42 +48,43 @@ What would you like to explore today?`
         </div>
 
         {/* Feature Pills */}
-        {isComplete && (
-          <div className="flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-            <div className="flex flex-wrap gap-3 justify-center select-none">
-              <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
-                💻 Coding Help
-              </div>
-              <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
-                ✨ Creative Writing
-              </div>
-              <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
-                🧠 Problem Solving
-              </div>
-              <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
-                💬 Conversation
-              </div>
+        <div className={cn(
+          "flex flex-col items-center gap-6 transition-all duration-700 delay-100",
+          isComplete ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        )}>
+          <div className="flex flex-wrap gap-3 justify-center select-none">
+            <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
+              💻 Coding Help
             </div>
-
-            {/* Subtle Hint */}
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-500 select-none">
-              <span>Type below to get started</span>
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                />
-              </svg>
+            <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
+              ✨ Creative Writing
+            </div>
+            <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
+              🧠 Problem Solving
+            </div>
+            <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
+              💬 Conversation
             </div>
           </div>
-        )}
+
+          {/* Subtle Hint */}
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-500 select-none mt-16">
+            <span>Type below to get started</span>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+              />
+            </svg>
+          </div>
+        </div>
       </div>
     </div>
   )
