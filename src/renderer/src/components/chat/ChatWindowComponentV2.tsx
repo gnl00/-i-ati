@@ -2,6 +2,7 @@ import { ArtifactsPanel } from '@renderer/components/artifacts'
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea from "@renderer/components/chat/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/ChatMessageComponent"
+import WelcomeMessage from "@renderer/components/chat/WelcomeMessage"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { cn } from '@renderer/lib/utils'
@@ -395,17 +396,21 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             >
               <div className="flex-1 app-undragable overflow-scroll">
                 <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
-                  {messages.length !== 0 && messages.map((message, index) => {
-                    return (
-                      <ChatMessageComponent
-                        key={index}
-                        message={message.body}
-                        index={index}
-                        isLatest={index === messages.length - 1}
-                        onTypingChange={handleTyping}
-                      />
-                    )
-                  })}
+                  {messages.length === 0 ? (
+                    <WelcomeMessage />
+                  ) : (
+                    messages.map((message, index) => {
+                      return (
+                        <ChatMessageComponent
+                          key={index}
+                          message={message.body}
+                          index={index}
+                          isLatest={index === messages.length - 1}
+                          onTypingChange={handleTyping}
+                        />
+                      )
+                    })
+                  )}
 
                   {/* ScrollToBottom 按钮 - 更新定位逻辑 */}
                   {showScrollToBottom && (
