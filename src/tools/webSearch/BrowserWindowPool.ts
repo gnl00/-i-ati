@@ -295,8 +295,8 @@ export function getWindowPool(): BrowserWindowPool {
     const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
 
     windowPool = new BrowserWindowPool({
-      searchWindowCount: 2,    // Pre-create 2 search windows
-      contentWindowCount: 5,   // Pre-create 5 content windows for parallel scraping
+      searchWindowCount: 1,    // Pre-create 1 search windows
+      contentWindowCount: 3,   // Pre-create 3 content windows for parallel scraping
       userAgent
     })
   }
