@@ -136,7 +136,7 @@ function useChatSubmit() {
 
     const userMessageEntity: MessageEntity = { body: messageBody }
     const usrMsgId = await saveMessage(userMessageEntity) as number
-    const messageEntities = [...messages, userMessageEntity]
+    let messageEntities = [...messages, userMessageEntity]
     setMessages(messageEntities)
 
     // 处理聊天创建/更新
@@ -162,6 +162,19 @@ function useChatSubmit() {
     setCurrentReqCtrl(controller)
     setReadStreamState(true)
     setShowLoadingIndicator(true)
+
+    // 立即创建一个空的 assistant 消息，包含 model 信息
+    // 这样 model-badge 可以立即显示并开始闪烁动画
+    const initialAssistantMessage: MessageEntity = {
+      body: {
+        role: 'system',
+        model: model.name,
+        content: '',
+        artifacts: artifacts
+      }
+    }
+    messageEntities = [...messageEntities, initialAssistantMessage]
+    setMessages(messageEntities)
 
     // init context
     return {
@@ -215,15 +228,16 @@ function useChatSubmit() {
     if (false === context.request.stream) {
       const resp = response as IUnifiedResponse
       console.log('non stream resp', resp)
-      setMessages([...context.messageEntities,
-      {
+      // 更新最后一个消息（assistant 消息）的内容
+      const updatedMessages = [...context.messageEntities]
+      updatedMessages[updatedMessages.length - 1] = {
         body: {
           role: 'system',
           model: context.model.name,
           content: resp.content
         }
       }
-      ])
+      setMessages(updatedMessages)
     } else {
       for await (const chunk of response) {
         // Check if request was aborted before processing each chunk
@@ -283,8 +297,9 @@ function useChatSubmit() {
           }
         }
 
-        setMessages([...context.messageEntities,
-        {
+        // 更新最后一个消息（assistant 消息）的内容 而不是添加新的消息
+        const updatedMessages = [...context.messageEntities]
+        updatedMessages[updatedMessages.length - 1] = {
           body: {
             role: 'system',
             model: context.model.name,
@@ -293,7 +308,7 @@ function useChatSubmit() {
             toolCallResults: context.toolCallResults,
           }
         }
-        ])
+        setMessages(updatedMessages)
       }
     }
 
@@ -364,7 +379,9 @@ function useChatSubmit() {
           })
         }
 
-        setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, {
+        // 更新最后一个消息（assistant 消息）
+        const updatedMessages = [...context.messageEntities]
+        updatedMessages[updatedMessages.length - 1] = {
           body: {
             role: 'system',
             content: context.gatherContent,
@@ -373,7 +390,8 @@ function useChatSubmit() {
             toolCallResults: context.toolCallResults,
             model: context.model.name
           }
-        }])
+        }
+        setMessages(updatedMessages)
 
         // 更新请求消息，添加工具调用结果
         context.request.messages.push(toolFunctionMessage)
@@ -381,7 +399,9 @@ function useChatSubmit() {
       } catch (error: any) {
         console.error('Tool call error:', error)
         context.error = error
-        setMessages([...context.messageEntities.slice(0, -1), context.userMessageEntity, {
+        // 更新最后一个消息（assistant 消息）
+        const updatedMessages = [...context.messageEntities]
+        updatedMessages[updatedMessages.length - 1] = {
           body: {
             role: 'system',
             content: context.gatherContent,
@@ -390,7 +410,8 @@ function useChatSubmit() {
             toolCallResults: context.toolCallResults,
             model: context.model.name
           }
-        }])
+        }
+        setMessages(updatedMessages)
       }
     }
 
