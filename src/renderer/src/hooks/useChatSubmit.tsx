@@ -382,7 +382,7 @@ function useChatSubmit() {
 
         // 构建工具调用结果消息
         const toolFunctionMessage: ChatMessage = {
-          role: 'assistant',
+          role: 'tool',
           name: toolCall.function,
           content: toolCall.function === 'web_search'
             ? formatWebSearchForLLM(results)  // Web Search 特殊处理
