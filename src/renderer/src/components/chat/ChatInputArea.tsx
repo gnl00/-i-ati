@@ -1,4 +1,4 @@
-import { PaperPlaneIcon, StopIcon } from '@radix-ui/react-icons'
+import { PaperPlaneIcon, StopIcon, TokensIcon } from '@radix-ui/react-icons'
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
@@ -22,14 +22,13 @@ import { embeddedToolsRegistry } from "@tools/registry"
 import {
   ArrowBigUp,
   BadgePlus,
-  Boxes,
   Check,
   ChevronsUpDown,
   CornerDownLeft,
   Globe,
   LoaderCircle,
   Package,
-  Settings2
+  Plug
 } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -344,14 +343,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }
 
   const triggerButtonClassName = cn(
-    "h-8 min-w-20 w-auto flex items-center justify-between px-2 py-1 gap-1 rounded-2xl",
+    "h-7 min-w-20 w-auto flex items-center justify-between px-2 py-0.5 gap-1 rounded-2xl",
     "bg-gray-100/80 dark:bg-gray-800/80", // Slightly transparent for backdrop blur
     "hover:bg-gray-200 dark:hover:bg-gray-700",
     "text-gray-600 dark:text-gray-400",
     "hover:text-gray-900 dark:hover:text-gray-100",
     "text-xs font-medium",
     "backdrop-blur-md border border-transparent hover:border-gray-200 dark:hover:border-gray-700", // Subtle border on hover
-    // "shadow-sm hover:shadow-md",
+    "shadow-sm hover:shadow",
     "transition-all duration-200",
     "focus-visible:ring-0 focus-visible:ring-offset-0"
   )
@@ -384,7 +383,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                         ) : <span>{selectedModel.name}</span>
                       })()) : ("Select Model")}
                   </span>
-                  <ChevronsUpDown className="flex opacity-50 w-3 h-3 ml-1" />
+                  <ChevronsUpDown className="flex opacity-50 w-4 h-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -457,7 +456,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                     {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0]}
                   </span>
                   {selectedMcpServerNames.length > 1 && <Badge className="h-4 min-w-[16px] px-1 justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-[9px] hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors shadow-none">+{selectedMcpServerNames.length - 1}</Badge>}
-                  <Boxes className="flex opacity-50 w-3 h-3 ml-1" />
+                  <Plug className="flex opacity-50 w-4 h-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -502,7 +501,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                     className={triggerButtonClassName}
                   >
                     <span className="flex-grow text-center">Params</span>
-                    <Settings2 className="flex opacity-50 w-3 h-3 ml-1" />
+                    <TokensIcon className="flex opacity-50 w-4 h-4" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent

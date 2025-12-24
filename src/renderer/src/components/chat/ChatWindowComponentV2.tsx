@@ -469,7 +469,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         {/* ========== 垂直分隔符 ========== */}
         <ResizableHandle
           withHandle
-          className="bg-transparent hover:bg-primary/10 active:bg-primary/20 mr-8 transition-all duration-200 group [&>div]:opacity-0 [&>div]:hover:opacity-100 [&>div]:transition-opacity [&>div]:duration-200"
+          className="!w-full flex items-center justify-center bg-transparent transition-all duration-200 group before:content-[''] before:absolute before:w-0 before:h-full before:bg-transparent before:hover:bg-primary/10 before:active:bg-primary/20 before:transition-colors before:duration-200 [&>div]:opacity-0 [&>div]:group-hover:opacity-100 [&>div]:transition-opacity [&>div]:duration-200"
         />
 
         {/* ========== 下部面板：ChatInputArea ========== */}
@@ -477,7 +477,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           id="input-area-panel"
           defaultSize={25}
           minSize={25}
-          maxSize={50}
+          maxSize={55}
           onResize={(size) => {
             // 计算实际像素高度
             const container = document.getElementById('vertical-panel-group')
