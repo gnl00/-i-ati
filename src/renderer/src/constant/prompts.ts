@@ -1,5 +1,4 @@
 export const artifactsTool = '/artifacts_tool'
-export const toolCallPrompt = `[/no_think /no_thinking /do_not_think]\n当有 tools 可以使用的时候,总是尝试至少调用一种 function tool,再根据tool返回结果给用户response.\n`
 
 export const generateTitlePrompt = `
 **/no_think /no_thinking /do_not_think**\n

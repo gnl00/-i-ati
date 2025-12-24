@@ -210,7 +210,7 @@ function useChatSubmit() {
 
   // 管道上下文：构建请求
   const buildRequest = (context: ChatPipelineContext, prompt: string): ChatPipelineContext => {
-    let systemPrompts = [context.tools ? toolsCallSystemPrompt : '', toolCallPrompt]
+    let systemPrompts = [toolsCallSystemPrompt]
     if (prompt) {
       systemPrompts = [prompt, ...systemPrompts]
     }
@@ -218,7 +218,7 @@ function useChatSubmit() {
     // 过滤掉空的 system 消息（UI 占位消息），避免发送给 LLM
     const filteredMessages = context.chatMessages.filter(msg => {
       // 如果是 system 角色且内容为空，则过滤掉
-      if (msg.role === 'system' && (!msg.content || msg.content.trim() === '')) {
+      if (msg.role === 'system' && (!msg.content || (msg.content as string).trim() === '')) {
         return false
       }
       return true
@@ -382,7 +382,7 @@ function useChatSubmit() {
 
         // 构建工具调用结果消息
         const toolFunctionMessage: ChatMessage = {
-          role: 'function',
+          role: 'assistant',
           name: toolCall.function,
           content: toolCall.function === 'web_search'
             ? formatWebSearchForLLM(results)  // Web Search 特殊处理
