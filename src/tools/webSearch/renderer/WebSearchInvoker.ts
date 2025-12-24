@@ -1,3 +1,5 @@
+import { WEB_SEARCH_ACTION } from '@constants/index'
+
 /**
  * Web Search Tool Handler
  * Note: This function is called from the renderer process and will invoke IPC
@@ -27,7 +29,7 @@ export async function invokeWebSearch(args: WebSearchArgs): Promise<WebSearchRes
     }
 
     const searchResponse: WebSearchResponse = await electron.ipcRenderer.invoke(
-      'web-search-action',
+      WEB_SEARCH_ACTION,
       {
         param: args.query,
         fetchCounts: fetchCounts

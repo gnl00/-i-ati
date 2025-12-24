@@ -214,9 +214,19 @@ function useChatSubmit() {
     if (prompt) {
       systemPrompts = [prompt, ...systemPrompts]
     }
+
+    // 过滤掉空的 system 消息（UI 占位消息），避免发送给 LLM
+    const filteredMessages = context.chatMessages.filter(msg => {
+      // 如果是 system 角色且内容为空，则过滤掉
+      if (msg.role === 'system' && (!msg.content || msg.content.trim() === '')) {
+        return false
+      }
+      return true
+    })
+
     context.request = {
       baseUrl: context.provider.apiUrl,
-      messages: context.chatMessages,
+      messages: filteredMessages,
       apiKey: context.provider.apiKey,
       prompt: systemPrompts.join('\n'),
       model: context.model.value,
