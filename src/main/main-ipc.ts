@@ -36,7 +36,14 @@ function mainIPCSetup() {
 
   ipcMain.handle(WEB_SEARCH_ACTION, (_event, { fetchCounts, param }) => processWebSearch({ fetchCounts, param }))
 
-  ipcMain.handle('mcp-connect', (_, mcpProps) => mcpConnect(mcpProps))
+  ipcMain.handle('mcp-connect', async (_, mcpProps) => {
+    try {
+      return await mcpConnect(mcpProps)
+    } catch (error: any) {
+      console.error('[@i] mcp-connect handler error:', error)
+      return { result: false, msg: `Connection error: ${error.message || 'Unknown error'}` }
+    }
+  })
   ipcMain.handle('mcp-disconnect', (_, { name }) => mcpClose(name))
   ipcMain.handle('mcp-tool-call', (_, { callId, tool, args }) => {
     // init, @NOTE: We need to assign a new lexer for each JSON stream.

@@ -138,13 +138,18 @@ const connect = async (props: ClientProps) => {
   console.log('[@i] mcp transport protocol', JSON.stringify(transport));
 
   if (transport) {
-    console.log('[@i] mcp-client connecting')
-    await client.connect(transport)
-    // List tools
-    const tools = await client.listTools()
-    mcpClient.addServer(props.name, client, tools.tools)
-    console.log('[@i] mcp-tools\n', JSON.stringify(tools))
-    return { result: true, tools: tools.tools, msg: `Connnected to '${props.name}'` }
+    try {
+      console.log('[@i] mcp-client connecting')
+      await client.connect(transport)
+      // List tools
+      const tools = await client.listTools()
+      mcpClient.addServer(props.name, client, tools.tools)
+      console.log('[@i] mcp-tools\n', JSON.stringify(tools))
+      return { result: true, tools: tools.tools, msg: `Connected to '${props.name}'` }
+    } catch (error: any) {
+      console.error(`[@i] mcp-server '${props.name}' connection error:`, error)
+      return { result: false, msg: `Failed to connect to '${props.name}': ${error.message}` }
+    }
   }
 
   // // List resources
