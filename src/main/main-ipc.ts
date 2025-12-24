@@ -34,7 +34,13 @@ function mainIPCSetup() {
     }
   })
 
-  ipcMain.handle(WEB_SEARCH_ACTION, (_event, { fetchCounts, param }) => processWebSearch({ fetchCounts, param }))
+  ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param }) => {
+    // Read maxWebSearchItems from appConfig, default to 3
+    const fetchCounts = appConfig?.tools?.maxWebSearchItems ?? 3
+    console.log(`[WebSearch IPC] appConfig.tools:`, appConfig?.tools)
+    console.log(`[WebSearch IPC] Using fetchCounts: ${fetchCounts}`)
+    return processWebSearch({ fetchCounts, param })
+  })
 
   ipcMain.handle('mcp-connect', async (_, mcpProps) => {
     try {

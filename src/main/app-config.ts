@@ -52,11 +52,16 @@ function loadConfig(): void {
 const saveConfig = (configData: AppConfigType): void => {
   const { configForUpdate, ...omitedConfig } = embeddedConfig
   const mergedConfig: AppConfigType = {
-    ...omitedConfig, 
-    ...configData 
+    ...omitedConfig,
+    ...configData
   }
+
+  // Update in-memory config BEFORE saving to file
+  appConfig = mergedConfig
+
   fs.writeFileSync(configFile, JSON.stringify(mergedConfig, null, 2))
   console.log('[@i] Save merged config\n', JSON.stringify(mergedConfig))
+  console.log('[@i] In-memory appConfig updated')
 }
 
 export {

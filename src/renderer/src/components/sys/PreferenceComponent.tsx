@@ -76,6 +76,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [editProviderApiUrl, setEditProviderApiUrl] = useState<string>(currentProvider?.apiUrl || '')
     const [editProviderApiKey, setEditProviderApiKey] = useState<string>(currentProvider?.apiKey || '')
 
+    const [maxWebSearchItems, setMaxWebSearchItems] = useState<number>(appConfig?.tools?.maxWebSearchItems || 3)
+
 
     const [nextAddModelLabel, setNextAddModelLabel] = useState<string>('')
     const [nextAddModelValue, setNextAddModelValue] = useState<string>('')
@@ -148,6 +150,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setmsConfig(JSON.stringify(mcpServerConfig, null, 2))
     }, [mcpServerConfig])
 
+    useEffect(() => {
+        // Sync maxWebSearchItems from appConfig
+        if (appConfig?.tools?.maxWebSearchItems !== undefined) {
+            setMaxWebSearchItems(appConfig.tools.maxWebSearchItems)
+        }
+    }, [appConfig])
+
     const onAddModelClick = () => {
         // console.log('onAddModelClick currentProvider=', currentProvider);
         if (!currentProvider) return
@@ -197,7 +206,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             tools: {
                 ...appConfig.tools,
                 titleGenerateModel: titleGenerateModel,
-                titleGenerateEnabled: titleGenerateEnabled
+                titleGenerateEnabled: titleGenerateEnabled,
+                maxWebSearchItems: maxWebSearchItems
             },
             mcp: {
                 ...JSON.parse(msConfig)
@@ -852,8 +862,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                 </div>
                                 <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
                                     <Input
+                                        min={1}
+                                        max={10}
+                                        value={maxWebSearchItems}
+                                        onChange={(e) => {
+                                            const value = parseInt(e.target.value) || 3
+                                            setMaxWebSearchItems(Math.min(Math.max(value, 1), 10))
+                                        }}
                                         className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm transition-all focus:w-20 font-mono font-medium'
-                                        defaultValue={3}
                                     />
                                     <span className="text-xs font-medium text-gray-400 pr-2">items</span>
                                 </div>

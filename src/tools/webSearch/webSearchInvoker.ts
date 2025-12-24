@@ -10,7 +10,6 @@ export async function invokeWebSearch(args: WebSearchArgs): Promise<WebSearchRes
     const searchResponse: WebSearchResponse = await window.electron?.ipcRenderer.invoke(
       WEB_SEARCH_ACTION,
       {
-        fetchCounts: 3,
         param: args.query
       }
     )

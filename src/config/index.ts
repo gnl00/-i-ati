@@ -4,6 +4,9 @@ const configVersion = 1.9
 export const defaultConfig: IAppConfig = {
   providers: [],
   version: configVersion,
+  tools: {
+    maxWebSearchItems: 3
+  },
   configForUpdate: {
     version: configVersion,
   }
