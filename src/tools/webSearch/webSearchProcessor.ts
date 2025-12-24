@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import type { WebSearchResponse, WebSearchResultV2 } from './index.d'
+import { getWindowPool } from './BrowserWindowPool'
 
 interface WebSearchProcessArgs {
   fetchCounts: number
@@ -15,44 +16,44 @@ interface BingSearchItem {
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
 
 const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): Promise<WebSearchResponse> => {
+  const searchStartTime = Date.now()
+  const windowPool = getWindowPool()
   let searchWindow: BrowserWindow | null = null
 
   try {
-    console.log('electron-search action received:', fetchCounts, param);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log(`[SEARCH START] Query: "${param}", Count: ${fetchCounts}`)
+    console.log(`[SEARCH START] Timestamp: ${new Date().toISOString()}`)
 
-    // Create a hidden window for search
-    searchWindow = new BrowserWindow({
-      show: false,
-      width: 1366,
-      height: 768,
-      webPreferences: {
-        offscreen: true, // Use offscreen rendering for better performance
-        sandbox: false,  // Needed for some advanced operations? usually better to keep true, but let's stick to simple extraction
-        webSecurity: false, // Allow cross-origin if needed, though for search it might not be strictly necessary
-        images: false, // Disable images to save bandwidth
-      }
-    })
-
-    // Set user agent
-    searchWindow.webContents.setUserAgent(userAgent)
+    // Acquire a search window from the pool
+    const windowCreateStart = Date.now()
+    searchWindow = await windowPool.acquireSearchWindow()
+    const windowCreateTime = Date.now() - windowCreateStart
+    console.log(`[WINDOW ACQUIRE] Search window acquired in ${windowCreateTime}ms`)
 
     const searchSite = 'www.bing.com'
     const queryStr = (param as string).trim().replaceAll(' ', '+')
     const searchUrl = `https://${searchSite}/search?q=${queryStr}`
 
     // Load search page
+    const pageLoadStart = Date.now()
     await searchWindow.loadURL(searchUrl, { userAgent })
+    const pageLoadTime = Date.now() - pageLoadStart
+    console.log(`[PAGE LOAD] Bing search page loaded in ${pageLoadTime}ms`)
 
     // Wait for results to be present
-    // Simple wait mechanism: check periodically
+    const waitStart = Date.now()
     await waitForCondition(async () => {
       if (!searchWindow) return false
       return await searchWindow.webContents.executeJavaScript(`
         document.querySelectorAll('ol#b_results').length > 0
       `)
     }, 15000, 500)
+    const waitTime = Date.now() - waitStart
+    console.log(`[WAIT RESULTS] Waited ${waitTime}ms for search results`)
 
     // Extract links, titles, and snippets from Bing search results
+    const extractStart = Date.now()
     const bingSearchItems: BingSearchItem[] = await searchWindow.webContents.executeJavaScript(`
       (() => {
         const results = []
@@ -85,18 +86,23 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
         return results
       })()
     `)
+    const extractTime = Date.now() - extractStart
+    console.log(`[EXTRACT] Extracted ${bingSearchItems.length} items in ${extractTime}ms`)
 
     // console.log('Extracted Bing search items:', bingSearchItems)
 
-    // Close search window early to free resources
+    // Release search window back to pool
     if (searchWindow) {
-      searchWindow.close()
+      windowPool.releaseSearchWindow(searchWindow)
       searchWindow = null
     }
 
     // Process each search item: scrape full content and extract metadata
+    console.log(`[SCRAPE START] Starting parallel content scraping for ${bingSearchItems.length} pages`)
+    const scrapeStart = Date.now()
     const scrapedResults: WebSearchResultV2[] = await Promise.all(
-      bingSearchItems.map(async (item: BingSearchItem): Promise<WebSearchResultV2> => {
+      bingSearchItems.map(async (item: BingSearchItem, index: number): Promise<WebSearchResultV2> => {
+        const itemStart = Date.now()
         let contentWindow: BrowserWindow | null = null
 
         // 初始化结果对象
@@ -111,15 +117,10 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
         }
 
         try {
-          contentWindow = new BrowserWindow({
-            show: false,
-            webPreferences: {
-              offscreen: true,
-              images: false,
-              webSecurity: false
-            }
-          })
-          contentWindow.webContents.setUserAgent(userAgent)
+          const contentWindowStart = Date.now()
+          contentWindow = await windowPool.acquireContentWindow()
+          const contentWindowTime = Date.now() - contentWindowStart
+          console.log(`[SCRAPE ${index + 1}] Content window #${index + 1} acquired in ${contentWindowTime}ms`)
 
           // 设置加载超时
           const timeoutId = setTimeout(() => {
@@ -128,8 +129,11 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
             }
           }, 15000)
 
+          const contentLoadStart = Date.now()
           await contentWindow.loadURL(item.link, { userAgent })
           clearTimeout(timeoutId)
+          const contentLoadTime = Date.now() - contentLoadStart
+          console.log(`[SCRAPE ${index + 1}] Page loaded in ${contentLoadTime}ms - ${item.link}`)
 
           // 提取页面标题、URL 和内容
           const { pageTitle, finalUrl, extractedText } = await contentWindow.webContents.executeJavaScript(`
@@ -175,7 +179,8 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
           resultItem.content = postClean(extractedText)
           resultItem.success = true
 
-          console.log('Scraping completed, results:', JSON.stringify({ link: resultItem.link, title: resultItem.title, success: resultItem.success }))
+          const itemTime = Date.now() - itemStart
+          console.log(`[SCRAPE ${index + 1}] Completed in ${itemTime}ms total`)
 
           return resultItem
 
@@ -187,13 +192,18 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
 
         } finally {
           if (contentWindow && !contentWindow.isDestroyed()) {
-            contentWindow.close()
+            windowPool.releaseContentWindow(contentWindow)
           }
         }
       })
     )
 
-    console.log('Scraping completed, counts:', scrapedResults.length)
+    const scrapeTime = Date.now() - scrapeStart
+    console.log(`[SCRAPE COMPLETE] All ${bingSearchItems.length} pages scraped in ${scrapeTime}ms`)
+
+    const totalTime = Date.now() - searchStartTime
+    console.log(`[SEARCH COMPLETE] Total time: ${totalTime}ms`)
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 
     return {
       success: true,
@@ -209,7 +219,7 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
     }
   } finally {
     if (searchWindow) {
-      searchWindow.close()
+      windowPool.releaseSearchWindow(searchWindow)
     }
   }
 }

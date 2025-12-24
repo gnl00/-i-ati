@@ -4,6 +4,7 @@ import { mcpClient } from '@mcp/client'
 import { loadConfig } from './app-config'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
 import { createWindow } from './main-window'
+import { getWindowPool, destroyWindowPool } from '../tools/webSearch/BrowserWindowPool'
 
 // const reactDevToolsPath = path.join(
 //   os.homedir(),
@@ -36,6 +37,14 @@ app.whenReady().then(async () => {
   // setup mainIPC
   ipcSetup()
 
+  // Initialize window pool for web search (in background)
+  console.log('[App] Initializing window pool...')
+  getWindowPool().initialize().then(() => {
+    console.log('[App] Window pool initialized')
+  }).catch(err => {
+    console.error('[App] Failed to initialize window pool:', err)
+  })
+
   // IPC handlers 必须在窗口创建前注册
   // 渲染进程（renderer）可能在窗口创建后立即尝试调用 IPC 方法。如果 handlers 还没注册，这些调用就会失败。
   createWindow()
@@ -58,6 +67,8 @@ app.on('window-all-closed', () => {
   if (mcpClient) {
     mcpClient.removeAllServers()
   }
+  // Clean up window pool
+  destroyWindowPool()
 })
 
 // In this file you can include the rest of your app"s specific main process
