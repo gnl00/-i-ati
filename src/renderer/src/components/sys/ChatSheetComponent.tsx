@@ -22,6 +22,7 @@ import { deleteChat, getAllChat, updateChat } from '@renderer/db/ChatRepository'
 import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useSheetStore } from '@renderer/store/sheet'
 import { BadgePlus, ChevronsUpDown, } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
@@ -31,7 +32,8 @@ interface ChatSheetProps { }
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
-    const { setMessages, toggleArtifacts, toggleWebSearch, providers } = useChatStore()
+    const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
+    const { providers } = useAppConfigStore()
     const { chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList } = useChatContext()
 
     const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])

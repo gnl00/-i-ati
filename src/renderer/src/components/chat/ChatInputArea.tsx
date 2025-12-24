@@ -18,6 +18,7 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 import { embeddedToolsRegistry } from "@tools/registry"
 import {
   ArrowBigUp,
@@ -63,13 +64,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     artifacts,
     toggleArtifacts,
     setArtifactsPanel,
-    providers,
-    models,
     selectedModel,
     setSelectedModel,
+  } = useChatStore()
+  const {
+    providers,
+    models,
     setCurrentProviderName,
     mcpServerConfig,
-  } = useChatStore()
+  } = useAppConfigStore()
   useEffect(() => {
     if (models && models.length === 1) {
       setSelectedModel(models[0])

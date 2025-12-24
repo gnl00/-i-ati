@@ -22,7 +22,7 @@ interface ChatMessageComponentProps {
   index: number
   message: ChatMessage
   isLatest: boolean
-  onTypingChange?: (isTyping: boolean) => void
+  onTypingChange?: () => void
 }
 
 // Shared markdown code components for both user and assistant messages

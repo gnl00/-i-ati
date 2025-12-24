@@ -1,4 +1,4 @@
-import { GET_CONFIG, PIN_WINDOW } from '@constants/index'
+import { PIN_WINDOW } from '@constants/index'
 import { ActivityLogIcon, DrawingPinFilledIcon, DrawingPinIcon, GearIcon } from '@radix-ui/react-icons'
 import { ModeToggle } from '@renderer/components/mode-toggle'
 import PreferenceComponent from '@renderer/components/sys/PreferenceComponent'
@@ -6,36 +6,21 @@ import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { useChatContext } from '@renderer/context/ChatContext'
-import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 
 interface ChatHeaderProps { }
 
 const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps) => {
   const [pinState, setPinState] = useState<boolean>(false)
   const { chatTitle } = useChatContext()
-  const { appConfig, setAppConfig } = useChatStore()
   const { setSheetOpenState } = useSheetStore()
-
-  useEffect(() => {
-    window.electron.ipcRenderer.invoke(GET_CONFIG).then((config: IAppConfig) => {
-      setAppConfig({
-        ...appConfig,
-        ...config
-      })
-    })
-  }, [])
 
   const onPinToggleClick = (): void => {
     setPinState(!pinState)
     window.electron.ipcRenderer.invoke(PIN_WINDOW, !pinState) // pin window
   }
 
-  const onMinimizeBtnClick = () => {
-    console.log('onMinimalBtnClick')
-    window.electron.ipcRenderer.invoke('win-minimize')
-  }
   return (
     <div className="header shadow-sm fixed top-0 w-full pb-1 pr-2 pl-3 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black/100 z-10" style={{ userSelect: 'none' }}>
       {/* macOS Traffic Lights */}

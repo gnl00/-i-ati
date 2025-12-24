@@ -1,20 +1,17 @@
 import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
-import { processWebSearch } from '@tools/webSearch/webSearchProcessor'
+import { processWebSearch } from '@tools/webSearch/main/WebSearchProcessor'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
-import { GET_CONFIG, OPEN_EXTERNAL, PIN_WINDOW, SAVE_CONFIG, WEB_SEARCH_ACTION } from '../constants'
-import { appConfig, saveConfig } from './app-config'
+import { OPEN_EXTERNAL, PIN_WINDOW, WEB_SEARCH_ACTION } from '../constants'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
 
 function mainIPCSetup() {
   ipcMain.handle(PIN_WINDOW, (_event, pinState) => pinWindow(pinState))
-  ipcMain.handle(SAVE_CONFIG, (_, config) => saveConfig(config))
   ipcMain.handle('get-win-position', (): number[] => getWinPosition())
   ipcMain.handle('set-position', (_, options) => setWinPosition(options))
   ipcMain.handle('win-minimize', () => windowsMinimize())
   ipcMain.handle('win-maximize', () => windowsMaximize())
   ipcMain.handle('win-close', () => windowsClose())
-  ipcMain.handle(GET_CONFIG, (): IAppConfig => appConfig)
   ipcMain.handle(OPEN_EXTERNAL, (_, url) => {
     console.log('main received url', url);
     shell.openExternal(url)
@@ -34,12 +31,10 @@ function mainIPCSetup() {
     }
   })
 
-  ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param }) => {
-    // Read maxWebSearchItems from appConfig, default to 3
-    const fetchCounts = appConfig?.tools?.maxWebSearchItems ?? 3
-    console.log(`[WebSearch IPC] appConfig.tools:`, appConfig?.tools)
-    console.log(`[WebSearch IPC] Using fetchCounts: ${fetchCounts}`)
-    return processWebSearch({ fetchCounts, param })
+  ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param, fetchCounts }) => {
+    const counts = fetchCounts ?? 3
+    console.log(`[WebSearch IPC] Using fetchCounts: ${counts}`)
+    return processWebSearch({ fetchCounts: counts, param })
   })
 
   ipcMain.handle('mcp-connect', async (_, mcpProps) => {

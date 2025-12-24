@@ -5,12 +5,16 @@
     "src/renderer/src/**/*",
     "src/preload/*.d.ts",
     "src/constants/**/*",
-    "src/config/**/*",
+    "src/renderer/src/config/**/*",
     "src/types/**/*",
     "src/request/**/*",
     "src/tools/**/*",
+    "src/renderer/data/**/*",
     "resources/**/*",
     "data/**/*"
+  ],
+  "exclude": [
+    "src/tools/**/main/**/*"
   ],
   "compilerOptions": {
     "composite": true,
@@ -24,7 +28,7 @@
         "src/constants/*"
       ],
       "@config/*": [
-        "src/config/*"
+        "src/renderer/src/config/*"
       ],
       "~types/*": [
         "src/types/*"

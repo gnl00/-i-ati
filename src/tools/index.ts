@@ -5,7 +5,7 @@
 
 import { embeddedToolsRegistry, type ToolDefinition } from './registry'
 import toolsDefinitions from './tools.json'
-import { invokeWebSearch } from './webSearch/webSearchInvoker'
+import { invokeWebSearch } from './webSearch/renderer/WebSearchInvoker'
 
 /**
  * 工具处理器映射表

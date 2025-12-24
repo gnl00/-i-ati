@@ -1,10 +1,9 @@
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { BrowserWindow, app, globalShortcut } from 'electron'
 import { mcpClient } from '@mcp/client'
-import { loadConfig } from './app-config'
+import { BrowserWindow, app, globalShortcut } from 'electron'
+import { destroyWindowPool, getWindowPool } from '../tools/webSearch/main/BrowserWindowPool'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
 import { createWindow } from './main-window'
-import { getWindowPool, destroyWindowPool } from '../tools/webSearch/BrowserWindowPool'
 
 // const reactDevToolsPath = path.join(
 //   os.homedir(),
@@ -31,23 +30,21 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // load app config
-  loadConfig()
-
   // setup mainIPC
   ipcSetup()
 
-  // Initialize window pool for web search (in background)
-  console.log('[App] Initializing window pool...')
-  getWindowPool().initialize().then(() => {
-    console.log('[App] Window pool initialized')
-  }).catch(err => {
-    console.error('[App] Failed to initialize window pool:', err)
-  })
-
   // IPC handlers 必须在窗口创建前注册
   // 渲染进程（renderer）可能在窗口创建后立即尝试调用 IPC 方法。如果 handlers 还没注册，这些调用就会失败。
+  console.log('[App] Initializing main window...')
   createWindow()
+
+  // Initialize window pool for web search (in background)
+  console.log('[App#TASK] Initializing window pool...')
+  getWindowPool().initialize().then(() => {
+    console.log('[App#TASK] Window pool initialized')
+  }).catch(err => {
+    console.error('[App#TASK] Failed to initialize window pool:', err)
+  })
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

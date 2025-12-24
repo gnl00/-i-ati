@@ -34,6 +34,8 @@ import {
     TooltipTrigger
 } from "@renderer/components/ui/tooltip"
 import { useChatStore } from '@renderer/store'
+import { useAppConfigStore } from '@renderer/store/appConfig'
+import { exportConfigAsJSON, importConfigFromJSON, getConfig } from '@renderer/db/ConfigRepository'
 import { Check, ChevronsUpDown, Trash } from "lucide-react"
 import { toast } from 'sonner'
 
@@ -52,8 +54,9 @@ interface PreferenceProps { }
 
 const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
+    const { appVersion } = useChatStore()
+
     const {
-        appVersion,
         appConfig,
         setAppConfig,
         models,
@@ -66,10 +69,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         removeProvider,
         addModel,
         toggleModelEnable,
-        titleGenerateModel, setTitleGenerateModel,
-        titleGenerateEnabled, setTitleGenerateEnabled,
-        mcpServerConfig, setMcpServerConfig,
-    } = useChatStore()
+        titleGenerateModel,
+        setTitleGenerateModel,
+        titleGenerateEnabled,
+        setTitleGenerateEnabled,
+        mcpServerConfig,
+        setMcpServerConfig,
+    } = useAppConfigStore()
 
     const [currentProvider, setCurrentProvider] = useState<IProvider | undefined>(undefined)
     const [editProviderName, setEditProviderName] = useState<string>(currentProvider?.name || '')
@@ -218,6 +224,51 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
         toast.success('Save configurations success')
     }
+
+    const handleExportConfig = async () => {
+        try {
+            const jsonStr = await exportConfigAsJSON()
+            const blob = new Blob([jsonStr], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `ati-config-${Date.now()}.json`
+            a.click()
+            URL.revokeObjectURL(url)
+            toast.success('Config exported successfully')
+        } catch (error) {
+            console.error('Export error:', error)
+            toast.error('Failed to export config')
+        }
+    }
+
+    const handleImportConfig = () => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.json,application/json'
+        input.onchange = async (e) => {
+            try {
+                const file = (e.target as HTMLInputElement).files?.[0]
+                if (!file) return
+
+                const text = await file.text()
+                await importConfigFromJSON(text)
+
+                // Reload config into store
+                const newConfig = await getConfig()
+                if (newConfig) {
+                    setAppConfig(newConfig)
+                    toast.success('Config imported successfully. Reloading...')
+                    setTimeout(() => window.location.reload(), 1000)
+                }
+            } catch (error: any) {
+                console.error('Import error:', error)
+                toast.error('Failed to import config: ' + error.message)
+            }
+        }
+        input.click()
+    }
+
     const onAddProviderBtnClick = (e: React.MouseEvent) => {
         if (!newProviderName || !newProviderApi || !newProviderApiKey) {
             alert(`Please input providerName/baseUrl/Key(Token)`)
@@ -872,6 +923,33 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                         className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm transition-all focus:w-20 font-mono font-medium'
                                     />
                                     <span className="text-xs font-medium text-gray-400 pr-2">items</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Configuration Backup */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                        Configuration Backup
+                                    </Label>
+                                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800">
+                                        Data
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                    Export your configuration to a JSON file for backup or transfer to another device. You can also import a previously saved configuration.
+                                </p>
+                                <div className="flex gap-2 pt-1">
+                                    <Button onClick={handleExportConfig} variant="outline" size="sm" className="shadow-sm">
+                                        <i className="ri-download-line mr-1.5"></i>
+                                        Export Config
+                                    </Button>
+                                    <Button onClick={handleImportConfig} variant="outline" size="sm" className="shadow-sm">
+                                        <i className="ri-upload-line mr-1.5"></i>
+                                        Import Config
+                                    </Button>
                                 </div>
                             </div>
                         </div>

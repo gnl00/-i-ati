@@ -7,8 +7,11 @@
     "src/types/**/*",
     "src/mcp/**/*",
     "src/constants/**/*",
-    "src/config/**/*",
+    "src/renderer/src/config/**/*",
     "src/tools/**/*"
+  ],
+  "exclude": [
+    "src/tools/**/renderer/**/*"
   ],
   "compilerOptions": {
     "composite": true,

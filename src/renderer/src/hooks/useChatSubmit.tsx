@@ -2,6 +2,7 @@ import { useChatContext } from "@renderer/context/ChatContext"
 import { getChatById, saveChat, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
 import { useChatStore } from "@renderer/store"
+import { useAppConfigStore } from "@renderer/store/appConfig"
 import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request/index"
 import { embeddedToolsRegistry } from '@tools/index'
 import { toast } from 'sonner'
@@ -99,17 +100,20 @@ function useChatSubmit() {
     setLastMsgStatus,
   } = useChatContext()
   const {
-    providers,
     messages,
     selectedModel,
     setMessages,
     setFetchState,
     setCurrentReqCtrl,
     setReadStreamState,
-    titleGenerateModel, titleGenerateEnabled,
     artifacts,
     setShowLoadingIndicator,
   } = useChatStore()
+  const {
+    providers,
+    titleGenerateModel,
+    titleGenerateEnabled,
+  } = useAppConfigStore()
 
   // 管道上下文：准备消息
   const prepareMessageAndChat = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], tools?: any[]): Promise<ChatPipelineContext> => {
@@ -322,6 +326,10 @@ function useChatSubmit() {
 
   // 管道函数：处理工具调用
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
+    // Get fetchCounts from appConfig for web_search
+    const { appConfig } = useAppConfigStore.getState()
+    const fetchCounts = appConfig?.tools?.maxWebSearchItems ?? 3
+
     while (context.toolCalls.length > 0) {
       // Check if request was aborted before processing each tool call
       if (context.signal.aborted) {
@@ -341,6 +349,11 @@ function useChatSubmit() {
 
           // 解析参数
           const args = typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args
+
+          // Inject fetchCounts for web_search
+          if (toolCall.function === 'web_search') {
+            args.fetchCounts = fetchCounts
+          }
 
           // 使用 embedded tool 处理器
           results = await embeddedToolsRegistry.execute(toolCall.function, args)

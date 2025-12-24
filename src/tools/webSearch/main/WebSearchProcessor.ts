@@ -1,5 +1,5 @@
 import { BrowserWindow } from 'electron'
-import type { WebSearchResponse, WebSearchResultV2 } from './index.d'
+import type { WebSearchResponse, WebSearchResultV2 } from '../index'
 import { getWindowPool } from './BrowserWindowPool'
 
 interface WebSearchProcessArgs {
