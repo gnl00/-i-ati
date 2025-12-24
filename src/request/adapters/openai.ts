@@ -1,3 +1,4 @@
+import { buildSystemPrompt } from '@request/utils'
 import { BaseAdapter } from './base'
 
 // OpenAI v1 适配器（兼容 OpenAI API）
@@ -22,7 +23,7 @@ export class OpenAIAdapter extends BaseAdapter {
 
     if (req.prompt) {
       requestBody.messages = [
-        { role: 'system', content: req.prompt },
+        buildSystemPrompt(req.prompt),
         ...requestBody.messages
       ]
     }
@@ -177,7 +178,7 @@ export class OpenAIV2Adapter extends BaseAdapter {
 
     if (req.prompt) {
       requestBody.input = [
-        { role: 'system', content: req.prompt },
+        buildSystemPrompt(req.prompt),
         ...requestBody.messages
       ]
     }

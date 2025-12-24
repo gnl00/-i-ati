@@ -148,6 +148,8 @@ declare interface BaseChatMessage {
   role: string
   content: string | VLMContent[]
   name?: string // for role=function
+  tool_call_id?: string
+  tool_calls?: IToolCall[]
 }
 
 declare interface ChatMessage extends BaseChatMessage {
@@ -155,7 +157,7 @@ declare interface ChatMessage extends BaseChatMessage {
   reasoning?: string
   artifacts?: boolean
   toolCallResults?: any
-  typewriterCompleted?: boolean
+  typewriterCompleted?: boolean,
 }
 
 declare type LLMContent = string;

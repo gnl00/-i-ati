@@ -1,5 +1,6 @@
 import { adapterManager } from './adapters/manager'
 import { initializeAdapters } from './adapters/index'
+import { buildSystemPrompt } from './utils'
 
 initializeAdapters()
 
@@ -22,10 +23,7 @@ export const chatRequestWithHook = async (req: IChatRequest, beforeFetch: Functi
 
   const streamEnable = (req.stream || req.stream === undefined) ? true : false
 
-  const initMessage = req.prompt ? {
-    role: 'system',
-    content: req.prompt
-  } : null
+  const initMessage = req.prompt ? buildSystemPrompt(req.prompt) : null
 
   const headers = {
     ...postHeanders,
@@ -97,10 +95,7 @@ export const chatRequestWithHookV2 = async (req: IChatRequestV2, signal: AbortSi
     let ms = cacheMessage
     if (req.prompt) {
       ms = [
-        {
-          role: 'system',
-          content: req.prompt
-        },
+        buildSystemPrompt(req.prompt),
         ...ms
       ]
     }
@@ -171,11 +166,16 @@ export const commonOpenAIChatCompletionRequest = async (req: IUnifiedRequest, si
 
   const requestBody = adapter.transformRequest(req)
   if (requestBody.messages) {
-    requestBody.messages = requestBody.messages.map((m): BaseChatMessage => ({
-      role: m.role,
-      content: m.content,
-      ...(m.name && { name: m.name })
-    }))
+    // 清理消息：只保留 LLM API 标准字段，移除前端 UI 专用字段
+    // 标准字段：role, content, name, tool_call_id, tool_calls
+    const allowedFields = ['role', 'content', 'name', 'tool_call_id', 'tool_calls']
+    requestBody.messages = requestBody.messages.map((m): BaseChatMessage => {
+      const sanitized: any = {}
+      allowedFields.forEach(field => {
+        if (m[field] !== undefined) sanitized[field] = m[field]
+      })
+      return sanitized
+    })
   }
 
   beforeFetch()

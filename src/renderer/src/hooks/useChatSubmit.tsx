@@ -171,7 +171,7 @@ function useChatSubmit() {
     // 这样 model-badge 可以立即显示并开始闪烁动画
     const initialAssistantMessage: MessageEntity = {
       body: {
-        role: 'system',
+        role: 'assistant',
         model: model.name,
         content: '',
         artifacts: artifacts
@@ -197,7 +197,7 @@ function useChatSubmit() {
       signal: controller.signal,
       gatherContent: '',
       gatherReasoning: '',
-      sysMessageEntity: { body: { role: 'system', content: '', artifacts: artifacts } },
+      sysMessageEntity: { body: { role: 'assistant', content: '', artifacts: artifacts } },
       isContentHasThinkTag: false,
       hasToolCall: false,
       toolCalls: [],
@@ -215,10 +215,20 @@ function useChatSubmit() {
       systemPrompts = [prompt, ...systemPrompts]
     }
 
-    // 过滤掉空的 system 消息（UI 占位消息），避免发送给 LLM
+    // 过滤掉空的 assistant 消息（UI 占位消息），避免发送给 LLM
+    // 但要保留带有 tool_calls 的 assistant 消息（即使 content 为空）
     const filteredMessages = context.chatMessages.filter(msg => {
-      // 如果是 system 角色且内容为空，则过滤掉
-      if (msg.role === 'system' && (!msg.content || (msg.content as string).trim() === '')) {
+      // 如果是 assistant 角色
+      if (msg.role === 'assistant') {
+        // 如果有 tool_calls，保留
+        if (msg.tool_calls && msg.tool_calls.length > 0) {
+          return true
+        }
+        // 如果没有 tool_calls，但有内容，保留
+        if (msg.content && (msg.content as string).trim() !== '') {
+          return true
+        }
+        // 既没有 tool_calls 也没有内容，过滤掉
         return false
       }
       return true
@@ -246,7 +256,7 @@ function useChatSubmit() {
       const updatedMessages = [...context.messageEntities]
       updatedMessages[updatedMessages.length - 1] = {
         body: {
-          role: 'system',
+          role: 'assistant',
           model: context.model.name,
           content: resp.content
         }
@@ -315,7 +325,7 @@ function useChatSubmit() {
         const updatedMessages = [...context.messageEntities]
         updatedMessages[updatedMessages.length - 1] = {
           body: {
-            role: 'system',
+            role: 'assistant',
             model: context.model.name,
             content: context.gatherContent,
             reasoning: context.gatherReasoning,
@@ -330,6 +340,23 @@ function useChatSubmit() {
     context.sysMessageEntity.body.content = context.gatherContent
     context.sysMessageEntity.body.reasoning = context.gatherReasoning.trim()
     context.sysMessageEntity.body.toolCallResults = context.toolCallResults
+
+    // Step 1: 如果有 tool calls，添加 assistant 的 tool_calls 消息到请求历史
+    if (context.hasToolCall && context.toolCalls.length > 0) {
+      const assistantToolCallMessage: ChatMessage = {
+        role: 'assistant',
+        content: context.gatherContent || null,
+        tool_calls: context.toolCalls.map(tc => ({
+          id: tc.id || `call_${uuidv4()}`,
+          type: 'function',
+          function: {
+            name: tc.function,
+            arguments: tc.args
+          }
+        }))
+      }
+      context.request.messages.push(assistantToolCallMessage)
+    }
 
     return context
   }
@@ -380,10 +407,11 @@ function useChatSubmit() {
         console.log('tool-call-results', results)
         const timeCosts = new Date().getTime() - startTime
 
-        // 构建工具调用结果消息
+        // Step 2: 构建工具调用结果消息，必须包含 tool_call_id
         const toolFunctionMessage: ChatMessage = {
           role: 'tool',
           name: toolCall.function,
+          tool_call_id: toolCall.id || `call_${uuidv4()}`,
           content: toolCall.function === 'web_search'
             ? formatWebSearchForLLM(results)  // Web Search 特殊处理
             : JSON.stringify({ ...results, functionCallCompleted: true })  // 其他工具保持不变
@@ -406,7 +434,7 @@ function useChatSubmit() {
         const updatedMessages = [...context.messageEntities]
         updatedMessages[updatedMessages.length - 1] = {
           body: {
-            role: 'system',
+            role: 'assistant',
             content: context.gatherContent,
             reasoning: context.gatherReasoning,
             artifacts: artifacts,
@@ -426,7 +454,7 @@ function useChatSubmit() {
         const updatedMessages = [...context.messageEntities]
         updatedMessages[updatedMessages.length - 1] = {
           body: {
-            role: 'system',
+            role: 'assistant',
             content: context.gatherContent,
             reasoning: context.gatherReasoning,
             artifacts: artifacts,

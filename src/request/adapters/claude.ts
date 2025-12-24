@@ -1,3 +1,4 @@
+import { buildSystemPrompt } from '@request/utils'
 import { BaseAdapter } from './base'
 
 // Claude Messages API (v1) 适配器
@@ -185,7 +186,7 @@ export class ClaudeChatAdapter extends BaseAdapter {
 
     if (req.prompt) {
       requestBody.messages = [
-        { role: 'system', content: req.prompt },
+        buildSystemPrompt(req.prompt),
         ...requestBody.messages
       ]
     }
@@ -393,16 +394,6 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
 
   private buildPrompt(messages: ChatMessage[], systemPrompt?: string): string {
     let prompt = systemPrompt ? `${systemPrompt}\n\n` : ''
-
-    messages.forEach(msg => {
-      if (msg.role === 'user') {
-        prompt += `Human: ${typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}\n\n`
-      } else if (msg.role === 'assistant' || msg.role === 'system') {
-        prompt += `Assistant: ${typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}\n\n`
-      }
-    })
-
-    prompt += 'Assistant:'
     return prompt
   }
 }

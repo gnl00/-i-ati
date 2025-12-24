@@ -98,10 +98,10 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   // Apply typewriter effect only to assistant messages
   // 如果消息已经完成打字机效果（typewriterCompleted = true），直接显示完整内容
   // 否则，只对最新消息应用打字机效果
-  const shouldAnimate = m.role === 'system' && isLatest && !m.typewriterCompleted
+  const shouldAnimate = m.role === 'assistant' && isLatest && !m.typewriterCompleted
 
   const assistantContent = useTypewriter(
-    m.role === 'system' && m.content ? (m.content as string) : '',
+    m.role === 'assistant' && m.content ? (m.content as string) : '',
     {
       minSpeed: 5,
       maxSpeed: 20,

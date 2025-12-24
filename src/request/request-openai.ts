@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { ResponseInput } from "openai/resources/responses/responses";
+import { buildSystemPrompt } from './utils'
 
 declare type OpenAIMessageType = {
   role: string,
@@ -26,7 +27,7 @@ const openAIRequestWithHook = async (req: IChatRequestV2, _signal: AbortSignal |
   })
 
   if (req.prompt) {
-    memorizedMessage = [{ role: 'system', content: req.prompt }, ...memorizedMessage]
+    memorizedMessage = [buildSystemPrompt(req.prompt), ...memorizedMessage]
   }
   const client = new OpenAI({
     apiKey: req.apiKey,
