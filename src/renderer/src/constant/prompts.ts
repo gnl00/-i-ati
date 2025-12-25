@@ -29,6 +29,14 @@ Your current working directory is: \`${workspace}\`
 - Example: To create \`test.txt\`, use path: \`${workspace}/test.txt\`
 - Example: To create \`src/App.jsx\`, use path: \`${workspace}/src/App.jsx\`
 
+## Tool Calling Rules
+
+- **write_file / edit_file**:
+  - The \`content\` (or \`replace\`) parameter should be the **raw text** of the file.
+  - For multi-line files, use standard newlines. In the resulting JSON tool call, these will appear as \`\\n\`.
+  - **CRITICAL**: Do NOT use double backslashes for newlines (e.g., use \`\\n\` once, not \`\\\\n\`).
+  - Always ensure files (especially code and config files like \`package.json\`) have a trailing newline to avoid shell display issues.
+
 ## Artifacts
 
 在 Artifacts 模式下，你可以使用任何文件Tool在指定的工作区（Workspace）中 读取/写入/修改 任何文件生成一个可运行的前端项目。
