@@ -6,9 +6,10 @@ import { useChatStore } from "@renderer/store"
 import { useAppConfigStore } from "@renderer/store/appConfig"
 import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request/index"
 import { embeddedToolsRegistry } from '@tools/index'
+import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
-import { generateTitlePrompt, toolsCallSystemPrompt } from '../constant/prompts'
+import { systemPrompt as systemPromptBuilder, generateTitlePrompt } from '../constant/prompts'
 
 interface ToolCallProps {
   id?: string
@@ -52,6 +53,8 @@ interface ChatPipelineContext {
   toolCallFunctionName: string
   toolCallFunctionArgs: string
   toolCallResults?: any[]
+
+  workspacePath: string
 
   // 状态
   completed: boolean
@@ -147,9 +150,18 @@ function useChatSubmit() {
     // 处理聊天创建/更新
     let currChatId = chatId
     let chatEntity: ChatEntity
+    let workspacePath: string = ''
     if (!chatUuid && !chatId) {
       const currChatUuid = uuidv4()
       setChatUuid(currChatUuid)
+
+      // 创建对应的 workspace
+      const workspaceResult = await createWorkspace(currChatUuid)
+      if (!workspaceResult.success) {
+        console.warn(`[Workspace] Failed to create workspace for chat ${currChatUuid}:`, workspaceResult.error)
+      }
+      workspacePath = workspaceResult.path
+
       chatEntity = { uuid: currChatUuid, title: 'NewChat', messages: [usrMsgId], createTime: new Date().getTime(), updateTime: new Date().getTime() }
       const saveChatRetVal = await saveChat(chatEntity)
       currChatId = saveChatRetVal as number
@@ -160,6 +172,9 @@ function useChatSubmit() {
       chatEntity.messages = [...chatEntity.messages, usrMsgId]
       chatEntity.updateTime = new Date().getTime()
       updateChat(chatEntity)
+
+      // 获取已存在聊天的 workspace 路径
+      workspacePath = getWorkspacePath(chatUuid)
     }
     updateChatList(chatEntity)
 
@@ -191,6 +206,7 @@ function useChatSubmit() {
       chatMessages: messageEntities.map(msg => msg.body),
       chatEntity,
       currChatId,
+      workspacePath,
       request: {} as IChatRequestV2, // 将在后续管道中填充
       provider: providers.findLast(p => p.name === model.provider)!,
       model,
@@ -211,7 +227,9 @@ function useChatSubmit() {
 
   // 管道上下文：构建请求
   const buildRequest = (context: ChatPipelineContext, prompt: string): ChatPipelineContext => {
-    let systemPrompts = [toolsCallSystemPrompt]
+    console.log('workspacePath', context.workspacePath)
+
+    let systemPrompts = [systemPromptBuilder(context.workspacePath)]
     if (prompt) {
       systemPrompts = [prompt, ...systemPrompts]
     }

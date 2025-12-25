@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'fs/promises'
 import { dirname, join, basename } from 'path'
 import { existsSync, statSync, accessSync, constants } from 'fs'
@@ -40,6 +41,17 @@ import type {
   MoveFileResponse
 } from '../index'
 
+// ============ Helper Functions ============
+
+/**
+ * Resolve file path relative to userData directory
+ * All file operations use paths relative to app.getPath('userData')
+ */
+function resolveUserDataPath(relativePath: string): string {
+  const userDataPath = app.getPath('userData')
+  return join(userDataPath, relativePath)
+}
+
 // ============ Read Operations ============
 
 /**
@@ -49,13 +61,14 @@ import type {
 export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
   try {
     const { file_path, encoding = 'utf-8', start_line, end_line } = args
-    console.log(`[ReadTextFile] Reading file: ${file_path}`)
+    const absolutePath = resolveUserDataPath(file_path)
+    console.log(`[ReadTextFile] Reading file: ${file_path} -> ${absolutePath}`)
 
-    if (!existsSync(file_path)) {
+    if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
     }
 
-    const content = await readFile(file_path, encoding as BufferEncoding)
+    const content = await readFile(absolutePath, encoding as BufferEncoding)
     const lines = content.split('\n')
     const totalLines = lines.length
 
@@ -81,15 +94,16 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
 export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<ReadMediaFileResponse> {
   try {
     const { file_path } = args
-    console.log(`[ReadMediaFile] Reading media file: ${file_path}`)
+    const absolutePath = resolveUserDataPath(file_path)
+    console.log(`[ReadMediaFile] Reading media file: ${file_path} -> ${absolutePath}`)
 
-    if (!existsSync(file_path)) {
+    if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
     }
 
-    const buffer = await readFile(file_path)
+    const buffer = await readFile(absolutePath)
     const base64Content = buffer.toString('base64')
-    const mimeType = lookup(file_path) || 'application/octet-stream'
+    const mimeType = lookup(absolutePath) || 'application/octet-stream'
     const size = buffer.length
 
     console.log(`[ReadMediaFile] Successfully read ${size} bytes, MIME: ${mimeType}`)
@@ -112,10 +126,11 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
     const files: FileContent[] = await Promise.all(
       file_paths.map(async (file_path) => {
         try {
-          if (!existsSync(file_path)) {
+          const absolutePath = resolveUserDataPath(file_path)
+          if (!existsSync(absolutePath)) {
             return { file_path, success: false, error: 'File not found' }
           }
-          const content = await readFile(file_path, encoding as BufferEncoding)
+          const content = await readFile(absolutePath, encoding as BufferEncoding)
           const lines = content.split('\n').length
           return { file_path, success: true, content, lines }
         } catch (error: any) {
@@ -141,18 +156,19 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
 export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileResponse> {
   try {
     const { file_path, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
-    console.log(`[WriteFile] Writing to file: ${file_path}`)
+    const absolutePath = resolveUserDataPath(file_path)
+    console.log(`[WriteFile] Writing to file: ${file_path} -> ${absolutePath}`)
 
     // 如果需要备份且文件存在，先备份
-    if (backup && existsSync(file_path)) {
-      const backupPath = `${file_path}.backup`
-      await copyFile(file_path, backupPath)
+    if (backup && existsSync(absolutePath)) {
+      const backupPath = `${absolutePath}.backup`
+      await copyFile(absolutePath, backupPath)
       console.log(`[WriteFile] Created backup: ${backupPath}`)
     }
 
     // 如果需要创建目录
     if (create_dirs) {
-      const dir = dirname(file_path)
+      const dir = dirname(absolutePath)
       if (!existsSync(dir)) {
         await mkdir(dir, { recursive: true })
         console.log(`[WriteFile] Created directory: ${dir}`)
@@ -160,7 +176,7 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
     }
 
     // 写入文件
-    await writeFile(file_path, content, encoding as BufferEncoding)
+    await writeFile(absolutePath, content, encoding as BufferEncoding)
     const bytesWritten = Buffer.byteLength(content, encoding as BufferEncoding)
 
     console.log(`[WriteFile] Successfully wrote ${bytesWritten} bytes`)
@@ -178,13 +194,14 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
 export async function processEditFile(args: EditFileArgs): Promise<EditFileResponse> {
   try {
     const { file_path, search, replace, regex = false, all = false } = args
-    console.log(`[EditFile] Editing file: ${file_path}`)
+    const absolutePath = resolveUserDataPath(file_path)
+    console.log(`[EditFile] Editing file: ${file_path} -> ${absolutePath}`)
 
-    if (!existsSync(file_path)) {
+    if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
     }
 
-    const content = await readFile(file_path, 'utf-8')
+    const content = await readFile(absolutePath, 'utf-8')
     let newContent: string
     let replacements = 0
 
@@ -212,7 +229,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
     }
 
     if (replacements > 0) {
-      await writeFile(file_path, newContent, 'utf-8')
+      await writeFile(absolutePath, newContent, 'utf-8')
       console.log(`[EditFile] Made ${replacements} replacement(s)`)
     } else {
       console.log(`[EditFile] No matches found`)
@@ -234,13 +251,14 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
 export async function processSearchFile(args: SearchFileArgs): Promise<SearchFileResponse> {
   try {
     const { file_path, pattern, regex = false, case_sensitive = true, max_results = 100 } = args
-    console.log(`[SearchFile] Searching in file: ${file_path}`)
+    const absolutePath = resolveUserDataPath(file_path)
+    console.log(`[SearchFile] Searching in file: ${file_path} -> ${absolutePath}`)
 
-    if (!existsSync(file_path)) {
+    if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
     }
 
-    const content = await readFile(file_path, 'utf-8')
+    const content = await readFile(absolutePath, 'utf-8')
     const lines = content.split('\n')
     const matches: SearchMatch[] = []
 
@@ -283,9 +301,10 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
 export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchFilesResponse> {
   try {
     const { directory_path, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
-    console.log(`[SearchFiles] Searching in directory: ${directory_path}`)
+    const absoluteDirPath = resolveUserDataPath(directory_path)
+    console.log(`[SearchFiles] Searching in directory: ${directory_path} -> ${absoluteDirPath}`)
 
-    if (!existsSync(directory_path)) {
+    if (!existsSync(absoluteDirPath)) {
       return { success: false, error: `Directory not found: ${directory_path}` }
     }
 
@@ -347,7 +366,7 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
       }
     }
 
-    await searchInDirectory(directory_path)
+    await searchInDirectory(absoluteDirPath)
 
     console.log(`[SearchFiles] Found ${matches.length} match(es) in ${filesSearched} files`)
     return { success: true, matches, total_matches: matches.length, files_searched: filesSearched }
@@ -366,17 +385,18 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
 export async function processListDirectory(args: ListDirectoryArgs): Promise<ListDirectoryResponse> {
   try {
     const { directory_path } = args
-    console.log(`[ListDirectory] Listing directory: ${directory_path}`)
+    const absolutePath = resolveUserDataPath(directory_path)
+    console.log(`[ListDirectory] Listing directory: ${directory_path} -> ${absolutePath}`)
 
-    if (!existsSync(directory_path)) {
+    if (!existsSync(absolutePath)) {
       return { success: false, error: `Directory not found: ${directory_path}` }
     }
 
-    const items = await readdir(directory_path)
+    const items = await readdir(absolutePath)
     const entries: DirectoryEntry[] = []
 
     for (const item of items) {
-      const itemPath = join(directory_path, item)
+      const itemPath = join(absolutePath, item)
       try {
         const stats = statSync(itemPath)
         const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
@@ -401,17 +421,18 @@ export async function processListDirectory(args: ListDirectoryArgs): Promise<Lis
 export async function processListDirectoryWithSizes(args: ListDirectoryWithSizesArgs): Promise<ListDirectoryWithSizesResponse> {
   try {
     const { directory_path } = args
-    console.log(`[ListDirectoryWithSizes] Listing: ${directory_path}`)
+    const absolutePath = resolveUserDataPath(directory_path)
+    console.log(`[ListDirectoryWithSizes] Listing: ${directory_path} -> ${absolutePath}`)
 
-    if (!existsSync(directory_path)) {
+    if (!existsSync(absolutePath)) {
       return { success: false, error: `Directory not found: ${directory_path}` }
     }
 
-    const items = await readdir(directory_path)
+    const items = await readdir(absolutePath)
     const entries: DirectoryEntryWithSize[] = []
 
     for (const item of items) {
-      const itemPath = join(directory_path, item)
+      const itemPath = join(absolutePath, item)
       try {
         const stats = await stat(itemPath)
         const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
@@ -442,9 +463,10 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
 export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<DirectoryTreeResponse> {
   try {
     const { directory_path, max_depth = 3 } = args
-    console.log(`[DirectoryTree] Building tree for: ${directory_path}`)
+    const absolutePath = resolveUserDataPath(directory_path)
+    console.log(`[DirectoryTree] Building tree for: ${directory_path} -> ${absolutePath}`)
 
-    if (!existsSync(directory_path)) {
+    if (!existsSync(absolutePath)) {
       return { success: false, error: `Directory not found: ${directory_path}` }
     }
 
@@ -472,7 +494,7 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
       return { name, type: 'directory', path: dirPath, children }
     }
 
-    const tree = await buildTree(directory_path, 0)
+    const tree = await buildTree(absolutePath, 0)
     console.log(`[DirectoryTree] Successfully built tree`)
     return { success: true, tree }
   } catch (error: any) {
@@ -490,29 +512,30 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
 export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFileInfoResponse> {
   try {
     const { file_path } = args
-    console.log(`[GetFileInfo] Getting info for: ${file_path}`)
+    const absolutePath = resolveUserDataPath(file_path)
+    console.log(`[GetFileInfo] Getting info for: ${file_path} -> ${absolutePath}`)
 
-    if (!existsSync(file_path)) {
+    if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
     }
 
-    const stats = await stat(file_path)
+    const stats = await stat(absolutePath)
     const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
 
     let isReadable = false
     let isWritable = false
     try {
-      accessSync(file_path, constants.R_OK)
+      accessSync(absolutePath, constants.R_OK)
       isReadable = true
-    } catch {}
+    } catch { }
     try {
-      accessSync(file_path, constants.W_OK)
+      accessSync(absolutePath, constants.W_OK)
       isWritable = true
-    } catch {}
+    } catch { }
 
     const info: FileInfo = {
       path: file_path,
-      name: basename(file_path),
+      name: basename(absolutePath),
       type,
       size: stats.size,
       created: stats.birthtime.toISOString(),
@@ -535,7 +558,7 @@ export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFile
  * List Allowed Directories Processor
  * 列出允许访问的目录
  */
-export async function processListAllowedDirectories(args: ListAllowedDirectoriesArgs): Promise<ListAllowedDirectoriesResponse> {
+export async function processListAllowedDirectories(_args: ListAllowedDirectoriesArgs): Promise<ListAllowedDirectoriesResponse> {
   try {
     console.log(`[ListAllowedDirectories] Listing allowed directories`)
 
@@ -562,15 +585,18 @@ export async function processListAllowedDirectories(args: ListAllowedDirectories
 export async function processCreateDirectory(args: CreateDirectoryArgs): Promise<CreateDirectoryResponse> {
   try {
     const { directory_path, recursive = true } = args
-    console.log(`[CreateDirectory] Creating: ${directory_path}`)
+    const absolutePath = resolveUserDataPath(directory_path)
+    console.log(`[CreateDirectory] Creating: ${directory_path} -> ${absolutePath}`)
 
-    if (existsSync(directory_path)) {
+    if (existsSync(absolutePath)) {
       console.log(`[CreateDirectory] Directory already exists`)
       return { success: true, created: false }
     }
 
-    await mkdir(directory_path, { recursive })
+    await mkdir(absolutePath, { recursive })
+
     console.log(`[CreateDirectory] Successfully created`)
+
     return { success: true, created: true }
   } catch (error: any) {
     console.error('[CreateDirectory] Error:', error)
@@ -585,17 +611,20 @@ export async function processCreateDirectory(args: CreateDirectoryArgs): Promise
 export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileResponse> {
   try {
     const { source_path, destination_path, overwrite = false } = args
+    const absoluteSourcePath = resolveUserDataPath(source_path)
+    const absoluteDestPath = resolveUserDataPath(destination_path)
     console.log(`[MoveFile] Moving: ${source_path} -> ${destination_path}`)
+    console.log(`[MoveFile] Absolute: ${absoluteSourcePath} -> ${absoluteDestPath}`)
 
-    if (!existsSync(source_path)) {
+    if (!existsSync(absoluteSourcePath)) {
       return { success: false, error: `Source file not found: ${source_path}` }
     }
 
-    if (existsSync(destination_path) && !overwrite) {
+    if (existsSync(absoluteDestPath) && !overwrite) {
       return { success: false, error: `Destination already exists: ${destination_path}` }
     }
 
-    await rename(source_path, destination_path)
+    await rename(absoluteSourcePath, absoluteDestPath)
     console.log(`[MoveFile] Successfully moved`)
     return { success: true }
   } catch (error: any) {

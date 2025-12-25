@@ -24,6 +24,7 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useSheetStore } from '@renderer/store/sheet'
+import { switchWorkspace } from '@renderer/utils/workspaceUtils'
 import { BadgePlus, ChevronsUpDown, } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
@@ -71,21 +72,33 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
         }
     }
 
-    const startNewChat = () => {
+    const startNewChat = async () => {
         setChatId(undefined)
         setChatUuid(undefined)
         setChatTitle('NewChat')
         setMessages([])
 
+        // 切换到默认 workspace (tmp)
+        const workspaceResult = await switchWorkspace()
+        if (!workspaceResult.success) {
+            console.warn(`[Workspace] Failed to switch to default workspace:`, workspaceResult.error)
+        }
+
         toggleArtifacts(false)
         toggleWebSearch(false)
     }
 
-    const onChatClick = (_, chat: ChatEntity) => {
+    const onChatClick = async (_, chat: ChatEntity) => {
         setSheetOpenState(false)
         if (chatId != chat.id) {
             toggleArtifacts(false)
             toggleWebSearch(false)
+
+            // 切换 workspace
+            const workspaceResult = await switchWorkspace(chat.uuid)
+            if (!workspaceResult.success) {
+                console.warn(`[Workspace] Failed to switch workspace for chat ${chat.uuid}:`, workspaceResult.error)
+            }
 
             setChatTitle(chat.title)
             setChatUuid(chat.uuid)

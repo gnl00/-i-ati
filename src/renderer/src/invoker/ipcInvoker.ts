@@ -13,7 +13,8 @@ import {
   WIN_MAXIMIZE,
   MCP_CONNECT,
   MCP_DISCONNECT,
-  MCP_TOOL_CALL
+  MCP_TOOL_CALL,
+  FILE_CREATE_DIR_ACTION
 } from '@constants/index'
 
 /**
@@ -111,4 +112,14 @@ export async function invokeWebSearchIPC(args: { param: string; fetchCounts?: nu
 export async function invokeWebFetchIPC(args: { url: string }): Promise<any> {
   const ipc = getElectronIPC()
   return await ipc.invoke(WEB_FETCH_ACTION, args)
+}
+
+// ============ File Operations ============
+
+/**
+ * 创建目录
+ */
+export async function invokeCreateDirectory(args: { directory_path: string; recursive?: boolean }): Promise<{ success: boolean; error?: string }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(FILE_CREATE_DIR_ACTION, args)
 }

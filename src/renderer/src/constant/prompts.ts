@@ -21,12 +21,13 @@ You have the permissions to access a bunch of tools.
 
 ## Workspace
 
-You currently have access to a workspace at \`${workspace}\`. You can use any file operations to read/write files and directories in the workspace.
+Your current working directory is: \`${workspace}\`
 
-**Important**: 
-
-- **NEVER** use absolute path to read/write files and directories in the workspace.
-- **ALWAYS** use relative path to read/write files and directories in the workspace.
+**IMPORTANT - File Operations**:
+- All file operations (read, write, create, move, etc.) MUST use paths relative to this workspace directory
+- This means all file paths should start with \`${workspace}/\`
+- Example: To create \`test.txt\`, use path: \`${workspace}/test.txt\`
+- Example: To create \`src/App.jsx\`, use path: \`${workspace}/src/App.jsx\`
 
 ## Artifacts
 
