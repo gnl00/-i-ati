@@ -1,42 +1,64 @@
-import { readFile, writeFile, mkdir, copyFile } from 'fs/promises'
-import { dirname } from 'path'
-import { existsSync } from 'fs'
+import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'fs/promises'
+import { dirname, join, basename } from 'path'
+import { existsSync, statSync, accessSync, constants } from 'fs'
+import { lookup } from 'mime-types'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,
+  ReadMediaFileArgs,
+  ReadMediaFileResponse,
+  ReadMultipleFilesArgs,
+  ReadMultipleFilesResponse,
+  FileContent,
   WriteFileArgs,
   WriteFileResponse,
   EditFileArgs,
   EditFileResponse,
   SearchFileArgs,
   SearchFileResponse,
-  SearchMatch
+  SearchMatch,
+  ListDirectoryArgs,
+  ListDirectoryResponse,
+  DirectoryEntry,
+  ListDirectoryWithSizesArgs,
+  ListDirectoryWithSizesResponse,
+  DirectoryEntryWithSize,
+  DirectoryTreeArgs,
+  DirectoryTreeResponse,
+  TreeNode,
+  SearchFilesArgs,
+  SearchFilesResponse,
+  FileSearchMatch,
+  GetFileInfoArgs,
+  GetFileInfoResponse,
+  FileInfo,
+  ListAllowedDirectoriesArgs,
+  ListAllowedDirectoriesResponse,
+  CreateDirectoryArgs,
+  CreateDirectoryResponse,
+  MoveFileArgs,
+  MoveFileResponse
 } from '../index'
 
+// ============ Read Operations ============
+
 /**
- * Read File Processor
- * 读取文件内容，支持指定行范围
+ * Read Text File Processor
+ * 读取文本文件内容，支持指定行范围
  */
-export async function processReadFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
+export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
   try {
     const { file_path, encoding = 'utf-8', start_line, end_line } = args
+    console.log(`[ReadTextFile] Reading file: ${file_path}`)
 
-    console.log(`[ReadFile] Reading file: ${file_path}`)
-
-    // 检查文件是否存在
     if (!existsSync(file_path)) {
-      return {
-        success: false,
-        error: `File not found: ${file_path}`
-      }
+      return { success: false, error: `File not found: ${file_path}` }
     }
 
-    // 读取文件内容
     const content = await readFile(file_path, encoding as BufferEncoding)
     const lines = content.split('\n')
     const totalLines = lines.length
 
-    // 如果指定了行范围，则只返回指定范围的内容
     let resultContent = content
     if (start_line !== undefined || end_line !== undefined) {
       const start = Math.max(0, (start_line || 1) - 1)
@@ -44,21 +66,73 @@ export async function processReadFile(args: ReadTextFileArgs): Promise<ReadTextF
       resultContent = lines.slice(start, end).join('\n')
     }
 
-    console.log(`[ReadFile] Successfully read ${totalLines} lines from ${file_path}`)
-
-    return {
-      success: true,
-      content: resultContent,
-      lines: totalLines
-    }
+    console.log(`[ReadTextFile] Successfully read ${totalLines} lines`)
+    return { success: true, content: resultContent, lines: totalLines }
   } catch (error: any) {
-    console.error('[ReadFile] Error:', error)
-    return {
-      success: false,
-      error: error.message || 'Failed to read file'
-    }
+    console.error('[ReadTextFile] Error:', error)
+    return { success: false, error: error.message || 'Failed to read file' }
   }
 }
+
+/**
+ * Read Media File Processor
+ * 读取二进制文件并返回 Base64 编码
+ */
+export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<ReadMediaFileResponse> {
+  try {
+    const { file_path } = args
+    console.log(`[ReadMediaFile] Reading media file: ${file_path}`)
+
+    if (!existsSync(file_path)) {
+      return { success: false, error: `File not found: ${file_path}` }
+    }
+
+    const buffer = await readFile(file_path)
+    const base64Content = buffer.toString('base64')
+    const mimeType = lookup(file_path) || 'application/octet-stream'
+    const size = buffer.length
+
+    console.log(`[ReadMediaFile] Successfully read ${size} bytes, MIME: ${mimeType}`)
+    return { success: true, content: base64Content, mime_type: mimeType, size }
+  } catch (error: any) {
+    console.error('[ReadMediaFile] Error:', error)
+    return { success: false, error: error.message || 'Failed to read media file' }
+  }
+}
+
+/**
+ * Read Multiple Files Processor
+ * 批量读取多个文件
+ */
+export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Promise<ReadMultipleFilesResponse> {
+  try {
+    const { file_paths, encoding = 'utf-8' } = args
+    console.log(`[ReadMultipleFiles] Reading ${file_paths.length} files`)
+
+    const files: FileContent[] = await Promise.all(
+      file_paths.map(async (file_path) => {
+        try {
+          if (!existsSync(file_path)) {
+            return { file_path, success: false, error: 'File not found' }
+          }
+          const content = await readFile(file_path, encoding as BufferEncoding)
+          const lines = content.split('\n').length
+          return { file_path, success: true, content, lines }
+        } catch (error: any) {
+          return { file_path, success: false, error: error.message }
+        }
+      })
+    )
+
+    console.log(`[ReadMultipleFiles] Successfully processed ${files.length} files`)
+    return { success: true, files, total_files: files.length }
+  } catch (error: any) {
+    console.error('[ReadMultipleFiles] Error:', error)
+    return { success: false, error: error.message || 'Failed to read multiple files' }
+  }
+}
+
+// ============ Write Operations ============
 
 /**
  * Write File Processor
@@ -67,7 +141,6 @@ export async function processReadFile(args: ReadTextFileArgs): Promise<ReadTextF
 export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileResponse> {
   try {
     const { file_path, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
-
     console.log(`[WriteFile] Writing to file: ${file_path}`)
 
     // 如果需要备份且文件存在，先备份
@@ -90,18 +163,11 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
     await writeFile(file_path, content, encoding as BufferEncoding)
     const bytesWritten = Buffer.byteLength(content, encoding as BufferEncoding)
 
-    console.log(`[WriteFile] Successfully wrote ${bytesWritten} bytes to ${file_path}`)
-
-    return {
-      success: true,
-      bytes_written: bytesWritten
-    }
+    console.log(`[WriteFile] Successfully wrote ${bytesWritten} bytes`)
+    return { success: true, bytes_written: bytesWritten }
   } catch (error: any) {
     console.error('[WriteFile] Error:', error)
-    return {
-      success: false,
-      error: error.message || 'Failed to write file'
-    }
+    return { success: false, error: error.message || 'Failed to write file' }
   }
 }
 
@@ -112,26 +178,17 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
 export async function processEditFile(args: EditFileArgs): Promise<EditFileResponse> {
   try {
     const { file_path, search, replace, regex = false, all = false } = args
-
     console.log(`[EditFile] Editing file: ${file_path}`)
 
-    // 检查文件是否存在
     if (!existsSync(file_path)) {
-      return {
-        success: false,
-        error: `File not found: ${file_path}`
-      }
+      return { success: false, error: `File not found: ${file_path}` }
     }
 
-    // 读取文件内容
     const content = await readFile(file_path, 'utf-8')
-
-    // 执行替换
     let newContent: string
     let replacements = 0
 
     if (regex) {
-      // 使用正则表达式替换
       const flags = all ? 'g' : ''
       const regexPattern = new RegExp(search, flags)
       newContent = content.replace(regexPattern, () => {
@@ -139,7 +196,6 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
         return replace
       })
     } else {
-      // 使用字符串替换
       if (all) {
         const parts = content.split(search)
         replacements = parts.length - 1
@@ -155,26 +211,21 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
       }
     }
 
-    // 写回文件
     if (replacements > 0) {
       await writeFile(file_path, newContent, 'utf-8')
-      console.log(`[EditFile] Made ${replacements} replacement(s) in ${file_path}`)
+      console.log(`[EditFile] Made ${replacements} replacement(s)`)
     } else {
-      console.log(`[EditFile] No matches found in ${file_path}`)
+      console.log(`[EditFile] No matches found`)
     }
 
-    return {
-      success: true,
-      replacements
-    }
+    return { success: true, replacements }
   } catch (error: any) {
     console.error('[EditFile] Error:', error)
-    return {
-      success: false,
-      error: error.message || 'Failed to edit file'
-    }
+    return { success: false, error: error.message || 'Failed to edit file' }
   }
 }
+
+// ============ Search Operations ============
 
 /**
  * Search File Processor
@@ -183,23 +234,16 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
 export async function processSearchFile(args: SearchFileArgs): Promise<SearchFileResponse> {
   try {
     const { file_path, pattern, regex = false, case_sensitive = true, max_results = 100 } = args
-
     console.log(`[SearchFile] Searching in file: ${file_path}`)
 
-    // 检查文件是否存在
     if (!existsSync(file_path)) {
-      return {
-        success: false,
-        error: `File not found: ${file_path}`
-      }
+      return { success: false, error: `File not found: ${file_path}` }
     }
 
-    // 读取文件内容
     const content = await readFile(file_path, 'utf-8')
     const lines = content.split('\n')
     const matches: SearchMatch[] = []
 
-    // 构建搜索模式
     let searchPattern: RegExp
     if (regex) {
       const flags = case_sensitive ? '' : 'i'
@@ -210,14 +254,12 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
       searchPattern = new RegExp(escapedPattern, flags)
     }
 
-    // 搜索每一行
     for (let i = 0; i < lines.length && matches.length < max_results; i++) {
       const line = lines[i]
       const lineMatches = line.matchAll(searchPattern)
 
       for (const match of lineMatches) {
         if (matches.length >= max_results) break
-
         matches.push({
           line: i + 1,
           content: line,
@@ -226,18 +268,338 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
       }
     }
 
-    console.log(`[SearchFile] Found ${matches.length} match(es) in ${file_path}`)
-
-    return {
-      success: true,
-      matches,
-      total_matches: matches.length
-    }
+    console.log(`[SearchFile] Found ${matches.length} match(es)`)
+    return { success: true, matches, total_matches: matches.length }
   } catch (error: any) {
     console.error('[SearchFile] Error:', error)
-    return {
-      success: false,
-      error: error.message || 'Failed to search file'
+    return { success: false, error: error.message || 'Failed to search file' }
+  }
+}
+
+/**
+ * Search Files Processor
+ * 在多个文件中搜索匹配的内容
+ */
+export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchFilesResponse> {
+  try {
+    const { directory_path, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
+    console.log(`[SearchFiles] Searching in directory: ${directory_path}`)
+
+    if (!existsSync(directory_path)) {
+      return { success: false, error: `Directory not found: ${directory_path}` }
     }
+
+    const matches: FileSearchMatch[] = []
+    let filesSearched = 0
+
+    const searchInDirectory = async (dirPath: string) => {
+      if (matches.length >= max_results) return
+
+      const items = await readdir(dirPath)
+      for (const item of items) {
+        if (matches.length >= max_results) break
+
+        const itemPath = join(dirPath, item)
+        try {
+          const stats = await stat(itemPath)
+
+          if (stats.isDirectory()) {
+            await searchInDirectory(itemPath)
+          } else if (stats.isFile()) {
+            // Check file pattern if specified
+            if (file_pattern) {
+              const fileRegex = new RegExp(file_pattern)
+              if (!fileRegex.test(item)) continue
+            }
+
+            filesSearched++
+            const content = await readFile(itemPath, 'utf-8')
+            const lines = content.split('\n')
+
+            let searchPattern: RegExp
+            if (regex) {
+              const flags = case_sensitive ? '' : 'i'
+              searchPattern = new RegExp(pattern, flags)
+            } else {
+              const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+              const flags = case_sensitive ? 'g' : 'gi'
+              searchPattern = new RegExp(escapedPattern, flags)
+            }
+
+            for (let i = 0; i < lines.length && matches.length < max_results; i++) {
+              const line = lines[i]
+              const lineMatches = line.matchAll(searchPattern)
+
+              for (const match of lineMatches) {
+                if (matches.length >= max_results) break
+                matches.push({
+                  file_path: itemPath,
+                  line: i + 1,
+                  content: line,
+                  column: match.index !== undefined ? match.index + 1 : 0
+                })
+              }
+            }
+          }
+        } catch (error) {
+          continue
+        }
+      }
+    }
+
+    await searchInDirectory(directory_path)
+
+    console.log(`[SearchFiles] Found ${matches.length} match(es) in ${filesSearched} files`)
+    return { success: true, matches, total_matches: matches.length, files_searched: filesSearched }
+  } catch (error: any) {
+    console.error('[SearchFiles] Error:', error)
+    return { success: false, error: error.message || 'Failed to search files' }
+  }
+}
+
+// ============ Directory Operations ============
+
+/**
+ * List Directory Processor
+ * 列出目录内容
+ */
+export async function processListDirectory(args: ListDirectoryArgs): Promise<ListDirectoryResponse> {
+  try {
+    const { directory_path } = args
+    console.log(`[ListDirectory] Listing directory: ${directory_path}`)
+
+    if (!existsSync(directory_path)) {
+      return { success: false, error: `Directory not found: ${directory_path}` }
+    }
+
+    const items = await readdir(directory_path)
+    const entries: DirectoryEntry[] = []
+
+    for (const item of items) {
+      const itemPath = join(directory_path, item)
+      try {
+        const stats = statSync(itemPath)
+        const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
+        entries.push({ name: item, type, path: itemPath })
+      } catch (error) {
+        continue
+      }
+    }
+
+    console.log(`[ListDirectory] Found ${entries.length} entries`)
+    return { success: true, entries, total_count: entries.length }
+  } catch (error: any) {
+    console.error('[ListDirectory] Error:', error)
+    return { success: false, error: error.message || 'Failed to list directory' }
+  }
+}
+
+/**
+ * List Directory With Sizes Processor
+ * 列出目录内容，包含文件大小和修改时间
+ */
+export async function processListDirectoryWithSizes(args: ListDirectoryWithSizesArgs): Promise<ListDirectoryWithSizesResponse> {
+  try {
+    const { directory_path } = args
+    console.log(`[ListDirectoryWithSizes] Listing: ${directory_path}`)
+
+    if (!existsSync(directory_path)) {
+      return { success: false, error: `Directory not found: ${directory_path}` }
+    }
+
+    const items = await readdir(directory_path)
+    const entries: DirectoryEntryWithSize[] = []
+
+    for (const item of items) {
+      const itemPath = join(directory_path, item)
+      try {
+        const stats = await stat(itemPath)
+        const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
+        entries.push({
+          name: item,
+          type,
+          path: itemPath,
+          size: stats.size,
+          modified: stats.mtime.toISOString()
+        })
+      } catch (error) {
+        continue
+      }
+    }
+
+    console.log(`[ListDirectoryWithSizes] Found ${entries.length} entries`)
+    return { success: true, entries, total_count: entries.length }
+  } catch (error: any) {
+    console.error('[ListDirectoryWithSizes] Error:', error)
+    return { success: false, error: error.message || 'Failed to list directory' }
+  }
+}
+
+/**
+ * Directory Tree Processor
+ * 递归列出目录树结构
+ */
+export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<DirectoryTreeResponse> {
+  try {
+    const { directory_path, max_depth = 3 } = args
+    console.log(`[DirectoryTree] Building tree for: ${directory_path}`)
+
+    if (!existsSync(directory_path)) {
+      return { success: false, error: `Directory not found: ${directory_path}` }
+    }
+
+    const buildTree = async (dirPath: string, depth: number): Promise<TreeNode> => {
+      const stats = await stat(dirPath)
+      const name = basename(dirPath)
+
+      if (!stats.isDirectory() || depth >= max_depth) {
+        return { name, type: 'file', path: dirPath }
+      }
+
+      const items = await readdir(dirPath)
+      const children: TreeNode[] = []
+
+      for (const item of items) {
+        const itemPath = join(dirPath, item)
+        try {
+          const childNode = await buildTree(itemPath, depth + 1)
+          children.push(childNode)
+        } catch (error) {
+          continue
+        }
+      }
+
+      return { name, type: 'directory', path: dirPath, children }
+    }
+
+    const tree = await buildTree(directory_path, 0)
+    console.log(`[DirectoryTree] Successfully built tree`)
+    return { success: true, tree }
+  } catch (error: any) {
+    console.error('[DirectoryTree] Error:', error)
+    return { success: false, error: error.message || 'Failed to build directory tree' }
+  }
+}
+
+// ============ File Info Operations ============
+
+/**
+ * Get File Info Processor
+ * 获取文件详细信息
+ */
+export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFileInfoResponse> {
+  try {
+    const { file_path } = args
+    console.log(`[GetFileInfo] Getting info for: ${file_path}`)
+
+    if (!existsSync(file_path)) {
+      return { success: false, error: `File not found: ${file_path}` }
+    }
+
+    const stats = await stat(file_path)
+    const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
+
+    let isReadable = false
+    let isWritable = false
+    try {
+      accessSync(file_path, constants.R_OK)
+      isReadable = true
+    } catch {}
+    try {
+      accessSync(file_path, constants.W_OK)
+      isWritable = true
+    } catch {}
+
+    const info: FileInfo = {
+      path: file_path,
+      name: basename(file_path),
+      type,
+      size: stats.size,
+      created: stats.birthtime.toISOString(),
+      modified: stats.mtime.toISOString(),
+      accessed: stats.atime.toISOString(),
+      permissions: stats.mode.toString(8).slice(-3),
+      is_readable: isReadable,
+      is_writable: isWritable
+    }
+
+    console.log(`[GetFileInfo] Successfully retrieved info`)
+    return { success: true, info }
+  } catch (error: any) {
+    console.error('[GetFileInfo] Error:', error)
+    return { success: false, error: error.message || 'Failed to get file info' }
+  }
+}
+
+/**
+ * List Allowed Directories Processor
+ * 列出允许访问的目录
+ */
+export async function processListAllowedDirectories(args: ListAllowedDirectoriesArgs): Promise<ListAllowedDirectoriesResponse> {
+  try {
+    console.log(`[ListAllowedDirectories] Listing allowed directories`)
+
+    // TODO: Implement actual allowed directories logic
+    // For now, return common directories
+    const directories = [
+      process.cwd(),
+      process.env.HOME || process.env.USERPROFILE || '/'
+    ]
+
+    return { success: true, directories }
+  } catch (error: any) {
+    console.error('[ListAllowedDirectories] Error:', error)
+    return { success: false, error: error.message || 'Failed to list allowed directories' }
+  }
+}
+
+// ============ File Management Operations ============
+
+/**
+ * Create Directory Processor
+ * 创建目录
+ */
+export async function processCreateDirectory(args: CreateDirectoryArgs): Promise<CreateDirectoryResponse> {
+  try {
+    const { directory_path, recursive = true } = args
+    console.log(`[CreateDirectory] Creating: ${directory_path}`)
+
+    if (existsSync(directory_path)) {
+      console.log(`[CreateDirectory] Directory already exists`)
+      return { success: true, created: false }
+    }
+
+    await mkdir(directory_path, { recursive })
+    console.log(`[CreateDirectory] Successfully created`)
+    return { success: true, created: true }
+  } catch (error: any) {
+    console.error('[CreateDirectory] Error:', error)
+    return { success: false, error: error.message || 'Failed to create directory' }
+  }
+}
+
+/**
+ * Move File Processor
+ * 移动或重命名文件
+ */
+export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileResponse> {
+  try {
+    const { source_path, destination_path, overwrite = false } = args
+    console.log(`[MoveFile] Moving: ${source_path} -> ${destination_path}`)
+
+    if (!existsSync(source_path)) {
+      return { success: false, error: `Source file not found: ${source_path}` }
+    }
+
+    if (existsSync(destination_path) && !overwrite) {
+      return { success: false, error: `Destination already exists: ${destination_path}` }
+    }
+
+    await rename(source_path, destination_path)
+    console.log(`[MoveFile] Successfully moved`)
+    return { success: true }
+  } catch (error: any) {
+    console.error('[MoveFile] Error:', error)
+    return { success: false, error: error.message || 'Failed to move file' }
   }
 }

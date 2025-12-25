@@ -1,4 +1,3 @@
-import { PIN_WINDOW } from '@constants/index'
 import { ActivityLogIcon, DrawingPinFilledIcon, DrawingPinIcon, GearIcon } from '@radix-ui/react-icons'
 import { ModeToggle } from '@renderer/components/mode-toggle'
 import PreferenceComponent from '@renderer/components/sys/PreferenceComponent'
@@ -6,6 +5,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { useChatContext } from '@renderer/context/ChatContext'
+import { invokePinWindow } from '@renderer/invoker/ipcInvoker'
 import { useSheetStore } from '@renderer/store/sheet'
 import React, { useState } from 'react'
 
@@ -18,7 +18,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
 
   const onPinToggleClick = (): void => {
     setPinState(!pinState)
-    window.electron.ipcRenderer.invoke(PIN_WINDOW, !pinState) // pin window
+    invokePinWindow(!pinState) // pin window
   }
 
   return (

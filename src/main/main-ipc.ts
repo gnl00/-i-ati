@@ -1,38 +1,42 @@
 import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
 import { processWebSearch } from '@tools/webSearch/main/WebSearchProcessor'
 import {
-  processReadFile,
-  processWriteFile,
-  processEditFile,
-  processSearchFile
-} from '@tools/fileOperations/main/FileOperationsProcessor'
-import {
   processReadTextFile,
   processReadMediaFile,
   processReadMultipleFiles,
-  processListDirectory
-} from '@tools/fileOperations/main/FileOperationsProcessorExtended'
-import {
+  processWriteFile,
+  processEditFile,
+  processSearchFile,
+  processSearchFiles,
+  processListDirectory,
   processListDirectoryWithSizes,
+  processDirectoryTree,
   processGetFileInfo,
   processCreateDirectory,
   processMoveFile
-} from '@tools/fileOperations/main/FileOperationsProcessorExtra'
+} from '@tools/fileOperations/main/FileOperationsProcessor'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
 import {
   OPEN_EXTERNAL,
   PIN_WINDOW,
   WEB_SEARCH_ACTION,
-  FILE_READ_ACTION,
-  FILE_WRITE_ACTION,
-  FILE_EDIT_ACTION,
-  FILE_SEARCH_ACTION,
+  WIN_CLOSE,
+  WIN_MINIMIZE,
+  WIN_MAXIMIZE,
+  MCP_CONNECT,
+  MCP_DISCONNECT,
+  MCP_TOOL_CALL,
   FILE_READ_TEXT_ACTION,
   FILE_READ_MEDIA_ACTION,
   FILE_READ_MULTIPLE_ACTION,
+  FILE_WRITE_ACTION,
+  FILE_EDIT_ACTION,
+  FILE_SEARCH_ACTION,
+  FILE_SEARCH_FILES_ACTION,
   FILE_LIST_DIR_ACTION,
   FILE_LIST_DIR_SIZES_ACTION,
+  FILE_DIR_TREE_ACTION,
   FILE_GET_INFO_ACTION,
   FILE_CREATE_DIR_ACTION,
   FILE_MOVE_ACTION
@@ -43,9 +47,9 @@ function mainIPCSetup() {
   ipcMain.handle(PIN_WINDOW, (_event, pinState) => pinWindow(pinState))
   ipcMain.handle('get-win-position', (): number[] => getWinPosition())
   ipcMain.handle('set-position', (_, options) => setWinPosition(options))
-  ipcMain.handle('win-minimize', () => windowsMinimize())
-  ipcMain.handle('win-maximize', () => windowsMaximize())
-  ipcMain.handle('win-close', () => windowsClose())
+  ipcMain.handle(WIN_MINIMIZE, () => windowsMinimize())
+  ipcMain.handle(WIN_MAXIMIZE, () => windowsMaximize())
+  ipcMain.handle(WIN_CLOSE, () => windowsClose())
   ipcMain.handle(OPEN_EXTERNAL, (_, url) => {
     console.log('main received url', url);
     shell.openExternal(url)
@@ -72,9 +76,19 @@ function mainIPCSetup() {
   })
 
   // File Operations handlers
-  ipcMain.handle(FILE_READ_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Read file: ${args.file_path}`)
-    return processReadFile(args)
+  ipcMain.handle(FILE_READ_TEXT_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Read text file: ${args.file_path}`)
+    return processReadTextFile(args)
+  })
+
+  ipcMain.handle(FILE_READ_MEDIA_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Read media file: ${args.file_path}`)
+    return processReadMediaFile(args)
+  })
+
+  ipcMain.handle(FILE_READ_MULTIPLE_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Read multiple files: ${args.file_paths.length} files`)
+    return processReadMultipleFiles(args)
   })
 
   ipcMain.handle(FILE_WRITE_ACTION, (_event, args) => {
@@ -92,20 +106,9 @@ function mainIPCSetup() {
     return processSearchFile(args)
   })
 
-  // New File Operations handlers
-  ipcMain.handle(FILE_READ_TEXT_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Read text file: ${args.file_path}`)
-    return processReadTextFile(args)
-  })
-
-  ipcMain.handle(FILE_READ_MEDIA_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Read media file: ${args.file_path}`)
-    return processReadMediaFile(args)
-  })
-
-  ipcMain.handle(FILE_READ_MULTIPLE_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Read multiple files: ${args.file_paths.length} files`)
-    return processReadMultipleFiles(args)
+  ipcMain.handle(FILE_SEARCH_FILES_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Search files in: ${args.directory_path}`)
+    return processSearchFiles(args)
   })
 
   ipcMain.handle(FILE_LIST_DIR_ACTION, (_event, args) => {
@@ -116,6 +119,11 @@ function mainIPCSetup() {
   ipcMain.handle(FILE_LIST_DIR_SIZES_ACTION, (_event, args) => {
     console.log(`[FileOps IPC] List directory with sizes: ${args.directory_path}`)
     return processListDirectoryWithSizes(args)
+  })
+
+  ipcMain.handle(FILE_DIR_TREE_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Build directory tree: ${args.directory_path}`)
+    return processDirectoryTree(args)
   })
 
   ipcMain.handle(FILE_GET_INFO_ACTION, (_event, args) => {
@@ -133,7 +141,7 @@ function mainIPCSetup() {
     return processMoveFile(args)
   })
 
-  ipcMain.handle('mcp-connect', async (_, mcpProps) => {
+  ipcMain.handle(MCP_CONNECT, async (_, mcpProps) => {
     try {
       return await mcpConnect(mcpProps)
     } catch (error: any) {
@@ -141,8 +149,8 @@ function mainIPCSetup() {
       return { result: false, msg: `Connection error: ${error.message || 'Unknown error'}` }
     }
   })
-  ipcMain.handle('mcp-disconnect', (_, { name }) => mcpClose(name))
-  ipcMain.handle('mcp-tool-call', (_, { callId, tool, args }) => {
+  ipcMain.handle(MCP_DISCONNECT, (_, { name }) => mcpClose(name))
+  ipcMain.handle(MCP_TOOL_CALL, (_, { callId, tool, args }) => {
     // init, @NOTE: We need to assign a new lexer for each JSON stream.
     const lexer = new streamingjson.Lexer()
     // append your JSON segment

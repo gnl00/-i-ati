@@ -1,3 +1,4 @@
+import { invokeWindowClose, invokeWindowMinimize, invokeWindowMaximize } from '@renderer/invoker/ipcInvoker'
 import React, { useState } from 'react'
 
 interface TrafficLightsProps {
@@ -8,15 +9,15 @@ const TrafficLights: React.FC<TrafficLightsProps> = ({ className = '' }) => {
   const [isHovered, setIsHovered] = useState(false)
 
   const handleClose = () => {
-    window.electron.ipcRenderer.invoke('win-close')
+    invokeWindowClose()
   }
 
   const handleMinimize = () => {
-    window.electron.ipcRenderer.invoke('win-minimize')
+    invokeWindowMinimize()
   }
 
   const handleMaximize = () => {
-    window.electron.ipcRenderer.invoke('win-maximize')
+    invokeWindowMaximize()
   }
 
   return (

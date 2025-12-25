@@ -1,13 +1,14 @@
 import { useChatContext } from "@renderer/context/ChatContext"
 import { getChatById, saveChat, updateChat } from "@renderer/db/ChatRepository"
 import { saveMessage } from "@renderer/db/MessageRepository"
+import { invokeMcpToolCall } from "@renderer/invoker/ipcInvoker"
 import { useChatStore } from "@renderer/store"
 import { useAppConfigStore } from "@renderer/store/appConfig"
 import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request/index"
 import { embeddedToolsRegistry } from '@tools/index'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
-import { generateTitlePrompt, toolCallPrompt, toolsCallSystemPrompt } from '../constant/prompts'
+import { generateTitlePrompt, toolsCallSystemPrompt } from '../constant/prompts'
 
 interface ToolCallProps {
   id?: string
@@ -234,6 +235,29 @@ function useChatSubmit() {
       return true
     })
 
+    // // 构建 available external tools 列表（只包含 MCP tools 的简化信息）
+    // const availableToolsList = embeddedToolsRegistry.availableTools()
+
+    // // 添加 available tools system 消息（如果有 external tools）
+    // if (availableToolsList && availableToolsList.length > 0) {
+    //   filteredMessages.splice(0, 0, {
+    //     role: 'system',
+    //     content: JSON.stringify(availableToolsList)
+    //   })
+    // }
+
+    // 构建最终的 tools 数组
+    // 1. 添加所有 embedded tools 的完整定义（不需要压缩）
+    const embeddedTools = embeddedToolsRegistry.getAllTools()
+    const finalTools = embeddedTools.map(tool => ({
+      ...tool.function
+    }))
+
+    // 2. 如果有额外传入的 tools（通常为空，因为 MCP tools 已经注册为 external tools）
+    if (context.tools && context.tools.length > 0) {
+      finalTools.push(...context.tools)
+    }
+
     context.request = {
       baseUrl: context.provider.apiUrl,
       messages: filteredMessages,
@@ -241,7 +265,7 @@ function useChatSubmit() {
       prompt: systemPrompts.join('\n'),
       model: context.model.value,
       modelType: context.model.type,
-      tools: context.tools
+      tools: finalTools
     }
 
     return context
@@ -345,7 +369,7 @@ function useChatSubmit() {
     if (context.hasToolCall && context.toolCalls.length > 0) {
       const assistantToolCallMessage: ChatMessage = {
         role: 'assistant',
-        content: context.gatherContent || null,
+        content: context.gatherContent || '',
         toolCalls: context.toolCalls.map(tc => ({
           id: tc.id || `call_${uuidv4()}`,
           type: 'function',
@@ -361,12 +385,14 @@ function useChatSubmit() {
     return context
   }
 
+  const handleToolCallResult = (functionName: string, results: any) => {
+    return functionName === 'web_search'
+      ? formatWebSearchForLLM(results)  // Web Search 特殊处理
+      : JSON.stringify({ ...results, functionCallCompleted: true })  // 其他工具保持不变
+  }
+
   // 管道函数：处理工具调用
   const handleToolCall = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
-    // Get fetchCounts from appConfig for web_search
-    const { appConfig } = useAppConfigStore.getState()
-    const fetchCounts = appConfig?.tools?.maxWebSearchItems ?? 3
-
     while (context.toolCalls.length > 0) {
       // Check if request was aborted before processing each tool call
       if (context.signal.aborted) {
@@ -387,17 +413,12 @@ function useChatSubmit() {
           // 解析参数
           const args = typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args
 
-          // Inject fetchCounts for web_search
-          if (toolCall.function === 'web_search') {
-            args.fetchCounts = fetchCounts
-          }
-
           // 使用 embedded tool 处理器
           results = await embeddedToolsRegistry.execute(toolCall.function, args)
         } else {
           // 使用 MCP tool 处理器
           console.log(`[handleToolCall] Using MCP tool handler for: ${toolCall.function}`)
-          results = await window.electron?.ipcRenderer.invoke('mcp-tool-call', {
+          results = await invokeMcpToolCall({
             callId: 'call_' + uuidv4(),
             tool: toolCall.function,
             args: toolCall.args
@@ -412,9 +433,7 @@ function useChatSubmit() {
           role: 'tool',
           name: toolCall.function,
           toolCallId: toolCall.id || `call_${uuidv4()}`,
-          content: toolCall.function === 'web_search'
-            ? formatWebSearchForLLM(results)  // Web Search 特殊处理
-            : JSON.stringify({ ...results, functionCallCompleted: true })  // 其他工具保持不变
+          content: handleToolCallResult(toolCall.function, results)
         }
         if (!context.toolCallResults) {
           context.toolCallResults = [{

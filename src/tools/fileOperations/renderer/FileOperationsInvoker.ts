@@ -1,136 +1,257 @@
 import {
-  FILE_READ_ACTION,
+  FILE_READ_TEXT_ACTION,
+  FILE_READ_MEDIA_ACTION,
+  FILE_READ_MULTIPLE_ACTION,
   FILE_WRITE_ACTION,
   FILE_EDIT_ACTION,
-  FILE_SEARCH_ACTION
+  FILE_SEARCH_ACTION,
+  FILE_LIST_DIR_ACTION,
+  FILE_LIST_DIR_SIZES_ACTION,
+  FILE_DIR_TREE_ACTION,
+  FILE_SEARCH_FILES_ACTION,
+  FILE_GET_INFO_ACTION,
+  FILE_LIST_ALLOWED_DIRS_ACTION,
+  FILE_CREATE_DIR_ACTION,
+  FILE_MOVE_ACTION
 } from '@constants/index'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,
+  ReadMediaFileArgs,
+  ReadMediaFileResponse,
+  ReadMultipleFilesArgs,
+  ReadMultipleFilesResponse,
   WriteFileArgs,
   WriteFileResponse,
   EditFileArgs,
   EditFileResponse,
   SearchFileArgs,
-  SearchFileResponse
+  SearchFileResponse,
+  ListDirectoryArgs,
+  ListDirectoryResponse,
+  ListDirectoryWithSizesArgs,
+  ListDirectoryWithSizesResponse,
+  DirectoryTreeArgs,
+  DirectoryTreeResponse,
+  SearchFilesArgs,
+  SearchFilesResponse,
+  GetFileInfoArgs,
+  GetFileInfoResponse,
+  ListAllowedDirectoriesArgs,
+  ListAllowedDirectoriesResponse,
+  CreateDirectoryArgs,
+  CreateDirectoryResponse,
+  MoveFileArgs,
+  MoveFileResponse
 } from '../index'
 
 /**
- * Read File Tool Handler
- * 从 Renderer 进程调用 Main 进程读取文件
+ * Helper function to get Electron IPC renderer
  */
-export async function invokeReadFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
-  console.log('[ReadFileInvoker] Reading file:', args.file_path)
+function getElectronIPC() {
+  const electron = (window as any).electron
+  if (!electron?.ipcRenderer) {
+    throw new Error('Electron IPC not available')
+  }
+  return electron.ipcRenderer
+}
 
+// ============ Read Operations ============
+
+/**
+ * Read Text File Invoker
+ */
+export async function invokeReadTextFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
+  console.log('[ReadTextFileInvoker] Reading text file:', args.file_path)
   try {
-    const electron = (window as any).electron
-    if (!electron || !electron.ipcRenderer) {
-      throw new Error('Electron IPC not available')
-    }
-
-    const response: ReadTextFileResponse = await electron.ipcRenderer.invoke(
-      FILE_READ_ACTION,
-      args
-    )
-
-    console.log('[ReadFileInvoker] Read response:', response.success ? 'success' : 'failed')
+    const ipc = getElectronIPC()
+    const response: ReadTextFileResponse = await ipc.invoke(FILE_READ_TEXT_ACTION, args)
+    console.log('[ReadTextFileInvoker] Response:', response.success ? 'success' : 'failed')
     return response
-
   } catch (error: any) {
-    console.error('[ReadFileInvoker] Error:', error)
-    return {
-      success: false,
-      error: error.message || 'Unknown error occurred'
-    }
+    console.error('[ReadTextFileInvoker] Error:', error)
+    return { success: false, error: error.message || 'Unknown error occurred' }
   }
 }
 
 /**
- * Write File Tool Handler
- * 从 Renderer 进程调用 Main 进程写入文件
+ * Read Media File Invoker
+ */
+export async function invokeReadMediaFile(args: ReadMediaFileArgs): Promise<ReadMediaFileResponse> {
+  console.log('[ReadMediaFileInvoker] Reading media file:', args.file_path)
+  try {
+    const ipc = getElectronIPC()
+    const response: ReadMediaFileResponse = await ipc.invoke(FILE_READ_MEDIA_ACTION, args)
+    console.log('[ReadMediaFileInvoker] Response:', response.success ? 'success' : 'failed')
+    return response
+  } catch (error: any) {
+    console.error('[ReadMediaFileInvoker] Error:', error)
+    return { success: false, error: error.message || 'Unknown error occurred' }
+  }
+}
+
+/**
+ * Read Multiple Files Invoker
+ */
+export async function invokeReadMultipleFiles(args: ReadMultipleFilesArgs): Promise<ReadMultipleFilesResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_READ_MULTIPLE_ACTION, args)
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+// ============ Write Operations ============
+
+/**
+ * Write File Invoker
  */
 export async function invokeWriteFile(args: WriteFileArgs): Promise<WriteFileResponse> {
   console.log('[WriteFileInvoker] Writing file:', args.file_path)
-
   try {
-    const electron = (window as any).electron
-    if (!electron || !electron.ipcRenderer) {
-      throw new Error('Electron IPC not available')
-    }
-
-    const response: WriteFileResponse = await electron.ipcRenderer.invoke(
-      FILE_WRITE_ACTION,
-      args
-    )
-
-    console.log('[WriteFileInvoker] Write response:', response.success ? 'success' : 'failed')
+    const ipc = getElectronIPC()
+    const response: WriteFileResponse = await ipc.invoke(FILE_WRITE_ACTION, args)
+    console.log('[WriteFileInvoker] Response:', response.success ? 'success' : 'failed')
     return response
-
   } catch (error: any) {
     console.error('[WriteFileInvoker] Error:', error)
-    return {
-      success: false,
-      error: error.message || 'Unknown error occurred'
-    }
+    return { success: false, error: error.message || 'Unknown error occurred' }
   }
 }
 
 /**
- * Edit File Tool Handler
- * 从 Renderer 进程调用 Main 进程编辑文件
+ * Edit File Invoker
  */
 export async function invokeEditFile(args: EditFileArgs): Promise<EditFileResponse> {
   console.log('[EditFileInvoker] Editing file:', args.file_path)
-
   try {
-    const electron = (window as any).electron
-    if (!electron || !electron.ipcRenderer) {
-      throw new Error('Electron IPC not available')
-    }
-
-    const response: EditFileResponse = await electron.ipcRenderer.invoke(
-      FILE_EDIT_ACTION,
-      args
-    )
-
-    console.log('[EditFileInvoker] Edit response:', response.success ? 'success' : 'failed')
+    const ipc = getElectronIPC()
+    const response: EditFileResponse = await ipc.invoke(FILE_EDIT_ACTION, args)
+    console.log('[EditFileInvoker] Response:', response.success ? 'success' : 'failed')
     return response
-
   } catch (error: any) {
     console.error('[EditFileInvoker] Error:', error)
-    return {
-      success: false,
-      error: error.message || 'Unknown error occurred'
-    }
+    return { success: false, error: error.message || 'Unknown error occurred' }
+  }
+}
+
+// ============ Search Operations ============
+
+/**
+ * Search File Invoker
+ */
+export async function invokeSearchFile(args: SearchFileArgs): Promise<SearchFileResponse> {
+  console.log('[SearchFileInvoker] Searching file:', args.file_path)
+  try {
+    const ipc = getElectronIPC()
+    const response: SearchFileResponse = await ipc.invoke(FILE_SEARCH_ACTION, args)
+    console.log('[SearchFileInvoker] Response:', response.success ? 'success' : 'failed')
+    return response
+  } catch (error: any) {
+    console.error('[SearchFileInvoker] Error:', error)
+    return { success: false, error: error.message || 'Unknown error occurred' }
   }
 }
 
 /**
- * Search File Tool Handler
- * 从 Renderer 进程调用 Main 进程搜索文件
+ * Search Files Invoker
  */
-export async function invokeSearchFile(args: SearchFileArgs): Promise<SearchFileResponse> {
-  console.log('[SearchFileInvoker] Searching file:', args.file_path)
-
+export async function invokeSearchFiles(args: SearchFilesArgs): Promise<SearchFilesResponse> {
   try {
-    const electron = (window as any).electron
-    if (!electron || !electron.ipcRenderer) {
-      throw new Error('Electron IPC not available')
-    }
-
-    const response: SearchFileResponse = await electron.ipcRenderer.invoke(
-      FILE_SEARCH_ACTION,
-      args
-    )
-
-    console.log('[SearchFileInvoker] Search response:', response.success ? 'success' : 'failed')
-    return response
-
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_SEARCH_FILES_ACTION, args)
   } catch (error: any) {
-    console.error('[SearchFileInvoker] Error:', error)
-    return {
-      success: false,
-      error: error.message || 'Unknown error occurred'
-    }
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+// ============ Directory Operations ============
+
+/**
+ * List Directory Invoker
+ */
+export async function invokeListDirectory(args: ListDirectoryArgs): Promise<ListDirectoryResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_LIST_DIR_ACTION, args)
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+/**
+ * List Directory With Sizes Invoker
+ */
+export async function invokeListDirectoryWithSizes(args: ListDirectoryWithSizesArgs): Promise<ListDirectoryWithSizesResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_LIST_DIR_SIZES_ACTION, args)
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+/**
+ * Directory Tree Invoker
+ */
+export async function invokeDirectoryTree(args: DirectoryTreeArgs): Promise<DirectoryTreeResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_DIR_TREE_ACTION, args)
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+// ============ File Info Operations ============
+
+/**
+ * Get File Info Invoker
+ */
+export async function invokeGetFileInfo(args: GetFileInfoArgs): Promise<GetFileInfoResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_GET_INFO_ACTION, args)
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+/**
+ * List Allowed Directories Invoker
+ */
+export async function invokeListAllowedDirectories(args: ListAllowedDirectoriesArgs): Promise<ListAllowedDirectoriesResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_LIST_ALLOWED_DIRS_ACTION, args)
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+// ============ File Management Operations ============
+
+/**
+ * Create Directory Invoker
+ */
+export async function invokeCreateDirectory(args: CreateDirectoryArgs): Promise<CreateDirectoryResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_CREATE_DIR_ACTION, args)
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+/**
+ * Move File Invoker
+ */
+export async function invokeMoveFile(args: MoveFileArgs): Promise<MoveFileResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_MOVE_ACTION, args)
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
   }
 }

@@ -16,6 +16,7 @@ import {
 } from "@renderer/components/ui/tooltip"
 import { useChatContext } from '@renderer/context/ChatContext'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
+import { invokeMcpConnect, invokeMcpDisconnect } from '@renderer/invoker/ipcInvoker'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
@@ -26,7 +27,6 @@ import {
   Check,
   ChevronsUpDown,
   CornerDownLeft,
-  Globe,
   LoaderCircle,
   Package,
   Plug
@@ -317,7 +317,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     if (!selectedMcpServerNames.includes(serverName)) {
       setConnectingMcpServers([...connectingMcpServers, serverName])
 
-      const { result, tools, msg } = await window.electron?.ipcRenderer.invoke('mcp-connect', {
+      const { result, tools, msg } = await invokeMcpConnect({
         name: serverName,
         ...serverConfig
       })
@@ -325,14 +325,32 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       if (result) {
         setSelectedMcpServerNames([...selectedMcpServerNames, serverName])
         availableMcpTools.set(serverName, tools)
+
+        // 将 MCP tools 注册为 external tools
+        tools.forEach((tool: any) => {
+          embeddedToolsRegistry.registerExternal(tool.name, {
+            type: 'function',
+            function: tool
+          })
+        })
+
         toast.success(msg)
       } else {
         toast.error(msg)
       }
     } else {
       setSelectedMcpServerNames(selectedMcpServerNames.filter(item => item != serverName))
+
+      // 取消注册 MCP tools
+      const tools = availableMcpTools.get(serverName)
+      if (tools) {
+        tools.forEach((tool: any) => {
+          embeddedToolsRegistry.unregisterExternal(tool.name)
+        })
+      }
+
       availableMcpTools.delete(serverName)
-      await window.electron?.ipcRenderer.invoke('mcp-disconnect', {
+      await invokeMcpDisconnect({
         name: serverName
       })
       toast.warning(`Disconnected mcp-server '${serverName}'`)
@@ -686,7 +704,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               </Tooltip>
             </TooltipProvider>
 
-            <TooltipProvider delayDuration={400}>
+            {/* WebSearch are embedded no need to toggle anymore maybe put thinking toggle here later~ */}
+            {/* <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -707,7 +726,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   <p>Web Search {webSearchEnable ? 'On' : 'Off'}</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
 
             <TooltipProvider delayDuration={400}>
               <Tooltip>

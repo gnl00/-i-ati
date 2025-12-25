@@ -11,7 +11,8 @@
     "src/tools/**/*",
     "src/renderer/data/**/*",
     "resources/**/*",
-    "data/**/*"
+    "data/**/*",
+    "src/tools/definitions/**/*"
   ],
   "exclude": [
     "src/tools/**/main/**/*"

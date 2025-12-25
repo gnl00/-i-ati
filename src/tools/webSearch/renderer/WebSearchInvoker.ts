@@ -1,4 +1,5 @@
-import { WEB_SEARCH_ACTION } from '@constants/index'
+import { invokeWebSearchIPC } from '@renderer/invoker/ipcInvoker'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 
 /**
  * Web Search Tool Handler
@@ -20,21 +21,14 @@ export async function invokeWebSearch(args: WebSearchArgs): Promise<WebSearchRes
   console.log('[WebSearchInvoker] Executing web search with query:', args.query)
 
   try {
-    const fetchCounts = args.fetchCounts ?? 3
+    // Get fetchCounts from appConfig if not provided in args
+    const { appConfig } = useAppConfigStore.getState()
+    const fetchCounts = args.fetchCounts ?? appConfig?.tools?.maxWebSearchItems ?? 3
 
-    // This code runs in renderer process, window.electron is available
-    const electron = (window as any).electron
-    if (!electron || !electron.ipcRenderer) {
-      throw new Error('Electron IPC not available')
-    }
-
-    const searchResponse: WebSearchResponse = await electron.ipcRenderer.invoke(
-      WEB_SEARCH_ACTION,
-      {
-        param: args.query,
-        fetchCounts: fetchCounts
-      }
-    )
+    const searchResponse: WebSearchResponse = await invokeWebSearchIPC({
+      param: args.query,
+      fetchCounts: fetchCounts
+    })
 
     console.log('[WebSearchInvoker] Search response:', searchResponse)
 

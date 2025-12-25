@@ -3,49 +3,66 @@
  * 统一导出所有 embedded tools 的定义和处理器
  */
 
-import { embeddedToolsRegistry, type ToolDefinition } from './registry'
-import toolsDefinitions from './tools.json'
-import { invokeWebSearch } from './webSearch/renderer/WebSearchInvoker'
+import { tools as toolsDefinitions } from './definitions'
 import {
-  invokeReadFile,
-  invokeWriteFile,
+  invokeCreateDirectory,
+  invokeDirectoryTree,
   invokeEditFile,
-  invokeSearchFile
-} from './fileOperations/renderer/FileOperationsInvoker'
-import {
-  invokeReadTextFile,
+  invokeGetFileInfo,
+  invokeListAllowedDirectories,
+  invokeListDirectory,
+  invokeListDirectoryWithSizes,
+  invokeMoveFile,
   invokeReadMediaFile,
   invokeReadMultipleFiles,
-  invokeListDirectory
-} from './fileOperations/renderer/FileOperationsInvokerExtended'
-import {
-  invokeListDirectoryWithSizes,
-  invokeGetFileInfo,
-  invokeCreateDirectory,
-  invokeMoveFile
-} from './fileOperations/renderer/FileOperationsInvokerExtra'
+  invokeReadTextFile,
+  invokeSearchFile,
+  invokeSearchFiles,
+  invokeWriteFile
+} from './fileOperations/renderer/FileOperationsInvoker'
+import { embeddedToolsRegistry, type ToolDefinition } from './registry'
+import { invokeWebSearch } from './webSearch/renderer/WebSearchInvoker'
 
 /**
  * 工具处理器映射表
  * 将工具名称映射到对应的处理器函数
+ * 注意：available_tools 不再作为工具注册，而是通过 system 消息发送
  */
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
+  // Tool discovery
+  'list_tools': async () => embeddedToolsRegistry.availableTools(),
+
+  // Tool search - 使用 registry 的 searchTools 方法
+  'search_tools': (args) => embeddedToolsRegistry.searchTools(args),
+
+  // Web search
   'web_search': invokeWebSearch,
-  'read_file': invokeReadFile,
-  'write_file': invokeWriteFile,
-  'edit_file': invokeEditFile,
-  'search_file': invokeSearchFile,
-  // New file operations tools
+
+  // File read operations
   'read_text_file': invokeReadTextFile,
   'read_media_file': invokeReadMediaFile,
   'read_multiple_files': invokeReadMultipleFiles,
+
+  // File write operations
+  'write_file': invokeWriteFile,
+  'edit_file': invokeEditFile,
+
+  // File search operations
+  'search_file': invokeSearchFile,
+  'search_files': invokeSearchFiles,
+
+  // Directory operations
   'list_directory': invokeListDirectory,
   'list_directory_with_sizes': invokeListDirectoryWithSizes,
+  'directory_tree': invokeDirectoryTree,
+
+  // File info operations
   'get_file_info': invokeGetFileInfo,
+  'list_allowed_directories': invokeListAllowedDirectories,
+
+  // File management operations
   'create_directory': invokeCreateDirectory,
-  'move_file': invokeMoveFile,
-  // 在这里添加更多工具处理器
-  // 'another_tool': anotherToolHandler,
+  'move_file': invokeMoveFile
 }
 
 /**
@@ -65,7 +82,6 @@ export function initializeEmbeddedTools(): void {
     if (handler) {
       // 注册工具，同时保存工具定义
       embeddedToolsRegistry.register(toolName, handler, toolDef)
-      console.log(`[EmbeddedTools] Registered: ${toolName}`)
     } else {
       console.warn(`[EmbeddedTools] Warning: No handler found for tool "${toolName}"`)
     }

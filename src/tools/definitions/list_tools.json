@@ -1,0 +1,15 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "list_tools",
+      "description": "List all available external tools with their names and descriptions. Use this to discover what external tools are available before using search_tools to get their full definitions.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  }
+]
