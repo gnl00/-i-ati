@@ -33,7 +33,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
   const isError = tc.isError;
 
   return (
-    <Accordion type="single" collapsible className='my-2 w-fit'>
+    <Accordion type="single" collapsible className='my-2 w-full max-w-full'>
       <AccordionItem value={'tool-use-' + index} className='border-none'>
         <AccordionTrigger className={cn(
           'py-0 hover:no-underline', // Remove default padding
@@ -96,7 +96,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
           ) : (
             // 其他工具保持 JSON 展示（原有代码）
             <div className={cn(
-              "relative rounded-lg overflow-hidden border shadow-inner group",
+              "relative rounded-lg overflow-hidden border shadow-inner group max-w-full",
               isError
                 ? "bg-red-50/30 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
                 : "bg-zinc-50/50 dark:bg-black/20 border-zinc-200/50 dark:border-zinc-800"
@@ -111,7 +111,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
                   {isCopied ? <Check className="w-3 h-3 text-green-500" /> : <Clipboard className="w-3 h-3 text-zinc-500" />}
                 </Button>
               </div>
-              <div className="max-h-60 overflow-y-auto custom-scrollbar">
+              <div className="max-h-60 overflow-auto custom-scrollbar max-w-full">
                 <SyntaxHighlighter
                   language="json"
                   style={isDarkMode ? tomorrowNight : docco}
