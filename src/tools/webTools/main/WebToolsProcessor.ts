@@ -1,4 +1,6 @@
 import { BrowserWindow } from 'electron'
+import * as cheerio from 'cheerio'
+import TurndownService from 'turndown'
 import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '../index'
 import { getWindowPool } from './BrowserWindowPool'
 
@@ -9,7 +11,6 @@ interface WebSearchProcessArgs {
 
 interface WebFetchProcessArgs {
   url: string
-  prompt: string
 }
 
 interface BingSearchItem {
@@ -21,7 +22,107 @@ interface BingSearchItem {
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
 
 /**
+ * 创建并配置 Turndown 实例
+ */
+function createTurndownService(): TurndownService {
+  const turndownService = new TurndownService({
+    headingStyle: 'atx',
+    codeBlockStyle: 'fenced',
+    bulletListMarker: '-',
+    emDelimiter: '*'
+  })
+
+  // 移除不需要的元素
+  turndownService.remove(['script', 'style', 'noscript'])
+
+  return turndownService
+}
+
+/**
+ * 使用 Cheerio 提取和清理 HTML 内容
+ * @param html 原始 HTML 字符串
+ * @returns 清理后的 HTML 字符串
+ */
+function extractContentWithCheerio(html: string): string {
+  try {
+    // 加载 HTML
+    const $ = cheerio.load(html)
+
+    // 移除噪声元素
+    const noiseSelectors = [
+      'script',
+      'style',
+      'nav',
+      'header',
+      'footer',
+      '.ad',
+      '.advertisement',
+      '.sidebar',
+      '.comments',
+      '[class*="related"]',
+      '[class*="recommend"]',
+      '[class*="hot"]',
+      'iframe',
+      'noscript'
+    ]
+
+    noiseSelectors.forEach(selector => {
+      $(selector).remove()
+    })
+
+    // 查找主要内容区域
+    const mainSelectors = [
+      'main',
+      'article',
+      '[role="main"]',
+      '.content',
+      '.main-content',
+      '#content',
+      '#main'
+    ]
+
+    let mainContent: cheerio.Cheerio<any> | null = null
+    for (const selector of mainSelectors) {
+      const element = $(selector)
+      if (element.length > 0) {
+        mainContent = element
+        break
+      }
+    }
+
+    // 提取文本内容
+    const targetElement = mainContent || $('body')
+
+    // 返回清理后的 HTML（用于 Markdown 转换）
+    const cleanedHtml = targetElement.html() || ''
+    return cleanedHtml
+  } catch (error) {
+    console.error('[Cheerio] Error extracting content:', error)
+    return ''
+  }
+}
+
+/**
+ * 将 HTML 转换为 Markdown
+ * @param html 清理后的 HTML 字符串
+ * @returns Markdown 格式的文本
+ */
+function convertHtmlToMarkdown(html: string): string {
+  try {
+    const turndownService = createTurndownService()
+    const markdown = turndownService.turndown(html)
+    return markdown
+  } catch (error) {
+    console.error('[Turndown] Error converting to markdown:', error)
+    // 如果转换失败，返回纯文本
+    const $ = cheerio.load(html)
+    return $('body').text()
+  }
+}
+
+/**
  * 从指定 URL 获取页面内容
+ * 使用 BrowserWindow 渲染页面，然后用 Cheerio 在 Node.js 端处理
  * @param url 要获取的页面 URL
  * @param contentWindow 用于加载页面的 BrowserWindow
  * @returns 包含页面标题、最终 URL 和提取的文本内容
@@ -41,45 +142,30 @@ async function fetchPageContent(url: string, contentWindow: BrowserWindow): Prom
   await contentWindow.loadURL(url, { userAgent })
   clearTimeout(timeoutId)
 
-  // 提取页面标题、URL 和内容
-  const result = await contentWindow.webContents.executeJavaScript(`
-    (() => {
-      // 获取页面标题
-      const pageTitle = document.title || ''
-
-      // 获取最终的 URL（经过重定向后的真实 URL）
-      const finalUrl = window.location.href
-
-      // 移除噪声元素
-      const noiseSelectors = [
-        'script', 'style', 'nav', 'header', 'footer',
-        '.ad', '.advertisement', '.sidebar', '.comments',
-        '[class*="related"]', '[class*="recommend"]',
-        'iframe', 'noscript'
-      ]
-      noiseSelectors.forEach(sel => {
-        document.querySelectorAll(sel).forEach(el => el.remove())
-      })
-
-      // 提取主要内容
-      const mainSelectors = [
-        'main', 'article', '[role="main"]', '.content', '.main-content', '#content', '#main'
-      ]
-
-      let mainContent = null
-      for (const selector of mainSelectors) {
-        mainContent = document.querySelector(selector)
-        if (mainContent) break
-      }
-
-      const targetElement = mainContent || document.body
-      const extractedText = targetElement.innerText || targetElement.textContent || ''
-
-      return { pageTitle, finalUrl, extractedText }
-    })()
+  // 只提取必要的原始数据：HTML、URL、标题
+  // 直接使用 document.body，让 Cheerio 负责所有过滤工作
+  const pageData = await contentWindow.webContents.executeJavaScript(`
+    ({
+      html: document.body ? document.body.outerHTML : '',
+      finalUrl: window.location.href,
+      title: document.title || ''
+    })
   `)
 
-  return result
+  // 使用 Cheerio 在 Node.js 端处理 HTML
+  const cleanedHtml = extractContentWithCheerio(pageData.html)
+
+  // 将 HTML 转换为 Markdown
+  const markdown = convertHtmlToMarkdown(cleanedHtml)
+
+  // 使用 postClean 进行最终清理
+  const extractedText = postClean(markdown)
+
+  return {
+    pageTitle: pageData.title,
+    finalUrl: pageData.finalUrl,
+    extractedText
+  }
 }
 
 /**
@@ -247,7 +333,7 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
 /**
  * Web Fetch - 获取指定 URL 的页面内容
  */
-const processWebFetch = async ({ url, prompt }: WebFetchProcessArgs): Promise<WebFetchResponse> => {
+const processWebFetch = async ({ url }: WebFetchProcessArgs): Promise<WebFetchResponse> => {
   const fetchStartTime = Date.now()
   const windowPool = getWindowPool()
   let contentWindow: BrowserWindow | null = null
@@ -255,7 +341,6 @@ const processWebFetch = async ({ url, prompt }: WebFetchProcessArgs): Promise<We
   try {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.log(`[WEB FETCH START] URL: "${url}"`)
-    console.log(`[WEB FETCH START] Prompt: "${prompt}"`)
     console.log(`[WEB FETCH START] Timestamp: ${new Date().toISOString()}`)
 
     const windowCreateStart = Date.now()

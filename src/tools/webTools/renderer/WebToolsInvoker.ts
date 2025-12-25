@@ -21,7 +21,6 @@ interface WebSearchResponse {
 // Web Fetch Types
 interface WebFetchArgs {
   url: string
-  prompt: string
 }
 
 interface WebFetchResponse {
@@ -68,8 +67,7 @@ export async function invokeWebFetch(args: WebFetchArgs): Promise<WebFetchRespon
 
   try {
     const fetchResponse: WebFetchResponse = await invokeWebFetchIPC({
-      url: args.url,
-      prompt: args.prompt
+      url: args.url
     })
 
     console.log('[WebToolsInvoker] Fetch response:', fetchResponse)

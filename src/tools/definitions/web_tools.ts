@@ -21,20 +21,16 @@ export default [
     "type": "function",
     "function": {
       "name": "web_fetch",
-      "description": "Fetch and extract text content from a specified URL.",
+      "description": "Fetch and extract text content from a specified URL. Returns the full page content in markdown format.",
       "parameters": {
         "type": "object",
         "properties": {
           "url": {
             "type": "string",
             "description": "The URL to fetch content from. Must be a fully-formed valid URL."
-          },
-          "prompt": {
-            "type": "string",
-            "description": "The prompt to run on the fetched content, describing what information to extract from the page."
           }
         },
-        "required": ["url", "prompt"],
+        "required": ["url"],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
