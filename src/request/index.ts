@@ -166,16 +166,13 @@ export const commonOpenAIChatCompletionRequest = async (req: IUnifiedRequest, si
 
   const requestBody = adapter.transformRequest(req)
   if (requestBody.messages) {
-    // 清理消息：只保留 LLM API 标准字段，移除前端 UI 专用字段
-    // 标准字段：role, content, name, tool_call_id, tool_calls
-    const allowedFields = ['role', 'content', 'name', 'tool_call_id', 'tool_calls']
-    requestBody.messages = requestBody.messages.map((m): BaseChatMessage => {
-      const sanitized: any = {}
-      allowedFields.forEach(field => {
-        if (m[field] !== undefined) sanitized[field] = m[field]
-      })
-      return sanitized
-    })
+    requestBody.messages = requestBody.messages.map((m): BaseChatMessage => ({
+      role: m.role,
+      content: m.content,
+      ...(m.name && { name: m.name }),
+      ...(m.toolCalls && { tool_calls: m.toolCalls }),  // 驼峰转下划线
+      ...(m.toolCallId && { tool_call_id: m.toolCallId })  // 驼峰转下划线
+    }))
   }
 
   beforeFetch()

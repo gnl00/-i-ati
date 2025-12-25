@@ -216,19 +216,19 @@ function useChatSubmit() {
     }
 
     // 过滤掉空的 assistant 消息（UI 占位消息），避免发送给 LLM
-    // 但要保留带有 tool_calls 的 assistant 消息（即使 content 为空）
+    // 但要保留带有 toolCalls 的 assistant 消息（即使 content 为空）
     const filteredMessages = context.chatMessages.filter(msg => {
       // 如果是 assistant 角色
       if (msg.role === 'assistant') {
-        // 如果有 tool_calls，保留
-        if (msg.tool_calls && msg.tool_calls.length > 0) {
+        // 如果有 toolCalls，保留
+        if (msg.toolCalls && msg.toolCalls.length > 0) {
           return true
         }
-        // 如果没有 tool_calls，但有内容，保留
+        // 如果没有 toolCalls，但有内容，保留
         if (msg.content && (msg.content as string).trim() !== '') {
           return true
         }
-        // 既没有 tool_calls 也没有内容，过滤掉
+        // 既没有 toolCalls 也没有内容，过滤掉
         return false
       }
       return true
@@ -346,7 +346,7 @@ function useChatSubmit() {
       const assistantToolCallMessage: ChatMessage = {
         role: 'assistant',
         content: context.gatherContent || null,
-        tool_calls: context.toolCalls.map(tc => ({
+        toolCalls: context.toolCalls.map(tc => ({
           id: tc.id || `call_${uuidv4()}`,
           type: 'function',
           function: {
@@ -407,11 +407,11 @@ function useChatSubmit() {
         console.log('tool-call-results', results)
         const timeCosts = new Date().getTime() - startTime
 
-        // Step 2: 构建工具调用结果消息，必须包含 tool_call_id
+        // Step 2: 构建工具调用结果消息，必须包含 toolCallId
         const toolFunctionMessage: ChatMessage = {
           role: 'tool',
           name: toolCall.function,
-          tool_call_id: toolCall.id || `call_${uuidv4()}`,
+          toolCallId: toolCall.id || `call_${uuidv4()}`,
           content: toolCall.function === 'web_search'
             ? formatWebSearchForLLM(results)  // Web Search 特殊处理
             : JSON.stringify({ ...results, functionCallCompleted: true })  // 其他工具保持不变

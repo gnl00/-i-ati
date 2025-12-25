@@ -148,8 +148,8 @@ declare interface BaseChatMessage {
   role: string
   content: string | VLMContent[]
   name?: string // for role=function
-  tool_call_id?: string
-  tool_calls?: IToolCall[]
+  toolCallId?: string  // 驼峰命名，发送 API 时映射为 tool_call_id
+  toolCalls?: IToolCall[]  // 驼峰命名，发送 API 时映射为 tool_calls
 }
 
 declare interface ChatMessage extends BaseChatMessage {
