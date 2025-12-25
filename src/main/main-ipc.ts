@@ -76,9 +76,9 @@ function mainIPCSetup() {
     return processWebSearch({ fetchCounts: counts, param })
   })
 
-  ipcMain.handle(WEB_FETCH_ACTION, (_event, { url, prompt }) => {
+  ipcMain.handle(WEB_FETCH_ACTION, (_event, { url }) => {
     console.log(`[WebFetch IPC] Fetching URL: ${url}`)
-    return processWebFetch({ url, prompt })
+    return processWebFetch({ url })
   })
 
   // File Operations handlers
