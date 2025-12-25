@@ -21,7 +21,7 @@ import {
   invokeWriteFile
 } from './fileOperations/renderer/FileOperationsInvoker'
 import { embeddedToolsRegistry, type ToolDefinition } from './registry'
-import { invokeWebSearch } from './webSearch/renderer/WebSearchInvoker'
+import { invokeWebSearch, invokeWebFetch } from './webTools/renderer/WebToolsInvoker'
 
 /**
  * 工具处理器映射表
@@ -37,6 +37,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
 
   // Web search
   'web_search': invokeWebSearch,
+  'web_fetch': invokeWebFetch,
 
   // File read operations
   'read_text_file': invokeReadTextFile,

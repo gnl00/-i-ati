@@ -6,6 +6,7 @@
 import {
   PIN_WINDOW,
   WEB_SEARCH_ACTION,
+  WEB_FETCH_ACTION,
   WIN_CLOSE,
   WIN_MINIMIZE,
   WIN_MAXIMIZE,
@@ -93,4 +94,12 @@ export async function invokeMcpToolCall(toolCallInfo: any): Promise<any> {
 export async function invokeWebSearchIPC(args: { param: string; fetchCounts?: number }): Promise<any> {
   const ipc = getElectronIPC()
   return await ipc.invoke(WEB_SEARCH_ACTION, args)
+}
+
+/**
+ * 执行 Web Fetch（获取指定 URL 的页面内容）
+ */
+export async function invokeWebFetchIPC(args: { url: string; prompt: string }): Promise<any> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(WEB_FETCH_ACTION, args)
 }

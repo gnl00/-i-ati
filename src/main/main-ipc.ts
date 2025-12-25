@@ -1,5 +1,5 @@
 import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
-import { processWebSearch } from '@tools/webSearch/main/WebSearchProcessor'
+import { processWebSearch, processWebFetch } from '@tools/webTools/main/WebToolsProcessor'
 import {
   processReadTextFile,
   processReadMediaFile,
@@ -21,6 +21,7 @@ import {
   OPEN_EXTERNAL,
   PIN_WINDOW,
   WEB_SEARCH_ACTION,
+  WEB_FETCH_ACTION,
   WIN_CLOSE,
   WIN_MINIMIZE,
   WIN_MAXIMIZE,
@@ -73,6 +74,11 @@ function mainIPCSetup() {
     const counts = fetchCounts ?? 3
     console.log(`[WebSearch IPC] Using fetchCounts: ${counts}`)
     return processWebSearch({ fetchCounts: counts, param })
+  })
+
+  ipcMain.handle(WEB_FETCH_ACTION, (_event, { url, prompt }) => {
+    console.log(`[WebFetch IPC] Fetching URL: ${url}`)
+    return processWebFetch({ url, prompt })
   })
 
   // File Operations handlers

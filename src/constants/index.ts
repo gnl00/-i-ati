@@ -3,7 +3,8 @@ export const SAVE_CONFIG = 'save-config'
 export const GET_CONFIG = 'get-config'
 export const GET_WINDOW_SIZE = 'get-window-size'
 export const OPEN_EXTERNAL = 'open-external'
-export const WEB_SEARCH_ACTION = 'headless-web-search-action'
+export const WEB_SEARCH_ACTION = 'web-search-action'
+export const WEB_FETCH_ACTION = 'web-fetch-action'
 export const TOOL_SEARCH_ACTION = 'tool-search-action'
 
 // Window Operations Actions

@@ -25,3 +25,16 @@ export interface WebSearchResponse {
   results: WebSearchResultV2[]
   error?: string         // 整体错误（如 Bing 不可达）
 }
+
+export interface WebFetchArgs {
+  url: string
+  prompt: string
+}
+
+export interface WebFetchResponse {
+  success: boolean
+  url: string           // 最终 URL（可能经过重定向）
+  title: string         // 页面标题
+  content: string       // 提取的页面内容
+  error?: string        // 失败时的错误信息
+}

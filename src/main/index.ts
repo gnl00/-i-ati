@@ -1,7 +1,7 @@
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { mcpClient } from '@mcp/client'
 import { BrowserWindow, app, globalShortcut } from 'electron'
-import { destroyWindowPool, getWindowPool } from '../tools/webSearch/main/BrowserWindowPool'
+import { destroyWindowPool, getWindowPool } from '../tools/webTools/main/BrowserWindowPool'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
 import { createWindow } from './main-window'
 
