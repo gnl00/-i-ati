@@ -1,8 +1,42 @@
 import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
 import { processWebSearch } from '@tools/webSearch/main/WebSearchProcessor'
+import {
+  processReadFile,
+  processWriteFile,
+  processEditFile,
+  processSearchFile
+} from '@tools/fileOperations/main/FileOperationsProcessor'
+import {
+  processReadTextFile,
+  processReadMediaFile,
+  processReadMultipleFiles,
+  processListDirectory
+} from '@tools/fileOperations/main/FileOperationsProcessorExtended'
+import {
+  processListDirectoryWithSizes,
+  processGetFileInfo,
+  processCreateDirectory,
+  processMoveFile
+} from '@tools/fileOperations/main/FileOperationsProcessorExtra'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
-import { OPEN_EXTERNAL, PIN_WINDOW, WEB_SEARCH_ACTION } from '../constants'
+import {
+  OPEN_EXTERNAL,
+  PIN_WINDOW,
+  WEB_SEARCH_ACTION,
+  FILE_READ_ACTION,
+  FILE_WRITE_ACTION,
+  FILE_EDIT_ACTION,
+  FILE_SEARCH_ACTION,
+  FILE_READ_TEXT_ACTION,
+  FILE_READ_MEDIA_ACTION,
+  FILE_READ_MULTIPLE_ACTION,
+  FILE_LIST_DIR_ACTION,
+  FILE_LIST_DIR_SIZES_ACTION,
+  FILE_GET_INFO_ACTION,
+  FILE_CREATE_DIR_ACTION,
+  FILE_MOVE_ACTION
+} from '../constants'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
 
 function mainIPCSetup() {
@@ -35,6 +69,68 @@ function mainIPCSetup() {
     const counts = fetchCounts ?? 3
     console.log(`[WebSearch IPC] Using fetchCounts: ${counts}`)
     return processWebSearch({ fetchCounts: counts, param })
+  })
+
+  // File Operations handlers
+  ipcMain.handle(FILE_READ_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Read file: ${args.file_path}`)
+    return processReadFile(args)
+  })
+
+  ipcMain.handle(FILE_WRITE_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Write file: ${args.file_path}`)
+    return processWriteFile(args)
+  })
+
+  ipcMain.handle(FILE_EDIT_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Edit file: ${args.file_path}`)
+    return processEditFile(args)
+  })
+
+  ipcMain.handle(FILE_SEARCH_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Search file: ${args.file_path}`)
+    return processSearchFile(args)
+  })
+
+  // New File Operations handlers
+  ipcMain.handle(FILE_READ_TEXT_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Read text file: ${args.file_path}`)
+    return processReadTextFile(args)
+  })
+
+  ipcMain.handle(FILE_READ_MEDIA_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Read media file: ${args.file_path}`)
+    return processReadMediaFile(args)
+  })
+
+  ipcMain.handle(FILE_READ_MULTIPLE_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Read multiple files: ${args.file_paths.length} files`)
+    return processReadMultipleFiles(args)
+  })
+
+  ipcMain.handle(FILE_LIST_DIR_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] List directory: ${args.directory_path}`)
+    return processListDirectory(args)
+  })
+
+  ipcMain.handle(FILE_LIST_DIR_SIZES_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] List directory with sizes: ${args.directory_path}`)
+    return processListDirectoryWithSizes(args)
+  })
+
+  ipcMain.handle(FILE_GET_INFO_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Get file info: ${args.file_path}`)
+    return processGetFileInfo(args)
+  })
+
+  ipcMain.handle(FILE_CREATE_DIR_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Create directory: ${args.directory_path}`)
+    return processCreateDirectory(args)
+  })
+
+  ipcMain.handle(FILE_MOVE_ACTION, (_event, args) => {
+    console.log(`[FileOps IPC] Move file: ${args.source_path} -> ${args.destination_path}`)
+    return processMoveFile(args)
   })
 
   ipcMain.handle('mcp-connect', async (_, mcpProps) => {

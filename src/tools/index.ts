@@ -6,6 +6,24 @@
 import { embeddedToolsRegistry, type ToolDefinition } from './registry'
 import toolsDefinitions from './tools.json'
 import { invokeWebSearch } from './webSearch/renderer/WebSearchInvoker'
+import {
+  invokeReadFile,
+  invokeWriteFile,
+  invokeEditFile,
+  invokeSearchFile
+} from './fileOperations/renderer/FileOperationsInvoker'
+import {
+  invokeReadTextFile,
+  invokeReadMediaFile,
+  invokeReadMultipleFiles,
+  invokeListDirectory
+} from './fileOperations/renderer/FileOperationsInvokerExtended'
+import {
+  invokeListDirectoryWithSizes,
+  invokeGetFileInfo,
+  invokeCreateDirectory,
+  invokeMoveFile
+} from './fileOperations/renderer/FileOperationsInvokerExtra'
 
 /**
  * 工具处理器映射表
@@ -13,6 +31,19 @@ import { invokeWebSearch } from './webSearch/renderer/WebSearchInvoker'
  */
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   'web_search': invokeWebSearch,
+  'read_file': invokeReadFile,
+  'write_file': invokeWriteFile,
+  'edit_file': invokeEditFile,
+  'search_file': invokeSearchFile,
+  // New file operations tools
+  'read_text_file': invokeReadTextFile,
+  'read_media_file': invokeReadMediaFile,
+  'read_multiple_files': invokeReadMultipleFiles,
+  'list_directory': invokeListDirectory,
+  'list_directory_with_sizes': invokeListDirectoryWithSizes,
+  'get_file_info': invokeGetFileInfo,
+  'create_directory': invokeCreateDirectory,
+  'move_file': invokeMoveFile,
   // 在这里添加更多工具处理器
   // 'another_tool': anotherToolHandler,
 }
