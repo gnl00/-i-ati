@@ -3,6 +3,7 @@ import { CodeWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrap
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
 import { Badge } from "@renderer/components/ui/badge"
 import { cn } from '@renderer/lib/utils'
+import { invokeOpenExternal } from '@renderer/invoker/ipcInvoker'
 import { BadgePercent } from 'lucide-react'
 import React, { memo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -50,6 +51,23 @@ const markdownCodeComponent = {
       <code {...rest} className={className}>
         {children}
       </code>
+    )
+  },
+  a(props) {
+    const { href, children, ...rest } = props
+
+    const handleClick = (e: React.MouseEvent) => {
+      e.preventDefault()
+      if (href) {
+        // 使用统一的 IPC Invoker 在外部浏览器打开链接
+        invokeOpenExternal(href)
+      }
+    }
+
+    return (
+      <a {...rest} href={href} onClick={handleClick} className="cursor-pointer">
+        {children}
+      </a>
     )
   }
 }

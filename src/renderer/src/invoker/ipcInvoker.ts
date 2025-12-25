@@ -5,6 +5,7 @@
 
 import {
   PIN_WINDOW,
+  OPEN_EXTERNAL,
   WEB_SEARCH_ACTION,
   WEB_FETCH_ACTION,
   WIN_CLOSE,
@@ -58,6 +59,14 @@ export async function invokeWindowMinimize(): Promise<void> {
 export async function invokeWindowMaximize(): Promise<void> {
   const ipc = getElectronIPC()
   return await ipc.invoke(WIN_MAXIMIZE)
+}
+
+/**
+ * 在外部浏览器打开 URL
+ */
+export async function invokeOpenExternal(url: string): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(OPEN_EXTERNAL, url)
 }
 
 // ============ MCP Operations ============
