@@ -382,7 +382,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         <ChatImgGalleryComponent />
       </div>
 
-      <div id="inputArea" className='relative flex flex-col pb-3 px-4 flex-1 overflow-hidden'>
+      <div id="inputArea" className='relative flex flex-col pb-2 px-2 flex-1 overflow-hidden'>
         <div id="inputSelector" className='rounded-t-2xl w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 flex items-center space-x-2 flex-none h-10 select-none border-b-0 border-t-[1px] border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700'>
           <div id="modelSelector" className="app-undragable bg-transparent">
             <Popover open={selectModelPopoutState} onOpenChange={setSelectModelPopoutState}>
@@ -608,12 +608,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           </div>
         </div>
 
-        <div className="relative flex-1">
+        <div className="relative flex-1 overflow-hidden">
           <Textarea
             ref={textareaRef}
             className={
               cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 backdrop-blur-3xl text-sm p-2',
-                'rounded-none resize-none pr-12 pb-12 overflow-y-auto font-mono text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
+                'rounded-none resize-none pb-2 overflow-y-auto font-mono text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
               )
             }
             placeholder='Type anything to chat'
@@ -632,7 +632,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           {motionTrail.active && (
             <div
               key={motionTrail.id} // Re-mount to restart animation on every move
-              className="pointer-events-none absolute rounded-md z-20"
+              className="pointer-events-none absolute rounded-md z-10"
               style={{
                 top: 0,
                 left: 0,
@@ -660,7 +660,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           {/* Custom Caret */}
           {caretPos.visible && (
             <div
-              className="pointer-events-none absolute w-[3px] bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] z-30 animate-caret-breathe"
+              className="pointer-events-none absolute w-[3px] bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] z-10 animate-caret-breathe"
               style={{
                 top: 0,
                 left: 0,
