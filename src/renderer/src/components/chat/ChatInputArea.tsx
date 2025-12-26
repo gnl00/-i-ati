@@ -54,19 +54,22 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onMessagesUpdate,
 }, ref) => {
   const { setChatContent } = useChatContext()
-  const {
-    setMessages,
-    imageSrcBase64List,
-    setImageSrcBase64List,
-    currentReqCtrl,
-    readStreamState,
-    webSearchEnable, toggleWebSearch,
-    artifacts,
-    toggleArtifacts,
-    setArtifactsPanel,
-    selectedModel,
-    setSelectedModel,
-  } = useChatStore()
+
+  // Use Zustand selectors to avoid unnecessary re-renders
+  // Only subscribe to specific state slices instead of the entire store
+  const setMessages = useChatStore(state => state.setMessages)
+  const imageSrcBase64List = useChatStore(state => state.imageSrcBase64List)
+  const setImageSrcBase64List = useChatStore(state => state.setImageSrcBase64List)
+  const currentReqCtrl = useChatStore(state => state.currentReqCtrl)
+  const readStreamState = useChatStore(state => state.readStreamState)
+  const webSearchEnable = useChatStore(state => state.webSearchEnable)
+  const toggleWebSearch = useChatStore(state => state.toggleWebSearch)
+  const artifacts = useChatStore(state => state.artifacts)
+  const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
+  const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
+  const selectedModel = useChatStore(state => state.selectedModel)
+  const setSelectedModel = useChatStore(state => state.setSelectedModel)
+
   const {
     providers,
     models,
@@ -102,6 +105,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   // Track if backspace was just pressed
   const isBackspaceRef = useRef(false)
 
+  // Debounce mechanism for updateCaretPosition
+  const updateCaretScheduled = useRef(false)
+
   const getIconSrc = (provider: string) => {
     let iconSrc = robotIcon
     const pName = provider.toLowerCase()
@@ -136,49 +142,60 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     return iconSrc
   }
 
-  const updateCaretPosition = () => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const { top, left, height, fontSize } = getCaretCoordinates(textarea, textarea.selectionEnd)
-    // Adjust for scroll
-    const adjustedTop = top - textarea.scrollTop
-    const adjustedLeft = left - textarea.scrollLeft
-
-    // Center the caret vertically relative to the line height
-    const caretHeight = fontSize + 4
-    const verticalOffset = (height - caretHeight) / 2
-
-    // Calculate final positions
-    const finalTop = adjustedTop + verticalOffset - 2.5
-    const finalLeft = adjustedLeft
-
-    // Motion Trail Logic
-    if (lastCaretPos.current && document.activeElement === textarea) {
-      const prev = lastCaretPos.current
-      // Only trail if on same line (approx) and moved horizontally
-      if (Math.abs(prev.top - finalTop) < 5 && Math.abs(prev.left - finalLeft) > 2) {
-        setMotionTrail({
-          x: Math.min(prev.left, finalLeft),
-          y: finalTop,
-          w: Math.abs(prev.left - finalLeft) + 2, // +2 for caret width overlap
-          h: caretHeight,
-          active: true,
-          isDelete: isBackspaceRef.current,
-          id: Date.now()
-        })
-      }
+  const updateCaretPosition = useCallback(() => {
+    // Use requestAnimationFrame to debounce updates
+    // This prevents multiple synchronous calls from causing performance issues
+    if (updateCaretScheduled.current) {
+      return
     }
-    lastCaretPos.current = { top: finalTop, left: finalLeft }
-    isBackspaceRef.current = false // Reset
 
-    setCaretPos({
-      top: finalTop,
-      left: finalLeft,
-      height: caretHeight,
-      visible: document.activeElement === textarea
+    updateCaretScheduled.current = true
+    requestAnimationFrame(() => {
+      updateCaretScheduled.current = false
+
+      const textarea = textareaRef.current
+      if (!textarea) return
+
+      const { top, left, height, fontSize } = getCaretCoordinates(textarea, textarea.selectionEnd)
+      // Adjust for scroll
+      const adjustedTop = top - textarea.scrollTop
+      const adjustedLeft = left - textarea.scrollLeft
+
+      // Center the caret vertically relative to the line height
+      const caretHeight = fontSize + 4
+      const verticalOffset = (height - caretHeight) / 2
+
+      // Calculate final positions
+      const finalTop = adjustedTop + verticalOffset - 2.5
+      const finalLeft = adjustedLeft
+
+      // Motion Trail Logic
+      if (lastCaretPos.current && document.activeElement === textarea) {
+        const prev = lastCaretPos.current
+        // Only trail if on same line (approx) and moved horizontally
+        if (Math.abs(prev.top - finalTop) < 5 && Math.abs(prev.left - finalLeft) > 2) {
+          setMotionTrail({
+            x: Math.min(prev.left, finalLeft),
+            y: finalTop,
+            w: Math.abs(prev.left - finalLeft) + 2, // +2 for caret width overlap
+            h: caretHeight,
+            active: true,
+            isDelete: isBackspaceRef.current,
+            id: Date.now()
+          })
+        }
+      }
+      lastCaretPos.current = { top: finalTop, left: finalLeft }
+      isBackspaceRef.current = false // Reset
+
+      setCaretPos({
+        top: finalTop,
+        left: finalLeft,
+        height: caretHeight,
+        visible: document.activeElement === textarea
+      })
     })
-  }
+  }, [])
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -261,8 +278,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   // }, [artifacts, toggleArtifacts])
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputContent(e.target.value)
-    requestAnimationFrame(updateCaretPosition)
-  }, [setInputContent])
+    // updateCaretPosition now uses its own requestAnimationFrame internally
+    updateCaretPosition()
+  }, [updateCaretPosition])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Backspace') {

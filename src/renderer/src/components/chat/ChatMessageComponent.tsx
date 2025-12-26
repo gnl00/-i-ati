@@ -74,7 +74,9 @@ const markdownCodeComponent = {
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest, onTypingChange }) => {
 
-  const { showLoadingIndicator } = useChatStore()
+  // Use Zustand selector to avoid unnecessary re-renders
+  // Only subscribe to showLoadingIndicator, not the entire store
+  const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
   const { theme } = useTheme()
 
   const [userMessageOperationIdx, setUserMessageOperationIdx] = useState<number>(-1)
