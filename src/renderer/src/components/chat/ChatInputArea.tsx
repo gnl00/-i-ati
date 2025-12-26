@@ -33,7 +33,7 @@ import {
 } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { getCaretCoordinates } from '../../utils/caret-coords'
+import { CustomCaretOverlay, CustomCaretRef } from './CustomCaretOverlay'
 
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
 import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
@@ -94,19 +94,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   // Textarea ref
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  // Custom Caret State
-  const [caretPos, setCaretPos] = useState({ top: 0, left: 0, height: 20, visible: false })
-  const lastCaretPos = useRef<{ top: number, left: number } | null>(null)
-  const [motionTrail, setMotionTrail] = useState<{ x: number, y: number, w: number, h: number, active: boolean, isDelete: boolean, id: number }>({
-    x: 0, y: 0, w: 0, h: 0, active: false, isDelete: false, id: 0
-  })
-
-  // Track if backspace was just pressed
-  const isBackspaceRef = useRef(false)
-
-  // Debounce mechanism for updateCaretPosition
-  const updateCaretScheduled = useRef(false)
+  
+  // Custom Caret Ref
+  const caretOverlayRef = useRef<CustomCaretRef>(null)
 
   const getIconSrc = (provider: string) => {
     let iconSrc = robotIcon
@@ -142,94 +132,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     return iconSrc
   }
 
-  const updateCaretPosition = useCallback(() => {
-    // Use requestAnimationFrame to debounce updates
-    // This prevents multiple synchronous calls from causing performance issues
-    if (updateCaretScheduled.current) {
-      return
-    }
-
-    updateCaretScheduled.current = true
-    requestAnimationFrame(() => {
-      updateCaretScheduled.current = false
-
-      const textarea = textareaRef.current
-      if (!textarea) return
-
-      // CRITICAL: Check focus at the start of async callback
-      // This prevents updating caret position when textarea has lost focus
-      if (document.activeElement !== textarea) {
-        setCaretPos(prev => ({ ...prev, visible: false }))
-        return
-      }
-
-      const { top, left, height, fontSize } = getCaretCoordinates(textarea, textarea.selectionEnd)
-      // Adjust for scroll
-      const adjustedTop = top - textarea.scrollTop
-      const adjustedLeft = left - textarea.scrollLeft
-
-      // Center the caret vertically relative to the line height
-      const caretHeight = fontSize + 4
-      const verticalOffset = (height - caretHeight) / 2
-
-      // Calculate final positions
-      const finalTop = adjustedTop + verticalOffset - 2.5
-      const finalLeft = adjustedLeft
-
-      // Motion Trail Logic
-      // Only create trail if textarea still has focus
-      if (lastCaretPos.current && document.activeElement === textarea) {
-        const prev = lastCaretPos.current
-        // Only trail if on same line (approx) and moved horizontally
-        if (Math.abs(prev.top - finalTop) < 5 && Math.abs(prev.left - finalLeft) > 2) {
-          setMotionTrail({
-            x: Math.min(prev.left, finalLeft),
-            y: finalTop,
-            w: Math.abs(prev.left - finalLeft) + 2, // +2 for caret width overlap
-            h: caretHeight,
-            active: true,
-            isDelete: isBackspaceRef.current,
-            id: Date.now()
-          })
-        }
-      }
-      lastCaretPos.current = { top: finalTop, left: finalLeft }
-      isBackspaceRef.current = false // Reset
-
-      // Final focus check before updating state
-      setCaretPos({
-        top: finalTop,
-        left: finalLeft,
-        height: caretHeight,
-        visible: document.activeElement === textarea
-      })
-    })
-  }, [])
-
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      // More strict focus check to prevent interference from other elements
-      const activeEl = document.activeElement
-      const textarea = textareaRef.current
-
-      if (activeEl === textarea) {
-        updateCaretPosition()
-      } else {
-        // Immediately hide caret when focus is lost
-        setCaretPos(prev => ({ ...prev, visible: false }))
-      }
-    }
-
-    // Only listen to selectionchange when component is mounted
-    document.addEventListener('selectionchange', handleSelectionChange)
-    window.addEventListener('resize', updateCaretPosition)
-
-    return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange)
-      window.removeEventListener('resize', updateCaretPosition)
-    }
-  }, [updateCaretPosition])  // Include updateCaretPosition in dependencies
-
   const handleChatSubmit = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
@@ -261,7 +163,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       if (textareaRef.current) {
         textareaRef.current.value = '' // Ensure DOM is synced
         textareaRef.current.dispatchEvent(new Event('input', { bubbles: true })) // Trigger auto-resize if needed
-        updateCaretPosition()
+        caretOverlayRef.current?.updateCaret()
       }
     })
   }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])
@@ -285,22 +187,17 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       toast.error('Failed to stop request')
     }
   }
-  const onWebSearchClick = useCallback(() => {
-    toggleWebSearch(!webSearchEnable)
-  }, [toggleWebSearch, webSearchEnable])
+  // const onWebSearchClick = useCallback(() => {
+  //   toggleWebSearch(!webSearchEnable)
+  // }, [toggleWebSearch, webSearchEnable])
   // const onArtifactsClick = useCallback(() => {
   //   toggleArtifacts(!artifacts)
   // }, [artifacts, toggleArtifacts])
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputContent(e.target.value)
-    // updateCaretPosition now uses its own requestAnimationFrame internally
-    updateCaretPosition()
-  }, [updateCaretPosition])
+  }, [])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Backspace') {
-      isBackspaceRef.current = true
-    }
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault()
       if (!inputContent) {
@@ -654,67 +551,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             onChange={onTextAreaChange}
             onKeyDown={onTextAreaKeyDown}
             onPaste={onTextAreaPaste}
-            onScroll={updateCaretPosition}
-            onClick={updateCaretPosition}
-            onFocus={updateCaretPosition}
-            onBlur={() => setCaretPos(prev => ({ ...prev, visible: false }))}
           />
 
-
-          {/* Motion Trail (Comet Tail) */}
-          {motionTrail.active && (
-            <div
-              key={motionTrail.id} // Re-mount to restart animation on every move
-              className="pointer-events-none absolute rounded-md z-10"
-              style={{
-                top: 0,
-                left: 0,
-                transform: `translate(${motionTrail.x}px, ${motionTrail.y}px)`,
-                width: motionTrail.w,
-                height: motionTrail.h,
-              }}
-            >
-              <div className={cn(
-                "w-full h-full rounded-md animate-trail-fade",
-                motionTrail.isDelete ? "bg-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.4)]" : "bg-blue-400/20 shadow-[0_0_5px_rgba(96,165,250,0.3)]"
-              )} />
-              <style>{`
-               @keyframes trail-fade {
-                 0% { opacity: 1; transform: scaleX(1); }
-                 100% { opacity: 0; transform: scaleX(0.95); }
-               }
-               .animate-trail-fade {
-                 animation: trail-fade 0.3s ease-out forwards;
-               }
-             `}</style>
-            </div>
-          )}
-
-          {/* Custom Caret */}
-          {caretPos.visible && (
-            <div
-              className="pointer-events-none absolute w-[3px] bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] z-10 animate-caret-breathe"
-              style={{
-                top: 0,
-                left: 0,
-                transform: `translate(${caretPos.left}px, ${caretPos.top}px)`,
-                height: caretPos.height + 1.25,
-                transition: 'transform 0.1s cubic-bezier(0.2, 0, 0, 1), height 0.1s ease',
-              }}
-            >
-              {/* Glow / Comet Tail Effect */}
-              <div className="absolute top-0 bottom-0 -left-[1px] w-[6px] bg-blue-400/20 blur-[2px] rounded-full" />
-              <style>{`
-               @keyframes caret-breathe {
-                 0%, 100% { opacity: 1; }
-                 50% { opacity: 0.3; }
-               }
-               .animate-caret-breathe {
-                 animation: caret-breathe 1.5s ease-in-out infinite;
-               }
-             `}</style>
-            </div>
-          )}
+          <CustomCaretOverlay
+            ref={caretOverlayRef}
+            textareaRef={textareaRef}
+          />
         </div>
 
         <div id="inputAreaBottom" className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700 flex-none h-10">

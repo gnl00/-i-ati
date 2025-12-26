@@ -339,6 +339,7 @@
 
 /* Chat window background - paper texture */
 @layer utilities {
+
   .bg-chat-light {
     background-color: #f9f9f9;
     background-image: radial-gradient(circle at 1px 1px, rgba(139, 125, 102, 0.15) 1px, transparent 0);
@@ -350,4 +351,50 @@
     background-image: radial-gradient(circle at 1px 1px, rgba(160, 145, 120, 0.1) 1px, transparent 0);
     background-size: 50px 50px;
   }
+
+}
+
+/* Custom Caret & Motion Trail Animations */
+
+@keyframes trail-fade {
+
+  0% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(0.95);
+  }
+
+}
+
+
+
+.animate-trail-fade {
+  animation: trail-fade 0.3s ease-out forwards;
+}
+
+
+
+@keyframes caret-breathe {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+
+}
+
+
+
+.animate-caret-breathe {
+
+  animation: caret-breathe 1.5s ease-in-out infinite;
+
 }
