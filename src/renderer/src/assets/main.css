@@ -356,6 +356,15 @@
 
 /* Custom Caret & Motion Trail Animations */
 
+/* Caret CSS Variables */
+.custom-caret {
+  --caret-x: 0px;
+  --caret-y: 0px;
+  --caret-height: 20px;
+  transform: translate(var(--caret-x), var(--caret-y));
+  height: var(--caret-height);
+}
+
 @keyframes trail-fade {
 
   0% {

@@ -13,6 +13,30 @@ interface CustomCaretOverlayProps {
   textareaRef: React.RefObject<HTMLTextAreaElement>
 }
 
+// Configuration constants
+const CARET_CONFIG = {
+  // Trail trigger thresholds
+  TRAIL_MIN_HORIZONTAL_DISTANCE: 2,      // px - minimum horizontal movement to create trail
+  TRAIL_MAX_VERTICAL_DIFF: 5,            // px - maximum vertical difference for same-line detection
+
+  // Animation timings
+  TRAIL_ANIMATION_DURATION: 300,         // ms
+  CARET_BREATHE_DURATION: 1500,          // ms (matches CSS animation)
+
+  // Visual adjustments
+  CARET_HEIGHT_OFFSET: 4,                // px - added to fontSize for caret height
+  CARET_HEIGHT_FINAL_ADJUSTMENT: 1.25,   // px - final height adjustment
+  CARET_VERTICAL_OFFSET: -2.5,           // px - vertical centering adjustment
+
+  // Performance
+  RESIZE_THROTTLE_MS: 100,               // ms - resize event throttle
+
+  // Trail visual
+  TRAIL_WIDTH_PADDING: 2,                // px - extra width for trail
+} as const
+
+export type CaretConfig = typeof CARET_CONFIG
+
 export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayProps>(({ textareaRef }, ref) => {
   const caretElRef = useRef<HTMLDivElement>(null)
   const trailContainerRef = useRef<HTMLDivElement>(null)
@@ -22,6 +46,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
   const isBackspaceRef = useRef(false)
   const updateScheduled = useRef(false)
   const isFocusedRef = useRef(false) // Strict focus tracking
+  const isWindowFocusedRef = useRef(true) // Track window focus state
 
   const performUpdate = useCallback(() => {
     updateScheduled.current = false
@@ -32,8 +57,15 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     // Strict Visibility Check:
     // 1. Must be flagged as focused via onFocus
-    // 2. document.activeElement must match (double check)
-    if (!isFocusedRef.current || document.activeElement !== textarea) {
+    // 2. Window must have focus
+    // 3. document.activeElement must match (double check)
+    if (!isFocusedRef.current || !isWindowFocusedRef.current || document.activeElement !== textarea) {
+      caretEl.style.opacity = '0'
+      return
+    }
+
+    // Check if there's a selection range - hide caret when text is selected
+    if (textarea.selectionStart !== textarea.selectionEnd) {
       caretEl.style.opacity = '0'
       return
     }
@@ -45,25 +77,27 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     const adjustedLeft = left - textarea.scrollLeft
 
     // Center the caret vertically relative to the line height
-    const caretHeight = fontSize + 4
+    const caretHeight = fontSize + CARET_CONFIG.CARET_HEIGHT_OFFSET
     const verticalOffset = (height - caretHeight) / 2
-    const finalTop = adjustedTop + verticalOffset - 2.5
+    const finalTop = adjustedTop + verticalOffset + CARET_CONFIG.CARET_VERTICAL_OFFSET
     const finalLeft = adjustedLeft
 
-    // Update Caret Position
-    caretEl.style.transform = `translate(${finalLeft}px, ${finalTop}px)`
-    caretEl.style.height = `${caretHeight + 1.25}px`
+    // Update Caret Position using CSS variables
+    caretEl.style.setProperty('--caret-x', `${finalLeft}px`)
+    caretEl.style.setProperty('--caret-y', `${finalTop}px`)
+    caretEl.style.setProperty('--caret-height', `${caretHeight + CARET_CONFIG.CARET_HEIGHT_FINAL_ADJUSTMENT}px`)
     caretEl.style.opacity = '1'
 
     // Motion Trail Logic
     if (lastCaretPos.current && trailContainerRef.current) {
       const prev = lastCaretPos.current
       // Only trail if moved significantly horizontally and on roughly the same line
-      if (Math.abs(prev.top - finalTop) < 5 && Math.abs(prev.left - finalLeft) > 2) {
+      if (Math.abs(prev.top - finalTop) < CARET_CONFIG.TRAIL_MAX_VERTICAL_DIFF &&
+          Math.abs(prev.left - finalLeft) > CARET_CONFIG.TRAIL_MIN_HORIZONTAL_DISTANCE) {
          createTrail(
              Math.min(prev.left, finalLeft),
              finalTop,
-             Math.abs(prev.left - finalLeft) + 2,
+             Math.abs(prev.left - finalLeft) + CARET_CONFIG.TRAIL_WIDTH_PADDING,
              caretHeight,
              isBackspaceRef.current
          )
@@ -87,19 +121,32 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     const inner = document.createElement('div')
     inner.className = cn(
-        "w-full h-full rounded-md animate-trail-fade",
+        "w-full h-full rounded-md",
         isDelete ? "bg-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.4)]" : "bg-blue-400/20 shadow-[0_0_5px_rgba(96,165,250,0.3)]"
     )
     trail.appendChild(inner)
 
     trailContainerRef.current.appendChild(trail)
 
-    // Cleanup after animation
-    setTimeout(() => {
+    // Use Web Animations API instead of CSS class + setTimeout
+    const animation = inner.animate(
+        [
+            { opacity: 1, transform: 'scaleX(1)' },
+            { opacity: 0, transform: 'scaleX(0.95)' }
+        ],
+        {
+            duration: CARET_CONFIG.TRAIL_ANIMATION_DURATION,
+            easing: 'ease-out',
+            fill: 'forwards'
+        }
+    )
+
+    // Clean up when animation completes
+    animation.onfinish = () => {
         if (trailContainerRef.current && trail.parentNode === trailContainerRef.current) {
             trailContainerRef.current.removeChild(trail)
         }
-    }, 400) // Slightly longer than animation duration (300ms) to be safe
+    }
   }
 
   const updateCaret = useCallback(() => {
@@ -159,17 +206,22 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Backspace') {
-            isBackspaceRef.current = true
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            isBackspaceRef.current = (e.key === 'Backspace')
         }
-        // Defer update slightly to let input event happen or selection change
-        // But input event usually handles the visual update
+        // Skip update for modifier keys that don't move cursor
+        if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' ||
+            e.key === 'Meta' || e.key === 'CapsLock' || e.key === 'Tab') {
+            return
+        }
+        // input event will handle the update for text input
+        // arrow keys and other navigation will trigger selectionchange
     }
 
     textarea.addEventListener('focus', handleFocus)
     textarea.addEventListener('blur', handleBlur)
     textarea.addEventListener('input', handleInput)
-    textarea.addEventListener('scroll', handleScroll)
+    textarea.addEventListener('scroll', handleScroll, { passive: true })
     textarea.addEventListener('click', handleClick)
     textarea.addEventListener('keydown', handleKeyDown)
 
@@ -177,7 +229,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       textarea.removeEventListener('focus', handleFocus)
       textarea.removeEventListener('blur', handleBlur)
       textarea.removeEventListener('input', handleInput)
-      textarea.removeEventListener('scroll', handleScroll)
+      textarea.removeEventListener('scroll', handleScroll, { passive: true } as any)
       textarea.removeEventListener('click', handleClick)
       textarea.removeEventListener('keydown', handleKeyDown)
     }
@@ -194,12 +246,40 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       }
     }
 
+    const handleWindowBlur = () => {
+      isWindowFocusedRef.current = false
+      hideCaret()
+    }
+
+    const handleWindowFocus = () => {
+      isWindowFocusedRef.current = true
+      // Only show if textarea is still focused
+      if (document.activeElement === textareaRef.current) {
+        updateCaret()
+      }
+    }
+
+    // Throttle resize event
+    let resizeTimeout: number | null = null
+    const handleResize = () => {
+      if (resizeTimeout) return
+      resizeTimeout = window.setTimeout(() => {
+        resizeTimeout = null
+        updateCaret()
+      }, CARET_CONFIG.RESIZE_THROTTLE_MS)
+    }
+
     document.addEventListener('selectionchange', handleSelectionChange)
-    window.addEventListener('resize', updateCaret)
+    window.addEventListener('resize', handleResize)
+    window.addEventListener('blur', handleWindowBlur)
+    window.addEventListener('focus', handleWindowFocus)
 
     return () => {
+      if (resizeTimeout) clearTimeout(resizeTimeout)
       document.removeEventListener('selectionchange', handleSelectionChange)
-      window.removeEventListener('resize', updateCaret)
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('blur', handleWindowBlur)
+      window.removeEventListener('focus', handleWindowFocus)
     }
   }, [updateCaret, hideCaret, textareaRef])
 
@@ -211,7 +291,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
         {/* Caret Element */}
         <div
             ref={caretElRef}
-            className="pointer-events-none absolute w-[3px] bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] z-10 animate-caret-breathe"
+            className="custom-caret pointer-events-none absolute w-[3px] bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] z-10 animate-caret-breathe"
             style={{
                 top: 0,
                 left: 0,
