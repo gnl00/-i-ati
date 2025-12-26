@@ -4,12 +4,12 @@ import { saveMessage } from "@renderer/db/MessageRepository"
 import { invokeMcpToolCall } from "@renderer/invoker/ipcInvoker"
 import { useChatStore } from "@renderer/store"
 import { useAppConfigStore } from "@renderer/store/appConfig"
+import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request/index"
 import { embeddedToolsRegistry } from '@tools/index'
-import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
-import { systemPrompt as systemPromptBuilder, generateTitlePrompt } from '../constant/prompts'
+import { generateTitlePrompt, systemPrompt as systemPromptBuilder } from '../constant/prompts'
 
 interface ToolCallProps {
   id?: string
@@ -371,7 +371,7 @@ function useChatSubmit() {
             model: context.model.name,
             content: context.gatherContent,
             reasoning: context.gatherReasoning,
-            toolCallResults: context.toolCallResults,
+            toolCallResults: context.toolCallResults ? [...context.toolCallResults] : undefined,
           }
         }
         setMessages(updatedMessages)
@@ -397,7 +397,19 @@ function useChatSubmit() {
           }
         }))
       }
+
+      // 添加到请求历史（用于发送给 LLM）
       context.request.messages.push(assistantToolCallMessage)
+
+      // 替换 UI 中最后一个 assistant 消息（而不是新增），避免出现多个 model-badge
+      const lastIndex = context.messageEntities.length - 1
+      context.messageEntities[lastIndex] = {
+        body: {
+          ...assistantToolCallMessage,
+          model: context.model.name
+        }
+      }
+      setMessages([...context.messageEntities])
     }
 
     return context
@@ -407,6 +419,27 @@ function useChatSubmit() {
     return functionName === 'web_search'
       ? formatWebSearchForLLM(results)  // Web Search 特殊处理
       : JSON.stringify({ ...results, functionCallCompleted: true })  // 其他工具保持不变
+  }
+
+  const decodeEscapedString = (value: string) =>
+    value
+      .replace(/\\r/g, '\r')
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+
+  const normalizeToolArgs = (args: any) => {
+    if (Array.isArray(args)) return args.map(normalizeToolArgs)
+    if (args && typeof args === 'object') {
+      const normalized: Record<string, any> = {}
+      for (const [key, val] of Object.entries(args)) {
+        normalized[key] =
+          typeof val === 'string' ? decodeEscapedString(val) : normalizeToolArgs(val)
+      }
+      return normalized
+    }
+    return args
   }
 
   // 管道函数：处理工具调用
@@ -427,12 +460,11 @@ function useChatSubmit() {
         // 检查是否是 embedded tool
         if (embeddedToolsRegistry.isRegistered(toolCall.function)) {
           console.log(`[handleToolCall] Using embedded tool handler for: ${toolCall.function}`)
-
           // 解析参数
           const args = typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args
-
+          const normalizedArgs = normalizeToolArgs(args)
           // 使用 embedded tool 处理器
-          results = await embeddedToolsRegistry.execute(toolCall.function, args)
+          results = await embeddedToolsRegistry.execute(toolCall.function, normalizedArgs)
         } else {
           // 使用 MCP tool 处理器
           console.log(`[handleToolCall] Using MCP tool handler for: ${toolCall.function}`)
@@ -469,13 +501,15 @@ function useChatSubmit() {
 
         // 更新最后一个消息（assistant 消息）
         const updatedMessages = [...context.messageEntities]
+        const currentBody = updatedMessages[updatedMessages.length - 1].body
         updatedMessages[updatedMessages.length - 1] = {
           body: {
             role: 'assistant',
             content: context.gatherContent,
             reasoning: context.gatherReasoning,
             artifacts: artifacts,
-            toolCallResults: context.toolCallResults,
+            toolCallResults: context.toolCallResults ? [...context.toolCallResults] : undefined, // 创建新数组，触发 React 更新
+            toolCalls: currentBody.toolCalls, // 保留 toolCalls 字段
             model: context.model.name
           }
         }
@@ -489,13 +523,15 @@ function useChatSubmit() {
         context.error = error
         // 更新最后一个消息（assistant 消息）
         const updatedMessages = [...context.messageEntities]
+        const currentBody = updatedMessages[updatedMessages.length - 1].body
         updatedMessages[updatedMessages.length - 1] = {
           body: {
             role: 'assistant',
             content: context.gatherContent,
             reasoning: context.gatherReasoning,
             artifacts: artifacts,
-            toolCallResults: context.toolCallResults,
+            toolCallResults: context.toolCallResults ? [...context.toolCallResults] : undefined, // 创建新数组，触发 React 更新
+            toolCalls: currentBody.toolCalls, // 保留 toolCalls 字段
             model: context.model.name
           }
         }

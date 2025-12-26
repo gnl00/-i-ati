@@ -13,6 +13,7 @@ export interface ReadTextFileArgs {
 
 export interface ReadTextFileResponse {
   success: boolean
+  file_path?: string
   content?: string
   lines?: number
   error?: string
@@ -25,6 +26,7 @@ export interface ReadMediaFileArgs {
 
 export interface ReadMediaFileResponse {
   success: boolean
+  file_path?: string
   content?: string  // Base64 encoded
   mime_type?: string
   size?: number
@@ -63,6 +65,7 @@ export interface WriteFileArgs {
 
 export interface WriteFileResponse {
   success: boolean
+  file_path?: string
   bytes_written?: number
   error?: string
 }
@@ -78,6 +81,7 @@ export interface EditFileArgs {
 
 export interface EditFileResponse {
   success: boolean
+  file_path?: string
   replacements?: number
   error?: string
 }
@@ -99,6 +103,7 @@ export interface SearchMatch {
 
 export interface SearchFileResponse {
   success: boolean
+  file_path?: string
   matches?: SearchMatch[]
   total_matches?: number
   error?: string
@@ -117,6 +122,7 @@ export interface DirectoryEntry {
 
 export interface ListDirectoryResponse {
   success: boolean
+  directory_path?: string
   entries?: DirectoryEntry[]
   total_count?: number
   error?: string
@@ -137,6 +143,7 @@ export interface DirectoryEntryWithSize {
 
 export interface ListDirectoryWithSizesResponse {
   success: boolean
+  directory_path?: string
   entries?: DirectoryEntryWithSize[]
   total_count?: number
   error?: string
@@ -157,6 +164,7 @@ export interface TreeNode {
 
 export interface DirectoryTreeResponse {
   success: boolean
+  directory_path?: string
   tree?: TreeNode
   error?: string
 }
@@ -180,6 +188,7 @@ export interface FileSearchMatch {
 
 export interface SearchFilesResponse {
   success: boolean
+  directory_path?: string
   matches?: FileSearchMatch[]
   total_matches?: number
   files_searched?: number
@@ -229,6 +238,7 @@ export interface CreateDirectoryArgs {
 
 export interface CreateDirectoryResponse {
   success: boolean
+  directory_path?: string
   created?: boolean
   error?: string
 }
@@ -242,5 +252,7 @@ export interface MoveFileArgs {
 
 export interface MoveFileResponse {
   success: boolean
+  source_path?: string
+  destination_path?: string
   error?: string
 }

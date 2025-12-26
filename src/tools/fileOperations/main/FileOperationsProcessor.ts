@@ -80,7 +80,7 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
     }
 
     console.log(`[ReadTextFile] Successfully read ${totalLines} lines`)
-    return { success: true, content: resultContent, lines: totalLines }
+    return { success: true, file_path, content: resultContent, lines: totalLines }
   } catch (error: any) {
     console.error('[ReadTextFile] Error:', error)
     return { success: false, error: error.message || 'Failed to read file' }
@@ -107,7 +107,7 @@ export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<Rea
     const size = buffer.length
 
     console.log(`[ReadMediaFile] Successfully read ${size} bytes, MIME: ${mimeType}`)
-    return { success: true, content: base64Content, mime_type: mimeType, size }
+    return { success: true, file_path, content: base64Content, mime_type: mimeType, size }
   } catch (error: any) {
     console.error('[ReadMediaFile] Error:', error)
     return { success: false, error: error.message || 'Failed to read media file' }
@@ -180,7 +180,7 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
     const bytesWritten = Buffer.byteLength(content, encoding as BufferEncoding)
 
     console.log(`[WriteFile] Successfully wrote ${bytesWritten} bytes`)
-    return { success: true, bytes_written: bytesWritten }
+    return { success: true, file_path, bytes_written: bytesWritten }
   } catch (error: any) {
     console.error('[WriteFile] Error:', error)
     return { success: false, error: error.message || 'Failed to write file' }
@@ -235,7 +235,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
       console.log(`[EditFile] No matches found`)
     }
 
-    return { success: true, replacements }
+    return { success: true, file_path, replacements }
   } catch (error: any) {
     console.error('[EditFile] Error:', error)
     return { success: false, error: error.message || 'Failed to edit file' }
@@ -287,7 +287,7 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
     }
 
     console.log(`[SearchFile] Found ${matches.length} match(es)`)
-    return { success: true, matches, total_matches: matches.length }
+    return { success: true, file_path, matches, total_matches: matches.length }
   } catch (error: any) {
     console.error('[SearchFile] Error:', error)
     return { success: false, error: error.message || 'Failed to search file' }
@@ -369,7 +369,7 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
     await searchInDirectory(absoluteDirPath)
 
     console.log(`[SearchFiles] Found ${matches.length} match(es) in ${filesSearched} files`)
-    return { success: true, matches, total_matches: matches.length, files_searched: filesSearched }
+    return { success: true, directory_path, matches, total_matches: matches.length, files_searched: filesSearched }
   } catch (error: any) {
     console.error('[SearchFiles] Error:', error)
     return { success: false, error: error.message || 'Failed to search files' }
@@ -407,7 +407,7 @@ export async function processListDirectory(args: ListDirectoryArgs): Promise<Lis
     }
 
     console.log(`[ListDirectory] Found ${entries.length} entries`)
-    return { success: true, entries, total_count: entries.length }
+    return { success: true, directory_path, entries, total_count: entries.length }
   } catch (error: any) {
     console.error('[ListDirectory] Error:', error)
     return { success: false, error: error.message || 'Failed to list directory' }
@@ -449,7 +449,7 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
     }
 
     console.log(`[ListDirectoryWithSizes] Found ${entries.length} entries`)
-    return { success: true, entries, total_count: entries.length }
+    return { success: true, directory_path, entries, total_count: entries.length }
   } catch (error: any) {
     console.error('[ListDirectoryWithSizes] Error:', error)
     return { success: false, error: error.message || 'Failed to list directory' }
@@ -496,7 +496,7 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
 
     const tree = await buildTree(absolutePath, 0)
     console.log(`[DirectoryTree] Successfully built tree`)
-    return { success: true, tree }
+    return { success: true, directory_path, tree }
   } catch (error: any) {
     console.error('[DirectoryTree] Error:', error)
     return { success: false, error: error.message || 'Failed to build directory tree' }
@@ -590,14 +590,14 @@ export async function processCreateDirectory(args: CreateDirectoryArgs): Promise
 
     if (existsSync(absolutePath)) {
       console.log(`[CreateDirectory] Directory already exists`)
-      return { success: true, created: false }
+      return { success: true, directory_path, created: false }
     }
 
     await mkdir(absolutePath, { recursive })
 
     console.log(`[CreateDirectory] Successfully created`)
 
-    return { success: true, created: true }
+    return { success: true, directory_path, created: true }
   } catch (error: any) {
     console.error('[CreateDirectory] Error:', error)
     return { success: false, error: error.message || 'Failed to create directory' }
@@ -626,7 +626,7 @@ export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileRespo
 
     await rename(absoluteSourcePath, absoluteDestPath)
     console.log(`[MoveFile] Successfully moved`)
-    return { success: true }
+    return { success: true, source_path, destination_path }
   } catch (error: any) {
     console.error('[MoveFile] Error:', error)
     return { success: false, error: error.message || 'Failed to move file' }
