@@ -5,7 +5,7 @@ import { Badge } from "@renderer/components/ui/badge"
 import { cn } from '@renderer/lib/utils'
 import { invokeOpenExternal } from '@renderer/invoker/ipcInvoker'
 import { BadgePercent } from 'lucide-react'
-import React, { memo, useState } from 'react'
+import React, { memo, useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
@@ -30,18 +30,35 @@ interface ChatMessageComponentProps {
 const markdownCodeComponent = {
   pre(props) {
     const { children, ...rest } = props
-    return <>{children}</>
+    // Remove pre styling - let CodeWrapper handle all styling
+    return <div className="not-prose">{children}</div>
   },
   code(props) {
     const { children, className, node, ...rest } = props
     const match = /language-(\w+)/.exec(className || '')
 
+    // Convert children to string for analysis
+    const textContent = String(children)
+
+    // Check if this is a code block (contains newlines) or inline code
+    const isCodeBlock = textContent.includes('\n') || className?.startsWith('language-')
+
     // Exclude 'language-math' - let rehypeKatex handle it
     if (match && match[1] !== 'math') {
       return (
         <CodeWrapper
-          children={String(children).replace(/\n$/, '')}
+          children={textContent.replace(/\n$/, '')}
           language={match[1]}
+        />
+      )
+    }
+
+    // Handle code blocks without language specifier (like file structures)
+    if (isCodeBlock && !match) {
+      return (
+        <CodeWrapper
+          children={textContent.replace(/\n$/, '')}
+          language="plaintext"
         />
       )
     }
@@ -82,6 +99,10 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   const [userMessageOperationIdx, setUserMessageOperationIdx] = useState<number>(-1)
   const [assistantMessageHovered, setAssistantMessageHovered] = useState<boolean>(false)
 
+  // Progressive rendering of ToolCallResults to prevent blocking
+  // Only render tool call results one by one with small delays
+  const [visibleToolCalls, setVisibleToolCalls] = useState<number>(0)
+
   // Determine if dark mode is active
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
@@ -114,6 +135,27 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
       }
     }
   }, [index])
+
+  // Progressive rendering: Show tool call results one by one
+  // This prevents blocking the main thread when multiple tool calls are present
+  useEffect(() => {
+    const toolCallCount = m.toolCallResults?.length || 0
+
+    // If all tool calls are already visible, do nothing
+    if (visibleToolCalls >= toolCallCount) return
+
+    // Show next tool call after a delay
+    const timer = setTimeout(() => {
+      setVisibleToolCalls(prev => prev + 1)
+    }, 100) // 100ms delay between each tool call
+
+    return () => clearTimeout(timer)
+  }, [visibleToolCalls, m.toolCallResults])
+
+  // Reset visible tool calls when message changes
+  useEffect(() => {
+    setVisibleToolCalls(0)
+  }, [m.toolCallResults?.length])
 
   // Apply typewriter effect only to assistant messages
   // 如果消息已经完成打字机效果（typewriterCompleted = true），直接显示完整内容
@@ -225,7 +267,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         isLatest && "animate-assistant-message-in"
       )}
     >
-      <div className="rounded-xl dark:bg-gray-900 overflow-y-scroll">
+      <div className="overflow-y-scroll">
         {m.model && (
           <Badge id='model-badge' variant="outline" className={cn('select-none text-gray-700 dark:text-gray-300 mb-1 dark:border-white/20', showLoadingIndicator && isLatest ? 'animate-shine-infinite' : '')}>@{m.model}</Badge>
         )}
@@ -251,7 +293,9 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
           </Accordion>
         )}
         {
-          m.toolCallResults && m.toolCallResults.length > 0 && m.toolCallResults.map((tc, idx) => (
+          // Progressive rendering: Only render visible tool calls
+          // This prevents blocking when multiple tool calls are present
+          m.toolCallResults && m.toolCallResults.length > 0 && m.toolCallResults.slice(0, visibleToolCalls).map((tc, idx) => (
             <ToolCallResult
               key={index + '-' + idx}
               toolCall={tc}

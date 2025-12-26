@@ -15,7 +15,6 @@ interface ToolCallResultProps {
 
 // Memoize the component to prevent unnecessary re-renders
 export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc, index, isDarkMode }) => {
-  const [isCopied, setIsCopied] = useState(false);
   const [isOpen, setIsOpen] = useState(false); // Track accordion open state
   const [isPending, startTransition] = useTransition(); // For non-urgent updates
 
@@ -32,9 +31,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
     e.stopPropagation();
     const text = typeof content === 'string' ? content : jsonContent;
     navigator.clipboard.writeText(text);
-    setIsCopied(true);
     toast.success('Result Copied');
-    setTimeout(() => setIsCopied(false), 2000);
   }
 
   const isError = tc.isError;
@@ -128,7 +125,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                   className="h-6 w-6 bg-white/80 dark:bg-zinc-800/80 backdrop-blur hover:bg-gray-100 dark:hover:bg-zinc-700"
                   onClick={(e) => onCopyClick(e, tc.content)}
                 >
-                  {isCopied ? <Check className="w-3 h-3 text-green-500" /> : <Clipboard className="w-3 h-3 text-zinc-500" />}
+                  <Clipboard className="w-3 h-3 text-zinc-500" />
                 </Button>
               </div>
               <div className="max-h-60 overflow-auto custom-scrollbar max-w-full">
