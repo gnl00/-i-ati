@@ -8,16 +8,21 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { ArrowDown, FileCode, Monitor } from 'lucide-react'
-import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
+import React, { forwardRef, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
 
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
-  const {
-    messages,
-    artifactsPanelOpen,
-    artifacts,
-    setArtifactsPanel,
-    setArtifactsActiveTab
-  } = useChatStore()
+  // CRITICAL: Use selectors to prevent unnecessary re-renders
+  // Only subscribe to specific slices instead of the entire store
+  const messages = useChatStore(state => state.messages)
+  const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
+  const artifacts = useChatStore(state => state.artifacts)
+  const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
+  const setArtifactsActiveTab = useChatStore(state => state.setArtifactsActiveTab)
+
+  // Use useDeferredValue to keep UI responsive during streaming
+  // This delays the rendering of messages list, prioritizing user input
+  const deferredMessages = useDeferredValue(messages)
+
   const { chatUuid } = useChatContext()
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
@@ -396,16 +401,16 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             >
               <div className="flex-1 app-undragable overflow-scroll">
                 <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
-                  {messages.length === 0 ? (
+                  {deferredMessages.length === 0 ? (
                     <WelcomeMessage />
                   ) : (
-                    messages.map((message, index) => {
+                    deferredMessages.map((message, index) => {
                       return (
                         <ChatMessageComponent
-                          key={index}
+                          key={message.id || index}
                           message={message.body}
                           index={index}
-                          isLatest={index === messages.length - 1}
+                          isLatest={index === deferredMessages.length - 1}
                           onTypingChange={handleTyping}
                         />
                       )

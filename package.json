@@ -46,6 +46,7 @@
     "@radix-ui/react-toast": "^1.2.1",
     "@radix-ui/react-toggle": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@speed-highlight/core": "^1.2.12",
     "@uiw/react-textarea-code-editor": "^3.1.1",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.0",

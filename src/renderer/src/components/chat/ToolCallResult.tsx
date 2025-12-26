@@ -2,10 +2,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@r
 import { Button } from '@renderer/components/ui/button';
 import { cn } from '@renderer/lib/utils';
 import { Check, ChevronDown, Clipboard, Clock, X } from "lucide-react";
-import React, { useState } from 'react';
-import SyntaxHighlighter from 'react-syntax-highlighter';
-import { docco, tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import React, { useMemo, useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { SpeedCodeHighlight } from './SpeedCodeHighlight';
 import { WebSearchResults } from './WebSearchResults';
 
 interface ToolCallResultProps {
@@ -14,16 +13,24 @@ interface ToolCallResultProps {
   isDarkMode: boolean
 }
 
-export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, index, isDarkMode }) => {
+// Memoize the component to prevent unnecessary re-renders
+export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc, index, isDarkMode }) => {
   const [isCopied, setIsCopied] = useState(false);
+  const [isOpen, setIsOpen] = useState(false); // Track accordion open state
+  const [isPending, startTransition] = useTransition(); // For non-urgent updates
 
   // 检测是否为 Web Search 结果
   const isWebSearch = tc.name === 'web_search'
   const webSearchData = isWebSearch && tc.content?.results ? tc.content : null
 
+  // Memoize JSON stringification to avoid recalculating on every render
+  const jsonContent = useMemo(() => {
+    return JSON.stringify(tc.content, null, 2)
+  }, [tc.content])
+
   const onCopyClick = (e: React.MouseEvent, content: any) => {
     e.stopPropagation();
-    const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+    const text = typeof content === 'string' ? content : jsonContent;
     navigator.clipboard.writeText(text);
     setIsCopied(true);
     toast.success('Result Copied');
@@ -32,8 +39,20 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
 
   const isError = tc.isError;
 
+  // Handle accordion open/close with startTransition to mark as non-urgent
+  const handleAccordionChange = (value: string) => {
+    startTransition(() => {
+      setIsOpen(value === 'tool-use-' + index);
+    });
+  };
+
   return (
-    <Accordion type="single" collapsible className='my-2 w-full max-w-full'>
+    <Accordion
+      type="single"
+      collapsible
+      className='my-2 w-full max-w-full'
+      onValueChange={handleAccordionChange}
+    >
       <AccordionItem value={'tool-use-' + index} className='border-none'>
         <AccordionTrigger className={cn(
           'py-0 hover:no-underline', // Remove default padding
@@ -94,7 +113,8 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
           {isWebSearch && webSearchData ? (
             <WebSearchResults results={webSearchData.results} />
           ) : (
-            // 其他工具保持 JSON 展示（原有代码）
+            // CRITICAL: Only render SyntaxHighlighter when accordion is actually open
+            // This prevents blocking the main thread when component first mounts
             <div className={cn(
               "relative rounded-lg overflow-hidden border shadow-inner group max-w-full",
               isError
@@ -112,20 +132,24 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
                 </Button>
               </div>
               <div className="max-h-60 overflow-auto custom-scrollbar max-w-full">
-                <SyntaxHighlighter
+                {/* {isOpen ? (
+                  // Only render expensive code highlighting when accordion is open
+                  <SpeedCodeHighlight
+                    code={jsonContent}
+                    language="json"
+                    isDarkMode={isDarkMode}
+                  />
+                ) : (
+                  // Lightweight placeholder when collapsed
+                  <div className="p-4 text-xs text-zinc-500 dark:text-zinc-400 text-center">
+                    Click to view details
+                  </div>
+                )} */}
+                <SpeedCodeHighlight
+                  code={jsonContent}
                   language="json"
-                  style={isDarkMode ? tomorrowNight : docco}
-                  customStyle={{
-                    margin: 0,
-                    padding: '1rem',
-                    fontSize: '0.75rem',
-                    lineHeight: '1.5',
-                    background: 'transparent',
-                  }}
-                  wrapLongLines={true}
-                >
-                  {JSON.stringify(tc.content, null, 2)}
-                </SyntaxHighlighter>
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           )}
@@ -133,4 +157,4 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = ({ toolCall: tc, in
       </AccordionItem>
     </Accordion>
   );
-};
+});

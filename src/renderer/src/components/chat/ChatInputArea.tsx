@@ -156,6 +156,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       const textarea = textareaRef.current
       if (!textarea) return
 
+      // CRITICAL: Check focus at the start of async callback
+      // This prevents updating caret position when textarea has lost focus
+      if (document.activeElement !== textarea) {
+        setCaretPos(prev => ({ ...prev, visible: false }))
+        return
+      }
+
       const { top, left, height, fontSize } = getCaretCoordinates(textarea, textarea.selectionEnd)
       // Adjust for scroll
       const adjustedTop = top - textarea.scrollTop
@@ -170,6 +177,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       const finalLeft = adjustedLeft
 
       // Motion Trail Logic
+      // Only create trail if textarea still has focus
       if (lastCaretPos.current && document.activeElement === textarea) {
         const prev = lastCaretPos.current
         // Only trail if on same line (approx) and moved horizontally
@@ -188,6 +196,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       lastCaretPos.current = { top: finalTop, left: finalLeft }
       isBackspaceRef.current = false // Reset
 
+      // Final focus check before updating state
       setCaretPos({
         top: finalTop,
         left: finalLeft,
@@ -199,13 +208,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   useEffect(() => {
     const handleSelectionChange = () => {
-      if (document.activeElement === textareaRef.current) {
+      // More strict focus check to prevent interference from other elements
+      const activeEl = document.activeElement
+      const textarea = textareaRef.current
+
+      if (activeEl === textarea) {
         updateCaretPosition()
       } else {
+        // Immediately hide caret when focus is lost
         setCaretPos(prev => ({ ...prev, visible: false }))
       }
     }
 
+    // Only listen to selectionchange when component is mounted
     document.addEventListener('selectionchange', handleSelectionChange)
     window.addEventListener('resize', updateCaretPosition)
 
@@ -213,7 +228,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       document.removeEventListener('selectionchange', handleSelectionChange)
       window.removeEventListener('resize', updateCaretPosition)
     }
-  }, [])
+  }, [updateCaretPosition])  // Include updateCaretPosition in dependencies
 
   const handleChatSubmit = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {

@@ -1,5 +1,5 @@
 import { AlertCircle, ExternalLink, Search } from 'lucide-react'
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   Carousel,
   CarouselContent,
@@ -22,16 +22,24 @@ interface WebSearchResultsProps {
   results: WebSearchResult[]
 }
 
-export const WebSearchResults: React.FC<WebSearchResultsProps> = ({ results }) => {
-  // 排序：成功的结果在前，失败的在后
-  const sortedResults = [...results].sort((a, b) => {
-    if (a.success && !b.success) return -1
-    if (!a.success && b.success) return 1
-    return 0
-  })
+// Memoize the component to prevent unnecessary re-renders
+export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ results }) => {
+  // Memoize sorted results to avoid re-sorting on every render
+  const sortedResults = useMemo(() => {
+    return [...results].sort((a, b) => {
+      if (a.success && !b.success) return -1
+      if (!a.success && b.success) return 1
+      return 0
+    })
+  }, [results])
 
-  const successCount = results.filter((r) => r.success).length
-  const totalCount = results.length
+  // Memoize counts to avoid re-filtering on every render
+  const { successCount, totalCount } = useMemo(() => {
+    return {
+      successCount: results.filter((r) => r.success).length,
+      totalCount: results.length
+    }
+  }, [results])
 
   return (
     <div className="space-y-1.5 px-2 my-1.5">
@@ -73,14 +81,15 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = ({ results }) =
       </Carousel>
     </div>
   )
-}
+})
 
 interface WebSearchResultCardProps {
   result: WebSearchResult
   index: number
 }
 
-const WebSearchResultCard: React.FC<WebSearchResultCardProps> = ({ result, index }) => {
+// Memoize the card component to prevent unnecessary re-renders
+const WebSearchResultCard: React.FC<WebSearchResultCardProps> = React.memo(({ result, index }) => {
   const getFaviconUrl = (url: string) => {
     try {
       const hostname = new URL(url).hostname
@@ -190,4 +199,4 @@ const WebSearchResultCard: React.FC<WebSearchResultCardProps> = ({ result, index
       </div>
     </a>
   )
-}
+})

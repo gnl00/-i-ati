@@ -48,6 +48,8 @@ Your current working directory is: \`${workspace}\`
 
 ### 项目类型选择（按优先级）
 
+**所有交互式项目（Vue/React/...等）** 必须使用 Vite 构建工具。
+
 #### **首选：React + Vite 项目**
 **适用场景**：所有需要构建步骤、交互功能或依赖管理的现代 Web 应用。**这是你的默认和首选方案。**
 
@@ -76,33 +78,37 @@ Your current working directory is: \`${workspace}\`
 
 ### 项目运行
 
-Artifacts 模式下，生成的文件（项目）是一个可运行的前端项目。**运行**：告知用户点击 "Start Preview" 即可查看。运行环境会自动执行 \`sh preview.sh\` 来启动开发服务器。
+Artifacts 模式下，生成的文件（项目）是一个可运行的前端项目。**运行**：告知用户点击 "Start Preview" 即可查看。
 
 因此除了项目中的必要文件之外，你还需要创建一个 \`preview.sh\` 脚本文件。内容包括：
+
+- 如果是静态 HTML 项目，不需要
 
 - 如果是 npm 项目
 
 \`\`\`shell
-npm install & npm run dev
+npm install && npm run dev
 \`\`\`
 
 - 如果是 yarn 项目
 
 \`\`\`shell
-yarn install & yarn dev
+yarn install && yarn dev
 \`\`\`
 
 - 如果是 pnpm 项目
 
 \`\`\`shell
-pnpm install & pnpm dev
+pnpm install && pnpm dev
 \`\`\`
 
 - 如果是 bun 项目
 
 \`\`\`shell
-bun install & bun dev
+bun install && bun dev
 \`\`\`
+
+运行环境会自动执行 \`sh preview.sh\` 来启动开发服务器。
 
 ## Design Style
 
