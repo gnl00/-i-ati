@@ -94,7 +94,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   // Textarea ref
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  
+
   // Custom Caret Ref
   const caretOverlayRef = useRef<CustomCaretRef>(null)
 

@@ -25,9 +25,20 @@ export const WorkspaceFileTree: React.FC<WorkspaceFileTreeProps> = ({
   // Track expanded directories by path
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
 
+  // Sort nodes: directories first, then alphabetically
+  const sortNodes = (nodes: FileTreeNode[]): FileTreeNode[] => {
+    return [...nodes].sort((a, b) => {
+      // Directories first
+      if (a.type === 'directory' && b.type === 'file') return -1
+      if (a.type === 'file' && b.type === 'directory') return 1
+      // Then alphabetically by name (case-insensitive)
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    })
+  }
+
   // Filter tree based on search query
   const filteredTree = useMemo(() => {
-    if (!searchQuery.trim()) return treeData
+    if (!searchQuery.trim()) return sortNodes(treeData)
 
     const query = searchQuery.toLowerCase()
 
@@ -40,7 +51,7 @@ export const WorkspaceFileTree: React.FC<WorkspaceFileTreeProps> = ({
 
       // For directories, check children recursively
       const filteredChildren = node.children
-        ? node.children.map(filterNode).filter((n): n is FileTreeNode => n !== null)
+        ? sortNodes(node.children.map(filterNode).filter((n): n is FileTreeNode => n !== null))
         : []
 
       // Include directory if name matches OR it has matching children
@@ -54,7 +65,7 @@ export const WorkspaceFileTree: React.FC<WorkspaceFileTreeProps> = ({
       return null
     }
 
-    return treeData.map(filterNode).filter((n): n is FileTreeNode => n !== null)
+    return sortNodes(treeData.map(filterNode).filter((n): n is FileTreeNode => n !== null))
   }, [treeData, searchQuery])
 
   // Auto-expand directories that have matching children when searching
@@ -120,6 +131,37 @@ interface TreeNodeComponentProps {
   selectedPath?: string
   onToggleDir: (path: string) => void
   onSelectFile: (path: string) => void
+  parentIsUtility?: boolean
+}
+
+// Check if directory is a utility/generated folder that should be de-emphasized
+const isUtilityFolder = (name: string): boolean => {
+  const utilityFolders = [
+    'node_modules',
+    'dist',
+    'build',
+    '.next',
+    '.nuxt',
+    'out',
+    'coverage',
+    '.cache',
+    '.turbo',
+    '.vercel',
+    '.netlify'
+  ]
+  const hiddenFolders = [
+    '.git',
+    '.vscode',
+    '.idea',
+    '.vs',
+    '.DS_Store',
+    '__pycache__',
+    '.pytest_cache',
+    '.mypy_cache',
+    '.tox'
+  ]
+
+  return utilityFolders.includes(name) || hiddenFolders.includes(name) || name.startsWith('.')
 }
 
 const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
@@ -128,11 +170,14 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
   expandedDirs,
   selectedPath,
   onToggleDir,
-  onSelectFile
+  onSelectFile,
+  parentIsUtility = false
 }) => {
   const isExpanded = expandedDirs.has(node.path)
   const isSelected = selectedPath === node.path
   const paddingLeft = `${level * 12 + 8}px`
+  // Check if this node or any parent is a utility folder
+  const isUtility = parentIsUtility || (node.type === 'directory' && isUtilityFolder(node.name))
 
   if (node.type === 'directory') {
     return (
@@ -141,21 +186,37 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
           onClick={() => onToggleDir(node.path)}
           className={cn(
             "w-full flex items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors group hover:bg-gray-100 dark:hover:bg-gray-800",
-            isExpanded && "bg-gray-50 dark:bg-gray-900/50"
+            isExpanded && "bg-gray-50 dark:bg-gray-900/50",
+            isUtility && "opacity-50"
           )}
           style={{ paddingLeft }}
         >
           {isExpanded ? (
-            <ChevronDown className="w-3 h-3 text-gray-400 shrink-0" />
+            <ChevronDown className={cn(
+              "w-3 h-3 shrink-0",
+              isUtility ? "text-gray-300 dark:text-gray-600" : "text-gray-400"
+            )} />
           ) : (
-            <ChevronRight className="w-3 h-3 text-gray-400 shrink-0" />
+            <ChevronRight className={cn(
+              "w-3 h-3 shrink-0",
+              isUtility ? "text-gray-300 dark:text-gray-600" : "text-gray-400"
+            )} />
           )}
           {isExpanded ? (
-            <FolderOpen className="w-3 h-3 text-blue-500 shrink-0" />
+            <FolderOpen className={cn(
+              "w-3 h-3 shrink-0",
+              isUtility ? "text-gray-400 dark:text-gray-600" : "text-blue-500"
+            )} />
           ) : (
-            <Folder className="w-3 h-3 text-blue-400 shrink-0" />
+            <Folder className={cn(
+              "w-3 h-3 shrink-0",
+              isUtility ? "text-gray-400 dark:text-gray-600" : "text-blue-400"
+            )} />
           )}
-          <span className="truncate text-gray-700 dark:text-gray-300 font-medium">
+          <span className={cn(
+            "truncate font-medium",
+            isUtility ? "text-gray-400 dark:text-gray-600" : "text-gray-700 dark:text-gray-300"
+          )}>
             {node.name}
           </span>
         </button>
@@ -170,6 +231,7 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
                 selectedPath={selectedPath}
                 onToggleDir={onToggleDir}
                 onSelectFile={onSelectFile}
+                parentIsUtility={isUtility}
               />
             ))}
           </div>
@@ -186,17 +248,25 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
         "w-full flex items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors group",
         isSelected
           ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-          : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+          : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800",
+        isUtility && "opacity-50"
       )}
       style={{ paddingLeft: `${level * 12 + 8 + 16}px` }} // Extra padding for file indentation
     >
       <FileCode
         className={cn(
           "w-3 h-3 shrink-0",
-          isSelected ? "text-blue-500" : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300"
+          isUtility
+            ? "text-gray-300 dark:text-gray-600"
+            : isSelected
+              ? "text-blue-500"
+              : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300"
         )}
       />
-      <span className="truncate">{node.name}</span>
+      <span className={cn(
+        "truncate",
+        isUtility && !isSelected && "text-gray-400 dark:text-gray-600"
+      )}>{node.name}</span>
     </button>
   )
 }

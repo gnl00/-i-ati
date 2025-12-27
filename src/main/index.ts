@@ -2,6 +2,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { mcpClient } from '@mcp/client'
 import { BrowserWindow, app, globalShortcut } from 'electron'
 import { destroyWindowPool, getWindowPool } from '../tools/webTools/main/BrowserWindowPool'
+import { cleanupDevServers } from '../tools/devServer/main/DevServerProcessor'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
 import { createWindow } from './main-window'
 
@@ -66,6 +67,8 @@ app.on('window-all-closed', () => {
   }
   // Clean up window pool
   destroyWindowPool()
+  // Clean up development servers
+  cleanupDevServers()
 })
 
 // In this file you can include the rest of your app"s specific main process

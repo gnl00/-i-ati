@@ -15,6 +15,13 @@ import {
   processCreateDirectory,
   processMoveFile
 } from '@tools/fileOperations/main/FileOperationsProcessor'
+import {
+  processCheckPreviewSh,
+  processStartDevServer,
+  processStopDevServer,
+  processGetDevServerStatus,
+  processGetDevServerLogs
+} from '@tools/devServer/main/DevServerProcessor'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
 import {
@@ -40,7 +47,12 @@ import {
   FILE_DIR_TREE_ACTION,
   FILE_GET_INFO_ACTION,
   FILE_CREATE_DIR_ACTION,
-  FILE_MOVE_ACTION
+  FILE_MOVE_ACTION,
+  DEV_SERVER_CHECK_PREVIEW_SH,
+  DEV_SERVER_START,
+  DEV_SERVER_STOP,
+  DEV_SERVER_STATUS,
+  DEV_SERVER_LOGS
 } from '../constants'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
 
@@ -145,6 +157,32 @@ function mainIPCSetup() {
   ipcMain.handle(FILE_MOVE_ACTION, (_event, args) => {
     console.log(`[FileOps IPC] Move file: ${args.source_path} -> ${args.destination_path}`)
     return processMoveFile(args)
+  })
+
+  // DevServer Operations handlers
+  ipcMain.handle(DEV_SERVER_CHECK_PREVIEW_SH, (_event, args) => {
+    console.log(`[DevServer IPC] Check preview.sh: ${args.chatUuid}`)
+    return processCheckPreviewSh(args)
+  })
+
+  ipcMain.handle(DEV_SERVER_START, (_event, args) => {
+    console.log(`[DevServer IPC] Start dev server: ${args.chatUuid}`)
+    return processStartDevServer(args)
+  })
+
+  ipcMain.handle(DEV_SERVER_STOP, (_event, args) => {
+    console.log(`[DevServer IPC] Stop dev server: ${args.chatUuid}`)
+    return processStopDevServer(args)
+  })
+
+  ipcMain.handle(DEV_SERVER_STATUS, (_event, args) => {
+    console.log(`[DevServer IPC] Get dev server status: ${args.chatUuid}`)
+    return processGetDevServerStatus(args)
+  })
+
+  ipcMain.handle(DEV_SERVER_LOGS, (_event, args) => {
+    console.log(`[DevServer IPC] Get dev server logs: ${args.chatUuid}`)
+    return processGetDevServerLogs(args)
   })
 
   ipcMain.handle(MCP_CONNECT, async (_, mcpProps) => {

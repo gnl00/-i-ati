@@ -35,3 +35,10 @@ export const FILE_GET_INFO_ACTION = 'file-get-info-action'
 export const FILE_LIST_ALLOWED_DIRS_ACTION = 'file-list-allowed-dirs-action'
 export const FILE_CREATE_DIR_ACTION = 'file-create-dir-action'
 export const FILE_MOVE_ACTION = 'file-move-action'
+
+// DevServer Operations Actions
+export const DEV_SERVER_CHECK_PREVIEW_SH = 'dev-server-check-preview-sh'
+export const DEV_SERVER_START = 'dev-server-start'
+export const DEV_SERVER_STOP = 'dev-server-stop'
+export const DEV_SERVER_STATUS = 'dev-server-status'
+export const DEV_SERVER_LOGS = 'dev-server-logs'
