@@ -8,9 +8,10 @@ import {
     TableHeader,
     TableRow,
 } from "@renderer/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@renderer/components/ui/tabs"
+import { Tabs, TabsContent } from "@renderer/components/ui/tabs"
+import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
 import { cn } from '@renderer/lib/utils'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
@@ -36,7 +37,7 @@ import {
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { exportConfigAsJSON, importConfigFromJSON, getConfig } from '@renderer/db/ConfigRepository'
-import { Check, ChevronsUpDown, Trash } from "lucide-react"
+import { Check, ChevronsUpDown, Trash, Settings, Wrench, Server, Plug } from "lucide-react"
 import { toast } from 'sonner'
 
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
@@ -99,49 +100,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
 
-    // Tabs 滑动指示器相关 state
     const [activeTab, setActiveTab] = useState<string>('provider-list')
-    const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 0 })
-    const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
-    const tabsListRef = useRef<HTMLDivElement | null>(null)
 
     useEffect(() => {
         setEditProviderName('')
         setEditProviderApiUrl('')
         setEditProviderApiKey('')
     }, [])
-
-    // 更新滑动指示器位置
-    useEffect(() => {
-        const updateIndicator = () => {
-            const activeTabElement = tabRefs.current[activeTab]
-            const tabsListElement = tabsListRef.current
-
-            if (activeTabElement && tabsListElement) {
-                const tabsListRect = tabsListElement.getBoundingClientRect()
-                const tabRect = activeTabElement.getBoundingClientRect()
-
-                setIndicatorStyle({
-                    left: tabRect.left - tabsListRect.left,
-                    width: tabRect.width
-                })
-            }
-        }
-
-        // 使用 requestAnimationFrame 确保 DOM 已渲染
-        const rafId = requestAnimationFrame(() => {
-            updateIndicator()
-            // 再次延迟以确保样式已应用
-            setTimeout(updateIndicator, 0)
-        })
-
-        // 监听窗口 resize，确保窗口大小改变时指示器位置正确
-        window.addEventListener('resize', updateIndicator)
-        return () => {
-            cancelAnimationFrame(rafId)
-            window.removeEventListener('resize', updateIndicator)
-        }
-    }, [activeTab])
     useEffect(() => {
         // console.log('currentProviderName', currentProviderName);
         let p: IProvider | undefined
@@ -395,17 +360,23 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             })
         }
     }
-    // TabsTrigger 公共样式
-    const tabsTriggerClassName = cn(
-        "px-4 py-1.5 text-sm font-medium rounded-md relative z-10",
-        "transition-all duration-200 ease-out",
-        "text-gray-600 dark:text-gray-400",
-        "hover:text-gray-900 dark:hover:text-gray-200",
-        "hover:bg-transparent",
-        "data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100",
-        "data-[state=active]:font-semibold",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-    )
+    const preferenceTabs = [
+        {
+            value: 'provider-list',
+            label: 'Providers',
+            icon: <Server className="w-3 h-3" />
+        },
+        {
+            value: 'tool',
+            label: 'Tool',
+            icon: <Wrench className="w-3 h-3" />
+        },
+        {
+            value: 'mcp-server',
+            label: 'MCP Server',
+            icon: <Plug className="w-3 h-3" />
+        }
+    ]
 
     return (
         <div className="grid gap-4">
@@ -414,59 +385,15 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <span>@i</span>
                     <Badge variant="secondary" className='bg-slate-100 dark:bg-slate-800 text-gray-800 dark:text-gray-200'>{appVersion}</Badge>
                 </h4>
-                <p className="text-sm text-muted-foreground dark:text-gray-400">Set the preferences for @i</p>
+                <p className="text-sm text-muted-foreground dark:text-gray-400">Customize @i to fit your workflow</p>
             </div>
             <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list">
                 <div className="flex items-center justify-between mb-2">
-                    <TabsList
-                        ref={tabsListRef}
-                        className={cn(
-                            "bg-gray-100 dark:bg-gray-800",
-                            "p-1 rounded-lg",
-                            "inline-flex h-10 items-center justify-center",
-                            "shadow-sm border border-gray-200/50 dark:border-gray-700/50",
-                            "relative"
-                        )}
-                    >
-                        {/* 滑动指示器 */}
-                        {indicatorStyle.width > 0 && (
-                            <div
-                                className={cn(
-                                    "absolute bottom-1 top-1 rounded-md",
-                                    "bg-white dark:bg-gray-700",
-                                    "shadow-sm",
-                                    "transition-all duration-300 ease-out",
-                                    "z-0"
-                                )}
-                                style={{
-                                    left: `${indicatorStyle.left}px`,
-                                    width: `${indicatorStyle.width}px`,
-                                }}
-                            />
-                        )}
-
-                        <TabsTrigger
-                            ref={(el) => { tabRefs.current['provider-list'] = el }}
-                            value="provider-list"
-                            className={tabsTriggerClassName}
-                        >
-                            Providers
-                        </TabsTrigger>
-                        <TabsTrigger
-                            ref={(el) => { tabRefs.current['tool'] = el }}
-                            value="tool"
-                            className={tabsTriggerClassName}
-                        >
-                            Tool
-                        </TabsTrigger>
-                        <TabsTrigger
-                            ref={(el) => { tabRefs.current['mcp-server'] = el }}
-                            value="mcp-server"
-                            className={tabsTriggerClassName}
-                        >
-                            MCP Server
-                        </TabsTrigger>
-                    </TabsList>
+                    <AnimatedTabsList
+                        tabs={preferenceTabs}
+                        value={activeTab}
+                        tabsListClassName="h-10 shadow-sm border border-gray-200/50 dark:border-gray-700/50"
+                    />
                     <div className="flex items-end gap-2">
                         <p className='text-xs text-orange-400 dark:text-orange-300 select-none'>Remember to save changes</p>
                         <Button size="xs" onClick={saveConfigurationClick} className="shadow-sm">
