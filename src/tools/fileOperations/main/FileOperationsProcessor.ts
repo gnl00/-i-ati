@@ -63,8 +63,10 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
     const { file_path, encoding = 'utf-8', start_line, end_line } = args
     const absolutePath = resolveUserDataPath(file_path)
     console.log(`[ReadTextFile] Reading file: ${file_path} -> ${absolutePath}`)
+    console.log(`[ReadTextFile] File exists check:`, existsSync(absolutePath))
 
     if (!existsSync(absolutePath)) {
+      console.error(`[ReadTextFile] File not found at: ${absolutePath}`)
       return { success: false, error: `File not found: ${file_path}` }
     }
 
@@ -464,6 +466,7 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
   try {
     const { directory_path, max_depth = 3 } = args
     const absolutePath = resolveUserDataPath(directory_path)
+    const userDataPath = app.getPath('userData')
     console.log(`[DirectoryTree] Building tree for: ${directory_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -474,8 +477,13 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
       const stats = await stat(dirPath)
       const name = basename(dirPath)
 
+      // Convert absolute path back to relative path (relative to userData)
+      const relativePath = dirPath.startsWith(userDataPath)
+        ? dirPath.slice(userDataPath.length + 1).replace(/\\/g, '/')
+        : dirPath
+
       if (!stats.isDirectory() || depth >= max_depth) {
-        return { name, type: 'file', path: dirPath }
+        return { name, type: 'file', path: relativePath }
       }
 
       const items = await readdir(dirPath)
@@ -491,7 +499,7 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
         }
       }
 
-      return { name, type: 'directory', path: dirPath, children }
+      return { name, type: 'directory', path: relativePath, children }
     }
 
     const tree = await buildTree(absolutePath, 0)
