@@ -448,11 +448,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
+                    size="icon"
                     role="combobox"
-                    className={triggerButtonClassName}
+                    className="h-7 w-7 rounded-2xl bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200/80 dark:hover:bg-gray-700/80 border-gray-300/50 dark:border-gray-600/50"
                   >
-                    <span className="flex-grow text-center">Params</span>
-                    <TokensIcon className="flex opacity-50 w-4 h-4" />
+                    <TokensIcon className="w-4 h-4 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
