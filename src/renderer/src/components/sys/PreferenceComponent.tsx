@@ -50,6 +50,7 @@ import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
 import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
 import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
 import CodeEditor from '@uiw/react-textarea-code-editor'
+import FetchModelsDrawer from './FetchModelsDrawer'
 
 interface PreferenceProps { }
 
@@ -97,6 +98,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>()
 
     const [msConfig, setmsConfig] = useState<string>(JSON.stringify(mcpServerConfig, null, 2))
+
+    // fetchModels Drawer 状态
+    const [showFetchModelsDrawer, setShowFetchModelsDrawer] = useState<boolean>(false)
 
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
 
@@ -594,7 +598,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             <div className='flex-1 flex justify-between flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
                                 <div className='flex justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
                                     <h3 className='text-sm font-medium flex items-center text-gray-700 dark:text-gray-300'>Models</h3>
-                                    <Button size="xs" variant="outline" className='text-xs text-gray-400 font-medium transition-all' onClick={() => { toast.warning('Not implemented yet') }}>Fetch Models</Button>
+                                    <Button
+                                        size="xs"
+                                        variant="outline"
+                                        className='text-xs text-gray-400 font-medium transition-all'
+                                        onClick={() => setShowFetchModelsDrawer(true)}
+                                        disabled={!currentProvider?.apiKey}
+                                    >
+                                        <i className="ri-download-cloud-line mr-1"></i>
+                                        Fetch Models
+                                    </Button>
                                 </div>
                                 <div className='flex-1 overflow-y-auto scroll-smooth [&>div]:!overflow-visible'>
                                     <TooltipProvider>
@@ -901,6 +914,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     />
                 </TabsContent>
             </Tabs>
+
+            {/* Fetch Models Drawer */}
+            <FetchModelsDrawer
+                open={showFetchModelsDrawer}
+                onOpenChange={setShowFetchModelsDrawer}
+                currentProvider={currentProvider}
+                addModel={addModel}
+            />
         </div>
     )
 }
