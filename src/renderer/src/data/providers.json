@@ -2,25 +2,25 @@
   {
     "name": "OpenAI",
     "models": [],
-    "apiUrl": "https://api.openai.com/v1/chat/completions",
+    "apiUrl": "https://api.openai.com",
     "apiKey": ""
   },
   {
     "name": "Anthropic",
     "models": [],
-    "apiUrl": "https://api.anthropic.com/v1/messages",
+    "apiUrl": "https://api.anthropic.com",
     "apiKey": ""
   },
   {
     "name": "OpenRouter",
     "models": [],
-    "apiUrl": "https://openrouter.ai/api/v1/chat/completions",
+    "apiUrl": "https://openrouter.ai/api",
     "apiKey": ""
   },
   {
     "name": "Groq",
     "models": [],
-    "apiUrl": "https://api.groq.com/openai/v1/chat/completions",
+    "apiUrl": "https://api.groq.com/openai",
     "apiKey": ""
   },
   {
@@ -32,13 +32,13 @@
   {
     "name": "SilliconFlow",
     "models": [],
-    "apiUrl": "https://api.siliconflow.cn/v1/chat/completions",
+    "apiUrl": "https://api.siliconflow.cn",
     "apiKey": ""
   },
   {
     "name": "MoonShot",
     "models": [],
-    "apiUrl": "https://api.moonshot.cn/v1",
+    "apiUrl": "https://api.moonshot.cn",
     "apiKey": ""
   }
 ]

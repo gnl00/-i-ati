@@ -9,6 +9,19 @@ declare interface IModel {
 
 declare interface IProvider {
   name: string
+  /**
+   * API Base URL (without version or endpoint path)
+   * The version (e.g., /v1) and endpoint path (e.g., /chat/completions) will be added by the adapter.
+   *
+   * @example "https://api.openai.com"
+   * @example "https://api.anthropic.com"
+   * @example "https://openrouter.ai/api"
+   * @example "https://api.groq.com/openai"  // Special case: includes provider-specific path
+   *
+   * ❌ Wrong: "https://api.openai.com/v1/chat/completions"
+   * ❌ Wrong: "https://api.openai.com/v1"
+   * ✅ Correct: "https://api.openai.com"
+   */
   apiUrl: string
   apiKey: string
   models: IModel[]
@@ -36,6 +49,7 @@ declare interface IHeaders {
 }
 
 declare interface IChatRequest {
+  /** API Base URL (endpoint path will be added by adapter) */
   baseUrl: string
   apiKey: string
   model: string
@@ -50,6 +64,7 @@ declare type ProviderAPIVersion = string | 'v1' | 'v2'
 declare interface IUnifiedRequest {
   providerType?: ProviderType
   apiVersion?: ProviderAPIVersion
+  /** API Base URL (endpoint path will be added by adapter) */
   baseUrl: string
   apiKey: string
   modelType?: string
@@ -109,6 +124,7 @@ declare interface IUnifiedStreamResponse {
 }
 
 declare interface IChatRequestV2 {
+  /** API Base URL (endpoint path will be added by adapter) */
   baseUrl: string
   apiKey: string
   model: string

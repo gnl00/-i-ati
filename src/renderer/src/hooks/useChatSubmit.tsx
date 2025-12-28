@@ -5,7 +5,7 @@ import { invokeMcpToolCall } from "@renderer/invoker/ipcInvoker"
 import { useChatStore } from "@renderer/store"
 import { useAppConfigStore } from "@renderer/store/appConfig"
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
-import { chatRequestWithHook, commonOpenAIChatCompletionRequest } from "@request/index"
+import { unifiedChatRequest } from "@request/index"
 import { embeddedToolsRegistry } from '@tools/index'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
@@ -290,7 +290,7 @@ function useChatSubmit() {
   }
 
   const processRequestV2 = async (context: ChatPipelineContext): Promise<ChatPipelineContext> => {
-    const response = await commonOpenAIChatCompletionRequest(context.request as IUnifiedRequest, context.signal, beforeFetch, afterFetch)
+    const response = await unifiedChatRequest(context.request as IUnifiedRequest, context.signal, beforeFetch, afterFetch)
     if (false === context.request.stream) {
       const resp = response as IUnifiedResponse
       console.log('non stream resp', resp)
@@ -638,17 +638,31 @@ function useChatSubmit() {
   const generateTitle = async (context) => {
     const model = (titleGenerateModel || selectedModel)!
     let titleProvider = providers.findLast(p => p.name === model.provider)!
-    const titleReq: IChatRequest = {
+
+    // Map provider name to providerType (most are OpenAI-compatible)
+    const providerTypeMap: Record<string, ProviderType> = {
+      'Anthropic': 'claude',
+      'Claude': 'claude'
+    }
+    const providerType = providerTypeMap[titleProvider.name] || 'openai'
+
+    const titleReq: IUnifiedRequest = {
+      providerType,
+      apiVersion: 'v1',
       baseUrl: titleProvider.apiUrl,
-      content: context,
-      prompt: generateTitlePrompt,
       apiKey: titleProvider.apiKey,
       model: model.value,
-      stream: false
+      prompt: generateTitlePrompt,
+      messages: [{ role: 'user', content: context }],
+      stream: false,
+      options: {
+        temperature: 0.7,
+        maxTokens: 100,
+        topP: 0.7
+      }
     }
-    const response = await chatRequestWithHook(titleReq, () => { }, () => { })
-    const json = await response.json()
-    let title: string = json.choices[0].message.content
+    const response = await unifiedChatRequest(titleReq, null, () => { }, () => { })
+    let title: string = response.content
     setChatTitle(title)
     return title
   }

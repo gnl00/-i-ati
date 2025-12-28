@@ -555,18 +555,21 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                     </div>
                                     <div className='space-y-1'>
                                         <Label htmlFor="provider-api-url" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-                                            API Url
+                                            API Base URL
                                         </Label>
                                         <Input
                                             id="provider-api-url"
                                             className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
-                                            placeholder='https://api.example.com/v1/chat/completions'
+                                            placeholder='https://api.example.com'
                                             value={editProviderApiUrl}
                                             onChange={(e) => {
                                                 setEditProviderApiUrl(e.target.value)
                                                 updateCurrentProvider('apiUrl', e.target.value)
                                             }}
                                         />
+                                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                                            Enter the base URL only (without version or endpoint path)
+                                        </p>
                                     </div>
                                     <div className='space-y-1'>
                                         <Label htmlFor="provider-api-key" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
