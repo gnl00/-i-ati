@@ -1,6 +1,5 @@
 import { CheckIcon, Cross2Icon, DoubleArrowRightIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { Button } from '@renderer/components/ui/button'
-import { Card, CardContent } from '@renderer/components/ui/card'
 import {
     Command,
     CommandEmpty,
@@ -30,6 +29,41 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
 interface ChatSheetProps { }
+
+// Assistant Card 组件
+interface AssistantCardProps {
+    label: string
+    gradientType?: string
+    gradientColors?: { from: string; via: string; to: string }
+    className?: string
+    onClick?: () => void
+}
+
+const AssistantCard: React.FC<AssistantCardProps> = ({
+    label,
+    gradientType = 'bg-gradient-to-br',
+    gradientColors,
+    className,
+    onClick
+}) => {
+    return (
+        <div
+            onClick={onClick}
+            className={cn(
+                "flex items-center justify-center p-4 h-24 rounded-lg shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02] cursor-pointer",
+                gradientColors && [
+                    gradientType,
+                    gradientColors.from,
+                    gradientColors.via,
+                    gradientColors.to,
+                ],
+                className
+            )}
+        >
+            <span className="text-sm font-semibold text-white">{label}</span>
+        </div>
+    )
+}
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
@@ -235,68 +269,54 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                             <div className="grid grid-cols-4 gap-2 pb-2">
                                 {/* 第一行：始终显示 */}
                                 {/* Hi 卡片 */}
-                                <Card className="border-none shadow-sm">
-                                    <CardContent className="bg-gradient-to-br from-[#43CBFF] to-[#9708CC] flex items-center justify-center p-4 h-24 rounded-lg">
-                                        <p className="text-lg font-semibold text-white">Hi</p>
-                                    </CardContent>
-                                </Card>
+                                <AssistantCard
+                                    label="Hi"
+                                    gradientColors={{ from: 'from-[#43CBFF]', via: 'via-[#9708CC]', to: 'to-[#9708CC]' }}
+                                    className="text-lg"
+                                />
 
                                 {/* Assistant 1-3 */}
                                 {Array.from({ length: 3 }).map((_, index) => (
-                                    <Card key={index} className="border-none shadow-sm">
-                                        <CardContent className={cn(
-                                            "flex items-center justify-center p-4 h-24 rounded-lg text-white",
-                                            bgGradientTypes[index % bgGradientTypes.length],
-                                            bgGradientColors[index % bgGradientColors.length].from,
-                                            bgGradientColors[index % bgGradientColors.length].via,
-                                            bgGradientColors[index % bgGradientColors.length].to,
-                                        )}>
-                                            <span className="text-sm font-semibold">A-{index + 1}</span>
-                                        </CardContent>
-                                    </Card>
+                                    <AssistantCard
+                                        key={index}
+                                        label={`A-${index + 1}`}
+                                        gradientType={bgGradientTypes[index % bgGradientTypes.length]}
+                                        gradientColors={bgGradientColors[index % bgGradientColors.length]}
+                                    />
                                 ))}
 
                                 {/* 第二行：展开时显示，带淡入淡出动画 */}
                                 {Array.from({ length: 2 }).map((_, index) => (
-                                    <Card
+                                    <AssistantCard
                                         key={`second-row-${index}`}
+                                        label={`A-${index + 4}`}
+                                        gradientType={bgGradientTypes[(index + 3) % bgGradientTypes.length]}
+                                        gradientColors={bgGradientColors[(index + 3) % bgGradientColors.length]}
                                         className={cn(
-                                            "border-none shadow-sm transition-all duration-300",
                                             isCarouselExpanded
                                                 ? "opacity-100 translate-y-0"
                                                 : "opacity-0 -translate-y-2 pointer-events-none"
                                         )}
-                                    >
-                                        <CardContent className={cn(
-                                            "flex items-center justify-center p-4 h-24 rounded-lg text-white",
-                                            bgGradientTypes[(index + 3) % bgGradientTypes.length],
-                                            bgGradientColors[(index + 3) % bgGradientColors.length].from,
-                                            bgGradientColors[(index + 3) % bgGradientColors.length].via,
-                                            bgGradientColors[(index + 3) % bgGradientColors.length].to,
-                                        )}>
-                                            <span className="text-sm font-semibold">A-{index + 4}</span>
-                                        </CardContent>
-                                    </Card>
+                                    />
                                 ))}
 
                                 {/* Add 按钮 */}
-                                <Card
+                                <div
                                     className={cn(
-                                        "border-none shadow-sm transition-all duration-300",
+                                        "flex flex-col items-center justify-center p-4 h-24 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 shadow-sm transition-all duration-300 cursor-pointer hover:shadow-md hover:scale-[1.02]",
                                         isCarouselExpanded
                                             ? "opacity-100 translate-y-0"
                                             : "opacity-0 -translate-y-2 pointer-events-none"
                                     )}
                                 >
-                                    <CardContent className="flex flex-col items-center justify-center p-4 h-24 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-                                        <Drawer>
-                                            <DrawerTrigger asChild>
-                                                <div className="flex flex-col items-center">
-                                                    <p className="text-2xl text-gray-400"><i className="ri-add-circle-line"></i></p>
-                                                    <p className="text-xs text-gray-500 mt-1">Add</p>
-                                                </div>
-                                            </DrawerTrigger>
-                                            <DrawerContent className="max-h-[85vh]">
+                                    <Drawer>
+                                        <DrawerTrigger asChild>
+                                            <div className="flex flex-col items-center">
+                                                <p className="text-2xl text-gray-400"><i className="ri-add-circle-line"></i></p>
+                                                <p className="text-xs text-gray-500 mt-1">Add</p>
+                                            </div>
+                                        </DrawerTrigger>
+                                        <DrawerContent className="max-h-[85vh]">
                                                 <DrawerHeader>
                                                     <DrawerTitle>Create Assistant</DrawerTitle>
                                                     <DrawerDescription>Customize your AI assistant with a name, model, and system prompt.</DrawerDescription>
@@ -376,8 +396,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                 </DrawerFooter>
                                             </DrawerContent>
                                         </Drawer>
-                                    </CardContent>
-                                </Card>
+                                    </div>
 
                                 {/* 第 8 个位置占位 */}
                                 <div

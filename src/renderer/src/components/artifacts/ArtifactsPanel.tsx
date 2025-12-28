@@ -2,8 +2,8 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs'
 import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
-import { toast } from '@renderer/components/ui/use-toast'
 import { useChatContext } from '@renderer/context/ChatContext'
+import { toast } from 'sonner'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useDevServerStore } from '@renderer/store/devServerStore'
@@ -23,6 +23,7 @@ import {
   Download,
   ExternalLink,
   FileCode,
+  FolderOpen,
   Globe,
   Loader2,
   Monitor,
@@ -282,24 +283,19 @@ export const ArtifactsPanel: React.FC = () => {
         setDevServerPort(chatUuid, null)
         setDevServerError(chatUuid, null)
 
-        toast({
-          title: 'Server Stopped',
+        toast.success('Server Stopped', {
           description: 'Development server stopped successfully'
         })
       } else {
         console.error('[ArtifactsPanel] Failed to stop dev server:', result.error)
-        toast({
-          title: 'Error',
-          description: result.error || 'Failed to stop development server',
-          variant: 'destructive'
+        toast.error('Error', {
+          description: result.error || 'Failed to stop development server'
         })
       }
     } catch (error: any) {
       console.error('[ArtifactsPanel] Error stopping dev server:', error)
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to stop development server',
-        variant: 'destructive'
+      toast.error('Error', {
+        description: error.message || 'Failed to stop development server'
       })
     }
   }, [chatUuid, setDevServerStatus, setDevServerPort, setDevServerError])
@@ -323,16 +319,13 @@ export const ArtifactsPanel: React.FC = () => {
       // Then start it again
       handleStartDevServer()
 
-      toast({
-        title: 'Restarting Server',
+      toast('Restarting Server', {
         description: 'Development server is being restarted...'
       })
     } catch (error: any) {
       console.error('[ArtifactsPanel] Error restarting dev server:', error)
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to restart development server',
-        variant: 'destructive'
+      toast.error('Error', {
+        description: error.message || 'Failed to restart development server'
       })
     }
   }, [chatUuid, handleStartDevServer, setDevServerStatus, setDevServerPort, setDevServerError])
@@ -371,8 +364,7 @@ export const ArtifactsPanel: React.FC = () => {
             clearInterval(intervalId)
 
             if (statusResult.status === 'running' && statusResult.port) {
-              toast({
-                title: 'Server Started',
+              toast.success('Server Started', {
                 description: `Development server running on port ${statusResult.port}`
               })
             } else if (attempts >= maxAttempts && statusResult.status === 'starting') {
@@ -387,10 +379,8 @@ export const ArtifactsPanel: React.FC = () => {
 
               setDevServerStatus(chatUuid, 'error')
               setDevServerError(chatUuid, 'Timeout: Could not detect server port after 30 seconds. The server process has been stopped.')
-              toast({
-                title: 'Timeout',
-                description: 'Could not detect server port. Server stopped.',
-                variant: 'destructive'
+              toast.error('Timeout', {
+                description: 'Could not detect server port. Server stopped.'
               })
             }
           }
@@ -479,11 +469,18 @@ export const ArtifactsPanel: React.FC = () => {
     if (!selectedFileContent) return
     try {
       await navigator.clipboard.writeText(selectedFileContent)
-      toast({ description: `✅ ${selectedFileName} 已复制`, duration: 1500 })
+      toast.success(`${selectedFileName} 已复制`, { duration: 1500 })
     } catch (err) {
-      toast({ variant: 'destructive', description: '❌ 复制失败', duration: 1500 })
+      toast.error('复制失败', { duration: 1500 })
     }
   }
+
+  const handleCopyWorkspacePath = useCallback(() => {
+    if (!chatUuid) return
+    const workspacePath = getWorkspacePath(chatUuid)
+    navigator.clipboard.writeText(workspacePath)
+    toast.success('Copied', { description: workspacePath, duration: 2000 })
+  }, [chatUuid])
 
   const handleDownloadFile = () => {
     if (!selectedFileContent || !selectedFileName) return
@@ -496,7 +493,7 @@ export const ArtifactsPanel: React.FC = () => {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast({ description: `✅ ${selectedFileName} 已下载`, duration: 1500 })
+    toast.success(`${selectedFileName} 已下载`, { duration: 1500 })
   }
 
   const countFilesInTree = (nodes: FileTreeNode[]): number => {
@@ -516,16 +513,9 @@ export const ArtifactsPanel: React.FC = () => {
     if (!selectedFile) return
     try {
       await navigator.clipboard.writeText(selectedFile.content)
-      toast({
-        description: `✅ ${selectedFile.path} 已复制`,
-        duration: 1500,
-      })
+      toast.success(`${selectedFile.path} 已复制`, { duration: 1500 })
     } catch (err) {
-      toast({
-        variant: 'destructive',
-        description: '❌ 复制失败',
-        duration: 1500,
-      })
+      toast.error('复制失败', { duration: 1500 })
     }
   }
 
@@ -540,10 +530,7 @@ export const ArtifactsPanel: React.FC = () => {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast({
-      description: `✅ ${selectedFile.path} 已下载`,
-      duration: 1500,
-    })
+    toast.success(`${selectedFile.path} 已下载`, { duration: 1500 })
   }
 
   // Find previewable content (prefers index.html or first html/svg file)
@@ -798,8 +785,7 @@ export const ArtifactsPanel: React.FC = () => {
                             ].join('\n')
 
                             navigator.clipboard.writeText(errorInfo)
-                            toast({
-                              title: 'Copied to Clipboard',
+                            toast.success('Copied to Clipboard', {
                               description: 'Error details have been copied to clipboard'
                             })
                           }}
@@ -1032,25 +1018,21 @@ export const ArtifactsPanel: React.FC = () => {
         </TabsContent>
 
         {/* Action Footer */}
-        <div className="h-12 flex items-center justify-between px-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50 shrink-0">
+        <div className="h-12 flex items-center justify-between px-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50 shrink-0">
           <div className="flex items-center gap-2">
-            {artifactsActiveTab === 'files' ? (
-              <>
+            {
+              <div onClick={handleCopyWorkspacePath} className='select-none cursor-pointer flex items-center gap-2'>
+                <button
+                  className="rounded hover:bg-gray-200 dark:hover:bg-gray-700 p-1 transition-colors group"
+                  title="Copy workspace path"
+                >
+                  <FolderOpen className="w-3 h-3 text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                </button>
                 <div className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-[9px] font-bold uppercase tracking-wider">
                   {countFilesInTree(workspaceTree)} Files
                 </div>
-                <span className="text-[10px] text-gray-400 font-medium truncate max-w-[120px]">
-                  Workspace: {chatUuid || 'default'}
-                </span>
-              </>
-            ) : (
-              <>
-                <div className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-[9px] font-bold uppercase tracking-wider">
-                  {files.length} {files.length === 1 ? 'File' : 'Files'}
-                </div>
-                <span className="text-[10px] text-gray-400 font-medium truncate max-w-[120px]">{artifactTitle}</span>
-              </>
-            )}
+              </div>
+            }
           </div>
           <div className="flex items-center gap-2">
             {artifactsActiveTab === 'files' ? (
