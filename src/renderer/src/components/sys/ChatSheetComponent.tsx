@@ -50,7 +50,8 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
         <div
             onClick={onClick}
             className={cn(
-                "flex items-center justify-center p-4 h-24 rounded-lg shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02] cursor-pointer",
+                "group relative flex flex-col justify-between p-3 h-24 rounded-xl shadow-sm transition-all duration-300 cursor-pointer overflow-hidden ring-1 ring-black/5 dark:ring-white/10",
+                "hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02]",
                 gradientColors && [
                     gradientType,
                     gradientColors.from,
@@ -60,7 +61,29 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
                 className
             )}
         >
-            <span className="text-sm font-semibold text-white">{label}</span>
+            {/* Decorative Background Character */}
+            <div className="absolute -right-2 -top-4 opacity-10 text-7xl font-black text-black dark:text-white transform -rotate-12 transition-transform duration-500 group-hover:rotate-0 group-hover:scale-110 pointer-events-none select-none">
+                {label.charAt(0)}
+            </div>
+
+            {/* Top Area (Empty for now, acts as spacer) */}
+            <div className="w-full flex justify-end">
+                {/* Optional: Status dot or icon could go here */}
+                <div className="w-1.5 h-1.5 rounded-full bg-white/40 group-hover:bg-white/80 transition-colors" />
+            </div>
+
+            {/* Label Area */}
+            <div className="relative z-10">
+                <p className="text-[10px] font-medium text-white/70 uppercase tracking-wider mb-0.5 transform translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                    Assistant
+                </p>
+                <span className="text-base font-bold text-white leading-tight drop-shadow-sm tracking-tight">
+                    {label}
+                </span>
+            </div>
+
+            {/* Glass Shine Effect */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
         </div>
     )
 }
@@ -266,7 +289,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                             "overflow-hidden transition-all duration-300 ease-out",
                             isCarouselExpanded ? "max-h-[240px]" : "max-h-[110px]"
                         )}>
-                            <div className="grid grid-cols-4 gap-2 pb-2">
+                            <div className="grid grid-cols-4 gap-2 pb-2 pt-2">
                                 {/* 第一行：始终显示 */}
                                 {/* Hi 卡片 */}
                                 <AssistantCard
@@ -303,7 +326,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                 {/* Add 按钮 */}
                                 <div
                                     className={cn(
-                                        "flex flex-col items-center justify-center p-4 h-24 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 shadow-sm transition-all duration-300 cursor-pointer hover:shadow-md hover:scale-[1.02]",
+                                        "flex flex-col items-center justify-center p-3 h-24 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-300 cursor-pointer group",
                                         isCarouselExpanded
                                             ? "opacity-100 translate-y-0"
                                             : "opacity-0 -translate-y-2 pointer-events-none"
@@ -311,92 +334,94 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                 >
                                     <Drawer>
                                         <DrawerTrigger asChild>
-                                            <div className="flex flex-col items-center">
-                                                <p className="text-2xl text-gray-400"><i className="ri-add-circle-line"></i></p>
-                                                <p className="text-xs text-gray-500 mt-1">Add</p>
+                                            <div className="flex flex-col items-center justify-center w-full h-full">
+                                                <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:scale-110 transition-transform duration-300">
+                                                    <BadgePlus className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                                                </div>
+                                                <p className="text-[10px] font-medium text-gray-400 mt-2 uppercase tracking-wide group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">Create</p>
                                             </div>
                                         </DrawerTrigger>
                                         <DrawerContent className="max-h-[85vh]">
-                                                <DrawerHeader>
-                                                    <DrawerTitle>Create Assistant</DrawerTitle>
-                                                    <DrawerDescription>Customize your AI assistant with a name, model, and system prompt.</DrawerDescription>
-                                                </DrawerHeader>
-                                                <div className='px-4 pb-4 space-y-4 overflow-y-auto'>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="assistant-name" className="text-sm font-medium">
-                                                            Name <span className="text-red-500">*</span>
-                                                        </Label>
-                                                        <Input
-                                                            id="assistant-name"
-                                                            placeholder='e.g., Code Helper, Writing Assistant'
-                                                            className="w-full"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="assistant-model" className="text-sm font-medium">
-                                                            Model <span className="text-red-500">*</span>
-                                                        </Label>
-                                                        <Popover>
-                                                            <PopoverTrigger asChild>
-                                                                <Button
-                                                                    id="assistant-model"
-                                                                    variant="outline"
-                                                                    role="combobox"
-                                                                    className="w-full justify-between"
-                                                                >
-                                                                    {"Select a model..."}
-                                                                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                                                                </Button>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-full p-0" align="start">
-                                                                <Command>
-                                                                    <CommandInput placeholder="Search models..." className="h-9" />
-                                                                    <CommandList className='overflow-scroll'>
-                                                                        <CommandEmpty>No model found.</CommandEmpty>
-                                                                        {
-                                                                            providers.map(p => {
-                                                                                return p.models.length != 0 && p.models.findIndex(m => m.enable) !== -1 && (
-                                                                                    <CommandGroup key={p.name}>
-                                                                                        <p className='text-sm text-gray-400 select-none'>{p.name}</p>
-                                                                                        {
-                                                                                            p.models.map(m => m.enable && (
-                                                                                                <CommandItem key={m.value.concat('/').concat(m.provider)} value={m.value.concat('/').concat(m.provider)}>
-                                                                                                    {m.name}
-                                                                                                </CommandItem>
-                                                                                            ))
-                                                                                        }
-                                                                                    </CommandGroup>
-                                                                                )
-                                                                            })
-                                                                        }
-                                                                    </CommandList>
-                                                                </Command>
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="assistant-prompt" className="text-sm font-medium">
-                                                            System Prompt <span className="text-red-500">*</span>
-                                                        </Label>
-                                                        <Textarea
-                                                            id="assistant-prompt"
-                                                            placeholder="You are a helpful assistant that..."
-                                                            className="w-full min-h-[120px] resize-none"
-                                                        />
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                            Define how your assistant should behave and respond.
-                                                        </p>
-                                                    </div>
+                                            <DrawerHeader>
+                                                <DrawerTitle>Create Assistant</DrawerTitle>
+                                                <DrawerDescription>Customize your AI assistant with a name, model, and system prompt.</DrawerDescription>
+                                            </DrawerHeader>
+                                            <div className='px-4 pb-4 space-y-4 overflow-y-auto'>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="assistant-name" className="text-sm font-medium">
+                                                        Name <span className="text-red-500">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        id="assistant-name"
+                                                        placeholder='e.g., Code Helper, Writing Assistant'
+                                                        className="w-full"
+                                                    />
                                                 </div>
-                                                <DrawerFooter className="flex-row gap-2">
-                                                    <DrawerClose asChild>
-                                                        <Button variant="outline" className="flex-1">Cancel</Button>
-                                                    </DrawerClose>
-                                                    <Button className="flex-1">Create Assistant</Button>
-                                                </DrawerFooter>
-                                            </DrawerContent>
-                                        </Drawer>
-                                    </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="assistant-model" className="text-sm font-medium">
+                                                        Model <span className="text-red-500">*</span>
+                                                    </Label>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                id="assistant-model"
+                                                                variant="outline"
+                                                                role="combobox"
+                                                                className="w-full justify-between"
+                                                            >
+                                                                {"Select a model..."}
+                                                                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-full p-0" align="start">
+                                                            <Command>
+                                                                <CommandInput placeholder="Search models..." className="h-9" />
+                                                                <CommandList className='overflow-scroll'>
+                                                                    <CommandEmpty>No model found.</CommandEmpty>
+                                                                    {
+                                                                        providers.map(p => {
+                                                                            return p.models.length != 0 && p.models.findIndex(m => m.enable) !== -1 && (
+                                                                                <CommandGroup key={p.name}>
+                                                                                    <p className='text-sm text-gray-400 select-none'>{p.name}</p>
+                                                                                    {
+                                                                                        p.models.map(m => m.enable && (
+                                                                                            <CommandItem key={m.value.concat('/').concat(m.provider)} value={m.value.concat('/').concat(m.provider)}>
+                                                                                                {m.name}
+                                                                                            </CommandItem>
+                                                                                        ))
+                                                                                    }
+                                                                                </CommandGroup>
+                                                                            )
+                                                                        })
+                                                                    }
+                                                                </CommandList>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="assistant-prompt" className="text-sm font-medium">
+                                                        System Prompt <span className="text-red-500">*</span>
+                                                    </Label>
+                                                    <Textarea
+                                                        id="assistant-prompt"
+                                                        placeholder="You are a helpful assistant that..."
+                                                        className="w-full min-h-[120px] resize-none"
+                                                    />
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        Define how your assistant should behave and respond.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <DrawerFooter className="flex-row gap-2">
+                                                <DrawerClose asChild>
+                                                    <Button variant="outline" className="flex-1">Cancel</Button>
+                                                </DrawerClose>
+                                                <Button className="flex-1">Create Assistant</Button>
+                                            </DrawerFooter>
+                                        </DrawerContent>
+                                    </Drawer>
+                                </div>
 
                                 {/* 第 8 个位置占位 */}
                                 <div
@@ -443,7 +468,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                 {items.map((item) => {
                                                     const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
                                                     const isActive = item.id === chatId
-                                                    
+
                                                     return (
                                                         <div
                                                             key={item.id}
@@ -482,11 +507,11 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                             {/* 消息数量 / 操作按钮 */}
                                                             <div className="flex-shrink-0 flex items-center gap-1 h-7 relative w-16">
                                                                 {/* 消息数量标签 */}
-                                                                <span 
+                                                                <span
                                                                     className={cn(
                                                                         "absolute inset-0 flex items-center justify-center px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full transition-all duration-200 ease-out",
-                                                                        isHovered 
-                                                                            ? "opacity-0 scale-75 translate-x-2 pointer-events-none" 
+                                                                        isHovered
+                                                                            ? "opacity-0 scale-75 translate-x-2 pointer-events-none"
                                                                             : "opacity-100 scale-100 translate-x-0"
                                                                     )}
                                                                 >
@@ -494,7 +519,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                 </span>
 
                                                                 {/* 操作按钮组 */}
-                                                                <div 
+                                                                <div
                                                                     className={cn(
                                                                         "absolute inset-0 flex items-center gap-1 transition-all duration-200 ease-out",
                                                                         isHovered
