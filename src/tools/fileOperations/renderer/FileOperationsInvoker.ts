@@ -12,7 +12,8 @@ import {
   FILE_GET_INFO_ACTION,
   FILE_LIST_ALLOWED_DIRS_ACTION,
   FILE_CREATE_DIR_ACTION,
-  FILE_MOVE_ACTION
+  FILE_MOVE_ACTION,
+  FILE_SET_WORKSPACE_BASE_DIR
 } from '@constants/index'
 import type {
   ReadTextFileArgs,
@@ -253,5 +254,22 @@ export async function invokeMoveFile(args: MoveFileArgs): Promise<MoveFileRespon
     return await ipc.invoke(FILE_MOVE_ACTION, args)
   } catch (error: any) {
     return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+// ============ Workspace Management ============
+
+/**
+ * Set Workspace Base Directory
+ * Updates the base directory for all file operations based on chatUuid
+ */
+export async function invokeSetFileOperationsBaseDir(chatUuid: string): Promise<{ success: boolean }> {
+  console.log('[SetWorkspaceBaseDir] Setting base dir for chatUuid:', chatUuid)
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(FILE_SET_WORKSPACE_BASE_DIR, chatUuid)
+  } catch (error: any) {
+    console.error('[SetWorkspaceBaseDir] Error:', error)
+    return { success: false }
   }
 }

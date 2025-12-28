@@ -24,10 +24,21 @@ You have the permissions to access a bunch of tools.
 Your current working directory is: \`${workspace}\`
 
 **IMPORTANT - File Operations**:
-- All file operations (read, write, create, move, etc.) MUST use paths relative to this workspace directory
-- This means all file paths should start with \`${workspace}/\`
-- Example: To create \`test.txt\`, use path: \`${workspace}/test.txt\`
-- Example: To create \`src/App.jsx\`, use path: \`${workspace}/src/App.jsx\`
+- All file operations use paths **relative to this workspace**
+- ✅ **Correct**: Use simple relative paths
+  - \`test.txt\` - file in workspace root
+  - \`src/App.jsx\` - file in src subdirectory
+  - \`docs/README.md\` - file in docs subdirectory
+- ❌ **Wrong**: Do NOT include workspace path prefix
+  - Don't use: \`${workspace}/test.txt\`
+  - Don't use: \`./workspaces/xxx/test.txt\`
+
+**Examples**:
+- To create \`test.txt\`: use \`test.txt\` (not \`${workspace}/test.txt\`)
+- To create \`src/App.jsx\`: use \`src/App.jsx\` (not \`${workspace}/src/App.jsx\`)
+- To read \`package.json\`: use \`package.json\`
+
+The system will automatically resolve paths relative to your workspace.
 
 ## Tool Calling Rules
 

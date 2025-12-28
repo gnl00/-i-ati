@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useRef, useState } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { VListHandle } from 'virtua'
+import { invokeSetFileOperationsBaseDir } from '@tools/fileOperations/renderer/FileOperationsInvoker'
 
 type ChatContextType = {
   editableContentId: number | undefined
@@ -52,6 +53,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return nextChatList
     })
   }
+
+  // Update file operations base directory when chat changes
+  useEffect(() => {
+    if (chatUuid) {
+      console.log('[ChatContext] Updating file operations base dir for chat:', chatUuid)
+      invokeSetFileOperationsBaseDir(chatUuid)
+    }
+  }, [chatUuid])
 
   return (
       <ChatContext.Provider 

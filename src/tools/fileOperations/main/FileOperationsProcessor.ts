@@ -46,10 +46,49 @@ import type {
 /**
  * Resolve file path relative to userData directory
  * All file operations use paths relative to app.getPath('userData')
+ * @deprecated Use resolveFilePath instead
  */
 function resolveUserDataPath(relativePath: string): string {
   const userDataPath = app.getPath('userData')
   return join(userDataPath, relativePath)
+}
+
+/**
+ * Current base directory for file operations
+ * Default: userData/workspaces/tmp
+ * Updated when switching chats via setWorkspaceBaseDir()
+ */
+let currentBaseDir = join(app.getPath('userData'), 'workspaces', 'tmp')
+
+/**
+ * Set the base directory for file operations
+ * Called when switching chats or creating new chats
+ */
+export function setWorkspaceBaseDir(chatUuid: string): void {
+  currentBaseDir = join(app.getPath('userData'), 'workspaces', chatUuid)
+  console.log(`[FileOps] Base directory updated to: ${currentBaseDir}`)
+}
+
+/**
+ * Resolve file path with workspace support
+ * Supports two formats:
+ * 1. New format: relative path based on currentBaseDir (e.g., "test.txt")
+ * 2. Legacy format: workspace prefix included (e.g., "workspaces/123/test.txt")
+ */
+function resolveFilePath(relativePath: string): string {
+  const userDataPath = app.getPath('userData')
+
+  // Detect legacy format: paths starting with "workspaces/" or "./workspaces/"
+  if (relativePath.startsWith('workspaces/') || relativePath.startsWith('./workspaces/')) {
+    console.log(`[FileOps] Legacy format detected: ${relativePath}`)
+    const cleanPath = relativePath.startsWith('./') ? relativePath.slice(2) : relativePath
+    return join(userDataPath, cleanPath)
+  }
+
+  // New format: resolve relative to currentBaseDir
+  const resolvedPath = join(currentBaseDir, relativePath)
+  console.log(`[FileOps] Resolved: ${relativePath} -> ${resolvedPath}`)
+  return resolvedPath
 }
 
 // ============ Read Operations ============
@@ -61,8 +100,7 @@ function resolveUserDataPath(relativePath: string): string {
 export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
   try {
     const { file_path, encoding = 'utf-8', start_line, end_line } = args
-    const absolutePath = resolveUserDataPath(file_path)
-    console.log(`[ReadTextFile] Reading file: ${file_path} -> ${absolutePath}`)
+    const absolutePath = resolveFilePath(file_path)
     console.log(`[ReadTextFile] File exists check:`, existsSync(absolutePath))
 
     if (!existsSync(absolutePath)) {
@@ -96,7 +134,7 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
 export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<ReadMediaFileResponse> {
   try {
     const { file_path } = args
-    const absolutePath = resolveUserDataPath(file_path)
+    const absolutePath = resolveFilePath(file_path)
     console.log(`[ReadMediaFile] Reading media file: ${file_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -128,7 +166,7 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
     const files: FileContent[] = await Promise.all(
       file_paths.map(async (file_path) => {
         try {
-          const absolutePath = resolveUserDataPath(file_path)
+          const absolutePath = resolveFilePath(file_path)
           if (!existsSync(absolutePath)) {
             return { file_path, success: false, error: 'File not found' }
           }
@@ -158,7 +196,7 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
 export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileResponse> {
   try {
     const { file_path, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
-    const absolutePath = resolveUserDataPath(file_path)
+    const absolutePath = resolveFilePath(file_path)
     console.log(`[WriteFile] Writing to file: ${file_path} -> ${absolutePath}`)
 
     // 如果需要备份且文件存在，先备份
@@ -196,7 +234,7 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
 export async function processEditFile(args: EditFileArgs): Promise<EditFileResponse> {
   try {
     const { file_path, search, replace, regex = false, all = false } = args
-    const absolutePath = resolveUserDataPath(file_path)
+    const absolutePath = resolveFilePath(file_path)
     console.log(`[EditFile] Editing file: ${file_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -253,7 +291,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
 export async function processSearchFile(args: SearchFileArgs): Promise<SearchFileResponse> {
   try {
     const { file_path, pattern, regex = false, case_sensitive = true, max_results = 100 } = args
-    const absolutePath = resolveUserDataPath(file_path)
+    const absolutePath = resolveFilePath(file_path)
     console.log(`[SearchFile] Searching in file: ${file_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -303,7 +341,7 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
 export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchFilesResponse> {
   try {
     const { directory_path, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
-    const absoluteDirPath = resolveUserDataPath(directory_path)
+    const absoluteDirPath = resolveFilePath(directory_path)
     console.log(`[SearchFiles] Searching in directory: ${directory_path} -> ${absoluteDirPath}`)
 
     if (!existsSync(absoluteDirPath)) {
@@ -387,7 +425,7 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
 export async function processListDirectory(args: ListDirectoryArgs): Promise<ListDirectoryResponse> {
   try {
     const { directory_path } = args
-    const absolutePath = resolveUserDataPath(directory_path)
+    const absolutePath = resolveFilePath(directory_path)
     console.log(`[ListDirectory] Listing directory: ${directory_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -423,7 +461,7 @@ export async function processListDirectory(args: ListDirectoryArgs): Promise<Lis
 export async function processListDirectoryWithSizes(args: ListDirectoryWithSizesArgs): Promise<ListDirectoryWithSizesResponse> {
   try {
     const { directory_path } = args
-    const absolutePath = resolveUserDataPath(directory_path)
+    const absolutePath = resolveFilePath(directory_path)
     console.log(`[ListDirectoryWithSizes] Listing: ${directory_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -465,7 +503,7 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
 export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<DirectoryTreeResponse> {
   try {
     const { directory_path, max_depth = 3 } = args
-    const absolutePath = resolveUserDataPath(directory_path)
+    const absolutePath = resolveFilePath(directory_path)
     const userDataPath = app.getPath('userData')
     console.log(`[DirectoryTree] Building tree for: ${directory_path} -> ${absolutePath}`)
 
@@ -520,7 +558,7 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
 export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFileInfoResponse> {
   try {
     const { file_path } = args
-    const absolutePath = resolveUserDataPath(file_path)
+    const absolutePath = resolveFilePath(file_path)
     console.log(`[GetFileInfo] Getting info for: ${file_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -593,7 +631,7 @@ export async function processListAllowedDirectories(_args: ListAllowedDirectorie
 export async function processCreateDirectory(args: CreateDirectoryArgs): Promise<CreateDirectoryResponse> {
   try {
     const { directory_path, recursive = true } = args
-    const absolutePath = resolveUserDataPath(directory_path)
+    const absolutePath = resolveFilePath(directory_path)
     console.log(`[CreateDirectory] Creating: ${directory_path} -> ${absolutePath}`)
 
     if (existsSync(absolutePath)) {
@@ -619,8 +657,8 @@ export async function processCreateDirectory(args: CreateDirectoryArgs): Promise
 export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileResponse> {
   try {
     const { source_path, destination_path, overwrite = false } = args
-    const absoluteSourcePath = resolveUserDataPath(source_path)
-    const absoluteDestPath = resolveUserDataPath(destination_path)
+    const absoluteSourcePath = resolveFilePath(source_path)
+    const absoluteDestPath = resolveFilePath(destination_path)
     console.log(`[MoveFile] Moving: ${source_path} -> ${destination_path}`)
     console.log(`[MoveFile] Absolute: ${absoluteSourcePath} -> ${absoluteDestPath}`)
 
