@@ -7,18 +7,27 @@ import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { invokePinWindow } from '@renderer/invoker/ipcInvoker'
 import { useSheetStore } from '@renderer/store/sheet'
+import { getWorkspacePath } from '@renderer/utils/workspaceUtils'
+import { FolderOpen } from 'lucide-react'
 import React, { useState } from 'react'
+import { toast } from 'sonner'
 
 interface ChatHeaderProps { }
 
 const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps) => {
   const [pinState, setPinState] = useState<boolean>(false)
-  const { chatTitle } = useChatContext()
+  const { chatTitle, chatUuid } = useChatContext()
   const { setSheetOpenState } = useSheetStore()
 
   const onPinToggleClick = (): void => {
     setPinState(!pinState)
     invokePinWindow(!pinState) // pin window
+  }
+
+  const onCopyWorkspacePath = (): void => {
+    const workspacePath = getWorkspacePath(chatUuid)
+    navigator.clipboard.writeText(workspacePath)
+    toast.success(`Copied: ${workspacePath}`)
   }
 
   return (
@@ -44,8 +53,15 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
       </div>
 
       {/* Center Title */}
-      <div className='app-dragable flex-1 flex justify-center'>
+      <div className='app-dragable flex-1 flex justify-center items-end gap-1'>
         <span className='text-gray-500 dark:text-gray-300 font-semibold text-sm bg-gray-100 dark:bg-gray-800 p-1 px-2 rounded-xl truncate max-w-md'>{chatTitle}</span>
+        <button
+          className="app-undragable rounded hover:bg-gray-200 dark:hover:bg-gray-700 p-0.5 transition-colors group mb-0.5"
+          onClick={onCopyWorkspacePath}
+          title="Copy workspace path"
+        >
+          <FolderOpen className="h-2.5 w-2.5 text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+        </button>
       </div>
 
       {/* Right Controls */}
