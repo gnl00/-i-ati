@@ -39,7 +39,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
-  const [inputAreaPanelHeight, setInputAreaPanelHeight] = useState<number>(0) // ChatInputArea Panel 的总高度
 
   // 缓动函数：easeOutCubic - 快速开始，缓慢结束
   const easeOutCubic = useCallback((t: number): number => {
@@ -363,10 +362,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [showScrollToBottom])
 
-  // Handle input area panel resize
-  const handleInputAreaPanelResize = useCallback((height: number) => {
-    setInputAreaPanelHeight(height)
-  }, [])
+
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
@@ -396,7 +392,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             <ResizablePanel
               defaultSize={artifactsPanelOpen ? 60 : 100}
               minSize={30}
-              className="flex flex-col overflow-hidden"
+              className="flex flex-col overflow-hidden relative"
               id="chat-panel"
             >
               <div className="flex-1 app-undragable overflow-scroll">
@@ -416,29 +412,26 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       )
                     })
                   )}
-
-                  {/* ScrollToBottom 按钮 - 更新定位逻辑 */}
-                  {showScrollToBottom && (
-                    <div
-                      id="scrollToBottom"
-                      onClick={() => scrollToBottom(true)}
-                      style={{
-                        bottom: `${inputAreaPanelHeight + 8}px`
-                      }}
-                      className={cn(
-                        "fixed p-0.5 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
-                        "transition-all duration-300 ease-out hover:scale-110",
-                        isButtonFadingOut
-                          ? "opacity-0 translate-y-5 scale-75"
-                          : "opacity-100 translate-y-0"
-                      )}
-                    >
-                      <ArrowDown className="text-gray-400 p-1 m-1" />
-                    </div>
-                  )}
                 </div>
                 <div id="scrollBottomEl" ref={chatPaddingElRef} className="h-px"></div>
               </div>
+
+              {/* ScrollToBottom 按钮 - 绝对定位在 ChatPanel 底部中间 */}
+              {showScrollToBottom && (
+                <div
+                  id="scrollToBottom"
+                  onClick={() => scrollToBottom(true)}
+                  className={cn(
+                    "absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
+                    "transition-all duration-300 ease-out hover:scale-110",
+                    isButtonFadingOut
+                      ? "opacity-0 translate-y-5 scale-75"
+                      : "opacity-100 translate-y-0"
+                  )}
+                >
+                  <ArrowDown className="text-gray-400 p-1 m-1" />
+                </div>
+              )}
             </ResizablePanel>
 
             {/* 右侧：Artifacts 面板 */}
@@ -483,15 +476,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           defaultSize={25}
           minSize={25}
           maxSize={55}
-          onResize={(size) => {
-            // 计算实际像素高度
-            const container = document.getElementById('vertical-panel-group')
-            if (container) {
-              const totalHeight = container.clientHeight
-              const panelHeight = (totalHeight * size) / 100
-              handleInputAreaPanelResize(panelHeight)
-            }
-          }}
           className="flex flex-col overflow-hidden"
         >
           <ChatInputArea
