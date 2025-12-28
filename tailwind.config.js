@@ -103,11 +103,22 @@ module.exports = {
   				to: {
   					height: '0'
   				}
+  			},
+  			'tool-result-in': {
+  				'0%': {
+  					opacity: '0',
+  					transform: 'scale(0.92) translateX(-12px)'
+  				},
+  				'100%': {
+  					opacity: '1',
+  					transform: 'scale(1) translateX(0)'
+  				}
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'tool-result-in': 'tool-result-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
   		}
   	}
   },

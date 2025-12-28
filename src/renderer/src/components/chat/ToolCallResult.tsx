@@ -47,7 +47,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
     <Accordion
       type="single"
       collapsible
-      className='my-2 w-full max-w-full'
+      className='my-2 w-full max-w-full animate-tool-result-in'
       onValueChange={handleAccordionChange}
     >
       <AccordionItem value={'tool-use-' + index} className='border-none'>

@@ -136,7 +136,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
     }
   }, [index])
 
-  // Progressive rendering: Show tool call results one by one
+  // Progressive rendering: Show tool call results one by one with smooth animations
   // This prevents blocking the main thread when multiple tool calls are present
   useEffect(() => {
     const toolCallCount = m.toolCallResults?.length || 0
@@ -144,10 +144,10 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
     // If all tool calls are already visible, do nothing
     if (visibleToolCalls >= toolCallCount) return
 
-    // Show next tool call after a delay
+    // Show next tool call after a short delay for smooth staggered animation
     const timer = setTimeout(() => {
       setVisibleToolCalls(prev => prev + 1)
-    }, 100) // 100ms delay between each tool call
+    }, 30) // 30ms delay for quick, smooth sequential appearance
 
     return () => clearTimeout(timer)
   }, [visibleToolCalls, m.toolCallResults])
