@@ -77,8 +77,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
         }
 
         // 视觉语言模型
-        if (id.includes('vision') || id.includes('gpt-4o') ||
-            id.includes('claude-3') || id.includes('gemini') && id.includes('vision')) {
+        if (id.includes('vision')) {
             return 'vlm'
         }
 
@@ -303,7 +302,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             placeholder="Search models..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 h-9 bg-background"
+                            className="pl-9 h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all"
                             disabled={isFetching}
                         />
                         {searchQuery && (
