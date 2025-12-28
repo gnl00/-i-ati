@@ -52,7 +52,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     updateScheduled.current = false
     const textarea = textareaRef.current
     const caretEl = caretElRef.current
-    
+
     if (!textarea || !caretEl) return
 
     // Strict Visibility Check:
@@ -60,18 +60,20 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     // 2. Window must have focus
     // 3. document.activeElement must match (double check)
     if (!isFocusedRef.current || !isWindowFocusedRef.current || document.activeElement !== textarea) {
-      caretEl.style.opacity = '0'
+      caretEl.style.visibility = 'hidden'
+      caretEl.style.animationPlayState = 'paused'
       return
     }
 
     // Check if there's a selection range - hide caret when text is selected
     if (textarea.selectionStart !== textarea.selectionEnd) {
-      caretEl.style.opacity = '0'
+      caretEl.style.visibility = 'hidden'
+      caretEl.style.animationPlayState = 'paused'
       return
     }
 
     const { top, left, height, fontSize } = getCaretCoordinates(textarea, textarea.selectionEnd)
-    
+
     // Adjust for scroll
     const adjustedTop = top - textarea.scrollTop
     const adjustedLeft = left - textarea.scrollLeft
@@ -86,7 +88,8 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     caretEl.style.setProperty('--caret-x', `${finalLeft}px`)
     caretEl.style.setProperty('--caret-y', `${finalTop}px`)
     caretEl.style.setProperty('--caret-height', `${caretHeight + CARET_CONFIG.CARET_HEIGHT_FINAL_ADJUSTMENT}px`)
-    caretEl.style.opacity = '1'
+    caretEl.style.visibility = 'visible'
+    caretEl.style.animationPlayState = 'running'
 
     // Motion Trail Logic
     if (lastCaretPos.current && trailContainerRef.current) {
@@ -163,7 +166,8 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
   const hideCaret = useCallback(() => {
     isFocusedRef.current = false
     if (caretElRef.current) {
-      caretElRef.current.style.opacity = '0'
+      caretElRef.current.style.visibility = 'hidden'
+      caretElRef.current.style.animationPlayState = 'paused'
     }
   }, [])
 
@@ -180,29 +184,41 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     if (!textarea) return
 
     const handleFocus = () => {
-      // console.log('CustomCaret: Native Focus')
       isFocusedRef.current = true
-      updateCaret()
+      // Use requestAnimationFrame to ensure layout is complete
+      requestAnimationFrame(() => {
+        updateCaret()
+      })
     }
 
     const handleBlur = () => {
-      // console.log('CustomCaret: Native Blur')
       isFocusedRef.current = false
       if (caretElRef.current) {
-        caretElRef.current.style.opacity = '0'
+        caretElRef.current.style.visibility = 'hidden'
+        caretElRef.current.style.animationPlayState = 'paused'
       }
     }
 
     const handleInput = () => {
-        updateCaret()
+        // Input only happens when focused, but check to be safe
+        if (isFocusedRef.current) {
+            updateCaret()
+        }
     }
 
     const handleScroll = () => {
-        updateCaret()
+        // Only update caret position if textarea is focused
+        if (isFocusedRef.current) {
+            updateCaret()
+        }
     }
 
     const handleClick = () => {
-        updateCaret()
+        // Click might happen before focus event, performUpdate will handle the check
+        // But we still check here to avoid unnecessary updates
+        if (isFocusedRef.current || document.activeElement === textareaRef.current) {
+            updateCaret()
+        }
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -253,8 +269,8 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     const handleWindowFocus = () => {
       isWindowFocusedRef.current = true
-      // Only show if textarea is still focused
-      if (document.activeElement === textareaRef.current) {
+      // Only show if textarea is still focused AND was previously focused by user interaction
+      if (isFocusedRef.current && document.activeElement === textareaRef.current) {
         updateCaret()
       }
     }
@@ -265,7 +281,10 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       if (resizeTimeout) return
       resizeTimeout = window.setTimeout(() => {
         resizeTimeout = null
-        updateCaret()
+        // Only update if textarea is focused
+        if (isFocusedRef.current) {
+          updateCaret()
+        }
       }, CARET_CONFIG.RESIZE_THROTTLE_MS)
     }
 
@@ -295,7 +314,8 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
             style={{
                 top: 0,
                 left: 0,
-                opacity: 0, // Hidden by default
+                visibility: 'hidden', // Hidden by default
+                animationPlayState: 'paused', // Animation paused by default
                 transition: 'transform 0.1s cubic-bezier(0.2, 0, 0, 1), height 0.1s ease',
             }}
         >
