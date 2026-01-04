@@ -25,6 +25,8 @@ import {
 } from '@tools/devServer/main/DevServerProcessor'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
+import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
+import MemoryService from './services/MemoryService'
 import {
   OPEN_EXTERNAL,
   PIN_WINDOW,
@@ -54,7 +56,18 @@ import {
   DEV_SERVER_START,
   DEV_SERVER_STOP,
   DEV_SERVER_STATUS,
-  DEV_SERVER_LOGS
+  DEV_SERVER_LOGS,
+  MEMORY_ADD,
+  MEMORY_ADD_BATCH,
+  MEMORY_SEARCH,
+  MEMORY_GET_CHAT,
+  MEMORY_DELETE,
+  MEMORY_DELETE_CHAT,
+  MEMORY_GET_STATS,
+  MEMORY_CLEAR,
+  EMBEDDING_GENERATE,
+  EMBEDDING_GENERATE_BATCH,
+  EMBEDDING_GET_MODEL_INFO
 } from '../constants'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
 
@@ -210,6 +223,62 @@ function mainIPCSetup() {
     // console.log('CompleteJSON', lexer.CompleteJSON())
     // console.log('JSON.parse CompleteJSON', JSON.parse(lexer.CompleteJSON()))
     return mcpToolCall(callId, tool, JSON.parse(lexer.CompleteJSON()))
+  })
+
+  // Memory & Embedding handlers
+  ipcMain.handle(MEMORY_ADD, async (_event, args) => {
+    console.log(`[Memory IPC] Add memory for chat: ${args.chatId}`)
+    return await MemoryService.addMemory(args)
+  })
+
+  ipcMain.handle(MEMORY_ADD_BATCH, async (_event, args) => {
+    console.log(`[Memory IPC] Add batch memories: ${args.entries.length} entries`)
+    return await MemoryService.addBatchMemories(args.entries)
+  })
+
+  ipcMain.handle(MEMORY_SEARCH, async (_event, args) => {
+    console.log(`[Memory IPC] Search memories: ${args.query}`)
+    return await MemoryService.searchMemories(args.query, args.options)
+  })
+
+  ipcMain.handle(MEMORY_GET_CHAT, async (_event, args) => {
+    console.log(`[Memory IPC] Get chat memories: ${args.chatId}`)
+    return await MemoryService.getChatMemories(args.chatId)
+  })
+
+  ipcMain.handle(MEMORY_DELETE, async (_event, args) => {
+    console.log(`[Memory IPC] Delete memory: ${args.id}`)
+    return await MemoryService.deleteMemory(args.id)
+  })
+
+  ipcMain.handle(MEMORY_DELETE_CHAT, async (_event, args) => {
+    console.log(`[Memory IPC] Delete chat memories: ${args.chatId}`)
+    return await MemoryService.deleteChatMemories(args.chatId)
+  })
+
+  ipcMain.handle(MEMORY_GET_STATS, async (_event) => {
+    console.log(`[Memory IPC] Get stats`)
+    return MemoryService.getStats()
+  })
+
+  ipcMain.handle(MEMORY_CLEAR, async (_event) => {
+    console.log(`[Memory IPC] Clear all memories`)
+    return await MemoryService.clear()
+  })
+
+  ipcMain.handle(EMBEDDING_GENERATE, async (_event, args) => {
+    console.log(`[Embedding IPC] Generate embedding`)
+    return await EmbeddingServiceInstance.generateEmbedding(args.text, args.options)
+  })
+
+  ipcMain.handle(EMBEDDING_GENERATE_BATCH, async (_event, args) => {
+    console.log(`[Embedding IPC] Generate batch embeddings: ${args.texts.length} texts`)
+    return await EmbeddingServiceInstance.generateBatchEmbeddings(args.texts, args.options)
+  })
+
+  ipcMain.handle(EMBEDDING_GET_MODEL_INFO, async (_event) => {
+    console.log(`[Embedding IPC] Get model info`)
+    return EmbeddingServiceInstance.getModelInfo()
   })
 
 }
