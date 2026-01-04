@@ -1,6 +1,6 @@
 import { ActivityLogIcon, DrawingPinFilledIcon, DrawingPinIcon, GearIcon } from '@radix-ui/react-icons'
 import { ModeToggle } from '@renderer/components/mode-toggle'
-import PreferenceComponent from '@renderer/components/sys/PreferenceComponent'
+import SettingsPanel from '@renderer/components/settings/SettingsPanel'
 import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
@@ -37,7 +37,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
               </Button>
             </PopoverTrigger>
             <PopoverContent className="ml-1 mt-1 p-0 pt-2 px-2 app-undragable w-auto h-full">
-              <PreferenceComponent />
+              <SettingsPanel />
             </PopoverContent>
           </Popover>
         </div>
