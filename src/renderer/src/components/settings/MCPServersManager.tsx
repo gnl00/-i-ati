@@ -304,7 +304,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                         "group relative p-3.5 rounded-xl border transition-all duration-300",
                         "bg-white dark:bg-gray-900/40",
                         "border-gray-200/60 dark:border-gray-800/60",
-                        "shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20",
+                        "shadow-sm hover:shadow dark:hover:shadow-md dark:hover:shadow-black/20",
                         "flex items-start justify-between gap-4",
                         installed && "bg-gray-50/50 dark:bg-gray-900/10 border-gray-200/50 dark:border-gray-800/30 opacity-80 hover:opacity-100"
                       )}
@@ -477,7 +477,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                         return (
                           <div
                             key={name}
-                            className="group relative bg-white dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800/60 transition-all duration-300 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20"
+                            className="group relative bg-white dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800/60 transition-all duration-300 shadow-sm hover:shadow dark:hover:shadow-md dark:hover:shadow-black/20"
                             style={{
                               animationDelay: `${index * 50}ms`,
                               animation: 'fadeInUp 0.4s ease-out forwards',
@@ -500,13 +500,16 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                     </h4>
                                     <div className="flex items-center gap-2">
                                       <Badge
-                                        variant="secondary"
+                                        variant="outline"
                                         className={cn(
-                                          "text-[9px] font-mono font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-none shadow-sm",
-                                          serverType === 'sse' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" :
-                                            serverType === 'STDIO' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" :
-                                              serverType === 'streamableHttp' ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" :
-                                                "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                                          "text-[9px] h-4 px-1.5 font-normal",
+                                          serverType === 'sse'
+                                            ? "text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800"
+                                            : serverType === 'STDIO'
+                                              ? "text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
+                                              : serverType === 'streamableHttp'
+                                                ? "text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+                                                : "text-gray-600 border-gray-200 bg-gray-50 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800"
                                         )}
                                       >
                                         {serverType}
@@ -519,7 +522,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                 <div className="flex flex-col items-end gap-2 flex-shrink-0 select-none">
                                   <Badge
                                     variant="outline"
-                                    className="text-[9px] font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-none bg-gray-50 transition-all duration-300 flex items-center gap-1"
+                                    className="text-[9px] text-gray-500 font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-gray-100 bg-gray-50 transition-all duration-300 flex items-center gap-1"
                                   >
                                     <Check className="h-2.5 w-2.5" />
                                     Installed
@@ -542,7 +545,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleUninstallServer(name)}
-                                      className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                                      className="h-8 w-8 p-0 text-muted-foreground text-red-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
                                       title="Uninstall Server"
                                     >
                                       <Trash2 className="h-4 w-4" />
