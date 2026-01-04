@@ -33,7 +33,7 @@ import {
 } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { CustomCaretOverlay, CustomCaretRef } from './CustomCaretOverlay'
+import { CustomCaretOverlay, CustomCaretRef } from './common/CustomCaretOverlay'
 
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
 import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
