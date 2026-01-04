@@ -67,7 +67,7 @@ pnpm build:mac
 - [X] Copy and Edit tooltips
 - [X] ~~fetch models from api(if API provider supports)~~ maybe no need
 - [X] save chat list
-- [ ] chat list ~~title~~ and hisoty summary
+- [ ] chat list ~~title~~ and hisoty summary AKA session compact
 - [X] dark/light mode
 - [X] artifacts supports(~~THANKS CLAUDECODE :P~~)
 - [X] default model for chat
@@ -80,7 +80,6 @@ pnpm build:mac
 - [X] math(LaTex) render(only `$` and `$$` supports,[ref](https://github.com/remarkjs/remark-math?tab=readme-ov-file#example-katex)))
 - [ ] memory
 - [ ] chat message split to multipart
-- [ ] session compact
 - [ ] command panel
 - [ ] llm arena
 
