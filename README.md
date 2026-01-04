@@ -73,11 +73,16 @@ pnpm build:mac
 - [X] default model for chat
 - [X] add provider
 - [ ] chat config topK/topP/maxToken(very soon~)
-- [X] web search
-- [ ] web search items setting
+- [X] web search & web_fetch
 - [X] mcp(yes it is here~)
-- [ ] re-design provider card
+- [X] [mcp-registry](https://registry.modelcontextprotocol.io/)
+- [X] re-design provider card
 - [X] math(LaTex) render(only `$` and `$$` supports,[ref](https://github.com/remarkjs/remark-math?tab=readme-ov-file#example-katex)))
+- [ ] memory
+- [ ] chat message split to multipart
+- [ ] session compact
+- [ ] command panel
+- [ ] llm arena
 
 ## Reference
 
