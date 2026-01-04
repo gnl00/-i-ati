@@ -1,4 +1,5 @@
 import { Cross1Icon } from "@radix-ui/react-icons"
+import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
 import { Switch } from "@renderer/components/ui/switch"
 import {
     Table,
@@ -9,7 +10,6 @@ import {
     TableRow,
 } from "@renderer/components/ui/table"
 import { Tabs, TabsContent } from "@renderer/components/ui/tabs"
-import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
 import { cn } from '@renderer/lib/utils'
 import React, { useEffect, useState } from 'react'
 
@@ -34,10 +34,10 @@ import {
     TooltipProvider,
     TooltipTrigger
 } from "@renderer/components/ui/tooltip"
+import { exportConfigAsJSON, getConfig, importConfigFromJSON } from '@renderer/db/ConfigRepository'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { exportConfigAsJSON, importConfigFromJSON, getConfig } from '@renderer/db/ConfigRepository'
-import { Check, ChevronsUpDown, Trash, Settings, Wrench, Server, Plug, Globe } from "lucide-react"
+import { Check, ChevronsUpDown, Plug, Server, Trash, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
@@ -49,9 +49,8 @@ import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
 import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
 import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
 import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
-import CodeEditor from '@uiw/react-textarea-code-editor'
 import FetchModelsDrawer from './FetchModelsDrawer'
-import MCPServersManager from './MCPServersManager'
+import { MCPServersManagerContent } from './MCPServersManager'
 
 interface PreferenceProps { }
 
@@ -102,9 +101,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
     // fetchModels Drawer 状态
     const [showFetchModelsDrawer, setShowFetchModelsDrawer] = useState<boolean>(false)
-
-    // MCPServersManager Drawer 状态
-    const [showMCPServersManager, setShowMCPServersManager] = useState<boolean>(false)
 
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
 
@@ -902,23 +898,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="mcp-server" className='w-[700px] h-[600px] flex items-center justify-center'>
-                    <div className="text-center space-y-4">
-                        <Server className="h-16 w-16 mx-auto text-muted-foreground/30" />
-                        <div>
-                            <h3 className="text-lg font-semibold mb-1">MCP Servers Registry</h3>
-                            <p className="text-sm text-muted-foreground">
-                                Browse and install MCP servers from the official registry
-                            </p>
-                        </div>
-                        <Button size="lg" onClick={() => setShowMCPServersManager(true)} className="gap-2">
-                            <Globe className="h-5 w-5" />
-                            Open Registry
-                        </Button>
-                        <div className="pt-4 border-t">
-                            <p className="text-xs text-muted-foreground mb-2">
-                                {Object.keys(mcpServerConfig.mcpServers || {}).length} server(s) installed
-                            </p>
+                <TabsContent value="mcp-server" className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
+                    <div className="w-full h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md">
+                        <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+                            <MCPServersManagerContent
+                                mcpServerConfig={mcpServerConfig}
+                                setMcpServerConfig={setMcpServerConfig}
+                            />
                         </div>
                     </div>
                 </TabsContent>
@@ -930,14 +916,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 onOpenChange={setShowFetchModelsDrawer}
                 currentProvider={currentProvider}
                 addModel={addModel}
-            />
-
-            {/* MCP Servers Manager Drawer */}
-            <MCPServersManager
-                open={showMCPServersManager}
-                onOpenChange={setShowMCPServersManager}
-                mcpServerConfig={mcpServerConfig}
-                setMcpServerConfig={setMcpServerConfig}
             />
         </div>
     )
