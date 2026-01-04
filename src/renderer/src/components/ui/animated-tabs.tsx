@@ -1,6 +1,6 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { cn } from '@renderer/lib/utils'
 import { TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
+import { cn } from '@renderer/lib/utils'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export interface AnimatedTab {
   value: string
@@ -23,89 +23,86 @@ export const AnimatedTabsList: React.FC<AnimatedTabsListProps> = ({
   tabsListClassName,
   tabsTriggerClassName
 }) => {
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number } | null>(null)
   const tabsListRef = useRef<HTMLDivElement>(null)
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
-  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
+  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
-  // 更新滑动指示器位置
-  const updateIndicator = useCallback(() => {
-    // 使用 requestAnimationFrame 确保在正确的时机更新
-    requestAnimationFrame(() => {
-      const activeTab = tabRefs.current[value]
-      const tabsList = tabsListRef.current
+  const updateIndicator = () => {
+    const activeTabObj = tabRefs.current.get(value)
+    const listObj = tabsListRef.current
 
-      if (activeTab && tabsList) {
-        const tabsListRect = tabsList.getBoundingClientRect()
-        const activeTabRect = activeTab.getBoundingClientRect()
+    if (activeTabObj && listObj) {
+      setIndicatorStyle({
+        left: activeTabObj.offsetLeft,
+        width: activeTabObj.offsetWidth
+      })
+    }
+  }
 
-        setIndicatorStyle({
-          left: activeTabRect.left - tabsListRect.left,
-          width: activeTabRect.width
-        })
-      }
+  // Use ResizeObserver for robust layout tracking
+  useEffect(() => {
+    const listObj = tabsListRef.current
+    if (!listObj) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      // Small debounce/raf could be added here if resizing is very heavy,
+      // but usually direct update is fine for UI tabs
+      requestAnimationFrame(updateIndicator)
     })
-  }, [value])
 
-  // 监听 value 变化，更新指示器
-  useEffect(() => {
+    resizeObserver.observe(listObj)
+    return () => resizeObserver.disconnect()
+  }, [value]) // Re-bind if value changes to ensure we measure the new active tab correctly
+
+  // useLayoutEffect prevents the initial "jump" by calculating before paint
+  useLayoutEffect(() => {
     updateIndicator()
-  }, [value, updateIndicator])
-
-  // 监听窗口大小变化，更新指示器
-  useEffect(() => {
-    const handleResize = () => updateIndicator()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [updateIndicator])
-
-  // 初始化时更新一次
-  useEffect(() => {
-    const timer = setTimeout(updateIndicator, 100)
-    return () => clearTimeout(timer)
-  }, [updateIndicator])
+  }, [value])
 
   return (
     <TabsList
       ref={tabsListRef}
       className={cn(
-        "bg-gray-100/80 dark:bg-gray-900/80 h-8 p-0.5 rounded-lg border border-black/5 dark:border-white/5 relative",
+        "relative flex items-center p-1 rounded-xl border",
+        "bg-gray-100/50 dark:bg-black/40",
+        "border-black/5 dark:border-white/5",
         tabsListClassName,
         className
       )}
     >
-      {/* 滑动指示器 */}
-      {indicatorStyle.width > 0 && (
+      {/* Animated Indicator - Rendered BEHIND the triggers */}
+      {indicatorStyle && (
         <div
-          className="absolute bottom-0.5 top-0.5 rounded-md bg-white dark:bg-gray-700 shadow-sm z-0"
+          className="absolute left-0 top-1 bottom-1 rounded-lg shadow-sm bg-white dark:bg-gray-800 border border-black/5 dark:border-white/5 z-0 transition-all duration-300 ease-out will-change-transform"
           style={{
-            left: `${indicatorStyle.left}px`,
-            width: `${indicatorStyle.width}px`,
-            // Material Design 标准曲线，位置稍快，宽度稍慢，产生自然的"追赶"效果
-            transition: 'left 250ms cubic-bezier(0.4, 0, 0.2, 1), width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-            // 提示浏览器优化这些属性的动画性能
-            willChange: 'left, width'
+            transform: `translateX(${indicatorStyle.left}px)`,
+            width: `${indicatorStyle.width}px`
           }}
         />
       )}
 
-      {/* Tabs */}
+      {/* Tab Triggers - Rendered ON TOP of the indicator */}
       {tabs.map((tab) => (
         <TabsTrigger
           key={tab.value}
           ref={(el) => {
-            tabRefs.current[tab.value] = el
+            if (el) tabRefs.current.set(tab.value, el)
+            else tabRefs.current.delete(tab.value)
           }}
           value={tab.value}
           className={cn(
-            "px-3 h-7 text-[11px] font-semibold rounded-md relative z-10 transition-colors duration-200",
-            "data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400",
-            "text-gray-600 dark:text-gray-400",
-            "focus-visible:outline-none",
+            "relative z-10 h-8 px-4 rounded-lg bg-transparent",
+            "text-xs font-semibold text-muted-foreground",
+            "data-[state=active]:text-foreground data-[state=active]:bg-transparent",
+            "hover:text-foreground/80 transition-colors",
+            "focus-visible:ring-0 focus-visible:bg-transparent",
             tabsTriggerClassName
           )}
         >
-          {tab.icon && <span className="mr-1.5">{tab.icon}</span>}
-          {tab.label}
+          <div className="flex items-center gap-2">
+            {tab.icon && <span className="opacity-70 group-data-[state=active]:opacity-100 transition-opacity">{tab.icon}</span>}
+            <span>{tab.label}</span>
+          </div>
         </TabsTrigger>
       ))}
     </TabsList>
