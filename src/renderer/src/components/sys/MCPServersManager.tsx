@@ -301,7 +301,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                     <div
                       key={`${item.server.name}-${idx}`}
                       className={cn(
-                        "group relative p-3.5 rounded-xl border transition-all duration-300 overflow-hidden",
+                        "group relative p-3.5 rounded-xl border transition-all duration-300",
                         "bg-white dark:bg-gray-900/40",
                         "border-gray-200/60 dark:border-gray-800/60",
                         "shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20",
@@ -309,8 +309,6 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                         installed && "bg-gray-50/50 dark:bg-gray-900/10 border-gray-200/50 dark:border-gray-800/30 opacity-80 hover:opacity-100"
                       )}
                     >
-                      {/* Subtle gradient overlay on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-gray-900/0 to-gray-900/0 group-hover:from-gray-900/[0.02] group-hover:to-gray-900/[0.04] dark:group-hover:from-white/[0.02] dark:group-hover:to-white/[0.04] transition-all duration-500 pointer-events-none" />
                       <div className="flex-1 min-w-0 relative">
                         <div className="flex items-start gap-3.5 mb-2.5">
                           <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-sm">
@@ -479,16 +477,13 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                         return (
                           <div
                             key={name}
-                            className="group relative bg-white dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800/60 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20"
+                            className="group relative bg-white dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800/60 transition-all duration-300 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20"
                             style={{
                               animationDelay: `${index * 50}ms`,
                               animation: 'fadeInUp 0.4s ease-out forwards',
                               opacity: 0
                             }}
                           >
-                            {/* Subtle gradient overlay on hover */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-gray-900/0 to-gray-900/0 group-hover:from-gray-900/[0.02] group-hover:to-gray-900/[0.04] dark:group-hover:from-white/[0.02] dark:group-hover:to-white/[0.04] transition-all duration-500 pointer-events-none" />
-
                             <div className="relative p-2">
                               {/* Header section */}
                               <div className="flex items-start justify-between gap-4 mb-3">
