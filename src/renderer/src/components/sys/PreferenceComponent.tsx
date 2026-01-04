@@ -37,7 +37,7 @@ import {
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { exportConfigAsJSON, importConfigFromJSON, getConfig } from '@renderer/db/ConfigRepository'
-import { Check, ChevronsUpDown, Trash, Settings, Wrench, Server, Plug } from "lucide-react"
+import { Check, ChevronsUpDown, Trash, Settings, Wrench, Server, Plug, Globe } from "lucide-react"
 import { toast } from 'sonner'
 
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
@@ -51,6 +51,7 @@ import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
 import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
 import CodeEditor from '@uiw/react-textarea-code-editor'
 import FetchModelsDrawer from './FetchModelsDrawer'
+import MCPServersManager from './MCPServersManager'
 
 interface PreferenceProps { }
 
@@ -101,6 +102,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
     // fetchModels Drawer 状态
     const [showFetchModelsDrawer, setShowFetchModelsDrawer] = useState<boolean>(false)
+
+    // MCPServersManager Drawer 状态
+    const [showMCPServersManager, setShowMCPServersManager] = useState<boolean>(false)
 
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
 
@@ -898,20 +902,25 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="mcp-server" className='w-[700px] h-[600px] overflow-scroll space-y-1 rounded-md focus:ring-0 focus-visible:ring-0'>
-                    <CodeEditor
-                        value={msConfig}
-                        language="json"
-                        placeholder="Please enter JSON code."
-                        onChange={(e) => onMcpServerConfigChange(e)}
-                        className="dark:bg-gray-900"
-                        style={{
-                            backgroundColor: "#f5f5f5",
-                            fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
-                        }}
-                        padding={15}
-                        data-color-mode="dark"
-                    />
+                <TabsContent value="mcp-server" className='w-[700px] h-[600px] flex items-center justify-center'>
+                    <div className="text-center space-y-4">
+                        <Server className="h-16 w-16 mx-auto text-muted-foreground/30" />
+                        <div>
+                            <h3 className="text-lg font-semibold mb-1">MCP Servers Registry</h3>
+                            <p className="text-sm text-muted-foreground">
+                                Browse and install MCP servers from the official registry
+                            </p>
+                        </div>
+                        <Button size="lg" onClick={() => setShowMCPServersManager(true)} className="gap-2">
+                            <Globe className="h-5 w-5" />
+                            Open Registry
+                        </Button>
+                        <div className="pt-4 border-t">
+                            <p className="text-xs text-muted-foreground mb-2">
+                                {Object.keys(mcpServerConfig.mcpServers || {}).length} server(s) installed
+                            </p>
+                        </div>
+                    </div>
                 </TabsContent>
             </Tabs>
 
@@ -921,6 +930,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 onOpenChange={setShowFetchModelsDrawer}
                 currentProvider={currentProvider}
                 addModel={addModel}
+            />
+
+            {/* MCP Servers Manager Drawer */}
+            <MCPServersManager
+                open={showMCPServersManager}
+                onOpenChange={setShowMCPServersManager}
+                mcpServerConfig={mcpServerConfig}
+                setMcpServerConfig={setMcpServerConfig}
             />
         </div>
     )
