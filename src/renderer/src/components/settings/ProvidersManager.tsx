@@ -130,38 +130,20 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
         toast.success(`Added ${newProviderName}`)
     }
 
+    const ICON_MAP = {
+        'openai': openaiIcon,
+        'anthropic': anthropicIcon,
+        'deepseek': deepseekIcon,
+        'moonshot': moonshotIcon,
+        'siliconflow': siliconcloudIcon,
+        'siliconcloud': siliconcloudIcon,
+        'openrouter': openrouterIcon,
+        'ollama': ollamaIcon,
+        'groq': groqIcon,
+    }
+
     const getIconSrc = (provider: string) => {
-        let iconSrc = robotIcon
-        const pName = provider.toLowerCase()
-        switch (pName) {
-            case "OpenAI".toLowerCase():
-                iconSrc = openaiIcon
-                break
-            case "Anthropic".toLowerCase():
-                iconSrc = anthropicIcon
-                break
-            case "DeepSeek".toLowerCase():
-                iconSrc = deepseekIcon
-                break
-            case "MoonShot".toLowerCase():
-                iconSrc = moonshotIcon
-                break
-            case "SilliconFlow".toLowerCase() || "SiliconCloud".toLowerCase():
-                iconSrc = siliconcloudIcon
-                break
-            case "OpenRouter".toLowerCase():
-                iconSrc = openrouterIcon
-                break
-            case "Ollamma".toLowerCase():
-                iconSrc = ollamaIcon
-                break
-            case "Groq".toLowerCase():
-                iconSrc = groqIcon
-                break
-            default:
-                break
-        }
-        return iconSrc
+        return ICON_MAP[provider.toLowerCase()] || robotIcon
     }
 
     const onModelTableCellClick = (val: string) => {
@@ -295,9 +277,10 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                         className={cn(
                                             'flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer select-none relative group',
                                             'transition-all duration-200 ease-out',
+                                            'border-l-4 border-transparent',
                                             p.name === currentProviderName
-                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500 shadow-sm'
-                                                : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow-sm hover:scale-[1.02]'
+                                                ? 'bg-blue-50 dark:bg-blue-900/30 border-l-blue-500'
+                                                : 'hover:bg-gray-100 dark:hover:bg-gray-700 border-l-blue-100/70 dark:border-l-blue-gray-500/70'
                                         )}
                                         onMouseEnter={_ => onProviderCardHover(idx)}
                                         onMouseLeave={_ => onProviderCardHover(-1)}
@@ -309,13 +292,17 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                             src={getIconSrc(p.name)}
                                             alt={p.name}
                                             className={cn(
-                                                "w-5 h-5 flex-none dark:invert dark:brightness-90 transition-transform duration-200",
-                                                hoverProviderCardIdx === idx && "scale-110"
+                                                "w-5 h-5 flex-none dark:invert dark:brightness-90 transition-all duration-200 ease-out",
+                                                hoverProviderCardIdx === idx && "scale-110",
+                                                p.name === currentProviderName && "scale-125"
                                             )}
                                         />
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <p className='truncate font-medium text-sm text-gray-700 dark:text-gray-300 flex-1 transition-colors duration-200'>
+                                                <p className={cn(
+                                                    'truncate font-medium text-sm text-gray-700 dark:text-gray-300 flex-1 transition-colors duration-200 ease-out',
+                                                    hoverProviderCardIdx === idx && 'text-gray-900 dark:text-gray-100'
+                                                )}>
                                                     {p.name}
                                                 </p>
                                             </TooltipTrigger>
