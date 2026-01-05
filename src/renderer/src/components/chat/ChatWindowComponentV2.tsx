@@ -312,6 +312,26 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [messages, showScrollToBottom, scrollToBottomThrottled])
 
+  // 监听聊天内容高度变化（用于 typewriter 效果期间的自动滚动）
+  useEffect(() => {
+    const chatListElement = chatListRef.current
+    if (!chatListElement) return
+
+    // 使用 ResizeObserver 监听内容高度变化
+    const resizeObserver = new ResizeObserver(() => {
+      // 只有在用户位于底部时（按钮不可见）才自动滚动
+      if (!showScrollToBottom) {
+        scrollToBottomThrottled()
+      }
+    })
+
+    resizeObserver.observe(chatListElement)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [showScrollToBottom, scrollToBottomThrottled])
+
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
       <ChatHeaderComponent />

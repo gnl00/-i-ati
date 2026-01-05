@@ -89,13 +89,6 @@ const markdownCodeComponent = {
 
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
 
-  console.log(`[DEBUG-RENDER] Message ${index} rendering:`, {
-    role: m.role,
-    segmentsCount: m.segments?.length || 0,
-    segments: m.segments,
-    isLatest
-  })
-
   // Use Zustand selector to avoid unnecessary re-renders
   // Only subscribe to showLoadingIndicator, not the entire store
   const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
@@ -112,26 +105,43 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
 
   // Use segment typewriter for assistant messages
   const enabled = m.role === 'assistant' && isLatest && !m.typewriterCompleted
-  console.log(`[DEBUG-RENDER] Typewriter enabled:`, enabled, {
-    role: m.role,
-    isLatest,
-    typewriterCompleted: m.typewriterCompleted
-  })
+  const isStreaming = showLoadingIndicator && isLatest // Consider it streaming if globally loading and this is the latest message
+
+  // 更新 ChatMessage - 强制 segments 字段（破坏性变更）
+  // 临时：强制 ensure segments 存在
+  const segments = m.segments || []
+
+  const setMessages = useChatStore(state => state.setMessages)
+  const messages = useChatStore(state => state.messages)
 
   const {
-    activeTextIndex,
-    displayedText,
-    completedTextIndices
-  } = useSegmentTypewriter(m.segments, {
+    getSegmentVisibleLength,
+    shouldRenderSegment,
+    isAllComplete
+  } = useSegmentTypewriter(segments, {
     minSpeed: 5,
     maxSpeed: 20,
-    enabled
-  })
-
-  console.log(`[DEBUG-RENDER] Message ${index} typewriter state:`, {
-    activeTextIndex,
-    displayedText: displayedText?.substring(0, 50),
-    completedCount: completedTextIndices.size
+    enabled,
+    isStreaming,
+    onAllComplete: () => {
+      // 打字机效果完成后，标记当前消息的 typewriterCompleted 为 true
+      // 直接修改当前消息对象，避免从 store 重新获取
+      if (!m.typewriterCompleted) {
+        const updatedMessages = messages.map((msg, idx) => {
+          if (idx === index) {
+            return {
+              ...msg,
+              body: {
+                ...msg.body,
+                typewriterCompleted: true
+              }
+            }
+          }
+          return msg
+        })
+        setMessages(updatedMessages)
+      }
+    }
   })
 
   const onCopyClick = (content: string) => {
@@ -233,54 +243,34 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
           <Badge id='model-badge' variant="outline" className={cn('select-none text-gray-700 dark:text-gray-300 mb-1 dark:border-white/20', showLoadingIndicator && isLatest ? 'animate-shine-infinite' : '')}>@{m.model}</Badge>
         )}
 
-        {m.segments.map((segment, segIdx) => {
-          console.log(`[DEBUG-RENDER] Rendering segment ${segIdx}:`, {
-            type: segment.type,
-            content: segment.content?.substring(0, 50),
-            activeTextIndex,
-            isActive: segIdx === activeTextIndex,
-            isCompleted: completedTextIndices.has(segIdx)
-          })
+        {segments.map((segment, segIdx) => {
+          // Check if we should render this segment at all
+          if (!shouldRenderSegment(segIdx)) {
+            return null
+          }
 
           if (segment.type === 'text') {
-            // 根据 activeTextIndex 和 completedTextIndices 渲染
-            if (segIdx === activeTextIndex) {
-              // 当前活跃：显示 typewriter 文本
-              console.log(`[DEBUG-RENDER] ACTIVE segment ${segIdx}, displaying displayedText:`, displayedText)
-              return (
-                <ReactMarkdown
-                  key={`text-${segIdx}`}
-                  remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
-                  rehypePlugins={[rehypeRaw, rehypeKatex]}
-                  skipHtml={false}
-                  remarkRehypeOptions={{ passThrough: ['link'] }}
-                  className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
-                  components={markdownCodeComponent}
-                >
-                  {displayedText}
-                </ReactMarkdown>
-              )
-            } else if (completedTextIndices.has(segIdx)) {
-              // 已完成：显示完整文本
-              console.log(`[DEBUG-RENDER] COMPLETED segment ${segIdx}, displaying full content`)
-              return (
-                <ReactMarkdown
-                  key={`text-${segIdx}`}
-                  remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
-                  rehypePlugins={[rehypeRaw, rehypeKatex]}
-                  skipHtml={false}
-                  remarkRehypeOptions={{ passThrough: ['link'] }}
-                  className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
-                  components={markdownCodeComponent}
-                >
-                  {segment.content}
-                </ReactMarkdown>
-              )
-            } else {
-              // 未完成：不显示任何内容（等待 typewriter 到达）
-              console.log(`[DEBUG-RENDER] SKIPPING segment ${segIdx} (not active or completed)`)
-              return null
-            }
+            const visibleLen = getSegmentVisibleLength(segIdx)
+            const displayedText = segment.content.slice(0, visibleLen)
+
+            // console.log(`[Render] Seg ${segIdx}: visibleLen=${visibleLen}, contentLen=${segment.content.length}, active=${activeTextIndex}`)
+
+            // If empty, render nothing
+            if (!displayedText) return null
+
+            return (
+              <ReactMarkdown
+                key={`text-${segIdx}`}
+                remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+                rehypePlugins={[rehypeRaw, rehypeKatex]}
+                skipHtml={false}
+                remarkRehypeOptions={{ passThrough: ['link'] }}
+                className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                components={markdownCodeComponent}
+              >
+                {displayedText}
+              </ReactMarkdown>
+            )
           } else if (segment.type === 'reasoning') {
             return (
               <Accordion key={`reasoning-${segIdx}`} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>

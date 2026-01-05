@@ -65,7 +65,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Internal setter (used by initializeAppConfig)
   _setAppConfig: (config: IAppConfig) => {
-    console.log('[appConfig] _setAppConfig called, providers count:', config.providers?.length || 0)
+    // console.log('[appConfig] _setAppConfig called, providers count:', config.providers?.length || 0)
     set({
       appConfig: config,
       providers: config.providers || [],
