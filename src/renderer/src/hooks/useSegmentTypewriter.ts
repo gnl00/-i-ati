@@ -4,34 +4,44 @@ interface SegmentTypewriterOptions {
   minSpeed?: number
   maxSpeed?: number
   enabled?: boolean
+  isStreaming?: boolean
   onSegmentStart?: (segmentIndex: number) => void
   onSegmentComplete?: (segmentIndex: number) => void
   onAllComplete?: () => void
 }
 
 interface UseSegmentTypewriterReturn {
-  // 已显示的 segments（包括完整的和部分 typewriter 的）
-  displayedSegments: MessageSegment[]
+  // 当前正在 typewriter 的 segment 索引
+  activeSegmentIndex: number
 
-  // 当前正在 typewriter 的 text segment 索引（-1 表示无）
-  activeTextIndex: number
+  // 当前活跃 segment 的显示长度
+  currentSegmentOffset: number
 
-  // 当前活跃 text segment 的显示文本（ typewriter 进度）
-  displayedText: string
+  // 辅助函数：获取指定 segment 应该显示的内容长度
+  getSegmentVisibleLength: (index: number) => number
 
-  // 已完成的 text segment 索引集合
-  completedTextIndices: Set<number>
+  // 辅助函数：判断指定 segment 是否应该渲染
+  shouldRenderSegment: (index: number) => boolean
 
-  // 是否所有 text segments 都完成
+  // 是否所有 segments 都完成了 typewriter
   isAllComplete: boolean
 }
 
 /**
- * 基于 segments 的 typewriter hook
- * 单一活跃 text segment：只有一个 text segment 在进行 typewriter
- * 已完成的 text segments：立即显示完整内容
- * 未完成的 text segments：不显示，等待 typewriter 到达
- * 自动切换：完成一个 text segment 后，自动开始下一个
+ * 基于 Character Queue 的 typewriter hook
+ * 核心思想：为每个 text segment 维护独立的字符队列，逐字输出，实现流畅的打字效果。
+ *
+ * 关键优化：
+ * 1. 字符队列机制：每个字符独立入队出队，消除批量步进的跳跃感
+ * 2. 动态速度控制：基于队列长度调整速度，长文本快，短文本慢
+ * 3. 简化动画循环：使用队列消费替代复杂的 offset 步进逻辑
+ *
+ * 维护的状态：
+ * - activeSegmentIndex: 当前正在处理的 segment 索引
+ * - currentSegmentOffset: 当前 segment 已消费的字符数
+ * - segmentQueuesRef: 每个 segment 的待显示字符队列
+ * - consumedLengthsRef: 每个 segment 的已消费字符数
+ * - contentSnapshotsRef: 用于检测内容变化的快照
  */
 export const useSegmentTypewriter = (
   segments: MessageSegment[],
@@ -41,290 +51,291 @@ export const useSegmentTypewriter = (
     minSpeed = 5,
     maxSpeed = 20,
     enabled = true,
+    isStreaming = false,
     onSegmentStart,
     onSegmentComplete,
     onAllComplete
   } = options
 
-  // 状态
-  const [displayedSegments, setDisplayedSegments] = useState<MessageSegment[]>([])
-  const [activeTextIndex, setActiveTextIndex] = useState<number>(-1)
-  const [displayedText, setDisplayedText] = useState<string>('')
-  const [completedTextIndices, setCompletedTextIndices] = useState<Set<number>>(new Set())
+  // State
+  const [activeSegmentIndex, setActiveSegmentIndex] = useState<number>(-1)
+  const [currentSegmentOffset, setCurrentSegmentOffset] = useState<number>(0)
   const [isAllComplete, setIsAllComplete] = useState<boolean>(false)
 
   // Refs
-  const queueRef = useRef<string[]>([])
   const animationFrameRef = useRef<number | null>(null)
   const lastUpdateRef = useRef<number>(0)
-  const previousTextRef = useRef<string>('')
-  const pendingTextSegmentsRef = useRef<number[]>([]) // 未完成的 text segment 索引队列
-  const displayedTextLengthRef = useRef<number>(0) // 当前显示文本的长度
   const onSegmentStartRef = useRef(onSegmentStart)
   const onSegmentCompleteRef = useRef(onSegmentComplete)
   const onAllCompleteRef = useRef(onAllComplete)
+
+  // Data Refs (to access fresh data in RAF loop)
+  const segmentsRef = useRef(segments)
+  const isStreamingRef = useRef(isStreaming)
+
+  // Queue Management Refs (for character-level queue mechanism)
+  const segmentQueuesRef = useRef<Map<number, string[]>>(new Map())
+  const consumedLengthsRef = useRef<Map<number, number>>(new Map())
+  const processedLengthRef = useRef<Map<number, number>>(new Map()) // 记录已经添加到队列的长度
+  const completedSegmentsRef = useRef<Set<number>>(new Set()) // 记录已完成的 text segments
 
   // Keep refs up to date
   useEffect(() => {
     onSegmentStartRef.current = onSegmentStart
     onSegmentCompleteRef.current = onSegmentComplete
     onAllCompleteRef.current = onAllComplete
-  }, [onSegmentStart, onSegmentComplete, onAllComplete])
+    segmentsRef.current = segments
+    isStreamingRef.current = isStreaming
+  }, [onSegmentStart, onSegmentComplete, onAllComplete, segments, isStreaming])
+
+  // Queue Management Functions
+  // 确保 segment 队列是最新的（增量添加新字符）
+  const ensureSegmentQueue = useCallback((segmentIndex: number, content: string) => {
+    const consumed = consumedLengthsRef.current.get(segmentIndex) || 0
+    const processed = processedLengthRef.current.get(segmentIndex) || 0
+
+    // 计算从上次处理后新增的内容
+    const newContent = content.slice(processed)
+
+    if (!newContent) {
+      // 没有新内容
+      return
+    }
+
+    // 将新字符添加到队列
+    const chars = newContent.split('')
+    const queue = segmentQueuesRef.current.get(segmentIndex) || []
+    queue.push(...chars)
+    segmentQueuesRef.current.set(segmentIndex, queue)
+
+    // 更新已处理的长度
+    processedLengthRef.current.set(segmentIndex, content.length)
+  }, [])
+
+  // 消费下一个字符
+  const consumeNextChar = useCallback((segmentIndex: number) => {
+    const queue = segmentQueuesRef.current.get(segmentIndex)
+    if (queue && queue.length > 0) {
+      queue.shift()
+      const consumed = consumedLengthsRef.current.get(segmentIndex) || 0
+      consumedLengthsRef.current.set(segmentIndex, consumed + 1)
+      return true
+    }
+    return false
+  }, [])
+
+  // 清理 segment 队列
+  const cleanupSegmentQueue = useCallback((segmentIndex: number) => {
+    segmentQueuesRef.current.delete(segmentIndex)
+    processedLengthRef.current.delete(segmentIndex)
+    // consumedLengthsRef 保留，用于判断是否已完成
+  }, [])
 
   // 重置状态
   const resetState = useCallback(() => {
-    console.log('[DEBUG-HOOK] resetState called')
-    setDisplayedSegments([])
-    setActiveTextIndex(-1)
-    setDisplayedText('')
-    setCompletedTextIndices(new Set())
+    setActiveSegmentIndex(-1)
+    setCurrentSegmentOffset(0)
     setIsAllComplete(false)
-    queueRef.current = []
-    pendingTextSegmentsRef.current = []
-    previousTextRef.current = ''
-    lastUpdateRef.current = 0
+
+    // 清理所有队列管理 Refs
+    segmentQueuesRef.current.clear()
+    consumedLengthsRef.current.clear()
+    processedLengthRef.current.clear()
+    completedSegmentsRef.current.clear()
+
     if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
     }
-    console.log('[DEBUG-HOOK] resetState completed')
   }, [])
 
-  // 开始一个 text segment 的 typewriter
-  const startTypewriterForSegment = useCallback((segment: TextSegment, index: number, forceRestart: boolean = false) => {
-    console.log(`[DEBUG-HOOK] startTypewriterForSegment called for segment ${index}:`, segment.content)
-    console.log(`[DEBUG-HOOK] Current animationFrameRef:`, animationFrameRef.current)
-    console.log(`[DEBUG-HOOK] Force restart:`, forceRestart)
+  // Helper Functions
+  // 查找下一个待处理的 text segment
+  const findNextPendingSegment = useCallback(() => {
+    const currentSegments = segmentsRef.current
 
-    // 如果不是强制重启，且当前已有活跃 segment，则只处理流式更新
-    if (!forceRestart && activeTextIndex === index && queueRef.current.length > 0) {
-      console.log(`[DEBUG-HOOK] Segment ${index} already active, skipping restart`)
-      return
-    }
+    for (let i = 0; i < currentSegments.length; i++) {
+      const segment = currentSegments[i]
+      if (segment.type !== 'text') continue
 
-    // 初始化队列
-    queueRef.current = segment.content.split('')
-
-    // 如果是强制重启，清空之前的状态
-    if (forceRestart) {
-      previousTextRef.current = ''
-      displayedTextLengthRef.current = 0
-      setDisplayedText('')
-    } else {
-      // 如果是首次启动，previousTextRef 应该匹配当前 displayedText 的长度
-      const currentDisplayedLength = displayedTextLengthRef.current
-      previousTextRef.current = segment.content.slice(0, currentDisplayedLength)
-      console.log(`[DEBUG-HOOK] Preserving previous text length:`, previousTextRef.current.length)
-    }
-
-    setActiveTextIndex(index)
-
-    console.log(`[DEBUG-HOOK] Initialized:`, {
-      queueLength: queueRef.current.length,
-      activeTextIndex: index,
-      displayedTextLength: displayedTextLengthRef.current,
-      previousTextLength: previousTextRef.current.length
-    })
-
-    // 通知开始
-    onSegmentStartRef.current?.(index)
-
-    // 开始动画
-    if (animationFrameRef.current === null) {
-      console.log(`[DEBUG-HOOK] Starting animation frame`)
-      animationFrameRef.current = requestAnimationFrame(animate)
-    } else {
-      console.log(`[DEBUG-HOOK] Animation already running, skipping`)
-    }
-  }, [activeTextIndex, animate])
-
-  // 动画函数 - 重构以避免循环依赖
-  const animate = useCallback((timestamp: number) => {
-    console.log(`[DEBUG-HOOK] animate called, queue length:`, queueRef.current.length)
-    // 动态速度计算：队列长时快，队列短时慢
-    const queueLength = queueRef.current.length
-    const speed = queueLength > 100
-      ? minSpeed
-      : Math.max(minSpeed, Math.min(maxSpeed, maxSpeed - (queueLength / 100) * (maxSpeed - minSpeed)))
-
-    if (timestamp - lastUpdateRef.current >= speed) {
-      const char = queueRef.current.shift()
-      if (char !== undefined) {
-        console.log(`[DEBUG-HOOK] Animating char:`, char)
-        setDisplayedText(prev => {
-          const newText = prev + char
-          console.log(`[DEBUG-HOOK] New displayedText:`, newText)
-          return newText
-        })
+      const consumed = consumedLengthsRef.current.get(i) || 0
+      if (consumed < segment.content.length) {
+        return i
       }
-      lastUpdateRef.current = timestamp
     }
 
-    // 检查是否完成当前 segment
-    if (queueRef.current.length === 0) {
-      // 标记当前 segment 为完成
-      setCompletedTextIndices(prev => {
-        const newSet = new Set([...prev, activeTextIndex])
+    return -1
+  }, [])
 
-        // 查找下一个待处理的 text segment
-        const nextIndex = pendingTextSegmentsRef.current.shift()
+  // 计算动态速度（复用 useTypewriter 的算法）
+  const calculateSpeed = useCallback((queueLength: number) => {
+    if (queueLength > 100) return minSpeed
+    return Math.max(minSpeed, Math.min(maxSpeed,
+      maxSpeed - (queueLength / 100) * (maxSpeed - minSpeed)))
+  }, [minSpeed, maxSpeed])
 
-        if (nextIndex !== undefined) {
-          // 开始下一个 segment
-          const nextSegment = segments[nextIndex] as TextSegment
-          if (nextSegment) {
-            // 初始化下一个 segment
-            queueRef.current = nextSegment.content.split('')
-            previousTextRef.current = ''  // 初始化为空字符串
-            setDisplayedText('')
-            setActiveTextIndex(nextIndex)
-            onSegmentStartRef.current?.(nextIndex)
+  // 移动到下一个 segment
+  const moveToNextSegment = useCallback(() => {
+    if (activeSegmentIndex !== -1) {
+      cleanupSegmentQueue(activeSegmentIndex)
+    }
 
-            // 继续动画
-            animationFrameRef.current = requestAnimationFrame(animate)
-          }
-        } else {
-          // 所有 text segments 完成
-          setActiveTextIndex(-1)
-          setIsAllComplete(true)
-          onAllCompleteRef.current?.()
-          animationFrameRef.current = null
-        }
-
-        return newSet
-      })
+    const nextIndex = findNextPendingSegment()
+    if (nextIndex !== -1) {
+      setActiveSegmentIndex(nextIndex)
+      onSegmentStartRef.current?.(nextIndex)
     } else {
-      // 继续动画
+      setActiveSegmentIndex(-1)
+      if (!isStreamingRef.current) {
+        setIsAllComplete(true)
+        onAllCompleteRef.current?.()
+      }
+    }
+  }, [activeSegmentIndex, findNextPendingSegment, cleanupSegmentQueue])
+
+  // 动画循环
+  const animate = useCallback((timestamp: number) => {
+    const currentSegments = segmentsRef.current
+
+    // 1. 启动第一个 segment
+    if (activeSegmentIndex === -1) {
+      const nextIndex = findNextPendingSegment()
+      if (nextIndex !== -1) {
+        setActiveSegmentIndex(nextIndex)
+        onSegmentStartRef.current?.(nextIndex)
+      } else if (!isStreamingRef.current) {
+        setIsAllComplete(true)
+        onAllCompleteRef.current?.()
+        return
+      }
       animationFrameRef.current = requestAnimationFrame(animate)
-    }
-  }, [minSpeed, maxSpeed, segments])
-
-  // 初始化和更新逻辑
-  useEffect(() => {
-    console.log('[DEBUG-HOOK] segments changed:', {
-      segmentsCount: segments?.length || 0,
-      enabled,
-      currentActiveIndex: activeTextIndex
-    })
-
-    if (!enabled || !segments || segments.length === 0) {
-      console.log('[DEBUG-HOOK] Early return: enabled=', enabled, 'segments=', segments?.length)
-      resetState()
       return
     }
 
-    console.log('[DEBUG-HOOK] Initializing typewriter with segments:', segments)
-
-    // 检查是否已经有活跃的 segment，且是同一个
-    const hasActiveSegment = activeTextIndex !== -1
-    const activeSegmentExists = hasActiveSegment && segments[activeTextIndex] && segments[activeTextIndex].type === 'text'
-
-    if (hasActiveSegment && activeSegmentExists) {
-      // 已经有活跃的 segment，检查是否需要处理流式更新
-      console.log('[DEBUG-HOOK] Active segment exists, will handle stream updates separately')
+    // 2. 验证当前 segment
+    const currentSegment = currentSegments[activeSegmentIndex]
+    if (!currentSegment || currentSegment.type !== 'text') {
+      moveToNextSegment()
+      animationFrameRef.current = requestAnimationFrame(animate)
       return
     }
 
-    console.log('[DEBUG-HOOK] Processing segments for initialization...')
-    // 遍历 segments，分类处理
-    const newDisplayedSegments: MessageSegment[] = []
-    const pendingTextIndices: number[] = []
+    // 3. 确保队列最新
+    ensureSegmentQueue(activeSegmentIndex, currentSegment.content)
 
-    segments.forEach((segment, index) => {
-      console.log(`[DEBUG-HOOK] Processing segment ${index}:`, segment.type)
-      if (segment.type === 'text') {
-        // text segment
-        const textSegment = segment as TextSegment
-        // 检查是否已完成（这里简化处理，实际应该从状态中获取）
-        if (textSegment.content && textSegment.content.length > 0) {
-          pendingTextIndices.push(index)
-          console.log(`[DEBUG-HOOK] Added text segment ${index} to pending queue:`, textSegment.content)
+    // 4. 计算速度
+    const queue = segmentQueuesRef.current.get(activeSegmentIndex)
+    const queueLength = queue?.length || 0
+    const speed = calculateSpeed(queueLength)
+
+    // 5. 消费字符
+    if (timestamp - lastUpdateRef.current >= speed) {
+      const charConsumed = consumeNextChar(activeSegmentIndex)
+
+      if (charConsumed) {
+        const consumed = consumedLengthsRef.current.get(activeSegmentIndex) || 0
+        setCurrentSegmentOffset(consumed)
+        lastUpdateRef.current = timestamp
+
+        // 检查是否刚刚消费了最后一个字符
+        if (consumed >= currentSegment.content.length) {
+          // 标记为已完成
+          completedSegmentsRef.current.add(activeSegmentIndex)
+          onSegmentCompleteRef.current?.(activeSegmentIndex)
+          moveToNextSegment()
+          animationFrameRef.current = requestAnimationFrame(animate)
+          return
         }
       } else {
-        // toolCall/reasoning: 立即加入 displayedSegments
-        newDisplayedSegments.push(segment)
-        console.log(`[DEBUG-HOOK] Added ${segment.type} segment to displayedSegments`)
+        // 队列为空，检查是否完成
+        const consumed = consumedLengthsRef.current.get(activeSegmentIndex) || 0
+
+        if (consumed >= currentSegment.content.length) {
+          // 当前 segment 完成，移动到下一个
+          completedSegmentsRef.current.add(activeSegmentIndex)
+          onSegmentCompleteRef.current?.(activeSegmentIndex)
+          moveToNextSegment()
+          animationFrameRef.current = requestAnimationFrame(animate)
+          return
+        }
       }
-    })
-
-    console.log('[DEBUG-HOOK] Pending text indices:', pendingTextIndices)
-    // 存储待处理的 text segment 索引
-    pendingTextSegmentsRef.current = pendingTextIndices
-
-    // 如果有待处理的 text segments，开始第一个
-    if (pendingTextIndices.length > 0) {
-      const firstIndex = pendingTextIndices[0]
-      const firstSegment = segments[firstIndex] as TextSegment
-      console.log(`[DEBUG-HOOK] Starting with first segment ${firstIndex}`)
-      startTypewriterForSegment(firstSegment, firstIndex, true) // 强制重启
-
-      // 注意：text segment 不会立即加入 displayedSegments
-      // 它会在 typewriter 过程中通过 displayedText 显示
-    } else {
-      // 所有 text segments 都已完成或为空
-      console.log('[DEBUG-HOOK] No pending text segments, showing all')
-      setDisplayedSegments([...segments])
-      setIsAllComplete(true)
     }
 
-    // 更新 displayedSegments（只包含 toolCall/reasoning）
-    // text segments 通过 displayedText 单独显示
-    console.log('[DEBUG-HOOK] Set displayedSegments:', newDisplayedSegments)
-    setDisplayedSegments([...newDisplayedSegments])
+    // 继续动画循环
+    animationFrameRef.current = requestAnimationFrame(animate)
+  }, [activeSegmentIndex, minSpeed, maxSpeed, findNextPendingSegment, calculateSpeed, ensureSegmentQueue, consumeNextChar, moveToNextSegment])
 
-    // Cleanup function
+  // 启动/停止/重置逻辑
+  useEffect(() => {
+    if (!enabled) {
+      // Disable 时重置状态，或者直接标记为全部完成？
+      // 现在的需求是 disabled 时显示全部，所以在组件层处理渲染，
+      // 这里只需要保证如果不 enable，就不会跑动画消耗资源。
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+      return
+    }
+
+    // 如果 enabled 且未完成，开始动画
+    if (!isAllComplete && animationFrameRef.current === null) {
+      animationFrameRef.current = requestAnimationFrame(animate)
+    }
+
     return () => {
-      if (animationFrameRef.current !== null) {
+      if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
         animationFrameRef.current = null
       }
     }
-  }, [segments, enabled, resetState, startTypewriterForSegment])
+  }, [enabled, isAllComplete, animate])
 
-  // 处理流式更新的内容
-  useEffect(() => {
-    if (activeTextIndex === -1) return
 
-    const currentSegment = segments[activeTextIndex] as TextSegment
-    if (!currentSegment || currentSegment.type !== 'text') return
+  // 辅助函数
+  const getSegmentVisibleLength = useCallback((index: number) => {
+    // 如果未启用，或者已经全部完成，显示全长
+    if (!enabled || isAllComplete) return Infinity
 
-    const currentText = currentSegment.content
-    const previousText = previousTextRef.current
-
-    console.log(`[DEBUG-HOOK] Stream update for segment ${activeTextIndex}:`, {
-      currentLength: currentText.length,
-      previousLength: previousText.length,
-      currentText: currentText.substring(0, 50)
-    })
-
-    if (currentText !== previousText) {
-      // 计算新内容（当前文本减去之前已处理的长度）
-      const newContent = currentText.slice(previousText.length)
-      console.log(`[DEBUG-HOOK] New content to append:`, newContent)
-
-      if (newContent) {
-        // 追加到队列
-        queueRef.current.push(...newContent.split(''))
-        previousTextRef.current = currentText
-
-        console.log(`[DEBUG-HOOK] Queue updated, new length:`, queueRef.current.length)
-
-        // 如果动画已停止，重新开始
-        if (animationFrameRef.current === null) {
-          console.log(`[DEBUG-HOOK] Restarting animation for stream update`)
-          animationFrameRef.current = requestAnimationFrame((timestamp) => {
-            animate(timestamp)
-          })
-        }
-      }
+    const segment = segmentsRef.current[index]
+    if (!segment || segment.type !== 'text') {
+      // 非 text segments 不需要打字机效果，显示全部
+      return Infinity
     }
-  }, [segments, activeTextIndex, displayedText])
+
+    // 已完成的 text segments 显示全部
+    if (completedSegmentsRef.current.has(index)) return Infinity
+
+    if (index < activeSegmentIndex) return Infinity // 之前的 text segments 都显示全
+    if (index > activeSegmentIndex) return 0        // 之后的 text segments 都不显示
+    return currentSegmentOffset                     // 当前的显示 offset
+  }, [enabled, isAllComplete, activeSegmentIndex, currentSegmentOffset])
+
+  const shouldRenderSegment = useCallback((index: number) => {
+    if (!enabled || isAllComplete) return true
+
+    const segment = segmentsRef.current[index]
+    if (!segment) return false
+
+    // 非 text segments（reasoning, toolCall）总是立即渲染
+    if (segment.type !== 'text') return true
+
+    // text segments 的渲染逻辑
+    // 如果已完成，总是显示
+    if (completedSegmentsRef.current.has(index)) return true
+
+    // 如果是当前正在处理的，显示
+    if (index === activeSegmentIndex) return true
+
+    // 否则不显示
+    return false
+  }, [enabled, isAllComplete, activeSegmentIndex])
 
   return {
-    displayedSegments,
-    activeTextIndex,
-    displayedText,
-    completedTextIndices,
+    activeSegmentIndex,
+    currentSegmentOffset,
+    getSegmentVisibleLength,
+    shouldRenderSegment,
     isAllComplete
   }
 }

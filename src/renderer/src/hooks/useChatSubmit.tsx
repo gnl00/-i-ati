@@ -47,6 +47,7 @@ interface ChatPipelineContext {
   sysMessageEntity: MessageEntity
   isContentHasThinkTag: boolean
   previousTextLength?: number  // 记录已添加到segments的文本长度，避免重复
+  previousReasoningLength?: number // 记录已添加到segments的推理长度
 
   // 工具调用相关
   hasToolCall: boolean
@@ -254,6 +255,8 @@ function useChatSubmit() {
       toolCallResults: [],
       toolCallFunctionName: '',
       toolCallFunctionArgs: '',
+      previousTextLength: 0,
+      previousReasoningLength: 0,
       completed: false
     }
   }
@@ -411,46 +414,73 @@ function useChatSubmit() {
         }
 
         // 实时更新或创建 segments
-        const segments = [...lastMessage.body.segments]  // 创建新数组引用！
+        const segments = [...lastMessage.body.segments]
 
         // 处理 reasoning segment
         if (context.gatherReasoning.trim()) {
-          const existingReasoningIndex = segments.findIndex(seg => seg.type === 'reasoning')
-          const reasoningSegment = {
-            type: 'reasoning' as const,
-            content: context.gatherReasoning.trim(),
-            timestamp: Date.now()
-          }
-          if (existingReasoningIndex === -1) {
-            segments.push(reasoningSegment)
-          } else {
-            segments[existingReasoningIndex] = reasoningSegment
+          const lastIndex = segments.length - 1
+          const lastSegment = segments[lastIndex]
+
+          const currentReasoning = context.gatherReasoning.trim()
+          const previousLength = context.previousReasoningLength || 0
+          const segmentReasoning = currentReasoning.slice(previousLength)
+
+          if (segmentReasoning) {
+            if (lastSegment && lastSegment.type === 'reasoning') {
+              // 追加到最后一个 reasoning segment
+              segments[lastIndex] = {
+                ...lastSegment,
+                content: (lastSegment.content || '') + segmentReasoning
+              }
+            } else {
+              // 创建新的 reasoning segment
+              segments.push({
+                type: 'reasoning',
+                content: segmentReasoning,
+                timestamp: Date.now()
+              })
+            }
+            // 更新记录点
+            context.previousReasoningLength = currentReasoning.length
           }
         }
 
         // 处理 text segment
         if (context.gatherContent.trim()) {
-          const existingTextIndex = segments.findIndex(seg => seg.type === 'text')
-          const textSegment = {
-            type: 'text' as const,
-            content: context.gatherContent.trim(),
-            timestamp: Date.now()
-          }
-          if (existingTextIndex === -1) {
-            segments.push(textSegment)
-          } else {
-            segments[existingTextIndex] = textSegment
+          const lastIndex = segments.length - 1
+          const lastSegment = segments[lastIndex]
+
+          // 计算当前 segment 的内容（从上次累计的位置开始）
+          const currentText = context.gatherContent.trim()
+          const previousLength = context.previousTextLength || 0
+          const segmentContent = currentText.slice(previousLength)
+
+          if (segmentContent) {
+            if (lastSegment && lastSegment.type === 'text') {
+              // 追加到最后一个 text segment
+              segments[lastIndex] = {
+                ...lastSegment,
+                content: (lastSegment.content || '') + segmentContent
+              }
+            } else {
+              // 创建新的 text segment
+              segments.push({
+                type: 'text',
+                content: segmentContent,
+                timestamp: Date.now()
+              })
+            }
+            // 更新记录点
+            context.previousTextLength = currentText.length
           }
         }
 
-        console.log('[DEBUG] Updated segments array:', segments)
-        updatedMessages[updatedMessages.length - 1] = {
-          body: {
-            ...lastMessage.body,
-            model: context.model.name,
-            segments  // 使用新的数组引用
-          }
-        }
+        // Assign the updated segments back to the message!
+        lastMessage.body.segments = segments
+
+        // CRITICAL FIX: Update the context's messageEntities reference so the next iteration sees the updated segments!
+        context.messageEntities = updatedMessages
+
         setMessages(updatedMessages)
       }
     }
@@ -488,7 +518,6 @@ function useChatSubmit() {
 
       // 替换 UI 中最后一个 assistant 消息（而不是新增），避免出现多个 model-badge
       const lastIndex = context.messageEntities.length - 1
-      console.log('[DEBUG] Before update, segments:', lastMessage.body.segments)
       context.messageEntities[lastIndex] = {
         body: {
           role: 'assistant',
@@ -499,7 +528,6 @@ function useChatSubmit() {
           // 移除兼容字段
         }
       }
-      console.log('[DEBUG] After update, segments:', context.messageEntities[lastIndex].body.segments)
       setMessages([...context.messageEntities])
     }
 
@@ -665,7 +693,14 @@ function useChatSubmit() {
 
       // 对话结束，标记消息为完成
       // 注意：segments 已经在流式接收过程中实时创建，不需要重复添加
-      console.log('[DEBUG] Stream completed, segments already created:', context.messageEntities[context.messageEntities.length - 1].body.segments)
+
+      // 标记 typewriter 已完成，防止下次重新打字
+      const updatedMessages = [...context.messageEntities]
+      const lastMessage = updatedMessages[updatedMessages.length - 1]
+      if (lastMessage && lastMessage.body.role === 'assistant') {
+        lastMessage.body.typewriterCompleted = true
+        setMessages(updatedMessages)
+      }
     }
 
     return context
@@ -688,11 +723,18 @@ function useChatSubmit() {
 
     // 保存消息到本地
     if (context.gatherContent || context.gatherReasoning) {
-      context.sysMessageEntity.body.model = context.model.name
-      // 设置消息的 chatId 和 chatUuid
-      context.sysMessageEntity.chatId = context.chatEntity.id
-      context.sysMessageEntity.chatUuid = context.chatEntity.uuid
-      const sysMsgId = await saveMessage(context.sysMessageEntity) as number
+      // 从 store 获取最新的消息状态（包含 typewriterCompleted 等最新字段）
+      const currentMessages = useChatStore.getState().messages
+      const lastMessage = currentMessages[currentMessages.length - 1]
+
+      // 使用最新的消息状态，而不是 context.sysMessageEntity
+      const messageToSave: MessageEntity = {
+        ...lastMessage,
+        chatId: context.chatEntity.id,
+        chatUuid: context.chatEntity.uuid
+      }
+
+      const sysMsgId = await saveMessage(messageToSave) as number
       context.chatEntity.messages = [...context.chatEntity.messages, sysMsgId]
       context.chatEntity.model = context.model.value
       context.chatEntity.updateTime = new Date().getTime()

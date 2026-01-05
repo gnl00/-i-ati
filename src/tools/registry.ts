@@ -31,7 +31,7 @@ class EmbeddedToolsRegistry {
       handler,
       definition
     })
-    console.log(`[EmbeddedToolsRegistry] Registered tool: ${toolName}`)
+    // console.log(`[EmbeddedToolsRegistry] Registered tool: ${toolName}`)
   }
 
   /**
