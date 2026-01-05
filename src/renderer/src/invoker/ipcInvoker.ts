@@ -14,7 +14,21 @@ import {
   MCP_CONNECT,
   MCP_DISCONNECT,
   MCP_TOOL_CALL,
-  FILE_CREATE_DIR_ACTION
+  FILE_CREATE_DIR_ACTION,
+  DB_CHAT_SAVE,
+  DB_CHAT_GET_ALL,
+  DB_CHAT_GET_BY_ID,
+  DB_CHAT_UPDATE,
+  DB_CHAT_DELETE,
+  DB_MESSAGE_SAVE,
+  DB_MESSAGE_GET_ALL,
+  DB_MESSAGE_GET_BY_ID,
+  DB_MESSAGE_GET_BY_IDS,
+  DB_MESSAGE_UPDATE,
+  DB_MESSAGE_DELETE,
+  DB_CONFIG_GET,
+  DB_CONFIG_SAVE,
+  DB_CONFIG_INIT
 } from '@constants/index'
 
 /**
@@ -122,4 +136,122 @@ export async function invokeWebFetchIPC(args: { url: string }): Promise<any> {
 export async function invokeCreateDirectory(args: { directory_path: string; recursive?: boolean }): Promise<{ success: boolean; error?: string }> {
   const ipc = getElectronIPC()
   return await ipc.invoke(FILE_CREATE_DIR_ACTION, args)
+}
+
+// ============ Database Operations - Chat ============
+
+/**
+ * 保存聊天
+ */
+export async function invokeDbChatSave(data: ChatEntity): Promise<number> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_SAVE, data)
+}
+
+/**
+ * 获取所有聊天
+ */
+export async function invokeDbChatGetAll(): Promise<ChatEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_GET_ALL)
+}
+
+/**
+ * 根据 ID 获取聊天
+ */
+export async function invokeDbChatGetById(id: number): Promise<ChatEntity | undefined> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_GET_BY_ID, id)
+}
+
+/**
+ * 更新聊天
+ */
+export async function invokeDbChatUpdate(data: ChatEntity): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_UPDATE, data)
+}
+
+/**
+ * 删除聊天
+ */
+export async function invokeDbChatDelete(id: number): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_DELETE, id)
+}
+
+// ============ Database Operations - Message ============
+
+/**
+ * 保存消息
+ */
+export async function invokeDbMessageSave(data: MessageEntity): Promise<number> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_SAVE, data)
+}
+
+/**
+ * 获取所有消息
+ */
+export async function invokeDbMessageGetAll(): Promise<MessageEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_GET_ALL)
+}
+
+/**
+ * 根据 ID 获取消息
+ */
+export async function invokeDbMessageGetById(id: number): Promise<MessageEntity | undefined> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_GET_BY_ID, id)
+}
+
+/**
+ * 根据多个 ID 获取消息
+ */
+export async function invokeDbMessageGetByIds(ids: number[]): Promise<MessageEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_GET_BY_IDS, ids)
+}
+
+/**
+ * 更新消息
+ */
+export async function invokeDbMessageUpdate(data: MessageEntity): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_UPDATE, data)
+}
+
+/**
+ * 删除消息
+ */
+export async function invokeDbMessageDelete(id: number): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_DELETE, id)
+}
+
+// ============ Database Operations - Config ============
+
+/**
+ * 获取配置
+ */
+export async function invokeDbConfigGet(): Promise<IAppConfig | undefined> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CONFIG_GET)
+}
+
+/**
+ * 保存配置
+ */
+export async function invokeDbConfigSave(config: IAppConfig): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CONFIG_SAVE, config)
+}
+
+/**
+ * 初始化配置
+ */
+export async function invokeDbConfigInit(): Promise<IAppConfig> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CONFIG_INIT)
 }

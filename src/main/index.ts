@@ -5,6 +5,7 @@ import { destroyWindowPool, getWindowPool } from '../tools/webTools/main/Browser
 import { cleanupDevServers } from '../tools/devServer/main/DevServerProcessor'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
 import { createWindow } from './main-window'
+import DatabaseService from './services/DatabaseService'
 
 // const reactDevToolsPath = path.join(
 //   os.homedir(),
@@ -16,6 +17,10 @@ import { createWindow } from './main-window'
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   // await session.defaultSession.loadExtension(reactDevToolsPath)
+
+  // Initialize database service
+  console.log('[App] Initializing database service...')
+  await DatabaseService.initialize()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')

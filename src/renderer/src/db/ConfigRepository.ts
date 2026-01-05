@@ -1,40 +1,22 @@
-import { defaultConfig } from '../config'
-import { dbPromise, CONFIG_STORE as STORE_NAME } from './index'
+import {
+  invokeDbConfigGet,
+  invokeDbConfigSave,
+  invokeDbConfigInit
+} from '@renderer/invoker/ipcInvoker'
 
 // Get config (returns undefined if not found)
 const getConfig = async (): Promise<IAppConfig | undefined> => {
-  const db = await dbPromise
-  return db.get(STORE_NAME, 'appConfig')
+  return await invokeDbConfigGet()
 }
 
 // Save config (creates or updates)
 const saveConfig = async (config: IAppConfig): Promise<void> => {
-  const db = await dbPromise
-  await db.put(STORE_NAME, { key: 'appConfig', ...config })
+  return await invokeDbConfigSave(config)
 }
 
 // Initialize config with defaults if not exists
 const initConfig = async (): Promise<IAppConfig> => {
-  let config = await getConfig()
-
-  if (!config) {
-    // First time, use default config
-    await saveConfig(defaultConfig)
-    return defaultConfig
-  }
-
-  // Check version and upgrade if needed
-  if (defaultConfig.version! > config.version!) {
-    const upgraded = {
-      ...config,
-      ...defaultConfig.configForUpdate,
-      version: defaultConfig.version
-    }
-    await saveConfig(upgraded)
-    return upgraded
-  }
-
-  return config
+  return await invokeDbConfigInit()
 }
 
 // Export config as JSON string
@@ -55,4 +37,3 @@ const importConfigFromJSON = async (jsonString: string): Promise<void> => {
 export {
   exportConfigAsJSON, getConfig, importConfigFromJSON, initConfig, saveConfig
 }
-

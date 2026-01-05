@@ -1,0 +1,223 @@
+import { Badge } from '@renderer/components/ui/badge'
+import { Button } from "@renderer/components/ui/button"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@renderer/components/ui/command'
+import { Input } from '@renderer/components/ui/input'
+import { Label } from '@renderer/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
+import { Switch } from "@renderer/components/ui/switch"
+import { cn } from '@renderer/lib/utils'
+import { exportConfigAsJSON, getConfig, importConfigFromJSON } from '@renderer/db/ConfigRepository'
+import { useAppConfigStore } from '@renderer/store/appConfig'
+import { Check, ChevronsUpDown } from "lucide-react"
+import React, { useState } from 'react'
+import { toast } from 'sonner'
+
+interface ToolsManagerProps {
+    maxWebSearchItems: number
+    setMaxWebSearchItems: (value: number) => void
+}
+
+const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWebSearchItems }) => {
+    const {
+        setAppConfig,
+        models,
+        titleGenerateModel,
+        setTitleGenerateModel,
+        titleGenerateEnabled,
+        setTitleGenerateEnabled,
+    } = useAppConfigStore()
+
+    const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
+
+    const handleExportConfig = async () => {
+        try {
+            const jsonStr = await exportConfigAsJSON()
+            const blob = new Blob([jsonStr], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `ati-config-${Date.now()}.json`
+            a.click()
+            URL.revokeObjectURL(url)
+            toast.success('Config exported successfully')
+        } catch (error) {
+            console.error('Export error:', error)
+            toast.error('Failed to export config')
+        }
+    }
+
+    const handleImportConfig = () => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.json,application/json'
+        input.onchange = async (e) => {
+            try {
+                const file = (e.target as HTMLInputElement).files?.[0]
+                if (!file) return
+
+                const text = await file.text()
+                await importConfigFromJSON(text)
+
+                const newConfig = await getConfig()
+                if (newConfig) {
+                    setAppConfig(newConfig)
+                    toast.success('Config imported successfully. Reloading...')
+                    setTimeout(() => window.location.reload(), 1000)
+                }
+            } catch (error: any) {
+                console.error('Import error:', error)
+                toast.error('Failed to import config: ' + error.message)
+            }
+        }
+        input.click()
+    }
+
+    return (
+        <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
+            <div className='w-full space-y-4 p-1'>
+                {/* Title Generation Setting */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+                    <div className="p-5 flex items-start gap-4">
+                        <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="toggle-title-generation" className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                    Title Generation
+                                </Label>
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                                    AI
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Automatically analyze conversation context and generate concise, meaningful titles using AI models.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={titleGenerateEnabled}
+                            onCheckedChange={setTitleGenerateEnabled}
+                            id="toggle-title-generation"
+                            className="data-[state=checked]:bg-blue-600 mt-1"
+                        />
+                    </div>
+                    {/* Model Selection Area */}
+                    <div className={cn(
+                        "grid transition-all duration-300 ease-in-out bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50",
+                        titleGenerateEnabled ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    )}>
+                        <div className="overflow-hidden">
+                            <div className="p-4 pt-3 flex items-center justify-between gap-4">
+                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Target Model</span>
+                                <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
+                                    <PopoverTrigger disabled={!titleGenerateEnabled} asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={selectTitleModelPopoutState}
+                                            className="w-[300px] justify-between bg-white dark:bg-gray-800 h-9 text-sm"
+                                        >
+                                            <div className="flex items-center gap-2 truncate">
+                                                <span className="truncate font-medium">
+                                                    {titleGenerateModel ? titleGenerateModel.name : "Select model..."}
+                                                </span>
+                                                {titleGenerateModel && (
+                                                    <span className="text-xs text-gray-400 font-mono">
+                                                        {titleGenerateModel.provider}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[300px] p-0" align="end">
+                                        <Command>
+                                            <CommandInput placeholder="Search model..." className="h-9" />
+                                            <CommandList>
+                                                <CommandEmpty>No model found.</CommandEmpty>
+                                                <CommandGroup className="max-h-[300px] overflow-y-auto">
+                                                    {models.map((md, idx) => (
+                                                        <CommandItem
+                                                            key={idx}
+                                                            value={(md.name as string).concat('/').concat(md.provider)}
+                                                            onSelect={(_) => {
+                                                                setSelectTitleModelPopoutState(false)
+                                                                setTitleGenerateModel(md)
+                                                            }}
+                                                            className="cursor-pointer"
+                                                        >
+                                                            <div className="flex flex-col">
+                                                                <span>{md.name}</span>
+                                                                <span className="text-[10px] text-gray-400">{md.provider}</span>
+                                                            </div>
+                                                            <Check className={cn("ml-auto h-4 w-4", titleGenerateModel && titleGenerateModel.value === md.value && titleGenerateModel.provider === md.provider ? "opacity-100" : "opacity-0")} />
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* WebSearch Items Setting */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between gap-6">
+                        <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                    Web Search Limit
+                                </Label>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Max number of search results to process (1-10). Higher values provide more context but increase token usage and latency.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                            <Input
+                                min={1}
+                                max={10}
+                                value={maxWebSearchItems}
+                                onChange={(e) => {
+                                    const value = parseInt(e.target.value) || 3
+                                    setMaxWebSearchItems(Math.min(Math.max(value, 1), 10))
+                                }}
+                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm transition-all focus:w-20 font-mono font-medium'
+                            />
+                            <span className="text-xs font-medium text-gray-400 pr-2">items</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Configuration Backup */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                Configuration Backup
+                            </Label>
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800">
+                                Data
+                            </Badge>
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Export your configuration to a JSON file for backup or transfer to another device. You can also import a previously saved configuration.
+                        </p>
+                        <div className="flex gap-2 pt-1">
+                            <Button onClick={handleExportConfig} variant="outline" size="sm" className="shadow-sm">
+                                <i className="ri-download-line mr-1.5"></i>
+                                Export Config
+                            </Button>
+                            <Button onClick={handleImportConfig} variant="outline" size="sm" className="shadow-sm">
+                                <i className="ri-upload-line mr-1.5"></i>
+                                Import Config
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export default ToolsManager
