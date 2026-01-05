@@ -172,10 +172,11 @@ declare interface BaseChatMessage {
 
 declare interface ChatMessage extends BaseChatMessage {
   model?: string
-  reasoning?: string
   artifacts?: boolean
-  toolCallResults?: any
   typewriterCompleted?: boolean,
+  // ==================== Message Segments (Breaking Change) ====================
+  // 使用segments替代原有的content、reasoning、toolCallResults字段
+  segments: MessageSegment[]  // 强制字段，所有消息必须有segments
 }
 
 declare type LLMContent = string;
@@ -211,4 +212,41 @@ declare interface IBaseResponse {
     totalTokens: number
   }
   systemFingerprint: string
+}
+
+// ==================== Message Segment Types ====================
+
+// 文本片段
+declare interface TextSegment {
+  type: 'text'
+  content: string
+  timestamp: number
+}
+
+// 推理片段（thinking过程）
+declare interface ReasoningSegment {
+  type: 'reasoning'
+  content: string
+  timestamp: number
+}
+
+// 工具调用片段
+declare interface ToolCallSegment {
+  type: 'toolCall'
+  name: string
+  content: any
+  cost?: number
+  isError?: boolean
+  timestamp: number
+}
+
+// 联合类型
+declare type MessageSegment = TextSegment | ReasoningSegment | ToolCallSegment
+
+// 工具调用结果（保持向后兼容）
+declare interface ToolCallResult {
+  name: string
+  content: any
+  cost?: number
+  isError?: boolean
 }

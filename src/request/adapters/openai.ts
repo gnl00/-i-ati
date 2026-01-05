@@ -92,9 +92,16 @@ export class OpenAIAdapter extends BaseAdapter {
           break
         }
 
+        let respObject: any
         try {
-          const respObject = JSON.parse(line)
+          respObject = JSON.parse(line)
+        } catch (e) {
+          // 如果无法解析 JSON，忽略这一行（如 OpenRouter 的进度消息）
+          // console.warn('Failed to parse line:', line)
+          continue
+        }
 
+        try {
           // 跳过没有 choices 的响应（如内容过滤结果）
           if (!respObject.choices || respObject.choices.length === 0) {
             // console.log('Skipping response without choices:', respObject)
@@ -291,7 +298,7 @@ export class OpenAIImage1Adapter extends BaseAdapter {
     const requestBody: any = {
       model: req.model,
       prompt: req.messages.map(m => {
-        const { reasoning, artifacts, toolCallResults: tool, model, ...msg } = m
+        const { artifacts, model, ...msg } = m
         return msg
       })[req.messages.length - 1].content,
       size: "1024x1024",
@@ -367,7 +374,7 @@ export class GoogleOpenAIImageCompatibleAdapter extends BaseAdapter {
     const requestBody: any = {
       model: req.model,
       messages: req.messages.map(m => {
-        const { reasoning, artifacts, toolCallResults: tool, model, ...msg } = m
+        const { artifacts, model, ...msg } = m
         return msg
       })[req.messages.length - 1],
       stream: true,

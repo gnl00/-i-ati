@@ -4,8 +4,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@r
 import { Badge } from "@renderer/components/ui/badge"
 import { cn } from '@renderer/lib/utils'
 import { invokeOpenExternal } from '@renderer/invoker/ipcInvoker'
-import { BadgePercent } from 'lucide-react'
-import React, { memo, useState, useEffect } from 'react'
+import { BrainCircuit } from 'lucide-react'
+import React, { memo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
@@ -14,22 +14,20 @@ import remarkMath from 'remark-math'
 import { toast } from 'sonner'
 
 import { useTheme } from '@renderer/components/theme-provider'
-import { updateMessage } from '@renderer/db/MessageRepository'
-import { useTypewriter } from '@renderer/hooks/useTypewriter'
 import { useChatStore } from '../../store'
 import { ToolCallResult } from './ToolCallResult'
+import { useSegmentTypewriter } from '../../hooks/useSegmentTypewriter'
 
 interface ChatMessageComponentProps {
   index: number
   message: ChatMessage
   isLatest: boolean
-  onTypingChange?: () => void
 }
 
 // Shared markdown code components for both user and assistant messages
 const markdownCodeComponent = {
   pre(props) {
-    const { children, ...rest } = props
+    const { children } = props
     // Remove pre styling - let CodeWrapper handle all styling
     return <div className="not-prose">{children}</div>
   },
@@ -89,7 +87,14 @@ const markdownCodeComponent = {
   }
 }
 
-const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest, onTypingChange }) => {
+const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
+
+  console.log(`[DEBUG-RENDER] Message ${index} rendering:`, {
+    role: m.role,
+    segmentsCount: m.segments?.length || 0,
+    segments: m.segments,
+    isLatest
+  })
 
   // Use Zustand selector to avoid unnecessary re-renders
   // Only subscribe to showLoadingIndicator, not the entire store
@@ -102,79 +107,32 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
   const [userMessageOperationIdx, setUserMessageOperationIdx] = useState<number>(-1)
   const [assistantMessageHovered, setAssistantMessageHovered] = useState<boolean>(false)
 
-  // Progressive rendering of ToolCallResults to prevent blocking
-  // Only render tool call results one by one with small delays
-  const [visibleToolCalls, setVisibleToolCalls] = useState<number>(0)
-
   // Determine if dark mode is active
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
-  // 处理打字机完成回调 - 直接在组件内部更新 store 和 IndexedDB
-  const handleTypewriterComplete = React.useCallback(async () => {
-    const { setMessages, messages } = useChatStore.getState()
+  // Use segment typewriter for assistant messages
+  const enabled = m.role === 'assistant' && isLatest && !m.typewriterCompleted
+  console.log(`[DEBUG-RENDER] Typewriter enabled:`, enabled, {
+    role: m.role,
+    isLatest,
+    typewriterCompleted: m.typewriterCompleted
+  })
 
-    const updatedMessages = messages.map((msg, idx) => {
-      if (idx === index) {
-        return {
-          ...msg,
-          body: {
-            ...msg.body,
-            typewriterCompleted: true
-          }
-        }
-      }
-      return msg
-    })
+  const {
+    activeTextIndex,
+    displayedText,
+    completedTextIndices
+  } = useSegmentTypewriter(m.segments, {
+    minSpeed: 5,
+    maxSpeed: 20,
+    enabled
+  })
 
-    setMessages(updatedMessages)
-
-    // 持久化到 IndexedDB
-    const messageToUpdate = updatedMessages[index]
-    if (messageToUpdate?.id) {
-      try {
-        await updateMessage(messageToUpdate)
-      } catch (error) {
-        console.error('Failed to update message in IndexedDB:', error)
-      }
-    }
-  }, [index])
-
-  // Progressive rendering: Show tool call results one by one with smooth animations
-  // This prevents blocking the main thread when multiple tool calls are present
-  useEffect(() => {
-    const toolCallCount = m.toolCallResults?.length || 0
-
-    // If all tool calls are already visible, do nothing
-    if (visibleToolCalls >= toolCallCount) return
-
-    // Show next tool call after a short delay for smooth staggered animation
-    const timer = setTimeout(() => {
-      setVisibleToolCalls(prev => prev + 1)
-    }, 30) // 30ms delay for quick, smooth sequential appearance
-
-    return () => clearTimeout(timer)
-  }, [visibleToolCalls, m.toolCallResults])
-
-  // Reset visible tool calls when message changes
-  useEffect(() => {
-    setVisibleToolCalls(0)
-  }, [m.toolCallResults?.length])
-
-  // Apply typewriter effect only to assistant messages
-  // 如果消息已经完成打字机效果（typewriterCompleted = true），直接显示完整内容
-  // 否则，只对最新消息应用打字机效果
-  const shouldAnimate = m.role === 'assistant' && isLatest && !m.typewriterCompleted
-
-  const assistantContent = useTypewriter(
-    m.role === 'assistant' && m.content ? (m.content as string) : '',
-    {
-      minSpeed: 5,
-      maxSpeed: 20,
-      enabled: shouldAnimate,
-      onTyping: onTypingChange,
-      onComplete: handleTypewriterComplete
-    }
-  )
+  console.log(`[DEBUG-RENDER] Message ${index} typewriter state:`, {
+    activeTextIndex,
+    displayedText: displayedText?.substring(0, 50),
+    completedCount: completedTextIndices.size
+  })
 
   const onCopyClick = (content: string) => {
     if (content) {
@@ -274,54 +232,91 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
         {m.model && (
           <Badge id='model-badge' variant="outline" className={cn('select-none text-gray-700 dark:text-gray-300 mb-1 dark:border-white/20', showLoadingIndicator && isLatest ? 'animate-shine-infinite' : '')}>@{m.model}</Badge>
         )}
-        {m.reasoning && !m.artifacts && (
-          <Accordion defaultValue={'reasoning-' + index} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
-            <AccordionItem value={'reasoning-' + index}>
-              <AccordionTrigger className='text-sm h-10'>
-                <Badge variant={'secondary'} className="text-gray-600 dark:text-gray-300 bg-blue-gray-100 dark:bg-gray-800 hover:bg-blue-gray-200 dark:hover:bg-gray-700 space-x-1">
-                  <BadgePercent className="w-4" />
-                  <span>Thinking</span>
-                </Badge>
-              </AccordionTrigger>
-              <AccordionContent className="bg-blue-gray-100 dark:bg-gray-800 p-1 border-none rounded-xl">
-                <div className='text-blue-gray-500 pb-2 pl-1 pr-1 border-none'>
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    skipHtml={false}
-                    className="prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 transition-all duration-400 ease-in-out"
-                  >{(m.reasoning as string)}</ReactMarkdown>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        )}
-        {
-          // Progressive rendering: Only render visible tool calls
-          // This prevents blocking when multiple tool calls are present
-          m.toolCallResults && m.toolCallResults.length > 0 && m.toolCallResults.slice(0, visibleToolCalls).map((tc, idx) => (
-            <ToolCallResult
-              key={index + '-' + idx}
-              toolCall={tc}
-              index={index}
-              isDarkMode={isDarkMode}
-            />
-          ))
-        }
-        {
-          m.content && (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
-              rehypePlugins={[rehypeRaw, rehypeKatex]} // rehypeRaw 把原本会被当作纯文本的 HTML 片段，重新解析成真正的 HTML 节点
-              // rehypePlugins={[rehypeKatex]}
-              skipHtml={false}
-              remarkRehypeOptions={{ passThrough: ['link'] }}
-              className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
-              components={markdownCodeComponent}
-            >
-              {assistantContent}
-            </ReactMarkdown>
-          )
-        }
+
+        {m.segments.map((segment, segIdx) => {
+          console.log(`[DEBUG-RENDER] Rendering segment ${segIdx}:`, {
+            type: segment.type,
+            content: segment.content?.substring(0, 50),
+            activeTextIndex,
+            isActive: segIdx === activeTextIndex,
+            isCompleted: completedTextIndices.has(segIdx)
+          })
+
+          if (segment.type === 'text') {
+            // 根据 activeTextIndex 和 completedTextIndices 渲染
+            if (segIdx === activeTextIndex) {
+              // 当前活跃：显示 typewriter 文本
+              console.log(`[DEBUG-RENDER] ACTIVE segment ${segIdx}, displaying displayedText:`, displayedText)
+              return (
+                <ReactMarkdown
+                  key={`text-${segIdx}`}
+                  remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+                  rehypePlugins={[rehypeRaw, rehypeKatex]}
+                  skipHtml={false}
+                  remarkRehypeOptions={{ passThrough: ['link'] }}
+                  className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                  components={markdownCodeComponent}
+                >
+                  {displayedText}
+                </ReactMarkdown>
+              )
+            } else if (completedTextIndices.has(segIdx)) {
+              // 已完成：显示完整文本
+              console.log(`[DEBUG-RENDER] COMPLETED segment ${segIdx}, displaying full content`)
+              return (
+                <ReactMarkdown
+                  key={`text-${segIdx}`}
+                  remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+                  rehypePlugins={[rehypeRaw, rehypeKatex]}
+                  skipHtml={false}
+                  remarkRehypeOptions={{ passThrough: ['link'] }}
+                  className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                  components={markdownCodeComponent}
+                >
+                  {segment.content}
+                </ReactMarkdown>
+              )
+            } else {
+              // 未完成：不显示任何内容（等待 typewriter 到达）
+              console.log(`[DEBUG-RENDER] SKIPPING segment ${segIdx} (not active or completed)`)
+              return null
+            }
+          } else if (segment.type === 'reasoning') {
+            return (
+              <Accordion key={`reasoning-${segIdx}`} type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
+                <AccordionItem value={`reasoning-${segIdx}`}>
+                  <AccordionTrigger className='py-2'>
+                    <div className='flex items-center gap-2'>
+                      <BrainCircuit className='w-4 h-4 text-gray-500 dark:text-gray-400' />
+                      <span className='text-xs text-gray-500 dark:text-gray-400 font-medium'>Reasoning</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className='prose px-2 py-1 text-xs text-gray-500 dark:text-gray-400 italic'>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        skipHtml={false}
+                        className="prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 transition-all duration-400 ease-in-out"
+                      >
+                        {segment.content}
+                      </ReactMarkdown>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )
+          } else if (segment.type === 'toolCall') {
+            return (
+              <ToolCallResult
+                key={`tool-${segIdx}`}
+                toolCall={segment}
+                index={index}
+                isDarkMode={isDarkMode}
+              />
+            )
+          }
+          return null
+        })}
       </div>
       <div
         id="assistant-message-operation"

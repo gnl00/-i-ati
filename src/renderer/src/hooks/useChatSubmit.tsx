@@ -46,6 +46,7 @@ interface ChatPipelineContext {
   gatherReasoning: string
   sysMessageEntity: MessageEntity
   isContentHasThinkTag: boolean
+  previousTextLength?: number  // 记录已添加到segments的文本长度，避免重复
 
   // 工具调用相关
   hasToolCall: boolean
@@ -123,7 +124,7 @@ function useChatSubmit() {
   const prepareMessageAndChat = async (textCtx: string, mediaCtx: ClipbordImg[] | string[], tools?: any[]): Promise<ChatPipelineContext> => {
     // 构建用户消息
     const model = selectedModel!
-    let messageBody: ChatMessage = { role: "user", content: '' }
+    let messageBody: ChatMessage = { role: "user", content: '', segments: [] }
     if (model.type === 'llm') {
       messageBody = { ...messageBody, content: textCtx.trim() }
     } else if (model.type === 'vlm') {
@@ -221,7 +222,8 @@ function useChatSubmit() {
         role: 'assistant',
         model: model.name,
         content: '',
-        artifacts: artifacts
+        artifacts: artifacts,
+        segments: []  // 新增：初始化segments数组
       }
     }
     messageEntities = [...messageEntities, initialAssistantMessage]
@@ -245,7 +247,7 @@ function useChatSubmit() {
       signal: controller.signal,
       gatherContent: '',
       gatherReasoning: '',
-      sysMessageEntity: { body: { role: 'assistant', content: '', artifacts: artifacts } },
+      sysMessageEntity: { body: { role: 'assistant', content: '', artifacts: artifacts, segments: [] } },
       isContentHasThinkTag: false,
       hasToolCall: false,
       toolCalls: [],
@@ -331,7 +333,12 @@ function useChatSubmit() {
         body: {
           role: 'assistant',
           model: context.model.name,
-          content: resp.content
+          content: resp.content,
+          segments: [{
+            type: 'text',
+            content: resp.content,
+            timestamp: Date.now()
+          }]
         }
       }
       setMessages(updatedMessages)
@@ -396,13 +403,52 @@ function useChatSubmit() {
 
         // 更新最后一个消息（assistant 消息）的内容 而不是添加新的消息
         const updatedMessages = [...context.messageEntities]
+        const lastMessage = updatedMessages[updatedMessages.length - 1]
+
+        // 确保segments数组存在
+        if (!lastMessage.body.segments) {
+          lastMessage.body.segments = []
+        }
+
+        // 实时更新或创建 segments
+        const segments = [...lastMessage.body.segments]  // 创建新数组引用！
+
+        // 处理 reasoning segment
+        if (context.gatherReasoning.trim()) {
+          const existingReasoningIndex = segments.findIndex(seg => seg.type === 'reasoning')
+          const reasoningSegment = {
+            type: 'reasoning' as const,
+            content: context.gatherReasoning.trim(),
+            timestamp: Date.now()
+          }
+          if (existingReasoningIndex === -1) {
+            segments.push(reasoningSegment)
+          } else {
+            segments[existingReasoningIndex] = reasoningSegment
+          }
+        }
+
+        // 处理 text segment
+        if (context.gatherContent.trim()) {
+          const existingTextIndex = segments.findIndex(seg => seg.type === 'text')
+          const textSegment = {
+            type: 'text' as const,
+            content: context.gatherContent.trim(),
+            timestamp: Date.now()
+          }
+          if (existingTextIndex === -1) {
+            segments.push(textSegment)
+          } else {
+            segments[existingTextIndex] = textSegment
+          }
+        }
+
+        console.log('[DEBUG] Updated segments array:', segments)
         updatedMessages[updatedMessages.length - 1] = {
           body: {
-            role: 'assistant',
+            ...lastMessage.body,
             model: context.model.name,
-            content: context.gatherContent,
-            reasoning: context.gatherReasoning,
-            toolCallResults: context.toolCallResults ? [...context.toolCallResults] : undefined,
+            segments  // 使用新的数组引用
           }
         }
         setMessages(updatedMessages)
@@ -411,14 +457,22 @@ function useChatSubmit() {
 
     context.sysMessageEntity.body.model = context.model.name
     context.sysMessageEntity.body.content = context.gatherContent
-    context.sysMessageEntity.body.reasoning = context.gatherReasoning.trim()
-    context.sysMessageEntity.body.toolCallResults = context.toolCallResults
+
+    // segments 已经在流式接收过程中实时创建，这里只需要同步到 sysMessageEntity
+    context.sysMessageEntity.body.segments = context.messageEntities[context.messageEntities.length - 1].body.segments
 
     // Step 1: 如果有 tool calls，添加 assistant 的 tool_calls 消息到请求历史
     if (context.hasToolCall && context.toolCalls.length > 0) {
+      const currentMessages = useChatStore.getState().messages
+      const lastMessage = currentMessages[currentMessages.length - 1]
+
+      // segments 已经在流式接收时创建，这里不需要重复添加
+      // 注意：不要清空 gatherContent，保持 typewriter 效果连续性
+
       const assistantToolCallMessage: ChatMessage = {
         role: 'assistant',
         content: context.gatherContent || '',
+        segments: [],
         toolCalls: context.toolCalls.map(tc => ({
           id: tc.id || `call_${uuidv4()}`,
           type: 'function',
@@ -434,12 +488,18 @@ function useChatSubmit() {
 
       // 替换 UI 中最后一个 assistant 消息（而不是新增），避免出现多个 model-badge
       const lastIndex = context.messageEntities.length - 1
+      console.log('[DEBUG] Before update, segments:', lastMessage.body.segments)
       context.messageEntities[lastIndex] = {
         body: {
-          ...assistantToolCallMessage,
-          model: context.model.name
+          role: 'assistant',
+          content: context.gatherContent || '',
+          model: context.model.name,
+          segments: lastMessage.body.segments,  // 保留segments数据
+          toolCalls: assistantToolCallMessage.toolCalls
+          // 移除兼容字段
         }
       }
+      console.log('[DEBUG] After update, segments:', context.messageEntities[lastIndex].body.segments)
       setMessages([...context.messageEntities])
     }
 
@@ -514,7 +574,8 @@ function useChatSubmit() {
           role: 'tool',
           name: toolCall.function,
           toolCallId: toolCall.id || `call_${uuidv4()}`,
-          content: handleToolCallResult(toolCall.function, results)
+          content: handleToolCallResult(toolCall.function, results),
+          segments: []
         }
         if (!context.toolCallResults) {
           context.toolCallResults = [{
@@ -530,18 +591,31 @@ function useChatSubmit() {
           })
         }
 
-        // 更新最后一个消息（assistant 消息）
+        // 添加toolCall结果到segments
         const updatedMessages = [...context.messageEntities]
         const currentBody = updatedMessages[updatedMessages.length - 1].body
+
+        // 确保segments数组存在
+        if (!currentBody.segments) {
+          currentBody.segments = []
+        }
+
+        // 添加toolCall segment
+        currentBody.segments.push({
+          type: 'toolCall',
+          name: toolCall.function,
+          content: results,
+          cost: timeCosts,
+          timestamp: Date.now()
+        })
+
         updatedMessages[updatedMessages.length - 1] = {
           body: {
+            ...currentBody,
             role: 'assistant',
-            content: context.gatherContent,
-            reasoning: context.gatherReasoning,
             artifacts: artifacts,
-            toolCallResults: context.toolCallResults ? [...context.toolCallResults] : undefined, // 创建新数组，触发 React 更新
-            toolCalls: currentBody.toolCalls, // 保留 toolCalls 字段
             model: context.model.name
+            // 移除兼容字段，只保留 segments
           }
         }
         setMessages(updatedMessages)
@@ -557,12 +631,10 @@ function useChatSubmit() {
         const currentBody = updatedMessages[updatedMessages.length - 1].body
         updatedMessages[updatedMessages.length - 1] = {
           body: {
+            ...currentBody,
             role: 'assistant',
             content: context.gatherContent,
-            reasoning: context.gatherReasoning,
             artifacts: artifacts,
-            toolCallResults: context.toolCallResults ? [...context.toolCallResults] : undefined, // 创建新数组，触发 React 更新
-            toolCalls: currentBody.toolCalls, // 保留 toolCalls 字段
             model: context.model.name
           }
         }
@@ -590,6 +662,10 @@ function useChatSubmit() {
       return await processRequestWithToolCall(context)
     } else {
       setShowLoadingIndicator(false)
+
+      // 对话结束，标记消息为完成
+      // 注意：segments 已经在流式接收过程中实时创建，不需要重复添加
+      console.log('[DEBUG] Stream completed, segments already created:', context.messageEntities[context.messageEntities.length - 1].body.segments)
     }
 
     return context
@@ -694,7 +770,7 @@ function useChatSubmit() {
       apiKey: titleProvider.apiKey,
       model: model.value,
       prompt: generateTitlePrompt,
-      messages: [{ role: 'user', content: context }],
+      messages: [{ role: 'user', content: context, segments: [] }],
       stream: false,
       options: {
         temperature: 0.7,

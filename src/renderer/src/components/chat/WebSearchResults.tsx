@@ -47,7 +47,11 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ r
       <div className="flex items-center gap-2 px-0.5">
         <Search className="w-3 h-3 text-slate-500 dark:text-slate-400" />
         <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 select-none tracking-wider uppercase">
-          Search Results
+          {
+            results.length === 0
+              ? 'No Results'
+              : `${results[0].query}`
+          }
         </span>
         <div className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full border border-blue-100 dark:border-blue-800/50">
           {successCount}/{totalCount}

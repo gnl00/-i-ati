@@ -1,6 +1,5 @@
-import { adapterManager } from './adapters/manager'
 import { initializeAdapters } from './adapters/index'
-import { buildSystemPrompt } from './utils'
+import { adapterManager } from './adapters/manager'
 
 initializeAdapters()
 
