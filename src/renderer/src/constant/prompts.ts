@@ -1,4 +1,3 @@
-
 export const systemPrompt = (workspace: string) => `You are a helpful assistant.
 
 今天的日期是 ${new Date().toLocaleDateString()}。
@@ -149,8 +148,9 @@ bun install && bun dev
 `
 
 export const generateTitlePrompt =
-  `Generate a briefly and precisely title from the context. 
-NEVER EVER EXPAIN. DO REMEMBER: **RETURN THE TITLE ONLY**\n`
+  `Generate a concise and precise title based solely on the provided context.  
+DO NOT provide any explanation, commentary, or additional text.  
+**RETURN ONLY THE TITLE—nothing else.**\n`;
 
 // - Use search_tools to get the full definition of tool if you need.
 export const toolsCallSystemPrompt = `请根据需要自主决定是否使用提供的工具（tools）来帮助回答问题。

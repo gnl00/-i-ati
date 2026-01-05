@@ -31,10 +31,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const lastScrollTopRef = useRef<number>(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollRAFRef = useRef<number>(0)
-  const typingScrollRAFRef = useRef<number>(0) // 独立的 RAF ref 用于打字机滚动
   const lastChatUuidRef = useRef<string | undefined>(undefined)
   const isAutoScrollingRef = useRef<boolean>(false) // 标记是否正在自动滚动
-  const lastTypingScrollTimeRef = useRef<number>(0) // 上次打字机滚动的时间
   const smoothScrollRAFRef = useRef<number>(0) // 平滑滚动的 RAF ref
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
@@ -261,9 +259,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       if (scrollRAFRef.current) {
         cancelAnimationFrame(scrollRAFRef.current)
       }
-      if (typingScrollRAFRef.current) {
-        cancelAnimationFrame(typingScrollRAFRef.current)
-      }
       if (smoothScrollRAFRef.current) {
         cancelAnimationFrame(smoothScrollRAFRef.current)
       }
@@ -274,10 +269,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   useEffect(() => {
     if (showScrollToBottom) {
       // 用户向上滚动了，取消所有待执行的自动滚动
-      if (typingScrollRAFRef.current) {
-        cancelAnimationFrame(typingScrollRAFRef.current)
-        typingScrollRAFRef.current = 0
-      }
       if (scrollRAFRef.current) {
         cancelAnimationFrame(scrollRAFRef.current)
         scrollRAFRef.current = 0
@@ -320,49 +311,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       scrollToBottomThrottled()
     }
   }, [messages, showScrollToBottom, scrollToBottomThrottled])
-
-  // 打字机效果的滚动回调（节流版本）
-  const handleTyping = useCallback(() => {
-    if (!showScrollToBottom) {
-      const now = Date.now()
-      const timeSinceLastScroll = now - lastTypingScrollTimeRef.current
-
-      // 节流：每 100ms 最多滚动一次
-      if (timeSinceLastScroll < 100) {
-        return
-      }
-
-      // 使用独立的 RAF ref，避免与其他滚动逻辑冲突
-      // 如果已经有待处理的 RAF，就跳过这次调用
-      if (!typingScrollRAFRef.current) {
-        lastTypingScrollTimeRef.current = now
-
-        typingScrollRAFRef.current = requestAnimationFrame(() => {
-          if (chatPaddingElRef.current) {
-            // 标记开始自动滚动
-            isAutoScrollingRef.current = true
-
-            chatPaddingElRef.current.scrollIntoView({
-              behavior: "auto",
-              block: "end"
-            })
-
-            // 滚动完成后重置标志
-            // 使用 requestAnimationFrame 确保滚动已经开始
-            requestAnimationFrame(() => {
-              // 再等待一帧，确保滚动事件已触发
-              requestAnimationFrame(() => {
-                isAutoScrollingRef.current = false
-              })
-            })
-          }
-          typingScrollRAFRef.current = 0
-        })
-      }
-    }
-  }, [showScrollToBottom])
-
-
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
@@ -407,7 +355,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                           message={message.body}
                           index={index}
                           isLatest={index === deferredMessages.length - 1}
-                          onTypingChange={handleTyping}
                         />
                       )
                     })

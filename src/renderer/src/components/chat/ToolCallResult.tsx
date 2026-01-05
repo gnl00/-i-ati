@@ -8,7 +8,7 @@ import { SpeedCodeHighlight } from './common/SpeedCodeHighlight';
 import { WebSearchResults } from './WebSearchResults';
 
 interface ToolCallResultProps {
-  toolCall: any
+  toolCall: ToolCallSegment  // 新的类型：支持ToolCallSegment
   index: number
   isDarkMode: boolean
 }
