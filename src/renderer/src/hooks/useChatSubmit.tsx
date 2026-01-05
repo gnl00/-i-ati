@@ -143,9 +143,6 @@ function useChatSubmit() {
     }
 
     const userMessageEntity: MessageEntity = { body: messageBody }
-    const usrMsgId = await saveMessage(userMessageEntity) as number
-    let messageEntities = [...messages, userMessageEntity]
-    setMessages(messageEntities)
 
     // 处理聊天创建/更新
     let currChatId = chatId
@@ -162,19 +159,53 @@ function useChatSubmit() {
       }
       workspacePath = workspaceResult.path
 
-      chatEntity = { uuid: currChatUuid, title: 'NewChat', messages: [usrMsgId], createTime: new Date().getTime(), updateTime: new Date().getTime() }
+      // 先创建聊天记录（不包含消息），保存当前使用的模型
+      chatEntity = {
+        uuid: currChatUuid,
+        title: 'NewChat',
+        messages: [],
+        model: model.value,
+        createTime: new Date().getTime(),
+        updateTime: new Date().getTime()
+      }
       const saveChatRetVal = await saveChat(chatEntity)
       currChatId = saveChatRetVal as number
       setChatId(currChatId)
       chatEntity.id = currChatId
+
+      // 设置消息的 chatId 和 chatUuid
+      userMessageEntity.chatId = currChatId
+      userMessageEntity.chatUuid = currChatUuid
     } else {
-      chatEntity = await getChatById(currChatId)
-      chatEntity.messages = [...chatEntity.messages, usrMsgId]
-      chatEntity.updateTime = new Date().getTime()
-      updateChat(chatEntity)
+      const fetchedChat = await getChatById(currChatId!)
+      if (!fetchedChat) {
+        throw new Error('Chat not found')
+      }
+      chatEntity = fetchedChat
+
+      // 设置消息的 chatId 和 chatUuid
+      userMessageEntity.chatId = currChatId
+      userMessageEntity.chatUuid = chatUuid
 
       // 获取已存在聊天的 workspace 路径
       workspacePath = getWorkspacePath(chatUuid)
+    }
+
+    // 保存用户消息（此时 chatId 已经设置）
+    const usrMsgId = await saveMessage(userMessageEntity) as number
+    let messageEntities = [...messages, userMessageEntity]
+    setMessages(messageEntities)
+
+    // 更新聊天的消息列表和模型
+    chatEntity.messages = [...chatEntity.messages, usrMsgId]
+    chatEntity.model = model.value
+    chatEntity.updateTime = new Date().getTime()
+    updateChat(chatEntity)
+
+    // 从数据库重新读取最新的 msgCount
+    const updatedChat = await getChatById(currChatId!)
+    if (updatedChat) {
+      chatEntity.msgCount = updatedChat.msgCount
     }
     updateChatList(chatEntity)
 
@@ -582,10 +613,20 @@ function useChatSubmit() {
     // 保存消息到本地
     if (context.gatherContent || context.gatherReasoning) {
       context.sysMessageEntity.body.model = context.model.name
+      // 设置消息的 chatId 和 chatUuid
+      context.sysMessageEntity.chatId = context.chatEntity.id
+      context.sysMessageEntity.chatUuid = context.chatEntity.uuid
       const sysMsgId = await saveMessage(context.sysMessageEntity) as number
       context.chatEntity.messages = [...context.chatEntity.messages, sysMsgId]
+      context.chatEntity.model = context.model.value
       context.chatEntity.updateTime = new Date().getTime()
       updateChat(context.chatEntity)
+
+      // 从数据库重新读取最新的 msgCount
+      const updatedChat = await getChatById(context.chatEntity.id!)
+      if (updatedChat) {
+        context.chatEntity.msgCount = updatedChat.msgCount
+      }
       updateChatList(context.chatEntity)
     }
   }

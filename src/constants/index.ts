@@ -56,3 +56,23 @@ export const MEMORY_CLEAR = 'memory-clear'
 export const EMBEDDING_GENERATE = 'embedding-generate'
 export const EMBEDDING_GENERATE_BATCH = 'embedding-generate-batch'
 export const EMBEDDING_GET_MODEL_INFO = 'embedding-get-model-info'
+
+// Database Operations - Chat
+export const DB_CHAT_SAVE = 'db:chat:save'
+export const DB_CHAT_GET_ALL = 'db:chat:get-all'
+export const DB_CHAT_GET_BY_ID = 'db:chat:get-by-id'
+export const DB_CHAT_UPDATE = 'db:chat:update'
+export const DB_CHAT_DELETE = 'db:chat:delete'
+
+// Database Operations - Message
+export const DB_MESSAGE_SAVE = 'db:message:save'
+export const DB_MESSAGE_GET_ALL = 'db:message:get-all'
+export const DB_MESSAGE_GET_BY_ID = 'db:message:get-by-id'
+export const DB_MESSAGE_GET_BY_IDS = 'db:message:get-by-ids'
+export const DB_MESSAGE_UPDATE = 'db:message:update'
+export const DB_MESSAGE_DELETE = 'db:message:delete'
+
+// Database Operations - Config
+export const DB_CONFIG_GET = 'db:config:get'
+export const DB_CONFIG_SAVE = 'db:config:save'
+export const DB_CONFIG_INIT = 'db:config:init'

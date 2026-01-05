@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { defaultConfig } from '../config'
-import { providers as providerJsonData } from '../data'
 
 // Initialization tracking
 let configInitialized = false
@@ -45,7 +44,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   appConfig: defaultConfig,
 
   // State - Providers
-  providers: defaultConfig.providers || providerJsonData,
+  providers: defaultConfig.providers || [],
   currentProviderName: '',
 
   // State - Tool settings
@@ -66,22 +65,23 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Internal setter (used by initializeAppConfig)
   _setAppConfig: (config: IAppConfig) => {
+    console.log('[appConfig] _setAppConfig called, providers count:', config.providers?.length || 0)
     set({
       appConfig: config,
-      providers: config.providers || providerJsonData,
+      providers: config.providers || [],
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       mcpServerConfig: { ...config.mcp }
     })
   },
 
-  // Public setter (saves to IndexedDB)
+  // Public setter (saves to SQLite)
   setAppConfig: async (updatedConfig: IAppConfig) => {
     const { saveConfig } = await import('../db/ConfigRepository')
     await saveConfig(updatedConfig)
     set({
       appConfig: updatedConfig,
-      providers: updatedConfig.providers || providerJsonData,
+      providers: updatedConfig.providers || [],
       titleGenerateModel: updatedConfig.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: updatedConfig.tools?.titleGenerateEnabled ?? true,
       mcpServerConfig: { ...updatedConfig.mcp }
@@ -215,11 +215,12 @@ export const initializeAppConfig = async (): Promise<void> => {
     try {
       const { initConfig } = await import('../db/ConfigRepository')
       const loadedConfig = await initConfig()
+      console.log('[appConfig] Config loaded from SQLite, providers count:', loadedConfig.providers?.length || 0)
       useAppConfigStore.getState()._setAppConfig(loadedConfig)
       configInitialized = true
-      console.log('[@i] App config initialized from IndexedDB')
+      console.log('[@i] App config initialized from SQLite')
     } catch (error) {
-      console.error('Failed to load config from IndexedDB:', error)
+      console.error('Failed to load config from SQLite:', error)
       configInitialized = true
     }
   })()

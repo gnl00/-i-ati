@@ -147,7 +147,9 @@ declare interface ChatEntity {
   id?: number // 自增 id
   uuid: string
   title: string // 用户名
-  messages: number[] // 消息内容
+  messages: number[] // 消息 ID 列表
+  msgCount?: number // 消息数量（缓存字段）
+  model?: string // 最近使用的模型
   updateTime: number // 更新时间
   createTime: number // 创建时间
 }

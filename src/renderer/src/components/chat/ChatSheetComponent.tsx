@@ -160,15 +160,23 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
             setChatTitle(chat.title)
             setChatUuid(chat.uuid)
             setChatId(chat.id)
-            getMessageByIds(chat.messages).then(messageList => {
-                setMessages(messageList)
-            }).catch(err => {
-                toast({
-                    variant: "destructive",
-                    title: "Uh oh! Something went wrong.",
-                    description: `There was a problem: ${err.message}`
+
+            // 先获取完整的聊天数据（包含消息 ID 列表）
+            const { getChatById } = await import('@renderer/db/ChatRepository')
+            const fullChat = await getChatById(chat.id!)
+            if (fullChat && fullChat.messages.length > 0) {
+                getMessageByIds(fullChat.messages).then(messageList => {
+                    setMessages(messageList)
+                }).catch(err => {
+                    toast({
+                        variant: "destructive",
+                        title: "Uh oh! Something went wrong.",
+                        description: `There was a problem: ${err.message}`
+                    })
                 })
-            })
+            } else {
+                setMessages([])
+            }
         }
     }
     const onChatItemTitleChange = (e, chat: ChatEntity) => {
@@ -192,7 +200,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const onSheetChatItemDeleteClick = (e, chat: ChatEntity) => {
         e.stopPropagation()
         setChatList(chatList.filter(item => item.id !== chat.id))
-        deleteChat(chat.id)
+        deleteChat(chat.id!)
         if (chat.id === chatId) {
             startNewChat()
         }
@@ -515,7 +523,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                             : "opacity-100 scale-100 translate-x-0"
                                                                     )}
                                                                 >
-                                                                    {item.messages.length}
+                                                                    {item.msgCount ?? 0}
                                                                 </span>
 
                                                                 {/* 操作按钮组 */}

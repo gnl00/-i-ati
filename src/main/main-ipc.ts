@@ -27,6 +27,7 @@ import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
 import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
 import MemoryService from './services/MemoryService'
+import DatabaseService from './services/DatabaseService'
 import {
   OPEN_EXTERNAL,
   PIN_WINDOW,
@@ -67,7 +68,21 @@ import {
   MEMORY_CLEAR,
   EMBEDDING_GENERATE,
   EMBEDDING_GENERATE_BATCH,
-  EMBEDDING_GET_MODEL_INFO
+  EMBEDDING_GET_MODEL_INFO,
+  DB_CHAT_SAVE,
+  DB_CHAT_GET_ALL,
+  DB_CHAT_GET_BY_ID,
+  DB_CHAT_UPDATE,
+  DB_CHAT_DELETE,
+  DB_MESSAGE_SAVE,
+  DB_MESSAGE_GET_ALL,
+  DB_MESSAGE_GET_BY_ID,
+  DB_MESSAGE_GET_BY_IDS,
+  DB_MESSAGE_UPDATE,
+  DB_MESSAGE_DELETE,
+  DB_CONFIG_GET,
+  DB_CONFIG_SAVE,
+  DB_CONFIG_INIT
 } from '../constants'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
 
@@ -279,6 +294,82 @@ function mainIPCSetup() {
   ipcMain.handle(EMBEDDING_GET_MODEL_INFO, async (_event) => {
     console.log(`[Embedding IPC] Get model info`)
     return EmbeddingServiceInstance.getModelInfo()
+  })
+
+  // ==================== Database Operations - Chat ====================
+
+  ipcMain.handle(DB_CHAT_SAVE, async (_event, data) => {
+    console.log(`[Database IPC] Save chat`)
+    return DatabaseService.saveChat(data)
+  })
+
+  ipcMain.handle(DB_CHAT_GET_ALL, async (_event) => {
+    console.log(`[Database IPC] Get all chats`)
+    return DatabaseService.getAllChats()
+  })
+
+  ipcMain.handle(DB_CHAT_GET_BY_ID, async (_event, id) => {
+    console.log(`[Database IPC] Get chat by id: ${id}`)
+    return DatabaseService.getChatById(id)
+  })
+
+  ipcMain.handle(DB_CHAT_UPDATE, async (_event, data) => {
+    console.log(`[Database IPC] Update chat: ${data.id}`)
+    return DatabaseService.updateChat(data)
+  })
+
+  ipcMain.handle(DB_CHAT_DELETE, async (_event, id) => {
+    console.log(`[Database IPC] Delete chat: ${id}`)
+    return DatabaseService.deleteChat(id)
+  })
+
+  // ==================== Database Operations - Message ====================
+
+  ipcMain.handle(DB_MESSAGE_SAVE, async (_event, data) => {
+    console.log(`[Database IPC] Save message`)
+    return DatabaseService.saveMessage(data)
+  })
+
+  ipcMain.handle(DB_MESSAGE_GET_ALL, async (_event) => {
+    console.log(`[Database IPC] Get all messages`)
+    return DatabaseService.getAllMessages()
+  })
+
+  ipcMain.handle(DB_MESSAGE_GET_BY_ID, async (_event, id) => {
+    console.log(`[Database IPC] Get message by id: ${id}`)
+    return DatabaseService.getMessageById(id)
+  })
+
+  ipcMain.handle(DB_MESSAGE_GET_BY_IDS, async (_event, ids) => {
+    console.log(`[Database IPC] Get messages by ids: ${ids.length} ids`)
+    return DatabaseService.getMessageByIds(ids)
+  })
+
+  ipcMain.handle(DB_MESSAGE_UPDATE, async (_event, data) => {
+    console.log(`[Database IPC] Update message: ${data.id}`)
+    return DatabaseService.updateMessage(data)
+  })
+
+  ipcMain.handle(DB_MESSAGE_DELETE, async (_event, id) => {
+    console.log(`[Database IPC] Delete message: ${id}`)
+    return DatabaseService.deleteMessage(id)
+  })
+
+  // ==================== Database Operations - Config ====================
+
+  ipcMain.handle(DB_CONFIG_GET, async (_event) => {
+    console.log(`[Database IPC] Get config`)
+    return DatabaseService.getConfig()
+  })
+
+  ipcMain.handle(DB_CONFIG_SAVE, async (_event, config) => {
+    console.log(`[Database IPC] Save config`)
+    return DatabaseService.saveConfig(config)
+  })
+
+  ipcMain.handle(DB_CONFIG_INIT, async (_event) => {
+    console.log(`[Database IPC] Init config`)
+    return DatabaseService.initConfig()
   })
 
 }
