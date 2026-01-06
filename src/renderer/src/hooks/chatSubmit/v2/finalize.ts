@@ -1,7 +1,6 @@
 import { saveMessage } from '@renderer/db/MessageRepository'
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { unifiedChatRequest } from '@request/index'
-import { useChatStore } from '@renderer/store'
 import type { FinalizeDeps, TitleRequestParams, StreamingContextProvider } from './types'
 import { generateTitlePrompt } from '../../../constant/prompts'
 
@@ -83,8 +82,7 @@ export const finalizePipelineV2 = async (
   }
 
   if (streaming.gatherContent || streaming.gatherReasoning) {
-    const currentMessages = useChatStore.getState().messages
-    const lastMessage = currentMessages[currentMessages.length - 1]
+    const lastMessage = session.messageEntities[session.messageEntities.length - 1]
 
     const messageToSave: MessageEntity = {
       ...lastMessage,
