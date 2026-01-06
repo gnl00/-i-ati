@@ -1,5 +1,4 @@
 import { invokeMcpToolCall } from '@renderer/invoker/ipcInvoker'
-import { useChatStore } from '@renderer/store'
 import { unifiedChatRequest } from '@request/index'
 import { embeddedToolsRegistry } from '@tools/index'
 import { v4 as uuidv4 } from 'uuid'
@@ -15,6 +14,7 @@ import { formatWebSearchForLLM, normalizeToolArgs } from './utils'
 import { AbortError } from './errors'
 import { ChunkParser, SegmentBuilder } from './streaming/parser'
 import type { ParseResult } from './streaming/parser/types'
+import { MessageManager } from './streaming/message-manager'
 
 const handleToolCallResult = (functionName: string, results: any) => {
   return functionName === 'web_search'
@@ -44,15 +44,19 @@ const applyParseResult = (
   result: ParseResult,
   setMessages: (messages: MessageEntity[]) => void
 ) => {
-  const updatedMessages = [...context.session.messageEntities]
-  const lastMessage = updatedMessages[updatedMessages.length - 1]
+  const messageManager = new MessageManager(context, setMessages)
+  const segmentBuilder = new SegmentBuilder()
+
+  const lastMessage = messageManager.getLastMessage()
 
   if (!lastMessage.body.segments) {
-    lastMessage.body.segments = []
+    messageManager.updateLastMessage(msg => {
+      msg.body.segments = []
+      return msg
+    })
   }
 
-  let segments = [...lastMessage.body.segments]
-  const segmentBuilder = new SegmentBuilder()
+  let segments = [...(lastMessage.body.segments || [])]
 
   // 应用 reasoning delta
   if (result.reasoningDelta.trim()) {
@@ -64,10 +68,14 @@ const applyParseResult = (
     segments = segmentBuilder.appendSegment(segments, result.contentDelta, 'text')
   }
 
-  lastMessage.body.segments = segments
-  context.session.messageEntities = updatedMessages
-  context.session.chatMessages = updatedMessages.map(msg => msg.body)
-  setMessages(updatedMessages)
+  // 原子更新（自动完成 3 次同步）
+  messageManager.updateLastMessage(msg => ({
+    ...msg,
+    body: {
+      ...msg.body,
+      segments
+    }
+  }))
 }
 
 /**
@@ -158,8 +166,9 @@ class StreamingSessionMachine {
   }
 
   private applyNonStreamingResponse(resp: IUnifiedResponse) {
-    const updatedMessages = [...this.context.session.messageEntities]
-    updatedMessages[updatedMessages.length - 1] = {
+    const messageManager = new MessageManager(this.context, this.deps.setMessages)
+
+    messageManager.updateLastMessage(() => ({
       body: {
         role: 'assistant',
         model: this.context.meta.model.name,
@@ -170,10 +179,7 @@ class StreamingSessionMachine {
           timestamp: Date.now()
         }]
       }
-    }
-    this.deps.setMessages(updatedMessages)
-    this.context.session.messageEntities = updatedMessages
-    this.context.session.chatMessages = updatedMessages.map(msg => msg.body)
+    }))
   }
 
   private flushToolCallPlaceholder() {
@@ -181,8 +187,8 @@ class StreamingSessionMachine {
       return
     }
 
-    const currentMessages = useChatStore.getState().messages
-    const lastMessage = currentMessages[currentMessages.length - 1]
+    const messageManager = new MessageManager(this.context, this.deps.setMessages)
+    const lastMessage = messageManager.getLastMessage()
 
     const assistantToolCallMessage: ChatMessage = {
       role: 'assistant',
@@ -200,8 +206,7 @@ class StreamingSessionMachine {
 
     this.context.request.messages.push(assistantToolCallMessage)
 
-    const lastIndex = this.context.session.messageEntities.length - 1
-    this.context.session.messageEntities[lastIndex] = {
+    messageManager.updateLastMessage(() => ({
       body: {
         role: 'assistant',
         content: this.context.streaming.gatherContent || '',
@@ -209,9 +214,7 @@ class StreamingSessionMachine {
         segments: lastMessage.body.segments,
         toolCalls: assistantToolCallMessage.toolCalls
       }
-    }
-    this.context.session.chatMessages = this.context.session.messageEntities.map(msg => msg.body)
-    this.deps.setMessages([...this.context.session.messageEntities])
+    }))
   }
 
   private async handleToolCalls() {
@@ -262,14 +265,10 @@ class StreamingSessionMachine {
           })
         }
 
-        const updatedMessages = [...this.context.session.messageEntities]
-        const currentBody = updatedMessages[updatedMessages.length - 1].body
+        const messageManager = new MessageManager(this.context, this.deps.setMessages)
 
-        if (!currentBody.segments) {
-          currentBody.segments = []
-        }
-
-        currentBody.segments.push({
+        // 添加 toolCall segment
+        messageManager.appendSegmentToLastMessage({
           type: 'toolCall',
           name: toolCall.function,
           content: results,
@@ -277,33 +276,20 @@ class StreamingSessionMachine {
           timestamp: Date.now()
         })
 
-        updatedMessages[updatedMessages.length - 1] = {
-          body: {
-            ...currentBody,
-            role: 'assistant',
-            model: this.context.meta.model.name
-          }
-        }
-        this.deps.setMessages(updatedMessages)
-        this.context.session.messageEntities = updatedMessages
-        this.context.session.chatMessages = updatedMessages.map(msg => msg.body)
-
-        this.context.request.messages.push(toolFunctionMessage)
+        // 添加 tool result 消息
+        messageManager.addToolResultMessage(toolFunctionMessage)
       } catch (error: any) {
         console.error('Tool call error:', error)
-        const updatedMessages = [...this.context.session.messageEntities]
-        const currentBody = updatedMessages[updatedMessages.length - 1].body
-        updatedMessages[updatedMessages.length - 1] = {
+        const messageManager = new MessageManager(this.context, this.deps.setMessages)
+
+        messageManager.updateLastMessage(msg => ({
           body: {
-            ...currentBody,
+            ...msg.body,
             role: 'assistant',
             content: this.context.streaming.gatherContent,
             model: this.context.meta.model.name
           }
-        }
-        this.deps.setMessages(updatedMessages)
-        this.context.session.messageEntities = updatedMessages
-        this.context.session.chatMessages = updatedMessages.map(msg => msg.body)
+        }))
       }
     }
 
