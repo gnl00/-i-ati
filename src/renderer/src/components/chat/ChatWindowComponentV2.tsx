@@ -31,9 +31,11 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const lastScrollTopRef = useRef<number>(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollRAFRef = useRef<number>(0)
+  const typingScrollRAFRef = useRef<number>(0)
   const lastChatUuidRef = useRef<string | undefined>(undefined)
   const isAutoScrollingRef = useRef<boolean>(false) // 标记是否正在自动滚动
   const smoothScrollRAFRef = useRef<number>(0) // 平滑滚动的 RAF ref
+  const lastTypingScrollTimeRef = useRef<number>(0)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
@@ -259,6 +261,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       if (scrollRAFRef.current) {
         cancelAnimationFrame(scrollRAFRef.current)
       }
+      if (typingScrollRAFRef.current) {
+        cancelAnimationFrame(typingScrollRAFRef.current)
+        typingScrollRAFRef.current = 0
+      }
       if (smoothScrollRAFRef.current) {
         cancelAnimationFrame(smoothScrollRAFRef.current)
       }
@@ -269,6 +275,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   useEffect(() => {
     if (showScrollToBottom) {
       // 用户向上滚动了，取消所有待执行的自动滚动
+      if (typingScrollRAFRef.current) {
+        cancelAnimationFrame(typingScrollRAFRef.current)
+        typingScrollRAFRef.current = 0
+      }
       if (scrollRAFRef.current) {
         cancelAnimationFrame(scrollRAFRef.current)
         scrollRAFRef.current = 0
@@ -311,6 +321,42 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       scrollToBottomThrottled()
     }
   }, [messages, showScrollToBottom, scrollToBottomThrottled])
+
+  // 打字机效果触发的滚动（与普通滚动逻辑解耦）
+  const handleTyping = useCallback(() => {
+    if (!showScrollToBottom) {
+      const now = Date.now()
+      const timeSinceLastScroll = now - lastTypingScrollTimeRef.current
+
+      // 节流：100ms 内最多滚动一次
+      if (timeSinceLastScroll < 100) {
+        return
+      }
+
+      if (!typingScrollRAFRef.current) {
+        lastTypingScrollTimeRef.current = now
+
+        typingScrollRAFRef.current = requestAnimationFrame(() => {
+          if (chatPaddingElRef.current) {
+            isAutoScrollingRef.current = true
+
+            chatPaddingElRef.current.scrollIntoView({
+              behavior: "auto",
+              block: "end"
+            })
+
+            // 下一帧重置 auto-scroll 标记，避免误判
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                isAutoScrollingRef.current = false
+              })
+            })
+          }
+          typingScrollRAFRef.current = 0
+        })
+      }
+    }
+  }, [showScrollToBottom])
 
   // 监听聊天内容高度变化（用于 typewriter 效果期间的自动滚动）
   useEffect(() => {
@@ -375,6 +421,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                           message={message.body}
                           index={index}
                           isLatest={index === deferredMessages.length - 1}
+                          onTypingChange={handleTyping}
                         />
                       )
                     })
