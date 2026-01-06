@@ -1,1 +1,7 @@
 export { ArtifactsPanel } from './ArtifactsPanel'
+export { ArtifactsPreviewTab } from './ArtifactsPreviewTab'
+export { ArtifactsFilesTab, FilesTabToolbar } from './ArtifactsFilesTab'
+export { ArtifactsEmptyState } from './ArtifactsEmptyState'
+export { ArtifactsFooter } from './ArtifactsFooter'
+export { WorkspaceFileTree } from './WorkspaceFileTree'
+export type { FileTreeNode } from './WorkspaceFileTree'
