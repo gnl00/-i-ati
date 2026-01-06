@@ -21,7 +21,7 @@ import {
   invokeWriteFile
 } from './fileOperations/renderer/FileOperationsInvoker'
 import { embeddedToolsRegistry, type ToolDefinition } from './registry'
-import { invokeWebSearch, invokeWebFetch } from './webTools/renderer/WebToolsInvoker'
+import { invokeWebFetch, invokeWebSearch } from './webTools/renderer/WebToolsInvoker'
 
 /**
  * 工具处理器映射表
@@ -71,7 +71,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
  * 在应用启动时调用此函数来注册所有工具
  */
 export function initializeEmbeddedTools(): void {
-  console.log('[EmbeddedTools] Initializing embedded tools...')
+  // console.log('[EmbeddedTools] Initializing embedded tools...')
 
   // 遍历 tools.json 中的所有工具定义
   const tools = toolsDefinitions as ToolDefinition[]
