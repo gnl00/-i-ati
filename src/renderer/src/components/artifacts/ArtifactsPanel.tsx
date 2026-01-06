@@ -41,7 +41,7 @@ import { dracula } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import { type FileTreeNode, WorkspaceFileTree } from './WorkspaceFileTree'
 
 export const ArtifactsPanel: React.FC = () => {
-  const { setArtifactsPanel, messages, artifactsActiveTab, setArtifactsActiveTab } = useChatStore()
+  const { setArtifactsPanel, artifactsActiveTab, setArtifactsActiveTab } = useChatStore()
   const {
     setDevServerStatus,
     setDevServerPort,
@@ -77,60 +77,8 @@ export const ArtifactsPanel: React.FC = () => {
     devServerStatusRef.current = currentDevServerStatus
   }, [currentDevServerStatus])
 
-  // Legacy artifact parsing for Preview tab
-  const lastArtifactMessage = useMemo(() => {
-    return [...messages].reverse().find(m => m.body.artifacts && m.body.content)
-  }, [messages])
-
-  const { files, artifactTitle } = useMemo(() => {
-    const rawContent = (lastArtifactMessage?.body.content as string) || ''
-    const tagMatch = rawContent.match(/<antArtifact[\s\S]*?>([\s\S]*?)<\/antArtifact>/i)
-    const innerContent = tagMatch ? tagMatch[1].trim() : rawContent.trim()
-    const titleMatch = rawContent.match(/title="([^"]*)"/i)
-    const title = titleMatch ? titleMatch[1] : 'Artifact Project'
-
-    const fileRegex = /<file\s+path="([^"]+)"[\s\S]*?>([\s\S]*?)<\/file>/gi
-    const parsedFiles: { path: string, content: string, language: string }[] = []
-    let match: RegExpExecArray | null
-
-    while ((match = fileRegex.exec(innerContent)) !== null) {
-      const path = match[1]
-      const content = match[2].trim()
-      const ext = path.split('.').pop()?.toLowerCase() || ''
-
-      let language = 'text'
-      if (['html', 'htm'].includes(ext)) language = 'html'
-      else if (['js', 'jsx', 'mjs'].includes(ext)) language = 'javascript'
-      else if (['ts', 'tsx'].includes(ext)) language = 'typescript'
-      else if (['css', 'scss', 'less'].includes(ext)) language = 'css'
-      else if (['json'].includes(ext)) language = 'json'
-      else if (['svg'].includes(ext)) language = 'svg'
-
-      parsedFiles.push({ path, content, language })
-    }
-
-    if (parsedFiles.length === 0) {
-      const codeBlockRegex = /```(\w+)?(?:\s+filename="([^"]+)")?\n([\s\S]*?)```/gi
-      while ((match = codeBlockRegex.exec(innerContent)) !== null) {
-        const language = match[1] || 'text'
-        const path = match[2] || `file-${parsedFiles.length + 1}.${language === 'javascript' ? 'js' : language}`
-        const content = match[3].trim()
-        parsedFiles.push({ path, content, language })
-      }
-    }
-
-    if (parsedFiles.length === 0 && innerContent) {
-      parsedFiles.push({
-        path: 'index.html',
-        content: innerContent,
-        language: 'html'
-      })
-    }
-
-    return { files: parsedFiles, artifactTitle: title }
-  }, [lastArtifactMessage])
-
-  // For Preview tab, always use the first file for copy/download operations
+  const files = useMemo(() => [] as { path: string, content: string, language: string }[], [])
+  const artifactTitle = 'Artifact Project'
   const selectedFile = files[0] || null
 
   // Convert API TreeNode to FileTreeNode
