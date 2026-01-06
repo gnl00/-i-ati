@@ -141,7 +141,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       return
     }
     if (!selectedModel) {
-      toast.warning('Please select one model')
+      toast.warning('Please select a model')
       return
     }
     onMessagesUpdate() // for chat-window scroll to the end

@@ -22,6 +22,7 @@ interface ChatMessageComponentProps {
   index: number
   message: ChatMessage
   isLatest: boolean
+  onTypingChange?: () => void
 }
 
 // Shared markdown code components for both user and assistant messages
@@ -87,7 +88,7 @@ const markdownCodeComponent = {
   }
 }
 
-const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest }) => {
+const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index, message: m, isLatest, onTypingChange }) => {
 
   // Use Zustand selector to avoid unnecessary re-renders
   // Only subscribe to showLoadingIndicator, not the entire store
@@ -123,6 +124,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({ index,
     maxSpeed: 20,
     enabled,
     isStreaming,
+    onTyping: onTypingChange,
     onAllComplete: () => {
       // 打字机效果完成后，标记当前消息的 typewriterCompleted 为 true
       // 直接修改当前消息对象，避免从 store 重新获取

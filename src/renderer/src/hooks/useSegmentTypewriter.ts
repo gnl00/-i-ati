@@ -5,6 +5,7 @@ interface SegmentTypewriterOptions {
   maxSpeed?: number
   enabled?: boolean
   isStreaming?: boolean
+  onTyping?: () => void
   onSegmentStart?: (segmentIndex: number) => void
   onSegmentComplete?: (segmentIndex: number) => void
   onAllComplete?: () => void
@@ -52,6 +53,7 @@ export const useSegmentTypewriter = (
     maxSpeed = 20,
     enabled = true,
     isStreaming = false,
+    onTyping,
     onSegmentStart,
     onSegmentComplete,
     onAllComplete
@@ -68,6 +70,7 @@ export const useSegmentTypewriter = (
   const onSegmentStartRef = useRef(onSegmentStart)
   const onSegmentCompleteRef = useRef(onSegmentComplete)
   const onAllCompleteRef = useRef(onAllComplete)
+  const onTypingRef = useRef(onTyping)
 
   // Data Refs (to access fresh data in RAF loop)
   const segmentsRef = useRef(segments)
@@ -84,9 +87,10 @@ export const useSegmentTypewriter = (
     onSegmentStartRef.current = onSegmentStart
     onSegmentCompleteRef.current = onSegmentComplete
     onAllCompleteRef.current = onAllComplete
+    onTypingRef.current = onTyping
     segmentsRef.current = segments
     isStreamingRef.current = isStreaming
-  }, [onSegmentStart, onSegmentComplete, onAllComplete, segments, isStreaming])
+  }, [onSegmentStart, onSegmentComplete, onAllComplete, onTyping, segments, isStreaming])
 
   // Queue Management Functions
   // 确保 segment 队列是最新的（增量添加新字符）
@@ -235,6 +239,7 @@ export const useSegmentTypewriter = (
       if (charConsumed) {
         const consumed = consumedLengthsRef.current.get(activeSegmentIndex) || 0
         setCurrentSegmentOffset(consumed)
+        onTypingRef.current?.()
         lastUpdateRef.current = timestamp
 
         // 检查是否刚刚消费了最后一个字符

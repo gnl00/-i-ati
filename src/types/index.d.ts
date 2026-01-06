@@ -73,7 +73,7 @@ declare interface IUnifiedRequest {
   messages: ChatMessage[]
   stream?: boolean
   tools?: any[]
-  options: {
+  options?: {
     temperature?: number
     maxTokens?: number
     topP?: number
