@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { getChatById } from '@renderer/db/ChatRepository'
+import { saveMessage, getMessageByIds, updateMessage } from '@renderer/db/MessageRepository'
 
 type ChatState = {
   appVersion: string
@@ -6,6 +8,8 @@ type ChatState = {
   selectedModel: IModel | undefined
   messages: MessageEntity[]
   imageSrcBase64List: ClipbordImg[]
+  currentChatId: number | null
+  currentChatUuid: string | null
   // Request state
   fetchState: boolean
   currentReqCtrl: AbortController | undefined
@@ -20,9 +24,8 @@ type ChatState = {
 }
 
 type ChatAction = {
+  // UI 状态更新
   setSelectedModel: (mode: IModel) => void
-  setMessages: (msgs: MessageEntity[]) => void
-  setImageSrcBase64List: (imgs: ClipbordImg[]) => void
   setFetchState: (state: boolean) => void
   setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
   setReadStreamState: (state: boolean) => void
@@ -33,9 +36,21 @@ type ChatAction = {
   toggleArtifactsPanel: () => void
   setArtifactsPanel: (open: boolean) => void
   setArtifactsActiveTab: (tab: string) => void
+  setImageSrcBase64List: (imgs: ClipbordImg[]) => void
+
+  // 数据操作方法（通过 IPC 与 SQLite 同步）
+  loadChat: (chatId: number) => Promise<void>
+  addMessage: (message: MessageEntity) => Promise<number>
+  updateMessage: (message: MessageEntity) => Promise<void>
+  upsertMessage: (message: MessageEntity) => void
+  clearMessages: () => void
+  setCurrentChat: (chatId: number | null, chatUuid: string | null) => void
+
+  // 向后兼容的方法（内部会调用上面新的数据操作方法）
+  setMessages: (msgs: MessageEntity[]) => void
 }
 
-export const useChatStore = create<ChatState & ChatAction>((set) => ({
+export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   // @ts-ignore
   appVersion: __APP_VERSION__,
 
@@ -43,6 +58,8 @@ export const useChatStore = create<ChatState & ChatAction>((set) => ({
   selectedModel: undefined,
   messages: [],
   imageSrcBase64List: [],
+  currentChatId: null,
+  currentChatUuid: null,
 
   // Request state
   fetchState: false,
@@ -57,18 +74,125 @@ export const useChatStore = create<ChatState & ChatAction>((set) => ({
   artifactsPanelOpen: false,
   artifactsActiveTab: 'preview',
 
-  // Actions
-  setSelectedModel: (mode: IModel) => set({ selectedModel: mode }),
-  setMessages: (msgs: MessageEntity[]) => set({ messages: msgs }),
-  setImageSrcBase64List: (imgs: ClipbordImg[]) => set({ imageSrcBase64List: imgs }),
-  setFetchState: (state: boolean) => set({ fetchState: state }),
-  setCurrentReqCtrl: (ctrl: AbortController | undefined) => set({ currentReqCtrl: ctrl }),
-  setReadStreamState: (state: boolean) => set({ readStreamState: state }),
-  setShowLoadingIndicator: (state: boolean) => set({ showLoadingIndicator: state }),
-  toggleWebSearch: (state: boolean) => set({ webSearchEnable: state }),
-  setWebSearchProcessState: (state: boolean) => set({ webSearchProcessing: state }),
-  toggleArtifacts: (state: boolean) => set({ artifacts: state }),
+  // ============ UI 状态更新方法 ============
+
+  setSelectedModel: (mode) => set({ selectedModel: mode }),
+  setFetchState: (state) => set({ fetchState: state }),
+  setCurrentReqCtrl: (ctrl) => set({ currentReqCtrl: ctrl }),
+  setReadStreamState: (state) => set({ readStreamState: state }),
+  setShowLoadingIndicator: (show) => set({ showLoadingIndicator: show }),
+  toggleWebSearch: (state) => set({ webSearchEnable: state }),
+  setWebSearchProcessState: (state) => set({ webSearchProcessing: state }),
+  toggleArtifacts: (state) => set({ artifacts: state }),
   toggleArtifactsPanel: () => set((state) => ({ artifactsPanelOpen: !state.artifactsPanelOpen })),
-  setArtifactsPanel: (open: boolean) => set({ artifactsPanelOpen: open }),
-  setArtifactsActiveTab: (tab: string) => set({ artifactsActiveTab: tab })
+  setArtifactsPanel: (open) => set({ artifactsPanelOpen: open }),
+  setArtifactsActiveTab: (tab) => set({ artifactsActiveTab: tab }),
+  setImageSrcBase64List: (imgs) => set({ imageSrcBase64List: imgs }),
+
+  // ============ 数据操作方法（通过 IPC 与 SQLite 同步）===========
+
+  /**
+   * 从 SQLite 加载聊天及其消息
+   * 数据流：SQLite → IPC → Zustand → UI
+   */
+  loadChat: async (chatId) => {
+    // 1. 从 SQLite 加载聊天
+    const chat = await getChatById(chatId)
+    if (!chat) {
+      throw new Error(`Chat not found: ${chatId}`)
+    }
+
+    // 2. 从 SQLite 加载消息
+    let messages: MessageEntity[] = []
+    if (chat.messages && chat.messages.length > 0) {
+      messages = await getMessageByIds(chat.messages)
+    }
+
+    // 3. 更新 Zustand state（触发 UI 更新）
+    set({
+      currentChatId: chat.id,
+      currentChatUuid: chat.uuid,
+      messages: messages
+    })
+  },
+
+  /**
+   * 添加新消息到 SQLite 并更新 Zustand
+   * 数据流：UI → Zustand action → IPC → SQLite → 返回 ID → 更新 Zustand → UI
+   */
+  addMessage: async (message) => {
+    const state = get()
+
+    // 1. 通过 IPC 保存到 SQLite
+    const msgId = await saveMessage({
+      ...message,
+      chatId: state.currentChatId || undefined,
+      chatUuid: state.currentChatUuid || undefined
+    })
+
+    // 2. 更新内存对象的 ID
+    message.id = msgId
+
+    // 3. 更新 Zustand state（触发 UI 更新）
+    set((prevState) => ({
+      messages: [...prevState.messages, message]
+    }))
+
+    return msgId
+  },
+
+  /**
+   * 更新已存在的消息
+   * 数据流：UI → Zustand action → IPC → SQLite → 更新 Zustand → UI
+   */
+  updateMessage: async (message) => {
+    if (!message.id) {
+      console.warn('[Store] Cannot update message without id')
+      return
+    }
+
+    // 1. 通过 IPC 更新 SQLite
+    await updateMessage(message)
+
+    // 2. 更新 Zustand state
+    set((prevState) => ({
+      messages: prevState.messages.map(m => (m.id === message.id ? message : m))
+    }))
+  },
+
+  /**
+   * 原子插入或更新消息（仅更新内存，不持久化）
+   * 用于流式更新场景，避免频繁的 IPC 调用
+   */
+  upsertMessage: (message) => {
+    set((prevState) => ({
+      messages: message.id
+        ? prevState.messages.map((m) => (m.id === message.id ? message : m))
+        : [...prevState.messages, message]
+    }))
+  },
+
+  /**
+   * 清空消息列表
+   */
+  clearMessages: () => set({ messages: [] }),
+
+  /**
+   * 设置当前聊天
+   */
+  setCurrentChat: (chatId, chatUuid) => set({
+    currentChatId: chatId,
+    currentChatUuid: chatUuid
+  }),
+
+  // ============ 向后兼容的方法 ============
+
+  /**
+   * 向后兼容的 setMessages 方法
+   * 注意：新代码应使用 loadChat、addMessage 等方法
+   */
+  setMessages: (msgs) => set({ messages: msgs })
 }))
+
+// 导出类型，供其他文件使用
+export type ChatStore = ReturnType<typeof useChatStore>

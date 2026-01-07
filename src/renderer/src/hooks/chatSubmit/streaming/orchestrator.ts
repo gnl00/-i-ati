@@ -30,6 +30,13 @@ import { extractContentFromSegments } from './segment-utils'
 import { formatWebSearchForLLM } from '../utils'
 
 /**
+ * 流式编排器回调
+ */
+export interface StreamingOrchestratorCallbacks {
+  onPhaseChange?: (phase: 'receiving' | 'toolCall') => void
+}
+
+/**
  * 流式编排器配置
  */
 export interface StreamingOrchestratorConfig {
@@ -43,6 +50,8 @@ export interface StreamingOrchestratorConfig {
   messageManager: MessageManager
   /** 中止信号 */
   signal: AbortSignal
+  /** 回调函数 */
+  callbacks?: StreamingOrchestratorCallbacks
 }
 
 /**
@@ -63,6 +72,7 @@ export class StreamingOrchestrator {
   private readonly request: IUnifiedRequest
   private readonly modelName: string
   private readonly signal: AbortSignal
+  private readonly callbacks?: StreamingOrchestratorCallbacks
 
   constructor(private readonly config: StreamingOrchestratorConfig) {
     // 解构常用的不变属性
@@ -70,6 +80,7 @@ export class StreamingOrchestrator {
     this.request = config.context.request as IUnifiedRequest
     this.modelName = config.context.meta.model.name
     this.signal = config.signal
+    this.callbacks = config.callbacks
   }
 
   // 会变化的属性：使用 getter
@@ -78,14 +89,50 @@ export class StreamingOrchestrator {
   }
 
   /**
-   * 执行单次请求-响应-工具调用循环
+   * 执行完整的请求-工具调用循环
+   * 外部接口，由 StreamingSessionMachine 调用
    */
-  async executeRequestCycle(): Promise<void> {
+  async execute(): Promise<void> {
+    let cycleCount = 0
+    const MAX_CYCLES = 10  // 防止无限循环
+
+    while (cycleCount < MAX_CYCLES) {
+      cycleCount++
+      console.log(`[Orchestrator] Starting cycle ${cycleCount}`)
+
+      // 执行单次周期
+      await this.executeSingleCycle()
+
+      // 检查是否需要继续（没有新的工具调用则退出）
+      if (!this.hasToolCalls()) {
+        console.log(`[Orchestrator] No more tool calls, completed in ${cycleCount} cycles`)
+        break
+      }
+
+      console.log(`[Orchestrator] Tool calls detected, continuing to next cycle`)
+    }
+
+    if (cycleCount >= MAX_CYCLES) {
+      console.warn(`[Orchestrator] Max cycles (${MAX_CYCLES}) reached, stopping`)
+    }
+  }
+
+  /**
+   * 执行单次请求-响应-工具调用周期
+   * 私有方法，由 execute() 循环调用
+   */
+  private async executeSingleCycle(): Promise<void> {
+    // 通知进入 receiving 阶段
+    this.callbacks?.onPhaseChange?.('receiving')
+
     // 1. 发送请求并处理响应
     await this.sendRequest()
 
     // 2. 如果有工具调用，执行工具
     if (this.hasToolCalls()) {
+      // 通知进入 toolCall 阶段
+      this.callbacks?.onPhaseChange?.('toolCall')
+
       await this.executeToolCalls()
     }
   }
@@ -102,6 +149,11 @@ export class StreamingOrchestrator {
    */
   private async sendRequest(): Promise<void> {
     try {
+      // 清空上一轮的工具调用状态
+      // 注意：第一次调用时这些本来就是空的，不影响
+      this.toolRuntime.toolCalls = []
+      this.toolRuntime.hasToolCall = false
+
       const response = await unifiedChatRequest(
         this.request,
         this.signal,
@@ -273,9 +325,8 @@ export class StreamingOrchestrator {
       }
     }
 
-    // 清理
-    this.toolRuntime.toolCalls = []
-    this.toolRuntime.hasToolCall = false
+    // 注意：不再在这里清空 toolCalls
+    // 交给下一次 sendRequest() 在开始时清空，以便 execute() 循环可以检测到有工具调用
   }
 
   /**

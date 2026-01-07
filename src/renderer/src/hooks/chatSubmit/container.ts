@@ -1,5 +1,5 @@
 import { useChatContext } from '@renderer/context/ChatContext'
-import { useChatStore } from '@renderer/store'
+import { useChatStore, type ChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { finalizePipelineV2 } from './finalize'
 import { Logger } from './logger'
@@ -18,7 +18,7 @@ export class ChatDependencyContainer {
 
   constructor(
     private readonly chatContext: ReturnType<typeof useChatContext>,
-    private readonly chatStore: ReturnType<typeof useChatStore>,
+    private readonly chatStore: ChatStore,
     private readonly appConfig: ReturnType<typeof useAppConfigStore>
   ) {
     this.logger.debug('Created new instance')
@@ -50,13 +50,7 @@ export class ChatDependencyContainer {
         setChatUuid: this.chatContext.setChatUuid,
         updateChatList: this.chatContext.updateChatList
       },
-      store: {
-        messages: this.chatStore.messages,
-        setMessages: this.chatStore.setMessages,
-        setCurrentReqCtrl: this.chatStore.setCurrentReqCtrl,
-        setReadStreamState: this.chatStore.setReadStreamState,
-        setShowLoadingIndicator: this.chatStore.setShowLoadingIndicator
-      },
+      store: this.chatStore,
       providers: this.appConfig.providers
     }
   }
@@ -79,7 +73,8 @@ export class ChatDependencyContainer {
       titleGenerateEnabled: this.appConfig.titleGenerateEnabled,
       titleGenerateModel: this.appConfig.titleGenerateModel,
       selectedModel: this.chatStore.selectedModel,
-      providers: this.appConfig.providers
+      providers: this.appConfig.providers,
+      store: this.chatStore
     }
   }
 
@@ -93,7 +88,8 @@ export class ChatDependencyContainer {
       setMessages: this.chatStore.setMessages,
       setShowLoadingIndicator: this.chatStore.setShowLoadingIndicator,
       beforeFetch: () => this.beforeFetch(),
-      afterFetch: () => this.afterFetch()
+      afterFetch: () => this.afterFetch(),
+      store: this.chatStore
     }
   }
 

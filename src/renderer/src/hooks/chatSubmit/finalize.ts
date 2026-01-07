@@ -1,8 +1,7 @@
 import { generateTitlePrompt } from '@renderer/constant/prompts'
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
-import { saveMessage } from '@renderer/db/MessageRepository'
 import { unifiedChatRequest } from '@request/index'
-import { lastMessageHasContent } from './streaming/segment-utils'
+import { extractContentFromSegments } from './streaming/segment-utils'
 import type { FinalizeDeps, StreamingContextProvider, TitleRequestParams } from './types'
 
 const providerTypeMap: Record<string, ProviderType> = {
@@ -61,12 +60,14 @@ export const finalizePipelineV2 = async (
     titleGenerateEnabled,
     titleGenerateModel,
     selectedModel,
-    providers
+    providers,
+    store
   } = deps
 
   setLastMsgStatus(true)
   setReadStreamState(false)
 
+  // 1. 生成标题
   if (!chatTitle || (chatTitle === 'NewChat')) {
     let title = input.textCtx.substring(0, 30)
     if (titleGenerateEnabled) {
@@ -82,21 +83,30 @@ export const finalizePipelineV2 = async (
     setChatTitle(title)
   }
 
-  if (lastMessageHasContent(session.messageEntities)) {
-    const lastMessage = session.messageEntities[session.messageEntities.length - 1]
+  // 2. ✅ 保存所有未保存的消息（通过 Zustand store actions）
+  const unsavedMessages = session.messageEntities.filter(msg => !msg.id)
 
-    const messageToSave: MessageEntity = {
-      ...lastMessage,
-      chatId: chatEntity.id,
-      chatUuid: chatEntity.uuid
+  if (unsavedMessages.length > 0) {
+    for (const messageToSave of unsavedMessages) {
+      // 提取 content from segments
+      if (!messageToSave.body.content && messageToSave.body.segments && messageToSave.body.segments.length > 0) {
+        const extractedContent = extractContentFromSegments(messageToSave.body.segments)
+        messageToSave.body.content = extractedContent
+      }
+
+      // ✅ 通过 store action 保存（自动 IPC → SQLite → 更新 state）
+      const msgId = await store.addMessage(messageToSave)
+
+      // 更新聊天实体的消息列表
+      chatEntity.messages = [...(chatEntity.messages || []), msgId]
     }
 
-    const sysMsgId = await saveMessage(messageToSave) as number
-    chatEntity.messages = [...chatEntity.messages, sysMsgId]
+    // 3. 更新聊天实体
     chatEntity.model = meta.model.value
     chatEntity.updateTime = new Date().getTime()
-    updateChat(chatEntity)
+    await updateChat(chatEntity)
 
+    // 4. 从数据库重新加载最新的 msgCount
     const updatedChat = await getChatById(chatEntity.id!)
     if (updatedChat) {
       chatEntity.msgCount = updatedChat.msgCount
