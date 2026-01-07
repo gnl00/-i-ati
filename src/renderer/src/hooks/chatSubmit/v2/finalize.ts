@@ -3,6 +3,7 @@ import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { unifiedChatRequest } from '@request/index'
 import type { FinalizeDeps, TitleRequestParams, StreamingContextProvider } from './types'
 import { generateTitlePrompt } from '../../../constant/prompts'
+import { lastMessageHasContent } from './streaming/segment-utils'
 
 const providerTypeMap: Record<string, ProviderType> = {
   'Anthropic': 'claude',
@@ -48,7 +49,7 @@ export const finalizePipelineV2 = async (
   deps: FinalizeDeps
 ): Promise<void> => {
   const context = builder.requireStreamingContext()
-  const { session, streaming, input, meta } = context
+  const { session, input, meta } = context
   const { chatEntity } = session
 
   const {
@@ -81,7 +82,7 @@ export const finalizePipelineV2 = async (
     setChatTitle(title)
   }
 
-  if (streaming.gatherContent || streaming.gatherReasoning) {
+  if (lastMessageHasContent(session.messageEntities)) {
     const lastMessage = session.messageEntities[session.messageEntities.length - 1]
 
     const messageToSave: MessageEntity = {

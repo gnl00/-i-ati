@@ -26,6 +26,7 @@ import { ToolExecutor } from './executor'
 import type { ToolExecutionProgress, ToolExecutionResult } from './executor/types'
 import { SegmentBuilder } from './parser'
 import type { ParseResult } from './parser/types'
+import { extractContentFromSegments } from './segment-utils'
 
 /**
  * 流式编排器配置
@@ -56,7 +57,28 @@ const handleToolCallResult = (functionName: string, results: any) => {
  * StreamingOrchestrator - 流式编排器
  */
 export class StreamingOrchestrator {
-  constructor(private readonly config: StreamingOrchestratorConfig) {}
+  // 不变的属性：在构造函数中解构
+  private readonly context: StreamingContext
+  private readonly request: IUnifiedRequest
+  private readonly modelName: string
+  private readonly signal: AbortSignal
+
+  constructor(private readonly config: StreamingOrchestratorConfig) {
+    // 解构常用的不变属性
+    this.context = config.context
+    this.request = config.context.request as IUnifiedRequest
+    this.modelName = config.context.meta.model.name
+    this.signal = config.signal
+  }
+
+  // 会变化的属性：使用 getter
+  private get toolRuntime() {
+    return this.context.streaming.tools
+  }
+
+  private get streamingState() {
+    return this.context.streaming
+  }
 
   /**
    * 执行单次请求-响应-工具调用循环
@@ -75,8 +97,7 @@ export class StreamingOrchestrator {
    * 检查是否有工具调用
    */
   private hasToolCalls(): boolean {
-    const toolRuntime = this.config.context.streaming.tools
-    return toolRuntime.hasToolCall && toolRuntime.toolCalls.length > 0
+    return this.toolRuntime.hasToolCall && this.toolRuntime.toolCalls.length > 0
   }
 
   /**
@@ -84,13 +105,13 @@ export class StreamingOrchestrator {
    */
   private async sendRequest(): Promise<void> {
     const response = await unifiedChatRequest(
-      this.config.context.request as IUnifiedRequest,
-      this.config.signal,
+      this.request,
+      this.signal,
       this.config.deps.beforeFetch,
       this.config.deps.afterFetch
     )
 
-    if (this.config.context.request.stream === false) {
+    if (this.request.stream === false) {
       this.processNonStreamingResponse(response as IUnifiedResponse)
     } else {
       await this.processStreamingResponse(response as AsyncIterable<IUnifiedResponse>)
@@ -104,7 +125,7 @@ export class StreamingOrchestrator {
     response: AsyncIterable<IUnifiedResponse>
   ): Promise<void> {
     for await (const chunk of response) {
-      if (this.config.signal.aborted) {
+      if (this.signal.aborted) {
         throw new AbortError()
       }
       this.handleChunk(chunk)
@@ -120,7 +141,7 @@ export class StreamingOrchestrator {
     this.config.messageManager.updateLastMessage(() => ({
       body: {
         role: 'assistant',
-        model: this.config.context.meta.model.name,
+        model: this.modelName,
         content: resp.content,
         segments: [{
           type: 'text',
@@ -136,20 +157,15 @@ export class StreamingOrchestrator {
    */
   private handleChunk(chunk: IUnifiedResponse): void {
     // 1. 解析 chunk
-    const result = this.config.parser.parse(chunk, this.config.context.streaming)
+    const result = this.config.parser.parse(chunk, this.streamingState)
 
     // 2. 更新流式状态
-    this.config.context.streaming.tools.toolCalls = result.toolCalls
-    this.config.context.streaming.tools.hasToolCall = result.toolCalls.length > 0
-    this.config.context.streaming.isContentHasThinkTag = result.isInThinkTag
+    this.toolRuntime.toolCalls = result.toolCalls
+    this.toolRuntime.hasToolCall = result.toolCalls.length > 0
+    this.streamingState.isContentHasThinkTag = result.isInThinkTag
 
-    // 3. 更新 gatherContent 和 gatherReasoning
-    if (result.contentDelta) {
-      this.config.context.streaming.gatherContent += result.contentDelta
-    }
-    if (result.reasoningDelta) {
-      this.config.context.streaming.gatherReasoning += result.reasoningDelta
-    }
+    // 3. 注意：gatherContent 和 gatherReasoning 已移除
+    // 内容现在完全通过 segments 管理
 
     // 4. 应用解析结果
     this.applyParseResult(result)
@@ -195,55 +211,41 @@ export class StreamingOrchestrator {
    * 刷新工具调用占位符
    */
   private flushToolCallPlaceholder(): void {
-    const toolRuntime = this.config.context.streaming.tools
-
-    if (!toolRuntime.hasToolCall || toolRuntime.toolCalls.length === 0) {
+    if (!this.toolRuntime.hasToolCall || this.toolRuntime.toolCalls.length === 0) {
       return
     }
 
     const lastMessage = this.config.messageManager.getLastMessage()
 
-    const assistantToolCallMessage: ChatMessage = {
-      role: 'assistant',
-      content: this.config.context.streaming.gatherContent || '',
-      segments: [],
-      toolCalls: toolRuntime.toolCalls.map(tc => ({
-        id: tc.id || `call_${uuidv4()}`,
-        type: 'function',
-        function: {
-          name: tc.function,
-          arguments: tc.args
-        }
-      }))
-    }
+    // 从 segments 中重建 content
+    const content = extractContentFromSegments(lastMessage.body.segments)
 
-    this.config.context.request.messages.push(assistantToolCallMessage)
-
-    this.config.messageManager.updateLastMessage(() => ({
-      body: {
-        role: 'assistant',
-        content: this.config.context.streaming.gatherContent || '',
-        model: this.config.context.meta.model.name,
-        segments: lastMessage.body.segments,
-        toolCalls: assistantToolCallMessage.toolCalls
+    // 构造工具调用列表
+    const toolCalls = this.toolRuntime.toolCalls.map(tc => ({
+      id: tc.id || `call_${uuidv4()}`,
+      type: 'function' as const,
+      function: {
+        name: tc.function,
+        arguments: tc.args
       }
     }))
+
+    // 使用 MessageManager 统一处理工具调用消息
+    this.config.messageManager.addToolCallMessage(toolCalls, content)
   }
 
   /**
    * 执行工具调用
    */
   private async executeToolCalls(): Promise<void> {
-    const toolRuntime = this.config.context.streaming.tools
-
-    if (toolRuntime.toolCalls.length === 0) {
+    if (this.toolRuntime.toolCalls.length === 0) {
       return
     }
 
     // 创建 ToolExecutor
     const executor = new ToolExecutor({
       maxConcurrency: 3,
-      signal: this.config.signal,
+      signal: this.signal,
       onProgress: (progress: ToolExecutionProgress) => {
         if (progress.phase === 'started') {
           console.log(`[Tool] Starting: ${progress.name}`)
@@ -256,7 +258,7 @@ export class StreamingOrchestrator {
     })
 
     // 并发执行所有工具
-    const results = await executor.execute(toolRuntime.toolCalls)
+    const results = await executor.execute(this.toolRuntime.toolCalls)
 
     // 处理结果
     for (const result of results) {
@@ -268,15 +270,24 @@ export class StreamingOrchestrator {
     }
 
     // 清理
-    toolRuntime.toolCalls = []
-    toolRuntime.hasToolCall = false
+    this.toolRuntime.toolCalls = []
+    this.toolRuntime.hasToolCall = false
   }
 
   /**
    * 处理工具执行成功
    */
   private handleToolSuccess(result: ToolExecutionResult): void {
-    const toolRuntime = this.config.context.streaming.tools
+    // 初始化 toolCallResults
+    if (!this.toolRuntime.toolCallResults) {
+      this.toolRuntime.toolCallResults = []
+    }
+
+    this.toolRuntime.toolCallResults.push({
+      name: result.name,
+      content: result.content,
+      cost: result.cost
+    })
 
     const toolFunctionMessage: ChatMessage = {
       role: 'tool',
@@ -285,17 +296,6 @@ export class StreamingOrchestrator {
       content: handleToolCallResult(result.name, result.content),
       segments: []
     }
-
-    // 初始化 toolCallResults
-    if (!toolRuntime.toolCallResults) {
-      toolRuntime.toolCallResults = []
-    }
-
-    toolRuntime.toolCallResults.push({
-      name: result.name,
-      content: result.content,
-      cost: result.cost
-    })
 
     // 添加 toolCall segment
     this.config.messageManager.appendSegmentToLastMessage({
