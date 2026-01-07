@@ -20,7 +20,6 @@ export class ChunkParser implements IChunkParser {
    * 解析单个响应 chunk
    */
   parse(chunk: IUnifiedResponse, currentState: StreamingState): ParseResult {
-    console.log('ChunkParser:parse', chunk, currentState)
     let contentDelta = ''
     let reasoningDelta = ''
     let hasThinkTag = currentState.isContentHasThinkTag
@@ -41,7 +40,6 @@ export class ChunkParser implements IChunkParser {
       hasThinkTag = thinkResult.hasThinkTag
       isInThinkTag = thinkResult.hasThinkTag
     }
-    console.log('ChunkParser:parse', contentDelta, reasoningDelta, hasThinkTag, isInThinkTag)
 
     // 3. 使用 Tool Call Parser 处理 tool calls
     const toolCalls = this.toolCallParser.parse(

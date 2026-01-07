@@ -4,7 +4,7 @@
  */
 
 import type { ChunkParser as IChunkParser, ParseResult } from '..'
-import type { StreamingState } from '../../types'
+import type { StreamingState } from '../../../../chatSubmit/v2/types'
 import { ContentParser } from './content-parser'
 import { ThinkTagParser } from './think-tag-parser'
 import { ToolCallParser } from './tool-call-parser'

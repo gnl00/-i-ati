@@ -5,8 +5,8 @@
 
 import { invokeMcpToolCall } from '@renderer/invoker/ipcInvoker'
 import { embeddedToolsRegistry } from '@tools/index'
-import type { ToolCallProps } from '../../types'
-import { normalizeToolArgs } from '../../utils'
+import type { ToolCallProps } from '../../../../chatSubmit/v2/types'
+import { normalizeToolArgs } from '../../../../chatSubmit/v2/utils'
 import type {
   ToolExecutor as IToolExecutor,
   RetryConfig,
