@@ -34,7 +34,7 @@ export interface ParseResult {
   /** 推理内容增量 */
   reasoningDelta: string
   /** 检测到的工具调用（累积的） */
-  toolCalls: import('../types').ToolCallProps[]
+  toolCalls: import('../../../chatSubmit/v2/types').ToolCallProps[]
   /** 是否包含 think tag */
   hasThinkTag: boolean
   /** 是否正在 think tag 内部 */
@@ -53,7 +53,7 @@ export interface ChunkParser {
    */
   parse(
     chunk: IUnifiedResponse,
-    currentState: import('../types').StreamingState
+    currentState: import('../../../chatSubmit/v2/types').StreamingState
   ): ParseResult
 }
 
@@ -100,7 +100,7 @@ export interface ToolExecutor {
    * @param calls 工具调用列表
    * @returns 执行结果列表
    */
-  execute(calls: import('../types').ToolCallProps[]): Promise<ToolExecutionResult[]>
+  execute(calls: import('../../../chatSubmit/v2/types').ToolCallProps[]): Promise<ToolExecutionResult[]>
 }
 
 /**

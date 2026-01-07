@@ -3,7 +3,7 @@
  * 累积 tool call 参数
  */
 
-import type { ToolCallProps } from '../../types'
+import type { ToolCallProps } from '../../../../chatSubmit/v2/types'
 
 /**
  * Tool Call 解析器

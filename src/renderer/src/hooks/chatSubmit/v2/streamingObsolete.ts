@@ -3,8 +3,8 @@
  * 保持与现有接口完全兼容
  */
 
-import { ConversationOrchestrator } from './streamingObsolete/orchestrator/conversation-orchestrator'
-import { OrchestratorConfig } from './streamingObsolete/types'
+import { ConversationOrchestrator } from '../../chatSubmitObsolete/v2/streamingObsolete/orchestrator/conversation-orchestrator'
+import { OrchestratorConfig } from '../../chatSubmitObsolete/v2/streamingObsolete/types'
 import type {
   PreparedRequest,
   SendRequestStage,
@@ -25,7 +25,7 @@ export const createStreamingV2 =
   (deps: StreamingDeps, config?: OrchestratorConfig): SendRequestStage =>
     async (requestReady: PreparedRequest, callbacks?: StreamingFactoryCallbacks): Promise<StreamingContext> => {
       // 创建适配的 MessageManager（使用真实的 setMessages）
-      const { MessageManager } = await import('./streamingObsolete/state/message-manager')
+      const { MessageManager } = await import('../../chatSubmitObsolete/v2/streamingObsolete/state/message-manager')
 
       const messageManager = new MessageManager(
         requestReady.session.messageEntities,

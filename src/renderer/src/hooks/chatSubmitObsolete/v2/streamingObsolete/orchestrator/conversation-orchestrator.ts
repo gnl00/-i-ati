@@ -4,8 +4,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
-import type { PreparedRequest, StreamingContext, StreamingState } from '../../types'
-import { formatWebSearchForLLM } from '../../utils'
+import type { PreparedRequest, StreamingContext, StreamingState } from '../../../../chatSubmit/v2/types'
+import { formatWebSearchForLLM } from '../../../../chatSubmit/v2/utils'
 import { ParallelToolExecutor } from '../executor/parallel-executor'
 import { ChunkParser } from '../parser/chunk-parser'
 import { SegmentBuilder } from '../parser/segment-builder'

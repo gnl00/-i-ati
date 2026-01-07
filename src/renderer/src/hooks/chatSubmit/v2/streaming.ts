@@ -1,6 +1,4 @@
-import { invokeMcpToolCall } from '@renderer/invoker/ipcInvoker'
 import { unifiedChatRequest } from '@request/index'
-import { embeddedToolsRegistry } from '@tools/index'
 import { v4 as uuidv4 } from 'uuid'
 import type {
   PreparedRequest,
@@ -10,11 +8,13 @@ import type {
   StreamingFactoryCallbacks,
   StreamingState
 } from './types'
-import { formatWebSearchForLLM, normalizeToolArgs } from './utils'
+import { formatWebSearchForLLM } from './utils'
 import { AbortError } from './errors'
 import { ChunkParser, SegmentBuilder } from './streaming/parser'
 import type { ParseResult } from './streaming/parser/types'
 import { MessageManager } from './streaming/message-manager'
+import { ToolExecutor } from './streaming/executor'
+import type { ToolExecutionProgress } from './streaming/executor/types'
 
 const handleToolCallResult = (functionName: string, results: any) => {
   return functionName === 'web_search'
@@ -220,79 +220,90 @@ class StreamingSessionMachine {
   private async handleToolCalls() {
     const toolRuntime = this.context.streaming.tools
 
-    while (toolRuntime.toolCalls.length > 0) {
-      if (this.context.control.signal.aborted) {
-        throw new AbortError()
-      }
+    if (toolRuntime.toolCalls.length === 0) {
+      return
+    }
 
-      const toolCall = (toolRuntime.toolCalls.shift())!
-      const startTime = new Date().getTime()
-      try {
-        let results: any
-
-        if (embeddedToolsRegistry.isRegistered(toolCall.function)) {
-          const args = typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args
-          const normalizedArgs = normalizeToolArgs(args)
-          results = await embeddedToolsRegistry.execute(toolCall.function, normalizedArgs)
-        } else {
-          results = await invokeMcpToolCall({
-            callId: 'call_' + uuidv4(),
-            tool: toolCall.function,
-            args: toolCall.args
-          })
+    // 创建 ToolExecutor 实例
+    const executor = new ToolExecutor({
+      maxConcurrency: 3,
+      signal: this.context.control.signal,
+      onProgress: (progress: ToolExecutionProgress) => {
+        // 实时 UI 更新
+        if (progress.phase === 'started') {
+          console.log(`[Tool] Starting: ${progress.name}`)
+        } else if (progress.phase === 'completed') {
+          console.log(`[Tool] Completed: ${progress.name} (${progress.result?.cost}ms)`)
+        } else if (progress.phase === 'failed') {
+          console.error(`[Tool] Failed: ${progress.name}`, progress.result?.error)
         }
+      }
+    })
 
-        const timeCosts = new Date().getTime() - startTime
+    // 并发执行所有工具
+    const results = await executor.execute(toolRuntime.toolCalls)
 
+    // 处理结果并更新消息
+    const messageManager = new MessageManager(this.context, this.deps.setMessages)
+
+    for (const result of results) {
+      if (result.status === 'success') {
+        // 成功：添加工具结果
         const toolFunctionMessage: ChatMessage = {
           role: 'tool',
-          name: toolCall.function,
-          toolCallId: toolCall.id || `call_${uuidv4()}`,
-          content: handleToolCallResult(toolCall.function, results),
+          name: result.name,
+          toolCallId: result.id,
+          content: handleToolCallResult(result.name, result.content),
           segments: []
         }
+
+        // 初始化 toolCallResults
         if (!toolRuntime.toolCallResults) {
-          toolRuntime.toolCallResults = [{
-            name: toolCall.function,
-            content: results,
-            cost: timeCosts
-          }]
-        } else {
-          toolRuntime.toolCallResults.push({
-            name: toolCall.function,
-            content: results,
-            cost: timeCosts
-          })
+          toolRuntime.toolCallResults = []
         }
 
-        const messageManager = new MessageManager(this.context, this.deps.setMessages)
+        toolRuntime.toolCallResults.push({
+          name: result.name,
+          content: result.content,
+          cost: result.cost
+        })
 
         // 添加 toolCall segment
         messageManager.appendSegmentToLastMessage({
           type: 'toolCall',
-          name: toolCall.function,
-          content: results,
-          cost: timeCosts,
+          name: result.name,
+          content: result.content,
+          cost: result.cost,
           timestamp: Date.now()
         })
 
         // 添加 tool result 消息
         messageManager.addToolResultMessage(toolFunctionMessage)
-      } catch (error: any) {
-        console.error('Tool call error:', error)
-        const messageManager = new MessageManager(this.context, this.deps.setMessages)
+      } else {
+        // 失败：记录错误并添加错误 segment
+        console.error(`[Tool] Execution failed:`, {
+          name: result.name,
+          status: result.status,
+          error: result.error,
+          cost: result.cost
+        })
 
-        messageManager.updateLastMessage(msg => ({
-          body: {
-            ...msg.body,
-            role: 'assistant',
-            content: this.context.streaming.gatherContent,
-            model: this.context.meta.model.name
-          }
-        }))
+        // 添加错误 segment 用于 UI 显示
+        messageManager.appendSegmentToLastMessage({
+          type: 'toolCall',
+          name: result.name,
+          content: {
+            error: result.error?.message || 'Unknown error',
+            status: result.status
+          },
+          cost: result.cost,
+          timestamp: Date.now()
+        })
       }
     }
 
+    // 清理
+    toolRuntime.toolCalls = []
     toolRuntime.hasToolCall = false
   }
 
