@@ -49,8 +49,6 @@ export interface ToolRuntimeState {
 }
 
 export interface StreamingState {
-  gatherContent: string
-  gatherReasoning: string
   isContentHasThinkTag: boolean
   tools: ToolRuntimeState
 }

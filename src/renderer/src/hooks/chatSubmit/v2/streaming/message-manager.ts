@@ -95,6 +95,33 @@ export class MessageManager {
   }
 
   /**
+   * 添加工具调用消息（同时更新 session 和 request）
+   * @param toolCalls 工具调用列表
+   * @param content 消息内容
+   */
+  addToolCallMessage(toolCalls: IToolCall[], content: string): void {
+    const assistantToolCallMessage: ChatMessage = {
+      role: 'assistant',
+      content: content || '',
+      segments: [],
+      toolCalls: toolCalls
+    }
+
+    // 更新 request.messages
+    this.context.request.messages.push(assistantToolCallMessage)
+
+    // 更新最后一条消息，添加 toolCalls
+    this.updateLastMessage(msg => ({
+      ...msg,
+      body: {
+        ...msg.body,
+        content: content || '',
+        toolCalls: toolCalls
+      }
+    }))
+  }
+
+  /**
    * 添加 tool result 消息（同时更新 session 和 request）
    * @param toolMsg 工具结果消息
    */
