@@ -27,6 +27,7 @@ import type { ToolExecutionProgress, ToolExecutionResult } from './executor/type
 import { SegmentBuilder } from './parser'
 import type { ParseResult } from './parser/types'
 import { extractContentFromSegments } from './segment-utils'
+import { formatWebSearchForLLM } from '../utils'
 
 /**
  * 流式编排器配置
@@ -49,7 +50,7 @@ export interface StreamingOrchestratorConfig {
  */
 const handleToolCallResult = (functionName: string, results: any) => {
   return functionName === 'web_search'
-    ? require('../utils').formatWebSearchForLLM(results)
+    ? formatWebSearchForLLM(results)
     : JSON.stringify({ ...results, functionCallCompleted: true })
 }
 

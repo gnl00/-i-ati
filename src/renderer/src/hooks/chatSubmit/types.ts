@@ -9,6 +9,7 @@ export interface ChatInputState {
   textCtx: string
   mediaCtx: ClipbordImg[] | string[]
   tools?: any[]
+  prompt?: string
 }
 
 export interface ChatSessionState {

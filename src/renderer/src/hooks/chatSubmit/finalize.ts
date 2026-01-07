@@ -1,9 +1,9 @@
-import { saveMessage } from '@renderer/db/MessageRepository'
+import { generateTitlePrompt } from '@renderer/constant/prompts'
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
+import { saveMessage } from '@renderer/db/MessageRepository'
 import { unifiedChatRequest } from '@request/index'
-import type { FinalizeDeps, TitleRequestParams, StreamingContextProvider } from './types'
-import { generateTitlePrompt } from '../../../constant/prompts'
 import { lastMessageHasContent } from './streaming/segment-utils'
+import type { FinalizeDeps, StreamingContextProvider, TitleRequestParams } from './types'
 
 const providerTypeMap: Record<string, ProviderType> = {
   'Anthropic': 'claude',

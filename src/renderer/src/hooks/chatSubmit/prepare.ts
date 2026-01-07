@@ -1,8 +1,8 @@
+import { systemPrompt as systemPromptBuilder } from '@renderer/constant/prompts'
 import { getChatById, saveChat, updateChat } from '@renderer/db/ChatRepository'
 import { saveMessage } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { v4 as uuidv4 } from 'uuid'
-import { systemPrompt as systemPromptBuilder } from '../../../constant/prompts'
 import type { PrepareMessageFn, PrepareMessageParams, PreparedChat } from './types'
 
 const buildUserMessage = (
