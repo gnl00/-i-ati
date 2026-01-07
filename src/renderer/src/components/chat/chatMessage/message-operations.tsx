@@ -1,6 +1,6 @@
-import React from 'react'
 import { CopyIcon, Pencil2Icon, ReloadIcon } from '@radix-ui/react-icons'
 import { cn } from '@renderer/lib/utils'
+import React from 'react'
 
 export interface MessageOperationButtonsProps {
   type: 'user' | 'assistant'
@@ -27,6 +27,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
 
   return (
     <div
+      id={isUser ? "usr-msg-operation" : "assistant-message-operation"}
       className={cn(
         "min-h-[1.5rem] transition-opacity duration-200",
         isUser

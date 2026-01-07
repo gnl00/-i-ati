@@ -129,11 +129,14 @@ export class MessageManager {
   }
 
   /**
-   * 添加 tool result 消息（同时更新 session 和 request）
+   * 添加 tool result 消息到 request（不创建新的 UI 消息）
+   * 注意：这个方法只更新 request.messages，不创建新的 MessageEntity
+   * toolCall segment 应该通过 appendSegmentToLastMessage 添加到当前消息
    * @param toolMsg 工具结果消息
    */
   addToolResultMessage(toolMsg: ChatMessage): void {
-    this.updateMessages(entities => [...entities, { body: toolMsg }])
+    // 只更新 request.messages，供下一轮 LLM 调用使用
+    // 不创建新的 MessageEntity，避免在 UI 中显示多条消息
     this.context.request.messages.push(toolMsg)
   }
 
