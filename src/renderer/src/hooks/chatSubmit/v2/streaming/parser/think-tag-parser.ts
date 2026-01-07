@@ -85,7 +85,7 @@ export class ThinkTagParser {
       }
     }
 
-    // TagClosed 状态，不再检查新的 <think> 标签
+    // EndThink 状态，不再检查新的 <think> 标签
     // 只有第一个 think 标签中的内容才是推理过程
     if (this.state === ThinkTagState.EndThink) {
       // 全部作为普通文本
