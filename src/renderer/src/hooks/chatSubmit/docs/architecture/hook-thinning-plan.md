@@ -506,7 +506,7 @@ export class ChatSubmissionService {
 
 ```typescript
 // 保留旧的实现
-export { default as useChatSubmitLegacy } from './chatSubmit/v2'
+export { default as useChatSubmitLegacy } from './chatSubmit'
 
 // 新的实现
 export { default as useChatSubmit } from './useChatSubmitNew'

@@ -41,7 +41,7 @@ Streaming V2 是基于**分层架构 + 责任链模式**的全新实现，解决
 ### 1. 基本使用（完全兼容旧接口）
 
 ```typescript
-import { createStreamingV2 } from '@renderer/hooks/chatSubmit/v2/streaming-v2'
+import { createStreamingV2 } from '@renderer/hooks/chatSubmit/streaming-v2'
 
 // 创建 streaming 实例（与旧接口完全相同）
 const sendRequest = createStreamingV2({
@@ -62,7 +62,7 @@ const result = await sendRequest(preparedRequest, {
 ### 2. 高级配置（使用 V2 特性）
 
 ```typescript
-import { createStreamingV2 } from '@renderer/hooks/chatSubmit/v2/streaming-v2'
+import { createStreamingV2 } from '@renderer/hooks/chatSubmit/streaming-v2'
 
 // 创建带配置的 streaming 实例
 const sendRequest = createStreamingV2(
@@ -101,7 +101,7 @@ import {
   ChunkParser,
   ParallelToolExecutor,
   UnifiedChatTransport
-} from '@renderer/hooks/chatSubmit/v2/streaming-v2'
+} from '@renderer/hooks/chatSubmit/streaming-v2'
 
 // 1. 创建状态管理器
 const messageManager = new MessageManager(
@@ -137,7 +137,7 @@ const result = await orchestrator.start()
 ### 自定义工具执行
 
 ```typescript
-import { ParallelToolExecutor, withRetry, withTimeout } from '@renderer/hooks/chatSubmit/v2/streaming-v2'
+import { ParallelToolExecutor, withRetry, withTimeout } from '@renderer/hooks/chatSubmit/streaming-v2'
 
 // 创建自定义执行器
 const customExecutor = new ParallelToolExecutor({
@@ -281,8 +281,8 @@ const sendRequest = createStreamingV2(deps, {
 ### 单元测试示例
 
 ```typescript
-import { ChunkParser } from '@renderer/hooks/chatSubmit/v2/streaming-v2'
-import type { StreamingState } from '@renderer/hooks/chatSubmit/v2/types'
+import { ChunkParser } from '@renderer/hooks/chatSubmit/streaming-v2'
+import type { StreamingState } from '@renderer/hooks/chatSubmit/types'
 
 describe('ChunkParser', () => {
   it('should parse think tags correctly', () => {
@@ -310,7 +310,7 @@ describe('ChunkParser', () => {
 ### 集成测试示例
 
 ```typescript
-import { createStreamingV2 } from '@renderer/hooks/chatSubmit/v2/streaming-v2'
+import { createStreamingV2 } from '@renderer/hooks/chatSubmit/streaming-v2'
 
 describe('Streaming V2 Integration', () => {
   it('should handle tool calls in parallel', async () => {

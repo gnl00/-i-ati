@@ -247,7 +247,7 @@ class ConversationOrchestrator {
 
 文件组织结构
 
-src/renderer/src/hooks/chatSubmit/v2/
+src/renderer/src/hooks/chatSubmit/
 ├── streaming.ts                      # 保留原实现（备份）
 ├── streaming-v2.ts                   # 新实现入口（兼容层）
 ├── v2/

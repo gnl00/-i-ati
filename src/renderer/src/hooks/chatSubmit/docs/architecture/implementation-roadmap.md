@@ -730,7 +730,7 @@ export function initializeServices() {
 
 ```typescript
 // 旧实现
-export { default as useChatSubmitLegacy } from './chatSubmit/v2'
+export { default as useChatSubmitLegacy } from './chatSubmit'
 
 // 新实现
 export { default as useChatSubmitNew } from './useChatSubmitNew'
@@ -852,7 +852,7 @@ function useChatSubmitComparison() {
 
 ```bash
 # 移除旧文件
-rm -rf src/renderer/src/hooks/chatSubmit/v2
+rm -rf src/renderer/src/hooks/chatSubmit
 rm -rf src/renderer/src/hooks/chatSubmit/docs
 
 # 更新导出
