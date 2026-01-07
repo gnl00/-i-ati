@@ -84,7 +84,8 @@ export const finalizePipelineV2 = async (
   }
 
   // 2. ✅ 保存所有未保存的消息（通过 Zustand store actions）
-  const unsavedMessages = session.messageEntities.filter(msg => !msg.id)
+  // 注意：区分临时 ID（字符串）和数据库 ID（数字）
+  const unsavedMessages = session.messageEntities.filter(msg => typeof msg.id !== 'number')
 
   if (unsavedMessages.length > 0) {
     for (const messageToSave of unsavedMessages) {

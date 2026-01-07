@@ -129,7 +129,9 @@ export const prepareV2: PrepareMessageFn = async ({
   store.setShowLoadingIndicator(true)
 
   // 7. 创建初始助手消息（仅内存，不持久化）
+  // 使用临时 ID 标记，确保流式更新时能正确追踪这条消息
   const initialAssistantMessage: MessageEntity = {
+    id: 'temp-assistant',  // 临时 ID，finalize 时会被真实 ID 替换
     body: {
       role: 'assistant',
       model: model.name,
