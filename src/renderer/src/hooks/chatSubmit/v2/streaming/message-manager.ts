@@ -14,6 +14,8 @@
  */
 
 import type { StreamingContext } from '../types'
+import { MessageParseError } from '../errors'
+import { logger } from '../logger'
 
 // MessageEntity, MessageSegment, ChatMessage 是全局类型，无需导入
 
@@ -36,14 +38,19 @@ export class MessageManager {
    * @returns 更新后的消息列表
    */
   updateMessages(updater: MessageUpdater): MessageEntity[] {
-    const updated = updater(this.context.session.messageEntities)
+    try {
+      const updated = updater(this.context.session.messageEntities)
 
-    // 单次同步所有 3 个地方
-    this.context.session.messageEntities = updated
-    this.context.session.chatMessages = updated.map(msg => msg.body)
-    this.setMessages(updated)
+      // 单次同步所有 3 个地方
+      this.context.session.messageEntities = updated
+      this.context.session.chatMessages = updated.map(msg => msg.body)
+      this.setMessages(updated)
 
-    return updated
+      return updated
+    } catch (error) {
+      logger.error('Failed to update messages', error as Error)
+      throw new MessageParseError(this.context.session.messageEntities, error as Error)
+    }
   }
 
   /**

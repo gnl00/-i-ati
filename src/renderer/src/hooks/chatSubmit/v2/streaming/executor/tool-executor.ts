@@ -20,7 +20,7 @@ import type {
   ToolExecutionResult,
   ToolExecutionProgress
 } from './types'
-import { ToolExecutionError } from './errors'
+import { AbortError, ToolExecutionError } from '../../errors'
 
 /**
  * 默认配置
@@ -186,8 +186,10 @@ export class ToolExecutor implements IToolExecutor {
     let status: ToolExecutionResult['status'] = 'error'
     let wrappedError: Error
 
-    if (error.name === 'AbortError') {
+    if (error instanceof AbortError || error.name === 'AbortError') {
       status = 'aborted'
+      wrappedError = error
+    } else if (error instanceof ToolExecutionError) {
       wrappedError = error
     } else {
       wrappedError = new ToolExecutionError(toolName, error)
@@ -207,8 +209,7 @@ export class ToolExecutor implements IToolExecutor {
    * 创建中止结果
    */
   private createAbortedResult(call: ToolCallProps): ToolExecutionResult {
-    const error = new Error('Execution aborted')
-    error.name = 'AbortError'
+    const error = new AbortError('Execution aborted')
 
     return {
       id: call.id || `call_${uuidv4()}`,

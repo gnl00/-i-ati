@@ -4,6 +4,8 @@
  */
 
 import type { ToolCallProps } from '../../types'
+import { ParserError } from '../../errors'
+import { logger } from '../../logger'
 
 /**
  * Tool Call 解析器
@@ -20,39 +22,44 @@ export class ToolCallParser {
     toolCalls: IUnifiedResponse['toolCalls'],
     existingToolCalls: ToolCallProps[]
   ): ToolCallProps[] {
-    if (!toolCalls || toolCalls.length === 0) {
-      return existingToolCalls
-    }
-
-    const updated = [...existingToolCalls]
-
-    toolCalls.forEach(tc => {
-      // 查找已存在的 tool call（通过 index 或 id 匹配）
-      const existing = updated.find(
-        t =>
-          (tc.index !== undefined && t.index === tc.index) ||
-          (tc.id && t.id === tc.id)
-      )
-
-      if (existing) {
-        // 更新已存在的 tool call
-        if (tc.function?.name) {
-          existing.function = tc.function.name
-        }
-        if (tc.function?.arguments) {
-          existing.args += tc.function.arguments
-        }
-      } else {
-        // 创建新的 tool call
-        updated.push({
-          id: tc.id,
-          index: tc.index,
-          function: tc.function?.name || '',
-          args: tc.function?.arguments || ''
-        })
+    try {
+      if (!toolCalls || toolCalls.length === 0) {
+        return existingToolCalls
       }
-    })
 
-    return updated
+      const updated = [...existingToolCalls]
+
+      toolCalls.forEach(tc => {
+        // 查找已存在的 tool call（通过 index 或 id 匹配）
+        const existing = updated.find(
+          t =>
+            (tc.index !== undefined && t.index === tc.index) ||
+            (tc.id && t.id === tc.id)
+        )
+
+        if (existing) {
+          // 更新已存在的 tool call
+          if (tc.function?.name) {
+            existing.function = tc.function.name
+          }
+          if (tc.function?.arguments) {
+            existing.args += tc.function.arguments
+          }
+        } else {
+          // 创建新的 tool call
+          updated.push({
+            id: tc.id,
+            index: tc.index,
+            function: tc.function?.name || '',
+            args: tc.function?.arguments || ''
+          })
+        }
+      })
+
+      return updated
+    } catch (error) {
+      logger.error('Failed to parse tool calls', error as Error)
+      throw new ParserError('Tool call parsing failed', { toolCalls, error: (error as Error).message })
+    }
   }
 }
