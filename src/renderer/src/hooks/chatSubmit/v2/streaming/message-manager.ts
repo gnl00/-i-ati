@@ -13,12 +13,9 @@
  * - 易于测试：独立类，无副作用
  */
 
-import type {
-  MessageEntity,
-  MessageSegment,
-  ChatMessage,
-  StreamingContext
-} from '../types'
+import type { StreamingContext } from '../types'
+
+// MessageEntity, MessageSegment, ChatMessage 是全局类型，无需导入
 
 /**
  * 消息更新函数类型
