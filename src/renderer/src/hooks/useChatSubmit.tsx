@@ -1,2 +1,2 @@
-export { default } from './chatSubmit/v2'
+export { default } from './chatSubmit'
 

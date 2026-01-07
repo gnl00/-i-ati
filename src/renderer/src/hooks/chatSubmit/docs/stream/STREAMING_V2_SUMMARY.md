@@ -15,7 +15,7 @@
 ## 文件结构
 
 ```
-src/renderer/src/hooks/chatSubmit/v2/
+src/renderer/src/hooks/chatSubmit/
 ├── v2/                              # 新架构目录
 │   ├── streaming-v2-types.ts        # 类型定义
 │   ├── index.ts                     # V2 统一入口
@@ -147,7 +147,7 @@ class ConversationOrchestrator {
 ### 基本使用（完全兼容）
 
 ```typescript
-import { createStreamingV2 } from '@renderer/hooks/chatSubmit/v2/streaming-v2'
+import { createStreamingV2 } from '@renderer/hooks/chatSubmit/streaming-v2'
 
 const sendRequest = createStreamingV2({
   setMessages,
