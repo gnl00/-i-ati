@@ -1,21 +1,20 @@
 /**
- * MessageManager - 统一消息状态管理
+ * MessageManager - 统一消息状态管理（简化版）
  *
  * 核心职责：
- * - 原子更新消息（自动同步 3 个地方：messageEntities、chatMessages、setMessages）
  * - 提供便捷的消息更新方法
+ * - 通过 Zustand store actions 自动同步到 SQLite
  * - 消除手动同步代码
  *
  * 设计原则：
- * - 单一职责：只负责消息的更新和同步
- * - 原子性：每次更新保证 3 个地方同步
+ * - 单一职责：只负责消息的业务操作
+ * - 自动同步：通过 store actions 自动处理 IPC 和 SQLite
  * - 类型安全：提供类型化的更新方法
- * - 易于测试：独立类，无副作用
  */
 
 import type { StreamingContext } from '../types'
-import { MessageParseError } from '../errors'
 import { logger } from '../logger'
+import type { ChatStore } from '@renderer/store'
 
 // MessageEntity, MessageSegment, ChatMessage 是全局类型，无需导入
 
@@ -29,80 +28,62 @@ export type MessageUpdater = (
 export class MessageManager {
   constructor(
     private readonly context: StreamingContext,
-    private readonly setMessages: (messages: MessageEntity[]) => void
+    private readonly store: ChatStore
   ) {}
 
   /**
-   * 原子更新消息（自动同步 3 个地方）
-   * @param updater 更新函数，接收当前消息列表，返回更新后的消息列表
-   * @returns 更新后的消息列表
+   * 更新最后一条消息（流式更新，仅更新内存）
+   * 用于流式输出场景，避免频繁的 IPC 调用
+   * @param updater 更新函数，接收最后一条消息，返回更新后的消息
    */
-  updateMessages(updater: MessageUpdater): MessageEntity[] {
+  updateLastMessage(updater: (message: MessageEntity) => MessageEntity): void {
     try {
-      const updated = updater(this.context.session.messageEntities)
+      const entities = this.context.session.messageEntities
+      const lastIndex = entities.length - 1
+      const last = entities[lastIndex]
+      const updated = updater(last)
 
-      // 单次同步所有 3 个地方
-      this.context.session.messageEntities = updated
-      this.context.session.chatMessages = updated.map(msg => msg.body)
-      this.setMessages(updated)
+      // 更新 session 中的引用
+      entities[lastIndex] = updated
 
-      return updated
+      // 使用 store.upsertMessage 更新 UI（不持久化）
+      this.store.upsertMessage(updated)
     } catch (error) {
-      logger.error('Failed to update messages', error as Error)
-      throw new MessageParseError(this.context.session.messageEntities, error as Error)
+      logger.error('Failed to update last message', error as Error)
     }
   }
 
   /**
-   * 向最后一条消息添加 segment
+   * 向最后一条消息添加 segment（流式更新，仅更新内存）
    * @param segment 要添加的 segment
-   * @returns 更新后的消息列表
    */
-  appendSegmentToLastMessage(segment: MessageSegment): MessageEntity[] {
-    return this.updateMessages(entities => {
-      const last = entities[entities.length - 1]
+  appendSegmentToLastMessage(segment: MessageSegment): void {
+    this.updateLastMessage((last) => {
       if (!last.body.segments) {
         last.body.segments = []
       }
       last.body.segments.push(segment)
-      return entities
+      return last
     })
   }
 
   /**
    * 批量添加多个 segments（智能合并）
    * @param segments 要添加的 segments 数组
-   * @returns 更新后的消息列表
    */
-  appendSegmentsToLastMessage(segments: MessageSegment[]): MessageEntity[] {
-    return this.updateMessages(entities => {
-      const last = entities[entities.length - 1]
+  appendSegmentsToLastMessage(segments: MessageSegment[]): void {
+    this.updateLastMessage((last) => {
       if (!last.body.segments) {
         last.body.segments = []
       }
       last.body.segments.push(...segments)
-      return entities
-    })
-  }
-
-  /**
-   * 更新最后一条消息
-   * @param updater 更新函数，接收最后一条消息，返回更新后的消息
-   * @returns 更新后的消息列表
-   */
-  updateLastMessage(
-    updater: (message: MessageEntity) => MessageEntity
-  ): MessageEntity[] {
-    return this.updateMessages(entities => {
-      const lastIndex = entities.length - 1
-      const last = entities[lastIndex]
-      entities[lastIndex] = updater(last)
-      return entities
+      return last
     })
   }
 
   /**
    * 添加工具调用消息（同时更新 session 和 request）
+   * 注意：此操作仅更新内存，不持久化
    * @param toolCalls 工具调用列表
    * @param content 消息内容
    */
@@ -118,7 +99,7 @@ export class MessageManager {
     this.context.request.messages.push(assistantToolCallMessage)
 
     // 更新最后一条消息，添加 toolCalls
-    this.updateLastMessage(msg => ({
+    this.updateLastMessage((msg) => ({
       ...msg,
       body: {
         ...msg.body,
@@ -129,14 +110,25 @@ export class MessageManager {
   }
 
   /**
-   * 添加 tool result 消息到 request（不创建新的 UI 消息）
-   * 注意：这个方法只更新 request.messages，不创建新的 MessageEntity
-   * toolCall segment 应该通过 appendSegmentToLastMessage 添加到当前消息
+   * 添加 tool result 消息（保存到 SQLite）
+   * 注意：这个方法会持久化消息到数据库
    * @param toolMsg 工具结果消息
    */
-  addToolResultMessage(toolMsg: ChatMessage): void {
-    // 只更新 request.messages，供下一轮 LLM 调用使用
-    // 不创建新的 MessageEntity，避免在 UI 中显示多条消息
+  async addToolResultMessage(toolMsg: ChatMessage): Promise<void> {
+    // 1. 创建 tool result 的 MessageEntity
+    const toolResultEntity: MessageEntity = {
+      body: toolMsg,
+      chatId: this.context.session.currChatId,
+      chatUuid: this.context.session.chatEntity.uuid
+    }
+
+    // 2. ✅ 通过 store action 保存（自动 IPC → SQLite → 更新 state）
+    await this.store.addMessage(toolResultEntity)
+
+    // 3. 更新 session.messageEntities
+    this.context.session.messageEntities.push(toolResultEntity)
+
+    // 4. 更新 request.messages，供下一轮 LLM 调用使用
     this.context.request.messages.push(toolMsg)
   }
 

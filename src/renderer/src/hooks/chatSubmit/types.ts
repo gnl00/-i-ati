@@ -1,3 +1,5 @@
+import type { ChatStore } from '@renderer/store'
+
 export interface ToolCallProps {
   id?: string
   index?: number
@@ -72,13 +74,7 @@ export interface PrepareMessageParams {
     setChatUuid: (uuid: string) => void
     updateChatList: (chat: ChatEntity) => void
   }
-  store: {
-    messages: MessageEntity[]
-    setMessages: (messages: MessageEntity[]) => void
-    setCurrentReqCtrl: (ctrl: AbortController) => void
-    setReadStreamState: (state: boolean) => void
-    setShowLoadingIndicator: (state: boolean) => void
-  }
+  store: ChatStore
   providers: IProvider[]
 }
 
@@ -91,6 +87,7 @@ export interface StreamingDeps {
   setShowLoadingIndicator: (state: boolean) => void
   beforeFetch: () => void
   afterFetch: () => void
+  store: ChatStore
 }
 
 export interface FinalizeDeps {
@@ -103,6 +100,7 @@ export interface FinalizeDeps {
   titleGenerateModel?: IModel
   selectedModel?: IModel
   providers: IProvider[]
+  store: ChatStore
 }
 
 export interface TitleRequestParams {

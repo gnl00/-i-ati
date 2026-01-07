@@ -95,5 +95,12 @@ export function lastMessageHasContent(
   }
 
   const lastMessage = messageEntities[messageEntities.length - 1]
+
+  // 检查是否有 toolCalls（工具调用消息也应该被保存）
+  if (lastMessage.body.toolCalls && lastMessage.body.toolCalls.length > 0) {
+    return true
+  }
+
+  // 检查 segments 中是否有实际内容
   return hasContentInSegments(lastMessage.body.segments)
 }

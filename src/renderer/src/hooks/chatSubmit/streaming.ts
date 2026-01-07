@@ -41,7 +41,7 @@ class StreamingSessionMachine {
 
     // 2. 创建依赖
     this.parser = new ChunkParser()
-    this.messageManager = new MessageManager(this.context, deps.setMessages)
+    this.messageManager = new MessageManager(this.context, deps.store)
 
     // 3. 创建 orchestrator
     this.orchestrator = new StreamingOrchestrator({
@@ -49,7 +49,16 @@ class StreamingSessionMachine {
       deps: this.deps,
       parser: this.parser,
       messageManager: this.messageManager,
-      signal: this.context.control.signal
+      signal: this.context.control.signal,
+      callbacks: {
+        onPhaseChange: (phase) => {
+          if (phase === 'receiving') {
+            this.transition('receiving')
+          } else if (phase === 'toolCall') {
+            this.transition('toolCall')
+          }
+        }
+      }
     })
   }
 
@@ -66,18 +75,8 @@ class StreamingSessionMachine {
   }
 
   async start(): Promise<StreamingContext> {
-    while (true) {
-      this.transition('receiving')
-      await this.orchestrator.executeRequestCycle()
-
-      if (this.context.streaming.tools.hasToolCall &&
-        this.context.streaming.tools.toolCalls.length > 0) {
-        this.transition('toolCall')
-        // 工具调用已在 executeRequestCycle 中处理
-      } else {
-        break
-      }
-    }
+    // 只需调用一次，Orchestrator 内部会循环
+    await this.orchestrator.execute()
 
     this.transition('completed')
     return this.context

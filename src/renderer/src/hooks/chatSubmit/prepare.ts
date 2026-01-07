@@ -1,6 +1,5 @@
 import { systemPrompt as systemPromptBuilder } from '@renderer/constant/prompts'
 import { getChatById, saveChat, updateChat } from '@renderer/db/ChatRepository'
-import { saveMessage } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { v4 as uuidv4 } from 'uuid'
 import type { PrepareMessageFn, PrepareMessageParams, PreparedChat } from './types'
@@ -50,21 +49,16 @@ export const prepareV2: PrepareMessageFn = async ({
     setChatUuid,
     updateChatList
   } = chat
-  const {
-    messages,
-    setMessages,
-    setCurrentReqCtrl,
-    setReadStreamState,
-    setShowLoadingIndicator
-  } = store
 
-  const userMessageEntity: MessageEntity = { body: buildUserMessage(model, textCtx, mediaCtx) }
+  const userMessage: ChatMessage = buildUserMessage(model, textCtx, mediaCtx)
 
   let currChatId = chatId
   let chatEntity: ChatEntity
   let workspacePath = ''
 
+  // 1. 创建或获取聊天
   if (!chatUuid && !chatId) {
+    // 新聊天
     const currChatUuid = uuidv4()
     setChatUuid(currChatUuid)
 
@@ -87,41 +81,54 @@ export const prepareV2: PrepareMessageFn = async ({
     setChatId(currChatId)
     chatEntity.id = currChatId
 
-    userMessageEntity.chatId = currChatId
-    userMessageEntity.chatUuid = currChatUuid
+    // 设置当前聊天到 store
+    store.setCurrentChat(currChatId, currChatUuid)
   } else {
+    // 加载已有聊天
     const fetchedChat = await getChatById(currChatId!)
     if (!fetchedChat) {
       throw new Error('Chat not found')
     }
     chatEntity = fetchedChat
-
-    userMessageEntity.chatId = currChatId
-    userMessageEntity.chatUuid = chatUuid
-
     workspacePath = getWorkspacePath(chatUuid)
+
+    // 设置当前聊天到 store
+    store.setCurrentChat(currChatId, chatUuid)
   }
 
-  const usrMsgId = await saveMessage(userMessageEntity) as number
-  let messageEntities = [...messages, userMessageEntity]
-  setMessages(messageEntities)
+  // 2. 创建用户消息实体
+  const userMessageEntity: MessageEntity = {
+    body: userMessage,
+    chatId: currChatId,
+    chatUuid: chatUuid
+  }
 
-  chatEntity.messages = [...chatEntity.messages, usrMsgId]
+  // 3. ✅ 通过 store action 保存用户消息（自动 IPC → SQLite → 更新 state）
+  const usrMsgId = await store.addMessage(userMessageEntity)
+
+  // 4. ✅ 通过 store action 加载聊天消息（自动从 SQLite → IPC → 更新 state）
+  await store.loadChat(currChatId)
+
+  // 5. 更新聊天实体
+  chatEntity.messages = [...(chatEntity.messages || []), usrMsgId]
   chatEntity.model = model.value
   chatEntity.updateTime = new Date().getTime()
-  updateChat(chatEntity)
+  await updateChat(chatEntity)
 
+  // 从数据库重新加载最新的 msgCount
   const updatedChat = await getChatById(currChatId!)
   if (updatedChat) {
     chatEntity.msgCount = updatedChat.msgCount
   }
   updateChatList(chatEntity)
 
+  // 6. 设置控制状态
   const controller = new AbortController()
-  setCurrentReqCtrl(controller)
-  setReadStreamState(true)
-  setShowLoadingIndicator(true)
+  store.setCurrentReqCtrl(controller)
+  store.setReadStreamState(true)
+  store.setShowLoadingIndicator(true)
 
+  // 7. 创建初始助手消息（仅内存，不持久化）
   const initialAssistantMessage: MessageEntity = {
     body: {
       role: 'assistant',
@@ -130,9 +137,13 @@ export const prepareV2: PrepareMessageFn = async ({
       segments: []
     }
   }
-  messageEntities = [...messageEntities, initialAssistantMessage]
-  setMessages(messageEntities)
 
+  // 8. 构建返回的消息列表（用于当前会话）
+  const messages = store.messages
+  const messageEntities = [...messages, initialAssistantMessage]
+  const chatMessages = messageEntities.map(msg => msg.body)
+
+  // 9. 构建 system prompts
   const defaultSystemPrompt = systemPromptBuilder(workspacePath)
   const systemPrompts = prompt
     ? [prompt, defaultSystemPrompt]
@@ -147,7 +158,7 @@ export const prepareV2: PrepareMessageFn = async ({
     session: {
       userMessageEntity,
       messageEntities,
-      chatMessages: messageEntities.map(msg => msg.body),
+      chatMessages,
       chatEntity,
       currChatId,
       workspacePath
