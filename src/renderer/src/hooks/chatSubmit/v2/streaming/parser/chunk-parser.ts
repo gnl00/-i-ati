@@ -8,6 +8,8 @@ import { ThinkTagParser } from './think-tag-parser'
 import { ToolCallParser } from './tool-call-parser'
 import { ParserState, createInitialParserState } from './parser-state'
 import type { ChunkParser as IChunkParser, ParseResult } from './types'
+import { ChunkParseError } from '../../errors'
+import { logger } from '../../logger'
 
 /**
  * Chunk 解析器实现
@@ -26,35 +28,40 @@ export class ChunkParser implements IChunkParser {
    * 解析单个响应 chunk
    */
   parse(chunk: IUnifiedResponse, toolCalls: ToolCallProps[]): ParseResult {
-    let contentDelta = ''
-    let reasoningDelta = ''
+    try {
+      let contentDelta = ''
+      let reasoningDelta = ''
 
-    // 1. 优先处理 reasoning 字段（如果有）
-    if (chunk.reasoning) {
-      reasoningDelta = chunk.reasoning
-      // reasoning 字段存在时，不处理 content
-    } else if (chunk.content) {
-      // 2. 如果没有 reasoning 字段，使用 Think Tag Parser 处理 content
-      const thinkResult = this.thinkTagParser.parse(
-        chunk.content,
-        this.parserState
+      // 1. 优先处理 reasoning 字段（如果有）
+      if (chunk.reasoning) {
+        reasoningDelta = chunk.reasoning
+        // reasoning 字段存在时，不处理 content
+      } else if (chunk.content) {
+        // 2. 如果没有 reasoning 字段，使用 Think Tag Parser 处理 content
+        const thinkResult = this.thinkTagParser.parse(
+          chunk.content,
+          this.parserState
+        )
+        contentDelta = thinkResult.textDelta
+        reasoningDelta = thinkResult.reasoningDelta
+      }
+
+      // 3. 使用 Tool Call Parser 处理 tool calls
+      const parsedToolCalls = this.toolCallParser.parse(
+        chunk.toolCalls,
+        toolCalls
       )
-      contentDelta = thinkResult.textDelta
-      reasoningDelta = thinkResult.reasoningDelta
-    }
 
-    // 3. 使用 Tool Call Parser 处理 tool calls
-    const parsedToolCalls = this.toolCallParser.parse(
-      chunk.toolCalls,
-      toolCalls
-    )
-
-    return {
-      contentDelta,
-      reasoningDelta,
-      toolCalls: parsedToolCalls,
-      hasThinkTag: this.parserState.isInThinkTag,
-      isInThinkTag: this.parserState.isInThinkTag
+      return {
+        contentDelta,
+        reasoningDelta,
+        toolCalls: parsedToolCalls,
+        hasThinkTag: this.parserState.isInThinkTag,
+        isInThinkTag: this.parserState.isInThinkTag
+      }
+    } catch (error) {
+      logger.error('Failed to parse chunk', error as Error)
+      throw new ChunkParseError(chunk, error as Error)
     }
   }
 

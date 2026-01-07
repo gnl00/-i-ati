@@ -100,17 +100,24 @@ export class StreamingOrchestrator {
    * 发送请求并处理响应
    */
   private async sendRequest(): Promise<void> {
-    const response = await unifiedChatRequest(
-      this.request,
-      this.signal,
-      this.config.deps.beforeFetch,
-      this.config.deps.afterFetch
-    )
+    try {
+      const response = await unifiedChatRequest(
+        this.request,
+        this.signal,
+        this.config.deps.beforeFetch,
+        this.config.deps.afterFetch
+      )
 
-    if (this.request.stream === false) {
-      this.processNonStreamingResponse(response as IUnifiedResponse)
-    } else {
-      await this.processStreamingResponse(response as AsyncIterable<IUnifiedResponse>)
+      if (this.request.stream === false) {
+        this.processNonStreamingResponse(response as IUnifiedResponse)
+      } else {
+        await this.processStreamingResponse(response as AsyncIterable<IUnifiedResponse>)
+      }
+    } catch (error) {
+      if (error instanceof AbortError || (error as Error).name === 'AbortError') {
+        throw error
+      }
+      throw error
     }
   }
 
