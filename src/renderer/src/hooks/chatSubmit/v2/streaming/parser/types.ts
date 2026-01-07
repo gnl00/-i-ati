@@ -26,13 +26,28 @@ export interface ChunkParser {
   /**
    * 解析单个响应 chunk
    * @param chunk 响应 chunk
-   * @param currentState 当前流式状态
+   * @param toolCalls 当前工具调用列表
    * @returns 解析结果
    */
   parse(
     chunk: IUnifiedResponse,
-    currentState: import('../../types').StreamingState
+    toolCalls: import('../../types').ToolCallProps[]
   ): ParseResult
+
+  /**
+   * 获取当前 Parser 状态
+   */
+  getState(): import('./parser-state').ParserState
+
+  /**
+   * 设置 Parser 状态
+   */
+  setState(state: import('./parser-state').ParserState): void
+
+  /**
+   * 重置解析器状态
+   */
+  reset(): void
 }
 
 /**

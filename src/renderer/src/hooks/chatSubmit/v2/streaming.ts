@@ -11,7 +11,6 @@ import type {
 } from './types'
 
 const createInitialStreamingState = (): StreamingState => ({
-  isContentHasThinkTag: false,
   tools: {
     hasToolCall: false,
     toolCalls: [],
