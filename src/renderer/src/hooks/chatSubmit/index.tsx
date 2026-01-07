@@ -2,110 +2,44 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
-import { finalizePipelineV2 } from './finalize'
-import { ChatPipelineMachineV2 } from './machine'
-import { prepareV2 } from './prepare'
-import { buildRequestV2 } from './request'
-import { createStreamingV2 } from './streaming'
+import { ChatDependencyContainer } from './container'
 
 function useChatSubmitV2() {
-  const {
-    chatId,
-    setChatId,
-    chatUuid,
-    setChatUuid,
-    chatTitle,
-    setChatTitle,
-    updateChatList,
-    setLastMsgStatus
-  } = useChatContext()
+  // 收集依赖
+  const chatContext = useChatContext()
+  const chatStore = useChatStore()
+  const appConfig = useAppConfigStore()
 
-  const {
-    messages,
-    selectedModel,
-    setMessages,
-    setFetchState,
-    setCurrentReqCtrl,
-    setReadStreamState,
-    setShowLoadingIndicator
-  } = useChatStore()
-
-  const {
-    providers,
-    titleGenerateModel,
-    titleGenerateEnabled
-  } = useAppConfigStore()
-
-  const beforeFetch = () => setFetchState(true)
-  const afterFetch = () => setFetchState(false)
+  // 创建容器
+  // 注意：不使用 useMemo，因为 Zustand store 每次渲染都会返回新的对象引用
+  // Container 创建开销很小，直接创建即可
+  const container = new ChatDependencyContainer(chatContext, chatStore, appConfig)
 
   const onSubmit = async (
     textCtx: string,
     mediaCtx: ClipbordImg[] | string[],
     options: { tools?: any[], prompt: string }
   ): Promise<void> => {
-    const machine = new ChatPipelineMachineV2({
-      prepare: prepareV2,
-      buildRequest: buildRequestV2,
-      sendRequest: createStreamingV2({
-        setMessages,
-        setShowLoadingIndicator,
-        beforeFetch,
-        afterFetch
-      }),
-      // TODO add one handleResponseState
-      finalize: finalizePipelineV2
-    })
-
-    const prepareParams = {
-      input: { textCtx, mediaCtx, tools: options.tools, prompt: options.prompt },
-      model: selectedModel!,
-      chat: {
-        chatId,
-        chatUuid,
-        setChatId,
-        setChatUuid,
-        updateChatList
-      },
-      store: {
-        messages,
-        setMessages,
-        setCurrentReqCtrl,
-        setReadStreamState,
-        setShowLoadingIndicator
-      },
-      providers
-    }
-
-    const finalizeDeps = {
-      chatTitle,
-      setChatTitle,
-      setLastMsgStatus,
-      setReadStreamState,
-      updateChatList,
-      titleGenerateEnabled,
-      titleGenerateModel,
-      selectedModel,
-      providers
-    }
+    const machine = container.createMachine()
 
     try {
       await machine.start({
-        prepareParams,
-        finalizeDeps
+        prepareParams: container.buildPrepareParams({
+          textCtx,
+          mediaCtx,
+          tools: options.tools,
+          prompt: options.prompt
+        }),
+        finalizeDeps: container.buildFinalizeDeps()
       })
     } catch (error: any) {
-      setCurrentReqCtrl(undefined)
-      setReadStreamState(false)
-      setFetchState(false)
-      setShowLoadingIndicator(false)
-      setLastMsgStatus(false)
+      container.resetStates()
 
       if (error.name !== 'AbortError') {
         toast.error(error.message)
       }
     } finally {
-      setCurrentReqCtrl(undefined)
+      chatStore.setCurrentReqCtrl(undefined)
     }
   }
 
