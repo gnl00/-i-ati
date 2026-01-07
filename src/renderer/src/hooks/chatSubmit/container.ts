@@ -1,5 +1,5 @@
 import { useChatContext } from '@renderer/context/ChatContext'
-import { useChatStore, type ChatStore } from '@renderer/store'
+import { type ChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { finalizePipelineV2 } from './finalize'
 import { Logger } from './logger'
