@@ -76,10 +76,6 @@ export class StreamingOrchestrator {
     return this.context.streaming.tools
   }
 
-  private get streamingState() {
-    return this.context.streaming
-  }
-
   /**
    * 执行单次请求-响应-工具调用循环
    */
@@ -156,13 +152,13 @@ export class StreamingOrchestrator {
    * 处理单个 chunk
    */
   private handleChunk(chunk: IUnifiedResponse): void {
-    // 1. 解析 chunk
-    const result = this.config.parser.parse(chunk, this.streamingState)
+    // 1. 解析 chunk（传入 toolCalls 而不是整个 streamingState）
+    const result = this.config.parser.parse(chunk, this.toolRuntime.toolCalls)
 
     // 2. 更新流式状态
     this.toolRuntime.toolCalls = result.toolCalls
     this.toolRuntime.hasToolCall = result.toolCalls.length > 0
-    this.streamingState.isContentHasThinkTag = result.isInThinkTag
+    // 注意：不再需要更新 isContentHasThinkTag，状态由 Parser 内部管理
 
     // 3. 注意：gatherContent 和 gatherReasoning 已移除
     // 内容现在完全通过 segments 管理

@@ -3,9 +3,10 @@
  * 协调所有子解析器，提供统一的解析接口
  */
 
-import type { StreamingState } from '../../types'
+import type { ToolCallProps } from '../../types'
 import { ThinkTagParser } from './think-tag-parser'
 import { ToolCallParser } from './tool-call-parser'
+import { ParserState, createInitialParserState } from './parser-state'
 import type { ChunkParser as IChunkParser, ParseResult } from './types'
 
 /**
@@ -15,15 +16,18 @@ import type { ChunkParser as IChunkParser, ParseResult } from './types'
 export class ChunkParser implements IChunkParser {
   private thinkTagParser = new ThinkTagParser()
   private toolCallParser = new ToolCallParser()
+  private parserState: ParserState
+
+  constructor(initialState?: ParserState) {
+    this.parserState = initialState || createInitialParserState()
+  }
 
   /**
    * 解析单个响应 chunk
    */
-  parse(chunk: IUnifiedResponse, currentState: StreamingState): ParseResult {
+  parse(chunk: IUnifiedResponse, toolCalls: ToolCallProps[]): ParseResult {
     let contentDelta = ''
     let reasoningDelta = ''
-    let hasThinkTag = currentState.isContentHasThinkTag
-    let isInThinkTag = currentState.isContentHasThinkTag
 
     // 1. 优先处理 reasoning 字段（如果有）
     if (chunk.reasoning) {
@@ -33,33 +37,45 @@ export class ChunkParser implements IChunkParser {
       // 2. 如果没有 reasoning 字段，使用 Think Tag Parser 处理 content
       const thinkResult = this.thinkTagParser.parse(
         chunk.content,
-        hasThinkTag
+        this.parserState
       )
       contentDelta = thinkResult.textDelta
       reasoningDelta = thinkResult.reasoningDelta
-      hasThinkTag = thinkResult.hasThinkTag
-      isInThinkTag = thinkResult.hasThinkTag
     }
 
     // 3. 使用 Tool Call Parser 处理 tool calls
-    const toolCalls = this.toolCallParser.parse(
+    const parsedToolCalls = this.toolCallParser.parse(
       chunk.toolCalls,
-      currentState.tools.toolCalls
+      toolCalls
     )
 
     return {
       contentDelta,
       reasoningDelta,
-      toolCalls,
-      hasThinkTag,
-      isInThinkTag
+      toolCalls: parsedToolCalls,
+      hasThinkTag: this.parserState.isInThinkTag,
+      isInThinkTag: this.parserState.isInThinkTag
     }
+  }
+
+  /**
+   * 获取当前 Parser 状态
+   */
+  getState(): ParserState {
+    return this.parserState
+  }
+
+  /**
+   * 设置 Parser 状态
+   */
+  setState(state: ParserState): void {
+    this.parserState = state
   }
 
   /**
    * 重置解析器状态
    */
   reset(): void {
-    this.thinkTagParser.reset()
+    this.parserState.reset()
   }
 }
