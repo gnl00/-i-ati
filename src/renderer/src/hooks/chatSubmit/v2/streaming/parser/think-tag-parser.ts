@@ -42,14 +42,14 @@ export class ThinkTagParser {
     let reasoningDelta = ''
     let textDelta = ''
 
-    // 处理  标签
+    // 处理 <think> 标签
     if (this.state === ThinkTagState.NoThink || this.state === ThinkTagState.EndThink) {
-      const thinkStartIndex = content.indexOf('')
+      const thinkStartIndex = content.indexOf('<think>')
 
       if (thinkStartIndex !== -1) {
-        // 找到  标签
+        // 找到 <think> 标签
         textDelta = content.substring(0, thinkStartIndex)
-        const afterThinkStart = content.substring(thinkStartIndex + 7) // 7 = ''.length
+        const afterThinkStart = content.substring(thinkStartIndex + 7) // 7 = '<think>'.length
         this.buffer = afterThinkStart
         this.state = ThinkTagState.InThink
         return { reasoningDelta, textDelta, hasThinkTag: true }
@@ -64,13 +64,13 @@ export class ThinkTagParser {
     if (this.state === ThinkTagState.InThink) {
       this.buffer += content
 
-      // 检查是否有  标签
-      const thinkEndIndex = this.buffer.indexOf('')
+      // 检查是否有 </think> 标签
+      const thinkEndIndex = this.buffer.indexOf('</think>')
 
       if (thinkEndIndex !== -1) {
-        // 找到  标签
+        // 找到 </think> 标签
         reasoningDelta = this.buffer.substring(0, thinkEndIndex)
-        const afterThinkEnd = this.buffer.substring(thinkEndIndex + 8) // 8 = ''.length
+        const afterThinkEnd = this.buffer.substring(thinkEndIndex + 8) // 8 = '</think>'.length
         this.buffer = ''
         this.state = ThinkTagState.EndThink
         return {
@@ -85,24 +85,12 @@ export class ThinkTagParser {
       }
     }
 
-    // TagClosed 状态，继续检查是否有新的
-
+    // TagClosed 状态，不再检查新的 <think> 标签
+    // 只有第一个 think 标签中的内容才是推理过程
     if (this.state === ThinkTagState.EndThink) {
-      const thinkStartIndex = content.indexOf('')
-
-      if (thinkStartIndex !== -1) {
-        // 找到新的  标签
-        textDelta = content.substring(0, thinkStartIndex)
-        const afterThinkStart = content.substring(thinkStartIndex + 7)
-        this.buffer = afterThinkStart
-        this.state = ThinkTagState.InThink
-        return { reasoningDelta: '', textDelta, hasThinkTag: true }
-      } else {
-        // 没有 think tag，全部作为普通文本
-        textDelta = content
-        this.state = ThinkTagState.NoThink
-        return { reasoningDelta: '', textDelta, hasThinkTag: false }
-      }
+      // 全部作为普通文本
+      textDelta = content
+      return { reasoningDelta: '', textDelta, hasThinkTag: false }
     }
 
     return { reasoningDelta, textDelta, hasThinkTag: this.state === ThinkTagState.InThink }
