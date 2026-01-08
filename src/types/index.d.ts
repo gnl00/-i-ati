@@ -237,6 +237,8 @@ declare interface ToolCallSegment {
   cost?: number
   isError?: boolean
   timestamp: number
+  toolCallId?: string  // 工具调用唯一标识（LLM 返回）
+  toolCallIndex?: number  // 工具调用索引（数组位置）
 }
 
 // 联合类型

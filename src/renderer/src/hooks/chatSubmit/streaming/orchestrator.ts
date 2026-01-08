@@ -373,13 +373,15 @@ export class StreamingOrchestrator {
       segments: []
     }
 
-    // 添加 toolCall segment
+    // 添加 toolCall segment（包含 toolCallId 和 index 用于唯一标识）
     this.config.messageManager.appendSegmentToLastMessage({
       type: 'toolCall',
       name: result.name,
       content: result.content,
       cost: result.cost,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      toolCallId: result.id,
+      toolCallIndex: result.index
     })
 
     // 添加 tool result 消息（异步操作，需要 await）
@@ -397,7 +399,7 @@ export class StreamingOrchestrator {
       cost: result.cost
     })
 
-    // 添加错误 segment 用于 UI 显示
+    // 添加错误 segment 用于 UI 显示（包含 toolCallId 和 index 用于唯一标识）
     this.config.messageManager.appendSegmentToLastMessage({
       type: 'toolCall',
       name: result.name,
@@ -406,7 +408,9 @@ export class StreamingOrchestrator {
         status: result.status
       },
       cost: result.cost,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      toolCallId: result.id,
+      toolCallIndex: result.index
     })
   }
 }

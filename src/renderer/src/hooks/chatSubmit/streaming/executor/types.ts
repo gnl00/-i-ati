@@ -11,6 +11,8 @@ import type { ToolCallProps } from '../../types'
 export interface ToolExecutionResult {
   /** 工具调用 ID（用于匹配请求） */
   id: string
+  /** 工具调用索引（用于唯一标识） */
+  index: number
   /** 工具名称 */
   name: string
   /** 工具执行结果内容 */
