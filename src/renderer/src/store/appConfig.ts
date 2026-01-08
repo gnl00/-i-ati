@@ -227,3 +227,11 @@ export const initializeAppConfig = async (): Promise<void> => {
 
   return configInitPromise
 }
+
+// 导出类型，供其他文件使用
+class Wrapper {
+  f() {
+    return useAppConfigStore();
+  }
+}
+export type AppConfigStore = ReturnType<Wrapper["f"]>;

@@ -3,7 +3,7 @@
  * 协调所有子解析器，提供统一的解析接口
  */
 
-import type { ToolCallProps } from '../../types'
+import type { ToolCall } from '../../types'
 import { ThinkTagParser } from './think-tag-parser'
 import { ToolCallParser } from './tool-call-parser'
 import { ParserState, createInitialParserState } from './parser-state'
@@ -27,7 +27,7 @@ export class ChunkParser implements IChunkParser {
   /**
    * 解析单个响应 chunk
    */
-  parse(chunk: IUnifiedResponse, toolCalls: ToolCallProps[]): ParseResult {
+  parse(chunk: IUnifiedResponse, toolCalls: ToolCall[]): ParseResult {
     try {
       let contentDelta = ''
       let reasoningDelta = ''

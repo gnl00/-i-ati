@@ -3,9 +3,10 @@
  * 累积 tool call 参数
  */
 
-import type { ToolCallProps } from '../../types'
+import type { ToolCall } from '../../types'
 import { ParserError } from '../../errors'
 import { logger } from '../../logger'
+import { v4 as uuidv4 } from 'uuid'
 
 /**
  * Tool Call 解析器
@@ -20,8 +21,8 @@ export class ToolCallParser {
    */
   parse(
     toolCalls: IUnifiedResponse['toolCalls'],
-    existingToolCalls: ToolCallProps[]
-  ): ToolCallProps[] {
+    existingToolCalls: ToolCall[]
+  ): ToolCall[] {
     try {
       if (!toolCalls || toolCalls.length === 0) {
         return existingToolCalls
@@ -40,18 +41,19 @@ export class ToolCallParser {
         if (existing) {
           // 更新已存在的 tool call
           if (tc.function?.name) {
-            existing.function = tc.function.name
+            existing.name = tc.function.name
           }
           if (tc.function?.arguments) {
             existing.args += tc.function.arguments
           }
         } else {
-          // 创建新的 tool call
+          // 创建新的 tool call（状态为 pending）
           updated.push({
-            id: tc.id,
+            id: tc.id || `call_${uuidv4()}`,
             index: tc.index,
-            function: tc.function?.name || '',
-            args: tc.function?.arguments || ''
+            name: tc.function?.name || '',
+            args: tc.function?.arguments || '',
+            status: 'pending'
           })
         }
       })

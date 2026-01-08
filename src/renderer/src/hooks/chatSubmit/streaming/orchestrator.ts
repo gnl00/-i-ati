@@ -14,7 +14,6 @@
  */
 
 import { unifiedChatRequest } from '@request/index'
-import { v4 as uuidv4 } from 'uuid'
 import type {
   StreamingContext,
   StreamingDeps
@@ -84,13 +83,20 @@ export class StreamingOrchestrator {
   }
 
   // 会变化的属性：使用 getter
-  private get toolRuntime() {
+  private get tools() {
     return this.context.streaming.tools
   }
 
   /**
+   * 获取待执行的工具（状态为 pending）
+   */
+  private getPendingTools() {
+    return this.tools.filter(t => t.status === 'pending')
+  }
+
+  /**
    * 执行完整的请求-工具调用循环
-   * 外部接口，由 StreamingSessionMachine 调用
+   * 外部接口，由 createStreamingV2 调用
    */
   async execute(): Promise<void> {
     let cycleCount = 0
@@ -138,10 +144,10 @@ export class StreamingOrchestrator {
   }
 
   /**
-   * 检查是否有工具调用
+   * 检查是否有待执行的工具调用
    */
   private hasToolCalls(): boolean {
-    return this.toolRuntime.hasToolCall && this.toolRuntime.toolCalls.length > 0
+    return this.getPendingTools().length > 0
   }
 
   /**
@@ -149,10 +155,9 @@ export class StreamingOrchestrator {
    */
   private async sendRequest(): Promise<void> {
     try {
-      // 清空上一轮的工具调用状态
-      // 注意：第一次调用时这些本来就是空的，不影响
-      this.toolRuntime.toolCalls = []
-      this.toolRuntime.hasToolCall = false
+      // 清空上一轮的工具调用（移除所有非 pending 状态的工具）
+      // 保留 pending 状态的工具，它们将在本轮被执行
+      this.context.streaming.tools = this.tools.filter(t => t.status === 'pending')
 
       const response = await unifiedChatRequest(
         this.request,
@@ -212,18 +217,13 @@ export class StreamingOrchestrator {
    * 处理单个 chunk
    */
   private handleChunk(chunk: IUnifiedResponse): void {
-    // 1. 解析 chunk（传入 toolCalls 而不是整个 streamingState）
-    const result = this.config.parser.parse(chunk, this.toolRuntime.toolCalls)
+    // 1. 解析 chunk
+    const result = this.config.parser.parse(chunk, this.tools)
 
-    // 2. 更新流式状态
-    this.toolRuntime.toolCalls = result.toolCalls
-    this.toolRuntime.hasToolCall = result.toolCalls.length > 0
-    // 注意：不再需要更新 isContentHasThinkTag，状态由 Parser 内部管理
+    // 2. 更新工具调用列表
+    this.context.streaming.tools = result.toolCalls
 
-    // 3. 注意：gatherContent 和 gatherReasoning 已移除
-    // 内容现在完全通过 segments 管理
-
-    // 4. 应用解析结果
+    // 3. 应用解析结果
     this.applyParseResult(result)
   }
 
@@ -267,7 +267,8 @@ export class StreamingOrchestrator {
    * 刷新工具调用占位符
    */
   private flushToolCallPlaceholder(): void {
-    if (!this.toolRuntime.hasToolCall || this.toolRuntime.toolCalls.length === 0) {
+    const pendingTools = this.getPendingTools()
+    if (pendingTools.length === 0) {
       return
     }
 
@@ -277,11 +278,11 @@ export class StreamingOrchestrator {
     const content = extractContentFromSegments(lastMessage.body.segments)
 
     // 构造工具调用列表
-    const toolCalls = this.toolRuntime.toolCalls.map(tc => ({
-      id: tc.id || `call_${uuidv4()}`,
+    const toolCalls = pendingTools.map(tc => ({
+      id: tc.id,
       type: 'function' as const,
       function: {
-        name: tc.function,
+        name: tc.name,
         arguments: tc.args
       }
     }))
@@ -294,9 +295,15 @@ export class StreamingOrchestrator {
    * 执行工具调用
    */
   private async executeToolCalls(): Promise<void> {
-    if (this.toolRuntime.toolCalls.length === 0) {
+    const pendingTools = this.getPendingTools()
+    if (pendingTools.length === 0) {
       return
     }
+
+    // 标记工具为执行中
+    pendingTools.forEach(tool => {
+      tool.status = 'executing'
+    })
 
     // 创建 ToolExecutor
     const executor = new ToolExecutor({
@@ -313,37 +320,39 @@ export class StreamingOrchestrator {
       }
     })
 
-    // 并发执行所有工具
-    const results = await executor.execute(this.toolRuntime.toolCalls)
+    // 并发执行所有工具（转换为 ToolCallProps 格式）
+    const toolCallProps = pendingTools.map(t => ({
+      id: t.id,
+      index: t.index,
+      function: t.name,
+      args: t.args
+    }))
+    const results = await executor.execute(toolCallProps)
 
-    // 处理结果
+    // 处理结果并更新工具状态
     for (const result of results) {
+      // 找到对应的工具并更新状态
+      const tool = this.tools.find(t => t.id === result.id)
+      if (!tool) continue
+
       if (result.status === 'success') {
+        tool.status = 'success'
+        tool.result = result.content
+        tool.cost = result.cost
         this.handleToolSuccess(result)
       } else {
+        tool.status = result.status === 'aborted' ? 'aborted' : 'failed'
+        tool.error = result.error?.message
+        tool.cost = result.cost
         this.handleToolFailure(result)
       }
     }
-
-    // 注意：不再在这里清空 toolCalls
-    // 交给下一次 sendRequest() 在开始时清空，以便 execute() 循环可以检测到有工具调用
   }
 
   /**
    * 处理工具执行成功
    */
   private handleToolSuccess(result: ToolExecutionResult): void {
-    // 初始化 toolCallResults
-    if (!this.toolRuntime.toolCallResults) {
-      this.toolRuntime.toolCallResults = []
-    }
-
-    this.toolRuntime.toolCallResults.push({
-      name: result.name,
-      content: result.content,
-      cost: result.cost
-    })
-
     const toolFunctionMessage: ChatMessage = {
       role: 'tool',
       name: result.name,

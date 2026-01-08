@@ -1,8 +1,8 @@
-import { create } from 'zustand'
 import { getChatById } from '@renderer/db/ChatRepository'
-import { saveMessage, getMessageByIds, updateMessage } from '@renderer/db/MessageRepository'
+import { getMessageByIds, saveMessage, updateMessage } from '@renderer/db/MessageRepository'
+import { create } from 'zustand'
 
-type ChatState = {
+export type ChatState = {
   appVersion: string
   // Chat data
   selectedModel: IModel | undefined
@@ -23,7 +23,7 @@ type ChatState = {
   artifactsActiveTab: string
 }
 
-type ChatAction = {
+export type ChatAction = {
   // UI 状态更新
   setSelectedModel: (mode: IModel) => void
   setFetchState: (state: boolean) => void
@@ -195,4 +195,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
 }))
 
 // 导出类型，供其他文件使用
-export type ChatStore = ReturnType<typeof useChatStore>
+class Wrapper {
+  f() {
+    return useChatStore();
+  }
+}
+export type ChatStore = ReturnType<Wrapper["f"]>;
