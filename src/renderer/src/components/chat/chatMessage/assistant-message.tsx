@@ -135,12 +135,22 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         {segments.map((segment, segIdx) => {
           if (!shouldRenderSegment(segIdx)) return null
 
+          // 生成唯一的 key
+          let key: string
+          if (segment.type === 'toolCall' && segment.toolCallId && segment.toolCallIndex !== undefined) {
+            // 对于 toolCall segment，使用 toolCallId-index 作为唯一 key
+            key = `tool-${segment.toolCallId}-${segment.toolCallIndex}`
+          } else {
+            // 对于其他 segment，使用 type-segIdx
+            key = `${segment.type}-${segIdx}`
+          }
+
           if (segment.type === 'text') {
-            return <TextSegment key={`text-${segIdx}`} segment={segment} visibleLength={getSegmentVisibleLength(segIdx)} />
+            return <TextSegment key={key} segment={segment} visibleLength={getSegmentVisibleLength(segIdx)} />
           } else if (segment.type === 'reasoning') {
-            return <ReasoningSegment key={`reasoning-${segIdx}`} segment={segment} />
+            return <ReasoningSegment key={key} segment={segment} />
           } else if (segment.type === 'toolCall') {
-            return <ToolCallResult key={`tool-${segIdx}`} toolCall={segment} index={index} isDarkMode={isDarkMode} />
+            return <ToolCallResult key={key} toolCall={segment} index={index} isDarkMode={isDarkMode} />
           }
           return null
         })}

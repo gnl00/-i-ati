@@ -47,6 +47,7 @@ export class MessageManager {
       const entities = this.context.session.messageEntities
       const lastIndex = entities.length - 1
       const last = entities[lastIndex]
+
       const updated = updater(last)
 
       // 更新 session 中的引用
@@ -87,12 +88,19 @@ export class MessageManager {
    * @param segment 要添加的 segment
    */
   appendSegmentToLastMessage(segment: MessageSegment): void {
-    this.updateLastMessage((last) => {
-      if (!last.body.segments) {
-        last.body.segments = []
+    this.updateLastAssistantMessage((last) => {
+      const currentSegments = last.body.segments || []
+
+      // 创建新的对象引用，避免直接修改原对象
+      const updated = {
+        ...last,
+        body: {
+          ...last.body,
+          segments: [...currentSegments, segment]
+        }
       }
-      last.body.segments.push(segment)
-      return last
+
+      return updated
     })
   }
 
@@ -102,11 +110,14 @@ export class MessageManager {
    */
   appendSegmentsToLastMessage(segments: MessageSegment[]): void {
     this.updateLastMessage((last) => {
-      if (!last.body.segments) {
-        last.body.segments = []
+      // 创建新的对象引用，避免直接修改原对象
+      return {
+        ...last,
+        body: {
+          ...last.body,
+          segments: [...(last.body.segments || []), ...segments]
+        }
       }
-      last.body.segments.push(...segments)
-      return last
     })
   }
 

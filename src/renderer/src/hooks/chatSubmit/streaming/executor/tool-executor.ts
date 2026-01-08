@@ -98,6 +98,7 @@ export class ToolExecutor implements IToolExecutor {
   private async executeOne(call: ToolCallProps): Promise<ToolExecutionResult> {
     const toolId = call.id || `call_${uuidv4()}`
     const toolName = call.function
+    const toolIndex = call.index ?? 0
     const startTime = Date.now()
 
     // 报告开始
@@ -118,6 +119,7 @@ export class ToolExecutor implements IToolExecutor {
 
       const result: ToolExecutionResult = {
         id: toolId,
+        index: toolIndex,
         name: toolName,
         content,
         cost: Date.now() - startTime,
@@ -182,6 +184,7 @@ export class ToolExecutor implements IToolExecutor {
   ): ToolExecutionResult {
     const toolId = call.id || `call_${uuidv4()}`
     const toolName = call.function
+    const toolIndex = call.index ?? 0
 
     let status: ToolExecutionResult['status'] = 'error'
     let wrappedError: Error
@@ -197,6 +200,7 @@ export class ToolExecutor implements IToolExecutor {
 
     return {
       id: toolId,
+      index: toolIndex,
       name: toolName,
       content: null,
       cost,
@@ -213,6 +217,7 @@ export class ToolExecutor implements IToolExecutor {
 
     return {
       id: call.id || `call_${uuidv4()}`,
+      index: call.index ?? 0,
       name: call.function,
       content: null,
       cost: 0,
