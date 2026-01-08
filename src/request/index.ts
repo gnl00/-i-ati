@@ -40,7 +40,7 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
 
   beforeFetch()
   try {
-    // ✅ Use adapter to construct complete endpoint URL
+    // Use adapter to construct complete endpoint URL
     const endpoint = adapter.getEndpoint(req.baseUrl)
 
     console.log(`[Request] baseUrl: ${req.baseUrl}`)

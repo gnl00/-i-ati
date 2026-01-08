@@ -7,15 +7,7 @@ import type {
   StreamingContext,
   StreamingDeps,
   StreamingFactoryCallbacks,
-  StreamingState
 } from './types'
-
-/**
- * 创建初始流式状态
- */
-const createInitialStreamingState = (): StreamingState => ({
-  tools: []
-})
 
 /**
  * 创建流式处理函数
@@ -26,7 +18,7 @@ export const createStreamingV2 = (deps: StreamingDeps): SendRequestStage => {
     // 1. 初始化 streaming context
     const context: StreamingContext = {
       ...requestReady,
-      streaming: createInitialStreamingState()
+      streaming: { tools: [] }
     }
 
     // 2. 创建依赖

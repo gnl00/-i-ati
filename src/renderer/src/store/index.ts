@@ -180,10 +180,23 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   /**
    * 设置当前聊天
    */
-  setCurrentChat: (chatId, chatUuid) => set({
-    currentChatId: chatId,
-    currentChatUuid: chatUuid
-  }),
+  setCurrentChat: (chatId, chatUuid) => {
+    const currentChatId = get().currentChatId
+
+    // 如果切换到不同的聊天，清空消息列表
+    if (currentChatId !== chatId) {
+      set({
+        currentChatId: chatId,
+        currentChatUuid: chatUuid,
+        messages: []
+      })
+    } else {
+      set({
+        currentChatId: chatId,
+        currentChatUuid: chatUuid
+      })
+    }
+  },
 
   // ============ 向后兼容的方法 ============
 

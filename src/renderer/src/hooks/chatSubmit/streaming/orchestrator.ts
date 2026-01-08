@@ -14,19 +14,19 @@
  */
 
 import { unifiedChatRequest } from '@request/index'
+import { AbortError } from '../errors'
 import type {
   StreamingContext,
   StreamingDeps
 } from '../types'
-import { AbortError } from '../errors'
-import type { ChunkParser } from './parser'
-import type { MessageManager } from './message-manager'
+import { formatWebSearchForLLM } from '../utils'
 import { ToolExecutor } from './executor'
 import type { ToolExecutionProgress, ToolExecutionResult } from './executor/types'
+import type { MessageManager } from './message-manager'
+import type { ChunkParser } from './parser'
 import { SegmentBuilder } from './parser'
 import type { ParseResult } from './parser/types'
 import { extractContentFromSegments } from './segment-utils'
-import { formatWebSearchForLLM } from '../utils'
 
 /**
  * 流式编排器回调
@@ -101,21 +101,23 @@ export class StreamingOrchestrator {
   async execute(): Promise<void> {
     let cycleCount = 0
     const MAX_CYCLES = 10  // 防止无限循环
+    let hasExecutedTools = false  // 标记本轮是否执行了工具
 
     while (cycleCount < MAX_CYCLES) {
       cycleCount++
-      console.log(`[Orchestrator] Starting cycle ${cycleCount}`)
 
-      // 执行单次周期
-      await this.executeSingleCycle()
+      // 执行单次周期，返回是否执行了工具
+      hasExecutedTools = await this.executeSingleCycle()
 
-      // 检查是否需要继续（没有新的工具调用则退出）
-      if (!this.hasToolCalls()) {
-        console.log(`[Orchestrator] No more tool calls, completed in ${cycleCount} cycles`)
-        break
+      // 如果本轮执行了工具，继续下一轮（发送 tool results 给 LLM）
+      if (hasExecutedTools) {
+        continue
       }
 
-      console.log(`[Orchestrator] Tool calls detected, continuing to next cycle`)
+      // 如果本轮没有执行工具，检查是否有新的待执行工具
+      if (!this.hasToolCalls()) {
+        break
+      }
     }
 
     if (cycleCount >= MAX_CYCLES) {
@@ -126,8 +128,9 @@ export class StreamingOrchestrator {
   /**
    * 执行单次请求-响应-工具调用周期
    * 私有方法，由 execute() 循环调用
+   * @returns 是否执行了工具
    */
-  private async executeSingleCycle(): Promise<void> {
+  private async executeSingleCycle(): Promise<boolean> {
     // 通知进入 receiving 阶段
     this.callbacks?.onPhaseChange?.('receiving')
 
@@ -140,7 +143,15 @@ export class StreamingOrchestrator {
       this.callbacks?.onPhaseChange?.('toolCall')
 
       await this.executeToolCalls()
+
+      // 3. 清空已完成的工具，准备下一轮循环
+      // 这样下一个 cycle 可以继续发送请求（包含 tool results）
+      this.context.streaming.tools = []
+
+      return true  // 返回 true 表示执行了工具
     }
+
+    return false  // 返回 false 表示没有执行工具
   }
 
   /**
@@ -155,9 +166,6 @@ export class StreamingOrchestrator {
    */
   private async sendRequest(): Promise<void> {
     try {
-      // 清空上一轮的工具调用（移除所有非 pending 状态的工具）
-      // 保留 pending 状态的工具，它们将在本轮被执行
-      this.context.streaming.tools = this.tools.filter(t => t.status === 'pending')
 
       const response = await unifiedChatRequest(
         this.request,
@@ -192,7 +200,7 @@ export class StreamingOrchestrator {
       this.handleChunk(chunk)
     }
 
-    this.flushToolCallPlaceholder()
+    await this.flushToolCallPlaceholder()
   }
 
   /**
@@ -232,13 +240,13 @@ export class StreamingOrchestrator {
    */
   private applyParseResult(result: ParseResult): void {
     const segmentBuilder = new SegmentBuilder()
-    const lastMessage = this.config.messageManager.getLastMessage()
+    // 关键修改：使用 getLastAssistantMessage 而不是 getLastMessage
+    // 确保 Cycle 2 的内容追加到 Cycle 1 的 assistant 消息上
+    const lastMessage = this.config.messageManager.getLastAssistantMessage()
 
     if (!lastMessage.body.segments) {
-      this.config.messageManager.updateLastMessage(msg => {
-        msg.body.segments = []
-        return msg
-      })
+      // 初始化 segments 数组
+      lastMessage.body.segments = []
     }
 
     let segments = [...(lastMessage.body.segments || [])]
@@ -253,8 +261,8 @@ export class StreamingOrchestrator {
       segments = segmentBuilder.appendSegment(segments, result.contentDelta, 'text')
     }
 
-    // 原子更新
-    this.config.messageManager.updateLastMessage(msg => ({
+    // 原子更新 - 使用 updateLastAssistantMessage 确保更新正确的消息
+    this.config.messageManager.updateLastAssistantMessage(msg => ({
       ...msg,
       body: {
         ...msg.body,
@@ -265,8 +273,11 @@ export class StreamingOrchestrator {
 
   /**
    * 刷新工具调用占位符
+   *
+   * 关键：必须立即保存 assistant 消息到数据库，确保消息顺序正确
+   * 顺序：assistant (with toolCalls) → tool result
    */
-  private flushToolCallPlaceholder(): void {
+  private async flushToolCallPlaceholder(): Promise<void> {
     const pendingTools = this.getPendingTools()
     if (pendingTools.length === 0) {
       return
@@ -288,7 +299,8 @@ export class StreamingOrchestrator {
     }))
 
     // 使用 MessageManager 统一处理工具调用消息
-    this.config.messageManager.addToolCallMessage(toolCalls, content)
+    // 注意：这里会立即保存到数据库，确保在 tool result 之前保存
+    await this.config.messageManager.addToolCallMessage(toolCalls, content)
   }
 
   /**
@@ -339,7 +351,7 @@ export class StreamingOrchestrator {
         tool.status = 'success'
         tool.result = result.content
         tool.cost = result.cost
-        this.handleToolSuccess(result)
+        await this.handleToolSuccess(result)
       } else {
         tool.status = result.status === 'aborted' ? 'aborted' : 'failed'
         tool.error = result.error?.message
@@ -352,7 +364,7 @@ export class StreamingOrchestrator {
   /**
    * 处理工具执行成功
    */
-  private handleToolSuccess(result: ToolExecutionResult): void {
+  private async handleToolSuccess(result: ToolExecutionResult): Promise<void> {
     const toolFunctionMessage: ChatMessage = {
       role: 'tool',
       name: result.name,
@@ -370,8 +382,8 @@ export class StreamingOrchestrator {
       timestamp: Date.now()
     })
 
-    // 添加 tool result 消息
-    this.config.messageManager.addToolResultMessage(toolFunctionMessage)
+    // 添加 tool result 消息（异步操作，需要 await）
+    await this.config.messageManager.addToolResultMessage(toolFunctionMessage)
   }
 
   /**

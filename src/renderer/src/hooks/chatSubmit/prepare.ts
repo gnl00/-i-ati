@@ -1,5 +1,6 @@
 import { systemPrompt as systemPromptBuilder } from '@renderer/constant/prompts'
 import { getChatById, saveChat, updateChat } from '@renderer/db/ChatRepository'
+import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { v4 as uuidv4 } from 'uuid'
 import type { PrepareMessageFn, PrepareMessageParams, PreparedChat } from './types'
@@ -94,22 +95,29 @@ export const prepareV2: PrepareMessageFn = async ({
     chatEntity = fetchedChat
     workspacePath = getWorkspacePath(chatUuid)
 
-    // 设置当前聊天到 store
+    // 设置当前聊天到 store（在加载消息之前）
     store.setCurrentChat(currChatId!, chatUuid!)
   }
 
-  // 2. 创建用户消息实体
+  // 2. 从数据库加载已有消息（如果是已有聊天）
+  // 关键优化：直接从数据库加载，不依赖 store.messages 的异步更新
+  let existingMessages: MessageEntity[] = []
+  if (chatEntity.messages && chatEntity.messages.length > 0) {
+    existingMessages = await getMessageByIds(chatEntity.messages)
+
+    // 更新 store.messages（仅用于 UI 显示）
+    store.setMessages(existingMessages)
+  }
+
+  // 3. 创建用户消息实体
   const userMessageEntity: MessageEntity = {
     body: userMessage,
     chatId: currChatId,
     chatUuid: chatUuid
   }
 
-  // 3. 通过 store action 保存用户消息（自动 IPC → SQLite → 更新 state）
+  // 4. 通过 store action 保存用户消息（自动 IPC → SQLite → 更新 state）
   const usrMsgId = await store.addMessage(userMessageEntity)
-
-  // 4. 通过 store action 加载聊天消息（自动从 SQLite → IPC → 更新 state）
-  await store.loadChat(currChatId!)
 
   // 5. 更新聊天实体
   chatEntity.messages = [...(chatEntity.messages || []), usrMsgId]
@@ -130,24 +138,37 @@ export const prepareV2: PrepareMessageFn = async ({
   store.setReadStreamState(true)
   store.setShowLoadingIndicator(true)
 
-  // 7. 创建初始助手消息（仅内存，不持久化）
-  // 使用临时 ID 标记，确保流式更新时能正确追踪这条消息
+  // 7. 创建初始助手消息并立即保存到数据库（新方案）
+  // 关键改进：不再使用临时 ID（-1），而是立即保存到 DB 获取真实 ID
   const initialAssistantMessage: MessageEntity = {
-    id: -1,  // 临时 ID，finalize 时会被真实 ID 替换
     body: {
       role: 'assistant',
       model: model.name,
       content: '',
       segments: []
-    }
+    },
+    chatId: currChatId,
+    chatUuid: chatUuid
   }
 
+  // 立即保存到数据库，获取真实 ID
+  const assistantMsgId = await store.addMessage(initialAssistantMessage)
+  initialAssistantMessage.id = assistantMsgId
+
+  // 更新 chat.messages 数组
+  chatEntity.messages = [...(chatEntity.messages || []), assistantMsgId]
+  chatEntity.updateTime = new Date().getTime()
+  await updateChat(chatEntity)
+
   // 8. 构建返回的消息列表（用于当前会话）
-  const messages = store.messages
-  const messageEntities = [...messages, initialAssistantMessage]
+  // 关键优化：使用从数据库加载的 existingMessages，而不是 store.messages
+  // 这样可以避免 Zustand 状态更新延迟导致的问题
+  const allMessages = [...existingMessages, userMessageEntity]
+
+  const messageEntities = [...allMessages, initialAssistantMessage]
   const chatMessages = messageEntities.map(msg => msg.body)
 
-  // 9. 构建 system prompts
+  // 8. 构建 system prompts
   const defaultSystemPrompt = systemPromptBuilder(workspacePath)
   const systemPrompts = prompt
     ? [prompt, defaultSystemPrompt]
