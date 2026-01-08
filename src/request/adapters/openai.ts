@@ -298,7 +298,7 @@ export class OpenAIImage1Adapter extends BaseAdapter {
     const requestBody: any = {
       model: req.model,
       prompt: req.messages.map(m => {
-        const { artifacts, model, ...msg } = m
+        const { model, ...msg } = m
         return msg
       })[req.messages.length - 1].content,
       size: "1024x1024",
@@ -374,7 +374,7 @@ export class GoogleOpenAIImageCompatibleAdapter extends BaseAdapter {
     const requestBody: any = {
       model: req.model,
       messages: req.messages.map(m => {
-        const { artifacts, model, ...msg } = m
+        const { model, ...msg } = m
         return msg
       })[req.messages.length - 1],
       stream: true,

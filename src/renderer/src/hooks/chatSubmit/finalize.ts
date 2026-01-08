@@ -83,34 +83,48 @@ export const finalizePipelineV2 = async (
     setChatTitle(title)
   }
 
-  // 2. 保存所有未保存的消息（通过 Zustand store actions）
-  const unsavedMessages = session.messageEntities.filter(msg => msg.id == -1)
+  // 2. 处理所有需要持久化的消息（新方案：统一保存顺序）
 
-  if (unsavedMessages.length > 0) {
-    for (const messageToSave of unsavedMessages) {
+  // 2.1 第一步：更新所有 assistant 消息（新方案：已在 prepare 阶段保存）
+  for (const message of session.messageEntities) {
+    if (message.body.role === 'assistant') {
       // 提取 content from segments
-      if (!messageToSave.body.content && messageToSave.body.segments && messageToSave.body.segments.length > 0) {
-        const extractedContent = extractContentFromSegments(messageToSave.body.segments)
-        messageToSave.body.content = extractedContent
+      if (message.body.segments && message.body.segments.length > 0) {
+        const extractedContent = extractContentFromSegments(message.body.segments)
+        message.body.content = extractedContent
       }
 
-      // 通过 store action 保存（自动 IPC → SQLite → 更新 state）
-      const msgId = await store.addMessage(messageToSave)
+      // 新方案：assistant 消息已在 prepare 阶段保存，这里只需要更新
+      if (message.id && message.id > 0) {
+        await store.updateMessage(message)
+      } else {
+        // 不应该出现这种情况（没有 ID 的 assistant 消息）
+        console.warn('[Finalize] Assistant message without ID, this should not happen in new approach')
+      }
+    }
+  }
 
-      // 更新聊天实体的消息列表
+  // 2.2 第二步：按顺序保存所有 tool result 消息
+  for (const message of session.messageEntities) {
+    if (message.body.role === 'tool' && !message.id) {
+      // 未保存的 tool result 消息，保存到数据库
+      const msgId = await store.addMessage(message)
+      message.id = msgId
       chatEntity.messages = [...(chatEntity.messages || []), msgId]
     }
-
-    // 3. 更新聊天实体
-    chatEntity.model = meta.model.value
-    chatEntity.updateTime = new Date().getTime()
-    await updateChat(chatEntity)
-
-    // 4. 从数据库重新加载最新的 msgCount
-    const updatedChat = await getChatById(chatEntity.id!)
-    if (updatedChat) {
-      chatEntity.msgCount = updatedChat.msgCount
-    }
-    updateChatList(chatEntity)
   }
+
+  // 3. 更新聊天实体（使用内存中的 messages 数组）
+
+  // 直接使用内存中的 chatEntity，包含完整的 messages 数组
+  chatEntity.model = meta.model.value
+  chatEntity.updateTime = new Date().getTime()
+  await updateChat(chatEntity)
+
+  // 4. 从数据库重新加载最新的 msgCount
+  const updatedChat = await getChatById(chatEntity.id!)
+  if (updatedChat) {
+    chatEntity.msgCount = updatedChat.msgCount
+  }
+  updateChatList(chatEntity)
 }
