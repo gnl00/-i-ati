@@ -83,9 +83,8 @@ export const finalizePipelineV2 = async (
     setChatTitle(title)
   }
 
-  // 2. ✅ 保存所有未保存的消息（通过 Zustand store actions）
-  // 注意：区分临时 ID（字符串）和数据库 ID（数字）
-  const unsavedMessages = session.messageEntities.filter(msg => typeof msg.id !== 'number')
+  // 2. 保存所有未保存的消息（通过 Zustand store actions）
+  const unsavedMessages = session.messageEntities.filter(msg => msg.id == -1)
 
   if (unsavedMessages.length > 0) {
     for (const messageToSave of unsavedMessages) {
@@ -95,7 +94,7 @@ export const finalizePipelineV2 = async (
         messageToSave.body.content = extractedContent
       }
 
-      // ✅ 通过 store action 保存（自动 IPC → SQLite → 更新 state）
+      // 通过 store action 保存（自动 IPC → SQLite → 更新 state）
       const msgId = await store.addMessage(messageToSave)
 
       // 更新聊天实体的消息列表

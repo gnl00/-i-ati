@@ -12,7 +12,7 @@ export interface ParseResult {
   /** 推理内容增量 */
   reasoningDelta: string
   /** 检测到的工具调用（累积的） */
-  toolCalls: import('../../types').ToolCallProps[]
+  toolCalls: import('../../types').ToolCall[]
   /** 是否包含 think tag */
   hasThinkTag: boolean
   /** 是否正在 think tag 内部 */
@@ -31,7 +31,7 @@ export interface ChunkParser {
    */
   parse(
     chunk: IUnifiedResponse,
-    toolCalls: import('../../types').ToolCallProps[]
+    toolCalls: import('../../types').ToolCall[]
   ): ParseResult
 
   /**

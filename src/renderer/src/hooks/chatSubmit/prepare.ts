@@ -65,8 +65,10 @@ export const prepareV2: PrepareMessageFn = async ({
     const workspaceResult = await createWorkspace(currChatUuid)
     if (!workspaceResult.success) {
       console.warn(`[Workspace] Failed to create workspace for chat ${currChatUuid}:`, workspaceResult.error)
+      workspacePath = '/tmp'
+    } else {
+      workspacePath = workspaceResult.path
     }
-    workspacePath = workspaceResult.path
 
     chatEntity = {
       uuid: currChatUuid,
@@ -93,7 +95,7 @@ export const prepareV2: PrepareMessageFn = async ({
     workspacePath = getWorkspacePath(chatUuid)
 
     // 设置当前聊天到 store
-    store.setCurrentChat(currChatId, chatUuid)
+    store.setCurrentChat(currChatId!, chatUuid!)
   }
 
   // 2. 创建用户消息实体
@@ -103,11 +105,11 @@ export const prepareV2: PrepareMessageFn = async ({
     chatUuid: chatUuid
   }
 
-  // 3. ✅ 通过 store action 保存用户消息（自动 IPC → SQLite → 更新 state）
+  // 3. 通过 store action 保存用户消息（自动 IPC → SQLite → 更新 state）
   const usrMsgId = await store.addMessage(userMessageEntity)
 
-  // 4. ✅ 通过 store action 加载聊天消息（自动从 SQLite → IPC → 更新 state）
-  await store.loadChat(currChatId)
+  // 4. 通过 store action 加载聊天消息（自动从 SQLite → IPC → 更新 state）
+  await store.loadChat(currChatId!)
 
   // 5. 更新聊天实体
   chatEntity.messages = [...(chatEntity.messages || []), usrMsgId]
@@ -131,7 +133,7 @@ export const prepareV2: PrepareMessageFn = async ({
   // 7. 创建初始助手消息（仅内存，不持久化）
   // 使用临时 ID 标记，确保流式更新时能正确追踪这条消息
   const initialAssistantMessage: MessageEntity = {
-    id: 'temp-assistant',  // 临时 ID，finalize 时会被真实 ID 替换
+    id: -1,  // 临时 ID，finalize 时会被真实 ID 替换
     body: {
       role: 'assistant',
       model: model.name,

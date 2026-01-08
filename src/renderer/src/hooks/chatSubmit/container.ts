@@ -1,6 +1,6 @@
 import { useChatContext } from '@renderer/context/ChatContext'
 import { type ChatStore } from '@renderer/store'
-import { useAppConfigStore } from '@renderer/store/appConfig'
+import { AppConfigStore } from '@renderer/store/appConfig'
 import { finalizePipelineV2 } from './finalize'
 import { Logger } from './logger'
 import { ChatPipelineMachineV2 } from './machine'
@@ -19,7 +19,7 @@ export class ChatDependencyContainer {
   constructor(
     private readonly chatContext: ReturnType<typeof useChatContext>,
     private readonly chatStore: ChatStore,
-    private readonly appConfig: ReturnType<typeof useAppConfigStore>
+    private readonly appConfig: AppConfigStore
   ) {
     this.logger.debug('Created new instance')
   }
