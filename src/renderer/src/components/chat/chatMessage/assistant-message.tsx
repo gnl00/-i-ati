@@ -103,7 +103,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
-  if (!m) return null
+  if (!m || m.role !== 'assistant') return null
 
   return (
     <div

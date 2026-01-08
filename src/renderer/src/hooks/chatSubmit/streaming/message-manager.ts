@@ -12,8 +12,6 @@
  * - 类型安全：提供类型化的更新方法
  */
 
-import { updateChat } from '@renderer/db/ChatRepository'
-import { saveMessage } from '@renderer/db/MessageRepository'
 import type { ChatStore } from '@renderer/store'
 import { logger } from '../logger'
 import type { StreamingContext } from '../types'
