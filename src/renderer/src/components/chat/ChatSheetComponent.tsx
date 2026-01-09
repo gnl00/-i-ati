@@ -18,7 +18,7 @@ import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { deleteChat, getAllChat, updateChat } from '@renderer/db/ChatRepository'
-import { getMessageByIds } from '@renderer/db/MessageRepository'
+import { getMessageByIds, updateMessage } from '@renderer/db/MessageRepository'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
@@ -94,6 +94,61 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const { providers } = useAppConfigStore()
     const { chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList } = useChatContext()
 
+    /**
+     * 批量完成当前 chat 的所有消息的打字机效果
+     * 用于切换 chat 或开始新 chat 时
+     */
+    const completeAllTypewriters = async () => {
+        const currentMessages = useChatStore.getState().messages
+
+        if (currentMessages.length === 0) {
+            return
+        }
+
+        // 只更新 assistant 消息且未完成打字机的消息
+        const messagesToUpdate = currentMessages.filter(msg =>
+            msg.id &&
+            msg.body.role === 'assistant' &&
+            !msg.body.typewriterCompleted
+        )
+
+        if (messagesToUpdate.length === 0) {
+            return
+        }
+
+        // 更新内存中的消息
+        const completedMessages = currentMessages.map(msg => {
+            if (msg.body.role === 'assistant' && !msg.body.typewriterCompleted) {
+                return {
+                    ...msg,
+                    body: {
+                        ...msg.body,
+                        typewriterCompleted: true
+                    }
+                }
+            }
+            return msg
+        })
+        setMessages(completedMessages)
+
+        // 批量更新数据库（异步，不阻塞 UI）
+        Promise.all(
+            messagesToUpdate.map(msg =>
+                updateMessage({
+                    id: msg.id!,
+                    chatId: msg.chatId,
+                    chatUuid: msg.chatUuid,
+                    body: {
+                        ...msg.body,
+                        typewriterCompleted: true
+                    }
+                })
+            )
+        ).catch(err => {
+            console.error('[ChatSheet] Failed to batch update typewriterCompleted:', err)
+        })
+    }
+
     const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])
     const bgGradientColors = useMemo(() => [
         { from: 'from-[#FFD26F]', via: 'via-[#3687FF]', to: 'to-[#3677FF]' },
@@ -130,6 +185,9 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     }
 
     const startNewChat = async () => {
+        // 批量完成当前 chat 的所有打字机效果
+        await completeAllTypewriters()
+
         setChatId(undefined)
         setChatUuid(undefined)
         setChatTitle('NewChat')
@@ -148,6 +206,9 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const onChatClick = async (_, chat: ChatEntity) => {
         setSheetOpenState(false)
         if (chatId != chat.id) {
+            // 批量完成当前 chat 的所有打字机效果
+            await completeAllTypewriters()
+
             toggleArtifacts(false)
             toggleWebSearch(false)
 

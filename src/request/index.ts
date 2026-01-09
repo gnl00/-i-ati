@@ -3,16 +3,6 @@ import { adapterManager } from './adapters/manager'
 
 initializeAdapters()
 
-const authorizationPreffix = 'Bearer '
-
-// const getHeanders: IHeaders = {}
-
-const postHeanders: IHeaders = {
-  // 'Access-Control-Allow-Origin': '*',
-  'content-type': 'application/json',
-  accept: 'application/json'
-}
-
 export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
 
   let adapter
