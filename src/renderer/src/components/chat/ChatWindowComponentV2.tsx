@@ -2,7 +2,7 @@ import { ArtifactsPanel } from '@renderer/components/artifacts'
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea from "@renderer/components/chat/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
-import WelcomeMessage from "@renderer/components/chat/WelcomeMessage5"
+import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageWithBlob4"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { cn } from '@renderer/lib/utils'
@@ -39,6 +39,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
+
+  // Welcome page state
+  const [showWelcome, setShowWelcome] = useState<boolean>(true)
+  const hasShownWelcomeRef = useRef<boolean>(false)
 
   // 缓动函数：easeOutCubic - 快速开始，缓慢结束
   const easeOutCubic = useCallback((t: number): number => {
@@ -312,6 +316,25 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [chatUuid])
 
+  // Detect first message - hide welcome after scroll completes
+  useEffect(() => {
+    if (messages.length > 0 && showWelcome && !hasShownWelcomeRef.current) {
+      hasShownWelcomeRef.current = true
+      // Wait for scroll animation to complete before hiding welcome
+      setTimeout(() => {
+        setShowWelcome(false)
+      }, 50)
+    }
+  }, [messages.length, showWelcome])
+
+  // Reset welcome page on chat switch
+  useEffect(() => {
+    if (messages.length === 0) {
+      setShowWelcome(true)
+      hasShownWelcomeRef.current = false
+    }
+  }, [chatUuid, messages.length])
+
   useEffect(() => {
     // 滚动逻辑：
     // 2. 用户在底部（按钮不可见）：节流滚动
@@ -411,9 +434,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
             >
               <div className="flex-1 app-undragable overflow-scroll">
                 <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
-                  {deferredMessages.length === 0 ? (
+                  {showWelcome && (
                     <WelcomeMessage />
-                  ) : (
+                  )}
+                  {deferredMessages.length === 0 ? null : (
                     deferredMessages.map((message, index) => {
                       return (
                         <ChatMessageComponent
