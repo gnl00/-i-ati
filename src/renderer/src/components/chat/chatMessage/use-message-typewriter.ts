@@ -38,8 +38,8 @@ export function useMessageTypewriter(
   const { getSegmentVisibleLength, shouldRenderSegment, isAllComplete, forceComplete } = useSegmentTypewriter(
     segments,
     {
-      minSpeed: 5,
-      maxSpeed: 20,
+      minSpeed: 12,
+      maxSpeed: 30,
       enabled,
       isStreaming,
       onTyping: onTypingChange,
