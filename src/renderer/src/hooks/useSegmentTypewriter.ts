@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSpring } from '@react-spring/web'
 
 interface SegmentTypewriterOptions {
   minSpeed?: number
@@ -65,14 +64,8 @@ export const useSegmentTypewriter = (
 
   // State
   const [activeSegmentIndex, setActiveSegmentIndex] = useState<number>(-1)
+  const [currentSegmentOffset, setCurrentSegmentOffset] = useState<number>(0)
   const [isAllComplete, setIsAllComplete] = useState<boolean>(false)
-
-  // 使用 react-spring 替代 currentSegmentOffset 的 useState
-  // 这样可以避免频繁的 React 渲染
-  const [offsetSpring, offsetApi] = useSpring(() => ({
-    offset: 0,
-    config: { tension: 300, friction: 30 }
-  }))
 
   // Refs
   const animationFrameRef = useRef<number | null>(null)
@@ -147,6 +140,7 @@ export const useSegmentTypewriter = (
   // 重置状态
   const resetState = useCallback(() => {
     setActiveSegmentIndex(-1)
+    setCurrentSegmentOffset(0)
     setIsAllComplete(false)
 
     // 清理所有队列管理 Refs
@@ -210,8 +204,7 @@ export const useSegmentTypewriter = (
     const nextIndex = findNextPendingSegment()
     if (nextIndex !== -1) {
       setActiveSegmentIndex(nextIndex)
-      // 重置 spring offset 为 0
-      offsetApi.start({ offset: 0, immediate: true })
+      setCurrentSegmentOffset(0)
       onSegmentStartRef.current?.(nextIndex)
     } else {
       setActiveSegmentIndex(-1)
@@ -220,7 +213,7 @@ export const useSegmentTypewriter = (
         onAllCompleteRef.current?.()
       }
     }
-  }, [activeSegmentIndex, findNextPendingSegment, cleanupSegmentQueue, offsetApi])
+  }, [activeSegmentIndex, findNextPendingSegment, cleanupSegmentQueue])
 
   // 动画循环
   const animate = useCallback((timestamp: number) => {
@@ -263,8 +256,7 @@ export const useSegmentTypewriter = (
 
       if (charConsumed) {
         const consumed = consumedLengthsRef.current.get(activeSegmentIndex) || 0
-        // 使用 react-spring 更新，避免触发 React 渲染
-        offsetApi.start({ offset: consumed, immediate: true })
+        setCurrentSegmentOffset(consumed)
         onTypingRef.current?.()
         lastUpdateRef.current = timestamp
 
@@ -294,7 +286,7 @@ export const useSegmentTypewriter = (
 
     // 继续动画循环
     animationFrameRef.current = requestAnimationFrame(animate)
-  }, [activeSegmentIndex, minSpeed, maxSpeed, findNextPendingSegment, calculateSpeed, ensureSegmentQueue, consumeNextChar, moveToNextSegment, offsetApi])
+  }, [activeSegmentIndex, minSpeed, maxSpeed, findNextPendingSegment, calculateSpeed, ensureSegmentQueue, consumeNextChar, moveToNextSegment])
 
   // 启动/停止/重置逻辑
   useEffect(() => {
@@ -352,9 +344,9 @@ export const useSegmentTypewriter = (
     if (index < activeSegmentIndex) return Infinity // 之前的 text segments 都显示全
     if (index > activeSegmentIndex) return 0        // 之后的 text segments 都不显示
 
-    // 当前的显示 offset - 使用 spring 值
-    return Math.floor(offsetSpring.offset.get())
-  }, [enabled, isAllComplete, activeSegmentIndex, offsetSpring])
+    // 当前的显示 offset
+    return currentSegmentOffset
+  }, [enabled, isAllComplete, activeSegmentIndex, currentSegmentOffset])
 
   const shouldRenderSegment = useCallback((index: number) => {
     if (!enabled || isAllComplete) return true
@@ -378,7 +370,7 @@ export const useSegmentTypewriter = (
 
   return {
     activeSegmentIndex,
-    currentSegmentOffset: Math.floor(offsetSpring.offset.get()), // 保持向后兼容
+    currentSegmentOffset,
     getSegmentVisibleLength,
     shouldRenderSegment,
     isAllComplete,
