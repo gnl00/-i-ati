@@ -216,7 +216,8 @@ export class StreamingOrchestrator {
           type: 'text',
           content: resp.content,
           timestamp: Date.now()
-        }]
+        }],
+        typewriterCompleted: false  // 初始化打字机状态
       }
     }))
   }

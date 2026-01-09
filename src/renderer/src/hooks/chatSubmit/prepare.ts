@@ -145,7 +145,8 @@ export const prepareV2: PrepareMessageFn = async ({
       role: 'assistant',
       model: model.name,
       content: '',
-      segments: []
+      segments: [],
+      typewriterCompleted: false  // 初始化打字机状态
     },
     chatId: currChatId,
     chatUuid: chatUuid

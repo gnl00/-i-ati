@@ -21,6 +21,8 @@ export type ChatState = {
   artifacts: boolean
   artifactsPanelOpen: boolean
   artifactsActiveTab: string
+  // Typewriter control
+  forceCompleteTypewriter: (() => void) | null
 }
 
 export type ChatAction = {
@@ -37,6 +39,7 @@ export type ChatAction = {
   setArtifactsPanel: (open: boolean) => void
   setArtifactsActiveTab: (tab: string) => void
   setImageSrcBase64List: (imgs: ClipbordImg[]) => void
+  setForceCompleteTypewriter: (fn: (() => void) | null) => void
 
   // 数据操作方法（通过 IPC 与 SQLite 同步）
   loadChat: (chatId: number) => Promise<void>
@@ -74,6 +77,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   artifactsPanelOpen: false,
   artifactsActiveTab: 'preview',
 
+  // Typewriter control
+  forceCompleteTypewriter: null,
+
   // ============ UI 状态更新方法 ============
 
   setSelectedModel: (mode) => set({ selectedModel: mode }),
@@ -88,6 +94,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setArtifactsPanel: (open) => set({ artifactsPanelOpen: open }),
   setArtifactsActiveTab: (tab) => set({ artifactsActiveTab: tab }),
   setImageSrcBase64List: (imgs) => set({ imageSrcBase64List: imgs }),
+  setForceCompleteTypewriter: (fn) => set({ forceCompleteTypewriter: fn }),
 
   // ============ 数据操作方法（通过 IPC 与 SQLite 同步）===========
 

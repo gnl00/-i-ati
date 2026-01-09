@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSpring } from '@react-spring/web'
 
 interface SegmentTypewriterOptions {
   minSpeed?: number
@@ -26,6 +27,9 @@ interface UseSegmentTypewriterReturn {
 
   // 是否所有 segments 都完成了 typewriter
   isAllComplete: boolean
+
+  // 强制完成打字机效果
+  forceComplete: () => void
 }
 
 /**
@@ -61,8 +65,14 @@ export const useSegmentTypewriter = (
 
   // State
   const [activeSegmentIndex, setActiveSegmentIndex] = useState<number>(-1)
-  const [currentSegmentOffset, setCurrentSegmentOffset] = useState<number>(0)
   const [isAllComplete, setIsAllComplete] = useState<boolean>(false)
+
+  // 使用 react-spring 替代 currentSegmentOffset 的 useState
+  // 这样可以避免频繁的 React 渲染
+  const [offsetSpring, offsetApi] = useSpring(() => ({
+    offset: 0,
+    config: { tension: 300, friction: 30 }
+  }))
 
   // Refs
   const animationFrameRef = useRef<number | null>(null)
@@ -79,8 +89,8 @@ export const useSegmentTypewriter = (
   // Queue Management Refs (for character-level queue mechanism)
   const segmentQueuesRef = useRef<Map<number, string[]>>(new Map())
   const consumedLengthsRef = useRef<Map<number, number>>(new Map())
-  const processedLengthRef = useRef<Map<number, number>>(new Map()) // 记录已经添加到队列的长度
-  const completedSegmentsRef = useRef<Set<number>>(new Set()) // 记录已完成的 text segments
+  const processedLengthRef = useRef<Map<number, number>>(new Map())
+  const completedSegmentsRef = useRef<Set<number>>(new Set())
 
   // Keep refs up to date
   useEffect(() => {
@@ -132,13 +142,11 @@ export const useSegmentTypewriter = (
   const cleanupSegmentQueue = useCallback((segmentIndex: number) => {
     segmentQueuesRef.current.delete(segmentIndex)
     processedLengthRef.current.delete(segmentIndex)
-    // consumedLengthsRef 保留，用于判断是否已完成
   }, [])
 
   // 重置状态
   const resetState = useCallback(() => {
     setActiveSegmentIndex(-1)
-    setCurrentSegmentOffset(0)
     setIsAllComplete(false)
 
     // 清理所有队列管理 Refs
@@ -151,6 +159,21 @@ export const useSegmentTypewriter = (
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
     }
+  }, [])
+
+  // 强制完成打字机效果
+  const forceComplete = useCallback(() => {
+    // 立即标记为完成
+    setIsAllComplete(true)
+
+    // 取消动画循环
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+
+    // 触发完成回调
+    onAllCompleteRef.current?.()
   }, [])
 
   // Helper Functions
@@ -187,6 +210,8 @@ export const useSegmentTypewriter = (
     const nextIndex = findNextPendingSegment()
     if (nextIndex !== -1) {
       setActiveSegmentIndex(nextIndex)
+      // 重置 spring offset 为 0
+      offsetApi.start({ offset: 0, immediate: true })
       onSegmentStartRef.current?.(nextIndex)
     } else {
       setActiveSegmentIndex(-1)
@@ -195,7 +220,7 @@ export const useSegmentTypewriter = (
         onAllCompleteRef.current?.()
       }
     }
-  }, [activeSegmentIndex, findNextPendingSegment, cleanupSegmentQueue])
+  }, [activeSegmentIndex, findNextPendingSegment, cleanupSegmentQueue, offsetApi])
 
   // 动画循环
   const animate = useCallback((timestamp: number) => {
@@ -238,7 +263,8 @@ export const useSegmentTypewriter = (
 
       if (charConsumed) {
         const consumed = consumedLengthsRef.current.get(activeSegmentIndex) || 0
-        setCurrentSegmentOffset(consumed)
+        // 使用 react-spring 更新，避免触发 React 渲染
+        offsetApi.start({ offset: consumed, immediate: true })
         onTypingRef.current?.()
         lastUpdateRef.current = timestamp
 
@@ -268,15 +294,27 @@ export const useSegmentTypewriter = (
 
     // 继续动画循环
     animationFrameRef.current = requestAnimationFrame(animate)
-  }, [activeSegmentIndex, minSpeed, maxSpeed, findNextPendingSegment, calculateSpeed, ensureSegmentQueue, consumeNextChar, moveToNextSegment])
+  }, [activeSegmentIndex, minSpeed, maxSpeed, findNextPendingSegment, calculateSpeed, ensureSegmentQueue, consumeNextChar, moveToNextSegment, offsetApi])
 
   // 启动/停止/重置逻辑
   useEffect(() => {
+    // 关键修复：只在初始化时检查 enabled，一旦动画开始就不要因为 enabled 变化而中断
+    // 这样可以避免打字机效果在进行中突然停止
+
+    // 调试日志
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Typewriter Animation]', {
+        enabled,
+        activeSegmentIndex,
+        isAllComplete,
+        hasAnimation: animationFrameRef.current !== null
+      })
+    }
+
     if (!enabled) {
-      // Disable 时重置状态，或者直接标记为全部完成？
-      // 现在的需求是 disabled 时显示全部，所以在组件层处理渲染，
-      // 这里只需要保证如果不 enable，就不会跑动画消耗资源。
-      if (animationFrameRef.current) {
+      // 如果从未启动过动画（activeSegmentIndex === -1），则不启动
+      // 如果已经启动了动画，让它继续完成
+      if (activeSegmentIndex === -1 && animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
         animationFrameRef.current = null
       }
@@ -294,7 +332,7 @@ export const useSegmentTypewriter = (
         animationFrameRef.current = null
       }
     }
-  }, [enabled, isAllComplete, animate])
+  }, [enabled, isAllComplete, animate, activeSegmentIndex])
 
 
   // 辅助函数
@@ -313,8 +351,10 @@ export const useSegmentTypewriter = (
 
     if (index < activeSegmentIndex) return Infinity // 之前的 text segments 都显示全
     if (index > activeSegmentIndex) return 0        // 之后的 text segments 都不显示
-    return currentSegmentOffset                     // 当前的显示 offset
-  }, [enabled, isAllComplete, activeSegmentIndex, currentSegmentOffset])
+
+    // 当前的显示 offset - 使用 spring 值
+    return Math.floor(offsetSpring.offset.get())
+  }, [enabled, isAllComplete, activeSegmentIndex, offsetSpring])
 
   const shouldRenderSegment = useCallback((index: number) => {
     if (!enabled || isAllComplete) return true
@@ -338,9 +378,10 @@ export const useSegmentTypewriter = (
 
   return {
     activeSegmentIndex,
-    currentSegmentOffset,
+    currentSegmentOffset: Math.floor(offsetSpring.offset.get()), // 保持向后兼容
     getSegmentVisibleLength,
     shouldRenderSegment,
-    isAllComplete
+    isAllComplete,
+    forceComplete
   }
 }

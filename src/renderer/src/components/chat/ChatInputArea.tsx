@@ -144,6 +144,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       toast.warning('Please select a model')
       return
     }
+
+    // 中断打字机效果（如果正在执行）
+    const forceComplete = useChatStore.getState().forceCompleteTypewriter
+    if (forceComplete) {
+      forceComplete()
+    }
+
     onMessagesUpdate() // for chat-window scroll to the end
     const tools = Array.from(availableMcpTools.values()).flatMap(i => i)
     if (webSearchEnable) {
