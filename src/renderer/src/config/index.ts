@@ -5,7 +5,8 @@ export const defaultConfig: IAppConfig = {
   providers: [],
   version: configVersion,
   tools: {
-    maxWebSearchItems: 3
+    maxWebSearchItems: 3,
+    memoryEnabled: true
   },
   configForUpdate: {
     version: configVersion,

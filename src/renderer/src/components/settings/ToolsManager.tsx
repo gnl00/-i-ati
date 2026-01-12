@@ -15,9 +15,11 @@ import { toast } from 'sonner'
 interface ToolsManagerProps {
     maxWebSearchItems: number
     setMaxWebSearchItems: (value: number) => void
+    memoryEnabled: boolean
+    setMemoryEnabled: (value: boolean) => void
 }
 
-const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWebSearchItems }) => {
+const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWebSearchItems, memoryEnabled, setMemoryEnabled }) => {
     const {
         setAppConfig,
         models,
@@ -74,7 +76,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWe
 
     return (
         <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
-            <div className='w-full space-y-4 p-1'>
+            <div className='w-full h-full space-y-2 p-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500'>
                 {/* Title Generation Setting */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
                     <div className="p-5 flex items-start gap-4">
@@ -168,6 +170,9 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWe
                                 <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
                                     Web Search Limit
                                 </Label>
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800">
+                                    WEB
+                                </Badge>
                             </div>
                             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
                                 Max number of search results to process (1-10). Higher values provide more context but increase token usage and latency.
@@ -189,29 +194,61 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWe
                     </div>
                 </div>
 
-                {/* Configuration Backup */}
+                {/* Memory Setting */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                            <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
-                                Configuration Backup
-                            </Label>
-                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800">
-                                Data
-                            </Badge>
+                    <div className="flex items-start gap-4">
+                        <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="toggle-memory" className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                    Long-term Memory
+                                </Label>
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                                    MEMORY
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Enable semantic memory storage and retrieval using vector embeddings. The system can remember important information across conversations.
+                            </p>
                         </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                            Export your configuration to a JSON file for backup or transfer to another device. You can also import a previously saved configuration.
-                        </p>
-                        <div className="flex gap-2 pt-1">
-                            <Button onClick={handleExportConfig} variant="outline" size="sm" className="shadow-sm">
-                                <i className="ri-download-line mr-1.5"></i>
-                                Export Config
-                            </Button>
-                            <Button onClick={handleImportConfig} variant="outline" size="sm" className="shadow-sm">
-                                <i className="ri-upload-line mr-1.5"></i>
-                                Import Config
-                            </Button>
+                        <Switch
+                            checked={memoryEnabled}
+                            onCheckedChange={setMemoryEnabled}
+                            id="toggle-memory"
+                            className="data-[state=checked]:bg-green-600 mt-1"
+                        />
+                    </div>
+                </div>
+
+                {/* Configuration Backup */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+                    <div className="p-5">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                    Configuration Backup
+                                </Label>
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800">
+                                    Data
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Export your configuration to a JSON file for backup or transfer to another device. You can also import a previously saved configuration.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50">
+                        <div className="p-4 pt-3 flex items-center justify-between gap-4">
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Backup & Restore</span>
+                            <div className="flex items-center gap-2">
+                                <Button onClick={handleExportConfig} variant="outline" size="sm" className="shadow-sm">
+                                    <i className="ri-download-line mr-1.5"></i>
+                                    Export Config
+                                </Button>
+                                <Button onClick={handleImportConfig} variant="outline" size="sm" className="shadow-sm">
+                                    <i className="ri-upload-line mr-1.5"></i>
+                                    Import Config
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>

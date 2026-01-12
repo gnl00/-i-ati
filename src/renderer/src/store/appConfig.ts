@@ -15,6 +15,7 @@ type AppConfigState = {
   // Tool settings
   titleGenerateModel: IModel | undefined
   titleGenerateEnabled: boolean
+  memoryEnabled: boolean
   mcpServerConfig: { mcpServers?: {} }
 }
 
@@ -36,6 +37,7 @@ type AppConfigAction = {
   // Tool setting actions
   setTitleGenerateModel: (titleModel: IModel) => void
   setTitleGenerateEnabled: (state: boolean) => void
+  setMemoryEnabled: (state: boolean) => void
   setMcpServerConfig: (config: any) => void
 }
 
@@ -50,6 +52,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   // State - Tool settings
   titleGenerateModel: defaultConfig.tools?.titleGenerateModel || undefined,
   titleGenerateEnabled: defaultConfig.tools?.titleGenerateEnabled ?? true,
+  memoryEnabled: defaultConfig.tools?.memoryEnabled ?? true,
   mcpServerConfig: { ...defaultConfig.mcp },
 
   // Computed - Models (derived from providers)
@@ -71,6 +74,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       providers: config.providers || [],
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
+      memoryEnabled: config.tools?.memoryEnabled ?? true,
       mcpServerConfig: { ...config.mcp }
     })
   },
@@ -84,6 +88,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       providers: updatedConfig.providers || [],
       titleGenerateModel: updatedConfig.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: updatedConfig.tools?.titleGenerateEnabled ?? true,
+      memoryEnabled: updatedConfig.tools?.memoryEnabled ?? true,
       mcpServerConfig: { ...updatedConfig.mcp }
     })
   },
@@ -203,6 +208,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   // Tool setting actions
   setTitleGenerateModel: (tmodel: IModel) => set({ titleGenerateModel: tmodel }),
   setTitleGenerateEnabled: (state: boolean) => set({ titleGenerateEnabled: state }),
+  setMemoryEnabled: (state: boolean) => set({ memoryEnabled: state }),
   setMcpServerConfig: (config: any) => set({ mcpServerConfig: config })
 }))
 
