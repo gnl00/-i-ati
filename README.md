@@ -61,7 +61,7 @@ pnpm build:mac
 - [X] custom prompt support
 - [X] add shortcut key: `CmdOrCtrl+G` show window, `CmdOrCtrl+Esc` hide window
 - [X] smooth scrool
-- [X] use virtual list for chat list
+- [ ] use virtual list for chat list?
 - [X] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
 - [X] input area toolbar
 - [X] Copy and Edit tooltips
@@ -78,10 +78,11 @@ pnpm build:mac
 - [X] [mcp-registry](https://registry.modelcontextprotocol.io/)
 - [X] re-design provider card
 - [X] math(LaTex) render(only `$` and `$$` supports,[ref](https://github.com/remarkjs/remark-math?tab=readme-ov-file#example-katex)))
-- [ ] memory
-- [ ] chat message split to multipart
+- [X] memory~~(finally~ :P)~~
+- [X] chat message split to multipart
 - [ ] command panel
 - [ ] llm arena
+- [ ] skills
 
 ## Reference
 
