@@ -6,6 +6,7 @@ import { cleanupDevServers } from '../tools/devServer/main/DevServerProcessor'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
 import { createWindow } from './main-window'
 import DatabaseService from './services/DatabaseService'
+import MemoryService from './services/memory/MemoryService'
 
 // const reactDevToolsPath = path.join(
 //   os.homedir(),
@@ -21,6 +22,10 @@ app.whenReady().then(async () => {
   // Initialize database service
   console.log('[App] Initializing database service...')
   await DatabaseService.initialize()
+
+  // Initialize memory service
+  console.log('[App] Initializing memory service...')
+  await MemoryService.initialize()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')

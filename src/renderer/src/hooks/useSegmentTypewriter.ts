@@ -294,14 +294,14 @@ export const useSegmentTypewriter = (
     // 这样可以避免打字机效果在进行中突然停止
 
     // 调试日志
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Typewriter Animation]', {
-        enabled,
-        activeSegmentIndex,
-        isAllComplete,
-        hasAnimation: animationFrameRef.current !== null
-      })
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log('[Typewriter Animation]', {
+    //     enabled,
+    //     activeSegmentIndex,
+    //     isAllComplete,
+    //     hasAnimation: animationFrameRef.current !== null
+    //   })
+    // }
 
     if (!enabled) {
       // 如果从未启动过动画（activeSegmentIndex === -1），则不启动

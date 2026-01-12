@@ -84,6 +84,7 @@
     "remark-math": "^6.0.0",
     "remixicon": "^4.6.0",
     "sonner": "^1.7.4",
+    "sqlite-vec": "^0.1.7-alpha.2",
     "streaming-json": "^0.1.4",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",

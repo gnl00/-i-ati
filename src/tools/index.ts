@@ -22,6 +22,7 @@ import {
 } from './fileOperations/renderer/FileOperationsInvoker'
 import { embeddedToolsRegistry, type ToolDefinition } from './registry'
 import { invokeWebFetch, invokeWebSearch } from './webTools/renderer/WebToolsInvoker'
+import { invokeMemoryRetrieval, invokeMemorySave } from './memory/renderer/MemoryToolsInvoker'
 
 /**
  * 工具处理器映射表
@@ -63,7 +64,11 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
 
   // File management operations
   'create_directory': invokeCreateDirectory,
-  'move_file': invokeMoveFile
+  'move_file': invokeMoveFile,
+
+  // Memory operations
+  'memory_retrieval': invokeMemoryRetrieval,
+  'memory_save': invokeMemorySave
 }
 
 /**

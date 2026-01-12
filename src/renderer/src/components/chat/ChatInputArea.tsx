@@ -645,7 +645,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   </Button>
                 )
                 : <Button variant={'destructive'} size={'sm'}
-                  className={cn('rounded-full border-[1px] hover:bg-red-400 dark:hover:bg-red-500 animate-pulse transition-transform duration-[1500ms]')}
+                  className={cn('rounded-full border-[1px] hover:bg-red-400 dark:hover:bg-red-500 animate-pulse transition-transform duration-800')}
                   onClick={onStopClick}>
                   <StopIcon />&nbsp;Stop
                 </Button>

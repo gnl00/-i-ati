@@ -17,6 +17,9 @@
     ],
     "baseUrl": ".",
     "paths": {
+      "@main/*": [
+        "src/main/*"
+      ],
       "@mcp/*": [
         "src/mcp/*"
       ],

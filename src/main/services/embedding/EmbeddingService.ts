@@ -36,16 +36,16 @@ class EmbeddingService {
 
   private constructor() {
     // 获取模型路径
-    // 开发环境: resources/models/
-    // 生产环境: app.asar.unpacked/resources/models/ 或 resources/app.asar.unpacked/resources/models/
+    // transformers.js 会在 localModelPath 下查找 Xenova/MODEL_NAME
+    // 所以我们需要设置 localModelPath 为 models 目录
     const isDev = !app.isPackaged
 
     if (isDev) {
-      // 开发环境
-      this.modelPath = path.join(process.cwd(), 'resources', 'models', this.MODEL_NAME)
+      // 开发环境: resources/models/
+      this.modelPath = path.join(process.cwd(), 'resources', 'models')
     } else {
-      // 生产环境 - 模型文件需要被 unpacked
-      this.modelPath = path.join(process.resourcesPath, 'models', this.MODEL_NAME)
+      // 生产环境
+      this.modelPath = path.join(process.resourcesPath, 'models')
     }
 
     console.log('[EmbeddingService] Model path:', this.modelPath)

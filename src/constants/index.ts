@@ -57,6 +57,10 @@ export const EMBEDDING_GENERATE = 'embedding-generate'
 export const EMBEDDING_GENERATE_BATCH = 'embedding-generate-batch'
 export const EMBEDDING_GET_MODEL_INFO = 'embedding-get-model-info'
 
+// Memory Tools Actions
+export const MEMORY_RETRIEVAL_ACTION = 'memory-retrieval-action'
+export const MEMORY_SAVE_ACTION = 'memory-save-action'
+
 // Database Operations - Chat
 export const DB_CHAT_SAVE = 'db:chat:save'
 export const DB_CHAT_GET_ALL = 'db:chat:get-all'

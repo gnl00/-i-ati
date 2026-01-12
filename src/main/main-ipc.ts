@@ -23,10 +23,14 @@ import {
   processGetDevServerStatus,
   processGetDevServerLogs
 } from '@tools/devServer/main/DevServerProcessor'
+import {
+  processMemoryRetrieval,
+  processMemorySave
+} from '@tools/memory/main/MemoryToolsProcessor'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
 import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
-import MemoryService from './services/MemoryService'
+import MemoryService from './services/memory/MemoryService'
 import DatabaseService from './services/DatabaseService'
 import {
   OPEN_EXTERNAL,
@@ -69,6 +73,8 @@ import {
   EMBEDDING_GENERATE,
   EMBEDDING_GENERATE_BATCH,
   EMBEDDING_GET_MODEL_INFO,
+  MEMORY_RETRIEVAL_ACTION,
+  MEMORY_SAVE_ACTION,
   DB_CHAT_SAVE,
   DB_CHAT_GET_ALL,
   DB_CHAT_GET_BY_ID,
@@ -219,6 +225,17 @@ function mainIPCSetup() {
   ipcMain.handle(DEV_SERVER_LOGS, (_event, args) => {
     console.log(`[DevServer IPC] Get dev server logs: ${args.chatUuid}`)
     return processGetDevServerLogs(args)
+  })
+
+  // Memory Tools handlers
+  ipcMain.handle(MEMORY_RETRIEVAL_ACTION, async (_event, args) => {
+    console.log(`[MemoryTools IPC] Retrieve memories: ${args.query}`)
+    return await processMemoryRetrieval(args)
+  })
+
+  ipcMain.handle(MEMORY_SAVE_ACTION, async (_event, args) => {
+    console.log(`[MemoryTools IPC] Save memory for chat: ${args.chatId}`)
+    return await processMemorySave(args)
   })
 
   ipcMain.handle(MCP_CONNECT, async (_, mcpProps) => {
