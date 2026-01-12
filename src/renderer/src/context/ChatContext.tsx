@@ -57,7 +57,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Update file operations base directory when chat changes
   useEffect(() => {
     if (chatUuid) {
-      console.log('[ChatContext] Updating file operations base dir for chat:', chatUuid)
+      // console.log('[ChatContext] Updating file operations base dir for chat:', chatUuid)
       invokeSetFileOperationsBaseDir(chatUuid)
     }
   }, [chatUuid])

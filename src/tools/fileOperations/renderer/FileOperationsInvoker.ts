@@ -264,12 +264,12 @@ export async function invokeMoveFile(args: MoveFileArgs): Promise<MoveFileRespon
  * Updates the base directory for all file operations based on chatUuid
  */
 export async function invokeSetFileOperationsBaseDir(chatUuid: string): Promise<{ success: boolean }> {
-  console.log('[SetWorkspaceBaseDir] Setting base dir for chatUuid:', chatUuid)
+  // console.log('[SetWorkspaceBaseDir] Setting base dir for chatUuid:', chatUuid)
   try {
     const ipc = getElectronIPC()
     return await ipc.invoke(FILE_SET_WORKSPACE_BASE_DIR, chatUuid)
   } catch (error: any) {
-    console.error('[SetWorkspaceBaseDir] Error:', error)
+    // console.error('[SetWorkspaceBaseDir] Error:', error)
     return { success: false }
   }
 }
