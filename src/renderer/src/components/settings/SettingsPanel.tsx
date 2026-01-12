@@ -24,6 +24,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         providers,
         titleGenerateModel,
         titleGenerateEnabled,
+        memoryEnabled,
+        setMemoryEnabled,
         mcpServerConfig,
         setMcpServerConfig,
     } = useAppConfigStore()
@@ -50,7 +52,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 ...appConfig.tools,
                 titleGenerateModel: titleGenerateModel,
                 titleGenerateEnabled: titleGenerateEnabled,
-                maxWebSearchItems: maxWebSearchItems
+                maxWebSearchItems: maxWebSearchItems,
+                memoryEnabled: memoryEnabled
             },
             mcp: {
                 ...JSON.parse(msConfig)
@@ -123,6 +126,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <ToolsManager
                         maxWebSearchItems={maxWebSearchItems}
                         setMaxWebSearchItems={setMaxWebSearchItems}
+                        memoryEnabled={memoryEnabled}
+                        setMemoryEnabled={setMemoryEnabled}
                     />
                 </TabsContent>
 

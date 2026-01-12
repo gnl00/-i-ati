@@ -74,15 +74,26 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
 /**
  * 初始化所有 embedded tools
  * 在应用启动时调用此函数来注册所有工具
+ * @param config 可选的配置对象，用于条件性地注册工具
  */
-export function initializeEmbeddedTools(): void {
+export function initializeEmbeddedTools(config?: IAppConfig): void {
   // console.log('[EmbeddedTools] Initializing embedded tools...')
+
+  // 检查是否启用 memory 工具
+  const memoryEnabled = config?.tools?.memoryEnabled ?? true
 
   // 遍历 tools.json 中的所有工具定义
   const tools = toolsDefinitions as ToolDefinition[]
 
   tools.forEach(toolDef => {
     const toolName = toolDef.function.name
+
+    // 如果是 memory 工具且未启用，则跳过注册
+    if ((toolName === 'memory_retrieval' || toolName === 'memory_save') && !memoryEnabled) {
+      console.log(`[EmbeddedTools] Skipping tool "${toolName}" (memory disabled)`)
+      return
+    }
+
     const handler = toolHandlers[toolName]
 
     if (handler) {

@@ -33,6 +33,7 @@ declare interface IAppConfig {
     titleGenerateModel?: IModel
     titleGenerateEnabled?: boolean
     maxWebSearchItems?: number
+    memoryEnabled?: boolean
   }
   mcp?: { mcpServers?: {} }
   version?: number
