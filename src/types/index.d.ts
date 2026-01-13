@@ -242,8 +242,20 @@ declare interface ToolCallSegment {
   toolCallIndex?: number  // 工具调用索引（数组位置）
 }
 
+// 错误片段
+declare interface ErrorSegment {
+  type: 'error'
+  error: {
+    name: string
+    message: string
+    stack?: string
+    code?: string
+    timestamp: number
+  }
+}
+
 // 联合类型
-declare type MessageSegment = TextSegment | ReasoningSegment | ToolCallSegment
+declare type MessageSegment = TextSegment | ReasoningSegment | ToolCallSegment | ErrorSegment
 
 // 工具调用结果（保持向后兼容）
 declare interface ToolCallResult {

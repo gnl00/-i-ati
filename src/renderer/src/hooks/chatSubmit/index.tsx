@@ -1,7 +1,6 @@
 import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { toast } from 'sonner'
 import { ChatDependencyContainer } from './container'
 
 function useChatSubmitV2() {
@@ -36,7 +35,8 @@ function useChatSubmitV2() {
       container.resetStates()
 
       if (error.name !== 'AbortError') {
-        toast.error(error.message)
+        // 将错误添加到已创建的初始 assistant 消息中
+        await chatStore.updateLastAssistantMessageWithError(error)
       }
     } finally {
       chatStore.setCurrentReqCtrl(undefined)

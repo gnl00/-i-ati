@@ -46,6 +46,7 @@ export type ChatAction = {
   addMessage: (message: MessageEntity) => Promise<number>
   updateMessage: (message: MessageEntity) => Promise<void>
   upsertMessage: (message: MessageEntity) => void
+  updateLastAssistantMessageWithError: (error: Error) => Promise<void>
   clearMessages: () => void
   setCurrentChat: (chatId: number | null, chatUuid: string | null) => void
 
@@ -177,6 +178,47 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
         ? prevState.messages.map((m) => (m.id === message.id ? message : m))
         : [...prevState.messages, message]
     }))
+  },
+
+  /**
+   * 更新最后一条 assistant 消息，添加错误信息
+   * 用于在请求失败时，将错误添加到已创建的初始 assistant 消息中
+   */
+  updateLastAssistantMessageWithError: async (error) => {
+    const state = get()
+    const messages = state.messages
+
+    // 找到最后一条 assistant 消息
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find(msg => msg.body.role === 'assistant')
+
+    if (!lastAssistantMessage) {
+      console.warn('[Store] No assistant message found to update with error')
+      return
+    }
+
+    const errorSegment: ErrorSegment = {
+      type: 'error',
+      error: {
+        name: error.name || 'Error',
+        message: error.message || 'Unknown error',
+        stack: error.stack,
+        code: (error as any).code,
+        timestamp: Date.now()
+      }
+    }
+
+    // 更新消息，添加 error segment
+    const updatedMessage: MessageEntity = {
+      ...lastAssistantMessage,
+      body: {
+        ...lastAssistantMessage.body,
+        segments: [...lastAssistantMessage.body.segments, errorSegment]
+      }
+    }
+
+    await get().updateMessage(updatedMessage)
   },
 
   /**
