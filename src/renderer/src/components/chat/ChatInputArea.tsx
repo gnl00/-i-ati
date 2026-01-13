@@ -47,11 +47,13 @@ import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
+  suggestedPrompt?: string  // 接收来自 WelcomeMessage 的建议（自动填充）
 }
 const availableMcpTools = new Map()
 
 const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onMessagesUpdate,
+  suggestedPrompt,
 }, ref) => {
   const { setChatContent } = useChatContext()
 
@@ -203,6 +205,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputContent(e.target.value)
   }, [])
+
+  // 监听 suggestedPrompt 的变化（自动填充到 textarea）
+  useEffect(() => {
+    if (suggestedPrompt && suggestedPrompt !== inputContent) {
+      setInputContent(suggestedPrompt)
+      // 聚焦到 textarea 并将光标移到末尾
+      setTimeout(() => {
+        textareaRef.current?.focus()
+        const length = textareaRef.current?.value.length || 0
+        textareaRef.current?.setSelectionRange(length, length)
+      }, 0)
+    }
+  }, [suggestedPrompt])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && e.shiftKey) {
@@ -549,8 +564,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           <Textarea
             ref={textareaRef}
             className={
-              cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 backdrop-blur-3xl text-sm p-2',
-                'rounded-none resize-none pb-2 overflow-y-auto font-mono text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
+              cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 backdrop-blur-3xl transition-colors duration-200 ease-out',
+                'rounded-none resize-none overflow-y-auto text-sm px-2 pt-0.5 pb-2 font-medium text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
+                'placeholder:text-gray-400 dark:placeholder:text-gray-500 leading-relaxed',
               )
             }
             placeholder='Type anything to chat'

@@ -549,7 +549,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                 "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer",
                                                                 "transition-all duration-200 ease-out",
                                                                 isActive
-                                                                    ? "bg-blue-50/50 dark:bg-blue-900/10 after:content-[''] after:absolute after:bottom-0.5 after:left-3 after:w-48 after:h-0.5 after:bg-gradient-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:bg-blue-50/70 dark:hover:bg-blue-900/15"
+                                                                    ? "bg-gradient-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-[''] after:absolute after:bottom-0.5 after:left-3 after:w-48 after:h-0.5 after:bg-gradient-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15"
                                                                     : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-sm hover:scale-[1.01]"
                                                             )}
                                                         >
