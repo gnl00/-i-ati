@@ -311,20 +311,24 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                         </Tooltip>
                                         <div
                                             className={cn(
-                                                'absolute -top-1 -right-1 transition-all duration-200 ease-out cursor-pointer z-10',
-                                                hoverProviderCardIdx === idx
-                                                    ? 'opacity-100 scale-100 translate-x-0 translate-y-0'
-                                                    : 'opacity-0 scale-75 translate-x-1 -translate-y-1 pointer-events-none'
+                                                'absolute -top-1 -right-1 z-10 cursor-pointer',
+                                                'transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]',
+                                                'opacity-0 scale-90 translate-x-1 pointer-events-none',
+                                                hoverProviderCardIdx === idx &&
+                                                    'opacity-100 scale-100 translate-x-0 pointer-events-auto'
                                             )}
                                             onClick={(e) => {
                                                 e.stopPropagation()
-                                                onProviderCardDelClick(idx, p)
+                                                onProviderCardDelClick(e, p)
                                             }}
                                         >
                                             <Cross1Icon className={cn(
-                                                'rounded-full p-1 w-5 h-5 shadow-lg transition-all duration-200 hover:scale-110 hover:rotate-90 active:scale-95',
+                                                'rounded-full p-1 w-5 h-5',
+                                                'shadow-sm hover:shadow-md',
                                                 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
-                                                'hover:bg-red-200 dark:hover:bg-red-900/50'
+                                                'border border-red-200 dark:border-red-800/50',
+                                                'hover:bg-red-200 dark:hover:bg-red-900/50',
+                                                'active:scale-95 transition-all duration-150 hover:rotate-90 hover:scale-110'
                                             )} />
                                         </div>
                                     </div>
@@ -397,7 +401,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                             <Button
                                 size="xs"
                                 variant="outline"
-                                className='text-xs text-gray-400 font-medium transition-all'
+                                className='text-xs text-gray-600 dark:text-gray-400 font-medium transition-all data-[disabled]:text-gray-400 data-[disabled]:dark:text-gray-500'
                                 onClick={() => setShowFetchModelsDrawer(true)}
                                 disabled={!currentProvider?.apiKey}
                             >
