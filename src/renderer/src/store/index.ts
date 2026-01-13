@@ -1,5 +1,5 @@
 import { getChatById } from '@renderer/db/ChatRepository'
-import { getMessageByIds, saveMessage, updateMessage } from '@renderer/db/MessageRepository'
+import { getMessageByIds, saveMessage, updateMessage, deleteMessage } from '@renderer/db/MessageRepository'
 import { create } from 'zustand'
 
 export type ChatState = {
@@ -45,6 +45,7 @@ export type ChatAction = {
   loadChat: (chatId: number) => Promise<void>
   addMessage: (message: MessageEntity) => Promise<number>
   updateMessage: (message: MessageEntity) => Promise<void>
+  deleteMessage: (messageId: number) => Promise<void>
   upsertMessage: (message: MessageEntity) => void
   updateLastAssistantMessageWithError: (error: Error) => Promise<void>
   clearMessages: () => void
@@ -165,6 +166,20 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     // 2. 更新 Zustand state
     set((prevState) => ({
       messages: prevState.messages.map(m => (m.id === message.id ? message : m))
+    }))
+  },
+
+  /**
+   * 删除消息
+   * 数据流：UI → Zustand action → IPC → SQLite → 更新 Zustand → UI
+   */
+  deleteMessage: async (messageId) => {
+    // 1. 通过 IPC 从 SQLite 删除
+    await deleteMessage(messageId)
+
+    // 2. 更新 Zustand state
+    set((prevState) => ({
+      messages: prevState.messages.filter(m => m.id !== messageId)
     }))
   },
 
