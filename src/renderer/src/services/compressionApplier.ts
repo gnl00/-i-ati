@@ -33,25 +33,31 @@ class CompressionApplier {
     const compressedMessageIds = new Set<number>()
     latestSummary.messageIds.forEach(id => compressedMessageIds.add(id))
 
-    // 4. 构建新的消息列表
-    const result: ChatMessage[] = []
-    let summaryInserted = false
+    // 4. 找到 startMessageId 的索引位置
+    const startIndex = messages.findIndex(m => m.id === latestSummary.startMessageId)
 
-    for (const message of messages) {
+    // 5. 如果找不到 startMessageId，返回所有消息（降级处理）
+    if (startIndex === -1) {
+      console.warn('[CompressionApplier] startMessageId not found, falling back to all messages')
+      return messages.map(m => m.body)
+    }
+
+    // 6. 从 startIndex 开始构建，抛弃之前的所有消息
+    const result: ChatMessage[] = []
+
+    // 先插入 summary（代表所有历史对话的总结）
+    result.push(this.buildCompressedMessage(latestSummary))
+
+    // 然后添加 startMessageId 之后未被压缩的消息
+    for (let i = startIndex; i < messages.length; i++) {
+      const message = messages[i]
       const messageId = message.id
 
-      // 如果当前消息是压缩范围的起始位置，插入压缩消息
-      if (!summaryInserted && messageId === latestSummary.startMessageId) {
-        result.push(this.buildCompressedMessage(latestSummary))
-        summaryInserted = true
-      }
-
-      // 如果当前消息被压缩了，跳过
+      // 跳过被压缩的消息
       if (messageId && compressedMessageIds.has(messageId)) {
         continue
       }
 
-      // 否则保留原始消息
       result.push(message.body)
     }
 
@@ -63,7 +69,7 @@ class CompressionApplier {
    */
   buildCompressedMessage(summary: CompressedSummaryEntity): ChatMessage {
     return {
-      role: 'user',  // 使用 user 角色，因为这是对历史对话的总结
+      role: 'system',  // 使用 system 角色，对历史对话的总结
       content: `[Previous conversation summary (${summary.messageIds.length} messages compressed)]\n\n${summary.summary}`,
       segments: []
     }
