@@ -12,7 +12,7 @@ import { useTheme } from '@renderer/components/theme-provider'
 import { useChatStore } from '@renderer/store'
 import { ToolCallResult } from '../ToolCallResult'
 import { useMessageTypewriter } from './use-message-typewriter'
-import { markdownCodeComponents } from './markdown-components'
+import { markdownCodeComponents, fixMalformedCodeBlocks } from './markdown-components'
 import { MessageOperations } from './message-operations'
 
 export interface AssistantMessageProps {
@@ -33,6 +33,9 @@ const TextSegment: React.FC<{ segment: MessageSegment; visibleLength: number }> 
 
   if (!displayedText) return null
 
+  // Fix malformed code blocks before rendering
+  const fixedText = fixMalformedCodeBlocks(displayedText)
+
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
@@ -42,7 +45,7 @@ const TextSegment: React.FC<{ segment: MessageSegment; visibleLength: number }> 
       className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
       components={markdownCodeComponents}
     >
-      {displayedText}
+      {fixedText}
     </ReactMarkdown>
   )
 })
@@ -50,29 +53,34 @@ const TextSegment: React.FC<{ segment: MessageSegment; visibleLength: number }> 
 /**
  * Reasoning segment component (collapsible accordion).
  */
-const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment }) => (
-  <Accordion type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
-    <AccordionItem value={`reasoning-${segment.content}`}>
-      <AccordionTrigger className='py-2'>
-        <div className='flex items-center gap-2'>
-          <BrainCircuit className='w-4 h-4 text-gray-500 dark:text-gray-400' />
-          <span className='text-xs text-gray-500 dark:text-gray-400 font-medium'>Reasoning</span>
-        </div>
-      </AccordionTrigger>
-      <AccordionContent>
-        <div className='prose px-2 py-1 text-xs text-gray-500 dark:text-gray-400 italic'>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            skipHtml={false}
-            className="prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 transition-all duration-400 ease-in-out"
-          >
-            {segment.content}
-          </ReactMarkdown>
-        </div>
-      </AccordionContent>
-    </AccordionItem>
-  </Accordion>
-))
+const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment }) => {
+  // Fix malformed code blocks in reasoning content
+  const fixedContent = fixMalformedCodeBlocks(segment.content)
+
+  return (
+    <Accordion type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
+      <AccordionItem value={`reasoning-${segment.content}`}>
+        <AccordionTrigger className='py-2'>
+          <div className='flex items-center gap-2'>
+            <BrainCircuit className='w-4 h-4 text-gray-500 dark:text-gray-400' />
+            <span className='text-xs text-gray-500 dark:text-gray-400 font-medium'>Reasoning</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          <div className='prose px-2 py-1 text-xs text-gray-500 dark:text-gray-400 italic'>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              skipHtml={false}
+              className="prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 transition-all duration-400 ease-in-out"
+            >
+              {fixedContent}
+            </ReactMarkdown>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  )
+})
 
 /**
  * Assistant message component (left-aligned).
