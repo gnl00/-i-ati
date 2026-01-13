@@ -277,10 +277,9 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                         className={cn(
                                             'flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer select-none relative group',
                                             'transition-all duration-200 ease-out',
-                                            'border-l-4 border-transparent',
                                             p.name === currentProviderName
-                                                ? 'bg-blue-50 dark:bg-blue-900/30 border-l-blue-500'
-                                                : 'hover:bg-gray-100 dark:hover:bg-gray-700 border-l-blue-100/70 dark:border-l-blue-gray-500/70'
+                                                ? 'bg-blue-50/50 dark:bg-blue-900/10 after:content-[""] after:absolute after:bottom-0.5 after:left-3 after:w-28 after:h-0.5 after:bg-gradient-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:bg-blue-50/70 dark:hover:bg-blue-900/15'
+                                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                                         )}
                                         onMouseEnter={_ => onProviderCardHover(idx)}
                                         onMouseLeave={_ => onProviderCardHover(-1)}

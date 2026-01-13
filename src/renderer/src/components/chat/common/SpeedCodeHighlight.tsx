@@ -39,7 +39,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
       } catch (error) {
         console.warn('Failed to highlight code:', error)
       }
-    }, 100) // Wait for accordion animation to complete (~300ms) + small buffer
+    }, 50) // Wait for accordion animation to complete (~300ms) + small buffer
 
     return () => clearTimeout(timeoutId)
   }, [code, language])
