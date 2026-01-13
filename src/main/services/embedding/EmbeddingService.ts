@@ -98,7 +98,7 @@ class EmbeddingService {
       // 使用量化的 ONNX 模型以获得更好的性能
       this.pipeline = await pipeline(
         'feature-extraction',
-        `Xenova/${this.MODEL_NAME}`,
+        `${this.MODEL_NAME}`,
         {
           quantized: true, // 使用量化模型
           // 如果需要指定 revision，可以添加：

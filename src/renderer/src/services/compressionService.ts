@@ -187,7 +187,7 @@ ${conversationText}
     const response = await unifiedChatRequest(request, null, () => {}, () => {})
 
     // 5. 解析响应
-    console.log('response', response);
+    // console.log('response', response);
     return response.content?.trim() || ''
   }
 
