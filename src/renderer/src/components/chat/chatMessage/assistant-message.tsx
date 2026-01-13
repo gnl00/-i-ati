@@ -14,6 +14,7 @@ import { ToolCallResult } from '../ToolCallResult'
 import { useMessageTypewriter } from './use-message-typewriter'
 import { markdownCodeComponents, fixMalformedCodeBlocks } from './markdown-components'
 import { MessageOperations } from './message-operations'
+import { ErrorMessage } from './error-message'
 
 export interface AssistantMessageProps {
   index: number
@@ -159,6 +160,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             return <ReasoningSegment key={key} segment={segment} />
           } else if (segment.type === 'toolCall') {
             return <ToolCallResult key={key} toolCall={segment} index={index} isDarkMode={isDarkMode} />
+          } else if (segment.type === 'error') {
+            return <ErrorMessage key={key} error={segment.error} />
           }
           return null
         })}
