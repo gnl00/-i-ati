@@ -278,7 +278,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                         <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Trigger Threshold</Label>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Compress when message count exceeds this value</p>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
                                         <Input
                                             min={10}
                                             max={100}
@@ -300,7 +300,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                         <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Keep Recent Count</Label>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Number of recent messages to keep uncompressed</p>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
                                         <Input
                                             min={5}
                                             max={50}
@@ -322,7 +322,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                         <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Compress Count</Label>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Number of oldest messages to compress each time</p>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
                                         <Input
                                             min={5}
                                             max={30}
