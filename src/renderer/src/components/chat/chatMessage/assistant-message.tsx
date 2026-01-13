@@ -1,4 +1,4 @@
-import React, { memo, useEffect } from 'react'
+import React, { memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
@@ -113,10 +113,6 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   if (!m || m.role !== 'assistant') return null
-
-  useEffect(() => {
-    console.log('m', m)
-  }, [m])
 
   return (
     <div
