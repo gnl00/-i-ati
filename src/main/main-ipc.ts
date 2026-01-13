@@ -389,6 +389,32 @@ function mainIPCSetup() {
     return DatabaseService.initConfig()
   })
 
+  // CompressedSummary handlers
+  ipcMain.handle('db:compressed-summary:save', async (_event, data: CompressedSummaryEntity) => {
+    console.log(`[Database IPC] Save compressed summary for chat ${data.chatId}`)
+    return DatabaseService.saveCompressedSummary(data)
+  })
+
+  ipcMain.handle('db:compressed-summary:get-by-chat-id', async (_event, chatId: number) => {
+    console.log(`[Database IPC] Get compressed summaries for chat ${chatId}`)
+    return DatabaseService.getCompressedSummariesByChatId(chatId)
+  })
+
+  ipcMain.handle('db:compressed-summary:get-active-by-chat-id', async (_event, chatId: number) => {
+    console.log(`[Database IPC] Get active compressed summaries for chat ${chatId}`)
+    return DatabaseService.getActiveCompressedSummariesByChatId(chatId)
+  })
+
+  ipcMain.handle('db:compressed-summary:update-status', async (_event, id: number, status: string) => {
+    console.log(`[Database IPC] Update compressed summary ${id} status to ${status}`)
+    return DatabaseService.updateCompressedSummaryStatus(id, status as any)
+  })
+
+  ipcMain.handle('db:compressed-summary:delete', async (_event, id: number) => {
+    console.log(`[Database IPC] Delete compressed summary ${id}`)
+    return DatabaseService.deleteCompressedSummary(id)
+  })
+
 }
 
 export {

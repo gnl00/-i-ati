@@ -17,6 +17,8 @@ type AppConfigState = {
   titleGenerateEnabled: boolean
   memoryEnabled: boolean
   mcpServerConfig: { mcpServers?: {} }
+  // Compression settings
+  compression: CompressionConfig | undefined
 }
 
 type AppConfigAction = {
@@ -55,6 +57,9 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   memoryEnabled: defaultConfig.tools?.memoryEnabled ?? true,
   mcpServerConfig: { ...defaultConfig.mcp },
 
+  // State - Compression settings
+  compression: defaultConfig.compression,
+
   // Computed - Models (derived from providers)
   get models() {
     return get().providers.flatMap(p => p.models.filter(m => m.enable !== false))
@@ -75,7 +80,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
-      mcpServerConfig: { ...config.mcp }
+      mcpServerConfig: { ...config.mcp },
+      compression: config.compression
     })
   },
 
@@ -89,7 +95,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       titleGenerateModel: updatedConfig.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: updatedConfig.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: updatedConfig.tools?.memoryEnabled ?? true,
-      mcpServerConfig: { ...updatedConfig.mcp }
+      mcpServerConfig: { ...updatedConfig.mcp },
+      compression: updatedConfig.compression
     })
   },
 

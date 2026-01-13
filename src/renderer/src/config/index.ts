@@ -8,6 +8,13 @@ export const defaultConfig: IAppConfig = {
     maxWebSearchItems: 3,
     memoryEnabled: true
   },
+  compression: {
+    enabled: true,
+    triggerThreshold: 30,
+    keepRecentCount: 20,
+    compressCount: 10,
+    autoCompress: true
+  },
   configForUpdate: {
     version: configVersion,
   }

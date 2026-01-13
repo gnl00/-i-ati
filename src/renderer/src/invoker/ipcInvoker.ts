@@ -255,3 +255,54 @@ export async function invokeDbConfigInit(): Promise<IAppConfig> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CONFIG_INIT)
 }
+
+// ============ CompressedSummary Operations ============
+
+/**
+ * 保存压缩摘要
+ */
+export async function invokeDbCompressedSummarySave(
+  data: CompressedSummaryEntity
+): Promise<number> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke('db:compressed-summary:save', data)
+}
+
+/**
+ * 获取聊天的所有压缩摘要
+ */
+export async function invokeDbCompressedSummaryGetByChatId(
+  chatId: number
+): Promise<CompressedSummaryEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke('db:compressed-summary:get-by-chat-id', chatId)
+}
+
+/**
+ * 获取聊天的活跃压缩摘要
+ */
+export async function invokeDbCompressedSummaryGetActiveByChatId(
+  chatId: number
+): Promise<CompressedSummaryEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke('db:compressed-summary:get-active-by-chat-id', chatId)
+}
+
+/**
+ * 更新压缩摘要状态
+ */
+export async function invokeDbCompressedSummaryUpdateStatus(
+  id: number,
+  status: 'active' | 'superseded' | 'invalid'
+): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke('db:compressed-summary:update-status', id, status)
+}
+
+/**
+ * 删除压缩摘要
+ */
+export async function invokeDbCompressedSummaryDelete(id: number): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke('db:compressed-summary:delete', id)
+}

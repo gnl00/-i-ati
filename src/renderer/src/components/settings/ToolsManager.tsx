@@ -17,9 +17,30 @@ interface ToolsManagerProps {
     setMaxWebSearchItems: (value: number) => void
     memoryEnabled: boolean
     setMemoryEnabled: (value: boolean) => void
+    compressionEnabled: boolean
+    setCompressionEnabled: (value: boolean) => void
+    compressionTriggerThreshold: number
+    setCompressionTriggerThreshold: (value: number) => void
+    compressionKeepRecentCount: number
+    setCompressionKeepRecentCount: (value: number) => void
+    compressionCompressCount: number
+    setCompressionCompressCount: (value: number) => void
 }
 
-const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWebSearchItems, memoryEnabled, setMemoryEnabled }) => {
+const ToolsManager: React.FC<ToolsManagerProps> = ({
+    maxWebSearchItems,
+    setMaxWebSearchItems,
+    memoryEnabled,
+    setMemoryEnabled,
+    compressionEnabled,
+    setCompressionEnabled,
+    compressionTriggerThreshold,
+    setCompressionTriggerThreshold,
+    compressionKeepRecentCount,
+    setCompressionKeepRecentCount,
+    compressionCompressCount,
+    setCompressionCompressCount
+}) => {
     const {
         setAppConfig,
         models,
@@ -85,7 +106,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWe
                                 <Label htmlFor="toggle-title-generation" className="text-base font-medium text-gray-900 dark:text-gray-100">
                                     Title Generation
                                 </Label>
-                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
                                     AI
                                 </Badge>
                             </div>
@@ -170,7 +191,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWe
                                 <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
                                     Web Search Limit
                                 </Label>
-                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800">
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800">
                                     WEB
                                 </Badge>
                             </div>
@@ -202,7 +223,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWe
                                 <Label htmlFor="toggle-memory" className="text-base font-medium text-gray-900 dark:text-gray-100">
                                     Long-term Memory
                                 </Label>
-                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                                     MEMORY
                                 </Badge>
                             </div>
@@ -219,6 +240,108 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWe
                     </div>
                 </div>
 
+                {/* Message Compression Setting */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+                    <div className="p-5 flex items-start gap-4">
+                        <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="toggle-compression" className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                    Message Compression
+                                </Label>
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-cyan-600 border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-800">
+                                    TOKEN
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Automatically compress older messages to save tokens when sending to LLM. UI always displays full original messages.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={compressionEnabled}
+                            onCheckedChange={setCompressionEnabled}
+                            id="toggle-compression"
+                            className="data-[state=checked]:bg-cyan-600 mt-1"
+                        />
+                    </div>
+                    {/* Compression Configuration Area */}
+                    <div className={cn(
+                        "grid transition-all duration-300 ease-in-out bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50",
+                        compressionEnabled ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    )}>
+                        <div className="overflow-hidden">
+                            <div className="p-4 pt-3 space-y-4">
+                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Compression Parameters</span>
+
+                                {/* Trigger Threshold */}
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex-1">
+                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Trigger Threshold</Label>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Compress when message count exceeds this value</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                        <Input
+                                            min={10}
+                                            max={100}
+                                            value={compressionTriggerThreshold}
+                                            onChange={(e) => {
+                                                const value = parseInt(e.target.value) || 30
+                                                setCompressionTriggerThreshold(Math.min(Math.max(value, 10), 100))
+                                            }}
+                                            disabled={!compressionEnabled}
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm font-mono font-medium transition-all focus:w-20'
+                                        />
+                                        <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
+                                    </div>
+                                </div>
+
+                                {/* Keep Recent Count */}
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex-1">
+                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Keep Recent Count</Label>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Number of recent messages to keep uncompressed</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                        <Input
+                                            min={5}
+                                            max={50}
+                                            value={compressionKeepRecentCount}
+                                            onChange={(e) => {
+                                                const value = parseInt(e.target.value) || 20
+                                                setCompressionKeepRecentCount(Math.min(Math.max(value, 5), 50))
+                                            }}
+                                            disabled={!compressionEnabled}
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm font-mono font-medium transition-all focus:w-20'
+                                        />
+                                        <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
+                                    </div>
+                                </div>
+
+                                {/* Compress Count */}
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex-1">
+                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Compress Count</Label>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Number of oldest messages to compress each time</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                        <Input
+                                            min={5}
+                                            max={30}
+                                            value={compressionCompressCount}
+                                            onChange={(e) => {
+                                                const value = parseInt(e.target.value) || 10
+                                                setCompressionCompressCount(Math.min(Math.max(value, 5), 30))
+                                            }}
+                                            disabled={!compressionEnabled}
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm font-mono font-medium transition-all focus:w-20'
+                                        />
+                                        <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Configuration Backup */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
                     <div className="p-5">
@@ -227,7 +350,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({ maxWebSearchItems, setMaxWe
                                 <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
                                     Configuration Backup
                                 </Label>
-                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800">
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800">
                                     Data
                                 </Badge>
                             </div>

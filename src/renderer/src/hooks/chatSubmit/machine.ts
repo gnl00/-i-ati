@@ -49,7 +49,7 @@ export class ChatPipelineMachineV2 {
       this.builder.withStage('prepared', prepared)
 
       this.emit('requesting')
-      const requestReady = this.deps.buildRequest({
+      const requestReady = await this.deps.buildRequest({
         prepared
       })
       this.builder.withStage('requestReady', requestReady)
