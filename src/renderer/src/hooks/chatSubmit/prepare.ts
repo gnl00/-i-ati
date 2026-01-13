@@ -138,8 +138,25 @@ export const prepareV2: PrepareMessageFn = async ({
   store.setReadStreamState(true)
   store.setShowLoadingIndicator(true)
 
-  // 7. 创建初始助手消息并立即保存到数据库（新方案）
-  // 关键改进：不再使用临时 ID（-1），而是立即保存到 DB 获取真实 ID
+  // 6.5. 清理上一条纯错误消息（如果存在）
+  // 检查最后一条 assistant 消息是否只包含 error segment
+  const lastMessage = existingMessages[existingMessages.length - 1]
+  if (lastMessage && lastMessage.body.role === 'assistant') {
+    const segments = lastMessage.body.segments
+    // 如果只有一个 segment 且类型为 error，则删除这条消息
+    if (segments.length === 1 && segments[0].type === 'error') {
+      if (lastMessage.id) {
+        await store.deleteMessage(lastMessage.id)
+        // 从 existingMessages 中移除
+        existingMessages = existingMessages.filter(m => m.id !== lastMessage.id)
+        // 从 chatEntity.messages 中移除
+        chatEntity.messages = (chatEntity.messages || []).filter(id => id !== lastMessage.id)
+        await updateChat(chatEntity)
+      }
+    }
+  }
+
+  // 7. 创建初始助手消息并立即保存到数据库
   const initialAssistantMessage: MessageEntity = {
     body: {
       role: 'assistant',
