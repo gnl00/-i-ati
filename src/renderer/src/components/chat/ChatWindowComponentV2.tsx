@@ -2,7 +2,7 @@ import { ArtifactsPanel } from '@renderer/components/artifacts'
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea from "@renderer/components/chat/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
-import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageWithBlob7"
+import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageNext2"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { cn } from '@renderer/lib/utils'
@@ -43,6 +43,14 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   // Welcome page state
   const [showWelcome, setShowWelcome] = useState<boolean>(true)
   const hasShownWelcomeRef = useRef<boolean>(false)
+
+  // 方案 4: 预览 + 快速发送 - 存储建议的 prompt
+  const [suggestedPrompt, setSuggestedPrompt] = useState<string>('')
+
+  // 处理示例卡片点击
+  const handleSuggestionClick = useCallback((suggestion: any) => {
+    setSuggestedPrompt(suggestion.prompt)
+  }, [])
 
   // 缓动函数：easeOutCubic - 快速开始，缓慢结束
   const easeOutCubic = useCallback((t: number): number => {
@@ -435,7 +443,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
               <div className="flex-1 app-undragable overflow-scroll">
                 <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
                   {showWelcome && (
-                    <WelcomeMessage />
+                    <WelcomeMessage onSuggestionClick={handleSuggestionClick} />
                   )}
                   {deferredMessages.length === 0 ? null : (
                     deferredMessages.map((message, index) => {
@@ -519,6 +527,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           <ChatInputArea
             ref={inputAreaRef}
             onMessagesUpdate={onMessagesUpdate}
+            suggestedPrompt={suggestedPrompt}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

@@ -172,38 +172,38 @@ const WelcomeMessageWithBlob7: React.FC<WelcomeMessageWithBlob7Props> = ({
     setTimeout(() => {
       setButtonVisible(false)
       setButtonBlobVisible(true)
-      // console.log('[Button Click] buttonBlobVisible set to true')
 
-      // 移动第4个 blob 到按钮位置（已经在 goo filter 内，立即有 gooey 效果）
-      // console.log('[Button Click] Moving button blob to:', { x: buttonCenterX, y: buttonCenterY })
+      // 移动第4个 blob 到按钮位置
       blobApi.start(i => {
-        if (i === 3) { // 只更新第4个 blob
+        if (i === 3) {
           return {
             xy: [buttonCenterX, buttonCenterY],
             config: { tension: 300, friction: 20 }
           }
         }
-        return {} // 其他 blob 保持不变
+        return {}
       })
 
-      // blob4 出现后立即开始随机运动（不要停在原地）
+      // 300ms 后飞向随机方向（远离当前位置）
       setTimeout(() => {
         blobApi.start(i => {
-          if (i === 3) { // 只移动第4个 blob
-            const x = 100 + Math.random() * 500
-            const y = 100 + Math.random() * 400
+          if (i === 3) {
+            // 从按钮位置向随机方向飞出
+            const angle = Math.random() * Math.PI * 2
+            const distance = 200 + Math.random() * 300
+            const x = buttonCenterX + Math.cos(angle) * distance
+            const y = buttonCenterY + Math.sin(angle) * distance
             return {
               xy: [x, y],
               config: { tension: 120, friction: 14 }
             }
           }
-          return {} // 其他 blob 保持不变
+          return {}
         })
-      }, 1000) // 1 秒后开始随机运动
+      }, 300)
 
       // 保持一段时间后调用 onStart，并重新显示按钮
       setTimeout(() => {
-        // console.log('[Button Click] Animation complete, showing button again')
         setButtonBlobVisible(false)
 
         // 重新显示按钮
@@ -222,16 +222,20 @@ const WelcomeMessageWithBlob7: React.FC<WelcomeMessageWithBlob7Props> = ({
     }, CONFIG.BUTTON_HIDE_DURATION)
   }, [blobApi, onStart])
 
-  // Blob 随机运动
+  // Blob 随机运动（只针对前 3 个 blob）
   useEffect(() => {
     const moveInterval = setInterval(() => {
-      blobApi.start(() => {
-        const x = 100 + Math.random() * 500
-        const y = 100 + Math.random() * 400
-        return {
-          xy: [x, y],
-          config: { tension: 120, friction: 14 }
+      blobApi.start(i => {
+        // 只让前 3 个 blob 参与随机运动，blob4 有自己的运动轨迹
+        if (i < 3) {
+          const x = 100 + Math.random() * 500
+          const y = 100 + Math.random() * 400
+          return {
+            xy: [x, y],
+            config: { tension: 120, friction: 14 }
+          }
         }
+        return {} // blob4 保持不变
       })
     }, 2000)
 
@@ -373,6 +377,13 @@ const WelcomeMessageWithBlob7: React.FC<WelcomeMessageWithBlob7Props> = ({
           <p className="text-center text-lg text-muted-foreground font-light max-w-xl animate-fade-in-delayed">
             Ask me a question or share what you're working on.
           </p>
+
+          {/* Button Placeholder - maintains height when button is hidden */}
+          {!buttonVisible && (
+            <div className="animate-slide-up" style={{ height: '60px' }}>
+              {/* Transparent placeholder to prevent layout jitter */}
+            </div>
+          )}
 
           {/* Button */}
           {buttonVisible && (
