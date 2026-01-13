@@ -35,6 +35,7 @@ declare interface IAppConfig {
     maxWebSearchItems?: number
     memoryEnabled?: boolean
   }
+  compression?: CompressionConfig
   mcp?: { mcpServers?: {} }
   version?: number
   configForUpdate?: IAppConfig
@@ -263,4 +264,72 @@ declare interface ToolCallResult {
   content: any
   cost?: number
   isError?: boolean
+}
+
+// ==================== Compression Types ====================
+
+/**
+ * 压缩摘要实体
+ */
+declare interface CompressedSummaryEntity {
+  id?: number
+  chatId: number
+  chatUuid: string
+
+  // 压缩范围
+  messageIds: number[]  // 被压缩的消息 ID 列表
+  startMessageId: number
+  endMessageId: number
+
+  // 压缩内容
+  summary: string
+
+  // 元数据
+  originalTokenCount?: number
+  summaryTokenCount?: number
+  compressionRatio?: number
+
+  // 压缩信息
+  compressedAt: number
+  compressionModel?: string
+  compressionVersion?: number
+
+  // 状态
+  status?: 'active' | 'superseded' | 'invalid'
+}
+
+/**
+ * 压缩配置
+ */
+declare interface CompressionConfig {
+  enabled: boolean              // 是否启用压缩
+  triggerThreshold: number      // 触发压缩的消息总数阈值（默认 30）
+  keepRecentCount: number       // 保留最近的消息数量（默认 20）
+  compressCount: number         // 每次压缩的消息数量（默认 10）
+  compressionModel?: IModel     // 用于压缩的模型（默认使用当前模型）
+  autoCompress: boolean         // 是否自动压缩（默认 true）
+}
+
+/**
+ * 压缩结果
+ */
+declare interface CompressionResult {
+  success: boolean
+  summaryId?: number
+  summary?: string
+  messageIds?: number[]
+  originalTokenCount?: number
+  summaryTokenCount?: number
+  compressionRatio?: number
+  error?: string
+}
+
+/**
+ * 压缩策略应用结果
+ */
+declare interface CompressionStrategy {
+  shouldCompress: boolean       // 是否需要压缩
+  messagesToCompress: number[]  // 需要压缩的消息 ID
+  messagesToKeep: number[]      // 保留的消息 ID
+  existingSummaries: CompressedSummaryEntity[]  // 已有的压缩摘要
 }

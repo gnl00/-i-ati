@@ -34,6 +34,12 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [msConfig, setmsConfig] = useState<string>(JSON.stringify(mcpServerConfig, null, 2))
     const [activeTab, setActiveTab] = useState<string>('provider-list')
 
+    // Compression state
+    const [compressionEnabled, setCompressionEnabled] = useState<boolean>(appConfig?.compression?.enabled ?? true)
+    const [compressionTriggerThreshold, setCompressionTriggerThreshold] = useState<number>(appConfig?.compression?.triggerThreshold || 30)
+    const [compressionKeepRecentCount, setCompressionKeepRecentCount] = useState<number>(appConfig?.compression?.keepRecentCount || 20)
+    const [compressionCompressCount, setCompressionCompressCount] = useState<number>(appConfig?.compression?.compressCount || 10)
+
     useEffect(() => {
         setmsConfig(JSON.stringify(mcpServerConfig, null, 2))
     }, [mcpServerConfig])
@@ -41,6 +47,12 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     useEffect(() => {
         if (appConfig?.tools?.maxWebSearchItems !== undefined) {
             setMaxWebSearchItems(appConfig.tools.maxWebSearchItems)
+        }
+        if (appConfig?.compression) {
+            setCompressionEnabled(appConfig.compression.enabled ?? true)
+            setCompressionTriggerThreshold(appConfig.compression.triggerThreshold || 30)
+            setCompressionKeepRecentCount(appConfig.compression.keepRecentCount || 20)
+            setCompressionCompressCount(appConfig.compression.compressCount || 10)
         }
     }, [appConfig])
 
@@ -54,6 +66,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 titleGenerateEnabled: titleGenerateEnabled,
                 maxWebSearchItems: maxWebSearchItems,
                 memoryEnabled: memoryEnabled
+            },
+            compression: {
+                enabled: compressionEnabled,
+                triggerThreshold: compressionTriggerThreshold,
+                keepRecentCount: compressionKeepRecentCount,
+                compressCount: compressionCompressCount,
+                autoCompress: true
             },
             mcp: {
                 ...JSON.parse(msConfig)
@@ -128,6 +147,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         setMaxWebSearchItems={setMaxWebSearchItems}
                         memoryEnabled={memoryEnabled}
                         setMemoryEnabled={setMemoryEnabled}
+                        compressionEnabled={compressionEnabled}
+                        setCompressionEnabled={setCompressionEnabled}
+                        compressionTriggerThreshold={compressionTriggerThreshold}
+                        setCompressionTriggerThreshold={setCompressionTriggerThreshold}
+                        compressionKeepRecentCount={compressionKeepRecentCount}
+                        setCompressionKeepRecentCount={setCompressionKeepRecentCount}
+                        compressionCompressCount={compressionCompressCount}
+                        setCompressionCompressCount={setCompressionCompressCount}
                     />
                 </TabsContent>
 

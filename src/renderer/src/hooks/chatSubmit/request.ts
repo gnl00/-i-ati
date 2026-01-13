@@ -1,8 +1,32 @@
 import { embeddedToolsRegistry } from '@tools/index'
 import type { BuildRequestParams, PreparedRequest } from './types'
+import { useAppConfigStore } from '@renderer/store/appConfig'
+import { getActiveCompressedSummariesByChatId } from '@renderer/db/CompressedSummaryRepository'
+import { compressionApplier } from '@renderer/services/compressionApplier'
 
-export const buildRequestV2 = ({ prepared }: BuildRequestParams): PreparedRequest => {
-  const filteredMessages = prepared.session.chatMessages.filter(msg => {
+export const buildRequestV2 = async ({ prepared }: BuildRequestParams): Promise<PreparedRequest> => {
+  // 1. 应用压缩策略（如果启用）
+  const appConfig = useAppConfigStore.getState()
+  const compressionConfig = appConfig.compression
+
+  let messagesToFilter = prepared.session.chatMessages
+
+  if (compressionConfig?.enabled) {
+    // 获取活跃的压缩摘要
+    const summaries = await getActiveCompressedSummariesByChatId(prepared.session.currChatId)
+
+    if (summaries.length > 0) {
+      // 应用压缩策略
+      // 注意：这里需要传入 MessageEntity[]，而不是 ChatMessage[]
+      messagesToFilter = compressionApplier.applyCompression(
+        prepared.session.messageEntities,  // 使用 messageEntities 而不是 chatMessages
+        summaries
+      )
+    }
+  }
+
+  // 2. 过滤消息（现有逻辑）
+  const filteredMessages = messagesToFilter.filter(msg => {
     if (msg.role === 'assistant') {
       if (msg.toolCalls && msg.toolCalls.length > 0) {
         return true

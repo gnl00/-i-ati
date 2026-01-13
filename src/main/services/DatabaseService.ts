@@ -44,6 +44,26 @@ interface ConfigRow {
 }
 
 /**
+ * 数据库行接口 - CompressedSummary
+ */
+interface CompressedSummaryRow {
+  id: number
+  chat_id: number
+  chat_uuid: string
+  message_ids: string  // JSON string
+  start_message_id: number
+  end_message_id: number
+  summary: string
+  original_token_count: number | null
+  summary_token_count: number | null
+  compression_ratio: number | null
+  compressed_at: number
+  compression_model: string | null
+  compression_version: number | null
+  status: string
+}
+
+/**
  * SQLite 数据库服务
  */
 class DatabaseService {
@@ -71,6 +91,13 @@ class DatabaseService {
     // Config statements
     getConfig?: Database.Statement
     upsertConfig?: Database.Statement
+
+    // CompressedSummary statements
+    insertCompressedSummary?: Database.Statement
+    getCompressedSummariesByChatId?: Database.Statement
+    getActiveCompressedSummariesByChatId?: Database.Statement
+    updateCompressedSummaryStatus?: Database.Statement
+    deleteCompressedSummary?: Database.Statement
   } = {}
 
   private constructor() {
@@ -168,6 +195,27 @@ class DatabaseService {
       )
     `)
 
+    // 创建 compressed_summaries 表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS compressed_summaries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        chat_uuid TEXT NOT NULL,
+        message_ids TEXT NOT NULL,
+        start_message_id INTEGER NOT NULL,
+        end_message_id INTEGER NOT NULL,
+        summary TEXT NOT NULL,
+        original_token_count INTEGER,
+        summary_token_count INTEGER,
+        compression_ratio REAL,
+        compressed_at INTEGER NOT NULL,
+        compression_model TEXT,
+        compression_version INTEGER DEFAULT 1,
+        status TEXT DEFAULT 'active',
+        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+      )
+    `)
+
     console.log('[DatabaseService] Tables created')
   }
 
@@ -182,6 +230,10 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_chats_update_time ON chats(update_time DESC);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_uuid ON messages(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_id ON compressed_summaries(chat_id);
+      CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_uuid ON compressed_summaries(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_compressed_summaries_status_chat ON compressed_summaries(status, chat_id);
+      CREATE INDEX IF NOT EXISTS idx_compressed_summaries_message_range ON compressed_summaries(chat_id, start_message_id, end_message_id);
     `)
 
     console.log('[DatabaseService] Indexes created')
@@ -251,6 +303,35 @@ class DatabaseService {
         value = excluded.value,
         version = excluded.version,
         updated_at = excluded.updated_at
+    `)
+
+    // CompressedSummary statements
+    this.stmts.insertCompressedSummary = this.db.prepare(`
+      INSERT INTO compressed_summaries (
+        chat_id, chat_uuid, message_ids, start_message_id, end_message_id,
+        summary, original_token_count, summary_token_count, compression_ratio,
+        compressed_at, compression_model, compression_version, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    this.stmts.getCompressedSummariesByChatId = this.db.prepare(`
+      SELECT * FROM compressed_summaries
+      WHERE chat_id = ?
+      ORDER BY start_message_id ASC
+    `)
+
+    this.stmts.getActiveCompressedSummariesByChatId = this.db.prepare(`
+      SELECT * FROM compressed_summaries
+      WHERE chat_id = ? AND status = 'active'
+      ORDER BY start_message_id ASC
+    `)
+
+    this.stmts.updateCompressedSummaryStatus = this.db.prepare(`
+      UPDATE compressed_summaries SET status = ? WHERE id = ?
+    `)
+
+    this.stmts.deleteCompressedSummary = this.db.prepare(`
+      DELETE FROM compressed_summaries WHERE id = ?
     `)
 
     console.log('[DatabaseService] Statements prepared')
@@ -668,6 +749,120 @@ class DatabaseService {
       this.db = null
       this.isInitialized = false
       console.log('[DatabaseService] Database closed')
+    }
+  }
+
+  // ==================== CompressedSummary Methods ====================
+
+  /**
+   * 将数据库行转换为 CompressedSummaryEntity
+   */
+  private rowToCompressedSummaryEntity(row: CompressedSummaryRow): CompressedSummaryEntity {
+    return {
+      id: row.id,
+      chatId: row.chat_id,
+      chatUuid: row.chat_uuid,
+      messageIds: JSON.parse(row.message_ids),
+      startMessageId: row.start_message_id,
+      endMessageId: row.end_message_id,
+      summary: row.summary,
+      originalTokenCount: row.original_token_count ?? undefined,
+      summaryTokenCount: row.summary_token_count ?? undefined,
+      compressionRatio: row.compression_ratio ?? undefined,
+      compressedAt: row.compressed_at,
+      compressionModel: row.compression_model ?? undefined,
+      compressionVersion: row.compression_version ?? undefined,
+      status: (row.status as 'active' | 'superseded' | 'invalid') ?? 'active'
+    }
+  }
+
+  /**
+   * 保存压缩摘要
+   */
+  public saveCompressedSummary(data: CompressedSummaryEntity): number {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const result = this.stmts.insertCompressedSummary!.run(
+        data.chatId,
+        data.chatUuid,
+        JSON.stringify(data.messageIds),
+        data.startMessageId,
+        data.endMessageId,
+        data.summary,
+        data.originalTokenCount ?? null,
+        data.summaryTokenCount ?? null,
+        data.compressionRatio ?? null,
+        data.compressedAt,
+        data.compressionModel ?? null,
+        data.compressionVersion ?? 1,
+        data.status ?? 'active'
+      )
+      console.log(`[DatabaseService] Saved compressed summary: ${result.lastInsertRowid}`)
+      return result.lastInsertRowid as number
+    } catch (error) {
+      console.error('[DatabaseService] Failed to save compressed summary:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取聊天的所有压缩摘要
+   */
+  public getCompressedSummariesByChatId(chatId: number): CompressedSummaryEntity[] {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const rows = this.stmts.getCompressedSummariesByChatId!.all(chatId) as CompressedSummaryRow[]
+      return rows.map(row => this.rowToCompressedSummaryEntity(row))
+    } catch (error) {
+      console.error('[DatabaseService] Failed to get compressed summaries:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取聊天的活跃压缩摘要
+   */
+  public getActiveCompressedSummariesByChatId(chatId: number): CompressedSummaryEntity[] {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const rows = this.stmts.getActiveCompressedSummariesByChatId!.all(chatId) as CompressedSummaryRow[]
+      return rows.map(row => this.rowToCompressedSummaryEntity(row))
+    } catch (error) {
+      console.error('[DatabaseService] Failed to get active compressed summaries:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 更新压缩摘要状态
+   */
+  public updateCompressedSummaryStatus(id: number, status: 'active' | 'superseded' | 'invalid'): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      this.stmts.updateCompressedSummaryStatus!.run(status, id)
+      console.log(`[DatabaseService] Updated compressed summary status: ${id} -> ${status}`)
+    } catch (error) {
+      console.error('[DatabaseService] Failed to update compressed summary status:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 删除压缩摘要
+   */
+  public deleteCompressedSummary(id: number): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      this.stmts.deleteCompressedSummary!.run(id)
+      console.log(`[DatabaseService] Deleted compressed summary: ${id}`)
+    } catch (error) {
+      console.error('[DatabaseService] Failed to delete compressed summary:', error)
+      throw error
     }
   }
 }

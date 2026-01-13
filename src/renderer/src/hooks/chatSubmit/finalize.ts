@@ -3,6 +3,8 @@ import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { unifiedChatRequest } from '@request/index'
 import { extractContentFromSegments } from './streaming/segment-utils'
 import type { FinalizeDeps, StreamingContextProvider, TitleRequestParams } from './types'
+import { useAppConfigStore } from '@renderer/store/appConfig'
+import { compressionService } from '@renderer/services/compressionService'
 
 const providerTypeMap: Record<string, ProviderType> = {
   'Anthropic': 'claude',
@@ -127,4 +129,21 @@ export const finalizePipelineV2 = async (
     chatEntity.msgCount = updatedChat.msgCount
   }
   updateChatList(chatEntity)
+
+  // 5. 触发压缩检查（异步执行，不阻塞用户）
+  const appConfig = useAppConfigStore.getState()
+  const compressionConfig = appConfig.compression
+
+  if (compressionConfig?.enabled && compressionConfig?.autoCompress) {
+    // 异步触发压缩，不阻塞用户
+    compressionService.compress(
+      chatEntity.id!,
+      chatEntity.uuid,
+      session.messageEntities,
+      meta.model,
+      meta.provider
+    ).catch(error => {
+      console.error('[Compression] Failed to compress messages:', error)
+    })
+  }
 }
