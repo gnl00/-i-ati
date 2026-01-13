@@ -34,6 +34,7 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { CustomCaretOverlay, CustomCaretRef } from './common/CustomCaretOverlay'
+import CommandPalette from './CommandPalette'
 
 import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
 import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
@@ -94,11 +95,43 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
 
+  // Command palette states
+  const [commandPanelOpen, setCommandPanelOpen] = useState(false)
+  const [commandQuery, setCommandQuery] = useState('')
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
+  const [commandPanelPosition, setCommandPanelPosition] = useState({ top: 0, left: 0, width: 0 })
+
   // Textarea ref
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Custom Caret Ref
   const caretOverlayRef = useRef<CustomCaretRef>(null)
+
+  // Define slash commands
+  const slashCommands = [
+    {
+      cmd: '/clear',
+      label: 'Clear Chat',
+      description: '清空当前对话',
+      action: () => startNewChat()
+    },
+    {
+      cmd: '/artifacts',
+      label: 'Toggle Artifacts',
+      description: artifacts ? '关闭 Artifacts 面板' : '开启 Artifacts 面板',
+      action: () => {
+        const newState = !artifacts
+        toggleArtifacts(newState)
+        setArtifactsPanel(newState)
+      }
+    },
+    {
+      cmd: '/websearch',
+      label: 'Toggle Web Search',
+      description: webSearchEnable ? '关闭网络搜索' : '开启网络搜索',
+      action: () => toggleWebSearch(!webSearchEnable)
+    },
+  ]
 
   const getIconSrc = (provider: string) => {
     let iconSrc = robotIcon
@@ -203,7 +236,39 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   //   toggleArtifacts(!artifacts)
   // }, [artifacts, toggleArtifacts])
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputContent(e.target.value)
+    const value = e.target.value
+    setInputContent(value)
+
+    // Detect slash command trigger
+    const cursorPos = e.target.selectionStart
+    const beforeCursor = value.slice(0, cursorPos)
+    const lastSlashIndex = beforeCursor.lastIndexOf('/')
+
+    // Check if slash exists and is at start or after whitespace
+    const hasValidSlash = lastSlashIndex > -1 &&
+      (lastSlashIndex === 0 || /\s/.test(beforeCursor[lastSlashIndex - 1]))
+
+    if (hasValidSlash) {
+      const query = beforeCursor.slice(lastSlashIndex + 1)
+      // Only show panel if query doesn't contain space (still typing command)
+      if (!query.includes(' ')) {
+        // Calculate position for portal
+        const textarea = e.target
+        const rect = textarea.getBoundingClientRect()
+        setCommandPanelPosition({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width
+        })
+        setCommandQuery(query)
+        setCommandPanelOpen(true)
+        setSelectedCommandIndex(0)
+        return
+      }
+    }
+
+    // Close panel if no valid slash or conditions not met
+    setCommandPanelOpen(false)
   }, [])
 
   // 监听 suggestedPrompt 的变化（自动填充到 textarea）
@@ -220,6 +285,44 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [suggestedPrompt])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle command palette navigation
+    if (commandPanelOpen) {
+      const filteredCommands = slashCommands.filter(cmd =>
+        cmd.cmd.toLowerCase().includes(commandQuery.toLowerCase()) ||
+        cmd.label.toLowerCase().includes(commandQuery.toLowerCase())
+      )
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedCommandIndex(prev =>
+          prev < filteredCommands.length - 1 ? prev + 1 : 0
+        )
+        return
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedCommandIndex(prev =>
+          prev > 0 ? prev - 1 : filteredCommands.length - 1
+        )
+        return
+      }
+
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        if (filteredCommands.length > 0) {
+          executeCommand(filteredCommands[selectedCommandIndex])
+        }
+        return
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setCommandPanelOpen(false)
+        return
+      }
+    }
+
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault()
       if (!inputContent) {
@@ -232,7 +335,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       }
       onSubmitClick(e)
     }
-  }, [onSubmitClick])
+  }, [commandPanelOpen, commandQuery, selectedCommandIndex, onSubmitClick])
 
   const onTextAreaPaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
@@ -254,6 +357,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     }
   }, [imageSrcBase64List, setImageSrcBase64List])
 
+  const onTextAreaBlur = useCallback(() => {
+    // Delay closing to allow click events on command palette to fire first
+    setTimeout(() => {
+      setCommandPanelOpen(false)
+    }, 200)
+  }, [])
+
   const startNewChat = () => {
     setChatId(undefined)
     setChatUuid(undefined)
@@ -264,6 +374,37 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     toggleArtifacts(false)
     toggleWebSearch(false)
   }
+
+  // Execute command and replace slash command text
+  const executeCommand = useCallback((command: typeof slashCommands[0]) => {
+    // Execute the command action
+    command.action()
+
+    // Remove the slash command from input
+    const textarea = textareaRef.current
+    if (textarea) {
+      const cursorPos = textarea.selectionStart
+      const beforeCursor = inputContent.slice(0, cursorPos)
+      const afterCursor = inputContent.slice(cursorPos)
+      const lastSlashIndex = beforeCursor.lastIndexOf('/')
+
+      if (lastSlashIndex > -1) {
+        const newContent = beforeCursor.slice(0, lastSlashIndex) + afterCursor
+        setInputContent(newContent)
+
+        // Set cursor position after slash removal and update caret overlay
+        requestAnimationFrame(() => {
+          textarea.focus()
+          textarea.setSelectionRange(lastSlashIndex, lastSlashIndex)
+          caretOverlayRef.current?.updateCaret()
+        })
+      }
+    }
+
+    // Close command panel
+    setCommandPanelOpen(false)
+  }, [inputContent])
+
   const onMcpToolSelected = async (serverName: string, serverConfig: any) => {
     console.log('mcp-server-config', serverName, serverConfig)
     if (!selectedMcpServerNames.includes(serverName)) {
@@ -574,6 +715,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             onChange={onTextAreaChange}
             onKeyDown={onTextAreaKeyDown}
             onPaste={onTextAreaPaste}
+            onBlur={onTextAreaBlur}
           />
 
           <CustomCaretOverlay
@@ -670,6 +812,16 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           </div>
         </div>
       </div>
+
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={commandPanelOpen}
+        query={commandQuery}
+        commands={slashCommands}
+        selectedIndex={selectedCommandIndex}
+        position={commandPanelPosition}
+        onCommandClick={executeCommand}
+      />
     </div>
   )
 })
