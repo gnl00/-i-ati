@@ -245,6 +245,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                     <div className="p-5 flex items-start gap-4">
                         <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
+                                {/* onClick={(e) => e.preventDefault()} to prevent the switch from being toggled when clicking the label */}
                                 <Label htmlFor="toggle-compression" className="text-base font-medium text-gray-900 dark:text-gray-100">
                                     Message Compression
                                 </Label>
