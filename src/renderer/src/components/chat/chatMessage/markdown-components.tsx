@@ -11,8 +11,9 @@ export function fixMalformedCodeBlocks(markdown: string): string {
   // Example: "text```\ncode" -> "text\n```\ncode"
   let fixed = markdown.replace(/([^\s\n])```/g, '$1\n```')
 
-  // Second pass: Fix code blocks where language and code are concatenated
-  // Example: ```bashecho 'test' -> ```bash\necho 'test'
+  // Second pass: Fix code blocks where language and code are concatenated (with or without space)
+  // Example 1: ```bashecho 'test' -> ```bash\necho 'test'
+  // Example 2: ```sql .tables ``` -> ```sql\n.tables
   const commonLanguages = [
     'bash', 'sh', 'shell', 'zsh', 'fish',
     'javascript', 'js', 'typescript', 'ts', 'jsx', 'tsx',
@@ -22,13 +23,15 @@ export function fixMalformedCodeBlocks(markdown: string): string {
     'swift', 'kotlin', 'scala', 'dart',
     'html', 'css', 'scss', 'sass', 'less',
     'json', 'xml', 'yaml', 'yml', 'toml',
-    'sql', 'mysql', 'postgresql', 'graphql',
+    'sql', 'mysql', 'postgresql', 'sqlite', 'sqlite3', 'graphql',
     'markdown', 'md', 'plaintext', 'text', 'txt',
     'dockerfile', 'docker', 'makefile', 'cmake'
   ]
 
   const languagePattern = `(${commonLanguages.join('|')})`
-  const concatenatedPattern = new RegExp(`\`\`\`${languagePattern}([^\\s\\n])`, 'gi')
+  // Match: ```language followed by any character (including optional whitespace)
+  // The key change: [^\\n] instead of [^\\s\\n] to allow space after language
+  const concatenatedPattern = new RegExp(`\`\`\`${languagePattern}\\s*([^\\n])`, 'gi')
 
   fixed = fixed.replace(concatenatedPattern, (match, language, firstChar) => {
     return '```' + language.toLowerCase() + '\n' + firstChar
