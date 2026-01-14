@@ -462,7 +462,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                                     onClick={onAddModelClick}
                                                     size={'sm'}
                                                     variant={'default'}
-                                                    className='h-7 px-3 text-xs shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 group'
+                                                    className='h-7 px-3 text-xs shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 group will-change-transform'
                                                 >
                                                     <i className="ri-add-circle-line mr-1 text-sm group-hover:rotate-90 transition-transform duration-300"></i>
                                                     Add

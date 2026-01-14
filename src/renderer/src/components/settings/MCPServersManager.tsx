@@ -215,7 +215,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   }, [activeTab])
 
   return (
-    <div className="flex flex-col h-full bg-gray-50/50 dark:bg-black/20">
+    <div className="flex flex-col h-full bg-gray-50/50 dark:bg-neutral-950/30">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between mx-4 mt-4 mb-0">
           <AnimatedTabsList
@@ -254,13 +254,13 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
         <TabsContent value="registry" className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300">
           <div className="relative py-4 flex-none group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-foreground transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70 group-focus-within:text-foreground transition-colors" />
             <Input
-              placeholder="Search registry..."
+              placeholder="Discover servers in the registry..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-              className="pl-8 h-9 text-sm bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all rounded-lg placeholder:text-muted-foreground/50"
+              className="pl-9 h-10 text-sm bg-white/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-gray-900/10 dark:focus-visible:ring-gray-100/10 focus-visible:ring-offset-0 transition-all rounded-xl placeholder:text-muted-foreground/50 shadow-sm"
               disabled={isFetching}
             />
             {isSearching && (
@@ -280,7 +280,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                 </p>
               </div>
             ) : filteredServers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground bg-white dark:bg-gray-900/20 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground bg-white/50 dark:bg-gray-900/20 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800 mx-1">
                 <Search className="h-12 w-12 mb-4 opacity-20" />
                 <p className="text-sm font-medium">No results matched your search</p>
                 {searchQuery && (
@@ -290,68 +290,99 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                 )}
               </div>
             ) : (
-              <div className="space-y-2.5 pb-6">
+              <div className="space-y-3 pb-6">
                 {filteredServers.map((item, idx) => {
                   const installed = isInstalled(item.server.name)
                   const connectionType = item.server.remotes?.[0]?.type || item.server.packages?.[0]?.registryType
                   const isOfficial = item._meta['io.modelcontextprotocol.registry/official']
-                  const status = isOfficial?.status
 
                   return (
                     <div
                       key={`${item.server.name}-${idx}`}
                       className={cn(
-                        "group relative p-3.5 rounded-xl border transition-all duration-300",
+                        "group relative rounded-xl border transition-all duration-300 overflow-hidden will-change-transform",
                         "bg-white dark:bg-gray-900/40",
-                        "border-gray-200/60 dark:border-gray-800/60",
-                        "shadow-sm hover:shadow dark:hover:shadow-md dark:hover:shadow-black/20",
-                        "flex items-start justify-between gap-4",
-                        installed && "bg-gray-50/50 dark:bg-gray-900/10 border-gray-200/50 dark:border-gray-800/30 opacity-80 hover:opacity-100"
+                        "border-gray-200/80 dark:border-gray-800/80",
+                        "shadow",
+                        "hover:shadow-md",
+                        "flex flex-col",
+                        installed && "bg-gray-50/80 dark:bg-gray-900/20 border-gray-100 dark:border-gray-800/30 opacity-60 hover:opacity-100 grayscale-[0.5] hover:grayscale-0"
                       )}
                     >
-                      <div className="flex-1 min-w-0 relative">
-                        <div className="flex items-start gap-3.5 mb-2.5">
-                          <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-sm">
-                            {item.server.icons?.[0] ? (
-                              <img src={item.server.icons[0].src} alt="" className="h-6 w-6 rounded-sm opacity-90 group-hover:opacity-100 transition-opacity" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                            ) : (
-                              <Server className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0 pt-0">
-                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                              <h4 className="font-semibold text-[14px] leading-tight tracking-tight truncate text-gray-900 dark:text-gray-100">
-                                {item.server.title || item.server.name}
-                              </h4>
-                              <div className="flex items-center gap-1.5 select-none">
-                                <Badge variant="outline" className="text-[9px] font-medium h-4 px-1 py-0 text-muted-foreground border-gray-200 dark:border-gray-700 bg-transparent hover:bg-transparent">
-                                  v{item.server.version}
-                                </Badge>
-                                {isOfficial && (
-                                  <Badge className="text-[9px] font-bold bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 border-none h-4 px-1.5 rounded-sm">
-                                    OFFICIAL
-                                  </Badge>
-                                )}
-                              </div>
+                      <div className="p-4 flex items-start justify-between gap-4 flex-1">
+                        <div className="flex-1 min-w-0 relative">
+                          <div className="flex items-start gap-4 mb-3">
+                            <div className="h-11 w-11 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-sm group-hover:scale-105 will-change-transform">
+                              {item.server.icons?.[0] ? (
+                                <img src={item.server.icons[0].src} alt="" className="h-6 w-6 rounded-md opacity-90 group-hover:opacity-100 transition-opacity" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                              ) : (
+                                <Server className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+                              )}
                             </div>
-                            <p className="text-[10px] text-muted-foreground/50 font-mono tracking-tight truncate">
-                              @{item.server.name}
-                            </p>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h4 className="font-bold text-[14px] leading-tight tracking-tight truncate text-gray-900 dark:text-gray-100">
+                                  {item.server.title || item.server.name}
+                                </h4>
+                                <div className="flex items-center gap-1.5 select-none">
+                                  <Badge variant="secondary" className="text-[9px] font-medium h-4 px-1 py-0 text-muted-foreground bg-gray-100 dark:bg-gray-800 border-none">
+                                    v{item.server.version}
+                                  </Badge>
+                                  {isOfficial && (
+                                    <Badge variant="outline" className="text-[9px] font-bold h-4 px-1.5 rounded-lg text-gray-900 border-gray-900 dark:text-white dark:border-gray-100 bg-transparent">
+                                      OFFICIAL
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground/60 font-mono tracking-tight truncate">
+                                @{item.server.name}
+                              </p>
+                            </div>
                           </div>
+
+                          <p className="text-xs font-sans text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed font-medium pl-1">
+                            {item.server.description}
+                          </p>
                         </div>
 
-                        <p className="text-xs font-sans text-gray-600 dark:text-gray-400 line-clamp-2 mb-4 leading-relaxed font-medium">
-                          {item.server.description}
-                        </p>
+                        <div className="pt-0 flex-shrink-0 z-10">
+                          <Button
+                            size="sm"
+                            variant={installed ? 'secondary' : 'default'}
+                            onClick={() => handleInstallServer(item)}
+                            disabled={installed}
+                            className={cn(
+                              'h-8 px-4 text-xs font-semibold transition-all duration-200 rounded-lg shadow-sm',
+                              installed
+                                ? "bg-gray-100 text-muted-foreground hover:bg-gray-100 cursor-default opacity-70"
+                                : "bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:hover:bg-gray-100 dark:text-gray-900 hover:shadow-md"
+                            )}
+                          >
+                            {installed ? (
+                              <div className="flex items-center gap-1.5">
+                                <Check className="h-3.5 w-3.5" />
+                                <span className="text-[11px]">Installed</span>
+                              </div>
+                            ) : (
+                              <span className="flex items-center gap-1.5">
+                                Install
+                              </span>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
 
-                        <div className="flex items-center gap-3.5 flex-wrap select-none">
+                      {/* Footer Section */}
+                      <div className="bg-gray-50/50 dark:bg-gray-900/40 border-t border-gray-100 dark:border-gray-800/60 px-4 py-3 flex items-center justify-between gap-3 transition-colors group-hover:bg-gray-50/80 dark:group-hover:bg-gray-900/60">
+                        <div className="flex items-center gap-3 flex-wrap select-none pl-1">
                           {connectionType && (
                             <Badge
                               className={cn(
-                                "text-[9px] font-bold uppercase px-1.5 py-0 h-4 border-none rounded-md ",
-                                connectionType === 'sse' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" :
-                                  connectionType === 'npm' ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" :
-                                    "bg-gray-100 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300"
+                                "text-[10px] font-medium px-2 py-0.5 h-5 border-none rounded-md transition-colors duration-200 cursor-default",
+                                connectionType === 'sse' ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40" :
+                                  connectionType === 'npm' ? "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40" :
+                                    "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
                               )}
                             >
                               {connectionType}
@@ -362,40 +393,16 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                               href={item.server.repository.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 group/link transition-colors"
+                              className="text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1.5 group/link transition-colors px-1"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <ExternalLink className="h-2.5 w-2.5 opacity-50 group-hover/link:opacity-100 transition-opacity" />
-                              <span className="hover:underline underline-offset-2">
+                              <ExternalLink className="h-3 w-3 opacity-50 group-hover/link:opacity-100 transition-opacity" />
+                              <span className="hover:underline underline-offset-2 decoration-border/50">
                                 {item.server.repository.source}
                               </span>
                             </a>
                           )}
                         </div>
-                      </div>
-
-                      <div className="pt-0 flex-shrink-0">
-                        <Button
-                          size="sm"
-                          variant={installed ? 'outline' : 'default'}
-                          onClick={() => handleInstallServer(item)}
-                          disabled={installed}
-                          className={cn(
-                            'h-8 px-3.5 text-xs font-semibold transition-all duration-200 rounded-lg',
-                            installed
-                              ? "bg-transparent text-muted-foreground border-transparent hover:bg-transparent cursor-default px-0"
-                              : "bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 shadow-sm"
-                          )}
-                        >
-                          {installed ? (
-                            <div className="flex items-center gap-1.5">
-                              <Check className="h-3.5 w-3.5 text-green-500" />
-                              <span className="text-muted-foreground/60 text-[11px]">Installed</span>
-                            </div>
-                          ) : (
-                            <span>Install</span>
-                          )}
-                        </Button>
                       </div>
                     </div>
                   )
@@ -407,7 +414,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                       variant="outline"
                       onClick={loadMore}
                       disabled={isFetching}
-                      className="gap-2 px-8 py-5 rounded-2xl font-bold border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all shadow-sm"
+                      className="gap-2 px-8 py-5 rounded-2xl font-bold border-gray-200 dark:border-gray-800 hover:bg-white dark:hover:bg-gray-900 text-foreground hover:shadow-md transition-all shadow-sm"
                     >
                       {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
                       {isFetching ? 'Fetching more...' : 'Load Complete Registry'}
@@ -426,18 +433,17 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                 {Object.keys(mcpServerConfig.mcpServers || {}).length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground pb-12 relative">
                     {/* Decorative background elements */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/5 dark:bg-blue-400/5 rounded-full blur-3xl" />
-                      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/5 dark:bg-purple-400/5 rounded-full blur-3xl" />
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-50">
+                      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-gray-200/5 dark:bg-gray-700/5 rounded-full blur-3xl" />
+                      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-gray-200/5 dark:bg-gray-700/5 rounded-full blur-3xl" />
                     </div>
 
                     <div className="relative z-10 flex flex-col items-center">
                       {/* Animated icon container */}
                       <div className="relative mb-6 group">
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 dark:from-blue-400/20 dark:to-purple-400/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500" />
-                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-lg group-hover:scale-105 transition-transform duration-300">
+                        <div className="absolute inset-0 bg-gradient-to-br from-gray-200/20 to-gray-300/20 dark:from-gray-700/20 dark:to-gray-800/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500" />
+                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-lg group-hover:scale-105 transition-transform duration-300 will-change-transform">
                           <Server className="h-9 w-9 text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors duration-300" />
-                          <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-gray-300 dark:bg-gray-700 border-2 border-white dark:border-gray-950" />
                         </div>
                       </div>
 
@@ -477,100 +483,101 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                         return (
                           <div
                             key={name}
-                            className="group relative bg-white dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800/60 transition-all duration-300 shadow-sm hover:shadow dark:hover:shadow-md dark:hover:shadow-black/20"
+                            className="group relative bg-white dark:bg-gray-900/60 rounded-xl border border-gray-200/60 dark:border-gray-800/60 transition-all duration-300 shadow-sm hover:shadow-md dark:hover:shadow-black/30 overflow-hidden"
                             style={{
                               animationDelay: `${index * 50}ms`,
                               animation: 'fadeInUp 0.4s ease-out forwards',
                               opacity: 0
                             }}
                           >
-                            <div className="relative p-2">
-                              {/* Header section */}
-                              <div className="flex items-start justify-between gap-4 mb-3">
-                                <div className="flex items-start gap-3 flex-1 min-w-0">
-                                  {/* Icon */}
-                                  <div className="h-11 w-11 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center flex-shrink-0 border border-gray-200/50 dark:border-gray-700/50 transition-all duration-300 shadow-sm">
-                                    <Server className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300" />
-                                  </div>
+                            <div className="flex flex-col h-full">
+                              <div className="p-4 flex-1">
+                                {/* Header section */}
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                                    {/* Icon */}
+                                    <div className="h-11 w-11 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-sm group-hover:scale-105 will-change-transform">
+                                      <Server className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300" />
+                                    </div>
 
-                                  {/* Server info */}
-                                  <div className="flex-1 min-w-0 pt-0.5">
-                                    <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 mb-1.5 tracking-tight truncate">
-                                      {name}
-                                    </h4>
-                                    <div className="flex items-center gap-2">
-                                      <Badge
-                                        variant="outline"
-                                        className={cn(
-                                          "text-[9px] h-4 px-1.5 font-normal",
-                                          serverType === 'sse'
-                                            ? "text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800"
-                                            : serverType === 'STDIO'
-                                              ? "text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
-                                              : serverType === 'streamableHttp'
-                                                ? "text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
-                                                : "text-gray-600 border-gray-200 bg-gray-50 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800"
-                                        )}
-                                      >
-                                        {serverType}
-                                      </Badge>
+                                    {/* Server info */}
+                                    <div className="flex-1 min-w-0 pt-0.5">
+                                      <div className="flex items-center gap-2 mb-1.5">
+                                        <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 tracking-tight truncate">
+                                          {name}
+                                        </h4>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Badge
+                                          className={cn(
+                                            "text-[10px] font-medium px-2 py-0.5 h-5 border-none rounded-md transition-colors duration-200 cursor-default",
+                                            serverType === 'sse'
+                                              ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40"
+                                              : serverType === 'STDIO'
+                                                ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                                                : serverType === 'streamableHttp'
+                                                  ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/40"
+                                                  : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                          )}
+                                        >
+                                          {serverType}
+                                        </Badge>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
 
-                                {/* Right side: Installed badge + Action buttons */}
-                                <div className="flex flex-col items-end gap-2 flex-shrink-0 select-none">
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[9px] text-gray-500 font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-gray-100 bg-gray-50 transition-all duration-300 flex items-center gap-1"
-                                  >
-                                    <Check className="h-2.5 w-2.5" />
-                                    Installed
-                                  </Badge>
+                                  {/* Right side: Installed badge + Action buttons */}
+                                  <div className="flex flex-col items-end gap-2 flex-shrink-0 select-none">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] text-green-600 dark:text-green-400 font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-transparent bg-green-50 dark:bg-green-900/20 transition-all duration-300 flex items-center gap-1.5"
+                                    >
+                                      <span className="relative flex h-1.5 w-1.5">
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                                      </span>
+                                      Running
+                                    </Badge>
 
-                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(JSON.stringify(config, null, 2))
-                                        toast.success('Configuration copied to clipboard')
-                                      }}
-                                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
-                                      title="Copy Configuration"
-                                    >
-                                      <Code className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleUninstallServer(name)}
-                                      className="h-8 w-8 p-0 text-muted-foreground text-red-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                                      title="Uninstall Server"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(JSON.stringify(config, null, 2))
+                                          toast.success('Configuration copied to clipboard')
+                                        }}
+                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
+                                        title="Copy Configuration"
+                                      >
+                                        <Code className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleUninstallServer(name)}
+                                        className="h-8 w-8 p-0 text-muted-foreground text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                                        title="Uninstall Server"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
 
-                              {/* Configuration display */}
-                              {configDisplay && (
-                                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/50">
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mt-0.5 flex-shrink-0">
-                                      Config
-                                    </span>
-                                    <code className="text-[11px] leading-relaxed text-muted-foreground font-mono break-all flex-1">
-                                      {configDisplay}
-                                    </code>
-                                  </div>
+                              {/* CONFIGURATION FOOTER */}
+                              {configDisplay ? (
+                                <div className="bg-gray-50/50 dark:bg-gray-900/40 border-t border-gray-100 dark:border-gray-800/60 px-4 py-2.5 flex items-center gap-3 transition-colors group-hover:bg-gray-50/80 dark:group-hover:bg-gray-900/60">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 shrink-0 select-none">
+                                    Source
+                                  </span>
+                                  <code className="text-[11px] leading-relaxed text-muted-foreground/80 font-mono break-all line-clamp-1 flex-1" title={configDisplay}>
+                                    {configDisplay}
+                                  </code>
                                 </div>
-                              )}
-
-                              {!configDisplay && (
-                                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/50">
-                                  <p className="text-[11px] text-muted-foreground/50 italic">
+                              ) : (
+                                <div className="bg-gray-50/30 dark:bg-gray-900/20 border-t border-gray-100 dark:border-gray-800/40 px-4 py-2">
+                                  <p className="text-[10px] text-muted-foreground/40 italic">
                                     No configuration specified
                                   </p>
                                 </div>
