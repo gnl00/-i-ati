@@ -1,6 +1,7 @@
 import { cn } from '@renderer/lib/utils'
 import { getCaretCoordinates } from '@renderer/utils/caret-coords'
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
+import './styles/custom-caret.css'
 
 export interface CustomCaretRef {
   updateCaret: (forceVisible?: boolean) => void
@@ -139,7 +140,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     return node ?? null
   }, [])
 
-  const createTrail = useCallback((x: number, y: number, width: number, height: number, isDelete: boolean) => {
+  const createTrail = useCallback((x: number, y: number, width: number, height: number, isDelete: boolean, direction: number) => {
     const trailRoot = trailContainerRef.current
     if (!trailRoot) return
 
@@ -159,9 +160,15 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     node.inner.className = cn(
       "w-full h-full rounded-md",
       isDelete
-        ? "bg-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.4)]"
-        : "bg-blue-400/20 shadow-[0_0_5px_rgba(96,165,250,0.3)]"
+        ? "shadow-[0_0_8px_rgba(239,68,68,0.4)]"
+        : "shadow-[0_0_5px_rgba(96,165,250,0.3)]"
     )
+    const startAlpha = 0.05
+    const endAlpha = isDelete ? 0.45 : 0.35
+    const startColor = isDelete ? `rgba(248,113,113,${startAlpha})` : `rgba(59,130,246,${startAlpha})`
+    const endColor = isDelete ? `rgba(220,38,38,${endAlpha})` : `rgba(59,130,246,${endAlpha})`
+    const gradientDirection = direction >= 0 ? 'to right' : 'to left'
+    node.inner.style.background = `linear-gradient(${gradientDirection}, ${startColor} 0%, ${endColor} 80%)`
 
     const animation = node.inner.animate(
       [
@@ -208,10 +215,6 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     const coords = getCaretCoordinates(textarea, selectionEnd)
 
-    if (valueLength > 0 && selectionEnd === 0 && lastCaretPos.current) {
-      return
-    }
-
     if (!measurementsRef.current || measurementsDirtyRef.current) {
       refreshMeasurements()
     }
@@ -236,11 +239,12 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     if (lastCaretPos.current) {
       const prev = lastCaretPos.current
+      const direction = Math.sign(finalLeft - prev.left) || 1
       if (Math.abs(prev.top - finalTop) < CARET_CONFIG.TRAIL_MAX_VERTICAL_DIFF &&
           Math.abs(prev.left - finalLeft) > CARET_CONFIG.TRAIL_MIN_HORIZONTAL_DISTANCE) {
         const trailX = Math.min(prev.left, finalLeft)
         const width = Math.abs(prev.left - finalLeft) + CARET_CONFIG.TRAIL_WIDTH_PADDING
-        createTrail(trailX, finalTop, width, finalHeight, isBackspaceRef.current)
+        createTrail(trailX, finalTop, width, finalHeight, isBackspaceRef.current, direction)
       }
     }
 
