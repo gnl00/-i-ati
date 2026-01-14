@@ -23,6 +23,9 @@ export type ChatState = {
   artifactsActiveTab: string
   // Typewriter control
   forceCompleteTypewriter: (() => void) | null
+  // MCP tools
+  availableMcpTools: Map<string, any[]>
+  selectedMcpServerNames: string[]
 }
 
 export type ChatAction = {
@@ -40,6 +43,15 @@ export type ChatAction = {
   setArtifactsActiveTab: (tab: string) => void
   setImageSrcBase64List: (imgs: ClipbordImg[]) => void
   setForceCompleteTypewriter: (fn: (() => void) | null) => void
+
+  // MCP tools 管理
+  addMcpTools: (serverName: string, tools: any[]) => void
+  removeMcpTools: (serverName: string) => void
+  getMcpTools: (serverName: string) => any[] | undefined
+  getAllMcpTools: () => any[]
+  setSelectedMcpServerNames: (names: string[]) => void
+  addSelectedMcpServer: (name: string) => void
+  removeSelectedMcpServer: (name: string) => void
 
   // 数据操作方法（通过 IPC 与 SQLite 同步）
   loadChat: (chatId: number) => Promise<void>
@@ -82,6 +94,10 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   // Typewriter control
   forceCompleteTypewriter: null,
 
+  // MCP tools
+  availableMcpTools: new Map(),
+  selectedMcpServerNames: [],
+
   // ============ UI 状态更新方法 ============
 
   setSelectedModel: (mode) => set({ selectedModel: mode }),
@@ -97,6 +113,42 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setArtifactsActiveTab: (tab) => set({ artifactsActiveTab: tab }),
   setImageSrcBase64List: (imgs) => set({ imageSrcBase64List: imgs }),
   setForceCompleteTypewriter: (fn) => set({ forceCompleteTypewriter: fn }),
+
+  // ============ MCP Tools 管理方法 ============
+
+  addMcpTools: (serverName, tools) => {
+    const newMap = new Map(get().availableMcpTools)
+    newMap.set(serverName, tools)
+    set({ availableMcpTools: newMap })
+  },
+
+  removeMcpTools: (serverName) => {
+    const newMap = new Map(get().availableMcpTools)
+    newMap.delete(serverName)
+    set({ availableMcpTools: newMap })
+  },
+
+  getMcpTools: (serverName) => {
+    return get().availableMcpTools.get(serverName)
+  },
+
+  getAllMcpTools: () => {
+    return Array.from(get().availableMcpTools.values()).flatMap(tools => tools)
+  },
+
+  setSelectedMcpServerNames: (names) => set({ selectedMcpServerNames: names }),
+
+  addSelectedMcpServer: (name) => {
+    const current = get().selectedMcpServerNames
+    if (!current.includes(name)) {
+      set({ selectedMcpServerNames: [...current, name] })
+    }
+  },
+
+  removeSelectedMcpServer: (name) => {
+    const current = get().selectedMcpServerNames
+    set({ selectedMcpServerNames: current.filter(n => n !== name) })
+  },
 
   // ============ 数据操作方法（通过 IPC 与 SQLite 同步）===========
 

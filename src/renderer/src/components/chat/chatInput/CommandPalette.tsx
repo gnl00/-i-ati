@@ -12,8 +12,7 @@ interface Command {
 
 interface CommandPaletteProps {
   isOpen: boolean
-  query: string
-  commands: Command[]
+  commands: Command[]  // Already filtered commands
   selectedIndex: number
   textareaRef: React.RefObject<HTMLTextAreaElement>
   onCommandClick: (command: Command) => void
@@ -21,18 +20,11 @@ interface CommandPaletteProps {
 
 const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
-  query,
   commands,
   selectedIndex,
   textareaRef,
   onCommandClick
 }) => {
-  // Filter commands based on query
-  const filteredCommands = commands.filter(cmd =>
-    cmd.cmd.toLowerCase().includes(query.toLowerCase()) ||
-    cmd.label.toLowerCase().includes(query.toLowerCase())
-  )
-
   // Animation with react-spring - scale and opacity separately
   const transition = useTransition(isOpen, {
     from: { scale: 0.95, opacity: 0 },
@@ -46,7 +38,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
       {transition((style, item) =>
         item ? createPortal(
           (() => {
-            if (filteredCommands.length === 0) return null
+            if (commands.length === 0) return null
 
             // 只在渲染时获取位置，而不是每次输入都获取
             const textarea = textareaRef.current
@@ -73,7 +65,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                 >
                   <div className="bg-white/90 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden">
                   <div className="p-1">
-                    {filteredCommands.map((cmd, index) => (
+                    {commands.map((cmd, index) => (
                       <div
                         key={cmd.cmd}
                         className={cn(
