@@ -16,6 +16,7 @@ import {
 } from "@renderer/components/ui/tooltip"
 import { useChatContext } from '@renderer/context/ChatContext'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
+import { useSlashCommands } from '@renderer/hooks/useSlashCommands'
 import { invokeMcpConnect, invokeMcpDisconnect } from '@renderer/invoker/ipcInvoker'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
@@ -31,20 +32,11 @@ import {
   Package,
   Plug
 } from 'lucide-react'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { CustomCaretOverlay, CustomCaretRef } from './common/CustomCaretOverlay'
 import CommandPalette from './CommandPalette'
-
-import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
-import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
-import groqIcon from '@renderer/assets/provider-icons/groq.svg'
-import moonshotIcon from '@renderer/assets/provider-icons/moonshot.svg'
-import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
-import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
-import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
-import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
-import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
+import { getProviderIcon } from '@renderer/utils/providerIcons'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
@@ -60,13 +52,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   // Use Zustand selectors to avoid unnecessary re-renders
   // Only subscribe to specific state slices instead of the entire store
-  const setMessages = useChatStore(state => state.setMessages)
   const imageSrcBase64List = useChatStore(state => state.imageSrcBase64List)
   const setImageSrcBase64List = useChatStore(state => state.setImageSrcBase64List)
   const currentReqCtrl = useChatStore(state => state.currentReqCtrl)
   const readStreamState = useChatStore(state => state.readStreamState)
   const webSearchEnable = useChatStore(state => state.webSearchEnable)
-  const toggleWebSearch = useChatStore(state => state.toggleWebSearch)
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
@@ -84,7 +74,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       setSelectedModel(models[0])
     }
   }, [models])
-  const { setChatTitle, setChatUuid, setChatId } = useChatContext()
   const [inputContent, setInputContent] = useState<string>('')
   const [selectModelPopoutState, setSelectModelPopoutState] = useState<boolean>(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = useState<boolean>(false)
@@ -99,7 +88,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [commandPanelOpen, setCommandPanelOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState('')
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
-  const [commandPanelPosition, setCommandPanelPosition] = useState({ top: 0, left: 0, width: 0 })
 
   // Textarea ref
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -107,65 +95,32 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   // Custom Caret Ref
   const caretOverlayRef = useRef<CustomCaretRef>(null)
 
-  // Define slash commands
-  const slashCommands = [
-    {
-      cmd: '/clear',
-      label: 'Clear Chat',
-      description: '清空当前对话',
-      action: () => startNewChat()
-    },
-    {
-      cmd: '/artifacts',
-      label: 'Toggle Artifacts',
-      description: artifacts ? '关闭 Artifacts 面板' : '开启 Artifacts 面板',
-      action: () => {
-        const newState = !artifacts
-        toggleArtifacts(newState)
-        setArtifactsPanel(newState)
-      }
-    },
-    {
-      cmd: '/websearch',
-      label: 'Toggle Web Search',
-      description: webSearchEnable ? '关闭网络搜索' : '开启网络搜索',
-      action: () => toggleWebSearch(!webSearchEnable)
-    },
-  ]
+  // Use custom hook for slash commands
+  const { commands: slashCommandsBase, startNewChat: startNewChatBase } = useSlashCommands()
 
-  const getIconSrc = (provider: string) => {
-    let iconSrc = robotIcon
-    const pName = provider.toLowerCase()
-    switch (pName) {
-      case "OpenAI".toLowerCase():
-        iconSrc = openaiIcon
-        break
-      case "Anthropic".toLowerCase():
-        iconSrc = anthropicIcon
-        break
-      case "DeepSeek".toLowerCase():
-        iconSrc = deepseekIcon
-        break
-      case "MoonShot".toLowerCase():
-        iconSrc = moonshotIcon
-        break
-      case "SilliconFlow".toLowerCase() || "SiliconCloud".toLowerCase():
-        iconSrc = siliconcloudIcon
-        break
-      case "OpenRouter".toLowerCase():
-        iconSrc = openrouterIcon
-        break
-      case "Ollamma".toLowerCase():
-        iconSrc = ollamaIcon
-        break
-      case "Groq".toLowerCase():
-        iconSrc = groqIcon
-        break
-      default:
-        break
-    }
-    return iconSrc
-  }
+  // Extend startNewChat to include local state reset
+  const startNewChat = useCallback(() => {
+    startNewChatBase()
+    setCurrentSystemPrompt('')
+  }, [startNewChatBase])
+
+  // Override commands to use the extended startNewChat
+  const slashCommands = useMemo(() =>
+    slashCommandsBase.map(cmd =>
+      cmd.cmd === '/clear' ? { ...cmd, action: startNewChat } : cmd
+    ),
+    [slashCommandsBase, startNewChat]
+  )
+
+  // Memoize filtered commands to avoid recalculating on every keydown
+  const filteredCommands = React.useMemo(() => {
+    if (!commandQuery) return slashCommands
+    const lowerQuery = commandQuery.toLowerCase()
+    return slashCommands.filter(cmd =>
+      cmd.cmd.toLowerCase().includes(lowerQuery) ||
+      cmd.label.toLowerCase().includes(lowerQuery)
+    )
+  }, [slashCommands, commandQuery])
 
   const handleChatSubmit = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
@@ -239,36 +194,25 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     const value = e.target.value
     setInputContent(value)
 
-    // Detect slash command trigger
-    const cursorPos = e.target.selectionStart
-    const beforeCursor = value.slice(0, cursorPos)
-    const lastSlashIndex = beforeCursor.lastIndexOf('/')
+    // 只在第一个字符是 / 时才处理 command
+    if (value.startsWith('/')) {
+      // 找到第一个空格的位置
+      const spaceIndex = value.indexOf(' ')
+      const query = spaceIndex === -1 ? value.slice(1) : value.slice(1, spaceIndex)
 
-    // Check if slash exists and is at start or after whitespace
-    const hasValidSlash = lastSlashIndex > -1 &&
-      (lastSlashIndex === 0 || /\s/.test(beforeCursor[lastSlashIndex - 1]))
-
-    if (hasValidSlash) {
-      const query = beforeCursor.slice(lastSlashIndex + 1)
-      // Only show panel if query doesn't contain space (still typing command)
-      if (!query.includes(' ')) {
-        // Calculate position for portal
-        const textarea = e.target
-        const rect = textarea.getBoundingClientRect()
-        setCommandPanelPosition({
-          top: rect.top,
-          left: rect.left,
-          width: rect.width
-        })
+      if (spaceIndex === -1) {
+        // 还在输入命令，显示面板
         setCommandQuery(query)
         setCommandPanelOpen(true)
         setSelectedCommandIndex(0)
-        return
+      } else {
+        // 已经输入了空格，关闭面板
+        setCommandPanelOpen(false)
       }
+    } else {
+      // 不是以 / 开头，直接关闭面板
+      setCommandPanelOpen(false)
     }
-
-    // Close panel if no valid slash or conditions not met
-    setCommandPanelOpen(false)
   }, [])
 
   // 监听 suggestedPrompt 的变化（自动填充到 textarea）
@@ -287,10 +231,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Handle command palette navigation
     if (commandPanelOpen) {
-      const filteredCommands = slashCommands.filter(cmd =>
-        cmd.cmd.toLowerCase().includes(commandQuery.toLowerCase()) ||
-        cmd.label.toLowerCase().includes(commandQuery.toLowerCase())
-      )
+      // 使用已经 memoized 的 filteredCommands，不再每次按键都过滤
 
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -335,7 +276,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       }
       onSubmitClick(e)
     }
-  }, [commandPanelOpen, commandQuery, selectedCommandIndex, onSubmitClick])
+  }, [commandPanelOpen, filteredCommands, selectedCommandIndex, onSubmitClick, inputContent, selectedModel])
 
   const onTextAreaPaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
@@ -363,17 +304,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       setCommandPanelOpen(false)
     }, 200)
   }, [])
-
-  const startNewChat = () => {
-    setChatId(undefined)
-    setChatUuid(undefined)
-    setChatTitle('NewChat')
-    setMessages([])
-    setCurrentSystemPrompt('')
-
-    toggleArtifacts(false)
-    toggleWebSearch(false)
-  }
 
   // Execute command and replace slash command text
   const executeCommand = useCallback((command: typeof slashCommands[0]) => {
@@ -517,7 +447,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                         heading={
                           <div className="flex items-center gap-2 px-2 py-1.5 dark:bg-gray-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-gray-800">
                             <img
-                              src={getIconSrc(p.name)}
+                              src={getProviderIcon(p.name)}
                               alt={p.name}
                               className="w-4 h-4 object-contain dark:invert dark:brightness-90 opacity-70"
                             />
@@ -705,7 +635,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           <Textarea
             ref={textareaRef}
             className={
-              cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 backdrop-blur-3xl transition-colors duration-200 ease-out',
+              cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 transition-colors duration-200 ease-out',
                 'rounded-none resize-none overflow-y-auto text-sm px-2 pt-0.5 pb-2 font-medium text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
                 'placeholder:text-gray-400 dark:placeholder:text-gray-500 leading-relaxed',
               )
@@ -819,7 +749,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         query={commandQuery}
         commands={slashCommands}
         selectedIndex={selectedCommandIndex}
-        position={commandPanelPosition}
+        textareaRef={textareaRef}
         onCommandClick={executeCommand}
       />
     </div>

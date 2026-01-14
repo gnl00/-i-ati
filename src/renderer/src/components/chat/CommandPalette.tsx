@@ -15,7 +15,7 @@ interface CommandPaletteProps {
   query: string
   commands: Command[]
   selectedIndex: number
-  position: { top: number; left: number; width: number }
+  textareaRef: React.RefObject<HTMLTextAreaElement>
   onCommandClick: (command: Command) => void
 }
 
@@ -24,7 +24,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
   query,
   commands,
   selectedIndex,
-  position,
+  textareaRef,
   onCommandClick
 }) => {
   // Filter commands based on query
@@ -48,13 +48,19 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
           (() => {
             if (filteredCommands.length === 0) return null
 
+            // 只在渲染时获取位置，而不是每次输入都获取
+            const textarea = textareaRef.current
+            if (!textarea) return null
+
+            const rect = textarea.getBoundingClientRect()
+
             return (
               <animated.div
                 className="fixed z-[9999]"
                 style={{
-                  top: `${position.top - 10}px`,
-                  left: `${position.left}px`,
-                  width: `${position.width}px`,
+                  top: `${rect.top - 10}px`,
+                  left: `${rect.left}px`,
+                  width: `${rect.width}px`,
                   transform: 'translateY(-100%)',
                   opacity: style.opacity
                 }}
