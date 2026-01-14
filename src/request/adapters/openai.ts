@@ -13,19 +13,12 @@ export class OpenAIAdapter extends BaseAdapter {
   transformRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
-      messages: req.messages,
+      messages: req.messages,  // Use messages directly - system prompts already included by RequestMessageBuilder
       stream: req.stream ?? true,
       temperature: req.options?.temperature ?? 1,
       max_tokens: req.options?.maxTokens ?? 4096,
       top_p: req.options?.topP ?? 1,
       n: 1
-    }
-
-    if (req.prompt) {
-      requestBody.messages = [
-        buildSystemPrompt(req.prompt),
-        ...requestBody.messages
-      ]
     }
 
     if (req.tools?.length) {

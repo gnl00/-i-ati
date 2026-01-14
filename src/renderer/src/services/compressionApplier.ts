@@ -62,6 +62,7 @@ class CompressionApplier {
     }
 
     return result
+    // Orphaned tool message handling moved to RequestMessageBuilder
   }
 
   /**

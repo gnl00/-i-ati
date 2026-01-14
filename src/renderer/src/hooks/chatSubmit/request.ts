@@ -2,42 +2,26 @@ import { embeddedToolsRegistry } from '@tools/index'
 import type { BuildRequestParams, PreparedRequest } from './types'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { getActiveCompressedSummariesByChatId } from '@renderer/db/CompressedSummaryRepository'
-import { compressionApplier } from '@renderer/services/compressionApplier'
+import { RequestMessageBuilder } from '@renderer/services/RequestMessageBuilder'
 
 export const buildRequestV2 = async ({ prepared }: BuildRequestParams): Promise<PreparedRequest> => {
-  // 1. 应用压缩策略（如果启用）
+  // 1. 获取压缩摘要（如果启用）
   const appConfig = useAppConfigStore.getState()
   const compressionConfig = appConfig.compression
 
-  let messagesToFilter = prepared.session.chatMessages
-
-  if (compressionConfig?.enabled) {
-    // 获取活跃的压缩摘要
+  let compressionSummary: CompressedSummaryEntity | null = null
+  if (compressionConfig?.enabled && prepared.session.currChatId) {
     const summaries = await getActiveCompressedSummariesByChatId(prepared.session.currChatId)
-
-    if (summaries.length > 0) {
-      // 应用压缩策略
-      // 注意：这里需要传入 MessageEntity[]，而不是 ChatMessage[]
-      messagesToFilter = compressionApplier.applyCompression(
-        prepared.session.messageEntities,  // 使用 messageEntities 而不是 chatMessages
-        summaries
-      )
-    }
+    compressionSummary = summaries.length > 0 ? summaries[0] : null
   }
 
-  // 2. 过滤消息（现有逻辑）
-  const filteredMessages = messagesToFilter.filter(msg => {
-    if (msg.role === 'assistant') {
-      if (msg.toolCalls && msg.toolCalls.length > 0) {
-        return true
-      }
-      if (msg.content && (msg.content as string).trim() !== '') {
-        return true
-      }
-      return false
-    }
-    return true
-  })
+  // 2. 使用 RequestMessageBuilder 构建最终消息列表
+  const messageBuilder = new RequestMessageBuilder()
+    .setSystemPrompts(prepared.systemPrompts)
+    .setMessages(prepared.session.messageEntities)
+    .setCompressionSummary(compressionSummary)
+
+  const finalMessages = messageBuilder.build()
 
   const embeddedTools = embeddedToolsRegistry.getAllTools()
   const finalTools = embeddedTools.map(tool => ({
@@ -50,9 +34,9 @@ export const buildRequestV2 = async ({ prepared }: BuildRequestParams): Promise<
 
   const request: IUnifiedRequest = {
     baseUrl: prepared.meta.provider.apiUrl,
-    messages: filteredMessages,
+    messages: finalMessages,
     apiKey: prepared.meta.provider.apiKey,
-    prompt: prepared.systemPrompts.join('\n'),
+    // prompt field removed - system prompts now in messages
     model: prepared.meta.model.value,
     modelType: prepared.meta.model.type,
     tools: finalTools

@@ -1,4 +1,3 @@
-import { buildSystemPrompt } from '@request/utils'
 import { BaseAdapter } from './base'
 
 // Claude Messages API (v1) 适配器
@@ -18,13 +17,22 @@ export class ClaudeAdapter extends BaseAdapter {
 
   transformRequest(req: IUnifiedRequest): any {
     // Claude Messages API 的请求格式
+    // Extract system messages and pass them in the 'system' field
+    const { systemPrompt, messages } = this.extractSystemMessages(req.messages)
+
     const requestBody: any = {
       model: req.model,
       max_tokens: req.options?.maxTokens ?? 4096,
       temperature: req.options?.temperature ?? 0.7,
       top_p: req.options?.topP ?? 0.7,
       stream: req.stream ?? true,
-      messages: this.transformMessages(req.messages, req.prompt)
+      messages: messages
+    }
+
+    // Claude API requires system prompts in separate 'system' field
+    // System prompts are extracted from messages by RequestMessageBuilder
+    if (systemPrompt) {
+      requestBody.system = systemPrompt
     }
 
     if (req.tools?.length) {
@@ -122,14 +130,33 @@ export class ClaudeAdapter extends BaseAdapter {
     return null
   }
 
-  private transformMessages(messages: ChatMessage[], _systemPrompt?: string): any[] {
-    const claudeMessages = messages.filter(m => m.role !== 'system').map(msg => ({
-      role: msg.role === 'system' ? 'assistant' : msg.role,
+  /**
+   * Extract system messages from messages array
+   * Claude API requires system prompts in separate 'system' field
+   */
+  private extractSystemMessages(messages: ChatMessage[]): { systemPrompt: string | null; messages: any[] } {
+    const systemMessages: string[] = []
+    const nonSystemMessages: ChatMessage[] = []
+
+    // Separate system messages from other messages
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        systemMessages.push(typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content))
+      } else {
+        nonSystemMessages.push(msg)
+      }
+    }
+
+    // Transform non-system messages to Claude format
+    const claudeMessages = nonSystemMessages.map(msg => ({
+      role: msg.role,
       content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
     }))
 
-    // Claude 需要单独处理 systemPrompt
-    return claudeMessages
+    return {
+      systemPrompt: systemMessages.length > 0 ? systemMessages.join('\n\n') : null,
+      messages: claudeMessages
+    }
   }
 
   private transformClaudeTools(tools: any[]): any[] {
@@ -177,18 +204,11 @@ export class ClaudeChatAdapter extends BaseAdapter {
     // 使用类似 OpenAI 的请求格式，但适配 Claude 的特殊需求
     const requestBody: any = {
       model: req.model,
-      messages: req.messages,
+      messages: req.messages,  // Use messages directly - system prompts already included by RequestMessageBuilder
       stream: req.stream ?? true,
       max_tokens: req.options?.maxTokens ?? 4096,
       temperature: req.options?.temperature ?? 0.7,
       top_p: req.options?.topP ?? 0.7
-    }
-
-    if (req.prompt) {
-      requestBody.messages = [
-        buildSystemPrompt(req.prompt),
-        ...requestBody.messages
-      ]
     }
 
     if (req.tools?.length) {
@@ -317,7 +337,7 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
 
   transformRequest(req: IUnifiedRequest): any {
     // 转换为 Claude Legacy API 格式
-    const prompt = this.buildPrompt(req.messages, req.prompt)
+    const prompt = this.buildPrompt(req.messages)
 
     return {
       model: req.model,
@@ -392,8 +412,19 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
     return null
   }
 
-  private buildPrompt(messages: ChatMessage[], systemPrompt?: string): string {
-    let prompt = systemPrompt ? `${systemPrompt}\n\n` : ''
+  private buildPrompt(messages: ChatMessage[]): string {
+    // System prompts are already included in messages by RequestMessageBuilder
+    // Just convert messages to prompt format
+    let prompt = ''
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        prompt += `${msg.content}\n\n`
+      } else if (msg.role === 'user') {
+        prompt += `Human: ${msg.content}\n\n`
+      } else if (msg.role === 'assistant') {
+        prompt += `Assistant: ${msg.content}\n\n`
+      }
+    }
     return prompt
   }
 }
