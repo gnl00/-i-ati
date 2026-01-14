@@ -27,6 +27,9 @@ import {
   processMemoryRetrieval,
   processMemorySave
 } from '@tools/memory/main/MemoryToolsProcessor'
+import {
+  processExecuteCommand
+} from '@tools/command/main/CommandProcessor'
 import { ipcMain, shell } from 'electron'
 import streamingjson from 'streaming-json'
 import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
@@ -75,6 +78,7 @@ import {
   EMBEDDING_GET_MODEL_INFO,
   MEMORY_RETRIEVAL_ACTION,
   MEMORY_SAVE_ACTION,
+  COMMAND_EXECUTE_ACTION,
   DB_CHAT_SAVE,
   DB_CHAT_GET_ALL,
   DB_CHAT_GET_BY_ID,
@@ -236,6 +240,12 @@ function mainIPCSetup() {
   ipcMain.handle(MEMORY_SAVE_ACTION, async (_event, args) => {
     console.log(`[MemoryTools IPC] Save memory for chat: ${args.chatId}`)
     return await processMemorySave(args)
+  })
+
+  // Command Operations handlers
+  ipcMain.handle(COMMAND_EXECUTE_ACTION, async (_event, args) => {
+    console.log(`[Command IPC] Execute command: ${args.command}`)
+    return await processExecuteCommand(args)
   })
 
   ipcMain.handle(MCP_CONNECT, async (_, mcpProps) => {
