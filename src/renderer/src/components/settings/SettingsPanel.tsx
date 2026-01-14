@@ -128,10 +128,21 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         value={activeTab}
                         tabsListClassName="h-10 shadow-sm border border-gray-200/50 dark:border-gray-700/50"
                     />
-                    <div className="flex items-end gap-2">
-                        <p className='text-xs text-orange-400 dark:text-orange-300 select-none'>Remember to save changes</p>
-                        <Button size="xs" onClick={saveConfigurationClick} className="shadow-sm">
-                            <i className="ri-save-line mr-1.5"></i>
+                    <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                            </div>
+                            <span className='text-xs font-medium text-gray-600 dark:text-gray-300 select-none'>Unsaved changes</span>
+                        </div>
+                        <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
+                        <Button
+                            size="xs"
+                            onClick={saveConfigurationClick}
+                            className="h-7 px-3 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 font-medium"
+                        >
+                            <i className="ri-save-line mr-1.5 text-sm"></i>
                             Save
                         </Button>
                     </div>
