@@ -32,16 +32,7 @@ import {
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { Trash } from "lucide-react"
 import { toast } from 'sonner'
-
-import anthropicIcon from '@renderer/assets/provider-icons/anthropic.svg'
-import deepseekIcon from '@renderer/assets/provider-icons/deepseek.svg'
-import groqIcon from '@renderer/assets/provider-icons/groq.svg'
-import moonshotIcon from '@renderer/assets/provider-icons/moonshot.svg'
-import ollamaIcon from '@renderer/assets/provider-icons/ollama.svg'
-import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
-import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
-import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
-import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
+import { getProviderIcon } from '@renderer/utils/providerIcons'
 import FetchModelsDrawer from './FetchModelsDrawer'
 
 interface ProvidersManagerProps { }
@@ -128,22 +119,6 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
         addProvider(newProvider)
 
         toast.success(`Added ${newProviderName}`)
-    }
-
-    const ICON_MAP = {
-        'openai': openaiIcon,
-        'anthropic': anthropicIcon,
-        'deepseek': deepseekIcon,
-        'moonshot': moonshotIcon,
-        'siliconflow': siliconcloudIcon,
-        'siliconcloud': siliconcloudIcon,
-        'openrouter': openrouterIcon,
-        'ollama': ollamaIcon,
-        'groq': groqIcon,
-    }
-
-    const getIconSrc = (provider: string) => {
-        return ICON_MAP[provider.toLowerCase()] || robotIcon
     }
 
     const onModelTableCellClick = (val: string) => {
@@ -288,7 +263,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                         <img
                                             id="providerIcon"
                                             draggable={false}
-                                            src={getIconSrc(p.name)}
+                                            src={getProviderIcon(p.name)}
                                             alt={p.name}
                                             className={cn(
                                                 "w-5 h-5 flex-none dark:invert dark:brightness-90 transition-all duration-200 ease-out",

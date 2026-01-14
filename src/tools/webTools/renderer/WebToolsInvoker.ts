@@ -46,7 +46,7 @@ export async function invokeWebSearch(args: WebSearchArgs): Promise<WebSearchRes
       fetchCounts: fetchCounts
     })
 
-    console.log('[WebToolsInvoker] Search response:', searchResponse)
+    // console.log('[WebToolsInvoker] Search response:', searchResponse)
     return searchResponse
 
   } catch (error: any) {
