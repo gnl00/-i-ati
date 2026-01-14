@@ -14,24 +14,46 @@ import {
   Package
 } from 'lucide-react'
 import React from 'react'
+import { toast } from 'sonner'
 
 interface ChatInputActionsProps {
   readStreamState: boolean
   artifacts: boolean
+  currentReqCtrl: AbortController | undefined
+  toggleArtifacts: (state: boolean) => void
+  setArtifactsPanel: (open: boolean) => void
   onNewChat: () => void
-  onArtifactsToggle: () => void
   onSubmit: () => void
-  onStop: () => void
 }
 
 const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   readStreamState,
   artifacts,
+  currentReqCtrl,
+  toggleArtifacts,
+  setArtifactsPanel,
   onNewChat,
-  onArtifactsToggle,
-  onSubmit,
-  onStop
+  onSubmit
 }) => {
+  const handleArtifactsToggle = () => {
+    const newState = !artifacts
+    toggleArtifacts(newState)
+    setArtifactsPanel(newState)
+  }
+
+  const handleStopClick = () => {
+    console.log('[onStopClick] Triggered, currentReqCtrl:', currentReqCtrl)
+
+    if (!currentReqCtrl) {
+      return
+    }
+
+    try {
+      currentReqCtrl.abort()
+    } catch (error) {
+      toast.error('Failed to stop request')
+    }
+  }
   return (
     <div
       id="inputAreaBottom"
@@ -70,7 +92,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                     ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 hover:bg-blue-200 hover:text-blue-400 dark:hover:bg-blue-900/60"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
                 )}
-                onClick={onArtifactsToggle}
+                onClick={handleArtifactsToggle}
               >
                 <Package className="w-5 h-5" strokeWidth={2} />
               </Button>
@@ -101,7 +123,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               variant={'destructive'}
               size={'sm'}
               className={cn('rounded-full border-[1px] hover:bg-red-400 dark:hover:bg-red-500 animate-pulse transition-transform duration-800')}
-              onClick={onStop}
+              onClick={handleStopClick}
             >
               <StopIcon />&nbsp;Stop
             </Button>
