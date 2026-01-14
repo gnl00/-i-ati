@@ -15,7 +15,6 @@ interface ConfigPanelProps {
   onTemperatureChange: (val: number[]) => void
   onTopPChange: (val: number[]) => void
   onSystemPromptChange: (val: string) => void
-  onResetDefaults?: () => void
 }
 
 const ConfigPanel: React.FC<ConfigPanelProps> = ({
@@ -24,9 +23,13 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   currentSystemPrompt,
   onTemperatureChange,
   onTopPChange,
-  onSystemPromptChange,
-  onResetDefaults
+  onSystemPromptChange
 }) => {
+  const handleResetDefaults = () => {
+    onTemperatureChange([1])
+    onTopPChange([1])
+    onSystemPromptChange('')
+  }
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -115,7 +118,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
               variant="ghost"
               size="sm"
               className="w-full h-7 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
-              onClick={onResetDefaults}
+              onClick={handleResetDefaults}
             >
               Reset to Defaults
             </Button>

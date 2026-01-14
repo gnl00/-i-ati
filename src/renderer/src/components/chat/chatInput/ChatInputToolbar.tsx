@@ -9,12 +9,13 @@ interface ChatInputToolbarProps {
   selectedModel: IModel | undefined
   models: IModel[]
   providers: IProvider[]
-  onModelSelect: (model: IModel, providerName: string) => void
+  setSelectedModel: (model: IModel) => void
+  setCurrentProviderName: (name: string) => void
 
   // MCP selector props
   selectedMcpServerNames: string[]
   mcpServerConfig: any
-  onMcpToolSelected: (serverName: string, serverConfig: any) => void
+  toggleMcpConnection: (serverName: string, serverConfig: any) => Promise<any>
   isConnectingMcpServer: (serverName: string) => boolean
 
   // Config panel props
@@ -24,25 +25,24 @@ interface ChatInputToolbarProps {
   onTemperatureChange: (val: number[]) => void
   onTopPChange: (val: number[]) => void
   onSystemPromptChange: (val: string) => void
-  onResetDefaults?: () => void
 }
 
 const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   selectedModel,
   models,
   providers,
-  onModelSelect,
+  setSelectedModel,
+  setCurrentProviderName,
   selectedMcpServerNames,
   mcpServerConfig,
-  onMcpToolSelected,
+  toggleMcpConnection,
   isConnectingMcpServer,
   chatTemperature,
   chatTopP,
   currentSystemPrompt,
   onTemperatureChange,
   onTopPChange,
-  onSystemPromptChange,
-  onResetDefaults
+  onSystemPromptChange
 }) => {
   const [selectModelPopoutState, setSelectModelPopoutState] = React.useState(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = React.useState(false)
@@ -61,8 +61,14 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   )
 
   const handleModelSelect = (model: IModel, providerName: string) => {
-    onModelSelect(model, providerName)
+    setSelectedModel(model)
+    setCurrentProviderName(providerName)
     setSelectModelPopoutState(false)
+  }
+
+  const handleMcpToolSelected = async (serverName: string, serverConfig: any) => {
+    console.log('mcp-server-config', serverName, serverConfig)
+    await toggleMcpConnection(serverName, serverConfig)
   }
 
   return (
@@ -90,7 +96,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           mcpServerConfig={mcpServerConfig}
           isOpen={selectMCPPopoutState}
           onOpenChange={setSelectMCPPopoutState}
-          onMcpToolSelected={onMcpToolSelected}
+          onMcpToolSelected={handleMcpToolSelected}
           isConnectingMcpServer={isConnectingMcpServer}
           triggerClassName={triggerButtonClassName}
         />
@@ -106,7 +112,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
             onTemperatureChange={onTemperatureChange}
             onTopPChange={onTopPChange}
             onSystemPromptChange={onSystemPromptChange}
-            onResetDefaults={onResetDefaults}
           />
         </div>
       </div>

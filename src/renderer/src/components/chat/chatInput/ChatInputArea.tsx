@@ -156,31 +156,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     })
   }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])
 
-  const onStopClick = () => {
-    console.log('[onStopClick] Triggered, currentReqCtrl:', currentReqCtrl)
-
-    if (!currentReqCtrl) {
-      // console.warn('[onStopClick] No active request to stop')
-      // toast.warning('No active request')
-      return
-    }
-
-    // Only call abort - state cleanup will be handled by the catch block in use-chat-submit
-    try {
-      // console.log('[onStopClick] Calling abort()...')
-      currentReqCtrl.abort()
-      // toast.warning('Stopping request...')
-    } catch (error) {
-      // console.error('[onStopClick] Error calling abort():', error)
-      toast.error('Failed to stop request')
-    }
-  }
-  // const onWebSearchClick = useCallback(() => {
-  //   toggleWebSearch(!webSearchEnable)
-  // }, [toggleWebSearch, webSearchEnable])
-  // const onArtifactsClick = useCallback(() => {
-  //   toggleArtifacts(!artifacts)
-  // }, [artifacts, toggleArtifacts])
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
     setInputContent(value)
@@ -247,32 +222,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     handleCommandBlur()
   }, [handleCommandBlur])
 
-  // Note: executeCommand is now provided by useSlashCommands hook
-
-  // Handlers for toolbar components
-  const handleModelSelect = useCallback((model: IModel, providerName: string) => {
-    setSelectedModel(model)
-    setCurrentProviderName(providerName)
-  }, [setSelectedModel, setCurrentProviderName])
-
-  const handleMcpToolSelected = useCallback(async (serverName: string, serverConfig: any) => {
-    console.log('mcp-server-config', serverName, serverConfig)
-    await toggleMcpConnection(serverName, serverConfig)
-  }, [toggleMcpConnection])
-
-  const handleResetDefaults = useCallback(() => {
-    setChatTemperature([1])
-    setChatTopP([1])
-    setCurrentSystemPrompt('')
-  }, [])
-
-  // Handlers for action buttons
-  const handleArtifactsToggle = useCallback(() => {
-    const newState = !artifacts
-    toggleArtifacts(newState)
-    setArtifactsPanel(newState)
-  }, [artifacts, toggleArtifacts, setArtifactsPanel])
-
   return (
     <div ref={ref} id='inputArea' className={cn('rounded-md w-full h-full flex flex-col')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
@@ -284,10 +233,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           selectedModel={selectedModel}
           models={models}
           providers={providers}
-          onModelSelect={handleModelSelect}
+          setSelectedModel={setSelectedModel}
+          setCurrentProviderName={setCurrentProviderName}
           selectedMcpServerNames={selectedMcpServerNames}
           mcpServerConfig={mcpServerConfig}
-          onMcpToolSelected={handleMcpToolSelected}
+          toggleMcpConnection={toggleMcpConnection}
           isConnectingMcpServer={isConnectingMcpServer}
           chatTemperature={chatTemperature}
           chatTopP={chatTopP}
@@ -295,7 +245,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           onTemperatureChange={setChatTemperature}
           onTopPChange={setChatTopP}
           onSystemPromptChange={setCurrentSystemPrompt}
-          onResetDefaults={handleResetDefaults}
         />
 
         <div className="relative flex-1 overflow-hidden">
@@ -324,10 +273,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         <ChatInputActions
           readStreamState={readStreamState}
           artifacts={artifacts}
+          currentReqCtrl={currentReqCtrl}
+          toggleArtifacts={toggleArtifacts}
+          setArtifactsPanel={setArtifactsPanel}
           onNewChat={startNewChat}
-          onArtifactsToggle={handleArtifactsToggle}
           onSubmit={onSubmitClick}
-          onStop={onStopClick}
         />
       </div>
 
