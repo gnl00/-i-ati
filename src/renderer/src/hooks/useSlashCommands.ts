@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import { useChatStore } from '@renderer/store'
 import { useChatContext } from '@renderer/context/ChatContext'
 
@@ -9,11 +9,18 @@ export interface SlashCommand {
   action: () => void
 }
 
+export interface UseSlashCommandsOptions {
+  textareaRef?: React.RefObject<HTMLTextAreaElement>
+  onCommandExecute?: (command: SlashCommand) => void
+}
+
 /**
  * Custom hook for managing slash commands in the chat input
  * Provides a centralized place for command definitions and their actions
+ * Also manages command palette state and keyboard navigation
  */
-export const useSlashCommands = () => {
+export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
+  const { textareaRef, onCommandExecute } = options
   const { setChatId, setChatUuid, setChatTitle } = useChatContext()
   const setMessages = useChatStore(state => state.setMessages)
   const artifacts = useChatStore(state => state.artifacts)
@@ -21,6 +28,11 @@ export const useSlashCommands = () => {
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const webSearchEnable = useChatStore(state => state.webSearchEnable)
   const toggleWebSearch = useChatStore(state => state.toggleWebSearch)
+
+  // Command palette state
+  const [isOpen, setIsOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
 
   /**
    * Start a new chat session
@@ -64,8 +76,127 @@ export const useSlashCommands = () => {
     },
   ], [artifacts, webSearchEnable, startNewChat, toggleArtifacts, setArtifactsPanel, toggleWebSearch])
 
+  /**
+   * Filter commands based on query
+   */
+  const filteredCommands = useMemo(() => {
+    if (!query) return commands
+    const lowerQuery = query.toLowerCase()
+    return commands.filter(cmd =>
+      cmd.cmd.toLowerCase().includes(lowerQuery) ||
+      cmd.label.toLowerCase().includes(lowerQuery)
+    )
+  }, [commands, query])
+
+  /**
+   * Reset selected index when filtered commands change
+   */
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [filteredCommands])
+
+  /**
+   * Execute a command and clean up
+   */
+  const executeCommand = useCallback((command: SlashCommand) => {
+    // Execute the command action
+    command.action()
+
+    // Call the optional callback
+    if (onCommandExecute) {
+      onCommandExecute(command)
+    }
+
+    // Close the palette
+    setIsOpen(false)
+    setQuery('')
+  }, [onCommandExecute])
+
+  /**
+   * Handle keyboard navigation in command palette
+   */
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!isOpen) return false
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIndex(prev =>
+        prev < filteredCommands.length - 1 ? prev + 1 : 0
+      )
+      return true
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex(prev =>
+        prev > 0 ? prev - 1 : filteredCommands.length - 1
+      )
+      return true
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (filteredCommands.length > 0) {
+        executeCommand(filteredCommands[selectedIndex])
+      }
+      return true
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setIsOpen(false)
+      setQuery('')
+      return true
+    }
+
+    return false
+  }, [isOpen, filteredCommands, selectedIndex, executeCommand])
+
+  /**
+   * Handle textarea input change to detect slash commands
+   */
+  const handleInputChange = useCallback((value: string) => {
+    // Only process if starts with /
+    if (value.startsWith('/')) {
+      const spaceIndex = value.indexOf(' ')
+      const commandQuery = spaceIndex === -1 ? value.slice(1) : value.slice(1, spaceIndex)
+
+      if (spaceIndex === -1) {
+        // Still typing command, show palette
+        setQuery(commandQuery)
+        setIsOpen(true)
+      } else {
+        // Space entered, close palette
+        setIsOpen(false)
+      }
+    } else {
+      // Not a command, close palette
+      setIsOpen(false)
+    }
+  }, [])
+
+  /**
+   * Handle blur event with delay to allow click events
+   */
+  const handleBlur = useCallback(() => {
+    setTimeout(() => {
+      setIsOpen(false)
+    }, 200)
+  }, [])
+
   return {
     commands,
-    startNewChat
+    startNewChat,
+    // Command palette state
+    isOpen,
+    query,
+    selectedIndex,
+    filteredCommands,
+    // Command palette actions
+    executeCommand,
+    handleKeyDown,
+    handleInputChange,
+    handleBlur,
+    setIsOpen
   }
 }

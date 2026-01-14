@@ -1,6 +1,6 @@
 import { ArtifactsPanel } from '@renderer/components/artifacts'
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
-import ChatInputArea from "@renderer/components/chat/ChatInputArea"
+import ChatInputArea from "@renderer/components/chat/chatInput/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
 import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageNext2"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
