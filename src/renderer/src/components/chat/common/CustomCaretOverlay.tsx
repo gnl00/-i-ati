@@ -13,6 +13,13 @@ interface CustomCaretOverlayProps {
   textareaRef: React.RefObject<HTMLTextAreaElement>
 }
 
+interface TrailNode {
+  root: HTMLDivElement
+  inner: HTMLDivElement
+  animation: Animation | null
+  busy: boolean
+}
+
 // Configuration constants
 const CARET_CONFIG = {
   // Trail trigger thresholds
@@ -33,6 +40,7 @@ const CARET_CONFIG = {
 
   // Trail visual
   TRAIL_WIDTH_PADDING: 2,                // px - extra width for trail
+  TRAIL_POOL_SIZE: 8                     // max number of reusable trail elements
 } as const
 
 export type CaretConfig = typeof CARET_CONFIG
@@ -46,7 +54,11 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
   const isBackspaceRef = useRef(false)
   const isFocusedRef = useRef(false)
   const isWindowFocusedRef = useRef(true)
-  const updateTimeoutRef = useRef<number | null>(null)
+  const measurementsRef = useRef<{ textareaRect: DOMRect; overlayRect: DOMRect } | null>(null)
+  const measurementsDirtyRef = useRef(true)
+  const rafIdRef = useRef<number | null>(null)
+  const needsUpdateRef = useRef(false)
+  const trailPoolRef = useRef<TrailNode[]>([])
 
   const setOverlayVisibility = useCallback((visible: boolean) => {
     const overlay = overlayRef.current
@@ -54,6 +66,27 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     overlay.style.opacity = visible ? '1' : '0'
     overlay.style.visibility = visible ? 'visible' : 'hidden'
   }, [])
+
+  const markMeasurementsDirty = useCallback(() => {
+    measurementsDirtyRef.current = true
+  }, [])
+
+  const refreshMeasurements = useCallback(() => {
+    const textarea = textareaRef.current
+    const overlay = overlayRef.current
+
+    if (!textarea || !overlay) {
+      measurementsRef.current = null
+      measurementsDirtyRef.current = true
+      return
+    }
+
+    measurementsRef.current = {
+      textareaRect: textarea.getBoundingClientRect(),
+      overlayRect: overlay.getBoundingClientRect()
+    }
+    measurementsDirtyRef.current = false
+  }, [textareaRef])
 
   const hideCaretElement = useCallback(() => {
     const caret = caretRef.current
@@ -71,29 +104,66 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     caret.style.transform = `translate3d(${left}px, ${top}px, 0)`
     caret.style.height = `${height}px`
     caret.style.opacity = '1'
+  }, [setOverlayVisibility])
+
+  const acquireTrailNode = useCallback((container: HTMLDivElement): TrailNode | null => {
+    let node = trailPoolRef.current.find(n => !n.busy)
+
+    if (!node) {
+      if (trailPoolRef.current.length < CARET_CONFIG.TRAIL_POOL_SIZE) {
+        const root = document.createElement('div')
+        root.className = "pointer-events-none absolute rounded-md z-10"
+        root.style.opacity = '0'
+        root.style.willChange = 'transform, opacity'
+
+        const inner = document.createElement('div')
+        inner.className = "w-full h-full rounded-md"
+        root.appendChild(inner)
+
+        container.appendChild(root)
+        node = { root, inner, animation: null, busy: false }
+        trailPoolRef.current.push(node)
+      } else {
+        node = trailPoolRef.current[0]
+        if (node.animation) {
+          node.animation.cancel()
+        }
+        node.busy = false
+      }
+    }
+
+    if (node && node.root.parentElement !== container) {
+      container.appendChild(node.root)
+    }
+
+    return node ?? null
   }, [])
 
   const createTrail = useCallback((x: number, y: number, width: number, height: number, isDelete: boolean) => {
     const trailRoot = trailContainerRef.current
     if (!trailRoot) return
 
-    const trail = document.createElement('div')
-    trail.className = "pointer-events-none absolute rounded-md z-10"
-    trail.style.transform = `translate3d(${x}px, ${y}px, 0)`
-    trail.style.width = `${width}px`
-    trail.style.height = `${height}px`
+    const node = acquireTrailNode(trailRoot)
+    if (!node) return
 
-    const inner = document.createElement('div')
-    inner.className = cn(
+    if (node.animation) {
+      node.animation.cancel()
+    }
+
+    node.busy = true
+    node.root.style.transform = `translate3d(${x}px, ${y}px, 0)`
+    node.root.style.width = `${width}px`
+    node.root.style.height = `${height}px`
+    node.root.style.opacity = '1'
+
+    node.inner.className = cn(
       "w-full h-full rounded-md",
       isDelete
         ? "bg-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.4)]"
         : "bg-blue-400/20 shadow-[0_0_5px_rgba(96,165,250,0.3)]"
     )
-    trail.appendChild(inner)
-    trailRoot.appendChild(trail)
 
-    const animation = inner.animate(
+    const animation = node.inner.animate(
       [
         { opacity: 1, transform: 'scaleX(1)' },
         { opacity: 0, transform: 'scaleX(0.95)' }
@@ -105,10 +175,16 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       }
     )
 
-    animation.onfinish = () => {
-      trail.remove()
+    const complete = () => {
+      node.busy = false
+      node.root.style.opacity = '0'
+      node.animation = null
     }
-  }, [])
+
+    animation.onfinish = complete
+    animation.oncancel = complete
+    node.animation = animation
+  }, [acquireTrailNode])
 
   const performUpdate = useCallback(() => {
     const textarea = textareaRef.current
@@ -132,23 +208,17 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     const coords = getCaretCoordinates(textarea, selectionEnd)
 
-    console.log('[CustomCaret] getCaretCoordinates result:', {
-      ...coords,
-      selectionStart,
-      selectionEnd,
-      textLength: valueLength,
-      textValue: textarea.value,
-      scrollTop: textarea.scrollTop,
-      scrollLeft: textarea.scrollLeft
-    })
-
     if (valueLength > 0 && selectionEnd === 0 && lastCaretPos.current) {
-      console.log('[CustomCaret] Skipping update - cursor at 0 but text exists')
       return
     }
 
-    const textareaRect = textarea.getBoundingClientRect()
-    const overlayRect = overlay.getBoundingClientRect()
+    if (!measurementsRef.current || measurementsDirtyRef.current) {
+      refreshMeasurements()
+    }
+    const measurements = measurementsRef.current
+    if (!measurements) return
+
+    const { textareaRect, overlayRect } = measurements
 
     const caretViewportLeft = textareaRect.left + coords.left - textarea.scrollLeft
     const caretViewportTop = textareaRect.top + coords.top - textarea.scrollTop
@@ -161,8 +231,6 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     const finalTop = relativeTop + verticalOffset + CARET_CONFIG.CARET_VERTICAL_OFFSET
     const finalLeft = relativeLeft
     const finalHeight = caretHeight + CARET_CONFIG.CARET_HEIGHT_FINAL_ADJUSTMENT
-
-    console.log('[CustomCaret] Final position:', { finalLeft, finalTop, caretHeight: finalHeight })
 
     applyCaretPosition(finalLeft, finalTop, finalHeight)
 
@@ -178,24 +246,36 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     lastCaretPos.current = { top: finalTop, left: finalLeft }
     isBackspaceRef.current = false
-  }, [textareaRef, hideCaretElement, applyCaretPosition, createTrail])
+  }, [textareaRef, hideCaretElement, applyCaretPosition, createTrail, refreshMeasurements])
 
-  const updateCaret = useCallback(() => {
-    if (updateTimeoutRef.current !== null) {
-      cancelAnimationFrame(updateTimeoutRef.current)
-    }
+  const scheduleCaretUpdate = useCallback(() => {
+    needsUpdateRef.current = true
+    if (rafIdRef.current !== null) return
 
-    updateTimeoutRef.current = requestAnimationFrame(() => {
-      updateTimeoutRef.current = null
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null
+      if (!needsUpdateRef.current) return
+      needsUpdateRef.current = false
       performUpdate()
+      if (needsUpdateRef.current) {
+        scheduleCaretUpdate()
+      }
     })
   }, [performUpdate])
+
+  const updateCaret = useCallback((forceRecalc?: boolean) => {
+    if (forceRecalc) {
+      markMeasurementsDirty()
+    }
+    scheduleCaretUpdate()
+  }, [markMeasurementsDirty, scheduleCaretUpdate])
 
   const showCaret = useCallback(() => {
     isFocusedRef.current = true
     setOverlayVisibility(true)
+    markMeasurementsDirty()
     updateCaret()
-  }, [updateCaret, setOverlayVisibility])
+  }, [updateCaret, setOverlayVisibility, markMeasurementsDirty])
 
   const hideCaret = useCallback(() => {
     isFocusedRef.current = false
@@ -216,6 +296,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     const handleFocus = () => {
       isFocusedRef.current = true
       setOverlayVisibility(true)
+      markMeasurementsDirty()
       requestAnimationFrame(() => {
         updateCaret()
       })
@@ -262,9 +343,11 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     textarea.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      if (updateTimeoutRef.current !== null) {
-        cancelAnimationFrame(updateTimeoutRef.current)
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
       }
+      needsUpdateRef.current = false
 
       textarea.removeEventListener('focus', handleFocus)
       textarea.removeEventListener('blur', handleBlur)
@@ -273,7 +356,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       textarea.removeEventListener('click', handleClick)
       textarea.removeEventListener('keydown', handleKeyDown)
     }
-  }, [textareaRef, updateCaret, hideCaretElement])
+  }, [textareaRef, updateCaret, hideCaretElement, markMeasurementsDirty])
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -302,6 +385,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       resizeTimeout = window.setTimeout(() => {
         resizeTimeout = null
         if (isFocusedRef.current) {
+          markMeasurementsDirty()
           updateCaret()
         }
       }, CARET_CONFIG.RESIZE_THROTTLE_MS)
@@ -319,7 +403,28 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       window.removeEventListener('blur', handleWindowBlur)
       window.removeEventListener('focus', handleWindowFocus)
     }
-  }, [updateCaret, hideCaretElement, textareaRef])
+  }, [updateCaret, hideCaretElement, textareaRef, markMeasurementsDirty])
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return
+    const textarea = textareaRef.current
+    const overlay = overlayRef.current
+    if (!textarea || !overlay) return
+
+    const observer = new ResizeObserver(() => {
+      markMeasurementsDirty()
+      if (isFocusedRef.current) {
+        scheduleCaretUpdate()
+      }
+    })
+
+    observer.observe(textarea)
+    observer.observe(overlay)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [textareaRef, markMeasurementsDirty, scheduleCaretUpdate])
 
   return (
     <div
