@@ -80,3 +80,7 @@ export const DB_MESSAGE_DELETE = 'db:message:delete'
 export const DB_CONFIG_GET = 'db:config:get'
 export const DB_CONFIG_SAVE = 'db:config:save'
 export const DB_CONFIG_INIT = 'db:config:init'
+
+// Command Operations Actions
+export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
+

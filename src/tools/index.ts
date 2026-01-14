@@ -23,6 +23,7 @@ import {
 import { embeddedToolsRegistry, type ToolDefinition } from './registry'
 import { invokeWebFetch, invokeWebSearch } from './webTools/renderer/WebToolsInvoker'
 import { invokeMemoryRetrieval, invokeMemorySave } from './memory/renderer/MemoryToolsInvoker'
+import { invokeExecuteCommand } from './command/renderer/CommandInvoker'
 
 /**
  * 工具处理器映射表
@@ -68,7 +69,10 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
 
   // Memory operations
   'memory_retrieval': invokeMemoryRetrieval,
-  'memory_save': invokeMemorySave
+  'memory_save': invokeMemorySave,
+
+  // Command operations
+  'execute_command': invokeExecuteCommand
 }
 
 /**
