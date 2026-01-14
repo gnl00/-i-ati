@@ -1,6 +1,7 @@
 import { cn } from '@renderer/lib/utils'
 import { getCaretCoordinates } from '@renderer/utils/caret-coords'
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
+import { useSpring, animated, useTransition, to } from '@react-spring/web'
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
 export interface CustomCaretRef {
   updateCaret: (forceVisible?: boolean) => void
@@ -11,6 +12,15 @@ export interface CustomCaretRef {
 
 interface CustomCaretOverlayProps {
   textareaRef: React.RefObject<HTMLTextAreaElement>
+}
+
+interface TrailItem {
+  id: number
+  x: number
+  y: number
+  width: number
+  height: number
+  isDelete: boolean
 }
 
 // Configuration constants
@@ -38,41 +48,62 @@ const CARET_CONFIG = {
 export type CaretConfig = typeof CARET_CONFIG
 
 export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayProps>(({ textareaRef }, ref) => {
-  const caretElRef = useRef<HTMLDivElement>(null)
-  const trailContainerRef = useRef<HTMLDivElement>(null)
+  // Trail state for react-spring transitions
+  const [trails, setTrails] = useState<TrailItem[]>([])
+  const trailIdCounter = useRef(0)
 
   // Internal state refs
   const lastCaretPos = useRef<{ top: number, left: number } | null>(null)
   const isBackspaceRef = useRef(false)
-  const updateScheduled = useRef(false)
-  const isFocusedRef = useRef(false) // Strict focus tracking
-  const isWindowFocusedRef = useRef(true) // Track window focus state
+  const isFocusedRef = useRef(false)
+  const isWindowFocusedRef = useRef(true)
+  const updateTimeoutRef = useRef<number | null>(null)
+
+  // React-spring animation for caret position
+  const [caretSpring, caretApi] = useSpring(() => ({
+    x: 0,
+    y: 0,
+    height: 20,
+    opacity: 0,
+    config: { tension: 300, friction: 26 },
+    immediate: false
+  }))
 
   const performUpdate = useCallback(() => {
-    updateScheduled.current = false
     const textarea = textareaRef.current
-    const caretEl = caretElRef.current
 
-    if (!textarea || !caretEl) return
+    if (!textarea) return
 
-    // Strict Visibility Check:
-    // 1. Must be flagged as focused via onFocus
-    // 2. Window must have focus
-    // 3. document.activeElement must match (double check)
+    // Strict Visibility Check
     if (!isFocusedRef.current || !isWindowFocusedRef.current || document.activeElement !== textarea) {
-      caretEl.style.visibility = 'hidden'
-      caretEl.style.animationPlayState = 'paused'
+      caretApi.start({ opacity: 0, immediate: true })
       return
     }
 
     // Check if there's a selection range - hide caret when text is selected
     if (textarea.selectionStart !== textarea.selectionEnd) {
-      caretEl.style.visibility = 'hidden'
-      caretEl.style.animationPlayState = 'paused'
+      caretApi.start({ opacity: 0, immediate: true })
       return
     }
 
     const { top, left, height, fontSize } = getCaretCoordinates(textarea, textarea.selectionEnd)
+
+    console.log('[CustomCaret] getCaretCoordinates result:', {
+      top, left, height, fontSize,
+      selectionEnd: textarea.selectionEnd,
+      selectionStart: textarea.selectionStart,
+      textLength: textarea.value.length,
+      textValue: textarea.value,
+      scrollTop: textarea.scrollTop,
+      scrollLeft: textarea.scrollLeft
+    })
+
+    // Skip update if cursor position seems incorrect (e.g., at position 0 when there's text)
+    // This can happen during React re-renders when the DOM hasn't fully synced yet
+    if (textarea.value.length > 0 && textarea.selectionEnd === 0 && lastCaretPos.current) {
+      console.log('[CustomCaret] Skipping update - cursor at 0 but text exists')
+      return
+    }
 
     // Adjust for scroll
     const adjustedTop = top - textarea.scrollTop
@@ -84,78 +115,69 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     const finalTop = adjustedTop + verticalOffset + CARET_CONFIG.CARET_VERTICAL_OFFSET
     const finalLeft = adjustedLeft
 
-    // Update Caret Position using CSS variables
-    caretEl.style.setProperty('--caret-x', `${finalLeft}px`)
-    caretEl.style.setProperty('--caret-y', `${finalTop}px`)
-    caretEl.style.setProperty('--caret-height', `${caretHeight + CARET_CONFIG.CARET_HEIGHT_FINAL_ADJUSTMENT}px`)
-    caretEl.style.visibility = 'visible'
-    caretEl.style.animationPlayState = 'running'
+    console.log('[CustomCaret] Final position:', { finalLeft, finalTop, caretHeight })
+
+    // Update Caret Position using react-spring with immediate position update
+    caretApi.start({
+      x: finalLeft,
+      y: finalTop,
+      height: caretHeight + CARET_CONFIG.CARET_HEIGHT_FINAL_ADJUSTMENT,
+      opacity: 1,
+      immediate: true
+    })
 
     // Motion Trail Logic
-    if (lastCaretPos.current && trailContainerRef.current) {
+    if (lastCaretPos.current) {
       const prev = lastCaretPos.current
       // Only trail if moved significantly horizontally and on roughly the same line
       if (Math.abs(prev.top - finalTop) < CARET_CONFIG.TRAIL_MAX_VERTICAL_DIFF &&
           Math.abs(prev.left - finalLeft) > CARET_CONFIG.TRAIL_MIN_HORIZONTAL_DISTANCE) {
-         createTrail(
-             Math.min(prev.left, finalLeft),
-             finalTop,
-             Math.abs(prev.left - finalLeft) + CARET_CONFIG.TRAIL_WIDTH_PADDING,
-             caretHeight,
-             isBackspaceRef.current
-         )
+        const newTrail: TrailItem = {
+          id: trailIdCounter.current++,
+          x: Math.min(prev.left, finalLeft),
+          y: finalTop,
+          width: Math.abs(prev.left - finalLeft) + CARET_CONFIG.TRAIL_WIDTH_PADDING,
+          height: caretHeight,
+          isDelete: isBackspaceRef.current
+        }
+        setTrails(prev => [...prev, newTrail])
+
+        // Auto-remove trail after a short delay to trigger leave animation
+        setTimeout(() => {
+          setTrails(prev => prev.filter(t => t.id !== newTrail.id))
+        }, 50)
       }
     }
 
     lastCaretPos.current = { top: finalTop, left: finalLeft }
-    isBackspaceRef.current = false // Reset backspace flag after update
-  }, [textareaRef])
+    isBackspaceRef.current = false
+  }, [textareaRef, caretApi])
 
-  const createTrail = (x: number, y: number, w: number, h: number, isDelete: boolean) => {
-    if (!trailContainerRef.current) return
-
-    const trail = document.createElement('div')
-    trail.className = "pointer-events-none absolute rounded-md z-10"
-    trail.style.top = '0px'
-    trail.style.left = '0px'
-    trail.style.transform = `translate(${x}px, ${y}px)`
-    trail.style.width = `${w}px`
-    trail.style.height = `${h}px`
-
-    const inner = document.createElement('div')
-    inner.className = cn(
-        "w-full h-full rounded-md",
-        isDelete ? "bg-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.4)]" : "bg-blue-400/20 shadow-[0_0_5px_rgba(96,165,250,0.3)]"
-    )
-    trail.appendChild(inner)
-
-    trailContainerRef.current.appendChild(trail)
-
-    // Use Web Animations API instead of CSS class + setTimeout
-    const animation = inner.animate(
-        [
-            { opacity: 1, transform: 'scaleX(1)' },
-            { opacity: 0, transform: 'scaleX(0.95)' }
-        ],
-        {
-            duration: CARET_CONFIG.TRAIL_ANIMATION_DURATION,
-            easing: 'ease-out',
-            fill: 'forwards'
-        }
-    )
-
-    // Clean up when animation completes
-    animation.onfinish = () => {
-        if (trailContainerRef.current && trail.parentNode === trailContainerRef.current) {
-            trailContainerRef.current.removeChild(trail)
-        }
+  // Use react-spring transitions for trails
+  const trailTransitions = useTransition(trails, {
+    keys: (item) => item.id,
+    from: { opacity: 0, scaleX: 0.95 },
+    enter: { opacity: 1, scaleX: 1 },
+    leave: { opacity: 0, scaleX: 0.95 },
+    config: { duration: CARET_CONFIG.TRAIL_ANIMATION_DURATION },
+    onRest: (result, _spring, item) => {
+      // Remove trail from state after leave animation completes
+      if (result.value.opacity === 0) {
+        setTrails(prev => prev.filter(t => t.id !== item.id))
+      }
     }
-  }
+  })
 
   const updateCaret = useCallback(() => {
-    if (updateScheduled.current) return
-    updateScheduled.current = true
-    requestAnimationFrame(performUpdate)
+    // Clear any pending update
+    if (updateTimeoutRef.current !== null) {
+      cancelAnimationFrame(updateTimeoutRef.current)
+    }
+    // Schedule update for next frame
+    updateTimeoutRef.current = requestAnimationFrame(() => {
+      updateTimeoutRef.current = null
+      performUpdate()
+    })
   }, [performUpdate])
 
   const showCaret = useCallback(() => {
@@ -165,11 +187,8 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
   const hideCaret = useCallback(() => {
     isFocusedRef.current = false
-    if (caretElRef.current) {
-      caretElRef.current.style.visibility = 'hidden'
-      caretElRef.current.style.animationPlayState = 'paused'
-    }
-  }, [])
+    caretApi.start({ opacity: 0 })
+  }, [caretApi])
 
   useImperativeHandle(ref, () => ({
     updateCaret,
@@ -193,10 +212,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     const handleBlur = () => {
       isFocusedRef.current = false
-      if (caretElRef.current) {
-        caretElRef.current.style.visibility = 'hidden'
-        caretElRef.current.style.animationPlayState = 'paused'
-      }
+      caretApi.start({ opacity: 0 })
     }
 
     const handleInput = () => {
@@ -242,6 +258,9 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     textarea.addEventListener('keydown', handleKeyDown)
 
     return () => {
+      if (updateTimeoutRef.current !== null) {
+        cancelAnimationFrame(updateTimeoutRef.current)
+      }
       textarea.removeEventListener('focus', handleFocus)
       textarea.removeEventListener('blur', handleBlur)
       textarea.removeEventListener('input', handleInput)
@@ -304,23 +323,47 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
   return (
     <>
-        {/* Trail Container */}
-        <div ref={trailContainerRef} className="pointer-events-none absolute inset-0 overflow-hidden" />
-        
-        {/* Caret Element */}
-        <div
-            ref={caretElRef}
-            className="custom-caret pointer-events-none absolute w-[3px] bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] z-10 animate-caret-breathe"
+      {/* Trail Container with react-spring transitions */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {trailTransitions((style, item) => (
+          <animated.div
+            key={item.id}
+            className="pointer-events-none absolute rounded-md z-10"
             style={{
-                top: 0,
-                left: 0,
-                visibility: 'hidden', // Hidden by default
-                animationPlayState: 'paused', // Animation paused by default
-                transition: 'transform 0.1s cubic-bezier(0.2, 0, 0, 1), height 0.1s ease',
+              transform: style.opacity.to(o => `translate(${item.x}px, ${item.y}px)`),
+              width: item.width,
+              height: item.height,
+              opacity: style.opacity
             }}
-        >
-            <div className="absolute top-0 bottom-0 -left-[1px] w-[6px] bg-blue-400/20 blur-[2px] rounded-full" />
-        </div>
+          >
+            <animated.div
+              className={cn(
+                "w-full h-full rounded-md",
+                item.isDelete
+                  ? "bg-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.4)]"
+                  : "bg-blue-400/20 shadow-[0_0_5px_rgba(96,165,250,0.3)]"
+              )}
+              style={{
+                transform: style.scaleX.to(s => `scaleX(${s})`)
+              }}
+            />
+          </animated.div>
+        ))}
+      </div>
+
+      {/* Caret Element with react-spring animation */}
+      <animated.div
+        className="custom-caret pointer-events-none absolute w-[3px] bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] z-10 animate-caret-breathe"
+        style={{
+          left: caretSpring.x,
+          top: caretSpring.y,
+          height: caretSpring.height,
+          opacity: caretSpring.opacity,
+          willChange: 'transform, opacity'
+        }}
+      >
+        <div className="absolute top-0 bottom-0 -left-[1px] w-[6px] bg-blue-400/20 blur-[2px] rounded-full" />
+      </animated.div>
     </>
   )
 })
