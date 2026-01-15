@@ -54,46 +54,6 @@ const TextSegment: React.FC<{ segment: MessageSegment; visibleText?: string }> =
   )
 })
 
-const TokenParagraphs: React.FC<{ visibleTokens: string[] }> = memo(({ visibleTokens }) => {
-  const paragraphs: string[][] = []
-  let current: string[] = []
-
-  for (const token of visibleTokens) {
-    current.push(token)
-    if (token.includes('\n\n')) {
-      paragraphs.push(current)
-      current = []
-    }
-  }
-
-  if (current.length > 0) {
-    paragraphs.push(current)
-  }
-
-  if (paragraphs.length <= 1) {
-    return <FluidTypewriterText visibleTokens={visibleTokens} animationWindow={6} />
-  }
-
-  const completedParagraphs = paragraphs.slice(0, -1)
-  const activeParagraph = paragraphs[paragraphs.length - 1]
-
-  return (
-    <>
-      {completedParagraphs.map((tokens, idx) => {
-        const text = tokens.join('')
-        return (
-          <TextSegment
-            key={`p-${idx}`}
-            segment={{ type: 'text', content: text } as MessageSegment}
-            visibleText={text}
-          />
-        )
-      })}
-      <FluidTypewriterText visibleTokens={activeParagraph} animationWindow={6} />
-    </>
-  )
-})
-
 /**
  * Reasoning segment component (collapsible accordion).
  */
@@ -209,12 +169,21 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             if (visibleTokenCount !== Infinity) {
               const visibleTokens = getVisibleTokens(segIdx)
               if (visibleTokens.length === 0) return null
+              const visibleText = visibleTokens.join('')
+              const hasCode = segment.content.includes('```') || segment.content.includes('`')
+              if (isStreaming || hasCode) {
+                return <TextSegment key={key} segment={segment} visibleText={visibleText} />
+              }
+
               return (
                 <div
                   key={key}
                   className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
                 >
-                  <TokenParagraphs visibleTokens={visibleTokens} />
+                  <FluidTypewriterText
+                    visibleTokens={visibleTokens}
+                    animationWindow={6}
+                  />
                 </div>
               )
             }
