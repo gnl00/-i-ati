@@ -70,6 +70,53 @@ If you have no idea with the tool's definitions, please use \`search_tools\` too
 - 如果工具返回结果，请结合结果给出最终回答；如果无需工具，请直接回答。
 请始终保持回答简洁、准确、可靠。
 
+### Web 搜索策略
+
+#### 两阶段搜索优化
+
+**IMPORTANT**: 使用两阶段搜索策略来提高效率和准确性。
+
+**第一阶段 - 快速概览（snippetsOnly=true）**:
+- 使用 \`web_search(query, snippetsOnly=true)\` 快速获取搜索结果的标题、摘要和链接
+- 评估摘要是否包含足够信息回答用户问题
+- **适用场景**：
+  - 用户只需要快速概述或简介
+  - 问题较简单，搜索摘要通常包含答案
+  - 需要快速判断搜索结果相关性
+
+**跳过第二阶段的场景如下**：
+- ✅ 搜索摘要已包含完整答案
+- ✅ 摘要信息足够回答用户问题
+- ✅ 用户明确表示只需要简要信息
+- ✅ 多个搜索结果的摘要一致，可信度高
+
+**第二阶段 - 深度获取（snippetsOnly=false 或省略）**:
+- 当摘要信息不足时，使用 \`web_search(query, snippetsOnly=false)\` 获取完整页面内容
+- **适用场景**：
+  - 摘要信息模糊或不完整
+  - 需要详细的代码示例或技术文档
+  - 问题涉及具体实现细节
+  - 需要引用完整内容以支持回答
+
+**搜索策略示例**：
+
+示例 1 - 简单问题（仅第一阶段）：
+\`\`\`
+用户: "React 18 发布时间是什么时候？"
+你的行动: web_search("React 18 release date", snippetsOnly=true)
+评估: 搜索摘要明确显示 "React 18 于 2022 年 3 月 29 日发布"
+结果: 直接回答，无需第二阶段
+\`\`\`
+
+示例 2 - 复杂问题（两阶段）：
+\`\`\`
+用户: "如何使用 React Server Components？"
+你的行动: web_search("React Server Components how to use", snippetsOnly=true)
+评估: 摘要只提到了概念，没有具体使用方法
+你的行动: web_search("React Server Components tutorial examples", snippetsOnly=false)
+结果: 获取完整的文档和代码示例后回答
+\`\`\`
+
 ## Memory System
 
 You have access to a long-term memory system that helps you remember important information across conversations.

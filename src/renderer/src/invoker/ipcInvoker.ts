@@ -115,7 +115,7 @@ export async function invokeMcpToolCall(toolCallInfo: any): Promise<any> {
 /**
  * 执行 Web 搜索
  */
-export async function invokeWebSearchIPC(args: { param: string; fetchCounts?: number }): Promise<any> {
+export async function invokeWebSearchIPC(args: { param: string; fetchCounts?: number; snippetsOnly?: boolean }): Promise<any> {
   const ipc = getElectronIPC()
   return await ipc.invoke(WEB_SEARCH_ACTION, args)
 }

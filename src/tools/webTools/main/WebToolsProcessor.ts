@@ -7,6 +7,7 @@ import { getWindowPool } from './BrowserWindowPool'
 interface WebSearchProcessArgs {
   fetchCounts: number
   param: string
+  snippetsOnly?: boolean
 }
 
 interface WebFetchProcessArgs {
@@ -171,14 +172,14 @@ async function fetchPageContent(url: string, contentWindow: BrowserWindow): Prom
 /**
  * Web Search - 执行网页搜索
  */
-const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): Promise<WebSearchResponse> => {
+const processWebSearch = async ({ fetchCounts, param, snippetsOnly }: WebSearchProcessArgs): Promise<WebSearchResponse> => {
   const searchStartTime = Date.now()
   const windowPool = getWindowPool()
   let searchWindow: BrowserWindow | null = null
 
   try {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log(`[SEARCH START] Query: "${param}", Count: ${fetchCounts}`)
+    console.log(`[SEARCH START] Query: "${param}", Count: ${fetchCounts}, SnippetsOnly: ${Boolean(snippetsOnly)}`)
     console.log(`[SEARCH START] Timestamp: ${new Date().toISOString()}`)
 
     // Acquire a search window from the pool
@@ -210,7 +211,7 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
 
     // Extract links, titles, and snippets from Bing search results
     const extractStart = Date.now()
-    const bingSearchItems: BingSearchItem[] = await searchWindow.webContents.executeJavaScript(`
+    const searchItems: BingSearchItem[] = await searchWindow.webContents.executeJavaScript(`
       (() => {
         const results = []
         const count = ${fetchCounts}
@@ -243,7 +244,7 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
       })()
     `)
     const extractTime = Date.now() - extractStart
-    console.log(`[EXTRACT] Extracted ${bingSearchItems.length} items in ${extractTime}ms`)
+    console.log(`[EXTRACT] Extracted ${searchItems.length} items in ${extractTime}ms`)
 
     // Release search window back to pool
     if (searchWindow) {
@@ -251,11 +252,31 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
       searchWindow = null
     }
 
+    // Snippets only mode: return titles/snippets/links without fetching full pages
+    if (snippetsOnly) {
+      const totalTime = Date.now() - searchStartTime
+      console.log(`[SEARCH COMPLETE - SNIPPETS ONLY] Total time: ${totalTime}ms`)
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+
+      return {
+        success: true,
+        results: searchItems.map((item): WebSearchResultV2 => ({
+          query: param as string,
+          success: true,
+          link: item.link,
+          title: item.title,
+          snippet: item.snippet,
+          // Use snippet as content fallback for better usability
+          content: item.snippet
+        }))
+      }
+    }
+
     // Process each search item: scrape full content and extract metadata
-    console.log(`[SCRAPE START] Starting parallel content scraping for ${bingSearchItems.length} pages`)
+    console.log(`[SCRAPE START] Starting parallel content scraping for ${searchItems.length} pages`)
     const scrapeStart = Date.now()
     const scrapedResults: WebSearchResultV2[] = await Promise.all(
-      bingSearchItems.map(async (item: BingSearchItem, index: number): Promise<WebSearchResultV2> => {
+      searchItems.map(async (item: BingSearchItem, index: number): Promise<WebSearchResultV2> => {
         const itemStart = Date.now()
         let contentWindow: BrowserWindow | null = null
 
@@ -305,7 +326,7 @@ const processWebSearch = async ({ fetchCounts, param }: WebSearchProcessArgs): P
     )
 
     const scrapeTime = Date.now() - scrapeStart
-    console.log(`[SCRAPE COMPLETE] All ${bingSearchItems.length} pages scraped in ${scrapeTime}ms`)
+    console.log(`[SCRAPE COMPLETE] All ${searchItems.length} pages scraped in ${scrapeTime}ms`)
 
     const totalTime = Date.now() - searchStartTime
     console.log(`[SEARCH COMPLETE] Total time: ${totalTime}ms`)

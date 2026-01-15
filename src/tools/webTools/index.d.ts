@@ -1,5 +1,6 @@
 export interface WebSearchArgs {
   query: string
+  snippetsOnly?: boolean
 }
 
 /** @deprecated Use WebSearchResponse instead */
