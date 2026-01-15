@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import React, { memo, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
@@ -17,6 +17,7 @@ import { markdownCodeComponents, fixMalformedCodeBlocks } from './markdown-compo
 import { MessageOperations } from './message-operations'
 import { ErrorMessage } from './error-message'
 import { CommandConfirmation } from './CommandConfirmation'
+import { FluidTypewriterText } from './FluidTypewriterText'
 
 export interface AssistantMessageProps {
   index: number
@@ -31,8 +32,8 @@ export interface AssistantMessageProps {
 /**
  * Text segment component with typewriter effect.
  */
-const TextSegment: React.FC<{ visibleText: string }> = memo(({ visibleText }) => {
-  const displayedText = visibleText
+const TextSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment }) => {
+  const displayedText = segment.content
 
   if (!displayedText) return null
 
@@ -108,6 +109,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
   const {
     segments,
+    getSegmentVisibleLength,
     getVisibleTokens,
     shouldRenderSegment
   } = useMessageTypewriter({
@@ -120,6 +122,10 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   if (!m || m.role !== 'assistant') return null
+
+  useEffect(() => {
+    console.log(m)
+  }, [m])
 
   return (
     <div
@@ -162,8 +168,20 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
           }
 
           if (segment.type === 'text') {
-            const visibleText = getVisibleTokens(segIdx).join('')
-            return <TextSegment key={key} visibleText={visibleText} />
+            const visibleTokenCount = getSegmentVisibleLength(segIdx)
+            if (visibleTokenCount !== Infinity) {
+              const visibleTokens = getVisibleTokens(segIdx)
+              if (visibleTokens.length === 0) return null
+              return (
+                <div
+                  key={key}
+                  className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+                >
+                  <FluidTypewriterText visibleTokens={visibleTokens} />
+                </div>
+              )
+            }
+            return <TextSegment key={key} segment={segment} />
           } else if (segment.type === 'reasoning') {
             return <ReasoningSegment key={key} segment={segment} />
           } else if (segment.type === 'toolCall') {

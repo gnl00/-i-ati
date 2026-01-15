@@ -187,7 +187,7 @@ ${conversationText}
     const response = await unifiedChatRequest(request, null, () => {}, () => {})
 
     // 5. 解析响应
-    // console.log('response', response);
+    // // console.log('response', response);
     return response.content?.trim() || ''
   }
 
@@ -203,7 +203,7 @@ ${conversationText}
   ): Promise<CompressionResult> {
     // 1. 检查是否已在压缩中
     if (this.compressionInProgress.has(chatId)) {
-      console.log(`[Compression] Already compressing chat ${chatId}, skipping`)
+      // console.log(`[Compression] Already compressing chat ${chatId}, skipping`)
       return { success: false, error: 'Already compressing' }
     }
 
@@ -218,7 +218,7 @@ ${conversationText}
       const strategy = this.analyzeCompressionStrategy(messages, existingSummaries)
 
       if (!strategy.shouldCompress) {
-        console.log('[Compression] No need to compress')
+        // console.log('[Compression] No need to compress')
         return { success: false, error: 'No need to compress' }
       }
 
@@ -233,9 +233,9 @@ ${conversationText}
         : null
 
       // 7. 生成摘要（基于旧摘要 + 新消息）
-      console.log(`[Compression] Generating summary for ${messagesToCompress.length} messages`)
+      // console.log(`[Compression] Generating summary for ${messagesToCompress.length} messages`)
       if (latestSummary) {
-        console.log(`[Compression] Using previous summary as context`)
+        // console.log(`[Compression] Using previous summary as context`)
       }
       const summary = await this.generateSummary(
         messagesToCompress,
@@ -243,7 +243,7 @@ ${conversationText}
         provider,
         latestSummary?.summary
       )
-      console.log(`[Compression] Summary: ${summary}`)
+      // console.log(`[Compression] Summary: ${summary}`)
 
       // 8. 估算 token 数量
       const originalTokenCount = this.estimateTokenCount(
@@ -254,7 +254,7 @@ ${conversationText}
 
       // 9. 将旧摘要标记为 superseded
       if (latestSummary && latestSummary.id) {
-        console.log(`[Compression] Marking previous summary ${latestSummary.id} as superseded`)
+        // console.log(`[Compression] Marking previous summary ${latestSummary.id} as superseded`)
         await updateCompressedSummaryStatus(latestSummary.id, 'superseded')
       }
 
@@ -277,7 +277,7 @@ ${conversationText}
 
       const summaryId = await saveCompressedSummary(summaryEntity)
 
-      console.log(`[Compression] Saved summary ${summaryId}, ratio: ${compressionRatio.toFixed(2)}`)
+      // console.log(`[Compression] Saved summary ${summaryId}, ratio: ${compressionRatio.toFixed(2)}`)
 
       return {
         success: true,
@@ -289,7 +289,7 @@ ${conversationText}
         compressionRatio
       }
     } catch (error: any) {
-      console.error('[Compression] Failed to compress:', error)
+      // console.error('[Compression] Failed to compress:', error)
       return {
         success: false,
         error: error.message || 'Unknown error'

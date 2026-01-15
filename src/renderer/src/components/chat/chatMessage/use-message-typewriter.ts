@@ -51,7 +51,7 @@ export function useMessageTypewriter(
       minSpeed: 15,  // Token 级 增大=更慢
       maxSpeed: 30,  // Token 级 增大=更慢
       granularity: 'token',  // 新增：使用 Token 级粒度
-      batchUpdateInterval: 50,  // 新增：批量更新间隔
+      batchUpdateInterval: 16,  // 更细粒度刷新以提升动效流畅度
       enabled,
       isStreaming,
       onTyping: onTypingChange,
