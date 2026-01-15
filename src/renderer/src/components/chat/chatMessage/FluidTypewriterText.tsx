@@ -1,6 +1,6 @@
-import { motion } from 'framer-motion'
 import { memo, useCallback, useMemo } from 'react'
 import { tokenizeText } from '@renderer/utils/tokenizeText'
+import { useEnterTransition } from './use-enter-transition'
 
 /**
  * 单个 Token 的动效组件
@@ -9,24 +9,18 @@ import { tokenizeText } from '@renderer/utils/tokenizeText'
  * 动效组合：Fade (渐显) + Slide (上浮)
  */
 const AnimatedToken = memo(({ children }: { children: string }) => {
+  const entered = useEnterTransition('enter')
   return (
-    <motion.span
-      initial={{
-        opacity: 0,
-        y: 2
-      }}
-      animate={{
-        opacity: 1,
-        y: 0
-      }}
-      transition={{
-        duration: 0.18,
-        ease: [0.22, 1, 0.36, 1]
-      }}
-      className="inline-block whitespace-pre-wrap"
+    <span
+      className={[
+        "inline-block whitespace-pre-wrap",
+        "transition-[opacity,transform,filter] duration-200 ease-out will-change-[opacity,transform,filter]",
+        "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
+        entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-sm"
+      ].join(' ')}
     >
       {children}
-    </motion.span>
+    </span>
   )
 })
 
