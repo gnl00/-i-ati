@@ -31,7 +31,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const imageSrcBase64List = useChatStore(state => state.imageSrcBase64List)
   const setImageSrcBase64List = useChatStore(state => state.setImageSrcBase64List)
   const currentReqCtrl = useChatStore(state => state.currentReqCtrl)
-  const readStreamState = useChatStore(state => state.readStreamState)
   const webSearchEnable = useChatStore(state => state.webSearchEnable)
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
@@ -271,7 +270,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         </div>
 
         <ChatInputActions
-          readStreamState={readStreamState}
           artifacts={artifacts}
           currentReqCtrl={currentReqCtrl}
           toggleArtifacts={toggleArtifacts}

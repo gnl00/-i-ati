@@ -1,5 +1,5 @@
 import { useChatStore } from '@renderer/store'
-import { useSegmentTypewriter } from '@renderer/hooks/useSegmentTypewriter'
+import { useSegmentTypewriterNext } from '@renderer/hooks/useSegmentTypewriterNext'
 import { updateMessage } from '@renderer/db/MessageRepository'
 import { useEffect } from 'react'
 
@@ -16,30 +16,42 @@ export interface UseMessageTypewriterReturn {
   shouldRenderSegment: (segIdx: number) => boolean
   isAllComplete: boolean
   forceComplete: () => void
+  // 新增：获取可见的 tokens（用于动效渲染）
+  getVisibleTokens: (segIdx: number) => string[]
 }
 
 /**
  * Hook to manage typewriter effect for assistant messages.
- * Wraps useSegmentTypewriter with message-specific logic and state updates.
+ * Wraps useSegmentTypewriterNext with message-specific logic and state updates.
+ *
+ * 优化版本使用 Token 级粒度，提供更自然的打字机效果
  */
 export function useMessageTypewriter(
   props: UseMessageTypewriterProps
 ): UseMessageTypewriterReturn {
   const { index, message: m, isLatest, onTypingChange } = props
-  const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
+  const readStreamState = useChatStore(state => state.readStreamState)
   const setMessages = useChatStore(state => state.setMessages)
   const messages = useChatStore(state => state.messages)
   const setForceCompleteTypewriter = useChatStore(state => state.setForceCompleteTypewriter)
 
   const segments = m.segments || []
   const enabled = m.role === 'assistant' && isLatest && !m.typewriterCompleted
-  const isStreaming = showLoadingIndicator && isLatest
+  const isStreaming = readStreamState && isLatest
 
-  const { getSegmentVisibleLength, shouldRenderSegment, isAllComplete, forceComplete } = useSegmentTypewriter(
+  const {
+    getSegmentVisibleLength,
+    shouldRenderSegment,
+    isAllComplete,
+    forceComplete,
+    getVisibleTokens
+  } = useSegmentTypewriterNext(
     segments,
     {
-      minSpeed: 12,
-      maxSpeed: 30,
+      minSpeed: 15,  // Token 级 增大=更慢
+      maxSpeed: 30,  // Token 级 增大=更慢
+      granularity: 'token',  // 新增：使用 Token 级粒度
+      batchUpdateInterval: 50,  // 新增：批量更新间隔
       enabled,
       isStreaming,
       onTyping: onTypingChange,
@@ -59,7 +71,6 @@ export function useMessageTypewriter(
           setMessages(updatedMessages)
 
           // 2. 持久化到数据库（异步，不阻塞 UI）
-          // 从 MessageEntity 中获取 id, chatId, chatUuid
           const messageEntity = messages[index]
           if (messageEntity.id) {
             updateMessage({
@@ -90,5 +101,12 @@ export function useMessageTypewriter(
     }
   }, [isLatest, enabled, forceComplete, setForceCompleteTypewriter])
 
-  return { segments, getSegmentVisibleLength, shouldRenderSegment, isAllComplete, forceComplete }
+  return {
+    segments,
+    getSegmentVisibleLength,
+    shouldRenderSegment,
+    isAllComplete,
+    forceComplete,
+    getVisibleTokens
+  }
 }
