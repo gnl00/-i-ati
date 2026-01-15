@@ -6,6 +6,7 @@ import remarkMath from 'remark-math'
 import { cn } from '@renderer/lib/utils'
 import { markdownCodeComponents } from './markdown-components'
 import { MessageOperations } from './message-operations'
+import { useEnterTransition } from './use-enter-transition'
 
 export interface UserMessageProps {
   index: number
@@ -19,6 +20,30 @@ export interface UserMessageProps {
 /**
  * VLM Content renderer for messages with images and text.
  */
+const AnimatedMarkdown: React.FC<{
+  markdown: string
+  className?: string
+}> = ({ markdown, className }) => {
+  const entered = useEnterTransition('enter')
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+      rehypePlugins={[rehypeKatex]}
+      skipHtml={false}
+      className={cn(
+        className,
+        "transition-[opacity,transform,filter] duration-300 ease-out will-change-[opacity,transform,filter]",
+        "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
+        entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-sm"
+      )}
+      components={markdownCodeComponents}
+    >
+      {markdown}
+    </ReactMarkdown>
+  )
+}
+
 const VLMContentRenderer: React.FC<{ content: VLMContent[] }> = ({ content }) => (
   <div className="">
     {content.map((vlmContent: VLMContent, idx) => {
@@ -26,16 +51,11 @@ const VLMContentRenderer: React.FC<{ content: VLMContent[] }> = ({ content }) =>
         return <img key={idx} src={vlmContent.image_url?.url} onDoubleClick={e => e}></img>
       } else {
         return (
-          <ReactMarkdown
+          <AnimatedMarkdown
             key={idx}
-            remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
-            rehypePlugins={[rehypeKatex]}
-            skipHtml={false}
-            className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-[100%] dark:text-white transition-all duration-400 ease-in-out")}
-            components={markdownCodeComponents}
-          >
-            {vlmContent.text}
-          </ReactMarkdown>
+            markdown={vlmContent.text ?? ''}
+            className="prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-[100%] dark:text-white"
+          />
         )
       }
     })}
@@ -86,15 +106,10 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
         {typeof m.content !== 'string' ? (
           <VLMContentRenderer content={m.content} />
         ) : (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
-            rehypePlugins={[rehypeKatex]}
-            skipHtml={false}
-            className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out")}
-            components={markdownCodeComponents}
-          >
-            {m.content}
-          </ReactMarkdown>
+          <AnimatedMarkdown
+            markdown={m.content}
+            className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-[100%]")}
+          />
         )}
       </div>
 

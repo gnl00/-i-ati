@@ -17,7 +17,12 @@ import { markdownCodeComponents, fixMalformedCodeBlocks } from './markdown-compo
 import { MessageOperations } from './message-operations'
 import { ErrorMessage } from './error-message'
 import { CommandConfirmation } from './CommandConfirmation'
-import { FluidTypewriterText } from './FluidTypewriterText'
+import { useEnterTransition } from './use-enter-transition'
+import { StreamingMarkdownSwitch } from './StreamingMarkdownSwitch'
+
+function getStreamingTextRenderMode(): 'markdown' | 'switch' {
+  return (globalThis as any).__STREAMING_TEXT_RENDER_MODE ?? 'switch'
+}
 
 export interface AssistantMessageProps {
   index: number
@@ -32,10 +37,24 @@ export interface AssistantMessageProps {
 /**
  * Text segment component with typewriter effect.
  */
-const TextSegment: React.FC<{ segment: MessageSegment; visibleText?: string }> = memo(({ segment, visibleText }) => {
+const TextSegment: React.FC<{
+  segment: MessageSegment
+  visibleText?: string
+  animateOnChange?: boolean
+  transitionKey?: string
+}> = memo(({ segment, visibleText, animateOnChange, transitionKey }) => {
   const displayedText = visibleText ?? segment.content
 
+  const entered = useEnterTransition(
+    animateOnChange ? (transitionKey ?? displayedText) : 'enter',
+    { enabled: Boolean(displayedText), throttleMs: animateOnChange ? 120 : 0 }
+  )
+
   if (!displayedText) return null
+
+  const transitionStateClass = animateOnChange
+    ? (entered ? "opacity-100 translate-y-0 blur-0" : "opacity-100 translate-y-[2px] blur-[2px]")
+    : (entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-sm")
 
   // Fix malformed code blocks before rendering
   const fixedText = fixMalformedCodeBlocks(displayedText)
@@ -46,7 +65,12 @@ const TextSegment: React.FC<{ segment: MessageSegment; visibleText?: string }> =
       rehypePlugins={[rehypeRaw, rehypeKatex]}
       skipHtml={false}
       remarkRehypeOptions={{ passThrough: ['link'] }}
-      className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
+      className={cn(
+        "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%]",
+        "transform-gpu transition-[opacity,transform,filter] duration-250 ease-out will-change-[opacity,transform,filter]",
+        "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
+        transitionStateClass
+      )}
       components={markdownCodeComponents}
     >
       {fixedText}
@@ -60,6 +84,7 @@ const TextSegment: React.FC<{ segment: MessageSegment; visibleText?: string }> =
 const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment }) => {
   // Fix malformed code blocks in reasoning content
   const fixedContent = fixMalformedCodeBlocks(segment.content)
+  const entered = useEnterTransition('enter')
 
   return (
     <Accordion type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
@@ -75,7 +100,12 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               skipHtml={false}
-              className="prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300 transition-all duration-400 ease-in-out"
+              className={cn(
+                "prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300",
+                "transition-[opacity,transform,filter] duration-300 ease-out will-change-[opacity,transform,filter]",
+                "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
+                entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-sm"
+              )}
             >
               {fixedContent}
             </ReactMarkdown>
@@ -112,7 +142,6 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     getSegmentVisibleLength,
     getVisibleTokens,
     shouldRenderSegment,
-    isStreaming
   } = useMessageTypewriter({
     index,
     message: m,
@@ -166,28 +195,40 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
           if (segment.type === 'text') {
             const visibleTokenCount = getSegmentVisibleLength(segIdx)
-            if (visibleTokenCount !== Infinity) {
-              const visibleTokens = getVisibleTokens(segIdx)
-              if (visibleTokens.length === 0) return null
-              const visibleText = visibleTokens.join('')
-              const hasCode = segment.content.includes('```') || segment.content.includes('`')
-              if (isStreaming || hasCode) {
-                return <TextSegment key={key} segment={segment} visibleText={visibleText} />
-              }
+            const isTyping = visibleTokenCount !== Infinity
+            const visibleTokens = isTyping ? getVisibleTokens(segIdx) : undefined
+            const hasCode = segment.content.includes('```') || segment.content.includes('`')
 
+            if (hasCode) {
+              const visibleText = visibleTokens ? visibleTokens.join('') : undefined
+              return <TextSegment key={key} segment={segment} visibleText={visibleText} animateOnChange={false} />
+            }
+
+            const mode = getStreamingTextRenderMode()
+            if (mode === 'markdown') {
+              const visibleText = visibleTokens ? visibleTokens.join('') : undefined
               return (
-                <div
+                <TextSegment
                   key={key}
-                  className="prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] transition-all duration-400 ease-in-out"
-                >
-                  <FluidTypewriterText
-                    visibleTokens={visibleTokens}
-                    animationWindow={6}
-                  />
-                </div>
+                  segment={segment}
+                  visibleText={visibleText}
+                  animateOnChange={isTyping}
+                  transitionKey={visibleText}
+                />
               )
             }
-            return <TextSegment key={key} segment={segment} />
+
+            const proseClassName =
+              "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%]"
+            return (
+              <StreamingMarkdownSwitch
+                key={key}
+                text={segment.content}
+                visibleTokens={visibleTokens}
+                isTyping={isTyping}
+                className={proseClassName}
+              />
+            )
           } else if (segment.type === 'reasoning') {
             return <ReasoningSegment key={key} segment={segment} />
           } else if (segment.type === 'toolCall') {
