@@ -10,11 +10,13 @@ import { cn } from '@renderer/lib/utils'
 import { BrainCircuit } from 'lucide-react'
 import { useTheme } from '@renderer/components/theme-provider'
 import { useChatStore } from '@renderer/store'
+import { useCommandConfirmationStore } from '@renderer/store/commandConfirmation'
 import { ToolCallResult } from '../ToolCallResult'
 import { useMessageTypewriter } from './use-message-typewriter'
 import { markdownCodeComponents, fixMalformedCodeBlocks } from './markdown-components'
 import { MessageOperations } from './message-operations'
 import { ErrorMessage } from './error-message'
+import { CommandConfirmation } from './CommandConfirmation'
 
 export interface AssistantMessageProps {
   index: number
@@ -99,6 +101,11 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const { theme } = useTheme()
   const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
 
+  // 命令确认状态
+  const pendingRequest = useCommandConfirmationStore(state => state.pendingRequest)
+  const confirm = useCommandConfirmationStore(state => state.confirm)
+  const cancel = useCommandConfirmationStore(state => state.cancel)
+
   const {
     segments,
     getSegmentVisibleLength,
@@ -165,6 +172,15 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
           }
           return null
         })}
+
+        {/* Command Confirmation */}
+        {isLatest && pendingRequest && (
+          <CommandConfirmation
+            request={pendingRequest}
+            onConfirm={confirm}
+            onCancel={cancel}
+          />
+        )}
       </div>
 
       {/* Operations */}
