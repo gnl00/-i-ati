@@ -341,9 +341,9 @@ export const useSegmentTypewriterNext = (
           setCurrentSegmentOffset(consumed)
           lastRenderedOffsetRef.current = consumed
           lastStateUpdateRef.current = timestamp
+          onTypingRef.current?.()
         }
 
-        onTypingRef.current?.()
         lastUpdateRef.current = timestamp
 
         // 获取 token 总数
@@ -355,6 +355,7 @@ export const useSegmentTypewriterNext = (
           if (lastRenderedOffsetRef.current !== consumed) {
             setCurrentSegmentOffset(consumed)
             lastRenderedOffsetRef.current = consumed
+            onTypingRef.current?.()
           }
           if (shouldCompleteSegment(activeSegmentIndex)) {
             completedSegmentsRef.current.add(activeSegmentIndex)
@@ -374,6 +375,7 @@ export const useSegmentTypewriterNext = (
           if (lastRenderedOffsetRef.current !== consumed) {
             setCurrentSegmentOffset(consumed)
             lastRenderedOffsetRef.current = consumed
+            onTypingRef.current?.()
           }
           if (shouldCompleteSegment(activeSegmentIndex)) {
             completedSegmentsRef.current.add(activeSegmentIndex)

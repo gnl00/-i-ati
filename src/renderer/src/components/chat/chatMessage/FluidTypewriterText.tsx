@@ -13,7 +13,7 @@ const AnimatedToken = memo(({ children }: { children: string }) => {
     <motion.span
       initial={{
         opacity: 0,
-        y: 4
+        y: 2
       }}
       animate={{
         opacity: 1,
@@ -23,7 +23,7 @@ const AnimatedToken = memo(({ children }: { children: string }) => {
         duration: 0.18,
         ease: [0.22, 1, 0.36, 1]
       }}
-      className="inline-block whitespace-pre-wrap will-change-transform"
+      className="inline-block whitespace-pre-wrap"
     >
       {children}
     </motion.span>

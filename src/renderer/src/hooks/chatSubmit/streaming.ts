@@ -23,7 +23,11 @@ export const createStreamingV2 = (deps: StreamingDeps): SendRequestStage => {
 
     // 2. 创建依赖
     const parser = new ChunkParser()
-    const messageManager = new MessageManager(context, deps.store)
+    const isStreamRequest = (requestReady.request as IUnifiedRequest).stream !== false
+    const messageManager = new MessageManager(context, deps.store, {
+      enableStreamBuffer: isStreamRequest,
+      streamBufferMs: 40
+    })
 
     // 3. 创建 orchestrator 并直接映射状态到外层
     const orchestrator = new StreamingOrchestrator({
@@ -45,7 +49,11 @@ export const createStreamingV2 = (deps: StreamingDeps): SendRequestStage => {
     })
 
     // 4. 执行完整的请求-工具调用循环
-    await orchestrator.execute()
+    try {
+      await orchestrator.execute()
+    } finally {
+      messageManager.flushPendingAssistantUpdate()
+    }
 
     // 5. 清理状态
     deps.setShowLoadingIndicator(false)

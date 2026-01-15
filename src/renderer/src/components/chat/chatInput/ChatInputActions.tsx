@@ -123,7 +123,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
             <Button
               variant={'destructive'}
               size={'sm'}
-              className={cn('rounded-full border-[1px] hover:bg-red-400 dark:hover:bg-red-500 animate-pulse transition-transform duration-800')}
+              className={cn('rounded-full border-[1px] hover:bg-red-400 dark:hover:bg-red-500')}
               onClick={handleStopClick}
             >
               <StopIcon />&nbsp;Stop
