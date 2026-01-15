@@ -420,9 +420,25 @@ bun install && bun dev
 `
 
 export const generateTitlePrompt =
-  `Generate a concise and precise title based solely on the provided context.  
-DO NOT provide any explanation, commentary, or additional text.  
-**RETURN ONLY THE TITLE—nothing else.**\n`;
+  `Task: Generate a short chat title.
+
+Input: You will be given the user's message content.
+
+Output rules (STRICT):
+- Output EXACTLY ONE title line and nothing else.
+- No markdown, no quotes, no code fences, no bullets.
+- Do NOT explain your reasoning.
+- Keep it concise (≤ 12 words; if Chinese, ≤ 18 characters).
+- Use the same language as the user's first message.
+- If the message is empty/unclear, output: New Chat
+
+Examples:
+User: "优化 markdown 动画性能，改用 CSS transition"
+Title: Markdown 动画性能优化
+
+User: "Fix build error in vite config"
+Title: Fix Vite build error
+`;
 
 // - Use search_tools to get the full definition of tool if you need.
 export const toolsCallSystemPrompt = `请根据需要自主决定是否使用提供的工具（tools）来帮助回答问题。
