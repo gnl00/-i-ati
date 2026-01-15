@@ -1,7 +1,7 @@
 import { useChatStore } from '@renderer/store'
 import { useSegmentTypewriterNext } from '@renderer/hooks/useSegmentTypewriterNext'
 import { updateMessage } from '@renderer/db/MessageRepository'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 export interface UseMessageTypewriterProps {
   index: number
@@ -16,6 +16,7 @@ export interface UseMessageTypewriterReturn {
   shouldRenderSegment: (segIdx: number) => boolean
   isAllComplete: boolean
   forceComplete: () => void
+  isStreaming: boolean
   // 新增：获取可见的 tokens（用于动效渲染）
   getVisibleTokens: (segIdx: number) => string[]
 }
@@ -38,6 +39,22 @@ export function useMessageTypewriter(
   const segments = m.segments || []
   const enabled = m.role === 'assistant' && isLatest && !m.typewriterCompleted
   const isStreaming = readStreamState && isLatest
+  const typingDebounceRef = useRef<number | null>(null)
+
+  const handleTypingChange = useCallback(() => {
+    if (!onTypingChange) return
+
+    if (!isStreaming) {
+      onTypingChange()
+      return
+    }
+
+    if (typingDebounceRef.current !== null) return
+    typingDebounceRef.current = window.setTimeout(() => {
+      typingDebounceRef.current = null
+      onTypingChange()
+    }, 50)
+  }, [onTypingChange, isStreaming])
 
   const {
     getSegmentVisibleLength,
@@ -51,10 +68,10 @@ export function useMessageTypewriter(
       minSpeed: 15,  // Token 级 增大=更慢
       maxSpeed: 30,  // Token 级 增大=更慢
       granularity: 'token',  // 新增：使用 Token 级粒度
-      batchUpdateInterval: 16,  // 更细粒度刷新以提升动效流畅度
+      batchUpdateInterval: isStreaming ? 32 : 16,  // Streaming 时降低更新频率减轻重渲染压力
       enabled,
       isStreaming,
-      onTyping: onTypingChange,
+      onTyping: handleTypingChange,
       onAllComplete: async () => {
         // Mark typewriter as completed when all segments are done
         if (!m.typewriterCompleted) {
@@ -101,12 +118,22 @@ export function useMessageTypewriter(
     }
   }, [isLatest, enabled, forceComplete, setForceCompleteTypewriter])
 
+  useEffect(() => {
+    return () => {
+      if (typingDebounceRef.current !== null) {
+        clearTimeout(typingDebounceRef.current)
+        typingDebounceRef.current = null
+      }
+    }
+  }, [])
+
   return {
     segments,
     getSegmentVisibleLength,
     shouldRenderSegment,
     isAllComplete,
     forceComplete,
+    isStreaming,
     getVisibleTokens
   }
 }

@@ -25,11 +25,55 @@ export type MessageUpdater = (
   entities: MessageEntity[]
 ) => MessageEntity[]
 
+export interface MessageManagerOptions {
+  enableStreamBuffer?: boolean
+  streamBufferMs?: number
+}
+
 export class MessageManager {
+  private readonly enableStreamBuffer: boolean
+  private readonly streamBufferMs: number
+  private pendingAssistantUpdate: MessageEntity | null = null
+  private streamFlushTimer: ReturnType<typeof setTimeout> | null = null
+
   constructor(
     private readonly context: StreamingContext,
-    private readonly store: ChatStore
-  ) { }
+    private readonly store: ChatStore,
+    options: MessageManagerOptions = {}
+  ) {
+    this.enableStreamBuffer = options.enableStreamBuffer ?? false
+    this.streamBufferMs = options.streamBufferMs ?? 40
+  }
+
+  private scheduleAssistantFlush(): void {
+    if (!this.enableStreamBuffer) {
+      if (this.pendingAssistantUpdate) {
+        this.store.upsertMessage(this.pendingAssistantUpdate)
+        this.pendingAssistantUpdate = null
+      }
+      return
+    }
+
+    if (this.streamFlushTimer) return
+    this.streamFlushTimer = setTimeout(() => {
+      this.streamFlushTimer = null
+      if (this.pendingAssistantUpdate) {
+        this.store.upsertMessage(this.pendingAssistantUpdate)
+        this.pendingAssistantUpdate = null
+      }
+    }, this.streamBufferMs)
+  }
+
+  flushPendingAssistantUpdate(): void {
+    if (this.streamFlushTimer) {
+      clearTimeout(this.streamFlushTimer)
+      this.streamFlushTimer = null
+    }
+    if (this.pendingAssistantUpdate) {
+      this.store.upsertMessage(this.pendingAssistantUpdate)
+      this.pendingAssistantUpdate = null
+    }
+  }
 
   /**
    * 更新最后一条消息（流式更新，仅更新内存）
@@ -44,6 +88,7 @@ export class MessageManager {
    */
   updateLastMessage(updater: (message: MessageEntity) => MessageEntity): void {
     try {
+      this.flushPendingAssistantUpdate()
       const entities = this.context.session.messageEntities
       const lastIndex = entities.length - 1
       const last = entities[lastIndex]
@@ -73,7 +118,12 @@ export class MessageManager {
         if (entities[i].body.role === 'assistant') {
           const updated = updater(entities[i])
           entities[i] = updated
-          this.store.upsertMessage(updated)
+          if (this.enableStreamBuffer) {
+            this.pendingAssistantUpdate = updated
+            this.scheduleAssistantFlush()
+          } else {
+            this.store.upsertMessage(updated)
+          }
           return
         }
       }
