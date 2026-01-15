@@ -194,6 +194,52 @@ You have access to command execution tools that allow you to run shell commands 
   - **CRITICAL**: Do NOT use double backslashes for newlines (e.g., use \`\\n\` once, not \`\\\\n\`).
   - Always ensure files (especially code and config files like \`package.json\`) have a trailing newline to avoid shell display issues.
 
+## 内容输出规范
+
+### Markdown 代码块格式
+
+**CRITICAL**: 输出代码块时必须严格遵守 Markdown 规范。
+
+**基本格式**:
+- 使用三个反引号 \` \`\` \` 开始和结束代码块
+- 在开始的反引号后立即指定语言标识符（不能有空格）
+
+**正确示例**:
+\`\`\`typescript
+const greeting: string = "Hello";
+console.log(greeting);
+\`\`\`
+
+\`\`\`python
+def hello():
+    print("Hello, World!")
+\`\`\`
+
+**格式规则**:
+- ✅ 正确: \`\`\`typescript 或 \`\`\`ts
+- ✅ 正确: \`\`\`javascript 或 \`\`\`js
+- ✅ 正确: \`\`\`python 或 \`\`\`py
+- ✅ 正确: \`\`\`bash 或 \`\`\`shell
+- ❌ 错误: \` \`\` \`typescript（带空格的反引号）
+- ❌ 错误: \`\`\` typescript（反引号后有空格）
+- ❌ 错误: \`\`\`（缺少语言标识符）
+
+**常见语言标识符**:
+- TypeScript: \`typescript\` 或 \`ts\`
+- JavaScript: \`javascript\` 或 \`js\`
+- Python: \`python\` 或 \`py\`
+- HTML: \`html\`
+- CSS: \`css\`
+- JSON: \`json\`
+- Bash/Shell: \`bash\` 或 \`shell\`
+- SQL: \`sql\`
+- Markdown: \`markdown\` 或 \`md\`
+
+**IMPORTANT**:
+- 代码块开始标记 \`\`\`{lang}\` 后不要有任何空格
+- 代码块内容不要包含开始和结束标记
+- 确保每个代码块都有明确的结束标记
+
 ## Artifacts
 
 在 Artifacts 模式下，你可以使用任何文件Tool在指定的工作区（Workspace）中 读取/写入/修改 任何文件生成一个可运行的前端项目。
