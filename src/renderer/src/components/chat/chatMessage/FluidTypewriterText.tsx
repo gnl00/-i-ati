@@ -1,48 +1,43 @@
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { tokenizeText } from '@renderer/utils/tokenizeText'
 
 /**
  * 单个 Token 的动效组件
  * 实现 Apple Intelligence / Vercel AI SDK 风格的流体渐显效果
  *
- * 动效组合：Blur (模糊) + Fade (渐显) + Slide (上浮)
+ * 动效组合：Fade (渐显) + Slide (上浮)
  */
-const AnimatedToken = ({
-  children,
-  index
-}: {
-  children: string
-  index: number
-}) => {
+const AnimatedToken = memo(({ children }: { children: string }) => {
   return (
     <motion.span
-      layout="position"
       initial={{
         opacity: 0,
-        y: 5,
-        filter: 'blur(4px)'
+        y: 4
       }}
       animate={{
         opacity: 1,
-        y: 0,
-        filter: 'blur(0px)'
+        y: 0
       }}
       transition={{
-        duration: 0.3,
-        ease: "easeOut",
-        delay: 0.02 // 极短延迟，避免同时渲染太生硬
+        duration: 0.18,
+        ease: [0.22, 1, 0.36, 1]
       }}
-      className="inline-block whitespace-pre-wrap"
+      className="inline-block whitespace-pre-wrap will-change-transform"
     >
       {children}
     </motion.span>
   )
-}
+})
+
+const StaticToken = memo(({ children }: { children: string }) => {
+  return <span className="whitespace-pre-wrap">{children}</span>
+})
 
 interface FluidTypewriterTextProps {
-  content: string
-  visibleCount: number
+  content?: string
+  visibleCount?: number
+  visibleTokens?: string[]
   // 性能优化：只对最后 N 个 token 应用动画
   animationWindow?: number
 }
@@ -56,34 +51,45 @@ interface FluidTypewriterTextProps {
  * - 使用 useMemo 缓存 tokenize 结果
  */
 export const FluidTypewriterText = ({
-  content,
+  content = '',
   visibleCount,
-  animationWindow = 20
+  visibleTokens,
+  animationWindow = 12
 }: FluidTypewriterTextProps) => {
-  // 缓存 tokenize 结果
-  const tokens = useMemo(() => tokenizeText(content), [content])
+  // 缓存 tokenize 结果（如已传入 visibleTokens，则跳过分词）
+  const tokens = useMemo(() => {
+    if (visibleTokens) return visibleTokens
+    return tokenizeText(content)
+  }, [content, visibleTokens])
 
   // 只截取当前可见的部分
-  const visibleTokens = tokens.slice(0, visibleCount)
+  const visible = useMemo(() => {
+    if (visibleTokens) return visibleTokens
+    if (visibleCount === undefined) return tokens
+    return tokens.slice(0, visibleCount)
+  }, [visibleTokens, visibleCount, tokens])
 
   // 计算动画窗口的起始位置
-  const animationStartIndex = Math.max(0, visibleTokens.length - animationWindow)
+  const animationStartIndex = Math.max(0, visible.length - animationWindow)
+  const staticText = useMemo(() => {
+    if (animationStartIndex === 0) return ''
+    return visible.slice(0, animationStartIndex).join('')
+  }, [visible, animationStartIndex])
+  const animatedTokens = useMemo(() => {
+    return visible.slice(animationStartIndex)
+  }, [visible, animationStartIndex])
+  const isWhitespaceToken = useCallback((token: string) => /^\s+$/.test(token), [])
 
   return (
     <span className="break-words">
-      {visibleTokens.map((token, i) => {
-        // 性能优化：只有最后 N 个 token 需要动画
-        // 之前的可以直接渲染为普通文本
-        if (i < animationStartIndex) {
-          return (
-            <span key={i} className="whitespace-pre-wrap">
-              {token}
-            </span>
-          )
+      {staticText ? <span className="whitespace-pre-wrap">{staticText}</span> : null}
+      {animatedTokens.map((token, i) => {
+        const tokenIndex = animationStartIndex + i
+        if (isWhitespaceToken(token)) {
+          return <StaticToken key={tokenIndex}>{token}</StaticToken>
         }
-
         return (
-          <AnimatedToken key={i} index={i}>
+          <AnimatedToken key={tokenIndex}>
             {token}
           </AnimatedToken>
         )

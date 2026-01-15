@@ -245,6 +245,7 @@ declare interface ToolCallSegment {
 
 // 错误片段
 declare interface ErrorSegment {
+  content?: string
   type: 'error'
   error: {
     name: string

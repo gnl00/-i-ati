@@ -50,23 +50,23 @@ class RequestMessageBuilder {
    * 5. 验证消息合法性
    */
   build(): ChatMessage[] {
-    console.log('[RequestMessageBuilder] Starting message build pipeline')
+    // console.log('[RequestMessageBuilder] Starting message build pipeline')
 
     // Step 1: 应用压缩策略
     let messages = this.applyCompression()
-    console.log(`[RequestMessageBuilder] After compression: ${messages.length} messages`)
+    // console.log(`[RequestMessageBuilder] After compression: ${messages.length} messages`)
 
     // Step 2: 过滤无效消息
     messages = this.filterInvalidMessages(messages)
-    console.log(`[RequestMessageBuilder] After filtering: ${messages.length} messages`)
+    // console.log(`[RequestMessageBuilder] After filtering: ${messages.length} messages`)
 
     // Step 3: 修复落单的 tool 消息
     messages = this.fixOrphanedToolMessages(messages)
-    console.log(`[RequestMessageBuilder] After orphaned tool fix: ${messages.length} messages`)
+    // console.log(`[RequestMessageBuilder] After orphaned tool fix: ${messages.length} messages`)
 
     // Step 4: 插入系统提示词
     messages = this.insertSystemPrompts(messages)
-    console.log(`[RequestMessageBuilder] After system prompts: ${messages.length} messages`)
+    // console.log(`[RequestMessageBuilder] After system prompts: ${messages.length} messages`)
 
     // Step 5: 验证消息合法性
     this.validateMessages(messages)
@@ -85,7 +85,7 @@ class RequestMessageBuilder {
       return this.messages.map(m => m.body)
     }
 
-    console.log('[RequestMessageBuilder] Applying compression strategy')
+    // console.log('[RequestMessageBuilder] Applying compression strategy')
 
     // 创建被压缩的消息 ID 集合
     const compressedMessageIds = new Set<number>()
@@ -121,7 +121,7 @@ class RequestMessageBuilder {
       result.push(message.body)
     }
 
-    console.log(`[RequestMessageBuilder] Compressed ${compressedMessageIds.size} messages into summary`)
+    // console.log(`[RequestMessageBuilder] Compressed ${compressedMessageIds.size} messages into summary`)
     return result
   }
 
@@ -148,7 +148,7 @@ class RequestMessageBuilder {
           (typeof msg.content === 'string' ? msg.content.trim() !== '' : true)
 
         if (!hasToolCalls && !hasContent) {
-          console.log('[RequestMessageBuilder] Filtering empty assistant message')
+          // console.log('[RequestMessageBuilder] Filtering empty assistant message')
           return false
         }
       }
@@ -169,7 +169,7 @@ class RequestMessageBuilder {
       if (msg.role === 'tool') {
         const hasMatch = this.hasMatchingToolUse(msg, toolUseIds)
         if (!hasMatch) {
-          console.log('[RequestMessageBuilder] Removing orphaned tool message')
+          // console.log('[RequestMessageBuilder] Removing orphaned tool message')
         }
         return hasMatch
       }
@@ -223,7 +223,7 @@ class RequestMessageBuilder {
       }
     }
 
-    console.log(`[RequestMessageBuilder] Validation passed: ${messages.length} messages`)
+    // console.log(`[RequestMessageBuilder] Validation passed: ${messages.length} messages`)
   }
 
   // ========== 辅助方法 ==========
