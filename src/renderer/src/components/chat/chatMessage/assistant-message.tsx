@@ -31,8 +31,8 @@ export interface AssistantMessageProps {
 /**
  * Text segment component with typewriter effect.
  */
-const TextSegment: React.FC<{ segment: MessageSegment; visibleLength: number }> = memo(({ segment, visibleLength }) => {
-  const displayedText = segment.content.slice(0, visibleLength)
+const TextSegment: React.FC<{ visibleText: string }> = memo(({ visibleText }) => {
+  const displayedText = visibleText
 
   if (!displayedText) return null
 
@@ -108,7 +108,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
   const {
     segments,
-    getSegmentVisibleLength,
+    getVisibleTokens,
     shouldRenderSegment
   } = useMessageTypewriter({
     index,
@@ -162,7 +162,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
           }
 
           if (segment.type === 'text') {
-            return <TextSegment key={key} segment={segment} visibleLength={getSegmentVisibleLength(segIdx)} />
+            const visibleText = getVisibleTokens(segIdx).join('')
+            return <TextSegment key={key} visibleText={visibleText} />
           } else if (segment.type === 'reasoning') {
             return <ReasoningSegment key={key} segment={segment} />
           } else if (segment.type === 'toolCall') {

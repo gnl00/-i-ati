@@ -7,6 +7,7 @@ import {
   TooltipTrigger
 } from "@renderer/components/ui/tooltip"
 import { cn } from '@renderer/lib/utils'
+import { useChatStore } from '@renderer/store'
 import {
   ArrowBigUp,
   BadgePlus,
@@ -17,7 +18,6 @@ import React from 'react'
 import { toast } from 'sonner'
 
 interface ChatInputActionsProps {
-  readStreamState: boolean
   artifacts: boolean
   currentReqCtrl: AbortController | undefined
   toggleArtifacts: (state: boolean) => void
@@ -27,7 +27,6 @@ interface ChatInputActionsProps {
 }
 
 const ChatInputActions: React.FC<ChatInputActionsProps> = ({
-  readStreamState,
   artifacts,
   currentReqCtrl,
   toggleArtifacts,
@@ -35,6 +34,8 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   onNewChat,
   onSubmit
 }) => {
+  const readStreamState = useChatStore(state => state.readStreamState)
+
   const handleArtifactsToggle = () => {
     const newState = !artifacts
     toggleArtifacts(newState)
@@ -42,7 +43,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   }
 
   const handleStopClick = () => {
-    console.log('[onStopClick] Triggered, currentReqCtrl:', currentReqCtrl)
+    // console.log('[onStopClick] Triggered, currentReqCtrl:', currentReqCtrl)
 
     if (!currentReqCtrl) {
       return

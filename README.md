@@ -67,7 +67,7 @@ pnpm build:mac
 - [X] Copy and Edit tooltips
 - [X] ~~fetch models from api(if API provider supports)~~ maybe no need
 - [X] save chat list
-- [ ] chat list ~~title~~ and hisoty summary AKA session compact
+- [X] chat list ~~title~~ and hisoty summary AKA session compact
 - [X] dark/light mode
 - [X] artifacts supports(~~THANKS CLAUDECODE :P~~)
 - [X] default model for chat
