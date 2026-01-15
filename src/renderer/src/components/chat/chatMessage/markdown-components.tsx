@@ -13,7 +13,7 @@ export function fixMalformedCodeBlocks(markdown: string): string {
 
   // Second pass: Fix code blocks where language and code are concatenated (with or without space)
   // Example 1: ```bashecho 'test' -> ```bash\necho 'test'
-  // Example 2: ```sql .tables ``` -> ```sql\n.tables
+  // Example 2: ```css .message { -> ```css\n.message {
   const commonLanguages = [
     'bash', 'sh', 'shell', 'zsh', 'fish',
     'javascript', 'js', 'typescript', 'ts', 'jsx', 'tsx',
@@ -29,12 +29,12 @@ export function fixMalformedCodeBlocks(markdown: string): string {
   ]
 
   const languagePattern = `(${commonLanguages.join('|')})`
-  // Match: ```language followed by any character (including optional whitespace)
-  // The key change: [^\\n] instead of [^\\s\\n] to allow space after language
-  const concatenatedPattern = new RegExp(`\`\`\`${languagePattern}\\s*([^\\n])`, 'gi')
+  // Match: ```language followed by whitespace and everything until newline
+  // Captures all content after language (including metadata like ".message")
+  const concatenatedPattern = new RegExp(`\`\`\`${languagePattern}\\s+([^\\n]+)`, 'gi')
 
-  fixed = fixed.replace(concatenatedPattern, (match, language, firstChar) => {
-    return '```' + language.toLowerCase() + '\n' + firstChar
+  fixed = fixed.replace(concatenatedPattern, (match, language, restOfLine) => {
+    return '```' + language.toLowerCase() + '\n' + restOfLine
   })
 
   return fixed
