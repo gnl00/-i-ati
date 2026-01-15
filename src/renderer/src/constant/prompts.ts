@@ -198,11 +198,18 @@ You have access to command execution tools that allow you to run shell commands 
 
 ### Markdown 代码块格式
 
-**CRITICAL**: 输出代码块时必须严格遵守 Markdown 规范。
+**CRITICAL**: 输出代码块时必须严格遵守 Markdown fenced code block 规范，并保证可被解析器稳定解析。
 
-**基本格式**:
-- 使用三个反引号 \` \`\` \` 开始和结束代码块
-- 在开始的反引号后立即指定语言标识符（不能有空格）
+**基本格式（唯一允许）**:
+- 开始标记必须独占一行：\`\`\`{lang}
+- 结束标记必须独占一行：\`\`\`
+- 代码内容必须从下一行开始，不能和 \`\`\`{lang} 写在同一行
+- 每个代码块前后各留一个空行（避免与正文粘连导致解析器回退）
+
+**语言标识符规则**:
+- 必须指定语言；如果不确定语言，使用 \`text\` 或 \`plaintext\`
+- 语言标识符紧跟在 \`\`\` 后面：\`\`\`ts（反引号后不能有空格）
+- 语言标识符只写一个 token：不要添加文件名、参数或其他描述（例如：\`\`\`ts filename=...\` 是禁止的）
 
 **正确示例**:
 \`\`\`typescript
@@ -215,30 +222,29 @@ def hello():
     print("Hello, World!")
 \`\`\`
 
-**格式规则**:
-- ✅ 正确: \`\`\`typescript 或 \`\`\`ts
-- ✅ 正确: \`\`\`javascript 或 \`\`\`js
-- ✅ 正确: \`\`\`python 或 \`\`\`py
-- ✅ 正确: \`\`\`bash 或 \`\`\`shell
-- ❌ 错误: \` \`\` \`typescript（带空格的反引号）
-- ❌ 错误: \`\`\` typescript（反引号后有空格）
-- ❌ 错误: \`\`\`（缺少语言标识符）
+\`\`\`text
+any unknown language goes here
+\`\`\`
+
+**错误示例（常见导致解析失败）**:
+- ❌ \`\`\` typescript（反引号后有空格）
+- ❌ \`\`\`typescript const a = 1（代码和开始标记在同一行）
+- ❌ \`\`\`（缺少语言标识符；请用 \`\`\`text）
+- ❌ \`\`\`ts filename=main.ts（language 后追加元信息）
+- ❌ 未闭合：只有开始标记没有结束标记
+
+**嵌套反引号处理**:
+- 如果代码内容里包含 \`\`\`，请改用四个反引号围栏：\`\`\`\`{lang} ... \`\`\`\`
 
 **常见语言标识符**:
-- TypeScript: \`typescript\` 或 \`ts\`
-- JavaScript: \`javascript\` 或 \`js\`
-- Python: \`python\` 或 \`py\`
-- HTML: \`html\`
-- CSS: \`css\`
-- JSON: \`json\`
-- Bash/Shell: \`bash\` 或 \`shell\`
-- SQL: \`sql\`
-- Markdown: \`markdown\` 或 \`md\`
-
-**IMPORTANT**:
-- 代码块开始标记 \`\`\`{lang}\` 后不要有任何空格
-- 代码块内容不要包含开始和结束标记
-- 确保每个代码块都有明确的结束标记
+- TypeScript: \`typescript\` / \`ts\`
+- JavaScript: \`javascript\` / \`js\`
+- Python: \`python\` / \`py\`
+- Shell: \`bash\` / \`sh\` / \`shell\`
+- JSON: \`json\`（必须是严格 JSON，不要注释/尾逗号）
+- YAML: \`yaml\` / \`yml\`
+- Markdown: \`markdown\` / \`md\`
+- Text: \`text\` / \`plaintext\`
 
 ## Artifacts
 
