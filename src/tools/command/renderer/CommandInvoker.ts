@@ -4,6 +4,7 @@
  */
 
 import { COMMAND_EXECUTE_ACTION } from '@constants/index'
+import { useCommandConfirmationStore } from '@renderer/store/commandConfirmation'
 import type {
   ExecuteCommandArgs,
   ExecuteCommandResponse
@@ -72,6 +73,7 @@ export async function invokeExecuteCommand(args: ExecuteCommandArgs): Promise<Ex
 
 /**
  * 显示命令确认对话框
+ * 使用 Zustand store 和 UI 组件替代原生 window.confirm
  */
 async function showCommandConfirmationDialog(params: {
   command: string
@@ -80,13 +82,12 @@ async function showCommandConfirmationDialog(params: {
 }): Promise<boolean> {
   const { command, risk_level, risk_reason } = params
 
-  // 构建确认消息
-  const isDangerous = risk_level === 'dangerous'
-  const title = isDangerous ? '⚠️ Dangerous Command Detected' : '⚡ Warning: Risky Command'
-  const message = `The following command has been flagged as ${risk_level}:\n\n${command}\n\nReason: ${risk_reason}\n\nDo you want to proceed with execution?`
-
-  // 使用原生确认对话框
-  const confirmed = window.confirm(`${title}\n\n${message}`)
+  // 使用 store 请求用户确认
+  const confirmed = await useCommandConfirmationStore.getState().requestConfirmation({
+    command,
+    risk_level: risk_level as 'risky' | 'dangerous',
+    risk_reason
+  })
 
   return confirmed
 }
