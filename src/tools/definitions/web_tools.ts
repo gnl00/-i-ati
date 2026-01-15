@@ -10,6 +10,10 @@ export default [
           "query": {
             "type": "string",
             "description": "The search query to perform on the web."
+          },
+          "snippetsOnly": {
+            "type": "boolean",
+            "description": "If true, returns only titles, snippets, and links without fetching full page content. Use for fast initial searches when you only need quick overviews. Set to false or omit when you need complete page content for detailed analysis."
           }
         },
         "required": ["query"],

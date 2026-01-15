@@ -10,6 +10,7 @@ import { useAppConfigStore } from '@renderer/store/appConfig'
 interface WebSearchArgs {
   query: string
   fetchCounts?: number
+  snippetsOnly?: boolean
 }
 
 interface WebSearchResponse {
@@ -43,7 +44,8 @@ export async function invokeWebSearch(args: WebSearchArgs): Promise<WebSearchRes
 
     const searchResponse: WebSearchResponse = await invokeWebSearchIPC({
       param: args.query,
-      fetchCounts: fetchCounts
+      fetchCounts: fetchCounts,
+      snippetsOnly: args.snippetsOnly
     })
 
     // console.log('[WebToolsInvoker] Search response:', searchResponse)
