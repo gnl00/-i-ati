@@ -5,7 +5,6 @@ import { getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { invokeDirectoryTree, invokeReadTextFile } from '@tools/fileOperations/renderer/FileOperationsInvoker'
 import type { TreeNode } from '@tools/fileOperations/index.d'
 import { type FileTreeNode } from './WorkspaceFileTree'
-import { convertToRelativePath } from './artifactUtils'
 
 export interface UseWorkspaceFilesReturn {
   workspaceTree: FileTreeNode[]
@@ -87,12 +86,10 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
     setIsLoadingFile(true)
 
     try {
-      // Convert absolute path to relative path for IPC call
-      const relativePath = convertToRelativePath(filePath)
-      console.log('[useWorkspaceFiles] Reading file:', filePath, '-> relative:', relativePath)
+      console.log('[useWorkspaceFiles] Reading file:', filePath)
 
       const result = await invokeReadTextFile({
-        file_path: relativePath
+        file_path: filePath
       })
 
       if (result.success && result.content) {

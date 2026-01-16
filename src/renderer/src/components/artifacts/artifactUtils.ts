@@ -77,19 +77,6 @@ export async function copyWorkspacePath(chatUuid: string, customWorkspacePath?: 
 }
 
 /**
- * 转换绝对路径为相对路径（相对于 userData）
- * invokeDirectoryTree 返回绝对路径，但 invokeReadTextFile 期望相对路径
- */
-export function convertToRelativePath(absolutePath: string): string {
-  // 提取从 "workspaces/" 开始的部分，如果找不到则返回原路径
-  const workspacesIndex = absolutePath.indexOf('workspaces/')
-  if (workspacesIndex !== -1) {
-    return absolutePath.substring(workspacesIndex)
-  }
-  return absolutePath
-}
-
-/**
  * 统计文件树中的文件数量
  */
 export function countFilesInTree(nodes: any[]): number {
