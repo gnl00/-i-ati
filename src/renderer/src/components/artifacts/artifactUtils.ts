@@ -69,9 +69,9 @@ export function downloadFile(content: string, fileName: string): void {
 /**
  * 复制工作区路径到剪贴板
  */
-export async function copyWorkspacePath(chatUuid: string): Promise<void> {
+export async function copyWorkspacePath(chatUuid: string, customWorkspacePath?: string): Promise<void> {
   if (!chatUuid) return
-  const workspacePath = getWorkspacePath(chatUuid)
+  const workspacePath = getWorkspacePath(chatUuid, customWorkspacePath)
   await navigator.clipboard.writeText(workspacePath)
   toast.success('Copied', { description: workspacePath, duration: 2000 })
 }

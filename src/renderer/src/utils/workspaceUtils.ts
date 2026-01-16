@@ -51,6 +51,7 @@ export async function createWorkspace(chatUuid?: string, customPath?: string): P
 
     const result = await invokeCreateDirectory({
       directory_path: workspacePath,
+      chat_uuid: chatUuid,
       recursive: true
     })
 
