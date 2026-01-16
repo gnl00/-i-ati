@@ -76,6 +76,7 @@ export const prepareV2: PrepareMessageFn = async ({
       title: 'NewChat',
       messages: [],
       model: model.value,
+      workspacePath: workspacePath, // 保存 workspace 路径到数据库
       createTime: new Date().getTime(),
       updateTime: new Date().getTime()
     }
@@ -93,7 +94,8 @@ export const prepareV2: PrepareMessageFn = async ({
       throw new Error('Chat not found')
     }
     chatEntity = fetchedChat
-    workspacePath = getWorkspacePath(chatUuid)
+    // 优先使用 chat 的自定义 workspacePath，否则使用默认路径
+    workspacePath = getWorkspacePath(chatUuid, fetchedChat.workspacePath)
 
     // 设置当前聊天到 store（在加载消息之前）
     store.setCurrentChat(currChatId!, chatUuid!)

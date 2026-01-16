@@ -294,6 +294,37 @@
   }
 }
 
+/* Workspace button animations */
+@keyframes workspace-select {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes workspace-glow {
+  0%, 100% {
+    opacity: 0.5;
+    filter: blur(8px);
+  }
+  50% {
+    opacity: 0.8;
+    filter: blur(12px);
+  }
+}
+
+/* Apply animation when workspace is selected */
+.workspace-selected {
+  animation: workspace-select 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 @layer utilities {
   .animate-shine {
     position: relative;

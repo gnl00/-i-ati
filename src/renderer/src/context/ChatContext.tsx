@@ -56,11 +56,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Update file operations base directory when chat changes
   useEffect(() => {
-    if (chatUuid) {
-      // console.log('[ChatContext] Updating file operations base dir for chat:', chatUuid)
-      invokeSetFileOperationsBaseDir(chatUuid)
+    if (chatUuid && chatList.length > 0) {
+      // 从 chatList 中获取当前 chat 的 workspacePath
+      const currentChat = chatList.find(chat => chat.uuid === chatUuid)
+
+      // 只有在 chatList 中找到当前 chat 时才更新
+      if (currentChat) {
+        const customWorkspacePath = currentChat?.workspacePath
+        invokeSetFileOperationsBaseDir(chatUuid, customWorkspacePath)
+      }
     }
-  }, [chatUuid])
+  }, [chatUuid, chatList])
 
   return (
       <ChatContext.Provider 

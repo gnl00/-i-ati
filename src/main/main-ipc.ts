@@ -30,7 +30,7 @@ import {
 import {
   processExecuteCommand
 } from '@tools/command/main/CommandProcessor'
-import { ipcMain, shell } from 'electron'
+import { ipcMain, shell, dialog } from 'electron'
 import streamingjson from 'streaming-json'
 import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
 import MemoryService from './services/memory/MemoryService'
@@ -199,9 +199,9 @@ function mainIPCSetup() {
     return processMoveFile(args)
   })
 
-  ipcMain.handle(FILE_SET_WORKSPACE_BASE_DIR, (_event, chatUuid: string) => {
-    console.log(`[FileOps IPC] Set workspace base dir: ${chatUuid}`)
-    setWorkspaceBaseDir(chatUuid)
+  ipcMain.handle(FILE_SET_WORKSPACE_BASE_DIR, (_event, args: { chatUuid: string; customWorkspacePath?: string }) => {
+    console.log(`[FileOps IPC] Set workspace base dir: ${args.chatUuid}, customPath: ${args.customWorkspacePath}`)
+    setWorkspaceBaseDir(args.chatUuid, args.customWorkspacePath)
     return { success: true }
   })
 
@@ -423,6 +423,23 @@ function mainIPCSetup() {
   ipcMain.handle('db:compressed-summary:delete', async (_event, id: number) => {
     console.log(`[Database IPC] Delete compressed summary ${id}`)
     return DatabaseService.deleteCompressedSummary(id)
+  })
+
+  // Directory selection handler
+  ipcMain.handle('select-directory', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Select Workspace Directory',
+      buttonLabel: 'Select'
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, path: null }
+    }
+
+    const selectedPath = result.filePaths[0]
+    console.log(`[Workspace] Directory selected: ${selectedPath}`)
+    return { success: true, path: selectedPath }
   })
 
 }
