@@ -7,11 +7,12 @@ import type { TreeNode } from '@tools/fileOperations/index.d'
 import { type FileTreeNode } from './WorkspaceFileTree'
 import { convertToRelativePath } from './artifactUtils'
 
-interface UseWorkspaceFilesReturn {
+export interface UseWorkspaceFilesReturn {
   workspaceTree: FileTreeNode[]
   selectedFilePath: string | undefined
   selectedFileContent: string | undefined
   selectedFileName: string | undefined
+  workspacePath: string | undefined
   isLoadingTree: boolean
   isLoadingFile: boolean
   handleFileSelect: (path: string) => Promise<void>
@@ -32,6 +33,10 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
   const currentWorkspacePath = useMemo(() => {
     return getChatWorkspacePath({ chatUuid, chatList })
   }, [chatUuid, chatList])
+  const resolvedWorkspacePath = useMemo(() => {
+    if (!chatUuid) return undefined
+    return getWorkspacePath(chatUuid, currentWorkspacePath)
+  }, [chatUuid, currentWorkspacePath])
 
   // Convert API TreeNode to FileTreeNode
   const convertToFileTreeNodes = useCallback((apiTree: TreeNode): FileTreeNode[] => {
@@ -47,18 +52,17 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
 
   // Load workspace file tree
   const loadWorkspaceTree = useCallback(async () => {
-    if (!chatUuid) {
+    if (!chatUuid || !resolvedWorkspacePath) {
       setWorkspaceTree([])
       return
     }
 
     setIsLoadingTree(true)
     try {
-      const workspacePath = getWorkspacePath(chatUuid, currentWorkspacePath)
-      console.log('[useWorkspaceFiles] Loading workspace tree:', workspacePath)
+      console.log('[useWorkspaceFiles] Loading workspace tree:', resolvedWorkspacePath)
 
       const result = await invokeDirectoryTree({
-        directory_path: workspacePath,
+        directory_path: resolvedWorkspacePath!,
         max_depth: 10
       })
 
@@ -74,7 +78,7 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
     } finally {
       setIsLoadingTree(false)
     }
-  }, [chatUuid, currentWorkspacePath, convertToFileTreeNodes])
+  }, [chatUuid, resolvedWorkspacePath, convertToFileTreeNodes])
 
   // Read file content
   const handleFileSelect = useCallback(async (filePath: string) => {
@@ -118,11 +122,19 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
     loadWorkspaceTree()
   }, [loadWorkspaceTree])
 
+  useEffect(() => {
+    setSelectedFilePath(undefined)
+    setSelectedFileContent(undefined)
+    setSelectedFileName(undefined)
+    setWorkspaceTree([])
+  }, [resolvedWorkspacePath])
+
   return {
     workspaceTree,
     selectedFilePath,
     selectedFileContent,
     selectedFileName,
+    workspacePath: resolvedWorkspacePath,
     isLoadingTree,
     isLoadingFile,
     handleFileSelect,

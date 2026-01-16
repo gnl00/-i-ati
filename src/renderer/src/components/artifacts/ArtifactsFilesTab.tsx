@@ -1,9 +1,8 @@
-import { useState } from 'react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { WorkspaceFileTree } from './WorkspaceFileTree'
 import { ArtifactsEmptyState } from './ArtifactsEmptyState'
-import { useWorkspaceFiles } from './useWorkspaceFiles'
+import type { UseWorkspaceFilesReturn } from './useWorkspaceFiles'
 import { copyFileToClipboard, downloadFile, getLanguageFromPath } from './artifactUtils'
 import { cn } from '@renderer/lib/utils'
 import {
@@ -16,9 +15,10 @@ import {
 import SyntaxHighlighter from 'react-syntax-highlighter'
 import { dracula } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 
-export const ArtifactsFilesTab: React.FC = () => {
-  const [searchQuery] = useState('')
-  const files = useWorkspaceFiles()
+export const ArtifactsFilesTab: React.FC<{
+  files: UseWorkspaceFilesReturn
+  searchQuery: string
+}> = ({ files, searchQuery }) => {
 
   if (files.workspaceTree.length === 0) {
     return (

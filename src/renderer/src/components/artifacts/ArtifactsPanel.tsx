@@ -12,7 +12,7 @@ import { useState } from 'react'
 import { ArtifactsFilesTab, FilesTabToolbar } from './ArtifactsFilesTab'
 import { ArtifactsFooter } from './ArtifactsFooter'
 import { ArtifactsPreviewTab } from './ArtifactsPreviewTab'
-import { downloadFile } from './artifactUtils'
+import { copyWorkspacePath, downloadFile } from './artifactUtils'
 import { useWorkspaceFiles } from './useWorkspaceFiles'
 
 export const ArtifactsPanel: React.FC = () => {
@@ -37,8 +37,7 @@ export const ArtifactsPanel: React.FC = () => {
 
   const handleCopyWorkspacePath = async () => {
     if (!chatUuid) return
-    // TODO: Implement copy workspace path functionality
-    console.log('Copy workspace path for:', chatUuid)
+    await copyWorkspacePath(chatUuid, files.workspacePath)
   }
 
   // Artifact files for Preview tab (TODO: determine actual source)
@@ -117,7 +116,7 @@ export const ArtifactsPanel: React.FC = () => {
           />
 
           {/* Files Tab Content */}
-          <ArtifactsFilesTab />
+          <ArtifactsFilesTab files={files} searchQuery={searchQuery} />
         </TabsContent>
 
         {/* Action Footer */}

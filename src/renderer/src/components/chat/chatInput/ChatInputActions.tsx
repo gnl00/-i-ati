@@ -11,7 +11,7 @@ import { useChatStore } from '@renderer/store'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
-import { saveChat, updateChat } from '@renderer/db/ChatRepository'
+import { saveChat } from '@renderer/db/ChatRepository'
 import { v4 as uuidv4 } from 'uuid'
 import {
   ArrowBigUp,
@@ -42,7 +42,16 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 }) => {
   const readStreamState = useChatStore(state => state.readStreamState)
   const messages = useChatStore(state => state.messages)
-  const { chatId, chatUuid, chatList, setChatId, setChatUuid, setChatTitle, setChatList, updateChatList } = useChatContext()
+  const {
+    chatId,
+    chatUuid,
+    chatList,
+    setChatId,
+    setChatUuid,
+    setChatTitle,
+    setChatList,
+    updateWorkspacePath
+  } = useChatContext()
   const currentWorkspacePath = useMemo(() => {
     return getChatWorkspacePath({ chatUuid, chatId, chatList })
   }, [chatUuid, chatId, chatList])
@@ -66,14 +75,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     if (chatId && chatUuid && messages.length === 0) {
       const currentChat = getChatFromList({ chatId, chatList })
       if (currentChat && currentChat.workspacePath) {
-        // 清空 workspace
-        const updatedChat = {
-          ...currentChat,
-          workspacePath: undefined
-        }
-        await updateChat(updatedChat)
-        updateChatList(updatedChat)
-
+        await updateWorkspacePath(undefined)
         toast.success('Workspace cleared')
         return
       }
@@ -116,13 +118,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
           // 更新现有 chat 的 workspacePath
           const currentChat = getChatFromList({ chatId, chatList })
           if (currentChat) {
-            const updatedChat = {
-              ...currentChat,
-              workspacePath: result.path
-            }
-            await updateChat(updatedChat)
-            updateChatList(updatedChat)
-
+            await updateWorkspacePath(result.path)
             toast.success(`Workspace updated: ${result.path}`)
           }
         }

@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useRef, useState } from 'react'
 import { VListHandle } from 'virtua'
+import { updateChat } from '@renderer/db/ChatRepository'
+import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
 type ChatContextType = {
   editableContentId: number | undefined
@@ -16,6 +18,7 @@ type ChatContextType = {
   chatList: ChatEntity[]
   setChatList: (list: ChatEntity[]) => void
   updateChatList: (chatEntity: ChatEntity) => void
+  updateWorkspacePath: (workspacePath?: string) => Promise<void>
   lastMsgStatus: boolean
   setLastMsgStatus: (state: boolean) => void
 }
@@ -53,6 +56,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })
   }
 
+  const updateWorkspacePath = async (workspacePath?: string) => {
+    if (!chatId || !chatUuid) return
+    const currentChat = getChatFromList({ chatUuid, chatId, chatList })
+    if (!currentChat) return
+
+    const updatedChat: ChatEntity = {
+      ...currentChat,
+      workspacePath,
+      updateTime: Date.now()
+    }
+
+    await updateChat(updatedChat)
+    updateChatList(updatedChat)
+  }
+
   return (
       <ChatContext.Provider 
         value={{
@@ -64,6 +82,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           chatList, setChatList,
           lastMsgStatus, setLastMsgStatus,
           updateChatList,
+          updateWorkspacePath,
           chatListRef
         }}
       >
