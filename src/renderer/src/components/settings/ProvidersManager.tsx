@@ -10,6 +10,7 @@ import {
 } from "@renderer/components/ui/table"
 import { cn } from '@renderer/lib/utils'
 import React, { useEffect, useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 
 import { Button } from "@renderer/components/ui/button"
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@renderer/components/ui/drawer'
@@ -65,6 +66,8 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
 
     const [showFetchModelsDrawer, setShowFetchModelsDrawer] = useState<boolean>(false)
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
+    const [showApiKey, setShowApiKey] = useState<boolean>(false)
+    const [showNewApiKey, setShowNewApiKey] = useState<boolean>(false)
 
     useEffect(() => {
         setEditProviderName('')
@@ -223,12 +226,23 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                         </div>
                                         <div className="flex flex-col items-start gap-2">
                                             <Label htmlFor="apiKey" className="text-sm font-medium">API Key</Label>
-                                            <Input
-                                                id="apiKey"
-                                                placeholder="sk-********"
-                                                className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                onChange={e => { setNewProviderApiKey(e.target.value) }}
-                                            />
+                                            <div className="relative w-full">
+                                                <Input
+                                                    id="apiKey"
+                                                    type={showNewApiKey ? "text" : "password"}
+                                                    placeholder="sk-********"
+                                                    className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                                                    onChange={e => { setNewProviderApiKey(e.target.value) }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNewApiKey(!showNewApiKey)}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                                                    tabIndex={-1}
+                                                >
+                                                    {showNewApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -355,17 +369,27 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                 <Label htmlFor="provider-api-key" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
                                     API Key
                                 </Label>
-                                <Input
-                                    id="provider-api-key"
-                                    type="password"
-                                    className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
-                                    placeholder='sk-********'
-                                    value={editProviderApiKey}
-                                    onChange={(e) => {
-                                        setEditProviderApiKey(e.target.value)
-                                        updateCurrentProvider('apiKey', e.target.value)
-                                    }}
-                                />
+                                <div className="relative w-full">
+                                    <Input
+                                        id="provider-api-key"
+                                        type={showApiKey ? "text" : "password"}
+                                        className='h-10 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
+                                        placeholder='sk-********'
+                                        value={editProviderApiKey}
+                                        onChange={(e) => {
+                                            setEditProviderApiKey(e.target.value)
+                                            updateCurrentProvider('apiKey', e.target.value)
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowApiKey(!showApiKey)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                                        tabIndex={-1}
+                                    >
+                                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
