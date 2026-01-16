@@ -237,10 +237,27 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowNewApiKey(!showNewApiKey)}
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                                                    className={cn(
+                                                        "absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center p-1 rounded-md",
+                                                        "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300",
+                                                        "hover:bg-gray-100 dark:hover:bg-gray-600/50",
+                                                        "transition-all duration-200",
+                                                        "active:scale-90 hover:scale-110"
+                                                    )}
                                                     tabIndex={-1}
                                                 >
-                                                    {showNewApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                    <span className={cn(
+                                                        "transition-all duration-300 ease-in-out",
+                                                        showNewApiKey ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
+                                                    )}>
+                                                        <EyeOff className="w-4 h-4" />
+                                                    </span>
+                                                    <span className={cn(
+                                                        "transition-all duration-300 ease-in-out",
+                                                        !showNewApiKey ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
+                                                    )}>
+                                                        <Eye className="w-4 h-4" />
+                                                    </span>
                                                 </button>
                                             </div>
                                         </div>
@@ -384,10 +401,27 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowApiKey(!showApiKey)}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                                        className={cn(
+                                            "absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center p-1 rounded-md",
+                                            "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300",
+                                            "hover:bg-gray-100 dark:hover:bg-gray-600/50",
+                                            "transition-all duration-200",
+                                            "active:scale-90 hover:scale-110"
+                                        )}
                                         tabIndex={-1}
                                     >
-                                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        <span className={cn(
+                                            "transition-all duration-300 ease-in-out",
+                                            showApiKey ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
+                                        )}>
+                                            <EyeOff className="w-4 h-4" />
+                                        </span>
+                                        <span className={cn(
+                                            "transition-all duration-300 ease-in-out",
+                                            !showApiKey ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
+                                        )}>
+                                            <Eye className="w-4 h-4" />
+                                        </span>
                                     </button>
                                 </div>
                             </div>
