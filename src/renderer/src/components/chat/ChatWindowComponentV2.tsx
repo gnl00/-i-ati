@@ -7,6 +7,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/
 import { useChatContext } from '@renderer/context/ChatContext'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, FileCode, Monitor } from 'lucide-react'
 import React, { forwardRef, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
 
@@ -26,6 +27,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { chatUuid } = useChatContext()
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
+  const scrollParentRef = useRef<HTMLDivElement>(null)
   const chatListRef = useRef<HTMLDivElement>(null)
   const chatPaddingElRef = useRef<HTMLDivElement>(null)
   const lastChatUuidRef = useRef<string | undefined>(undefined)
@@ -58,7 +60,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   // 自定义平滑滚动到底部
   const smoothScrollToBottom = useCallback(() => {
-    const container = chatListRef.current?.parentElement
+    const container = scrollParentRef.current
     if (!container) return
 
     // 取消之前的滚动动画
@@ -124,7 +126,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   // 所有函数定义
   const autoScrollToBottom = useCallback(() => {
-    const container = chatListRef.current?.parentElement
+    const container = scrollParentRef.current
     if (!container) return
     container.scrollTop = container.scrollHeight - container.clientHeight
   }, [])
@@ -236,7 +238,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   // useEffect hooks
   useEffect(() => {
     // 监听聊天列表容器的滚动，而不是 window
-    const chatListElement = chatListRef.current?.parentElement
+    const chatListElement = scrollParentRef.current
     if (chatListElement) {
       chatListElement.addEventListener('wheel', onUserScrollIntent, { passive: true })
       chatListElement.addEventListener('touchstart', onUserScrollIntent, { passive: true })
@@ -265,7 +267,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [onChatListScroll, onUserScrollIntent, cancelSmoothScroll])
 
   useEffect(() => {
-    const chatListElement = chatListRef.current?.parentElement
+    const chatListElement = scrollParentRef.current
     const sentinelElement = chatPaddingElRef.current
     if (!chatListElement || !sentinelElement) return
     if (!('IntersectionObserver' in window)) return
@@ -342,6 +344,28 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [chatUuid, messages.length])
 
+  const totalCount = deferredMessages.length + (showWelcome ? 1 : 0)
+  const getItemKey = useCallback((index: number) => {
+    if (showWelcome) {
+      if (index === 0) return 'welcome'
+      const message = deferredMessages[index - 1]
+      return message?.id ?? `msg-${index - 1}`
+    }
+    const message = deferredMessages[index]
+    return message?.id ?? `msg-${index}`
+  }, [showWelcome, deferredMessages])
+
+  const estimateSize = useCallback(() => 120, [])
+
+  const rowVirtualizer = useVirtualizer({
+    count: totalCount,
+    getScrollElement: () => scrollParentRef.current,
+    estimateSize,
+    overscan: 6,
+    gap: 8,
+    getItemKey
+  })
+
   useEffect(() => {
     scheduleAutoScroll()
   }, [messages, scheduleAutoScroll])
@@ -399,24 +423,44 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
               className="flex flex-col overflow-hidden relative"
               id="chat-panel"
             >
-              <div className="flex-1 app-undragable overflow-scroll">
-                <div ref={chatListRef} id='chat-list' className="w-full flex-grow flex flex-col space-y-2 px-2">
-                  {showWelcome && (
-                    <WelcomeMessage onSuggestionClick={handleSuggestionClick} />
-                  )}
-                  {deferredMessages.length === 0 ? null : (
-                    deferredMessages.map((message, index) => {
-                      return (
-                        <ChatMessageComponent
-                          key={message.id || index}
-                          message={message.body}
-                          index={index}
-                          isLatest={index === deferredMessages.length - 1}
-                          onTypingChange={handleTyping}
-                        />
-                      )
-                    })
-                  )}
+              <div ref={scrollParentRef} className="flex-1 app-undragable overflow-scroll px-2">
+                <div
+                  ref={chatListRef}
+                  id='chat-list'
+                  className="relative w-full"
+                  style={{ height: rowVirtualizer.getTotalSize() }}
+                >
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const isWelcomeRow = showWelcome && virtualRow.index === 0
+                    const messageIndex = showWelcome ? virtualRow.index - 1 : virtualRow.index
+                    const message = deferredMessages[messageIndex]
+
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        data-index={virtualRow.index}
+                        ref={rowVirtualizer.measureElement}
+                        className="w-full"
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          transform: `translateY(${virtualRow.start}px)`
+                        }}
+                      >
+                        {isWelcomeRow ? (
+                          <WelcomeMessage onSuggestionClick={handleSuggestionClick} />
+                        ) : message ? (
+                          <ChatMessageComponent
+                            message={message.body}
+                            index={messageIndex}
+                            isLatest={messageIndex === deferredMessages.length - 1}
+                            onTypingChange={handleTyping}
+                          />
+                        ) : null}
+                      </div>
+                    )
+                  })}
                 </div>
                 <div id="scrollBottomEl" ref={chatPaddingElRef} className="h-px"></div>
               </div>
