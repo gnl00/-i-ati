@@ -600,37 +600,58 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                         <button
                                                                             onClick={e => onSheetChatItemEditConformClick(e, item)}
                                                                             className={cn(
-                                                                                "p-1 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
-                                                                                "transition-all duration-200 ease-out",
-                                                                                "hover:scale-110 hover:bg-green-200 dark:hover:bg-green-900/50 hover:shadow-md",
-                                                                                "active:scale-95"
+                                                                                "relative p-1.5 rounded-xl",
+                                                                                "bg-emerald-50/80 dark:bg-emerald-950/40",
+                                                                                "text-emerald-600 dark:text-emerald-400",
+                                                                                "border border-emerald-200/50 dark:border-emerald-800/50",
+                                                                                "shadow-inner",
+                                                                                "transition-all duration-300 ease-out",
+                                                                                "hover:scale-110",
+                                                                                "hover:bg-emerald-100 dark:hover:bg-emerald-900/50",
+                                                                                "hover:shadow-lg hover:shadow-emerald-500/10",
+                                                                                "hover:-translate-y-0.5",
+                                                                                "active:scale-95 active:shadow-inner active:translate-y-0"
                                                                             )}
                                                                         >
-                                                                            <CheckIcon className="w-4 h-4" />
+                                                                            <CheckIcon className="w-3.5 h-3.5" />
                                                                         </button>
                                                                     ) : (
                                                                         <button
                                                                             onClick={e => onSheetChatItemEditClick(e, item)}
                                                                             className={cn(
-                                                                                "p-1 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300",
-                                                                                "transition-all duration-200 ease-out",
-                                                                                "hover:scale-110 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md",
-                                                                                "active:scale-95"
+                                                                                "relative p-1.5 rounded-xl",
+                                                                                "bg-slate-100/80 dark:bg-slate-800/60",
+                                                                                "text-slate-600 dark:text-slate-400",
+                                                                                "border border-slate-200/50 dark:border-slate-700/50",
+                                                                                "shadow-inner",
+                                                                                "transition-all duration-300 ease-out",
+                                                                                "hover:scale-110",
+                                                                                "hover:bg-slate-200 dark:hover:bg-slate-700",
+                                                                                "hover:shadow-lg hover:shadow-slate-500/10",
+                                                                                "hover:-translate-y-0.5",
+                                                                                "active:scale-95 active:shadow-inner active:translate-y-0"
                                                                             )}
                                                                         >
-                                                                            <Pencil2Icon className="w-4 h-4" />
+                                                                            <Pencil2Icon className="w-3.5 h-3.5" />
                                                                         </button>
                                                                     )}
                                                                     <button
                                                                         onClick={e => onSheetChatItemDeleteClick(e, item)}
                                                                         className={cn(
-                                                                            "p-1 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
-                                                                            "transition-all duration-200 ease-out",
-                                                                            "hover:scale-110 hover:rotate-90 hover:bg-red-200 dark:hover:bg-red-900/50 hover:shadow-md",
-                                                                            "active:scale-95"
+                                                                            "relative p-1.5 rounded-xl",
+                                                                            "bg-rose-50/80 dark:bg-rose-950/40",
+                                                                            "text-rose-600 dark:text-rose-400",
+                                                                            "border border-rose-200/50 dark:border-rose-800/50",
+                                                                            "shadow-inner",
+                                                                            "transition-all duration-300 ease-out",
+                                                                            "hover:scale-110 hover:rotate-90",
+                                                                            "hover:bg-rose-100 dark:hover:bg-rose-900/50",
+                                                                            "hover:shadow-lg hover:shadow-rose-500/10",
+                                                                            "hover:-translate-y-0.5",
+                                                                            "active:scale-95 active:shadow-inner active:translate-y-0 active:rotate-90"
                                                                         )}
                                                                     >
-                                                                        <Cross2Icon className="w-4 h-4" />
+                                                                        <Cross2Icon className="w-3.5 h-3.5" />
                                                                     </button>
                                                                 </div>
                                                             </div>
