@@ -13,8 +13,7 @@ import {
   processDirectoryTree,
   processGetFileInfo,
   processCreateDirectory,
-  processMoveFile,
-  setWorkspaceBaseDir
+  processMoveFile
 } from '@tools/fileOperations/main/FileOperationsProcessor'
 import {
   processCheckPreviewSh,
@@ -59,7 +58,6 @@ import {
   FILE_GET_INFO_ACTION,
   FILE_CREATE_DIR_ACTION,
   FILE_MOVE_ACTION,
-  FILE_SET_WORKSPACE_BASE_DIR,
   DEV_SERVER_CHECK_PREVIEW_SH,
   DEV_SERVER_START,
   DEV_SERVER_STOP,
@@ -197,12 +195,6 @@ function mainIPCSetup() {
   ipcMain.handle(FILE_MOVE_ACTION, (_event, args) => {
     console.log(`[FileOps IPC] Move file: ${args.source_path} -> ${args.destination_path}`)
     return processMoveFile(args)
-  })
-
-  ipcMain.handle(FILE_SET_WORKSPACE_BASE_DIR, (_event, args: { chatUuid: string; customWorkspacePath?: string }) => {
-    console.log(`[FileOps IPC] Set workspace base dir: ${args.chatUuid}, customPath: ${args.customWorkspacePath}`)
-    setWorkspaceBaseDir(args.chatUuid, args.customWorkspacePath)
-    return { success: true }
   })
 
   // DevServer Operations handlers

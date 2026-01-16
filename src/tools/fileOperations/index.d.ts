@@ -6,6 +6,7 @@
 // ============ Read Text File ============
 export interface ReadTextFileArgs {
   file_path: string
+  chat_uuid?: string
   encoding?: string
   start_line?: number
   end_line?: number
@@ -22,6 +23,7 @@ export interface ReadTextFileResponse {
 // ============ Read Media File ============
 export interface ReadMediaFileArgs {
   file_path: string
+  chat_uuid?: string
 }
 
 export interface ReadMediaFileResponse {
@@ -36,6 +38,7 @@ export interface ReadMediaFileResponse {
 // ============ Read Multiple Files ============
 export interface ReadMultipleFilesArgs {
   file_paths: string[]
+  chat_uuid?: string
   encoding?: string
 }
 
@@ -57,6 +60,7 @@ export interface ReadMultipleFilesResponse {
 // ============ Write File ============
 export interface WriteFileArgs {
   file_path: string
+  chat_uuid?: string
   content: string
   encoding?: string
   create_dirs?: boolean
@@ -73,6 +77,7 @@ export interface WriteFileResponse {
 // ============ Edit File ============
 export interface EditFileArgs {
   file_path: string
+  chat_uuid?: string
   search: string
   replace: string
   regex?: boolean
@@ -89,6 +94,7 @@ export interface EditFileResponse {
 // ============ Search File ============
 export interface SearchFileArgs {
   file_path: string
+  chat_uuid?: string
   pattern: string
   regex?: boolean
   case_sensitive?: boolean
@@ -112,6 +118,7 @@ export interface SearchFileResponse {
 // ============ List Directory ============
 export interface ListDirectoryArgs {
   directory_path: string
+  chat_uuid?: string
 }
 
 export interface DirectoryEntry {
@@ -131,6 +138,7 @@ export interface ListDirectoryResponse {
 // ============ List Directory With Sizes ============
 export interface ListDirectoryWithSizesArgs {
   directory_path: string
+  chat_uuid?: string
 }
 
 export interface DirectoryEntryWithSize {
@@ -152,6 +160,7 @@ export interface ListDirectoryWithSizesResponse {
 // ============ Directory Tree ============
 export interface DirectoryTreeArgs {
   directory_path: string
+  chat_uuid?: string
   max_depth?: number
 }
 
@@ -172,6 +181,7 @@ export interface DirectoryTreeResponse {
 // ============ Search Files ============
 export interface SearchFilesArgs {
   directory_path: string
+  chat_uuid?: string
   pattern: string
   regex?: boolean
   case_sensitive?: boolean
@@ -198,6 +208,7 @@ export interface SearchFilesResponse {
 // ============ Get File Info ============
 export interface GetFileInfoArgs {
   file_path: string
+  chat_uuid?: string
 }
 
 export interface FileInfo {
@@ -233,6 +244,7 @@ export interface ListAllowedDirectoriesResponse {
 // ============ Create Directory ============
 export interface CreateDirectoryArgs {
   directory_path: string
+  chat_uuid?: string
   recursive?: boolean
 }
 
@@ -247,6 +259,7 @@ export interface CreateDirectoryResponse {
 export interface MoveFileArgs {
   source_path: string
   destination_path: string
+  chat_uuid?: string
   overwrite?: boolean
 }
 

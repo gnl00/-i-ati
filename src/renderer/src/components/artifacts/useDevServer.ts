@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChatContext } from '@renderer/context/ChatContext'
+import { getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { useDevServerStore } from '@renderer/store/devServerStore'
 import { toast } from 'sonner'
 import {
@@ -25,7 +26,7 @@ interface UseDevServerReturn {
 }
 
 export function useDevServer(): UseDevServerReturn {
-  const { chatUuid } = useChatContext()
+  const { chatUuid, chatList } = useChatContext()
   const {
     setDevServerStatus,
     setDevServerPort,
@@ -40,6 +41,10 @@ export function useDevServer(): UseDevServerReturn {
   // Local state
   const [hasPreviewSh, setHasPreviewSh] = useState(false)
   const [showErrorLogs, setShowErrorLogs] = useState(false)
+
+  const currentWorkspacePath = useMemo(() => {
+    return getChatWorkspacePath({ chatUuid, chatList })
+  }, [chatUuid, chatList])
 
   // DevServer state from store
   const currentDevServerStatus = chatUuid ? devServerStatus[chatUuid] || 'idle' : 'idle'
@@ -61,14 +66,14 @@ export function useDevServer(): UseDevServerReturn {
     }
 
     try {
-      const result = await invokeCheckPreviewSh({ chatUuid })
+      const result = await invokeCheckPreviewSh({ chatUuid, customWorkspacePath: currentWorkspacePath })
       setHasPreviewSh(result.exists)
       console.log('[useDevServer] Preview.sh exists:', result.exists)
     } catch (error) {
       console.error('[useDevServer] Error checking preview.sh:', error)
       setHasPreviewSh(false)
     }
-  }, [chatUuid])
+  }, [chatUuid, currentWorkspacePath])
 
   // Poll status until port is detected or timeout
   const pollDevServerStatus = useCallback(() => {
@@ -143,7 +148,7 @@ export function useDevServer(): UseDevServerReturn {
     setDevServerError(chatUuid, null)
 
     try {
-      const result = await invokeStartDevServer({ chatUuid })
+      const result = await invokeStartDevServer({ chatUuid, customWorkspacePath: currentWorkspacePath })
 
       if (result.success) {
         console.log('[useDevServer] Dev server started successfully')
@@ -159,7 +164,7 @@ export function useDevServer(): UseDevServerReturn {
       setDevServerStatus(chatUuid, 'error')
       setDevServerError(chatUuid, error.message || 'Failed to start development server')
     }
-  }, [chatUuid, setDevServerStatus, setDevServerError, pollDevServerStatus])
+  }, [chatUuid, currentWorkspacePath, setDevServerStatus, setDevServerError, pollDevServerStatus])
 
   // Stop development server
   const handleStopDevServer = useCallback(async () => {
@@ -191,7 +196,7 @@ export function useDevServer(): UseDevServerReturn {
         description: error.message || 'Failed to stop development server'
       })
     }
-  }, [chatUuid, setDevServerStatus, setDevServerPort, setDevServerError])
+  }, [chatUuid, currentWorkspacePath, setDevServerStatus, setDevServerPort, setDevServerError])
 
   // Restart development server
   const handleRestartDevServer = useCallback(async () => {
@@ -252,7 +257,7 @@ export function useDevServer(): UseDevServerReturn {
         console.log('[useDevServer] Skip cleanup - chatUuid:', chatUuid, 'status:', status)
       }
     }
-  }, [chatUuid, setDevServerStatus, setDevServerPort, setDevServerError])
+  }, [chatUuid, currentWorkspacePath, setDevServerStatus, setDevServerPort, setDevServerError])
 
   return {
     hasPreviewSh,

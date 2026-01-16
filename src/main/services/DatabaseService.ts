@@ -18,6 +18,7 @@ interface ChatRow {
   title: string
   msg_count: number
   model: string | null
+  workspace_path: string | null
   create_time: number
   update_time: number
 }
@@ -78,6 +79,8 @@ class DatabaseService {
     insertChat?: Database.Statement
     getAllChats?: Database.Statement
     getChatById?: Database.Statement
+    getChatByUuid?: Database.Statement
+    getWorkspacePathByUuid?: Database.Statement
     updateChat?: Database.Statement
     deleteChat?: Database.Statement
 
@@ -137,6 +140,9 @@ class DatabaseService {
       // 创建表
       this.createTables()
 
+      // 迁移旧表结构
+      this.ensureChatWorkspacePathColumn()
+
       // 创建索引
       this.createIndexes()
 
@@ -168,6 +174,7 @@ class DatabaseService {
         title TEXT NOT NULL,
         msg_count INTEGER NOT NULL DEFAULT 0,
         model TEXT,
+        workspace_path TEXT,
         create_time INTEGER NOT NULL,
         update_time INTEGER NOT NULL
       )
@@ -240,6 +247,21 @@ class DatabaseService {
   }
 
   /**
+   * 兼容旧数据库：为 chats 表补齐 workspace_path 字段
+   */
+  private ensureChatWorkspacePathColumn(): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const columns = this.db.prepare(`PRAGMA table_info(chats)`).all() as { name: string }[]
+    const hasWorkspacePath = columns.some(column => column.name === 'workspace_path')
+
+    if (!hasWorkspacePath) {
+      this.db.exec(`ALTER TABLE chats ADD COLUMN workspace_path TEXT`)
+      console.log('[DatabaseService] Migrated chats table: added workspace_path')
+    }
+  }
+
+  /**
    * 准备常用 SQL 语句
    */
   private prepareStatements(): void {
@@ -247,8 +269,8 @@ class DatabaseService {
 
     // Chat statements
     this.stmts.insertChat = this.db.prepare(`
-      INSERT INTO chats (uuid, title, model, create_time, update_time)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO chats (uuid, title, model, workspace_path, create_time, update_time)
+      VALUES (?, ?, ?, ?, ?, ?)
     `)
 
     this.stmts.getAllChats = this.db.prepare(`
@@ -259,8 +281,16 @@ class DatabaseService {
       SELECT * FROM chats WHERE id = ?
     `)
 
+    this.stmts.getChatByUuid = this.db.prepare(`
+      SELECT * FROM chats WHERE uuid = ?
+    `)
+
+    this.stmts.getWorkspacePathByUuid = this.db.prepare(`
+      SELECT workspace_path FROM chats WHERE uuid = ?
+    `)
+
     this.stmts.updateChat = this.db.prepare(`
-      UPDATE chats SET uuid = ?, title = ?, model = ?, create_time = ?, update_time = ?
+      UPDATE chats SET uuid = ?, title = ?, model = ?, workspace_path = ?, create_time = ?, update_time = ?
       WHERE id = ?
     `)
 
@@ -348,6 +378,7 @@ class DatabaseService {
       messages: [], // 空数组，需要通过 getMessagesByChatId 获取
       msgCount: row.msg_count,
       model: row.model ?? undefined,
+      workspacePath: row.workspace_path ?? undefined,
       createTime: row.create_time,
       updateTime: row.update_time,
     }
@@ -389,6 +420,7 @@ class DatabaseService {
         data.uuid,
         data.title,
         data.model ?? null,
+        data.workspacePath ?? null,
         data.createTime,
         data.updateTime
       )
@@ -441,6 +473,41 @@ class DatabaseService {
   }
 
   /**
+   * 根据 UUID 获取聊天
+   */
+  public getChatByUuid(uuid: string): ChatEntity | undefined {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const row = this.stmts.getChatByUuid!.get(uuid) as ChatRow | undefined
+      if (!row) return undefined
+
+      const chat = this.rowToChatEntity(row)
+      // 填充 messages 字段
+      chat.messages = this.getMessageIdsByChatId(row.id)
+      return chat
+    } catch (error) {
+      console.error('[DatabaseService] Failed to get chat by uuid:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 根据 UUID 获取 workspace_path
+   */
+  public getWorkspacePathByUuid(uuid: string): string | undefined {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const row = this.stmts.getWorkspacePathByUuid!.get(uuid) as { workspace_path: string | null } | undefined
+      return row?.workspace_path ?? undefined
+    } catch (error) {
+      console.error('[DatabaseService] Failed to get workspace path by uuid:', error)
+      throw error
+    }
+  }
+
+  /**
    * 更新聊天
    */
   public updateChat(data: ChatEntity): void {
@@ -452,6 +519,7 @@ class DatabaseService {
         data.uuid,
         data.title,
         data.model ?? null,
+        data.workspacePath ?? null,
         data.createTime,
         data.updateTime,
         data.id

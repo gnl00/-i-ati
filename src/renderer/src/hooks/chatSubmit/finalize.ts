@@ -123,10 +123,11 @@ export const finalizePipelineV2 = async (
   chatEntity.updateTime = new Date().getTime()
   await updateChat(chatEntity)
 
-  // 4. 从数据库重新加载最新的 msgCount
+  // 4. 从数据库重新加载最新的 msgCount 和 workspacePath
   const updatedChat = await getChatById(chatEntity.id!)
   if (updatedChat) {
     chatEntity.msgCount = updatedChat.msgCount
+    chatEntity.workspacePath = updatedChat.workspacePath
   }
   updateChatList(chatEntity)
 

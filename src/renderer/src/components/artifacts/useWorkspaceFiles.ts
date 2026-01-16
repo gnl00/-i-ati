@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { getWorkspacePath } from '@renderer/utils/workspaceUtils'
+import { getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { invokeDirectoryTree, invokeReadTextFile } from '@tools/fileOperations/renderer/FileOperationsInvoker'
 import type { TreeNode } from '@tools/fileOperations/index.d'
 import { type FileTreeNode } from './WorkspaceFileTree'
@@ -18,7 +19,7 @@ interface UseWorkspaceFilesReturn {
 }
 
 export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
-  const { chatUuid } = useChatContext()
+  const { chatUuid, chatList } = useChatContext()
 
   // Workspace file tree state
   const [workspaceTree, setWorkspaceTree] = useState<FileTreeNode[]>([])
@@ -27,6 +28,10 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
   const [selectedFileName, setSelectedFileName] = useState<string | undefined>()
   const [isLoadingTree, setIsLoadingTree] = useState(false)
   const [isLoadingFile, setIsLoadingFile] = useState(false)
+
+  const currentWorkspacePath = useMemo(() => {
+    return getChatWorkspacePath({ chatUuid, chatList })
+  }, [chatUuid, chatList])
 
   // Convert API TreeNode to FileTreeNode
   const convertToFileTreeNodes = useCallback((apiTree: TreeNode): FileTreeNode[] => {
@@ -49,7 +54,7 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
 
     setIsLoadingTree(true)
     try {
-      const workspacePath = getWorkspacePath(chatUuid)
+      const workspacePath = getWorkspacePath(chatUuid, currentWorkspacePath)
       console.log('[useWorkspaceFiles] Loading workspace tree:', workspacePath)
 
       const result = await invokeDirectoryTree({
@@ -69,7 +74,7 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
     } finally {
       setIsLoadingTree(false)
     }
-  }, [chatUuid, convertToFileTreeNodes])
+  }, [chatUuid, currentWorkspacePath, convertToFileTreeNodes])
 
   // Read file content
   const handleFileSelect = useCallback(async (filePath: string) => {
