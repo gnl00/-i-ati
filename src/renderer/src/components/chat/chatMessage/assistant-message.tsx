@@ -67,7 +67,6 @@ const TextSegment: React.FC<{
       remarkRehypeOptions={{ passThrough: ['link'] }}
       className={cn(
         "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%]",
-        "whitespace-pre-wrap",
         "transform-gpu transition-[opacity,transform,filter] duration-250 ease-out will-change-[opacity,transform,filter]",
         "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
         transitionStateClass
@@ -103,7 +102,6 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
               skipHtml={false}
               className={cn(
                 "prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300",
-                "whitespace-pre-wrap",
                 "transition-[opacity,transform,filter] duration-300 ease-out will-change-[opacity,transform,filter]",
                 "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
                 entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-sm"
@@ -221,7 +219,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             }
 
             const proseClassName =
-              "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%] whitespace-pre-wrap"
+              "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%]"
             return (
               <StreamingMarkdownSwitch
                 key={key}
