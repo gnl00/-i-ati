@@ -171,7 +171,11 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [scrollToBottom])
 
   const onMessagesUpdate = () => {
-    // 用户提交消息后强制滚动到底部
+    // 用户提交消息后视为主动回到底部，避免短暂的按钮闪现
+    hasUserScrollIntentRef.current = false
+    isStickToBottomRef.current = true
+    setShowScrollToBottom(false)
+    setIsButtonFadingOut(false)
     scrollToBottomForced()
   }
 

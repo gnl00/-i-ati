@@ -1,8 +1,9 @@
 import { app } from 'electron'
 import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'fs/promises'
-import { dirname, join, basename } from 'path'
+import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
 import { existsSync, statSync, accessSync, constants } from 'fs'
 import { lookup } from 'mime-types'
+import DatabaseService from '../../../main/services/DatabaseService'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,
@@ -53,34 +54,48 @@ function resolveUserDataPath(relativePath: string): string {
   return join(userDataPath, relativePath)
 }
 
-/**
- * Current base directory for file operations
- * Default: userData/workspaces/tmp
- * Updated when switching chats via setWorkspaceBaseDir()
- */
-let currentBaseDir = join(app.getPath('userData'), 'workspaces', 'tmp')
+const DEFAULT_WORKSPACE_NAME = 'tmp'
 
-/**
- * Set the base directory for file operations
- * Called when switching chats or creating new chats
- */
-export function setWorkspaceBaseDir(chatUuid: string, customWorkspacePath?: string): void {
-  if (customWorkspacePath) {
-    currentBaseDir = customWorkspacePath
-  } else {
-    currentBaseDir = join(app.getPath('userData'), 'workspaces', chatUuid)
+function resolveWorkspaceBaseDir(chatUuid?: string): string {
+  const userDataPath = app.getPath('userData')
+
+  if (!chatUuid) {
+    return join(userDataPath, 'workspaces', DEFAULT_WORKSPACE_NAME)
   }
-  console.log(`[FileOps] Base directory set to: ${currentBaseDir}`)
+
+  try {
+    const workspacePath = DatabaseService.getWorkspacePathByUuid(chatUuid)
+    if (workspacePath) {
+      return workspacePath
+    }
+  } catch (error) {
+    console.error('[FileOps] Failed to resolve workspace path from DB:', error)
+  }
+
+  return join(userDataPath, 'workspaces', chatUuid)
 }
 
 /**
  * Resolve file path with workspace support
- * Supports two formats:
- * 1. New format: relative path based on currentBaseDir (e.g., "test.txt")
- * 2. Legacy format: workspace prefix included (e.g., "workspaces/123/test.txt")
+ * Supports:
+ * 1. Absolute paths (returned as-is, with a warning if outside baseDir)
+ * 2. New format: relative path based on baseDir (e.g., "test.txt")
+ * 3. Legacy format: workspace prefix included (e.g., "workspaces/123/test.txt")
  */
-function resolveFilePath(relativePath: string): string {
+function resolveFilePath(relativePath: string, chatUuid?: string, baseDirOverride?: string): string {
   const userDataPath = app.getPath('userData')
+  const baseDir = baseDirOverride ?? resolveWorkspaceBaseDir(chatUuid)
+
+  // Allow absolute paths (used by custom workspace selection)
+  if (isAbsolute(relativePath)) {
+    const resolvedBase = resolve(baseDir)
+    const target = resolve(relativePath)
+    const rel = relative(resolvedBase, target)
+    if (rel.startsWith('..') || isAbsolute(rel)) {
+      console.warn(`[FileOps] Absolute path outside workspace base: ${relativePath}`)
+    }
+    return target
+  }
 
   // Detect legacy format: paths starting with "workspaces/" or "./workspaces/"
   if (relativePath.startsWith('workspaces/') || relativePath.startsWith('./workspaces/')) {
@@ -89,9 +104,9 @@ function resolveFilePath(relativePath: string): string {
     return join(userDataPath, cleanPath)
   }
 
-  // New format: resolve relative to currentBaseDir
-  const resolvedPath = join(currentBaseDir, relativePath)
-  console.log(`[FileOps] Resolved: ${relativePath} -> ${resolvedPath}`)
+  // New format: resolve relative to baseDir
+  const resolvedPath = join(baseDir, relativePath)
+  console.log(`[FileOps] Resolved: ${relativePath} -> ${resolvedPath} (chatUuid: ${chatUuid ?? 'none'})`)
   return resolvedPath
 }
 
@@ -103,8 +118,8 @@ function resolveFilePath(relativePath: string): string {
  */
 export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
   try {
-    const { file_path, encoding = 'utf-8', start_line, end_line } = args
-    const absolutePath = resolveFilePath(file_path)
+    const { file_path, chat_uuid, encoding = 'utf-8', start_line, end_line } = args
+    const absolutePath = resolveFilePath(file_path, chat_uuid)
     console.log(`[ReadTextFile] File exists check:`, existsSync(absolutePath))
 
     if (!existsSync(absolutePath)) {
@@ -137,8 +152,8 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
  */
 export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<ReadMediaFileResponse> {
   try {
-    const { file_path } = args
-    const absolutePath = resolveFilePath(file_path)
+    const { file_path, chat_uuid } = args
+    const absolutePath = resolveFilePath(file_path, chat_uuid)
     console.log(`[ReadMediaFile] Reading media file: ${file_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -164,13 +179,14 @@ export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<Rea
  */
 export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Promise<ReadMultipleFilesResponse> {
   try {
-    const { file_paths, encoding = 'utf-8' } = args
+    const { file_paths, chat_uuid, encoding = 'utf-8' } = args
     console.log(`[ReadMultipleFiles] Reading ${file_paths.length} files`)
+    const baseDir = resolveWorkspaceBaseDir(chat_uuid)
 
     const files: FileContent[] = await Promise.all(
       file_paths.map(async (file_path) => {
         try {
-          const absolutePath = resolveFilePath(file_path)
+          const absolutePath = resolveFilePath(file_path, chat_uuid, baseDir)
           if (!existsSync(absolutePath)) {
             return { file_path, success: false, error: 'File not found' }
           }
@@ -199,8 +215,8 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
  */
 export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileResponse> {
   try {
-    const { file_path, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
-    const absolutePath = resolveFilePath(file_path)
+    const { file_path, chat_uuid, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
+    const absolutePath = resolveFilePath(file_path, chat_uuid)
     console.log(`[WriteFile] Writing to file: ${file_path} -> ${absolutePath}`)
 
     // 如果需要备份且文件存在，先备份
@@ -237,8 +253,8 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
  */
 export async function processEditFile(args: EditFileArgs): Promise<EditFileResponse> {
   try {
-    const { file_path, search, replace, regex = false, all = false } = args
-    const absolutePath = resolveFilePath(file_path)
+    const { file_path, chat_uuid, search, replace, regex = false, all = false } = args
+    const absolutePath = resolveFilePath(file_path, chat_uuid)
     console.log(`[EditFile] Editing file: ${file_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -294,8 +310,8 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
  */
 export async function processSearchFile(args: SearchFileArgs): Promise<SearchFileResponse> {
   try {
-    const { file_path, pattern, regex = false, case_sensitive = true, max_results = 100 } = args
-    const absolutePath = resolveFilePath(file_path)
+    const { file_path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100 } = args
+    const absolutePath = resolveFilePath(file_path, chat_uuid)
     console.log(`[SearchFile] Searching in file: ${file_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -344,8 +360,8 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
  */
 export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchFilesResponse> {
   try {
-    const { directory_path, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
-    const absoluteDirPath = resolveFilePath(directory_path)
+    const { directory_path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
+    const absoluteDirPath = resolveFilePath(directory_path, chat_uuid)
     console.log(`[SearchFiles] Searching in directory: ${directory_path} -> ${absoluteDirPath}`)
 
     if (!existsSync(absoluteDirPath)) {
@@ -428,8 +444,8 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
  */
 export async function processListDirectory(args: ListDirectoryArgs): Promise<ListDirectoryResponse> {
   try {
-    const { directory_path } = args
-    const absolutePath = resolveFilePath(directory_path)
+    const { directory_path, chat_uuid } = args
+    const absolutePath = resolveFilePath(directory_path, chat_uuid)
     console.log(`[ListDirectory] Listing directory: ${directory_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -464,8 +480,8 @@ export async function processListDirectory(args: ListDirectoryArgs): Promise<Lis
  */
 export async function processListDirectoryWithSizes(args: ListDirectoryWithSizesArgs): Promise<ListDirectoryWithSizesResponse> {
   try {
-    const { directory_path } = args
-    const absolutePath = resolveFilePath(directory_path)
+    const { directory_path, chat_uuid } = args
+    const absolutePath = resolveFilePath(directory_path, chat_uuid)
     console.log(`[ListDirectoryWithSizes] Listing: ${directory_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -506,8 +522,8 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
  */
 export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<DirectoryTreeResponse> {
   try {
-    const { directory_path, max_depth = 3 } = args
-    const absolutePath = resolveFilePath(directory_path)
+    const { directory_path, chat_uuid, max_depth = 3 } = args
+    const absolutePath = resolveFilePath(directory_path, chat_uuid)
     const userDataPath = app.getPath('userData')
     console.log(`[DirectoryTree] Building tree for: ${directory_path} -> ${absolutePath}`)
 
@@ -561,8 +577,8 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
  */
 export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFileInfoResponse> {
   try {
-    const { file_path } = args
-    const absolutePath = resolveFilePath(file_path)
+    const { file_path, chat_uuid } = args
+    const absolutePath = resolveFilePath(file_path, chat_uuid)
     console.log(`[GetFileInfo] Getting info for: ${file_path} -> ${absolutePath}`)
 
     if (!existsSync(absolutePath)) {
@@ -634,8 +650,8 @@ export async function processListAllowedDirectories(_args: ListAllowedDirectorie
  */
 export async function processCreateDirectory(args: CreateDirectoryArgs): Promise<CreateDirectoryResponse> {
   try {
-    const { directory_path, recursive = true } = args
-    const absolutePath = resolveFilePath(directory_path)
+    const { directory_path, chat_uuid, recursive = true } = args
+    const absolutePath = resolveFilePath(directory_path, chat_uuid)
     console.log(`[CreateDirectory] Creating: ${directory_path} -> ${absolutePath}`)
 
     if (existsSync(absolutePath)) {
@@ -660,9 +676,9 @@ export async function processCreateDirectory(args: CreateDirectoryArgs): Promise
  */
 export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileResponse> {
   try {
-    const { source_path, destination_path, overwrite = false } = args
-    const absoluteSourcePath = resolveFilePath(source_path)
-    const absoluteDestPath = resolveFilePath(destination_path)
+    const { source_path, destination_path, chat_uuid, overwrite = false } = args
+    const absoluteSourcePath = resolveFilePath(source_path, chat_uuid)
+    const absoluteDestPath = resolveFilePath(destination_path, chat_uuid)
     console.log(`[MoveFile] Moving: ${source_path} -> ${destination_path}`)
     console.log(`[MoveFile] Absolute: ${absoluteSourcePath} -> ${absoluteDestPath}`)
 

@@ -127,10 +127,11 @@ export const prepareV2: PrepareMessageFn = async ({
   chatEntity.updateTime = new Date().getTime()
   await updateChat(chatEntity)
 
-  // 从数据库重新加载最新的 msgCount
+  // 从数据库重新加载最新的 msgCount 和 workspacePath
   const updatedChat = await getChatById(currChatId!)
   if (updatedChat) {
     chatEntity.msgCount = updatedChat.msgCount
+    chatEntity.workspacePath = updatedChat.workspacePath
   }
   updateChatList(chatEntity)
 

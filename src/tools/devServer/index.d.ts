@@ -26,6 +26,7 @@ export interface DevServerProcess {
 // Check if preview.sh exists
 export interface CheckPreviewShArgs {
   chatUuid: string
+  customWorkspacePath?: string
 }
 
 export interface CheckPreviewShResponse {
@@ -37,6 +38,7 @@ export interface CheckPreviewShResponse {
 // Start dev server
 export interface StartDevServerArgs {
   chatUuid: string
+  customWorkspacePath?: string
 }
 
 export interface StartDevServerResponse {

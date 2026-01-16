@@ -9,8 +9,8 @@ import {
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
-import { invokeSetFileOperationsBaseDir } from '@tools/fileOperations/renderer/FileOperationsInvoker'
 import { useChatContext } from '@renderer/context/ChatContext'
+import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { saveChat, updateChat } from '@renderer/db/ChatRepository'
 import { v4 as uuidv4 } from 'uuid'
 import {
@@ -20,7 +20,7 @@ import {
   Package,
   FolderOpen
 } from 'lucide-react'
-import React, { useState, useEffect } from 'react'
+import React, { useMemo } from 'react'
 import { toast } from 'sonner'
 
 interface ChatInputActionsProps {
@@ -43,17 +43,9 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const readStreamState = useChatStore(state => state.readStreamState)
   const messages = useChatStore(state => state.messages)
   const { chatId, chatUuid, chatList, setChatId, setChatUuid, setChatTitle, setChatList, updateChatList } = useChatContext()
-  const [currentWorkspacePath, setCurrentWorkspacePath] = useState<string | undefined>()
-
-  // 从 chatList 中获取当前 chat 的 workspacePath
-  useEffect(() => {
-    if (chatId) {
-      const currentChat = chatList.find(chat => chat.id === chatId)
-      setCurrentWorkspacePath(currentChat?.workspacePath)
-    } else {
-      setCurrentWorkspacePath(undefined)
-    }
-  }, [chatId, chatList])
+  const currentWorkspacePath = useMemo(() => {
+    return getChatWorkspacePath({ chatUuid, chatId, chatList })
+  }, [chatUuid, chatId, chatList])
 
   // 获取目录名（路径的最后一部分）
   const getDirectoryName = (path: string | undefined): string => {
@@ -72,7 +64,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const handleNewChat = async () => {
     // 如果当前 chat 存在且没有任何消息，直接清空 workspace 复用当前 chat
     if (chatId && chatUuid && messages.length === 0) {
-      const currentChat = chatList.find(chat => chat.id === chatId)
+      const currentChat = getChatFromList({ chatId, chatList })
       if (currentChat && currentChat.workspacePath) {
         // 清空 workspace
         const updatedChat = {
@@ -81,10 +73,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
         }
         await updateChat(updatedChat)
         updateChatList(updatedChat)
-        setCurrentWorkspacePath(undefined)
-
-        // 重置 FileOps base directory 到默认路径
-        await invokeSetFileOperationsBaseDir(chatUuid, undefined)
 
         toast.success('Workspace cleared')
         return
@@ -114,9 +102,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 
           const newChatId = await saveChat(newChatEntity)
 
-          // 先设置 FileOps base directory（在 setChatUuid 之前）
-          await invokeSetFileOperationsBaseDir(newChatUuid, result.path)
-
           // 添加新 chat 到 chatList
           newChatEntity.id = newChatId
           setChatList([newChatEntity, ...chatList])
@@ -125,12 +110,11 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
           setChatId(newChatId)
           setChatUuid(newChatUuid)
           setChatTitle('NewChat')
-          setCurrentWorkspacePath(result.path)
 
           toast.success(`New chat created with workspace: ${result.path}`)
         } else {
           // 更新现有 chat 的 workspacePath
-          const currentChat = chatList.find(chat => chat.id === chatId)
+          const currentChat = getChatFromList({ chatId, chatList })
           if (currentChat) {
             const updatedChat = {
               ...currentChat,
@@ -138,12 +122,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
             }
             await updateChat(updatedChat)
             updateChatList(updatedChat)
-            setCurrentWorkspacePath(result.path)
-
-            // 立即设置 FileOps base directory
-            if (chatUuid) {
-              await invokeSetFileOperationsBaseDir(chatUuid, result.path)
-            }
 
             toast.success(`Workspace updated: ${result.path}`)
           }

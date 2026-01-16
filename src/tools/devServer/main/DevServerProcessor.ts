@@ -55,7 +55,10 @@ class DevServerProcessManager {
   /**
    * Get workspace path for a chatUuid
    */
-  private getWorkspacePath(chatUuid: string): string {
+  private getWorkspacePath(chatUuid: string, customWorkspacePath?: string): string {
+    if (customWorkspacePath) {
+      return customWorkspacePath
+    }
     const userDataPath = app.getPath('userData')
     return join(userDataPath, 'workspaces', chatUuid)
   }
@@ -63,15 +66,15 @@ class DevServerProcessManager {
   /**
    * Get preview.sh path for a chatUuid
    */
-  private getPreviewShPath(chatUuid: string): string {
-    return join(this.getWorkspacePath(chatUuid), 'preview.sh')
+  private getPreviewShPath(chatUuid: string, customWorkspacePath?: string): string {
+    return join(this.getWorkspacePath(chatUuid, customWorkspacePath), 'preview.sh')
   }
 
   /**
    * Check if preview.sh exists for a workspace
    */
-  checkPreviewSh(chatUuid: string): boolean {
-    const previewShPath = this.getPreviewShPath(chatUuid)
+  checkPreviewSh(chatUuid: string, customWorkspacePath?: string): boolean {
+    const previewShPath = this.getPreviewShPath(chatUuid, customWorkspacePath)
     return existsSync(previewShPath)
   }
 
@@ -120,7 +123,7 @@ class DevServerProcessManager {
   /**
    * Start development server for a workspace
    */
-  async startDevServer(chatUuid: string): Promise<StartDevServerResponse> {
+  async startDevServer(chatUuid: string, customWorkspacePath?: string): Promise<StartDevServerResponse> {
     try {
       // Check if already running
       const existing = this.processes.get(chatUuid)
@@ -151,7 +154,7 @@ class DevServerProcessManager {
       }
 
       // Check if preview.sh exists
-      const previewShPath = this.getPreviewShPath(chatUuid)
+      const previewShPath = this.getPreviewShPath(chatUuid, customWorkspacePath)
       if (!existsSync(previewShPath)) {
         return {
           success: false,
@@ -160,7 +163,7 @@ class DevServerProcessManager {
       }
 
       // Get workspace path
-      const workspacePath = this.getWorkspacePath(chatUuid)
+      const workspacePath = this.getWorkspacePath(chatUuid, customWorkspacePath)
 
       console.log(`[DevServer] Starting server for workspace: ${chatUuid}`)
       console.log(`[DevServer] Script path: ${previewShPath}`)
@@ -465,8 +468,8 @@ export async function processCheckPreviewSh(
   args: CheckPreviewShArgs
 ): Promise<CheckPreviewShResponse> {
   try {
-    const { chatUuid } = args
-    const exists = devServerManager.checkPreviewSh(chatUuid)
+    const { chatUuid, customWorkspacePath } = args
+    const exists = devServerManager.checkPreviewSh(chatUuid, customWorkspacePath)
 
     return {
       success: true,
@@ -485,7 +488,7 @@ export async function processCheckPreviewSh(
 export async function processStartDevServer(
   args: StartDevServerArgs
 ): Promise<StartDevServerResponse> {
-  return devServerManager.startDevServer(args.chatUuid)
+  return devServerManager.startDevServer(args.chatUuid, args.customWorkspacePath)
 }
 
 export async function processStopDevServer(

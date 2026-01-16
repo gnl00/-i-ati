@@ -35,7 +35,6 @@ export const FILE_GET_INFO_ACTION = 'file-get-info-action'
 export const FILE_LIST_ALLOWED_DIRS_ACTION = 'file-list-allowed-dirs-action'
 export const FILE_CREATE_DIR_ACTION = 'file-create-dir-action'
 export const FILE_MOVE_ACTION = 'file-move-action'
-export const FILE_SET_WORKSPACE_BASE_DIR = 'file-set-workspace-base-dir'
 
 // DevServer Operations Actions
 export const DEV_SERVER_CHECK_PREVIEW_SH = 'dev-server-check-preview-sh'
@@ -83,4 +82,3 @@ export const DB_CONFIG_INIT = 'db:config:init'
 
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
-

@@ -76,7 +76,7 @@ export const StreamingMarkdownSwitch: React.FC<{
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           skipHtml={false}
           remarkRehypeOptions={{ passThrough: ['link'] }}
-          className="!m-0 whitespace-pre-wrap"
+          className="!m-0"
           components={markdownCodeComponents}
         >
           {fixedFullText}
@@ -101,7 +101,7 @@ export const StreamingMarkdownSwitch: React.FC<{
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           skipHtml={false}
           remarkRehypeOptions={{ passThrough: ['link'] }}
-          className="!m-0 whitespace-pre-wrap"
+          className="!m-0"
           components={markdownCodeComponents}
         >
           {stableMarkdown}
@@ -110,13 +110,13 @@ export const StreamingMarkdownSwitch: React.FC<{
 
       {tail.trim().length > 0 ? (
         tailKind === 'code' ? (
-          <pre className="not-prose whitespace-pre-wrap rounded-md bg-black/5 dark:bg-white/5 p-3 overflow-x-auto">
+          <pre className="not-prose rounded-md bg-black/5 dark:bg-white/5 p-3 overflow-x-auto">
             <code className="font-mono text-xs">
               <FluidTypewriterText content={tail} animationWindow={10} />
             </code>
           </pre>
         ) : (
-          <p className="whitespace-pre-wrap">
+          <p>
             <FluidTypewriterText content={tailParagraphText} animationWindow={10} />
           </p>
         )
