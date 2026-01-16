@@ -34,6 +34,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const isStickToBottomRef = useRef<boolean>(true)
   const isSmoothScrollingRef = useRef<boolean>(false)
   const hasUserScrollIntentRef = useRef<boolean>(false)
+  const isAtBottomRef = useRef<boolean>(true)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
@@ -174,10 +175,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     scrollToBottomForced()
   }
 
-  const onChatListScroll = useCallback((evt: Event) => {
-    const target = evt.target as HTMLDivElement
-    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight
-    const isAtBottom = distanceFromBottom < 10
+  const updateBottomState = useCallback((isAtBottom: boolean) => {
+    isAtBottomRef.current = isAtBottom
     if (isSmoothScrollingRef.current) {
       if (isAtBottom) {
         isStickToBottomRef.current = true
@@ -215,6 +214,12 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [])
 
+  const onChatListScroll = useCallback((evt: Event) => {
+    const target = evt.target as HTMLDivElement
+    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight
+    updateBottomState(distanceFromBottom < 10)
+  }, [updateBottomState])
+
   const onUserScrollIntent = useCallback(() => {
     hasUserScrollIntentRef.current = true
     if (!isSmoothScrollingRef.current) return
@@ -229,18 +234,20 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     // 监听聊天列表容器的滚动，而不是 window
     const chatListElement = chatListRef.current?.parentElement
     if (chatListElement) {
-      chatListElement.addEventListener('scroll', onChatListScroll)
       chatListElement.addEventListener('wheel', onUserScrollIntent, { passive: true })
       chatListElement.addEventListener('touchstart', onUserScrollIntent, { passive: true })
       chatListElement.addEventListener('pointerdown', onUserScrollIntent)
+      if (!('IntersectionObserver' in window)) {
+        chatListElement.addEventListener('scroll', onChatListScroll)
+      }
     }
 
     return () => {
       if (chatListElement) {
-        chatListElement.removeEventListener('scroll', onChatListScroll)
         chatListElement.removeEventListener('wheel', onUserScrollIntent)
         chatListElement.removeEventListener('touchstart', onUserScrollIntent)
         chatListElement.removeEventListener('pointerdown', onUserScrollIntent)
+        chatListElement.removeEventListener('scroll', onChatListScroll)
       }
       // 清理动画帧
       if (autoScrollRAFRef.current) {
@@ -252,6 +259,31 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       }
     }
   }, [onChatListScroll, onUserScrollIntent, cancelSmoothScroll])
+
+  useEffect(() => {
+    const chatListElement = chatListRef.current?.parentElement
+    const sentinelElement = chatPaddingElRef.current
+    if (!chatListElement || !sentinelElement) return
+    if (!('IntersectionObserver' in window)) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.length === 0) return
+        updateBottomState(entries[0].isIntersecting)
+      },
+      {
+        root: chatListElement,
+        threshold: 0,
+        rootMargin: '0px 0px 8px 0px',
+      }
+    )
+
+    observer.observe(sentinelElement)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [updateBottomState])
 
   // 当用户向上滚动时，取消所有自动滚动
   useEffect(() => {
