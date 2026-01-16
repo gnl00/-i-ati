@@ -165,7 +165,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         isLatest && "animate-assistant-message-in"
       )}
     >
-      <div className="overflow-y-scroll">
+      <div>
         {/* Model Badge */}
         {m.model && (
           <Badge

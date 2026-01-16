@@ -10,6 +10,7 @@ import { useChatStore } from '@renderer/store'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, FileCode, Monitor } from 'lucide-react'
 import React, { forwardRef, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
+import { useChatScroll } from './useChatScroll'
 
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   // CRITICAL: Use selectors to prevent unnecessary re-renders
@@ -30,29 +31,19 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const chatListRef = useRef<HTMLDivElement>(null)
   const chatPaddingElRef = useRef<HTMLDivElement>(null)
-  const lastChatUuidRef = useRef<string | undefined>(undefined)
-  const smoothScrollRAFRef = useRef<number>(0) // 平滑滚动的 RAF ref
-  const autoScrollRAFRef = useRef<number>(0)
-  const isStickToBottomRef = useRef<boolean>(true)
-  const isSmoothScrollingRef = useRef<boolean>(false)
-  const hasUserScrollIntentRef = useRef<boolean>(false)
-  const isAtBottomRef = useRef<boolean>(true)
-
-  const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
-  const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
-
-  const resetScrollButton = useCallback(() => {
-    setShowScrollToBottom(false)
-    setIsButtonFadingOut(false)
-  }, [])
-
-  const setScrollButtonVisible = useCallback((visible: boolean) => {
-    setShowScrollToBottom(prev => {
-      if (prev === visible) return prev
-      setIsButtonFadingOut(false)
-      return visible
-    })
-  }, [])
+  const {
+    showScrollToBottom,
+    isButtonFadingOut,
+    scrollToBottom,
+    onMessagesUpdate,
+    onTyping
+  } = useChatScroll({
+    chatUuid,
+    messages,
+    scrollContainerRef,
+    chatListRef,
+    chatPaddingElRef
+  })
 
   // Welcome page state
   const [showWelcome, setShowWelcome] = useState<boolean>(true)
@@ -65,264 +56,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const handleSuggestionClick = useCallback((suggestion: any) => {
     setSuggestedPrompt(suggestion.prompt)
   }, [])
-
-  // 缓动函数：easeOutCubic - 快速开始，缓慢结束
-  const easeOutCubic = useCallback((t: number): number => {
-    return 1 - Math.pow(1 - t, 3)
-  }, [])
-
-  // 自定义平滑滚动到底部
-  const smoothScrollToBottom = useCallback(() => {
-    const container = scrollContainerRef.current
-    if (!container) return
-
-    // 取消之前的滚动动画
-    if (smoothScrollRAFRef.current) {
-      cancelAnimationFrame(smoothScrollRAFRef.current)
-      smoothScrollRAFRef.current = 0
-    }
-    isSmoothScrollingRef.current = false
-
-    const startPos = container.scrollTop
-    // 在每一帧都重新计算目标位置，以应对内容高度变化
-    const getEndPos = () => container.scrollHeight - container.clientHeight
-    const initialEndPos = getEndPos()
-    const initialDistance = initialEndPos - startPos
-
-    // 如果已经在底部，直接返回
-    if (Math.abs(initialDistance) < 1) {
-      resetScrollButton()
-      isSmoothScrollingRef.current = false
-      return
-    }
-
-    // 根据滚动距离动态调整动画时长（最小 300ms，最大 800ms）
-    const duration = Math.min(Math.max(Math.abs(initialDistance) * 0.5, 300), 800)
-    const startTime = performance.now()
-    isSmoothScrollingRef.current = true
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = easeOutCubic(progress)
-
-      // 在每一帧重新计算目标位置，确保滚动到真正的底部
-      const currentEndPos = getEndPos()
-      const currentDistance = currentEndPos - startPos
-
-      // 使用当前计算的距离和目标位置
-      container.scrollTop = startPos + currentDistance * eased
-
-      // 检查是否已经到达底部（允许一些误差）
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-      const isAtBottom = distanceFromBottom < 1
-
-      if (progress < 1 && !isAtBottom) {
-        smoothScrollRAFRef.current = requestAnimationFrame(animate)
-      } else {
-        // 确保滚动到真正的底部
-        container.scrollTop = currentEndPos
-
-        // 动画完成
-        smoothScrollRAFRef.current = 0
-        isSmoothScrollingRef.current = false
-
-        // 隐藏按钮
-        resetScrollButton()
-      }
-    }
-
-    smoothScrollRAFRef.current = requestAnimationFrame(animate)
-  }, [easeOutCubic, resetScrollButton])
-
-  // 所有函数定义
-  const autoScrollToBottom = useCallback(() => {
-    const container = scrollContainerRef.current
-    if (!container) return
-    container.scrollTop = container.scrollHeight - container.clientHeight
-  }, [])
-
-  const scheduleAutoScroll = useCallback(() => {
-    if (!isStickToBottomRef.current || isSmoothScrollingRef.current) return
-    if (autoScrollRAFRef.current) return
-    autoScrollRAFRef.current = requestAnimationFrame(() => {
-      autoScrollRAFRef.current = 0
-      autoScrollToBottom()
-    })
-  }, [autoScrollToBottom])
-
-  const cancelSmoothScroll = useCallback(() => {
-    if (smoothScrollRAFRef.current) {
-      cancelAnimationFrame(smoothScrollRAFRef.current)
-      smoothScrollRAFRef.current = 0
-    }
-    isSmoothScrollingRef.current = false
-  }, [])
-
-  const scrollToBottom = useCallback((smooth = false) => {
-    isStickToBottomRef.current = true
-    if (!smooth) {
-      resetScrollButton()
-      autoScrollToBottom()
-      return
-    }
-
-    // 使用自定义平滑滚动
-    if (showScrollToBottom) {
-      setIsButtonFadingOut(true)
-    }
-
-    // 延迟一点开始滚动，让用户看到按钮淡出
-    setTimeout(() => {
-      smoothScrollToBottom()
-    }, 120)
-  }, [autoScrollToBottom, smoothScrollToBottom, resetScrollButton, showScrollToBottom])
-
-  const scrollToBottomForced = useCallback(() => {
-    // 强制滚动到底部，用于用户主动提交消息后
-    setTimeout(() => {
-      scrollToBottom(true)
-    }, 100)
-  }, [scrollToBottom])
-
-  const onMessagesUpdate = () => {
-    // 用户提交消息后视为主动回到底部，避免短暂的按钮闪现
-    hasUserScrollIntentRef.current = false
-    isStickToBottomRef.current = true
-    resetScrollButton()
-    scrollToBottomForced()
-  }
-
-  const updateBottomState = useCallback((isAtBottom: boolean) => {
-    isAtBottomRef.current = isAtBottom
-    if (isSmoothScrollingRef.current) {
-      if (isAtBottom) {
-        isStickToBottomRef.current = true
-        resetScrollButton()
-        hasUserScrollIntentRef.current = false
-      }
-      return
-    }
-
-    if (isAtBottom) {
-      if (!isStickToBottomRef.current) {
-        isStickToBottomRef.current = true
-      }
-      hasUserScrollIntentRef.current = false
-      setScrollButtonVisible(false)
-    } else {
-      if (!hasUserScrollIntentRef.current && isStickToBottomRef.current) {
-        return
-      }
-      if (isStickToBottomRef.current) {
-        isStickToBottomRef.current = false
-      }
-      setScrollButtonVisible(true)
-    }
-  }, [resetScrollButton, setScrollButtonVisible])
-
-  const onChatListScroll = useCallback((evt: Event) => {
-    const target = evt.target as HTMLDivElement
-    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight
-    updateBottomState(distanceFromBottom < 10)
-  }, [updateBottomState])
-
-  const onUserScrollIntent = useCallback(() => {
-    hasUserScrollIntentRef.current = true
-    if (!isSmoothScrollingRef.current) return
-    cancelSmoothScroll()
-    isStickToBottomRef.current = false
-    setScrollButtonVisible(true)
-  }, [cancelSmoothScroll, setScrollButtonVisible])
-
-  // useEffect hooks
-  useEffect(() => {
-    // 监听聊天列表容器的滚动，而不是 window
-    const chatListElement = scrollContainerRef.current
-    if (chatListElement) {
-      chatListElement.addEventListener('wheel', onUserScrollIntent, { passive: true })
-      chatListElement.addEventListener('touchstart', onUserScrollIntent, { passive: true })
-      chatListElement.addEventListener('pointerdown', onUserScrollIntent)
-      if (!('IntersectionObserver' in window)) {
-        chatListElement.addEventListener('scroll', onChatListScroll)
-      }
-    }
-
-    return () => {
-      if (chatListElement) {
-        chatListElement.removeEventListener('wheel', onUserScrollIntent)
-        chatListElement.removeEventListener('touchstart', onUserScrollIntent)
-        chatListElement.removeEventListener('pointerdown', onUserScrollIntent)
-        chatListElement.removeEventListener('scroll', onChatListScroll)
-      }
-      // 清理动画帧
-      if (autoScrollRAFRef.current) {
-        cancelAnimationFrame(autoScrollRAFRef.current)
-        autoScrollRAFRef.current = 0
-      }
-      if (smoothScrollRAFRef.current) {
-        cancelSmoothScroll()
-      }
-    }
-  }, [onChatListScroll, onUserScrollIntent, cancelSmoothScroll])
-
-  useEffect(() => {
-    const chatListElement = scrollContainerRef.current
-    const sentinelElement = chatPaddingElRef.current
-    if (!chatListElement || !sentinelElement) return
-    if (!('IntersectionObserver' in window)) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.length === 0) return
-        updateBottomState(entries[0].isIntersecting)
-      },
-      {
-        root: chatListElement,
-        threshold: 0,
-        rootMargin: '0px 0px 8px 0px',
-      }
-    )
-
-    observer.observe(sentinelElement)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [updateBottomState])
-
-  // 当用户向上滚动时，取消所有自动滚动
-  useEffect(() => {
-    if (showScrollToBottom && autoScrollRAFRef.current) {
-      cancelAnimationFrame(autoScrollRAFRef.current)
-      autoScrollRAFRef.current = 0
-    }
-  }, [showScrollToBottom])
-
-  // 1. 聊天切换时：强制立即滚动
-  useEffect(() => {
-    const prevChatUuid = lastChatUuidRef.current
-    const currentChatUuid = chatUuid
-    // 检测是否是聊天切换（chatUuid 发生变化）
-    const isChatSwitch = prevChatUuid !== currentChatUuid
-    // 更新 chatUuid 记录
-    lastChatUuidRef.current = currentChatUuid
-    if (isChatSwitch) {
-      isStickToBottomRef.current = true
-      resetScrollButton()
-      cancelSmoothScroll()
-      // 聊天切换时需要延迟滚动，等待 DOM 渲染完成
-      // 使用 requestAnimationFrame + setTimeout 确保 DOM 已经更新
-      if (chatPaddingElRef.current) {
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            // 使用 auto 而不是 smooth，立即滚动
-            scrollToBottom(false)
-          }, 100)
-        })
-      }
-    }
-  }, [chatUuid, cancelSmoothScroll, scrollToBottom])
 
   // Detect first message - hide welcome after scroll completes
   useEffect(() => {
@@ -364,32 +97,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     gap: 8,
     getItemKey
   })
-
-  useEffect(() => {
-    scheduleAutoScroll()
-  }, [messages, scheduleAutoScroll])
-
-  // 打字机效果触发的滚动（与普通滚动逻辑解耦）
-  const handleTyping = useCallback(() => {
-    scheduleAutoScroll()
-  }, [scheduleAutoScroll])
-
-  // 监听聊天内容高度变化（用于 typewriter 效果期间的自动滚动）
-  useEffect(() => {
-    const chatListElement = chatListRef.current
-    if (!chatListElement) return
-
-    // 使用 ResizeObserver 监听内容高度变化
-    const resizeObserver = new ResizeObserver(() => {
-      scheduleAutoScroll()
-    })
-
-    resizeObserver.observe(chatListElement)
-
-    return () => {
-      resizeObserver.disconnect()
-    }
-  }, [scheduleAutoScroll])
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
@@ -451,11 +158,11 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                           <WelcomeMessage onSuggestionClick={handleSuggestionClick} />
                         ) : message ? (
                           <ChatMessageComponent
-                            message={message.body}
-                            index={messageIndex}
-                            isLatest={messageIndex === deferredMessages.length - 1}
-                            onTypingChange={handleTyping}
-                          />
+                          message={message.body}
+                          index={messageIndex}
+                          isLatest={messageIndex === deferredMessages.length - 1}
+                          onTypingChange={onTyping}
+                        />
                         ) : null}
                       </div>
                     )
