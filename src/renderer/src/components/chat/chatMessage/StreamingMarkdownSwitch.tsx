@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { FluidTypewriterText } from './FluidTypewriterText'
 import { fixMalformedCodeBlocks, markdownCodeComponents } from './markdown-components'
+import { remarkPreserveLineBreaks } from './markdown-plugins'
 
 type TailKind = 'paragraph' | 'code'
 
@@ -72,7 +73,7 @@ export const StreamingMarkdownSwitch: React.FC<{
     return (
       <div className={proseBoxClassName}>
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+          remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }], remarkPreserveLineBreaks]}
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           skipHtml={false}
           remarkRehypeOptions={{ passThrough: ['link'] }}
@@ -97,7 +98,7 @@ export const StreamingMarkdownSwitch: React.FC<{
     <div className={proseBoxClassName} data-mode="switch-solidify">
       {stableMarkdown.trim().length > 0 ? (
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+          remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }], remarkPreserveLineBreaks]}
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           skipHtml={false}
           remarkRehypeOptions={{ passThrough: ['link'] }}
