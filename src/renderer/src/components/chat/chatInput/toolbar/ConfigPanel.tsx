@@ -1,4 +1,4 @@
-import { TokensIcon } from '@radix-ui/react-icons'
+import { ResetIcon, TokensIcon } from '@radix-ui/react-icons'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
@@ -6,7 +6,9 @@ import { Label } from '@renderer/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { Slider } from "@renderer/components/ui/slider"
 import { Textarea } from '@renderer/components/ui/textarea'
-import React from 'react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
+import { cn } from '@renderer/lib/utils'
+import React, { useState } from 'react'
 
 interface ConfigPanelProps {
   chatTemperature: number[]
@@ -25,103 +27,239 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onTopPChange,
   onSystemPromptChange
 }) => {
+  const [isOpen, setIsOpen] = useState(false)
+
   const handleResetDefaults = () => {
     onTemperatureChange([1])
     onTopPChange([1])
     onSystemPromptChange('')
   }
+
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           size="icon"
           role="combobox"
-          className="h-7 w-7 rounded-2xl bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200/80 dark:hover:bg-gray-700/80 border-gray-300/50 dark:border-gray-600/50"
+          className={cn(
+            "group relative h-7 w-7 rounded-xl overflow-hidden",
+            "transition-all duration-300 ease-out",
+            "bg-slate-50/50 dark:bg-slate-800/50",
+            "border border-slate-200/50 dark:border-slate-700/50",
+            "hover:bg-slate-100 dark:hover:bg-slate-700",
+            "hover:border-slate-300 dark:hover:border-slate-600",
+            "hover:shadow-sm",
+            "active:scale-95",
+            isOpen && [
+              "bg-slate-100 dark:bg-slate-700",
+              "border-slate-300 dark:border-slate-600",
+              "shadow-sm"
+            ]
+          )}
         >
-          <TokensIcon className="w-4 h-4 opacity-50" />
+          {/* Animated background on hover */}
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-100/0 via-slate-100/50 to-slate-200/0 dark:from-slate-700/0 dark:via-slate-700/30 dark:to-slate-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+          <TokensIcon
+            className={cn(
+              "relative z-10 w-4 h-4 text-slate-500 dark:text-slate-400",
+              "transition-all duration-300 ease-out",
+              "group-hover:text-slate-700 dark:group-hover:text-slate-300",
+              "group-hover:scale-110 group-hover:rotate-90",
+              isOpen && "rotate-90 scale-110 text-slate-700 dark:text-slate-300"
+            )}
+          />
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-80 p-0 rounded-2xl overflow-hidden bg-white/10 dark:bg-gray-900/90 backdrop-blur-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-2xl"
-        sideOffset={8}
+        className={cn(
+          "w-80 p-0 rounded-2xl overflow-hidden",
+          "bg-white/95 dark:bg-slate-950/95",
+          "backdrop-blur-xl",
+          "border border-slate-200/80 dark:border-slate-800/80",
+          "shadow-2xl shadow-slate-900/10 dark:shadow-black/50",
+          "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2",
+          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+        )}
+        sideOffset={12}
         align="end"
       >
-        <div className="flex flex-col">
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
-            <span className='text-sm font-semibold text-gray-900 dark:text-gray-100'>Chat Configuration</span>
-            <Badge variant={'outline'} className='text-[10px] h-5 px-1.5 font-normal bg-white dark:bg-gray-800 border-yellow-400 text-yellow-500'>Session</Badge>
+        <div className="flex flex-col h-[460px]">
+          {/* Header with Reset Button */}
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-900/80 dark:to-slate-900/50 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <span className='text-sm font-semibold text-slate-900 dark:text-slate-100 tracking-tight'>
+                Configuration
+              </span>
+              <Badge
+                variant={'outline'}
+                className={cn(
+                  "text-[10px] h-5 px-2 font-medium",
+                  "bg-amber-50/50 dark:bg-amber-500/10",
+                  "border-amber-200 dark:border-amber-500/20",
+                  "text-amber-700 dark:text-amber-400",
+                )}
+              >
+                Session
+              </Badge>
+            </div>
+
+            {/* Reset Button in Header */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-7 w-7 rounded-lg",
+                "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300",
+                "hover:bg-slate-100 dark:hover:bg-slate-800",
+                "transition-all duration-200",
+              )}
+              onClick={handleResetDefaults}
+            >
+              <ResetIcon className="w-3.5 h-3.5" />
+            </Button>
           </div>
 
-          <div className="p-4 space-y-2">
-            {/* Temperature Slider */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="temperature" className="text-xs font-medium text-gray-700 dark:text-gray-300">Temperature</Label>
-                <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{chatTemperature}</span>
+          {/* Content Area */}
+          <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-6">
+
+            {/* Parameters Group */}
+            <div className="space-y-5 flex-shrink-0">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Model Parameters
+                </span>
               </div>
-              <Slider
-                id="temperature"
-                value={chatTemperature}
-                min={0}
-                max={1}
-                step={0.1}
-                onValueChange={onTemperatureChange}
-                className="[&_.range-thumb]:h-4 [&_.range-thumb]:w-4"
-              />
-            </div>
 
-            {/* Top P Slider */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="topp" className="text-xs font-medium text-gray-700 dark:text-gray-300">Top P</Label>
-                <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{chatTopP}</span>
+              {/* Temperature and Top P */}
+              <div className="grid grid-cols-2 gap-5">
+                {/* Temperature */}
+                <div className="space-y-3 group">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="temperature"
+                      className="text-xs font-medium text-slate-600 dark:text-slate-400"
+                    >
+                      Temperature
+                    </Label>
+                    <span className={cn(
+                      "text-[10px] font-mono tabular-nums",
+                      "px-1.5 py-0.5 rounded",
+                      "bg-slate-100 dark:bg-slate-900",
+                      "text-slate-600 dark:text-slate-400",
+                      "border border-slate-200 dark:border-slate-800"
+                    )}>
+                      {chatTemperature[0].toFixed(1)}
+                    </span>
+                  </div>
+                  <Slider
+                    id="temperature"
+                    value={chatTemperature}
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    onValueChange={onTemperatureChange}
+                    className="[&_.range-thumb]:h-4 [&_.range-thumb]:w-4 [&_.range-thumb]:shadow-md"
+                  />
+                </div>
+
+                {/* Top P */}
+                <div className="space-y-3 group">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="topp"
+                      className="text-xs font-medium text-slate-600 dark:text-slate-400"
+                    >
+                      Top P
+                    </Label>
+                    <span className={cn(
+                      "text-[10px] font-mono tabular-nums",
+                      "px-1.5 py-0.5 rounded",
+                      "bg-slate-100 dark:bg-slate-900",
+                      "text-slate-600 dark:text-slate-400",
+                      "border border-slate-200 dark:border-slate-800"
+                    )}>
+                      {chatTopP[0].toFixed(1)}
+                    </span>
+                  </div>
+                  <Slider
+                    id="topp"
+                    value={chatTopP}
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    onValueChange={onTopPChange}
+                    className="[&_.range-thumb]:h-4 [&_.range-thumb]:w-4 [&_.range-thumb]:shadow-md"
+                  />
+                </div>
               </div>
-              <Slider
-                id="topp"
-                value={chatTopP}
-                min={0}
-                max={1}
-                step={0.1}
-                onValueChange={onTopPChange}
-                className="[&_.range-thumb]:h-4 [&_.range-thumb]:w-4"
-              />
+
+              {/* Max Tokens */}
+              <div className="space-y-3 group pt-1">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="maxCompletionTokens"
+                    className="text-xs font-medium text-slate-600 dark:text-slate-400"
+                  >
+                    Max Tokens
+                  </Label>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-600">
+                    Default
+                  </span>
+                </div>
+                <Input
+                  id="maxCompletionTokens"
+                  defaultValue="4096"
+                  className={cn(
+                    "h-9 text-xs font-mono",
+                    "bg-slate-50 dark:bg-slate-900/50",
+                    "border border-slate-200 dark:border-slate-800",
+                    "outline-none focus:outline-none focus-visible:outline-none",
+                    "ring-0 focus:ring-0 focus-visible:ring-0",
+                    "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
+                    "focus:border-blue-500/50 dark:focus:border-blue-500/50",
+                    "hover:border-slate-200 dark:hover:border-slate-800",
+                    "shadow-sm",
+                  )}
+                />
+              </div>
             </div>
 
-            {/* Max Tokens */}
-            <div className="space-y-2">
-              <Label htmlFor="maxCompletionTokens" className="text-xs font-medium text-gray-700 dark:text-gray-300">Max Tokens</Label>
-              <Input
-                id="maxCompletionTokens"
-                defaultValue="4096"
-                className="h-8 text-xs bg-white dark:bg-gray-950/50 border-gray-200 dark:border-gray-800 focus-visible:ring-1 focus-visible:ring-blue-500"
-              />
-            </div>
+            {/* System Prompt Group */}
+            <div className="space-y-1 flex-1 flex flex-col pt-1 min-h-0">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60 flex-shrink-0 mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Instructions
+                </span>
+              </div>
 
-            {/* System Prompt */}
-            <div className="space-y-2">
-              <Label htmlFor="systemPrompt" className="text-xs font-medium text-gray-700 dark:text-gray-300">System Prompt</Label>
+              <Label
+                htmlFor="systemPrompt"
+                className="sr-only"
+              >
+                System Prompt
+              </Label>
               <Textarea
                 id="systemPrompt"
                 value={currentSystemPrompt}
                 placeholder='You are a helpful assistant...'
-                className="min-h-[80px] text-xs bg-white dark:bg-gray-950/50 border-gray-200 dark:border-gray-800 focus-visible:ring-1 focus-visible:ring-blue-500 resize-none p-2"
+                className={cn(
+                  "flex-1 text-xs leading-relaxed",
+                  "bg-slate-50 dark:bg-slate-900/50",
+                  "border border-slate-200 dark:border-slate-800",
+                  "outline-none focus:outline-none focus-visible:outline-none",
+                  "ring-0 focus:ring-0 focus-visible:ring-0",
+                  "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
+                  "focus:border-blue-500/50 dark:focus:border-blue-500/50",
+                  "hover:border-slate-200 dark:hover:border-slate-800",
+                  "resize-none p-2",
+                  "shadow-sm",
+                  "min-h-[100px]"
+                )}
                 onChange={e => onSystemPromptChange(e.target.value)}
               />
             </div>
-          </div>
-
-          {/* Footer Action */}
-          <div className="p-2 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full h-7 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
-              onClick={handleResetDefaults}
-            >
-              Reset to Defaults
-            </Button>
           </div>
         </div>
       </PopoverContent>
