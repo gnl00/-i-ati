@@ -10,7 +10,7 @@ import { useChatStore } from '@renderer/store'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, FileCode, Monitor } from 'lucide-react'
 import React, { forwardRef, memo, useCallback, useEffect, useRef, useState } from 'react'
-import { shallow } from 'zustand/shallow'
+import { useShallow } from 'zustand/react/shallow'
 import { useChatScroll } from './useChatScroll'
 
 const ChatMessageRow: React.FC<{
@@ -36,8 +36,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   // CRITICAL: Use selectors to prevent unnecessary re-renders
   // Only subscribe to specific slices instead of the entire store
   const messageKeys = useChatStore(
-    state => state.messages.map((msg, idx) => msg.id ?? `temp-${idx}`),
-    shallow
+    useShallow(state => state.messages.map((msg, idx) => msg.id ?? `temp-${idx}`))
   )
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const artifacts = useChatStore(state => state.artifacts)
