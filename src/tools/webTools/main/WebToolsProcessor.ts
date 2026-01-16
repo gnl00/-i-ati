@@ -266,8 +266,8 @@ const processWebSearch = async ({ fetchCounts, param, snippetsOnly }: WebSearchP
           link: item.link,
           title: item.title,
           snippet: item.snippet,
-          // Use snippet as content fallback for better usability
-          content: item.snippet
+          // No need to use snippet as content fallback, assistant will mis-understand content and snippet
+          content: ''
         }))
       }
     }
