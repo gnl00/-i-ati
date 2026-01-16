@@ -32,8 +32,7 @@ export function useMessageTypewriter(
 ): UseMessageTypewriterReturn {
   const { index, message: m, isLatest, onTypingChange } = props
   const readStreamState = useChatStore(state => state.readStreamState)
-  const setMessages = useChatStore(state => state.setMessages)
-  const messages = useChatStore(state => state.messages)
+  const upsertMessage = useChatStore(state => state.upsertMessage)
   const setForceCompleteTypewriter = useChatStore(state => state.setForceCompleteTypewriter)
 
   const segments = m.segments || []
@@ -75,30 +74,33 @@ export function useMessageTypewriter(
       onAllComplete: async () => {
         // Mark typewriter as completed when all segments are done
         if (!m.typewriterCompleted) {
-          // 1. 更新 Zustand store
-          const updatedMessages = messages.map((msg, idx) => {
-            if (idx === index) {
-              return {
-                ...msg,
-                typewriterCompleted: true
-              }
+          const messageEntity = useChatStore.getState().messages[index]
+          if (!messageEntity) return
+          if (!messageEntity.id) {
+            console.warn('[useMessageTypewriter] Cannot persist typewriterCompleted without id')
+            return
+          }
+
+          const updatedMessage: MessageEntity = {
+            ...messageEntity,
+            body: {
+              ...messageEntity.body,
+              typewriterCompleted: true
             }
-            return msg
-          })
-          setMessages(updatedMessages)
+          }
+
+          // 1. 更新 Zustand store（仅更新当前消息）
+          upsertMessage(updatedMessage)
 
           // 2. 持久化到数据库（异步，不阻塞 UI）
-          const messageEntity = messages[index]
-          if (messageEntity.id) {
-            updateMessage({
-              id: messageEntity.id,
-              chatId: messageEntity.chatId,
-              chatUuid: messageEntity.chatUuid,
-              body: messageEntity.body
-            }).catch(err => {
-              console.error('[useMessageTypewriter] Failed to persist typewriterCompleted:', err)
-            })
-          }
+          updateMessage({
+            id: updatedMessage.id,
+            chatId: updatedMessage.chatId,
+            chatUuid: updatedMessage.chatUuid,
+            body: updatedMessage.body
+          }).catch(err => {
+            console.error('[useMessageTypewriter] Failed to persist typewriterCompleted:', err)
+          })
         }
       }
     }
