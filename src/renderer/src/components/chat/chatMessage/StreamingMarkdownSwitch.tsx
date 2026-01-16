@@ -76,7 +76,7 @@ export const StreamingMarkdownSwitch: React.FC<{
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           skipHtml={false}
           remarkRehypeOptions={{ passThrough: ['link'] }}
-          className="!m-0"
+          className="!m-0 whitespace-pre-wrap"
           components={markdownCodeComponents}
         >
           {fixedFullText}
@@ -90,8 +90,8 @@ export const StreamingMarkdownSwitch: React.FC<{
   const tail = visibleText.slice(stableEnd)
   const tailKind = getTailKind(tail)
 
-  // Approximate markdown behavior inside a paragraph: single newlines collapse to spaces.
-  const tailParagraphText = tail.replace(/\n+/g, ' ')
+  // Preserve user-entered newlines while streaming to match final markdown rendering.
+  const tailParagraphText = tail
 
   return (
     <div className={proseBoxClassName} data-mode="switch-solidify">
@@ -101,7 +101,7 @@ export const StreamingMarkdownSwitch: React.FC<{
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           skipHtml={false}
           remarkRehypeOptions={{ passThrough: ['link'] }}
-          className="!m-0"
+          className="!m-0 whitespace-pre-wrap"
           components={markdownCodeComponents}
         >
           {stableMarkdown}
@@ -116,7 +116,7 @@ export const StreamingMarkdownSwitch: React.FC<{
             </code>
           </pre>
         ) : (
-          <p>
+          <p className="whitespace-pre-wrap">
             <FluidTypewriterText content={tailParagraphText} animationWindow={10} />
           </p>
         )
@@ -124,4 +124,3 @@ export const StreamingMarkdownSwitch: React.FC<{
     </div>
   )
 })
-
