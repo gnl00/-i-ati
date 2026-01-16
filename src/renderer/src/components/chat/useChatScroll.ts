@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
 interface UseChatScrollParams {
   chatUuid?: string
-  messages: MessageEntity[]
+  messageCount: number
   scrollContainerRef: RefObject<HTMLDivElement>
   chatListRef: RefObject<HTMLDivElement>
   chatPaddingElRef: RefObject<HTMLDivElement>
@@ -18,7 +18,7 @@ interface UseChatScrollResult {
 
 export function useChatScroll({
   chatUuid,
-  messages,
+  messageCount,
   scrollContainerRef,
   chatListRef,
   chatPaddingElRef
@@ -276,7 +276,7 @@ export function useChatScroll({
 
   useEffect(() => {
     scheduleAutoScroll()
-  }, [messages, scheduleAutoScroll])
+  }, [messageCount, scheduleAutoScroll])
 
   const onTyping = useCallback(() => {
     scheduleAutoScroll()
