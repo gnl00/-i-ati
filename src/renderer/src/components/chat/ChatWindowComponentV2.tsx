@@ -33,6 +33,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const autoScrollRAFRef = useRef<number>(0)
   const isStickToBottomRef = useRef<boolean>(true)
   const isSmoothScrollingRef = useRef<boolean>(false)
+  const hasUserScrollIntentRef = useRef<boolean>(false)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
@@ -182,6 +183,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         isStickToBottomRef.current = true
         setShowScrollToBottom(false)
         setIsButtonFadingOut(false)
+        hasUserScrollIntentRef.current = false
       }
       return
     }
@@ -190,6 +192,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       if (!isStickToBottomRef.current) {
         isStickToBottomRef.current = true
       }
+      hasUserScrollIntentRef.current = false
       setShowScrollToBottom(prev => {
         if (prev) {
           setIsButtonFadingOut(false)
@@ -197,6 +200,9 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         return false
       })
     } else {
+      if (!hasUserScrollIntentRef.current && isStickToBottomRef.current) {
+        return
+      }
       if (isStickToBottomRef.current) {
         isStickToBottomRef.current = false
       }
@@ -210,6 +216,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   const onUserScrollIntent = useCallback(() => {
+    hasUserScrollIntentRef.current = true
     if (!isSmoothScrollingRef.current) return
     cancelSmoothScroll()
     isStickToBottomRef.current = false
