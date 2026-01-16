@@ -5,7 +5,8 @@ type MarkdownNode = {
 }
 
 function splitTextWithBreaks(value: string): MarkdownNode[] {
-  const parts = value.split('\n')
+  const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const parts = normalized.split('\n')
   const nodes: MarkdownNode[] = []
 
   parts.forEach((part, index) => {
