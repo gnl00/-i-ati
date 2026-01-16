@@ -9,21 +9,40 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, FileCode, Monitor } from 'lucide-react'
-import React, { forwardRef, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
+import React, { forwardRef, memo, useCallback, useEffect, useRef, useState } from 'react'
+import { shallow } from 'zustand/shallow'
 import { useChatScroll } from './useChatScroll'
+
+const ChatMessageRow: React.FC<{
+  messageIndex: number
+  isLatest: boolean
+  onTyping: () => void
+}> = memo(({ messageIndex, isLatest, onTyping }) => {
+  const message = useChatStore(state => state.messages[messageIndex])
+
+  if (!message) return null
+
+  return (
+    <ChatMessageComponent
+      message={message.body}
+      index={messageIndex}
+      isLatest={isLatest}
+      onTypingChange={onTyping}
+    />
+  )
+})
 
 const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   // CRITICAL: Use selectors to prevent unnecessary re-renders
   // Only subscribe to specific slices instead of the entire store
-  const messages = useChatStore(state => state.messages)
+  const messageKeys = useChatStore(
+    state => state.messages.map((msg, idx) => msg.id ?? `temp-${idx}`),
+    shallow
+  )
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const artifacts = useChatStore(state => state.artifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const setArtifactsActiveTab = useChatStore(state => state.setArtifactsActiveTab)
-
-  // Use useDeferredValue to keep UI responsive during streaming
-  // This delays the rendering of messages list, prioritizing user input
-  const deferredMessages = useDeferredValue(messages)
 
   const { chatUuid } = useChatContext()
 
@@ -39,7 +58,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     onTyping
   } = useChatScroll({
     chatUuid,
-    messages,
+    messageCount: messageKeys.length,
     scrollContainerRef,
     chatListRef,
     chatPaddingElRef
@@ -59,33 +78,31 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   // Detect first message - hide welcome after scroll completes
   useEffect(() => {
-    if (messages.length > 0 && showWelcome && !hasShownWelcomeRef.current) {
+    if (messageKeys.length > 0 && showWelcome && !hasShownWelcomeRef.current) {
       hasShownWelcomeRef.current = true
       // Wait for scroll animation to complete before hiding welcome
       setTimeout(() => {
         setShowWelcome(false)
       }, 50)
     }
-  }, [messages.length, showWelcome])
+  }, [messageKeys.length, showWelcome])
 
   // Reset welcome page on chat switch
   useEffect(() => {
-    if (messages.length === 0) {
+    if (messageKeys.length === 0) {
       setShowWelcome(true)
       hasShownWelcomeRef.current = false
     }
-  }, [chatUuid, messages.length])
+  }, [chatUuid, messageKeys.length])
 
-  const totalCount = deferredMessages.length + (showWelcome ? 1 : 0)
+  const totalCount = messageKeys.length + (showWelcome ? 1 : 0)
   const getItemKey = useCallback((index: number) => {
     if (showWelcome) {
       if (index === 0) return 'welcome'
-      const message = deferredMessages[index - 1]
-      return message?.id ?? `msg-${index - 1}`
+      return messageKeys[index - 1] ?? `msg-${index - 1}`
     }
-    const message = deferredMessages[index]
-    return message?.id ?? `msg-${index}`
-  }, [showWelcome, deferredMessages])
+    return messageKeys[index] ?? `msg-${index}`
+  }, [showWelcome, messageKeys])
 
   const estimateSize = useCallback(() => 120, [])
 
@@ -139,7 +156,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                     const isWelcomeRow = showWelcome && virtualRow.index === 0
                     const messageIndex = showWelcome ? virtualRow.index - 1 : virtualRow.index
-                    const message = deferredMessages[messageIndex]
+                    const isLatest = messageIndex === messageKeys.length - 1
 
                     return (
                       <div
@@ -156,13 +173,12 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       >
                         {isWelcomeRow ? (
                           <WelcomeMessage onSuggestionClick={handleSuggestionClick} />
-                        ) : message ? (
-                          <ChatMessageComponent
-                          message={message.body}
-                          index={messageIndex}
-                          isLatest={messageIndex === deferredMessages.length - 1}
-                          onTypingChange={onTyping}
-                        />
+                        ) : messageIndex >= 0 ? (
+                          <ChatMessageRow
+                            messageIndex={messageIndex}
+                            isLatest={isLatest}
+                            onTyping={onTyping}
+                          />
                         ) : null}
                       </div>
                     )
