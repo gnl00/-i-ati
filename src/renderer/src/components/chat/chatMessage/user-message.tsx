@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { cn } from '@renderer/lib/utils'
 import { markdownCodeComponents } from './markdown-components'
+import { remarkPreserveLineBreaks } from './markdown-plugins'
 import { MessageOperations } from './message-operations'
 import { useEnterTransition } from './use-enter-transition'
 
@@ -28,7 +29,7 @@ const AnimatedMarkdown: React.FC<{
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }], remarkPreserveLineBreaks]}
       rehypePlugins={[rehypeKatex]}
       skipHtml={false}
       className={cn(

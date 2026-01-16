@@ -19,6 +19,7 @@ import { ErrorMessage } from './error-message'
 import { CommandConfirmation } from './CommandConfirmation'
 import { useEnterTransition } from './use-enter-transition'
 import { StreamingMarkdownSwitch } from './StreamingMarkdownSwitch'
+import { remarkPreserveLineBreaks } from './markdown-plugins'
 
 function getStreamingTextRenderMode(): 'markdown' | 'switch' {
   return (globalThis as any).__STREAMING_TEXT_RENDER_MODE ?? 'switch'
@@ -61,7 +62,7 @@ const TextSegment: React.FC<{
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }], remarkPreserveLineBreaks]}
       rehypePlugins={[rehypeRaw, rehypeKatex]}
       skipHtml={false}
       remarkRehypeOptions={{ passThrough: ['link'] }}
@@ -98,7 +99,7 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
         <AccordionContent>
           <div className='prose px-2 py-1 text-xs text-gray-500 dark:text-gray-400 italic'>
             <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
+              remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
               skipHtml={false}
               className={cn(
                 "prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300",
