@@ -315,11 +315,11 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                                 <p>{p.name}</p>
                                             </TooltipContent>
                                         </Tooltip>
-                                        <div
+                                        <button
                                             className={cn(
-                                                'absolute -top-1 -right-1 z-10 cursor-pointer',
-                                                'transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]',
-                                                'opacity-0 scale-90 translate-x-1 pointer-events-none',
+                                                'absolute -top-1 -right-1 z-10',
+                                                'transition-all duration-200 ease-out',
+                                                'opacity-0 scale-75 translate-x-2 pointer-events-none',
                                                 hoverProviderCardIdx === idx &&
                                                     'opacity-100 scale-100 translate-x-0 pointer-events-auto'
                                             )}
@@ -328,15 +328,22 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                                 onProviderCardDelClick(e, p)
                                             }}
                                         >
-                                            <Cross1Icon className={cn(
-                                                'rounded-full p-1 w-5 h-5',
-                                                'shadow-sm hover:shadow-md',
-                                                'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
-                                                'border border-red-200 dark:border-red-800/50',
-                                                'hover:bg-red-200 dark:hover:bg-red-900/50',
-                                                'active:scale-95 transition-all duration-150 hover:rotate-90 hover:scale-110'
-                                            )} />
-                                        </div>
+                                            <div className={cn(
+                                                'relative p-1.5 rounded-xl',
+                                                'bg-rose-50/80 dark:bg-rose-950/40',
+                                                'text-rose-600 dark:text-rose-400',
+                                                'border border-rose-200/50 dark:border-rose-800/50',
+                                                'shadow-inner',
+                                                'transition-all duration-300 ease-out',
+                                                'hover:scale-110 hover:rotate-90',
+                                                'hover:bg-rose-100 dark:hover:bg-rose-900/50',
+                                                'hover:shadow-lg hover:shadow-rose-500/10',
+                                                'hover:-translate-y-0.5',
+                                                'active:scale-95 active:shadow-inner active:translate-y-0 active:rotate-90'
+                                            )}>
+                                                <Cross1Icon className="w-2.5 h-2.5" />
+                                            </div>
+                                        </button>
                                     </div>
                                 ))
                             }
