@@ -306,3 +306,13 @@ export async function invokeDbCompressedSummaryDelete(id: number): Promise<void>
   const ipc = getElectronIPC()
   return await ipc.invoke('db:compressed-summary:delete', id)
 }
+
+// ============ Directory Selection ============
+
+/**
+ * 打开目录选择对话框
+ */
+export async function invokeSelectDirectory(): Promise<{ success: boolean; path: string | null }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke('select-directory')
+}

@@ -8,13 +8,19 @@ import {
 } from "@renderer/components/ui/tooltip"
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
+import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
+import { invokeSetFileOperationsBaseDir } from '@tools/fileOperations/renderer/FileOperationsInvoker'
+import { useChatContext } from '@renderer/context/ChatContext'
+import { saveChat, updateChat } from '@renderer/db/ChatRepository'
+import { v4 as uuidv4 } from 'uuid'
 import {
   ArrowBigUp,
   BadgePlus,
   CornerDownLeft,
-  Package
+  Package,
+  FolderOpen
 } from 'lucide-react'
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 
 interface ChatInputActionsProps {
@@ -35,11 +41,118 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   onSubmit
 }) => {
   const readStreamState = useChatStore(state => state.readStreamState)
+  const messages = useChatStore(state => state.messages)
+  const { chatId, chatUuid, chatList, setChatId, setChatUuid, setChatTitle, setChatList, updateChatList } = useChatContext()
+  const [currentWorkspacePath, setCurrentWorkspacePath] = useState<string | undefined>()
+
+  // 从 chatList 中获取当前 chat 的 workspacePath
+  useEffect(() => {
+    if (chatId) {
+      const currentChat = chatList.find(chat => chat.id === chatId)
+      setCurrentWorkspacePath(currentChat?.workspacePath)
+    } else {
+      setCurrentWorkspacePath(undefined)
+    }
+  }, [chatId, chatList])
+
+  // 获取目录名（路径的最后一部分）
+  const getDirectoryName = (path: string | undefined): string => {
+    if (!path) return 'Workspace'
+    const parts = path.split(/[/\\]/).filter(p => p) // 过滤空字符串
+    return parts[parts.length - 1] || 'Workspace'
+  }
 
   const handleArtifactsToggle = () => {
     const newState = !artifacts
     toggleArtifacts(newState)
     setArtifactsPanel(newState)
+  }
+
+  // 优化的 New Chat 处理逻辑
+  const handleNewChat = async () => {
+    // 如果当前 chat 存在且没有任何消息，直接清空 workspace 复用当前 chat
+    if (chatId && chatUuid && messages.length === 0) {
+      const currentChat = chatList.find(chat => chat.id === chatId)
+      if (currentChat && currentChat.workspacePath) {
+        // 清空 workspace
+        const updatedChat = {
+          ...currentChat,
+          workspacePath: undefined
+        }
+        await updateChat(updatedChat)
+        updateChatList(updatedChat)
+        setCurrentWorkspacePath(undefined)
+
+        // 重置 FileOps base directory 到默认路径
+        await invokeSetFileOperationsBaseDir(chatUuid, undefined)
+
+        toast.success('Workspace cleared')
+        return
+      }
+    }
+
+    // 否则，调用原始的 onNewChat 创建新 chat
+    onNewChat()
+  }
+
+  const handleWorkspaceSelect = async () => {
+    try {
+      const result = await invokeSelectDirectory()
+
+      if (result.success && result.path) {
+        // 如果当前没有 chat，先初始化一个新 chat
+        if (!chatId && !chatUuid) {
+          const newChatUuid = uuidv4()
+          const newChatEntity: ChatEntity = {
+            uuid: newChatUuid,
+            title: 'NewChat',
+            messages: [],
+            workspacePath: result.path,
+            createTime: Date.now(),
+            updateTime: Date.now()
+          }
+
+          const newChatId = await saveChat(newChatEntity)
+
+          // 先设置 FileOps base directory（在 setChatUuid 之前）
+          await invokeSetFileOperationsBaseDir(newChatUuid, result.path)
+
+          // 添加新 chat 到 chatList
+          newChatEntity.id = newChatId
+          setChatList([newChatEntity, ...chatList])
+
+          // 然后更新状态
+          setChatId(newChatId)
+          setChatUuid(newChatUuid)
+          setChatTitle('NewChat')
+          setCurrentWorkspacePath(result.path)
+
+          toast.success(`New chat created with workspace: ${result.path}`)
+        } else {
+          // 更新现有 chat 的 workspacePath
+          const currentChat = chatList.find(chat => chat.id === chatId)
+          if (currentChat) {
+            const updatedChat = {
+              ...currentChat,
+              workspacePath: result.path
+            }
+            await updateChat(updatedChat)
+            updateChatList(updatedChat)
+            setCurrentWorkspacePath(result.path)
+
+            // 立即设置 FileOps base directory
+            if (chatUuid) {
+              await invokeSetFileOperationsBaseDir(chatUuid, result.path)
+            }
+
+            toast.success(`Workspace updated: ${result.path}`)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[Workspace] Failed to select directory:', error)
+      toast.error('Failed to select workspace')
+    }
   }
 
   const handleStopClick = () => {
@@ -68,14 +181,28 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
-                onClick={onNewChat}
+                className={cn(
+                  "group relative h-8 w-8 rounded-xl overflow-hidden",
+                  "transition-all duration-300 ease-out",
+                  "bg-slate-50/50 dark:bg-slate-800/50",
+                  "text-slate-500 dark:text-slate-400",
+                  "border border-slate-200/50 dark:border-slate-700/50",
+                  "hover:bg-slate-100 dark:hover:bg-slate-700",
+                  "hover:text-slate-700 dark:hover:text-slate-300",
+                  "hover:border-slate-300 dark:hover:border-slate-600",
+                  "hover:shadow-sm",
+                  "active:scale-95"
+                )}
+                onClick={handleNewChat}
               >
-                <BadgePlus className='w-5 h-5' strokeWidth={2} />
+                <BadgePlus
+                  className="w-5 h-5 relative z-10 transition-transform duration-300 ease-out group-hover:scale-110 group-hover:rotate-90"
+                  strokeWidth={2}
+                />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="bg-black/80 backdrop-blur-md border-0 text-gray-100 text-xs px-2 py-1 rounded-md mb-2">
-              <p>New Chat</p>
+            <TooltipContent className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20">
+              <p className="font-medium">New Chat</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -88,18 +215,129 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                 size="icon"
                 variant="ghost"
                 className={cn(
-                  "h-8 w-8 rounded-xl transition-all duration-200",
+                  "group relative h-8 w-8 rounded-xl overflow-hidden",
+                  "transition-all duration-300 ease-out",
                   artifacts
-                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 hover:bg-blue-200 hover:text-blue-400 dark:hover:bg-blue-900/60"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    ? [
+                        // Active state - purple/violet gradient
+                        "bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40",
+                        "text-purple-700 dark:text-purple-400",
+                        "border border-purple-300/60 dark:border-purple-700/60",
+                        "shadow-sm shadow-purple-500/10 dark:shadow-purple-500/20",
+                        "hover:shadow hover:shadow-purple-500/25 dark:hover:shadow-purple-500/35",
+                        "hover:text-purple-500",
+                        "active:scale-95"
+                      ]
+                    : [
+                        // Inactive state - subtle gray
+                        "bg-slate-50/50 dark:bg-slate-800/50",
+                        "text-slate-500 dark:text-slate-400",
+                        "border border-slate-200/50 dark:border-slate-700/50",
+                        "hover:bg-slate-100 dark:hover:bg-slate-700",
+                        "hover:text-slate-700 dark:hover:text-slate-300",
+                        "hover:border-slate-300 dark:hover:border-slate-600",
+                        "hover:shadow-sm",
+                        "active:scale-95"
+                      ]
                 )}
                 onClick={handleArtifactsToggle}
               >
-                <Package className="w-5 h-5" strokeWidth={2} />
+                {/* Animated background gradient on hover (active state only) */}
+                {artifacts && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-100/0 via-purple-100/50 to-violet-100/0 dark:from-purple-900/0 dark:via-purple-900/30 dark:to-violet-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                )}
+
+                <Package
+                  className={cn(
+                    "w-5 h-5 relative z-10 transition-transform duration-300 ease-out",
+                    artifacts
+                      ? "group-hover:scale-110 group-hover:rotate-12"
+                      : "group-hover:scale-110"
+                  )}
+                  strokeWidth={2}
+                />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="bg-black/80 backdrop-blur-md border-0 text-gray-100 text-xs px-2 py-1 rounded-md mb-2">
-              <p>Artifacts {artifacts ? 'On' : 'Off'}</p>
+            <TooltipContent className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20">
+              <p className="font-medium">Artifacts {artifacts ? 'On' : 'Off'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* Workspace Selection Button */}
+        <TooltipProvider delayDuration={400}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "group relative h-8 px-2.5 rounded-xl flex items-center gap-1.5 overflow-hidden",
+                  "transition-all duration-300 ease-out",
+                  currentWorkspacePath
+                    ? [
+                        // Selected state - emerald/teal gradient
+                        "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40",
+                        "text-emerald-700 dark:text-emerald-400",
+                        "border border-emerald-300/60 dark:border-emerald-700/60",
+                        "shadow-sm shadow-emerald-500/10 dark:shadow-emerald-500/20",
+                        "hover:shadow hover:shadow-emerald-500/25 dark:hover:shadow-emerald-500/35",
+                        // "hover:brightness-105",
+                        "hover:text-emerald-500",
+                        "active:scale-[0.98] active:brightness-95"
+                      ]
+                    : [
+                        // Unselected state - subtle gray
+                        "bg-slate-50/50 dark:bg-slate-800/50",
+                        "text-slate-500 dark:text-slate-400",
+                        "border border-slate-200/50 dark:border-slate-700/50",
+                        "hover:bg-slate-100 dark:hover:bg-slate-700",
+                        "hover:text-slate-700 dark:hover:text-slate-300",
+                        "hover:border-slate-300 dark:hover:border-slate-600",
+                        "hover:shadow-sm",
+                        "active:scale-[0.98]"
+                      ]
+                )}
+                onClick={handleWorkspaceSelect}
+              >
+                {/* Animated background gradient on hover */}
+                {currentWorkspacePath && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-100/0 via-emerald-100/50 to-teal-100/0 dark:from-emerald-900/0 dark:via-emerald-900/30 dark:to-teal-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                )}
+
+                {/* Icon with smooth scale animation */}
+                <FolderOpen
+                  className={cn(
+                    "relative z-10 w-4 h-4 transition-transform duration-300 ease-out",
+                    currentWorkspacePath
+                      ? "group-hover:scale-110"
+                      : "group-hover:scale-105"
+                  )}
+                  strokeWidth={2}
+                />
+
+                {/* Text with smooth transition */}
+                <span
+                  className={cn(
+                    "relative z-10 text-xs font-medium max-w-[100px] truncate",
+                    "transition-all duration-300 ease-out"
+                  )}
+                >
+                  {getDirectoryName(currentWorkspacePath)}
+                </span>
+              </Button>
+            </TooltipTrigger>
+
+            <TooltipContent
+              className={cn(
+                "bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl",
+                "border border-slate-700/50 dark:border-slate-600/50",
+                "text-slate-100 text-xs px-3 py-1.5 rounded-lg",
+                "shadow-xl shadow-black/20"
+              )}
+            >
+              <p className="font-medium">
+                {currentWorkspacePath || 'Select Workspace'}
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

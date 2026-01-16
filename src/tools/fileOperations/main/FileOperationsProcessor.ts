@@ -64,9 +64,13 @@ let currentBaseDir = join(app.getPath('userData'), 'workspaces', 'tmp')
  * Set the base directory for file operations
  * Called when switching chats or creating new chats
  */
-export function setWorkspaceBaseDir(chatUuid: string): void {
-  currentBaseDir = join(app.getPath('userData'), 'workspaces', chatUuid)
-  console.log(`[FileOps] Base directory updated to: ${currentBaseDir}`)
+export function setWorkspaceBaseDir(chatUuid: string, customWorkspacePath?: string): void {
+  if (customWorkspacePath) {
+    currentBaseDir = customWorkspacePath
+  } else {
+    currentBaseDir = join(app.getPath('userData'), 'workspaces', chatUuid)
+  }
+  console.log(`[FileOps] Base directory set to: ${currentBaseDir}`)
 }
 
 /**
