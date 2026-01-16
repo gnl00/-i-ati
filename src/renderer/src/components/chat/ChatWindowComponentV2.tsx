@@ -27,7 +27,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const { chatUuid } = useChatContext()
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
-  const scrollParentRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const chatListRef = useRef<HTMLDivElement>(null)
   const chatPaddingElRef = useRef<HTMLDivElement>(null)
   const lastChatUuidRef = useRef<string | undefined>(undefined)
@@ -40,6 +40,19 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false) // 按钮淡出状态
+
+  const resetScrollButton = useCallback(() => {
+    setShowScrollToBottom(false)
+    setIsButtonFadingOut(false)
+  }, [])
+
+  const setScrollButtonVisible = useCallback((visible: boolean) => {
+    setShowScrollToBottom(prev => {
+      if (prev === visible) return prev
+      setIsButtonFadingOut(false)
+      return visible
+    })
+  }, [])
 
   // Welcome page state
   const [showWelcome, setShowWelcome] = useState<boolean>(true)
@@ -60,7 +73,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   // 自定义平滑滚动到底部
   const smoothScrollToBottom = useCallback(() => {
-    const container = scrollParentRef.current
+    const container = scrollContainerRef.current
     if (!container) return
 
     // 取消之前的滚动动画
@@ -78,8 +91,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
     // 如果已经在底部，直接返回
     if (Math.abs(initialDistance) < 1) {
-      setShowScrollToBottom(false)
-      setIsButtonFadingOut(false)
+      resetScrollButton()
       isSmoothScrollingRef.current = false
       return
     }
@@ -116,17 +128,16 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         isSmoothScrollingRef.current = false
 
         // 隐藏按钮
-        setShowScrollToBottom(false)
-        setIsButtonFadingOut(false)
+        resetScrollButton()
       }
     }
 
     smoothScrollRAFRef.current = requestAnimationFrame(animate)
-  }, [easeOutCubic])
+  }, [easeOutCubic, resetScrollButton])
 
   // 所有函数定义
   const autoScrollToBottom = useCallback(() => {
-    const container = scrollParentRef.current
+    const container = scrollContainerRef.current
     if (!container) return
     container.scrollTop = container.scrollHeight - container.clientHeight
   }, [])
@@ -150,20 +161,22 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   const scrollToBottom = useCallback((smooth = false) => {
     isStickToBottomRef.current = true
-    setShowScrollToBottom(false)
-
-    if (smooth) {
-      // 使用自定义平滑滚动
-      setIsButtonFadingOut(true)
-
-      // 延迟一点开始滚动，让用户看到按钮淡出
-      setTimeout(() => {
-        smoothScrollToBottom()
-      }, 120)
-    } else {
+    if (!smooth) {
+      resetScrollButton()
       autoScrollToBottom()
+      return
     }
-  }, [autoScrollToBottom, smoothScrollToBottom])
+
+    // 使用自定义平滑滚动
+    if (showScrollToBottom) {
+      setIsButtonFadingOut(true)
+    }
+
+    // 延迟一点开始滚动，让用户看到按钮淡出
+    setTimeout(() => {
+      smoothScrollToBottom()
+    }, 120)
+  }, [autoScrollToBottom, smoothScrollToBottom, resetScrollButton, showScrollToBottom])
 
   const scrollToBottomForced = useCallback(() => {
     // 强制滚动到底部，用于用户主动提交消息后
@@ -176,8 +189,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     // 用户提交消息后视为主动回到底部，避免短暂的按钮闪现
     hasUserScrollIntentRef.current = false
     isStickToBottomRef.current = true
-    setShowScrollToBottom(false)
-    setIsButtonFadingOut(false)
+    resetScrollButton()
     scrollToBottomForced()
   }
 
@@ -186,8 +198,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     if (isSmoothScrollingRef.current) {
       if (isAtBottom) {
         isStickToBottomRef.current = true
-        setShowScrollToBottom(false)
-        setIsButtonFadingOut(false)
+        resetScrollButton()
         hasUserScrollIntentRef.current = false
       }
       return
@@ -198,12 +209,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         isStickToBottomRef.current = true
       }
       hasUserScrollIntentRef.current = false
-      setShowScrollToBottom(prev => {
-        if (prev) {
-          setIsButtonFadingOut(false)
-        }
-        return false
-      })
+      setScrollButtonVisible(false)
     } else {
       if (!hasUserScrollIntentRef.current && isStickToBottomRef.current) {
         return
@@ -211,14 +217,9 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       if (isStickToBottomRef.current) {
         isStickToBottomRef.current = false
       }
-      setShowScrollToBottom(prev => {
-        if (!prev) {
-          setIsButtonFadingOut(false)
-        }
-        return true
-      })
+      setScrollButtonVisible(true)
     }
-  }, [])
+  }, [resetScrollButton, setScrollButtonVisible])
 
   const onChatListScroll = useCallback((evt: Event) => {
     const target = evt.target as HTMLDivElement
@@ -231,14 +232,13 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     if (!isSmoothScrollingRef.current) return
     cancelSmoothScroll()
     isStickToBottomRef.current = false
-    setShowScrollToBottom(true)
-    setIsButtonFadingOut(false)
-  }, [cancelSmoothScroll])
+    setScrollButtonVisible(true)
+  }, [cancelSmoothScroll, setScrollButtonVisible])
 
   // useEffect hooks
   useEffect(() => {
     // 监听聊天列表容器的滚动，而不是 window
-    const chatListElement = scrollParentRef.current
+    const chatListElement = scrollContainerRef.current
     if (chatListElement) {
       chatListElement.addEventListener('wheel', onUserScrollIntent, { passive: true })
       chatListElement.addEventListener('touchstart', onUserScrollIntent, { passive: true })
@@ -267,7 +267,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [onChatListScroll, onUserScrollIntent, cancelSmoothScroll])
 
   useEffect(() => {
-    const chatListElement = scrollParentRef.current
+    const chatListElement = scrollContainerRef.current
     const sentinelElement = chatPaddingElRef.current
     if (!chatListElement || !sentinelElement) return
     if (!('IntersectionObserver' in window)) return
@@ -309,8 +309,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     lastChatUuidRef.current = currentChatUuid
     if (isChatSwitch) {
       isStickToBottomRef.current = true
-      setShowScrollToBottom(false)
-      setIsButtonFadingOut(false)
+      resetScrollButton()
       cancelSmoothScroll()
       // 聊天切换时需要延迟滚动，等待 DOM 渲染完成
       // 使用 requestAnimationFrame + setTimeout 确保 DOM 已经更新
@@ -359,7 +358,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   const rowVirtualizer = useVirtualizer({
     count: totalCount,
-    getScrollElement: () => scrollParentRef.current,
+    getScrollElement: () => scrollContainerRef.current,
     estimateSize,
     overscan: 6,
     gap: 8,
@@ -423,7 +422,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
               className="flex flex-col overflow-hidden relative"
               id="chat-panel"
             >
-              <div ref={scrollParentRef} className="flex-1 app-undragable overflow-scroll px-2">
+              <div ref={scrollContainerRef} className="flex-1 app-undragable overflow-scroll px-2">
                 <div
                   ref={chatListRef}
                   id='chat-list'
