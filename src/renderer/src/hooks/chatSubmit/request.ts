@@ -44,6 +44,7 @@ export const buildRequestV2 = async ({ prepared }: BuildRequestParams): Promise<
 
   return {
     ...prepared,
+    compressionSummary,
     request
   }
 }
