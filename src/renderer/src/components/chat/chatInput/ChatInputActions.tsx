@@ -55,6 +55,13 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const currentWorkspacePath = useMemo(() => {
     return getChatWorkspacePath({ chatUuid, chatId, chatList })
   }, [chatUuid, chatId, chatList])
+  const isCustomWorkspace = useMemo(() => {
+    if (!currentWorkspacePath || !chatUuid) return false
+    const normalizedPath = currentWorkspacePath.replace(/\\/g, '/')
+    const defaultSuffixes = [`/workspaces/${chatUuid}`, `workspaces/${chatUuid}`]
+    const isDefaultPath = defaultSuffixes.some(suffix => normalizedPath.endsWith(suffix))
+    return !isDefaultPath
+  }, [currentWorkspacePath, chatUuid])
 
   // 获取目录名（路径的最后一部分）
   const getDirectoryName = (path: string | undefined): string => {
@@ -247,16 +254,16 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                 className={cn(
                   "group relative h-8 px-2.5 rounded-xl flex items-center gap-1.5 overflow-hidden",
                   "transition-all duration-300 ease-out",
-                  currentWorkspacePath
+                  isCustomWorkspace
                     ? [
-                        // Selected state - emerald/teal gradient
-                        "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40",
-                        "text-emerald-700 dark:text-emerald-400",
-                        "border border-emerald-300/60 dark:border-emerald-700/60",
-                        "shadow-sm shadow-emerald-500/10 dark:shadow-emerald-500/20",
-                        "hover:shadow hover:shadow-emerald-500/25 dark:hover:shadow-emerald-500/35",
+                        // Selected state - sky/blue gradient
+                        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/40",
+                        "text-blue-700 dark:text-blue-300",
+                        "border border-blue-300/60 dark:border-blue-700/60",
+                        "shadow-sm shadow-blue-500/10 dark:shadow-blue-500/20",
+                        "hover:shadow hover:shadow-blue-500/25 dark:hover:shadow-blue-500/35",
                         // "hover:brightness-105",
-                        "hover:text-emerald-500",
+                        "hover:text-blue-500",
                         "active:scale-[0.98] active:brightness-95"
                       ]
                     : [
@@ -274,15 +281,15 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                 onClick={handleWorkspaceSelect}
               >
                 {/* Animated background gradient on hover */}
-                {currentWorkspacePath && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-100/0 via-emerald-100/50 to-teal-100/0 dark:from-emerald-900/0 dark:via-emerald-900/30 dark:to-teal-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {isCustomWorkspace && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-100/0 via-blue-100/50 to-blue-200/0 dark:from-blue-900/0 dark:via-blue-900/30 dark:to-blue-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 )}
 
                 {/* Icon with smooth scale animation */}
                 <FolderOpen
                   className={cn(
                     "relative z-10 w-4 h-4 transition-transform duration-300 ease-out",
-                    currentWorkspacePath
+                    isCustomWorkspace
                       ? "group-hover:scale-110"
                       : "group-hover:scale-105"
                   )}
@@ -296,7 +303,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                     "transition-all duration-300 ease-out"
                   )}
                 >
-                  {getDirectoryName(currentWorkspacePath)}
+                  {isCustomWorkspace ? getDirectoryName(currentWorkspacePath) : 'Workspace'}
                 </span>
               </Button>
             </TooltipTrigger>
@@ -310,7 +317,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               )}
             >
               <p className="font-medium">
-                {currentWorkspacePath || 'Select Workspace'}
+                {isCustomWorkspace ? currentWorkspacePath : 'Select Workspace'}
               </p>
             </TooltipContent>
           </Tooltip>
