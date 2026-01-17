@@ -71,6 +71,7 @@ export interface PreparedChat {
   control: ChatControlState
   meta: ChatMetaState
   systemPrompts: string[]
+  compressionSummary?: CompressedSummaryEntity | null
 }
 
 export interface PreparedRequest extends PreparedChat {

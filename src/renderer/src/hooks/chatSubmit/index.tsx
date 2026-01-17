@@ -2,6 +2,8 @@ import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { ChatDependencyContainer } from './container'
+import { useRef } from 'react'
+import type { ChatPipelineMachineV2 } from './machine'
 
 function useChatSubmitV2() {
   // 收集依赖
@@ -14,12 +16,15 @@ function useChatSubmitV2() {
   // Container 创建开销很小，直接创建即可
   const container = new ChatDependencyContainer(chatContext, chatStore, appConfig)
 
+  const activeMachineRef = useRef<ChatPipelineMachineV2 | null>(null)
+
   const onSubmit = async (
     textCtx: string,
     mediaCtx: ClipbordImg[] | string[],
     options: { tools?: any[], prompt: string }
   ): Promise<void> => {
     const machine = container.createMachine()
+    activeMachineRef.current = machine
 
     try {
       await machine.start({
@@ -39,11 +44,22 @@ function useChatSubmitV2() {
         await chatStore.updateLastAssistantMessageWithError(error)
       }
     } finally {
+      activeMachineRef.current = null
       chatStore.setCurrentReqCtrl(undefined)
     }
   }
 
-  return onSubmit
+  const cancel = () => {
+    const machine = activeMachineRef.current
+    if (machine) {
+      machine.cancel()
+    }
+    activeMachineRef.current = null
+    container.resetStates()
+    chatStore.setCurrentReqCtrl(undefined)
+  }
+
+  return { onSubmit, cancel }
 }
 
 export default useChatSubmitV2

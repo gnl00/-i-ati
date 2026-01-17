@@ -31,6 +31,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const imageSrcBase64List = useChatStore(state => state.imageSrcBase64List)
   const setImageSrcBase64List = useChatStore(state => state.setImageSrcBase64List)
   const currentReqCtrl = useChatStore(state => state.currentReqCtrl)
+  const readStreamState = useChatStore(state => state.readStreamState)
   const webSearchEnable = useChatStore(state => state.webSearchEnable)
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
@@ -112,7 +113,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setCurrentSystemPrompt('')
   }, [startNewChatBase])
 
-  const handleChatSubmit = useChatSubmit()
+  const { onSubmit: handleChatSubmit, cancel: cancelChatSubmit } = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
@@ -228,45 +229,53 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       </div>
 
       <div id="inputArea" className='relative flex flex-col pb-2 px-2 flex-1 overflow-hidden'>
-        <ChatInputToolbar
-          selectedModel={selectedModel}
-          models={models}
-          providers={providers}
-          setSelectedModel={setSelectedModel}
-          setCurrentProviderName={setCurrentProviderName}
-          selectedMcpServerNames={selectedMcpServerNames}
-          mcpServerConfig={mcpServerConfig}
-          toggleMcpConnection={toggleMcpConnection}
-          isConnectingMcpServer={isConnectingMcpServer}
-          chatTemperature={chatTemperature}
-          chatTopP={chatTopP}
-          currentSystemPrompt={currentSystemPrompt}
-          onTemperatureChange={setChatTemperature}
-          onTopPChange={setChatTopP}
-          onSystemPromptChange={setCurrentSystemPrompt}
-        />
-
-        <div className="relative flex-1 overflow-hidden">
-          <Textarea
-            ref={textareaRef}
-            className={
-              cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 transition-colors duration-200 ease-out',
-                'rounded-none resize-none overflow-y-auto text-sm px-2 pt-0.5 pb-2 font-medium text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
-                'placeholder:text-gray-400 dark:placeholder:text-gray-500 leading-relaxed',
-              )
-            }
-            placeholder='Type anything to chat'
-            value={inputContent}
-            onChange={onTextAreaChange}
-            onKeyDown={onTextAreaKeyDown}
-            onPaste={onTextAreaPaste}
-            onBlur={onTextAreaBlur}
+        <div
+          className={cn(
+            'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out',
+            readStreamState && 'opacity-60 grayscale pointer-events-none'
+          )}
+        >
+          <ChatInputToolbar
+            selectedModel={selectedModel}
+            models={models}
+            providers={providers}
+            setSelectedModel={setSelectedModel}
+            setCurrentProviderName={setCurrentProviderName}
+            selectedMcpServerNames={selectedMcpServerNames}
+            mcpServerConfig={mcpServerConfig}
+            toggleMcpConnection={toggleMcpConnection}
+            isConnectingMcpServer={isConnectingMcpServer}
+            chatTemperature={chatTemperature}
+            chatTopP={chatTopP}
+            currentSystemPrompt={currentSystemPrompt}
+            onTemperatureChange={setChatTemperature}
+            onTopPChange={setChatTopP}
+            onSystemPromptChange={setCurrentSystemPrompt}
           />
 
-          <CustomCaretOverlay
-            ref={caretOverlayRef}
-            textareaRef={textareaRef}
-          />
+          <div className="relative flex-1 overflow-hidden">
+            <Textarea
+              ref={textareaRef}
+              className={
+                cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 transition-colors duration-200 ease-out',
+                  'rounded-none resize-none overflow-y-auto text-sm px-2 pt-0.5 pb-2 font-medium text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
+                  'placeholder:text-gray-400 dark:placeholder:text-gray-500 leading-relaxed',
+                )
+              }
+              placeholder={readStreamState ? 'Processing...Wait a moment' : 'Type anything to chat'}
+              value={inputContent}
+              onChange={onTextAreaChange}
+              onKeyDown={onTextAreaKeyDown}
+              onPaste={onTextAreaPaste}
+              onBlur={onTextAreaBlur}
+              disabled={readStreamState}
+            />
+
+            <CustomCaretOverlay
+              ref={caretOverlayRef}
+              textareaRef={textareaRef}
+            />
+          </div>
         </div>
 
         <ChatInputActions
@@ -276,6 +285,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           setArtifactsPanel={setArtifactsPanel}
           onNewChat={startNewChat}
           onSubmit={onSubmitClick}
+          onCancel={cancelChatSubmit}
         />
       </div>
 

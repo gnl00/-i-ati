@@ -14,6 +14,7 @@
 
 import type { ChatStore } from '@renderer/store'
 import { saveMessage } from '@renderer/db/MessageRepository'
+import { RequestMessageBuilder } from '@renderer/services/RequestMessageBuilder'
 import { logger } from '../logger'
 import type { StreamingContext } from '../types'
 
@@ -186,13 +187,6 @@ export class MessageManager {
    * @param content 消息内容
    */
   async addToolCallMessage(toolCalls: IToolCall[], content: string): Promise<void> {
-    const assistantToolCallMessage: ChatMessage = {
-      role: 'assistant',
-      content: content || '',
-      segments: [],
-      toolCalls: toolCalls
-    }
-
     // 1. 获取最后一条 assistant 消息
     const lastAssistantMessage = this.getLastAssistantMessage()
     const existingToolCalls = lastAssistantMessage.body.toolCalls || []
@@ -207,9 +201,7 @@ export class MessageManager {
         toolCalls: mergedToolCalls
       }
     }))
-
-    // 3. 更新 request.messages（用于下一轮 LLM 请求）
-    this.context.request.messages.push(assistantToolCallMessage)
+    // 3. assistantToolCallMessage 将通过 rebuildRequestMessages 注入 request.messages
   }
 
   /**
@@ -236,6 +228,8 @@ export class MessageManager {
     try {
       const msgId = await saveMessage(toolResultEntity)
       toolResultEntity.id = msgId
+      const chatMessages = this.context.session.chatEntity.messages || []
+      this.context.session.chatEntity.messages = [...chatMessages, msgId]
     } catch (error) {
       logger.error('Failed to save tool result message', error as Error)
     }
@@ -243,8 +237,7 @@ export class MessageManager {
     // 3. 添加到 session.messageEntities
     this.context.session.messageEntities.push(toolResultEntity)
 
-    // 4. 添加到 request.messages（用于下一轮 LLM 请求）
-    this.context.request.messages.push(toolMsg)
+    // 4. tool result 将通过 rebuildRequestMessages 注入 request.messages
   }
 
   /**
@@ -281,6 +274,18 @@ export class MessageManager {
    */
   getLastMessageBody(): MessageEntity['body'] {
     return this.getLastMessage().body
+  }
+
+  /**
+   * 从 session.messageEntities 重建 request.messages
+   */
+  rebuildRequestMessages(): void {
+    const messageBuilder = new RequestMessageBuilder()
+      .setSystemPrompts(this.context.systemPrompts || [])
+      .setMessages(this.context.session.messageEntities)
+      .setCompressionSummary(this.context.compressionSummary || null)
+
+    this.context.request.messages = messageBuilder.build()
   }
 
   /**

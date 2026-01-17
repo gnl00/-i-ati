@@ -62,6 +62,18 @@ const handleToolCallResult = (functionName: string, results: any) => {
     : JSON.stringify({ ...results, functionCallCompleted: true })
 }
 
+const handleToolCallError = (functionName: string, result: ToolExecutionResult) => {
+  const errorPayload = {
+    success: false,
+    error: result.error?.message || 'Unknown error',
+    status: result.status,
+    functionCallCompleted: true
+  }
+  return functionName === 'web_search'
+    ? JSON.stringify(errorPayload)
+    : JSON.stringify(errorPayload)
+}
+
 /**
  * StreamingOrchestrator - 流式编排器
  */
@@ -166,6 +178,7 @@ export class StreamingOrchestrator {
    */
   private async sendRequest(): Promise<void> {
     try {
+      this.config.messageManager.rebuildRequestMessages()
 
       const response = await unifiedChatRequest(
         this.request,
@@ -358,7 +371,7 @@ export class StreamingOrchestrator {
         tool.status = result.status === 'aborted' ? 'aborted' : 'failed'
         tool.error = result.error?.message
         tool.cost = result.cost
-        this.handleToolFailure(result)
+        await this.handleToolFailure(result)
       }
     }
   }
@@ -393,13 +406,21 @@ export class StreamingOrchestrator {
   /**
    * 处理工具执行失败
    */
-  private handleToolFailure(result: ToolExecutionResult): void {
+  private async handleToolFailure(result: ToolExecutionResult): Promise<void> {
     console.error(`[Tool] Execution failed:`, {
       name: result.name,
       status: result.status,
       error: result.error,
       cost: result.cost
     })
+
+    const toolFunctionMessage: ChatMessage = {
+      role: 'tool',
+      name: result.name,
+      toolCallId: result.id,
+      content: handleToolCallError(result.name, result),
+      segments: []
+    }
 
     // 添加错误 segment 用于 UI 显示（包含 toolCallId 和 index 用于唯一标识）
     this.config.messageManager.appendSegmentToLastMessage({
@@ -414,5 +435,7 @@ export class StreamingOrchestrator {
       toolCallId: result.id,
       toolCallIndex: result.index
     })
+
+    await this.config.messageManager.addToolResultMessage(toolFunctionMessage)
   }
 }

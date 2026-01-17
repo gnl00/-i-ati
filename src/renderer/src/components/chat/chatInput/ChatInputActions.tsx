@@ -30,6 +30,7 @@ interface ChatInputActionsProps {
   setArtifactsPanel: (open: boolean) => void
   onNewChat: () => void
   onSubmit: () => void
+  onCancel?: () => void
 }
 
 const ChatInputActions: React.FC<ChatInputActionsProps> = ({
@@ -38,7 +39,8 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   toggleArtifacts,
   setArtifactsPanel,
   onNewChat,
-  onSubmit
+  onSubmit,
+  onCancel
 }) => {
   const readStreamState = useChatStore(state => state.readStreamState)
   const messages = useChatStore(state => state.messages)
@@ -138,6 +140,11 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 
   const handleStopClick = () => {
     // console.log('[onStopClick] Triggered, currentReqCtrl:', currentReqCtrl)
+
+    if (onCancel) {
+      onCancel()
+      return
+    }
 
     if (!currentReqCtrl) {
       return
