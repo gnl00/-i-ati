@@ -18,6 +18,7 @@ export interface ExecuteCommandArgs {
   cwd?: string
   timeout?: number
   env?: Record<string, string>
+  chat_uuid?: string
   confirmed?: boolean // 用户是否已确认（内部使用）
 }
 

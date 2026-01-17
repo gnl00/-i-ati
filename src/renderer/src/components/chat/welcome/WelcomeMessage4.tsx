@@ -164,7 +164,7 @@ const WelcomeMessage4: React.FC<WelcomeMessage4Props> = ({ className, onStart })
       {/* Main Content */}
       <div className={cn(
         "max-w-2xl w-full flex flex-col items-center justify-center space-y-20 relative z-10",
-        "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "transition-all duration-500 ease-out",
         isClicked && "opacity-0 -translate-y-4 pointer-events-none"
       )}>
           {/* Title - refined typography with typewriter effect */}
@@ -187,7 +187,7 @@ const WelcomeMessage4: React.FC<WelcomeMessage4Props> = ({ className, onStart })
               disabled={isClicked}
               className={cn(
                 "relative px-10 py-4 rounded-full font-medium text-base",
-                "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                "transition-all duration-500 ease-out",
                 "hover:scale-105 active:scale-95",
                 "hover:shadow-xl hover:shadow-blue-500/40",
                 "hover:border hover:border-blue-400/50",

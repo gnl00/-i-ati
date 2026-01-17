@@ -50,6 +50,8 @@ export interface ToolExecutorConfig {
   onProgress?: (progress: ToolExecutionProgress) => void
   /** 中止信号，用于取消 */
   signal?: AbortSignal
+  /** 当前聊天 UUID（用于工具执行上下文） */
+  chatUuid?: string
 }
 
 /**

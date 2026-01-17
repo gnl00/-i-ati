@@ -322,6 +322,7 @@ export class StreamingOrchestrator {
     const executor = new ToolExecutor({
       maxConcurrency: 3,
       signal: this.signal,
+      chatUuid: this.context.session.chatEntity?.uuid,
       onProgress: (progress: ToolExecutionProgress) => {
         if (progress.phase === 'started') {
           console.log(`[Tool] Starting: ${progress.name}`)

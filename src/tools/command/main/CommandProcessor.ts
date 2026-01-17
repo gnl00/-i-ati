@@ -5,7 +5,9 @@
 
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { resolve, isAbsolute } from 'path'
+import { resolve, isAbsolute, join } from 'path'
+import { app } from 'electron'
+import DatabaseService from '../../../main/services/DatabaseService'
 import type {
   ExecuteCommandArgs,
   ExecuteCommandResponse,
@@ -20,6 +22,26 @@ const execAsync = promisify(exec)
 
 const DEFAULT_TIMEOUT = 30000 // 30 seconds
 const MAX_BUFFER = 10 * 1024 * 1024 // 10MB
+const DEFAULT_WORKSPACE_NAME = 'tmp'
+
+function resolveWorkspaceBaseDir(chatUuid?: string): string {
+  const userDataPath = app.getPath('userData')
+
+  if (!chatUuid) {
+    return join(userDataPath, 'workspaces', DEFAULT_WORKSPACE_NAME)
+  }
+
+  try {
+    const workspacePath = DatabaseService.getWorkspacePathByUuid(chatUuid)
+    if (workspacePath) {
+      return workspacePath
+    }
+  } catch (error) {
+    console.error('[CommandExecutor] Failed to resolve workspace path from DB:', error)
+  }
+
+  return join(userDataPath, 'workspaces', chatUuid)
+}
 
 // 危险命令模式（需要用户确认）
 const DANGEROUS_PATTERNS = [
@@ -106,35 +128,35 @@ class CommandExecutor {
   /**
    * 解析工作目录
    */
-  private resolveWorkingDirectory(cwd?: string): string {
+  private resolveWorkingDirectory(cwd?: string, workspaceBasePath: string | null = this.workspaceBasePath): string {
     // 如果没有设置 workspace base path，使用当前工作目录
-    if (!this.workspaceBasePath) {
+    if (!workspaceBasePath) {
       console.log('[CommandExecutor] No workspace base path set, using process.cwd()')
       return cwd ? resolve(process.cwd(), cwd) : process.cwd()
     }
 
     // 如果没有指定 cwd，使用 workspace base path
     if (!cwd) {
-      return this.workspaceBasePath
+      return workspaceBasePath
     }
 
     // 如果 cwd 是绝对路径，检查是否在 workspace 内
     if (isAbsolute(cwd)) {
-      if (!cwd.startsWith(this.workspaceBasePath)) {
+      if (!cwd.startsWith(workspaceBasePath)) {
         console.warn(`[CommandExecutor] Absolute path outside workspace: ${cwd}`)
       }
       return cwd
     }
 
     // 相对路径，相对于 workspace base path
-    return resolve(this.workspaceBasePath, cwd)
+    return resolve(workspaceBasePath, cwd)
   }
 
   /**
    * 执行命令
    */
   async executeCommand(args: ExecuteCommandArgs): Promise<ExecuteCommandResponse> {
-    const { command, cwd, timeout = DEFAULT_TIMEOUT, env, confirmed = false } = args
+    const { command, cwd, timeout = DEFAULT_TIMEOUT, env, confirmed = false, chat_uuid } = args
 
     console.log(`[CommandExecutor] Executing command: ${command}`)
     console.log(`[CommandExecutor] CWD: ${cwd || 'workspace root'}`)
@@ -159,7 +181,11 @@ class CommandExecutor {
       }
 
       // 3. 解析工作目录
-      const workingDir = this.resolveWorkingDirectory(cwd)
+      const workspaceBasePath = chat_uuid ? resolveWorkspaceBaseDir(chat_uuid) : this.workspaceBasePath
+      if (chat_uuid) {
+        console.log(`[CommandExecutor] Workspace base path resolved for chat ${chat_uuid}: ${workspaceBasePath}`)
+      }
+      const workingDir = this.resolveWorkingDirectory(cwd, workspaceBasePath)
       console.log(`[CommandExecutor] Resolved working directory: ${workingDir}`)
 
       // 4. 准备环境变量
