@@ -220,8 +220,10 @@ export class StreamingOrchestrator {
    * 处理非流式响应
    */
   private processNonStreamingResponse(resp: IUnifiedResponse): void {
-    this.config.messageManager.updateLastMessage(() => ({
+    this.config.messageManager.updateLastAssistantMessage((last) => ({
+      ...last,
       body: {
+        ...last.body,
         role: 'assistant',
         model: this.modelName,
         content: resp.content,
@@ -288,7 +290,7 @@ export class StreamingOrchestrator {
   /**
    * 刷新工具调用占位符
    *
-   * 关键：必须立即保存 assistant 消息到数据库，确保消息顺序正确
+   * 关键：在执行 tool 前更新 assistant 的 toolCalls，确保后续请求顺序正确
    * 顺序：assistant (with toolCalls) → tool result
    */
   private async flushToolCallPlaceholder(): Promise<void> {
@@ -297,10 +299,10 @@ export class StreamingOrchestrator {
       return
     }
 
-    const lastMessage = this.config.messageManager.getLastMessage()
+    const lastAssistantMessage = this.config.messageManager.getLastAssistantMessage()
 
     // 从 segments 中重建 content
-    const content = extractContentFromSegments(lastMessage.body.segments)
+    const content = extractContentFromSegments(lastAssistantMessage.body.segments)
 
     // 构造工具调用列表
     const toolCalls = pendingTools.map(tc => ({

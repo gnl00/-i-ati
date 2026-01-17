@@ -4,6 +4,7 @@ import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { v4 as uuidv4 } from 'uuid'
 import type { PrepareMessageFn, PrepareMessageParams, PreparedChat } from './types'
+import { MessageManager } from './streaming/message-manager'
 
 const buildUserMessage = (
   model: IModel,
@@ -111,18 +112,48 @@ export const prepareV2: PrepareMessageFn = async ({
     store.setMessages(existingMessages)
   }
 
+  // 2.5. 清理上一条纯错误消息（如果存在）
+  // 检查最后一条 assistant 消息是否只包含 error segment
+  const lastMessage = existingMessages[existingMessages.length - 1]
+  if (lastMessage && lastMessage.body.role === 'assistant') {
+    const segments = lastMessage.body.segments
+    // 如果只有一个 segment 且类型为 error，则删除这条消息
+    if (segments.length === 1 && segments[0].type === 'error') {
+      if (lastMessage.id) {
+        await store.deleteMessage(lastMessage.id)
+        // 从 existingMessages 中移除
+        existingMessages = existingMessages.filter(m => m.id !== lastMessage.id)
+        // 从 chatEntity.messages 中移除
+        chatEntity.messages = (chatEntity.messages || []).filter(id => id !== lastMessage.id)
+        await updateChat(chatEntity)
+      }
+    }
+  }
+
+  const resolvedChatUuid = chatEntity.uuid
+  const messageManagerContext = {
+    session: {
+      messageEntities: [...existingMessages],
+      chatEntity,
+      currChatId
+    },
+    systemPrompts: [],
+    compressionSummary: null,
+    request: { messages: [] }
+  }
+  const messageManager = new MessageManager(messageManagerContext, store, { enableStreamBuffer: false })
+
   // 3. 创建用户消息实体
   const userMessageEntity: MessageEntity = {
     body: userMessage,
     chatId: currChatId,
-    chatUuid: chatUuid
+    chatUuid: resolvedChatUuid
   }
 
-  // 4. 通过 store action 保存用户消息（自动 IPC → SQLite → 更新 state）
-  const usrMsgId = await store.addMessage(userMessageEntity)
+  // 4. 保存用户消息（自动 IPC → SQLite → 更新 state）
+  await messageManager.persistMessageEntity(userMessageEntity)
 
   // 5. 更新聊天实体
-  chatEntity.messages = [...(chatEntity.messages || []), usrMsgId]
   chatEntity.model = model.value
   chatEntity.updateTime = new Date().getTime()
   await updateChat(chatEntity)
@@ -141,24 +172,6 @@ export const prepareV2: PrepareMessageFn = async ({
   store.setReadStreamState(true)
   store.setShowLoadingIndicator(true)
 
-  // 6.5. 清理上一条纯错误消息（如果存在）
-  // 检查最后一条 assistant 消息是否只包含 error segment
-  const lastMessage = existingMessages[existingMessages.length - 1]
-  if (lastMessage && lastMessage.body.role === 'assistant') {
-    const segments = lastMessage.body.segments
-    // 如果只有一个 segment 且类型为 error，则删除这条消息
-    if (segments.length === 1 && segments[0].type === 'error') {
-      if (lastMessage.id) {
-        await store.deleteMessage(lastMessage.id)
-        // 从 existingMessages 中移除
-        existingMessages = existingMessages.filter(m => m.id !== lastMessage.id)
-        // 从 chatEntity.messages 中移除
-        chatEntity.messages = (chatEntity.messages || []).filter(id => id !== lastMessage.id)
-        await updateChat(chatEntity)
-      }
-    }
-  }
-
   // 7. 创建初始助手消息并立即保存到数据库
   const initialAssistantMessage: MessageEntity = {
     body: {
@@ -169,24 +182,19 @@ export const prepareV2: PrepareMessageFn = async ({
       typewriterCompleted: false  // 初始化打字机状态
     },
     chatId: currChatId,
-    chatUuid: chatUuid
+    chatUuid: resolvedChatUuid
   }
 
   // 立即保存到数据库，获取真实 ID
-  const assistantMsgId = await store.addMessage(initialAssistantMessage)
-  initialAssistantMessage.id = assistantMsgId
-
-  // 更新 chat.messages 数组
-  chatEntity.messages = [...(chatEntity.messages || []), assistantMsgId]
+  await messageManager.persistMessageEntity(initialAssistantMessage)
   chatEntity.updateTime = new Date().getTime()
   await updateChat(chatEntity)
 
   // 8. 构建返回的消息列表（用于当前会话）
   // 关键优化：使用从数据库加载的 existingMessages，而不是 store.messages
   // 这样可以避免 Zustand 状态更新延迟导致的问题
-  const allMessages = [...existingMessages, userMessageEntity]
-
-  const messageEntities = [...allMessages, initialAssistantMessage]
+  const allMessages = messageManager.getMessages()
+  const messageEntities = [...allMessages]
   const chatMessages = messageEntities.map(msg => msg.body)
 
   // 8. 构建 system prompts

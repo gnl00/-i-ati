@@ -1,7 +1,7 @@
 import { generateTitlePrompt } from '@renderer/constant/prompts'
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { unifiedChatRequest } from '@request/index'
-import { extractContentFromSegments } from './streaming/segment-utils'
+import { MessageManager } from './streaming/message-manager'
 import type { FinalizeDeps, StreamingContextProvider, TitleRequestParams } from './types'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { compressionService } from '@renderer/services/compressionService'
@@ -87,34 +87,13 @@ export const finalizePipelineV2 = async (
 
   // 2. 处理所有需要持久化的消息（新方案：统一保存顺序）
 
-  // 2.1 第一步：更新所有 assistant 消息（新方案：已在 prepare 阶段保存）
-  for (const message of session.messageEntities) {
-    if (message.body.role === 'assistant') {
-      // 提取 content from segments
-      if (message.body.segments && message.body.segments.length > 0) {
-        const extractedContent = extractContentFromSegments(message.body.segments)
-        message.body.content = extractedContent
-      }
+  const messageManager = new MessageManager(context, store, { enableStreamBuffer: false })
 
-      // 新方案：assistant 消息已在 prepare 阶段保存，这里只需要更新
-      if (message.id && message.id > 0) {
-        await store.updateMessage(message)
-      } else {
-        // 不应该出现这种情况（没有 ID 的 assistant 消息）
-        console.warn('[Finalize] Assistant message without ID, this should not happen in new approach')
-      }
-    }
-  }
+  // 2.1 第一步：更新所有 assistant 消息（新方案：已在 prepare 阶段保存）
+  await messageManager.updateAssistantMessagesFromSegments()
 
   // 2.2 第二步：按顺序保存所有 tool result 消息
-  for (const message of session.messageEntities) {
-    if (message.body.role === 'tool' && !message.id) {
-      // 未保存的 tool result 消息，保存到数据库
-      const msgId = await store.addMessage(message)
-      message.id = msgId
-      chatEntity.messages = [...(chatEntity.messages || []), msgId]
-    }
-  }
+  await messageManager.persistToolMessages()
 
   // 3. 更新聊天实体（使用内存中的 messages 数组）
 

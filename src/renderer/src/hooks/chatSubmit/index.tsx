@@ -23,6 +23,9 @@ function useChatSubmitV2() {
     mediaCtx: ClipbordImg[] | string[],
     options: { tools?: any[], prompt: string }
   ): Promise<void> => {
+    if (activeMachineRef.current) {
+      return
+    }
     const machine = container.createMachine()
     activeMachineRef.current = machine
 
