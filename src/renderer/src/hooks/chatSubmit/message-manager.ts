@@ -15,8 +15,9 @@
 import type { ChatStore } from '@renderer/store'
 import { saveMessage } from '@renderer/db/MessageRepository'
 import { RequestMessageBuilder } from '@renderer/services/RequestMessageBuilder'
+import { extractContentFromSegments } from './segment-utils'
 import { logger } from '../logger'
-import type { StreamingContext } from '../types'
+import type { ChatSessionState } from '../types'
 
 // MessageEntity, MessageSegment, ChatMessage 是全局类型，无需导入
 
@@ -32,6 +33,15 @@ export interface MessageManagerOptions {
   streamBufferMs?: number
 }
 
+type MessageManagerSession = Pick<ChatSessionState, 'messageEntities' | 'chatEntity' | 'currChatId'>
+
+export interface MessageManagerContext {
+  session: MessageManagerSession
+  systemPrompts?: string[]
+  compressionSummary?: CompressedSummaryEntity | null
+  request?: { messages: ChatMessage[] }
+}
+
 export class MessageManager {
   private readonly enableStreamBuffer: boolean
   private readonly streamBufferMs: number
@@ -39,7 +49,7 @@ export class MessageManager {
   private streamFlushTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
-    private readonly context: StreamingContext,
+    private readonly context: MessageManagerContext,
     private readonly store: ChatStore,
     options: MessageManagerOptions = {}
   ) {
@@ -241,6 +251,21 @@ export class MessageManager {
   }
 
   /**
+   * 持久化普通消息（user/assistant），并同步到 session/chatEntity
+   */
+  async persistMessageEntity(message: MessageEntity): Promise<number> {
+    const msgId = await this.store.addMessage(message)
+    message.id = msgId
+
+    this.context.session.messageEntities.push(message)
+
+    const chatMessages = this.context.session.chatEntity.messages || []
+    this.context.session.chatEntity.messages = [...chatMessages, msgId]
+
+    return msgId
+  }
+
+  /**
    * 获取当前消息列表
    */
   getMessages(): MessageEntity[] {
@@ -280,12 +305,52 @@ export class MessageManager {
    * 从 session.messageEntities 重建 request.messages
    */
   rebuildRequestMessages(): void {
+    if (!this.context.request) {
+      return
+    }
     const messageBuilder = new RequestMessageBuilder()
       .setSystemPrompts(this.context.systemPrompts || [])
       .setMessages(this.context.session.messageEntities)
       .setCompressionSummary(this.context.compressionSummary || null)
 
     this.context.request.messages = messageBuilder.build()
+  }
+
+  /**
+   * 从 segments 中更新 assistant 消息内容并持久化
+   */
+  async updateAssistantMessagesFromSegments(): Promise<void> {
+    for (const message of this.context.session.messageEntities) {
+      if (message.body.role !== 'assistant') continue
+
+      if (message.body.segments && message.body.segments.length > 0) {
+        message.body.content = extractContentFromSegments(message.body.segments)
+      }
+
+      if (message.id && message.id > 0) {
+        await this.store.updateMessage(message)
+      } else {
+        logger.warn('Assistant message without ID, skipped update')
+      }
+    }
+  }
+
+  /**
+   * 持久化尚未保存的 tool 消息
+   */
+  async persistToolMessages(): Promise<void> {
+    for (const message of this.context.session.messageEntities) {
+      if (message.body.role !== 'tool' || message.id) continue
+
+      try {
+        const msgId = await saveMessage(message)
+        message.id = msgId
+        const chatMessages = this.context.session.chatEntity.messages || []
+        this.context.session.chatEntity.messages = [...chatMessages, msgId]
+      } catch (error) {
+        logger.error('Failed to persist tool message', error as Error)
+      }
+    }
   }
 
   /**

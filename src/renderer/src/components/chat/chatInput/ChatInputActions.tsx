@@ -122,7 +122,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
           setChatUuid(newChatUuid)
           setChatTitle('NewChat')
 
-          toast.success(`New chat created with workspace: ${result.path}`)
+          // toast.success(`New chat created with workspace: ${result.path}`)
         } else {
           // 更新现有 chat 的 workspacePath
           const currentChat = getChatFromList({ chatId, chatList })
