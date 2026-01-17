@@ -13,6 +13,7 @@
  */
 
 import type { ChatStore } from '@renderer/store'
+import { saveMessage } from '@renderer/db/MessageRepository'
 import { logger } from '../logger'
 import type { StreamingContext } from '../types'
 
@@ -192,12 +193,20 @@ export class MessageManager {
       toolCalls: toolCalls
     }
 
-    // 1. 获取最后一条消息（assistant 消息）
-    const lastMessage = this.getLastMessage()
+    // 1. 获取最后一条 assistant 消息
+    const lastAssistantMessage = this.getLastAssistantMessage()
+    const existingToolCalls = lastAssistantMessage.body.toolCalls || []
+    const mergedToolCalls = this.mergeToolCalls(existingToolCalls, toolCalls)
 
-    // 2. 更新最后一条消息，添加 toolCalls 和 content（仅内存）
-    lastMessage.body.content = content || ''
-    lastMessage.body.toolCalls = toolCalls
+    // 2. 更新最后一条 assistant 消息，追加 toolCalls（仅内存）
+    this.updateLastAssistantMessage((last) => ({
+      ...last,
+      body: {
+        ...last.body,
+        content: content || last.body.content || '',
+        toolCalls: mergedToolCalls
+      }
+    }))
 
     // 3. 更新 request.messages（用于下一轮 LLM 请求）
     this.context.request.messages.push(assistantToolCallMessage)
@@ -206,30 +215,35 @@ export class MessageManager {
   /**
    * 添加 tool result 消息
    *
-   * 数据流说明（新方案）：
-   * 1. 创建 tool result 的 MessageEntity（仅内存，无 id）
-   * 2. 添加到 session.messageEntities - 用于 finalize 阶段保存
-   * 3. 添加到 request.messages - 用于下一轮 LLM 请求
-   * 4. 不更新 store.messages - 避免在 UI 中显示为独立消息
-   * 5. 不保存到数据库 - 由 finalize 阶段统一保存（在 assistant 消息之后）
-   *
-   * 关键：finalize 阶段会按顺序保存：assistant → tool results
+   * 数据流说明：
+   * 1. 创建 tool result 的 MessageEntity
+   * 2. 立即保存到 SQLite（避免取消/异常导致丢失）
+   * 3. 添加到 session.messageEntities
+   * 4. 添加到 request.messages（用于下一轮 LLM 请求）
+   * 5. 不更新 store.messages - 避免在 UI 中显示为独立消息
    *
    * @param toolMsg 工具结果消息
    */
   async addToolResultMessage(toolMsg: ChatMessage): Promise<void> {
-    // 1. 创建 tool result 的 MessageEntity（仅内存，无 id）
+    // 1. 创建 tool result 的 MessageEntity
     const toolResultEntity: MessageEntity = {
       body: toolMsg,
       chatId: this.context.session.currChatId,
       chatUuid: this.context.session.chatEntity.uuid
-      // 注意：不设置 id，由 finalize 阶段保存时生成
     }
 
-    // 2. 添加到 session.messageEntities（用于 finalize 阶段保存）
+    // 2. 立即保存到 SQLite，但不更新 store，避免 UI 显示 tool 消息
+    try {
+      const msgId = await saveMessage(toolResultEntity)
+      toolResultEntity.id = msgId
+    } catch (error) {
+      logger.error('Failed to save tool result message', error as Error)
+    }
+
+    // 3. 添加到 session.messageEntities
     this.context.session.messageEntities.push(toolResultEntity)
 
-    // 3. 添加到 request.messages（用于下一轮 LLM 请求）
+    // 4. 添加到 request.messages（用于下一轮 LLM 请求）
     this.context.request.messages.push(toolMsg)
   }
 
@@ -267,5 +281,31 @@ export class MessageManager {
    */
   getLastMessageBody(): MessageEntity['body'] {
     return this.getLastMessage().body
+  }
+
+  /**
+   * 合并工具调用列表，去重保持顺序
+   */
+  private mergeToolCalls(existing: IToolCall[], incoming: IToolCall[]): IToolCall[] {
+    if (existing.length === 0) return [...incoming]
+    if (incoming.length === 0) return [...existing]
+
+    const seen = new Set<string>()
+    const merged: IToolCall[] = []
+    for (const call of existing) {
+      if (!call.id) continue
+      if (!seen.has(call.id)) {
+        seen.add(call.id)
+        merged.push(call)
+      }
+    }
+    for (const call of incoming) {
+      if (!call.id) continue
+      if (!seen.has(call.id)) {
+        seen.add(call.id)
+        merged.push(call)
+      }
+    }
+    return merged
   }
 }
