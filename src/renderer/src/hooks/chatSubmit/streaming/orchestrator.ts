@@ -22,7 +22,7 @@ import type {
 import { formatWebSearchForLLM } from '../utils'
 import { ToolExecutor } from './executor'
 import type { ToolExecutionProgress, ToolExecutionResult } from './executor/types'
-import type { MessageManager } from './message-manager'
+import type { MessageManager } from '../message-manager'
 import type { ChunkParser } from './parser'
 import { SegmentBuilder } from './parser'
 import type { ParseResult } from './parser/types'

@@ -80,7 +80,7 @@ existingMessages = 从数据库加载的消息（不依赖 store.messages）
 
 ### 阶段 2: Streaming（流式处理阶段）
 
-**文件**: `streaming/orchestrator.ts`, `streaming/message-manager.ts`
+**文件**: `streaming/orchestrator.ts`, `message-manager.ts`
 
 #### 2.1 Cycle 1 - 初始请求
 

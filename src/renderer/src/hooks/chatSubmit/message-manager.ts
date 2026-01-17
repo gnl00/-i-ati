@@ -15,9 +15,9 @@
 import type { ChatStore } from '@renderer/store'
 import { saveMessage } from '@renderer/db/MessageRepository'
 import { RequestMessageBuilder } from '@renderer/services/RequestMessageBuilder'
-import { extractContentFromSegments } from './segment-utils'
-import { logger } from '../logger'
-import type { ChatSessionState } from '../types'
+import { extractContentFromSegments } from './streaming/segment-utils'
+import { logger } from './logger'
+import type { ChatSessionState } from './types'
 
 // MessageEntity, MessageSegment, ChatMessage 是全局类型，无需导入
 

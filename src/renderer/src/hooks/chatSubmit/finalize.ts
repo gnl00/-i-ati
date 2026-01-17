@@ -1,7 +1,7 @@
 import { generateTitlePrompt } from '@renderer/constant/prompts'
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { unifiedChatRequest } from '@request/index'
-import { MessageManager } from './streaming/message-manager'
+import { MessageManager } from './message-manager'
 import type { FinalizeDeps, StreamingContextProvider, TitleRequestParams } from './types'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { compressionService } from '@renderer/services/compressionService'
