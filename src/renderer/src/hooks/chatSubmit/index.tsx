@@ -1,65 +1,162 @@
 import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { ChatDependencyContainer } from './container'
 import { useRef } from 'react'
-import type { ChatPipelineMachineV2 } from './machine'
+import {
+  ChatSubmissionService,
+  ChatSubmitEventBus,
+  DefaultFinalizeService,
+  DefaultMessageService,
+  DefaultRequestService,
+  DefaultSessionService,
+  DefaultStreamingService,
+  DefaultToolService
+} from './event-driven'
 
 function useChatSubmitV2() {
-  // 收集依赖
   const chatContext = useChatContext()
   const chatStore = useChatStore()
   const appConfig = useAppConfigStore()
 
-  // 创建容器
-  // 注意：不使用 useMemo，因为 Zustand store 每次渲染都会返回新的对象引用
-  // Container 创建开销很小，直接创建即可
-  const container = new ChatDependencyContainer(chatContext, chatStore, appConfig)
+  const activeSubmissionRef = useRef<ChatSubmissionService | null>(null)
+  const activeBusRef = useRef<ChatSubmitEventBus | null>(null)
 
-  const activeMachineRef = useRef<ChatPipelineMachineV2 | null>(null)
+  const resetUiState = () => {
+    chatStore.setCurrentReqCtrl(undefined)
+    chatStore.setReadStreamState(false)
+    chatStore.setFetchState(false)
+    chatStore.setShowLoadingIndicator(false)
+    chatContext.setLastMsgStatus(false)
+  }
+
+  const bindEventHandlers = (bus: ChatSubmitEventBus) => {
+    const upsertOrAppend = (message: MessageEntity) => {
+      const state = useChatStore.getState()
+      const messages = state.messages
+      const messageId = message.id
+      let nextMessages = messages
+      if (messageId) {
+        const index = messages.findIndex((item) => item.id === messageId)
+        if (index >= 0) {
+          nextMessages = messages.map((item) => (item.id === messageId ? message : item))
+        } else {
+          nextMessages = [...messages, message]
+        }
+      } else {
+        nextMessages = [...messages, message]
+      }
+      state.setMessages(nextMessages)
+    }
+
+    const unsubscribers = [
+      bus.on('session.ready', ({ chatEntity, workspacePath, controller }) => {
+        chatContext.setChatId(chatEntity.id)
+        chatContext.setChatUuid(chatEntity.uuid)
+        chatStore.setCurrentChat(chatEntity.id || null, chatEntity.uuid || null)
+        chatContext.updateChatList(chatEntity)
+        if (chatEntity.title) {
+          chatContext.setChatTitle(chatEntity.title)
+        }
+        chatStore.setCurrentReqCtrl(controller)
+        chatStore.setReadStreamState(true)
+        chatStore.setShowLoadingIndicator(true)
+        chatStore.setFetchState(true)
+        void workspacePath
+      }),
+      bus.on('messages.loaded', ({ messages }) => {
+        chatStore.setMessages(messages)
+      }),
+      bus.on('message.created', ({ message }) => {
+        upsertOrAppend(message)
+      }),
+      bus.on('message.updated', ({ message }) => {
+        upsertOrAppend(message)
+      }),
+      bus.on('chat.updated', ({ chatEntity }) => {
+        chatContext.updateChatList(chatEntity)
+        if (chatEntity.title) {
+          chatContext.setChatTitle(chatEntity.title)
+        }
+      }),
+      bus.on('stream.completed', () => {
+        chatStore.setFetchState(false)
+        chatStore.setShowLoadingIndicator(false)
+      }),
+      bus.on('submission.completed', () => {
+        chatContext.setLastMsgStatus(true)
+        chatStore.setReadStreamState(false)
+      })
+    ]
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub())
+      bus.close()
+    }
+  }
 
   const onSubmit = async (
     textCtx: string,
     mediaCtx: ClipbordImg[] | string[],
     options: { tools?: any[], prompt: string }
   ): Promise<void> => {
-    if (activeMachineRef.current) {
+    if (activeSubmissionRef.current) {
       return
     }
-    const machine = container.createMachine()
-    activeMachineRef.current = machine
 
+    const bus = new ChatSubmitEventBus()
+    const cleanup = bindEventHandlers(bus)
+    activeBusRef.current = bus
+
+    const messageService = new DefaultMessageService()
+    const submissionService = new ChatSubmissionService({
+      sessionService: new DefaultSessionService(),
+      messageService,
+      requestService: new DefaultRequestService(),
+      streamingService: new DefaultStreamingService(messageService, new DefaultToolService()),
+      finalizeService: new DefaultFinalizeService(messageService)
+    })
+    activeSubmissionRef.current = submissionService
+
+    let shouldReset = false
     try {
-      await machine.start({
-        prepareParams: container.buildPrepareParams({
+      await submissionService.submit({
+        input: {
           textCtx,
           mediaCtx,
           tools: options.tools,
           prompt: options.prompt
-        }),
-        finalizeDeps: container.buildFinalizeDeps()
-      })
+        },
+        model: chatStore.selectedModel!,
+        providers: appConfig.providers,
+        chatId: chatContext.chatId,
+        chatUuid: chatContext.chatUuid
+      }, bus)
     } catch (error: any) {
-      container.resetStates()
+      shouldReset = true
 
       if (error.name !== 'AbortError') {
-        // 将错误添加到已创建的初始 assistant 消息中
         await chatStore.updateLastAssistantMessageWithError(error)
       }
     } finally {
-      activeMachineRef.current = null
+      if (shouldReset) {
+        resetUiState()
+      }
+      cleanup()
+      activeSubmissionRef.current = null
+      activeBusRef.current = null
       chatStore.setCurrentReqCtrl(undefined)
     }
   }
 
   const cancel = () => {
-    const machine = activeMachineRef.current
-    if (machine) {
-      machine.cancel()
+    const submission = activeSubmissionRef.current
+    if (submission) {
+      submission.cancel('user_cancelled')
+      activeSubmissionRef.current = null
+      activeBusRef.current?.close()
+      activeBusRef.current = null
     }
-    activeMachineRef.current = null
-    container.resetStates()
-    chatStore.setCurrentReqCtrl(undefined)
+    resetUiState()
   }
 
   return { onSubmit, cancel }

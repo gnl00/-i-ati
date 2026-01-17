@@ -227,36 +227,46 @@ To provide world-class, production-quality output while maintaining a transparen
 `
 }
 
-export const generateTitlePrompt =
-  `You are a title generator. Your only output must be the chat title line.
+export const generateTitlePrompt = (content: string) => {
+  return `你是聊天标题生成专家。根据用户输入的内容，生成简洁准确的标题。
 
-  Task: Generate a short chat title.
+## 核心原则
 
-Input: You will be given the user's message content.
+**IMPORTANT**: 只输出标题文本，不要有任何额外的解释、标记或格式。
 
-Output rules (STRICT):
-- Output EXACTLY ONE title line and nothing else.
-- No markdown, no quotes, no code fences, no bullets.
-- Do NOT explain your reasoning.
-- Keep it concise (≤ 12 words; if Chinese, ≤ 18 characters).
-- Use the same language as the user's first message.
-- If the message is empty/unclear, output: New Chat
+## 输出规则（STRICT）
 
-Examples:
-User: "优化 markdown 动画性能，改用 CSS transition"
-Title: Markdown 动画性能优化
+**内容要求**:
+- ✅ **唯一输出**：仅输出一行标题，不包含其他内容
+- ✅ **简洁明了**：
+  - 英文标题：≤ 12 个单词
+  - 中文标题：≤ 18 个字符
+- ✅ **语言一致**：与用户首条消息使用相同的语言
+- ✅ **默认标题**：如果内容为空或不清晰，输出 \`New Chat\`
 
-User: "Fix build error in vite config"
-Title: Fix Vite build error
+**格式禁止**:
+- ❌ 不要使用 Markdown 格式（如 \`\`\`、\`**\`、\`#\` 等）
+- ❌ 不要添加引号（单引号或双引号）
+- ❌ 不要使用代码块（code fences）
+- ❌ 不要使用列表符号（bullets）
+- ❌ 不要输出任何解释或推理过程
+
+## 示例参考
+
+\`\`\`
+用户: "优化 markdown 动画性能，改用 CSS transition"
+标题: Markdown 动画性能优化
+
+用户: "Fix build error in vite config"
+标题: Fix Vite build error
+
+用户: "如何使用 React Server Components？"
+标题: React Server Components 使用
+
+用户: "Create a RESTful API with Node.js"
+标题: Node.js RESTful API 创建
+
+## 用户输入内容
+${content}
 `
-
-// - Use search_tools to get the full definition of tool if you need.
-export const toolsCallSystemPrompt = `请根据需要自主决定是否使用提供的工具（tools）来帮助回答问题。
-- 如果问题可以直接通过你的知识准确、完整地回答，不要调用工具。
-- 如果问题涉及实时信息（如当前日期、新闻、股价、天气等）、需要外部验证、或你不确定答案的准确性，请主动选择合适的工具进行查询。
-- 每调用一个工具，需要以指定格式输出工具调用请求。
-- 如果工具返回结果，请结合结果给出最终回答；如果无需工具，请直接回答。
-- You can use search_tools to get the full definition of tool if you need.
-- 今天的日期是 ${new Date().toLocaleDateString()}。
-请始终保持回答简洁、准确、可靠。
-`
+}
