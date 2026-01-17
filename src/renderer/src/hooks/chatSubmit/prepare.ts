@@ -4,7 +4,7 @@ import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { v4 as uuidv4 } from 'uuid'
 import type { PrepareMessageFn, PrepareMessageParams, PreparedChat } from './types'
-import { MessageManager } from './streaming/message-manager'
+import { MessageManager } from './message-manager'
 
 const buildUserMessage = (
   model: IModel,

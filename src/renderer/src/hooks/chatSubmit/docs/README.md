@@ -13,7 +13,7 @@
 - 过滤掉无内容的占位 assistant 消息，保留 tool call 历史。
 - 收集 embedded tools + 额外 tools，生成 LLM 请求体 (`context.request`)。
 
-## 3. Streaming 管道 (`streaming.ts`)
+## 3. Streaming 管道 (`streaming/index.ts`)
 ### 3.1 processRequest
 - 调用 `unifiedChatRequest` 读取流式响应。
 - 针对每个 chunk：

@@ -247,7 +247,7 @@ messageManager.addToolResultMessage(toolFunctionMessage)
 
 ### Step 1: 创建 MessageManager 类（30分钟）
 
-**文件**：`src/renderer/src/hooks/chatSubmit/streaming/message-manager.ts`
+**文件**：`src/renderer/src/hooks/chatSubmit/message-manager.ts`
 
 **内容**：
 ```typescript
@@ -364,7 +364,7 @@ export class MessageManager {
 
 ### Step 2: 重构 `applyParseResult`（20分钟）
 
-**文件**：`src/renderer/src/hooks/chatSubmit/streaming.ts`
+**文件**：`src/renderer/src/hooks/chatSubmit/streaming/index.ts`
 
 **修改前**（42-71行）：
 ```typescript
@@ -451,7 +451,7 @@ const applyParseResult = (
 
 ### Step 3: 重构 `applyNonStreamingResponse`（15分钟）
 
-**文件**：`src/renderer/src/hooks/chatSubmit/streaming.ts`
+**文件**：`src/renderer/src/hooks/chatSubmit/streaming/index.ts`
 
 **修改前**（160-177行）：
 ```typescript
@@ -504,7 +504,7 @@ private applyNonStreamingResponse(resp: IUnifiedResponse) {
 
 ### Step 4: 重构 `handleToolCalls`（30分钟）
 
-**文件**：`src/renderer/src/hooks/chatSubmit/streaming.ts`
+**文件**：`src/renderer/src/hooks/chatSubmit/streaming/index.ts`
 
 #### 4.1 成功分支（242-289行）
 

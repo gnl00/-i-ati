@@ -1,13 +1,13 @@
-import { MessageManager } from './streaming/message-manager'
-import { StreamingOrchestrator } from './streaming/orchestrator'
-import { ChunkParser } from './streaming/parser'
+import { MessageManager } from '../message-manager'
+import { StreamingOrchestrator } from './orchestrator'
+import { ChunkParser } from './parser'
 import type {
   PreparedRequest,
   SendRequestStage,
   StreamingContext,
   StreamingDeps,
   StreamingFactoryCallbacks,
-} from './types'
+} from '../types'
 
 /**
  * 创建流式处理函数

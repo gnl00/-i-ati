@@ -54,7 +54,7 @@ const allMessages = [...existingMessages, userMessageEntity]
 4. **不更新 store.messages** - 避免在 UI 中显示为独立消息
 
 **影响文件**：
-- `src/renderer/src/hooks/chatSubmit/streaming/message-manager.ts`
+- `src/renderer/src/hooks/chatSubmit/message-manager.ts`
 
 ---
 
@@ -180,6 +180,6 @@ const allMessages = [...existingMessages, userMessageEntity]
 
 - [DATA_FLOW.md](./DATA_FLOW.md) - 完整的数据流文档
 - [prepare.ts](./prepare.ts) - 消息准备阶段
-- [streaming/message-manager.ts](./streaming/message-manager.ts) - 消息管理器
+- [message-manager.ts](../message-manager.ts) - 消息管理器
 - [streaming/orchestrator.ts](./streaming/orchestrator.ts) - 流式编排器
 - [finalize.ts](./finalize.ts) - 完成阶段

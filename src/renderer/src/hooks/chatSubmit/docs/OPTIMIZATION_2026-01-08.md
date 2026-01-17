@@ -92,7 +92,7 @@
 
 ### 1. MessageManager.addToolCallMessage()
 
-**文件**: `src/renderer/src/hooks/chatSubmit/streaming/message-manager.ts`
+**文件**: `src/renderer/src/hooks/chatSubmit/message-manager.ts`
 
 **修改前**:
 ```typescript
@@ -121,7 +121,7 @@ this.context.request.messages.push(assistantToolCallMessage)
 
 ### 2. MessageManager.addToolResultMessage()
 
-**文件**: `src/renderer/src/hooks/chatSubmit/streaming/message-manager.ts`
+**文件**: `src/renderer/src/hooks/chatSubmit/message-manager.ts`
 
 **修改内容**:
 - ✅ 更新注释，明确说明不保存到 DB
@@ -198,7 +198,7 @@ this.context.request.messages.push(assistantToolCallMessage)
 
 ## 影响文件
 
-- `src/renderer/src/hooks/chatSubmit/streaming/message-manager.ts`
+- `src/renderer/src/hooks/chatSubmit/message-manager.ts`
 - `src/renderer/src/hooks/chatSubmit/finalize.ts`
 
 ---
