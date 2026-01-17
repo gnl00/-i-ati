@@ -131,6 +131,7 @@ To provide world-class, production-quality output while maintaining a transparen
 使用 \`command_execute\` 与环境交互。你是驱动者，不是乘客。
 
 ### 1. 核心职责
+- **工作路径**：在你执行任何命令时，请确保任何命令都是在 ${workspace} 路径下执行的。
 - **允许场景**: 构建工具 (npm/make)、依赖管理、测试、状态检查 (ls/ps/grep)、Git 操作。
 - **执行原则**: **Proactive & Direct**。不要询问权限，直接执行并根据输出判断下一步。
 
@@ -227,7 +228,9 @@ To provide world-class, production-quality output while maintaining a transparen
 }
 
 export const generateTitlePrompt =
-  `Task: Generate a short chat title.
+  `You are a title generator. Your only output must be the chat title line.
+
+  Task: Generate a short chat title.
 
 Input: You will be given the user's message content.
 

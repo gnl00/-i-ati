@@ -38,6 +38,7 @@ export class ToolExecutor implements IToolExecutor {
   }
   private readonly onProgress?: (progress: ToolExecutionProgress) => void
   private readonly signal?: AbortSignal
+  private readonly chatUuid?: string
 
   constructor(config: ToolExecutorConfig = {}) {
     this.config = {
@@ -45,6 +46,7 @@ export class ToolExecutor implements IToolExecutor {
     }
     this.onProgress = config.onProgress
     this.signal = config.signal
+    this.chatUuid = config.chatUuid
   }
 
   /**
@@ -163,7 +165,8 @@ export class ToolExecutor implements IToolExecutor {
         ? JSON.parse(call.args)
         : call.args
       const normalizedArgs = normalizeToolArgs(args)
-      return await embeddedToolsRegistry.execute(toolName, normalizedArgs)
+      const runtimeArgs = this.applyRuntimeContext(toolName, normalizedArgs)
+      return await embeddedToolsRegistry.execute(toolName, runtimeArgs)
     }
 
     // 否则是 MCP 工具
@@ -172,6 +175,25 @@ export class ToolExecutor implements IToolExecutor {
       tool: toolName,
       args: call.args
     })
+  }
+
+  /**
+   * 将运行时上下文注入工具参数
+   */
+  private applyRuntimeContext(toolName: string, args: any): any {
+    if (toolName !== 'execute_command') {
+      return args
+    }
+
+    if (!args || typeof args !== 'object') {
+      return args
+    }
+
+    if (this.chatUuid && !args.chat_uuid) {
+      return { ...args, chat_uuid: this.chatUuid }
+    }
+
+    return args
   }
 
   /**
