@@ -140,6 +140,7 @@ export class DefaultMessageService implements MessageService {
     const lastAssistant = this.getLastAssistantMessage(context)
     const existingToolCalls = lastAssistant.body.toolCalls || []
     const mergedToolCalls = this.mergeToolCalls(existingToolCalls, toolCalls)
+    const toolCallIds = mergedToolCalls.map(call => call.id).filter(Boolean) as string[]
 
     this.updateLastAssistantMessage(
       context,
@@ -154,6 +155,15 @@ export class DefaultMessageService implements MessageService {
       publisher,
       meta
     )
+
+    await publisher.emit('tool.call.attached', {
+      toolCallIds,
+      messageId: lastAssistant.id
+    }, {
+      ...meta,
+      chatId: context.session.currChatId,
+      chatUuid: context.session.chatEntity.uuid
+    })
   }
 
   async addToolResultMessage(
@@ -162,17 +172,23 @@ export class DefaultMessageService implements MessageService {
     publisher: EventPublisher,
     meta: ChatSubmitEventMeta
   ): Promise<void> {
+    if (toolMsg.toolCallId && this.hasToolResult(context, toolMsg.toolCallId)) {
+      return
+    }
+
     const toolResultEntity: MessageEntity = {
       body: toolMsg,
       chatId: context.session.currChatId,
       chatUuid: context.session.chatEntity.uuid
     }
 
+    let saved = false
     try {
       const msgId = await saveMessage(toolResultEntity)
       toolResultEntity.id = msgId
       const chatMessages = context.session.chatEntity.messages || []
       context.session.chatEntity.messages = [...chatMessages, msgId]
+      saved = true
     } catch (error) {
       logger.error('Failed to save tool result message', error as Error)
     }
@@ -180,7 +196,7 @@ export class DefaultMessageService implements MessageService {
     context.session.messageEntities.push(toolResultEntity)
     syncChatMessages(context)
 
-    await publisher.emit('tool.result.persisted', {
+    await publisher.emit('tool.result.attached', {
       toolCallId: toolMsg.toolCallId || '',
       message: toolResultEntity
     }, {
@@ -188,6 +204,17 @@ export class DefaultMessageService implements MessageService {
       chatId: context.session.currChatId,
       chatUuid: context.session.chatEntity.uuid
     })
+
+    if (saved) {
+      await publisher.emit('tool.result.persisted', {
+        toolCallId: toolMsg.toolCallId || '',
+        message: toolResultEntity
+      }, {
+        ...meta,
+        chatId: context.session.currChatId,
+        chatUuid: context.session.chatEntity.uuid
+      })
+    }
   }
 
   rebuildRequestMessages(context: SubmissionContext): void {
@@ -233,12 +260,27 @@ export class DefaultMessageService implements MessageService {
     for (const message of context.session.messageEntities) {
       if (message.body.role !== 'tool' || message.id) continue
 
+      let saved = false
       try {
         const msgId = await saveMessage(message)
         message.id = msgId
         const chatMessages = context.session.chatEntity.messages || []
         context.session.chatEntity.messages = [...chatMessages, msgId]
+        saved = true
+      } catch (error) {
+        logger.error('Failed to persist tool message', error as Error)
+      }
 
+      await publisher.emit('tool.result.attached', {
+        toolCallId: message.body.toolCallId || '',
+        message
+      }, {
+        ...meta,
+        chatId: context.session.currChatId,
+        chatUuid: context.session.chatEntity.uuid
+      })
+
+      if (saved) {
         await publisher.emit('tool.result.persisted', {
           toolCallId: message.body.toolCallId || '',
           message
@@ -247,8 +289,6 @@ export class DefaultMessageService implements MessageService {
           chatId: context.session.currChatId,
           chatUuid: context.session.chatEntity.uuid
         })
-      } catch (error) {
-        logger.error('Failed to persist tool message', error as Error)
       }
     }
   }
@@ -284,5 +324,11 @@ export class DefaultMessageService implements MessageService {
       }
     }
     return merged
+  }
+
+  private hasToolResult(context: SubmissionContext, toolCallId: string): boolean {
+    return context.session.messageEntities.some(
+      message => message.body.role === 'tool' && message.body.toolCallId === toolCallId
+    )
   }
 }

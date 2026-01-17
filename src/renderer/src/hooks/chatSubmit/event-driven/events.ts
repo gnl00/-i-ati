@@ -15,9 +15,11 @@ export type ChatSubmitEventType =
   | 'stream.completed'
   | 'tool.call.detected'
   | 'tool.call.flushed'
+  | 'tool.call.attached'
   | 'tool.exec.started'
   | 'tool.exec.completed'
   | 'tool.exec.failed'
+  | 'tool.result.attached'
   | 'tool.result.persisted'
   | 'chat.updated'
 
@@ -42,9 +44,11 @@ export type ChatSubmitEventPayloads = {
   'stream.completed': { ok: boolean }
   'tool.call.detected': { toolCall: import('../types').ToolCall }
   'tool.call.flushed': { toolCalls: IToolCall[] }
+  'tool.call.attached': { toolCallIds: string[]; messageId?: number }
   'tool.exec.started': { toolCallId: string; name: string }
   'tool.exec.completed': { toolCallId: string; result: any; cost: number }
   'tool.exec.failed': { toolCallId: string; error: Error }
+  'tool.result.attached': { toolCallId: string; message: MessageEntity }
   'tool.result.persisted': { toolCallId: string; message: MessageEntity }
   'chat.updated': { chatEntity: ChatEntity }
 }
