@@ -1,203 +1,51 @@
-# Chat Submit 数据流文档
+# Chat Submit 数据流 (Event-Bus)
 
-本文档描述了聊天提交系统中消息的完整数据流，包括消息的创建、更新、持久化和加载过程。
+本文档描述事件驱动模式下的消息数据流：所有业务逻辑通过服务层更新内存状态，UI 仅通过事件订阅更新。
 
-## 核心概念
+## 核心数据位置
 
-### 三个消息存储位置
+1. **SQLite** (持久化)
+   - 存储完整对话历史（含 tool result）
+   - `chat.messages: number[]` 维护消息 ID 顺序
 
-1. **SQLite 数据库** - 持久化存储
-   - 通过 IPC 调用主进程进行读写
-   - 存储完整的对话历史（包括 tool result 消息）
-   - 每个 chat 维护一个 `messages: number[]` 数组，存储消息 ID
+2. **SubmissionContext.session.messageEntities** (内存)
+   - 当前提交的消息集合
+   - 用于构建 `request.messages`
 
-2. **session.messageEntities** - 当前会话的内存状态
-   - 类型：`MessageEntity[]`
-   - 包含当前会话的所有消息（包括未持久化的临时消息）
-   - 用于构建发送给 LLM 的请求
-   - finalize 阶段会将未保存的消息持久化到 SQLite
+3. **store.messages** (UI)
+   - 仅由事件订阅更新
+   - tool result 不直接显示为独立消息
 
-3. **store.messages** - Zustand 状态（UI 显示）
-   - 类型：`MessageEntity[]`
-   - 用于 React 组件渲染
-   - 通过 `store.upsertMessage()` 更新（流式场景）
-   - 通过 `store.addMessage()` 添加（持久化场景）
-   - **注意**：tool result 消息不会添加到这里，避免在 UI 中显示为独立消息
-
-### 消息类型
-
-- **user** - 用户消息
-- **assistant** - 助手消息（可能包含 toolCalls）
-- **tool** - 工具执行结果消息
-
-## 完整数据流
-
-### 阶段 1: Prepare（准备阶段）
-
-**文件**: `prepare.ts`
-
-#### 1.1 新对话
-```
-用户输入
-  ↓
-创建 chat entity → 保存到 SQLite
-  ↓
-创建 user message entity → 保存到 SQLite (store.addMessage)
-  ↓
-创建 initial assistant message (id: -1, 临时消息)
-  ↓
-构建 messageEntities = [userMessage, initialAssistantMessage]
-  ↓
-构建 request.messages = messageEntities.map(m => m.body)
-```
-
-#### 1.2 已有对话
-```
-用户输入
-  ↓
-从 SQLite 加载 chat entity
-  ↓
-从 SQLite 加载历史消息 (getMessageByIds)
-  ↓  ↓
-  ↓  └→ 更新 store.messages（仅用于 UI 显示）
-  ↓
-existingMessages = 从数据库加载的消息（不依赖 store.messages）
-  ↓
-创建 user message entity → 保存到 SQLite (store.addMessage)
-  ↓
-创建 initial assistant message (id: -1, 临时消息)
-  ↓
-构建 messageEntities = [...existingMessages, userMessage, initialAssistantMessage]
-  ↓
-构建 request.messages = messageEntities.map(m => m.body)
-```
-
-**关键优化点**：
-- 直接使用从数据库加载的 `existingMessages`，不依赖 `store.messages`
-- 避免 Zustand 状态更新延迟导致的消息丢失问题
-
----
-
-### 阶段 2: Streaming（流式处理阶段）
-
-**文件**: `streaming/orchestrator.ts`, `message-manager.ts`
-
-#### 2.1 Cycle 1 - 初始请求
+## 事件驱动流程
 
 ```
-发送 request.messages 给 LLM
+submission.started
   ↓
-接收流式响应 chunks
+session.ready (chat + workspace + controller)
   ↓
-解析 chunks (parser.parse)
+messages.loaded (history)
   ↓
-更新 assistant message 的 segments
+message.created (user)
+message.created (assistant placeholder)
   ↓
-调用 messageManager.updateLastMessage()
-  ↓  ↓
-  ↓  └→ 更新 session.messageEntities（内存）
-  ↓  └→ 调用 store.upsertMessage（触发 UI 更新，不持久化）
+request.built
   ↓
-检测到 tool calls
+stream.started
   ↓
-调用 messageManager.addToolCallMessage()
-  ↓  ↓
-  ↓  └→ 添加 assistant message (with toolCalls) 到 request.messages
-  ↓  └→ 更新最后一条消息，添加 toolCalls 字段
+stream.chunk (0..n)
+tool.call.detected / tool.call.flushed
+tool.exec.started / completed / failed
   ↓
-执行工具 (executor.execute)
+stream.completed
   ↓
-添加 toolCall segment（用于 UI 显示）
-  ↓
-调用 messageManager.addToolResultMessage()
-  ↓  ↓
-  ↓  └→ 保存 tool result 到 SQLite (saveMessage，不通过 store)
-  ↓  └→ 添加到 session.messageEntities
-  ↓  └→ 添加到 request.messages
-  ↓  └→ 不更新 store.messages（避免 UI 显示为独立消息）
-  ↓
-继续下一个 cycle
+chat.updated
+submission.completed
 ```
 
-#### 2.2 Cycle 2 - 包含 Tool Result 的请求
-
-```
-发送 request.messages 给 LLM
-（此时 request.messages 包含：user → assistant (with toolCalls) → tool result）
-  ↓
-接收流式响应 chunks
-  ↓
-解析 chunks (parser.parse)
-  ↓
-更新 assistant message 的 segments
-  ↓
-调用 messageManager.updateLastMessage()
-  ↓
-没有更多 tool calls，结束循环
-```
-
-**关键优化点**：
-- Tool result 消息直接保存到 SQLite，不通过 `store.addMessage()`
-- 避免 tool result 在 UI 中显示为独立消息
-- Tool result 通过 toolCall segment 在 assistant 消息中显示
-
----
-
-### 阶段 3: Finalize（完成阶段）
-
-**文件**: `finalize.ts`
-
-```
-流式处理完成
-  ↓
-查找未保存的消息 (id === -1)
-  ↓
-遍历未保存的消息
-  ↓
-提取 content from segments（如果 content 为空）
-  ↓
-调用 store.addMessage() 保存到 SQLite
-  ↓  ↓
-  ↓  └→ 保存到 SQLite（通过 IPC）
-  ↓  └→ 返回消息 ID
-  ↓  └→ 更新 store.messages（触发 UI 更新）
-  ↓
-更新 chat.messages 数组（添加新消息 ID）
-  ↓
-更新 chat entity 到 SQLite
-  ↓
-更新 chat list（UI）
-```
-
-**关键点**：
-- 只保存 `id === -1` 的临时消息（assistant 消息）
-- Tool result 消息已在 streaming 阶段保存，不会重复保存
-- 最终更新 chat.messages 数组，包含所有消息 ID
-
----
-
-## 完整的消息生命周期示例
-
-### 场景：用户发送消息，触发工具调用
-
-```
-初始状态：
-SQLite: []
-store.messages: []
-session.messageEntities: []
-request.messages: []
-
---- Prepare 阶段 ---
-创建 user message → 保存到 SQLite (id: 1)
-创建 assistant message (id: -1, 临时)
-
-SQLite: [user(1)]
-store.messages: [user(1)]
-session.messageEntities: [user(1), assistant(-1)]
-request.messages: [user, assistant(empty)]
-
---- Streaming Cycle 1 ---
-发送 request.messages 给 LLM
+## 关键点
+- UI 不直接调用业务逻辑：所有更新来自事件订阅。
+- 工具结果会立即持久化到 SQLite，但不会直接插入 UI 列表。
+- request 重建基于 `SubmissionContext`，避免依赖异步 store 状态。
 接收响应，检测到 tool call
 添加 toolCall segment
 保存 tool result → SQLite (id: 2)
