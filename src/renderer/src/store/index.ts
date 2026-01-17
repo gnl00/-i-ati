@@ -260,11 +260,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       .reverse()
       .find(msg => msg.body.role === 'assistant')
 
-    if (!lastAssistantMessage) {
-      console.warn('[Store] No assistant message found to update with error')
-      return
-    }
-
     const errorSegment: ErrorSegment = {
       type: 'error',
       error: {
@@ -276,16 +271,36 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       }
     }
 
+    if (!lastAssistantMessage) {
+      const fallbackMessage: MessageEntity = {
+        body: {
+          role: 'assistant',
+          model: state.selectedModel?.name || 'unknown',
+          content: '',
+          segments: [errorSegment],
+          typewriterCompleted: true
+        },
+        chatId: state.currentChatId || undefined,
+        chatUuid: state.currentChatUuid || undefined
+      }
+      await get().addMessage(fallbackMessage)
+      return
+    }
+
     // 更新消息，添加 error segment
     const updatedMessage: MessageEntity = {
       ...lastAssistantMessage,
       body: {
         ...lastAssistantMessage.body,
-        segments: [...lastAssistantMessage.body.segments, errorSegment]
+        segments: [...(lastAssistantMessage.body.segments || []), errorSegment]
       }
     }
 
-    await get().updateMessage(updatedMessage)
+    if (updatedMessage.id) {
+      await get().updateMessage(updatedMessage)
+    } else {
+      get().upsertMessage(updatedMessage)
+    }
   },
 
   /**

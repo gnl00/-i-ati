@@ -18,11 +18,18 @@ export class DefaultToolService implements ToolService {
       chatUuid: context.session.chatEntity.uuid
     }
 
+    const seenProgress = new Set<string>()
     const executor = new ToolExecutor({
       maxConcurrency: 3,
       signal: context.control.signal,
       chatUuid: context.session.chatEntity.uuid,
       onProgress: (progress: ToolExecutionProgress) => {
+        const progressKey = `${progress.id}:${progress.phase}`
+        if (seenProgress.has(progressKey)) {
+          return
+        }
+        seenProgress.add(progressKey)
+
         if (progress.phase === 'started') {
           void publisher.emit('tool.exec.started', {
             toolCallId: progress.id,

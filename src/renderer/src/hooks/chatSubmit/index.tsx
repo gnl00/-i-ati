@@ -30,6 +30,16 @@ function useChatSubmitV2() {
   }
 
   const bindEventHandlers = (bus: ChatSubmitEventBus) => {
+    const handledOnce = new Set<string>()
+    const markOnce = (type: string, submissionId?: string) => {
+      const key = submissionId ? `${type}:${submissionId}` : type
+      if (handledOnce.has(key)) {
+        return false
+      }
+      handledOnce.add(key)
+      return true
+    }
+
     const upsertOrAppend = (message: MessageEntity) => {
       const state = useChatStore.getState()
       const messages = state.messages
@@ -49,7 +59,10 @@ function useChatSubmitV2() {
     }
 
     const unsubscribers = [
-      bus.on('session.ready', ({ chatEntity, workspacePath, controller }) => {
+      bus.on('session.ready', ({ chatEntity, workspacePath, controller }, envelope) => {
+        if (!markOnce('session.ready', envelope.submissionId)) {
+          return
+        }
         chatContext.setChatId(chatEntity.id)
         chatContext.setChatUuid(chatEntity.uuid)
         chatStore.setCurrentChat(chatEntity.id || null, chatEntity.uuid || null)
@@ -63,7 +76,10 @@ function useChatSubmitV2() {
         chatStore.setFetchState(true)
         void workspacePath
       }),
-      bus.on('messages.loaded', ({ messages }) => {
+      bus.on('messages.loaded', ({ messages }, envelope) => {
+        if (!markOnce('messages.loaded', envelope.submissionId)) {
+          return
+        }
         chatStore.setMessages(messages)
       }),
       bus.on('message.created', ({ message }) => {
@@ -72,19 +88,41 @@ function useChatSubmitV2() {
       bus.on('message.updated', ({ message }) => {
         upsertOrAppend(message)
       }),
+      bus.on('tool.result.attached', ({ message }) => {
+        upsertOrAppend(message)
+      }),
       bus.on('chat.updated', ({ chatEntity }) => {
         chatContext.updateChatList(chatEntity)
         if (chatEntity.title) {
           chatContext.setChatTitle(chatEntity.title)
         }
       }),
-      bus.on('stream.completed', () => {
+      bus.on('stream.completed', ({ ok }, envelope) => {
+        if (!markOnce('stream.completed', envelope.submissionId)) {
+          return
+        }
         chatStore.setFetchState(false)
         chatStore.setShowLoadingIndicator(false)
       }),
-      bus.on('submission.completed', () => {
+      bus.on('submission.completed', (_, envelope) => {
+        if (!markOnce('submission.completed', envelope.submissionId)) {
+          return
+        }
         chatContext.setLastMsgStatus(true)
         chatStore.setReadStreamState(false)
+      }),
+      bus.on('submission.failed', async ({ error }, envelope) => {
+        if (!markOnce('submission.failed', envelope.submissionId)) {
+          return
+        }
+        await chatStore.updateLastAssistantMessageWithError(error)
+        resetUiState()
+      }),
+      bus.on('submission.aborted', (_, envelope) => {
+        if (!markOnce('submission.aborted', envelope.submissionId)) {
+          return
+        }
+        resetUiState()
       })
     ]
 
@@ -133,10 +171,6 @@ function useChatSubmitV2() {
       }, bus)
     } catch (error: any) {
       shouldReset = true
-
-      if (error.name !== 'AbortError') {
-        await chatStore.updateLastAssistantMessageWithError(error)
-      }
     } finally {
       if (shouldReset) {
         resetUiState()

@@ -12,8 +12,9 @@ submission.started
   -> request.built
   -> stream.started
      -> stream.chunk (0..n)
-     -> tool.call.detected / tool.call.flushed
+     -> tool.call.detected / tool.call.flushed / tool.call.attached
      -> tool.exec.started / completed / failed
+     -> tool.result.attached / tool.result.persisted
   -> stream.completed
   -> chat.updated
   -> submission.completed

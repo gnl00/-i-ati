@@ -26,7 +26,10 @@ submission.started
      -> stream.chunk (0..n)
      -> tool.call.detected (0..n)
      -> tool.call.flushed (0..n)
+     -> tool.call.attached (0..n)
      -> tool.exec.started / completed / failed
+     -> tool.result.attached (0..n)
+     -> tool.result.persisted (0..n)
   -> stream.completed
   -> chat.updated
   -> submission.completed
@@ -36,6 +39,7 @@ submission.started
 - Events are dispatched sequentially per submission.
 - No cross-run interleaving (each submission uses its own bus).
 - Tool calls are flushed to assistant messages before tool execution results are emitted.
+- Tool result messages are attached before persistence notifications are emitted.
 
 ## UI Hook-up
 `useChatSubmitV2` subscribes to events and updates:
