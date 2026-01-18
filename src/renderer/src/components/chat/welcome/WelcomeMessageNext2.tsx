@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@renderer/lib/utils'
-import './WelcomeMessageWithBlob3.css'
+import './WelcomeMessage.css'
 
 // ============================================================================
 // Constants
@@ -22,6 +22,7 @@ interface Suggestion {
 interface WelcomeMessageProps {
   className?: string
   onSuggestionClick?: (suggestion: Suggestion) => void
+  isExiting?: boolean
 }
 
 // ============================================================================
@@ -29,7 +30,8 @@ interface WelcomeMessageProps {
 // ============================================================================
 const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
   className,
-  onSuggestionClick
+  onSuggestionClick,
+  isExiting = false
 }) => {
   // Text State
   const [typedText, setTypedText] = useState('')
@@ -86,6 +88,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
     <div
       className={cn(
         "relative w-full h-[70vh] flex items-center justify-center",
+        isExiting && "animate-exit",
         className
       )}
     >

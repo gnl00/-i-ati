@@ -65,6 +65,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
 
   // Welcome page state
   const [showWelcome, setShowWelcome] = useState<boolean>(true)
+  const [isWelcomeExiting, setIsWelcomeExiting] = useState<boolean>(false)
   const hasShownWelcomeRef = useRef<boolean>(false)
 
   // 方案 4: 预览 + 快速发送 - 存储建议的 prompt
@@ -75,14 +76,17 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     setSuggestedPrompt(suggestion.prompt)
   }, [])
 
-  // Detect first message - hide welcome after scroll completes
+  // Detect first message - trigger exit animation then hide welcome
   useEffect(() => {
     if (messageKeys.length > 0 && showWelcome && !hasShownWelcomeRef.current) {
       hasShownWelcomeRef.current = true
-      // Wait for scroll animation to complete before hiding welcome
+      // Start exit animation immediately
+      setIsWelcomeExiting(true)
+      // Wait for animation to complete before removing from DOM
       setTimeout(() => {
         setShowWelcome(false)
-      }, 50)
+        setIsWelcomeExiting(false)
+      }, 280) // Match animation duration
     }
   }, [messageKeys.length, showWelcome])
 
@@ -90,6 +94,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   useEffect(() => {
     if (messageKeys.length === 0) {
       setShowWelcome(true)
+      setIsWelcomeExiting(false)
       hasShownWelcomeRef.current = false
     }
   }, [chatUuid, messageKeys.length])
@@ -171,7 +176,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                         }}
                       >
                         {isWelcomeRow ? (
-                          <WelcomeMessage onSuggestionClick={handleSuggestionClick} />
+                          <WelcomeMessage
+                            onSuggestionClick={handleSuggestionClick}
+                            isExiting={isWelcomeExiting}
+                          />
                         ) : messageIndex >= 0 ? (
                           <ChatMessageRow
                             messageIndex={messageIndex}

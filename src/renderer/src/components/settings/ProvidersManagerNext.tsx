@@ -10,6 +10,7 @@ import {
 import { cn } from '@renderer/lib/utils'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { Cross1Icon } from '@radix-ui/react-icons'
 
 import { Button } from "@renderer/components/ui/button"
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@renderer/components/ui/drawer'
@@ -29,7 +30,6 @@ import {
     TooltipProvider,
     TooltipTrigger
 } from "@renderer/components/ui/tooltip"
-import { Badge } from "@renderer/components/ui/badge"
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { Trash } from "lucide-react"
 import { toast } from 'sonner'
@@ -37,12 +37,18 @@ import { getProviderIcon } from '@renderer/utils/providerIcons'
 import FetchModelsDrawer from './FetchModelsDrawer'
 import { v4 as uuidv4 } from 'uuid'
 import officialProviderDefinitions from '../../../../data/providers.json'
+import { Badge } from "../ui/badge"
 
 interface ProvidersManagerNextProps { }
+
+const normalizeProviderId = (name: string): string => {
+    return name.trim().toLowerCase().replace(/\s+/g, '-')
+}
 
 const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     const {
         providerDefinitions,
+        setProviderDefinitions,
         accounts,
         currentAccountId,
         setCurrentAccountId,
@@ -54,11 +60,12 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
         toggleModelEnabled,
     } = useAppConfigStore()
 
-    const visibleProviderDefinitions = useMemo(() => {
-        return providerDefinitions.length > 0
-            ? providerDefinitions
-            : (officialProviderDefinitions as ProviderDefinition[])
-    }, [providerDefinitions])
+    const visibleProviderDefinitions = useMemo(() => providerDefinitions, [providerDefinitions])
+    const officialProviderIds = useMemo(() => {
+        return new Set(
+            (officialProviderDefinitions as ProviderDefinition[]).map(def => normalizeProviderId(def.id))
+        )
+    }, [])
 
     const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(undefined)
     const [currentAccount, setCurrentAccount] = useState<ProviderAccount | undefined>(undefined)
@@ -70,8 +77,8 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     const [nextAddModelValue, setNextAddModelValue] = useState<string>('')
     const [nextAddModelType, setNextAddModelType] = useState<string>('')
 
-    const [newProviderId, setNewProviderId] = useState<string>('')
-    const [newAccountLabel, setNewAccountLabel] = useState<string>('')
+    const [newDefinitionDisplayName, setNewDefinitionDisplayName] = useState<string>('')
+    const [newDefinitionAdapterType, setNewDefinitionAdapterType] = useState<string>('openai')
     const [newProviderApi, setNewProviderApi] = useState<string>('')
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>('')
 
@@ -85,12 +92,6 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
             setSelectedProviderId(visibleProviderDefinitions[0].id)
         }
     }, [visibleProviderDefinitions, selectedProviderId])
-
-    useEffect(() => {
-        if (selectedProviderId) {
-            setNewProviderId(selectedProviderId)
-        }
-    }, [selectedProviderId])
 
     useEffect(() => {
         if (!selectedProviderId) {
@@ -124,12 +125,37 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
         }
     }, [currentAccountId, accounts])
 
+    const ensureAccountForProvider = (providerId: string): ProviderAccount => {
+        const existing = accounts.find(account => account.providerId === providerId)
+        if (existing) {
+            return existing
+        }
+
+        const definition = visibleProviderDefinitions.find(def => def.id === providerId)
+        const label = definition?.displayName ? `${definition.displayName} Account` : 'Account'
+
+        const newAccount: ProviderAccount = {
+            id: uuidv4(),
+            providerId,
+            label,
+            apiUrl: '',
+            apiKey: '',
+            models: []
+        }
+
+        addAccount(newAccount)
+        setCurrentAccountId(newAccount.id)
+        return newAccount
+    }
+
     const onAddModelClick = () => {
-        if (!currentAccount) return
+        if (!selectedProviderId) return
         if (!nextAddModelValue.trim()) {
             toast.error('Model ID is required')
             return
         }
+
+        const account = currentAccount ?? ensureAccountForProvider(selectedProviderId)
         const newModel: AccountModel = {
             id: nextAddModelValue.trim(),
             label: nextAddModelLabel.trim() || nextAddModelValue.trim(),
@@ -137,7 +163,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
             enabled: true
         }
 
-        addModel(currentAccount.id, newModel)
+        addModel(account.id, newModel)
 
         setNextAddModelLabel('')
         setNextAddModelValue('')
@@ -145,29 +171,56 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     }
 
     const onAddProviderBtnClick = (e: React.MouseEvent) => {
-        if (!newProviderId || !newProviderApi || !newProviderApiKey) {
-            alert(`Please select provider/baseUrl/Key(Token)`)
+        const displayName = newDefinitionDisplayName.trim()
+        const baseUrl = newProviderApi.trim()
+        const apiKey = newProviderApiKey.trim()
+        if (!displayName || !baseUrl || !apiKey) {
+            alert('Please input display name / API Base URL / API Key')
             e.preventDefault()
             return
         }
 
-        const definition = visibleProviderDefinitions.find(def => def.id === newProviderId)
-        const providerDisplayName = definition?.displayName || newProviderId
-        const label = newAccountLabel.trim() || `${providerDisplayName} Account`
+        let providerId = normalizeProviderId(displayName)
+        if (!providerId) {
+            providerId = `custom-${uuidv4()}`
+        }
 
+        if (providerDefinitions.some(def => normalizeProviderId(def.id) === providerId)) {
+            const shortSuffix = uuidv4().slice(0, 8)
+            providerId = `${providerId}-${shortSuffix}`
+        }
+
+        const adapterType = newDefinitionAdapterType.trim() || 'openai'
+
+        const newDefinition: ProviderDefinition = {
+            id: providerId,
+            displayName,
+            adapterType,
+            apiVersion: 'v1',
+            iconKey: providerId
+        }
+
+        setProviderDefinitions([...providerDefinitions, newDefinition])
         const newAccount: ProviderAccount = {
             id: uuidv4(),
-            providerId: newProviderId,
-            label,
-            apiUrl: newProviderApi,
-            apiKey: newProviderApiKey,
+            providerId,
+            label: `${displayName} Account`,
+            apiUrl: baseUrl,
+            apiKey,
             models: []
         }
+
         addAccount(newAccount)
         setCurrentAccountId(newAccount.id)
-        setSelectedProviderId(newProviderId)
+        setSelectedProviderId(providerId)
 
-        toast.success(`Added ${label}`)
+        setNewDefinitionDisplayName('')
+        setNewDefinitionAdapterType('openai')
+        setNewProviderApi('')
+        setNewProviderApiKey('')
+        setShowNewApiKey(false)
+
+        toast.success(`Added ${displayName}`)
     }
 
     const onModelTableCellClick = (val: string) => {
@@ -177,31 +230,43 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
 
     const onProviderCardClick = (definition: ProviderDefinition) => {
         setSelectedProviderId(definition.id)
-        setNewProviderId(definition.id)
     }
 
+    const onProviderDeleteClick = (event: React.MouseEvent, definition: ProviderDefinition) => {
+        event.stopPropagation()
+        const shouldDelete = window.confirm(`Delete provider "${definition.displayName}"?`)
+        if (!shouldDelete) return
+
+        const remainingDefinitions = providerDefinitions.filter(def => def.id !== definition.id)
+        setProviderDefinitions(remainingDefinitions)
+
+        accounts
+            .filter(account => account.providerId === definition.id)
+            .forEach(account => removeAccount(account.id))
+
+        if (selectedProviderId === definition.id) {
+            setSelectedProviderId(remainingDefinitions[0]?.id)
+        }
+    }
     const onModelEnableStatusChange = (_checked: boolean, model: AccountModel) => {
         if (!currentAccount) return
         toggleModelEnabled(currentAccount.id, model.id)
     }
 
-    const updateCurrentAccount = (key: string, value: any) => {
-        if (currentAccount) {
-            const oldAccount = currentAccount
-            const newAccount = {
-                ...oldAccount,
-                [key]: value
-            }
-            setCurrentAccount(newAccount)
-            updateAccount(oldAccount.id, newAccount)
-        }
+    const updateCurrentAccount = (updates: Partial<ProviderAccount>) => {
+        if (!selectedProviderId) return
+        const account = currentAccount ?? ensureAccountForProvider(selectedProviderId)
+        const nextAccount = { ...account, ...updates }
+        setCurrentAccount(nextAccount)
+        updateAccount(account.id, updates)
     }
 
     const onProviderCardHover = (idx: number) => {
         setHoverProviderCardIdx(idx)
     }
 
-    const onAccountDeleteClick = (_e: any, account: ProviderAccount) => {
+    const onAccountDeleteClick = (_e: any, account?: ProviderAccount) => {
+        if (!account) return
         if (currentAccount && currentAccount.id === account.id) {
             setCurrentAccount(undefined)
         }
@@ -243,49 +308,38 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                         "ri-add-circle-line text-xl transition-all duration-200 ease-out",
                                         "group-hover:scale-110 group-hover:rotate-90"
                                     )}></i>
-                                    <span className='text-sm font-medium transition-colors duration-200'>Add Account</span>
+                                    <span className='text-sm font-medium transition-colors duration-200'>Add Provider</span>
                                 </div>
                             </DrawerTrigger>
                             <DrawerContent>
                                 <DrawerHeader>
-                                    <DrawerTitle>Add New Provider Account</DrawerTitle>
+                                    <DrawerTitle>Add Provider</DrawerTitle>
                                 </DrawerHeader>
                                 <div id='add-new-provider-drawer' className="px-4 pb-4 app-undragable">
                                     <div className="flex flex-col gap-4">
                                         <div className="flex flex-col items-start gap-2">
-                                            <Label htmlFor="name" className="text-sm font-medium">Provider Type</Label>
-                                            <Select value={newProviderId} onValueChange={setNewProviderId}>
-                                                <SelectTrigger id="name" className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10">
-                                                    <SelectValue placeholder="Select provider" />
+                                            <Label htmlFor="provider-name" className="text-sm font-medium">Display Name</Label>
+                                            <Input
+                                                id="provider-name"
+                                                placeholder="OpenAI"
+                                                className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
+                                                value={newDefinitionDisplayName}
+                                                onChange={e => { setNewDefinitionDisplayName(e.target.value) }}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col items-start gap-2">
+                                            <Label htmlFor="adapterType" className="text-sm font-medium">Adapter</Label>
+                                            <Select value={newDefinitionAdapterType} onValueChange={setNewDefinitionAdapterType}>
+                                                <SelectTrigger id="adapterType" className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10">
+                                                    <SelectValue placeholder="Select adapter" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectGroup>
-                                                    {visibleProviderDefinitions.map(def => (
-                                                        <SelectItem key={def.id} value={def.id}>
-                                                            <div className="flex items-center gap-2">
-                                                                <img
-                                                                    draggable={false}
-                                                                    src={getProviderIcon(def.iconKey || def.id)}
-                                                                    alt={def.displayName}
-                                                                    className="w-4 h-4 flex-none"
-                                                                />
-                                                                <span>{def.displayName}</span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectGroup>
-                                            </SelectContent>
+                                                        <SelectItem value="openai">OpenAI Compatible</SelectItem>
+                                                        <SelectItem value="claude">Claude Compatible</SelectItem>
+                                                    </SelectGroup>
+                                                </SelectContent>
                                             </Select>
-                                        </div>
-                                        <div className="flex flex-col items-start gap-2">
-                                            <Label htmlFor="account-label" className="text-sm font-medium">Provider Label</Label>
-                                            <Input
-                                                id="account-label"
-                                                placeholder="Custom Label"
-                                                className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                value={newAccountLabel}
-                                                onChange={e => { setNewAccountLabel(e.target.value) }}
-                                            />
                                         </div>
                                         <div className="flex flex-col items-start gap-2">
                                             <Label htmlFor="apiUrl" className="text-sm font-medium">API Base URL</Label>
@@ -293,6 +347,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                 id="apiUrl"
                                                 placeholder="https://api.openai.com"
                                                 className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
+                                                value={newProviderApi}
                                                 onChange={e => { setNewProviderApi(e.target.value) }}
                                             />
                                         </div>
@@ -304,6 +359,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                     type={showNewApiKey ? "text" : "password"}
                                                     placeholder="sk-********"
                                                     className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                                                    value={newProviderApiKey}
                                                     onChange={e => { setNewProviderApiKey(e.target.value) }}
                                                 />
                                                 <button
@@ -351,10 +407,10 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                             {
                                 visibleProviderDefinitions.map((definition, idx) => {
                                     const iconKey = definition.iconKey || definition.id
-                                    const relatedAccounts = accounts.filter(account => account.providerId === definition.id)
+                                    const relatedAccount = accounts.find(account => account.providerId === definition.id)
                                     const isActive = definition.id === selectedProviderId
-                                    const accountCount = relatedAccounts.length
-                                    const accountLabel = relatedAccounts[0]?.label
+                                    const accountLabel = relatedAccount?.label
+                                    const isCustomProvider = !officialProviderIds.has(normalizeProviderId(definition.id))
 
                                     return (
                                     <div
@@ -390,19 +446,40 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                     )}>
                                                         {definition.displayName}
                                                     </p>
-                                                    <p className="text-[10px] text-gray-400 truncate">
-                                                        {accountCount > 0 ? accountLabel : 'No account'}
-                                                    </p>
                                                 </div>
-                                            </TooltipTrigger>
+                                                    </TooltipTrigger>
                                             <TooltipContent>
                                                 <p>{definition.displayName}</p>
                                             </TooltipContent>
                                         </Tooltip>
-                                        {accountCount > 0 && (
-                                            <span className="ml-auto text-[10px] text-gray-400">
-                                                {accountCount}
-                                            </span>
+                                        {isCustomProvider && (
+                                            <button
+                                                className={cn(
+                                                    'absolute -top-1 -right-1 z-10',
+                                                    'transition-all duration-200 ease-out',
+                                                    'opacity-0 scale-75 translate-x-2 pointer-events-none',
+                                                    hoverProviderCardIdx === idx &&
+                                                        'opacity-100 scale-100 translate-x-0 pointer-events-auto'
+                                                )}
+                                                onClick={(event) => onProviderDeleteClick(event, definition)}
+                                                title="Delete provider"
+                                            >
+                                                <div className={cn(
+                                                    'relative p-1.5 rounded-xl',
+                                                    'bg-rose-50/80 dark:bg-rose-950/40',
+                                                    'text-rose-600 dark:text-rose-400',
+                                                    'border border-rose-200/50 dark:border-rose-800/50',
+                                                    'shadow-inner',
+                                                    'transition-all duration-300 ease-out',
+                                                    'hover:scale-110 hover:rotate-90',
+                                                    'hover:bg-rose-100 dark:hover:bg-rose-900/50',
+                                                    'hover:shadow-lg hover:shadow-rose-500/10',
+                                                    'hover:-translate-y-0.5',
+                                                    'active:scale-95 active:shadow-inner active:translate-y-0 active:rotate-90'
+                                                )}>
+                                                    <Cross1Icon className="w-2.5 h-2.5" />
+                                                </div>
+                                            </button>
                                         )}
                                     </div>
                                 )})
@@ -415,11 +492,6 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                     {!selectedDefinition ? (
                         <div className='flex-1 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400'>
                             No providers available.
-                        </div>
-                    ) : !currentAccount ? (
-                        <div className='flex-1 flex flex-col items-center justify-center text-center text-gray-500 dark:text-gray-400 gap-2'>
-                            <p className='text-sm font-medium'>No account for {selectedDefinition.displayName}</p>
-                            <p className='text-xs'>Use “Add Account” to create one.</p>
                         </div>
                     ) : (
                         <>
@@ -435,6 +507,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                             variant="ghost"
                                             className='text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30'
                                             onClick={(e) => onAccountDeleteClick(e, currentAccount)}
+                                            disabled={!currentAccount}
                                         >
                                             Delete Account
                                         </Button>
@@ -450,7 +523,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                             value={editAccountLabel}
                                             onChange={(e) => {
                                                 setEditAccountLabel(e.target.value)
-                                                updateCurrentAccount('label', e.target.value)
+                                                updateCurrentAccount({ label: e.target.value })
                                             }}
                                         />
                                     </div>
@@ -465,7 +538,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                             value={editAccountApiUrl}
                                             onChange={(e) => {
                                                 setEditAccountApiUrl(e.target.value)
-                                                updateCurrentAccount('apiUrl', e.target.value)
+                                                updateCurrentAccount({ apiUrl: e.target.value })
                                             }}
                                         />
                                         <p className="text-[10px] text-gray-400 dark:text-gray-500">
@@ -481,13 +554,13 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                 id="provider-api-key"
                                                 type={showApiKey ? "text" : "password"}
                                                 className='h-10 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
-                                                placeholder='sk-********'
-                                                value={editAccountApiKey}
-                                                onChange={(e) => {
-                                                    setEditAccountApiKey(e.target.value)
-                                                    updateCurrentAccount('apiKey', e.target.value)
-                                                }}
-                                            />
+                                            placeholder='sk-********'
+                                            value={editAccountApiKey}
+                                            onChange={(e) => {
+                                                setEditAccountApiKey(e.target.value)
+                                                updateCurrentAccount({ apiKey: e.target.value })
+                                            }}
+                                        />
                                             <button
                                                 type="button"
                                                 onClick={() => setShowApiKey(!showApiKey)}
