@@ -4,7 +4,7 @@
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/preload/*.d.ts",
-    "src/constants/**/*",
+    "src/shared/constants/**/*",
     "src/renderer/src/config/**/*",
     "src/types/**/*",
     "src/shared/**/*",
@@ -25,7 +25,7 @@
         "src/renderer/src/*"
       ],
       "@constants/*": [
-        "src/constants/*"
+        "src/shared/constants/*"
       ],
       "@config/*": [
         "src/renderer/src/config/*"
