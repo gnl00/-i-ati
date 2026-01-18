@@ -23,6 +23,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setAppConfig,
         accounts,
         providerDefinitions,
+        providersRevision,
         titleGenerateModel,
         titleGenerateEnabled,
         memoryEnabled,
@@ -114,6 +115,25 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         }
     ]
 
+    const savedTools = appConfig?.tools || {}
+    const savedCompression = appConfig?.compression || {}
+    const savedMcpConfig = appConfig?.mcp || {}
+
+    const toolsDirty = maxWebSearchItems !== (savedTools.maxWebSearchItems ?? 3)
+        || titleGenerateEnabled !== (savedTools.titleGenerateEnabled ?? true)
+        || memoryEnabled !== (savedTools.memoryEnabled ?? true)
+        || titleGenerateModel?.accountId !== savedTools.titleGenerateModel?.accountId
+        || titleGenerateModel?.modelId !== savedTools.titleGenerateModel?.modelId
+
+    const compressionDirty = compressionEnabled !== (savedCompression.enabled ?? true)
+        || compressionTriggerThreshold !== (savedCompression.triggerThreshold ?? 30)
+        || compressionKeepRecentCount !== (savedCompression.keepRecentCount ?? 20)
+        || compressionCompressCount !== (savedCompression.compressCount ?? 10)
+
+    const mcpDirty = JSON.stringify(mcpServerConfig ?? {}) !== JSON.stringify(savedMcpConfig ?? {})
+
+    const hasUnsavedChanges = providersRevision > 0 || toolsDirty || compressionDirty || mcpDirty
+
     return (
         <div className="grid gap-4">
             <div className="space-y-2 select-none">
@@ -133,15 +153,23 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-sm">
                         <div className="flex items-center gap-2">
                             <div className="relative flex h-1.5 w-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                                {hasUnsavedChanges && (
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                )}
+                                <span className={hasUnsavedChanges
+                                    ? "relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"
+                                    : "relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"
+                                }></span>
                             </div>
-                            <span className='text-xs font-medium text-gray-600 dark:text-gray-300 select-none'>Unsaved changes</span>
+                            <span className='text-xs font-medium text-gray-600 dark:text-gray-300 select-none'>
+                                {hasUnsavedChanges ? 'Unsaved changes' : 'All changes saved'}
+                            </span>
                         </div>
                         <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
                         <Button
                             size="xs"
                             onClick={saveConfigurationClick}
+                            disabled={!hasUnsavedChanges}
                             className="h-7 px-3 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 font-medium will-change-transform"
                         >
                             <i className="ri-save-line mr-1.5 text-sm"></i>

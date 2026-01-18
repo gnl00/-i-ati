@@ -49,18 +49,37 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           aria-expanded={isOpen}
           className={triggerClassName}
         >
-          <span className="flex flex-grow justify-center overflow-x-hidden">
+          {/* Animated background gradient on hover (selected state only) */}
+          {selectedModel && (
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-100/0 via-emerald-100/50 to-teal-100/0 dark:from-emerald-900/0 dark:via-emerald-900/30 dark:to-teal-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          )}
+
+          <span className="flex flex-grow justify-center overflow-x-hidden relative z-10">
             {selectedModel ? (
               (() => {
                 return selectedModel.model.type === 'vlm' ? (
-                  <span className="flex items-center space-x-1.5">
-                    <span>{selectedModel.model.label}</span>
-                    <i className="ri-eye-line text-green-500 text-[10px]"></i>
+                  <span className="flex items-center space-x-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
+                    <span className="truncate">{selectedModel.model.label}</span>
+                    <i className="ri-eye-line text-emerald-500 dark:text-emerald-400 text-[10px] animate-in zoom-in duration-200 delay-100"></i>
                   </span>
-                ) : <span>{selectedModel.model.label}</span>
-              })()) : ("Select Model")}
+                ) : (
+                  <span className="truncate animate-in fade-in slide-in-from-left-1 duration-300">
+                    {selectedModel.model.label}
+                  </span>
+                )
+              })()
+            ) : (
+              <span className="text-slate-400 dark:text-slate-500">Select Model</span>
+            )}
           </span>
-          <ChevronsUpDown className="flex opacity-50 w-4 h-4" />
+
+          <ChevronsUpDown
+            className={cn(
+              "flex opacity-50 w-4 h-4 transition-all duration-300 relative z-10",
+              "group-hover:opacity-100",
+              isOpen && "rotate-180"
+            )}
+          />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -107,18 +126,29 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                       <CommandItem
                         key={`${group.account.id}/${m.id}`}
                         value={`${group.account.id}/${m.id}`}
-                        className="aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/20 aria-selected:text-blue-700 dark:aria-selected:text-blue-300 pl-4 py-2"
+                        className={cn(
+                          "pl-4 py-2.5 cursor-pointer",
+                          "transition-all duration-200",
+                          "aria-selected:bg-emerald-50 dark:aria-selected:bg-emerald-900/20",
+                          "aria-selected:text-emerald-700 dark:aria-selected:text-emerald-300",
+                          "hover:bg-slate-50 dark:hover:bg-slate-800"
+                        )}
                         onSelect={(_) => {
                           onModelSelect({ accountId: group.account.id, modelId: m.id })
                         }}
                       >
                         <span className="truncate">{m.label}</span>
-                        {m.type === 'vlm' && <i className="ri-eye-line text-green-500 ml-2 text-xs"></i>}
+                        {m.type === 'vlm' && (
+                          <i className="ri-eye-line text-emerald-500 dark:text-emerald-400 ml-2 text-xs animate-in zoom-in duration-200"></i>
+                        )}
                         {(selectedModel
                           && selectedModel.model.id === m.id
-                          && selectedModel.account.id === group.account.id) &&
-                          <Check className={cn("ml-auto w-4 h-4 text-blue-500")} />
-                        }
+                          && selectedModel.account.id === group.account.id) && (
+                          <Check className={cn(
+                            "ml-auto w-4 h-4 text-emerald-600 dark:text-emerald-400",
+                            "animate-in zoom-in duration-200"
+                          )} />
+                        )}
                       </CommandItem>
                     ))
                   }

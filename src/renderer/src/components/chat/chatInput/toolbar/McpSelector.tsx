@@ -34,15 +34,42 @@ const McpSelector: React.FC<McpSelectorProps> = ({
           aria-expanded={isOpen}
           className={triggerClassName}
         >
-          <span className="flex flex-grow justify-center overflow-x-hidden">
-            {selectedMcpServerNames.length === 0 ? 'MCP Tools' : selectedMcpServerNames[0]}
+          {/* Animated background gradient on hover (active state only) */}
+          {selectedMcpServerNames.length > 0 && (
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-100/0 via-amber-100/50 to-orange-100/0 dark:from-amber-900/0 dark:via-amber-900/30 dark:to-orange-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          )}
+
+          <span className="flex flex-grow justify-center overflow-x-hidden relative z-10">
+            {selectedMcpServerNames.length === 0 ? (
+              <span className="text-slate-400 dark:text-slate-500">MCP Tools</span>
+            ) : (
+              <span className="truncate animate-in fade-in slide-in-from-left-1 duration-300">
+                {selectedMcpServerNames[0]}
+              </span>
+            )}
           </span>
+
           {selectedMcpServerNames.length > 1 && (
-            <Badge className="h-4 min-w-[16px] px-1 justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-[9px] hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors shadow-none">
+            <Badge className={cn(
+              "relative z-10 h-4 min-w-[16px] px-1 justify-center text-[9px] shadow-none",
+              "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300",
+              "border border-amber-300/50 dark:border-amber-700/50",
+              "hover:bg-amber-200 dark:hover:bg-amber-900/60",
+              "transition-all duration-200",
+              "animate-in zoom-in duration-300 delay-100"
+            )}>
               +{selectedMcpServerNames.length - 1}
             </Badge>
           )}
-          <Plug className="flex opacity-50 w-4 h-4" />
+
+          <Plug
+            className={cn(
+              "flex opacity-50 w-4 h-4 transition-all duration-300 relative z-10",
+              "group-hover:opacity-100",
+              selectedMcpServerNames.length > 0 && "group-hover:rotate-12",
+              isOpen && "rotate-180"
+            )}
+          />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -59,16 +86,26 @@ const McpSelector: React.FC<McpSelectorProps> = ({
                   <CommandItem
                     key={idx}
                     value={mcpName}
+                    className={cn(
+                      "pl-4 py-2.5 cursor-pointer",
+                      "transition-all duration-200",
+                      "aria-selected:bg-amber-50 dark:aria-selected:bg-amber-900/20",
+                      "aria-selected:text-amber-700 dark:aria-selected:text-amber-300",
+                      "hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
                     onSelect={(selectVal) => {
                       onMcpToolSelected(selectVal, mcpCfg)
                     }}
                   >
-                    <span>{mcpName}</span>
+                    <span className="truncate">{mcpName}</span>
                     {isConnectingMcpServer(mcpName) && (
-                      <LoaderCircle className='ml-auto animate-spin' />
+                      <LoaderCircle className='ml-auto w-4 h-4 animate-spin text-amber-500' />
                     )}
                     {selectedMcpServerNames.includes(mcpName) && (
-                      <Check className={cn("ml-auto text-green-600")} />
+                      <Check className={cn(
+                        "ml-auto w-4 h-4 text-amber-600 dark:text-amber-400",
+                        "animate-in zoom-in duration-200"
+                      )} />
                     )}
                   </CommandItem>
                 ))

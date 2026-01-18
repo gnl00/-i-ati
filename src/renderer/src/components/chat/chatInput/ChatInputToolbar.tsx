@@ -44,16 +44,63 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   const [selectModelPopoutState, setSelectModelPopoutState] = React.useState(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = React.useState(false)
 
-  const triggerButtonClassName = cn(
-    "h-7 min-w-20 w-auto flex items-center justify-between px-2 py-0.5 gap-1 rounded-2xl",
-    "bg-gray-100/80 dark:bg-gray-800/80",
-    "hover:bg-gray-200 dark:hover:bg-gray-700",
-    "text-gray-600 dark:text-gray-400",
-    "hover:text-gray-900 dark:hover:text-gray-100",
+  // Model selector trigger styles with emerald/teal theme
+  const modelSelectorClassName = cn(
+    "group relative h-7 min-w-24 w-auto flex items-center justify-between px-2.5 py-0.5 gap-1.5 rounded-2xl overflow-hidden",
+    "transition-all duration-300 ease-out",
+    selectedModel
+      ? [
+          // Selected state - emerald/teal gradient
+          "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40",
+          "text-emerald-700 dark:text-emerald-300",
+          "border border-emerald-300/60 dark:border-emerald-700/60",
+          "shadow-sm shadow-emerald-500/10 dark:shadow-emerald-500/20",
+          "hover:shadow hover:shadow-emerald-500/25 dark:hover:shadow-emerald-500/35",
+          "hover:scale-[1.02]",
+          "active:scale-[0.98]"
+        ]
+      : [
+          // Unselected state - subtle gray
+          "bg-slate-50/50 dark:bg-slate-800/50",
+          "text-slate-500 dark:text-slate-400",
+          "border border-slate-200/50 dark:border-slate-700/50",
+          "hover:bg-slate-100 dark:hover:bg-slate-700",
+          "hover:text-slate-700 dark:hover:text-slate-300",
+          "hover:border-slate-300 dark:hover:border-slate-600",
+          "hover:scale-[1.02]",
+          "active:scale-[0.98]"
+        ],
     "text-xs font-medium",
-    "backdrop-blur-md border border-transparent hover:border-gray-200 dark:hover:border-gray-700",
-    "shadow-sm hover:shadow",
-    "transition-all duration-200",
+    "focus-visible:ring-0 focus-visible:ring-offset-0"
+  )
+
+  // MCP selector trigger styles with amber/orange theme
+  const mcpSelectorClassName = cn(
+    "group relative h-7 min-w-24 w-auto flex items-center justify-between px-2.5 py-0.5 gap-1.5 rounded-2xl overflow-hidden",
+    "transition-all duration-300 ease-out",
+    selectedMcpServerNames.length > 0
+      ? [
+          // Active state - amber/orange gradient
+          "bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40",
+          "text-amber-700 dark:text-amber-300",
+          "border border-amber-300/60 dark:border-amber-700/60",
+          "shadow-sm shadow-amber-500/10 dark:shadow-amber-500/20",
+          "hover:shadow hover:shadow-amber-500/25 dark:hover:shadow-amber-500/35",
+          "hover:scale-[1.02]",
+          "active:scale-[0.98]"
+        ]
+      : [
+          // Inactive state - subtle gray
+          "bg-slate-50/50 dark:bg-slate-800/50",
+          "text-slate-500 dark:text-slate-400",
+          "border border-slate-200/50 dark:border-slate-700/50",
+          "hover:bg-slate-100 dark:hover:bg-slate-700",
+          "hover:text-slate-700 dark:hover:text-slate-300",
+          "hover:border-slate-300 dark:hover:border-slate-600",
+          "hover:scale-[1.02]",
+          "active:scale-[0.98]"
+        ],
+    "text-xs font-medium",
     "focus-visible:ring-0 focus-visible:ring-offset-0"
   )
 
@@ -80,7 +127,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           isOpen={selectModelPopoutState}
           onOpenChange={setSelectModelPopoutState}
           onModelSelect={handleModelSelect}
-          triggerClassName={triggerButtonClassName}
+          triggerClassName={modelSelectorClassName}
         />
       </div>
 
@@ -93,7 +140,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           onOpenChange={setSelectMCPPopoutState}
           onMcpToolSelected={handleMcpToolSelected}
           isConnectingMcpServer={isConnectingMcpServer}
-          triggerClassName={triggerButtonClassName}
+          triggerClassName={mcpSelectorClassName}
         />
       </div>
 

@@ -75,6 +75,7 @@ type AppConfigState = {
   appConfig: IAppConfig
   providerDefinitions: ProviderDefinition[]
   accounts: ProviderAccount[]
+  providersRevision: number
   currentAccountId: string | undefined
   titleGenerateModel: ModelRef | undefined
   titleGenerateEnabled: boolean
@@ -118,6 +119,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   appConfig: defaultConfig,
   providerDefinitions: defaultConfig.providerDefinitions || [],
   accounts: defaultConfig.accounts || [],
+  providersRevision: 0,
   currentAccountId: undefined,
 
   // State - Tool settings
@@ -144,6 +146,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       },
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts,
+      providersRevision: 0,
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
@@ -171,6 +174,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       appConfig: nextConfig,
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts,
+      providersRevision: 0,
       titleGenerateModel: nextConfig.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: nextConfig.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: nextConfig.tools?.memoryEnabled ?? true,
@@ -184,9 +188,13 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   setProviderDefinitions: (definitions) => set((state) => ({
     providerDefinitions: normalizeProviderDefinitions(definitions),
-    accounts: normalizeAccounts(state.accounts)
+    accounts: normalizeAccounts(state.accounts),
+    providersRevision: state.providersRevision + 1
   })),
-  setAccounts: (accounts) => set({ accounts: normalizeAccounts(accounts) }),
+  setAccounts: (accounts) => set((state) => ({
+    accounts: normalizeAccounts(accounts),
+    providersRevision: state.providersRevision + 1
+  })),
   setCurrentAccountId: (accountId) => set({ currentAccountId: accountId }),
 
   getProviderDefinitionById: (providerId) => {
@@ -232,7 +240,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     }
     set((state) => ({
       accounts: normalizeAccounts([normalizedAccount, ...state.accounts], normalizedAccount.id),
-      currentAccountId: normalizedAccount.id
+      currentAccountId: normalizedAccount.id,
+      providersRevision: state.providersRevision + 1
     }))
   },
 
@@ -244,7 +253,10 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
         : account.providerId
       return { ...account, ...updates, providerId: nextProviderId }
     })
-    return { accounts: normalizeAccounts(nextAccounts, accountId) }
+    return {
+      accounts: normalizeAccounts(nextAccounts, accountId),
+      providersRevision: state.providersRevision + 1
+    }
   }),
 
   removeAccount: (accountId) => set((state) => {
@@ -254,7 +266,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     return {
       accounts: nextAccounts,
       currentAccountId: state.currentAccountId === accountId ? undefined : state.currentAccountId,
-      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
+      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+      providersRevision: state.providersRevision + 1
     }
   }),
 
@@ -263,7 +276,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       account.id === accountId
         ? { ...account, models: [...account.models, model] }
         : account
-    )
+    ),
+    providersRevision: state.providersRevision + 1
   })),
 
   updateModel: (accountId, modelId, updates) => set((state) => ({
@@ -276,7 +290,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
           )
         }
         : account
-    )
+    ),
+    providersRevision: state.providersRevision + 1
   })),
 
   removeModel: (accountId, modelId) => set((state) => {
@@ -289,7 +304,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
           ? { ...account, models: account.models.filter(model => model.id !== modelId) }
           : account
       ),
-      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
+      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+      providersRevision: state.providersRevision + 1
     }
   }),
 
@@ -308,7 +324,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
           }
           : account
       ),
-      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
+      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+      providersRevision: state.providersRevision + 1
     }
   }),
 
