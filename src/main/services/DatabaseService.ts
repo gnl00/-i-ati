@@ -842,32 +842,6 @@ class DatabaseService {
         }
         shouldSave = true
         console.log('[DatabaseService] Backfilled providerDefinitions from defaults')
-      } else {
-        const currentById = new Map(currentDefinitions.map(def => [def.id, def]))
-        const merged: ProviderDefinition[] = []
-        let mergedChanged = false
-
-        defaultProviderList.forEach(def => {
-          const override = currentById.get(def.id)
-          if (override) {
-            merged.push(override)
-            currentById.delete(def.id)
-          } else {
-            merged.push(def)
-            mergedChanged = true
-          }
-        })
-
-        currentById.forEach(def => merged.push(def))
-
-        if (mergedChanged || merged.length !== currentDefinitions.length) {
-          nextConfig = {
-            ...nextConfig,
-            providerDefinitions: merged
-          }
-          shouldSave = true
-          console.log('[DatabaseService] Merged providerDefinitions with defaults')
-        }
       }
 
       if (defaultConfig.version! > config.version!) {

@@ -36,7 +36,6 @@ import { toast } from 'sonner'
 import { getProviderIcon } from '@renderer/utils/providerIcons'
 import FetchModelsDrawer from './FetchModelsDrawer'
 import { v4 as uuidv4 } from 'uuid'
-import officialProviderDefinitions from '../../../../data/providers.json'
 import { Badge } from "../ui/badge"
 
 interface ProvidersManagerNextProps { }
@@ -49,6 +48,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     const {
         providerDefinitions,
         setProviderDefinitions,
+        setAccounts,
         accounts,
         currentAccountId,
         setCurrentAccountId,
@@ -61,11 +61,6 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     } = useAppConfigStore()
 
     const visibleProviderDefinitions = useMemo(() => providerDefinitions, [providerDefinitions])
-    const officialProviderIds = useMemo(() => {
-        return new Set(
-            (officialProviderDefinitions as ProviderDefinition[]).map(def => normalizeProviderId(def.id))
-        )
-    }, [])
 
     const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(undefined)
     const [currentAccount, setCurrentAccount] = useState<ProviderAccount | undefined>(undefined)
@@ -234,19 +229,38 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
 
     const onProviderDeleteClick = (event: React.MouseEvent, definition: ProviderDefinition) => {
         event.stopPropagation()
-        const shouldDelete = window.confirm(`Delete provider "${definition.displayName}"?`)
-        if (!shouldDelete) return
-
+        const removedAccounts = accounts.filter(account => account.providerId === definition.id)
         const remainingDefinitions = providerDefinitions.filter(def => def.id !== definition.id)
-        setProviderDefinitions(remainingDefinitions)
+        const remainingAccounts = accounts.filter(account => account.providerId !== definition.id)
 
-        accounts
-            .filter(account => account.providerId === definition.id)
-            .forEach(account => removeAccount(account.id))
+        setProviderDefinitions(remainingDefinitions)
+        setAccounts(remainingAccounts)
 
         if (selectedProviderId === definition.id) {
             setSelectedProviderId(remainingDefinitions[0]?.id)
+            setCurrentAccountId(undefined)
         }
+
+        toast.warning(`Provider "${definition.displayName}" deleted`, {
+            action: {
+                label: 'Undo',
+                onClick: () => {
+                    const { providerDefinitions: currentDefinitions, accounts: currentAccounts } = useAppConfigStore.getState()
+                    const nextDefinitions = currentDefinitions.some(def => def.id === definition.id)
+                        ? currentDefinitions
+                        : [...currentDefinitions, definition]
+                    const nextAccounts = [...currentAccounts, ...removedAccounts]
+
+                    setProviderDefinitions(nextDefinitions)
+                    setAccounts(nextAccounts)
+
+                    if (removedAccounts[0]) {
+                        setCurrentAccountId(removedAccounts[0].id)
+                        setSelectedProviderId(definition.id)
+                    }
+                }
+            }
+        })
     }
     const onModelEnableStatusChange = (_checked: boolean, model: AccountModel) => {
         if (!currentAccount) return
@@ -410,7 +424,6 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                     const relatedAccount = accounts.find(account => account.providerId === definition.id)
                                     const isActive = definition.id === selectedProviderId
                                     const accountLabel = relatedAccount?.label
-                                    const isCustomProvider = !officialProviderIds.has(normalizeProviderId(definition.id))
 
                                     return (
                                     <div
@@ -452,35 +465,33 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                 <p>{definition.displayName}</p>
                                             </TooltipContent>
                                         </Tooltip>
-                                        {isCustomProvider && (
-                                            <button
-                                                className={cn(
-                                                    'absolute -top-1 -right-1 z-10',
-                                                    'transition-all duration-200 ease-out',
-                                                    'opacity-0 scale-75 translate-x-2 pointer-events-none',
-                                                    hoverProviderCardIdx === idx &&
-                                                        'opacity-100 scale-100 translate-x-0 pointer-events-auto'
-                                                )}
-                                                onClick={(event) => onProviderDeleteClick(event, definition)}
-                                                title="Delete provider"
-                                            >
-                                                <div className={cn(
-                                                    'relative p-1.5 rounded-xl',
-                                                    'bg-rose-50/80 dark:bg-rose-950/40',
-                                                    'text-rose-600 dark:text-rose-400',
-                                                    'border border-rose-200/50 dark:border-rose-800/50',
-                                                    'shadow-inner',
-                                                    'transition-all duration-300 ease-out',
-                                                    'hover:scale-110 hover:rotate-90',
-                                                    'hover:bg-rose-100 dark:hover:bg-rose-900/50',
-                                                    'hover:shadow-lg hover:shadow-rose-500/10',
-                                                    'hover:-translate-y-0.5',
-                                                    'active:scale-95 active:shadow-inner active:translate-y-0 active:rotate-90'
-                                                )}>
-                                                    <Cross1Icon className="w-2.5 h-2.5" />
-                                                </div>
-                                            </button>
-                                        )}
+                                        <button
+                                            className={cn(
+                                                'absolute -top-1 -right-1 z-10',
+                                                'transition-all duration-200 ease-out',
+                                                'opacity-0 scale-75 translate-x-2 pointer-events-none',
+                                                hoverProviderCardIdx === idx &&
+                                                    'opacity-100 scale-100 translate-x-0 pointer-events-auto'
+                                            )}
+                                            onClick={(event) => onProviderDeleteClick(event, definition)}
+                                            title="Delete provider"
+                                        >
+                                            <div className={cn(
+                                                'relative p-1.5 rounded-xl',
+                                                'bg-rose-50/80 dark:bg-rose-950/40',
+                                                'text-rose-600 dark:text-rose-400',
+                                                'border border-rose-200/50 dark:border-rose-800/50',
+                                                'shadow-inner',
+                                                'transition-all duration-300 ease-out',
+                                                'hover:scale-110 hover:rotate-90',
+                                                'hover:bg-rose-100 dark:hover:bg-rose-900/50',
+                                                'hover:shadow-lg hover:shadow-rose-500/10',
+                                                'hover:-translate-y-0.5',
+                                                'active:scale-95 active:shadow-inner active:translate-y-0 active:rotate-90'
+                                            )}>
+                                                <Cross1Icon className="w-2.5 h-2.5" />
+                                            </div>
+                                        </button>
                                     </div>
                                 )})
                             }
