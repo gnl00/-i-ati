@@ -34,7 +34,7 @@ export interface StreamingOrchestratorCallbacks {
 export interface StreamingOrchestratorContext {
   request: IUnifiedRequest
   meta: {
-    model: IModel
+    model: AccountModel
   }
   streaming: {
     tools: ToolCall[]
@@ -133,7 +133,7 @@ export class StreamingOrchestrator {
     // 解构常用的不变属性
     this.context = config.context
     this.request = config.context.request as IUnifiedRequest
-    this.modelName = config.context.meta.model.name
+    this.modelName = config.context.meta.model.label
     this.signal = config.signal
     this.callbacks = config.callbacks
     this.events = config.events

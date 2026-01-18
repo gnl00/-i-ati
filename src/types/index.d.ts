@@ -1,14 +1,17 @@
-declare interface IModel {
-  enable?: boolean
-  provider: string // providerName
-  name: string
-  value: string
-  type: string
-  ability?: string[]
+declare type ModelType = 'llm' | 'vlm' | 't2i'
+
+declare interface AccountModel {
+  id: string
+  label: string
+  type: ModelType
+  capabilities?: string[]
+  enabled?: boolean
 }
 
-declare interface IProvider {
-  name: string
+declare interface ProviderAccount {
+  id: string
+  providerId: string
+  label: string
   /**
    * API Base URL (without version or endpoint path)
    * The version (e.g., /v1) and endpoint path (e.g., /chat/completions) will be added by the adapter.
@@ -24,13 +27,27 @@ declare interface IProvider {
    */
   apiUrl: string
   apiKey: string
-  models: IModel[]
+  models: AccountModel[]
+}
+
+declare interface ProviderDefinition {
+  id: string
+  displayName: string
+  adapterType: ProviderType
+  apiVersion?: ProviderAPIVersion
+  iconKey?: string
+}
+
+declare interface ModelRef {
+  accountId: string
+  modelId: string
 }
 
 declare interface IAppConfig {
-  providers?: IProvider[]
+  providerDefinitions?: ProviderDefinition[]
+  accounts?: ProviderAccount[]
   tools?: {
-    titleGenerateModel?: IModel
+    titleGenerateModel?: ModelRef
     titleGenerateEnabled?: boolean
     maxWebSearchItems?: number
     memoryEnabled?: boolean
@@ -83,8 +100,9 @@ declare interface IUnifiedRequest {
 }
 
 declare interface RequestSnapshot {
-  provider: IProvider
-  model: IModel
+  providerDefinition: ProviderDefinition
+  account: ProviderAccount
+  model: AccountModel
   options?: IUnifiedRequest['options']
   providerType?: ProviderType
   apiVersion?: ProviderAPIVersion
@@ -329,7 +347,7 @@ declare interface CompressionConfig {
   triggerThreshold: number      // 触发压缩的消息总数阈值（默认 30）
   keepRecentCount: number       // 保留最近的消息数量（默认 20）
   compressCount: number         // 每次压缩的消息数量（默认 10）
-  compressionModel?: IModel     // 用于压缩的模型（默认使用当前模型）
+  compressionModel?: ModelRef   // 用于压缩的模型（默认使用当前模型）
   autoCompress: boolean         // 是否自动压缩（默认 true）
 }
 

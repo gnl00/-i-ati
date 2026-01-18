@@ -43,7 +43,9 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
 }) => {
     const {
         setAppConfig,
-        models,
+        accounts,
+        providerDefinitions,
+        resolveModelRef,
         titleGenerateModel,
         setTitleGenerateModel,
         titleGenerateEnabled,
@@ -51,6 +53,20 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     } = useAppConfigStore()
 
     const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
+    const modelOptions = React.useMemo(() => {
+        return accounts.flatMap(account =>
+            account.models
+                .filter(model => model.enabled !== false)
+                .map(model => ({
+                    account,
+                    model,
+                    definition: providerDefinitions.find(def => def.id === account.providerId)
+                }))
+        )
+    }, [accounts, providerDefinitions])
+    const selectedTitleModel = React.useMemo(() => {
+        return resolveModelRef(titleGenerateModel)
+    }, [resolveModelRef, titleGenerateModel, accounts, providerDefinitions])
 
     const handleExportConfig = async () => {
         try {
@@ -139,11 +155,11 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                         >
                                             <div className="flex items-center gap-2 truncate">
                                                 <span className="truncate font-medium">
-                                                    {titleGenerateModel ? titleGenerateModel.name : "Select model..."}
+                                                    {selectedTitleModel ? selectedTitleModel.model.label : "Select model..."}
                                                 </span>
-                                                {titleGenerateModel && (
+                                                {selectedTitleModel && (
                                                     <span className="text-xs text-gray-400 font-mono">
-                                                        {titleGenerateModel.provider}
+                                                        {selectedTitleModel.definition?.displayName || selectedTitleModel.account.label}
                                                     </span>
                                                 )}
                                             </div>
@@ -156,21 +172,35 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                             <CommandList>
                                                 <CommandEmpty>No model found.</CommandEmpty>
                                                 <CommandGroup className="max-h-[300px] overflow-y-auto">
-                                                    {models.map((md, idx) => (
+                                                    {modelOptions.map((option, idx) => (
                                                         <CommandItem
                                                             key={idx}
-                                                            value={(md.name as string).concat('/').concat(md.provider)}
+                                                            value={`${option.account.id}/${option.model.id}`}
                                                             onSelect={(_) => {
                                                                 setSelectTitleModelPopoutState(false)
-                                                                setTitleGenerateModel(md)
+                                                                setTitleGenerateModel({
+                                                                    accountId: option.account.id,
+                                                                    modelId: option.model.id
+                                                                })
                                                             }}
                                                             className="cursor-pointer"
                                                         >
                                                             <div className="flex flex-col">
-                                                                <span>{md.name}</span>
-                                                                <span className="text-[10px] text-gray-400">{md.provider}</span>
+                                                                <span>{option.model.label}</span>
+                                                                <span className="text-[10px] text-gray-400">
+                                                                    {option.definition?.displayName || option.account.label}
+                                                                </span>
                                                             </div>
-                                                            <Check className={cn("ml-auto h-4 w-4", titleGenerateModel && titleGenerateModel.value === md.value && titleGenerateModel.provider === md.provider ? "opacity-100" : "opacity-0")} />
+                                                            <Check
+                                                                className={cn(
+                                                                    "ml-auto h-4 w-4",
+                                                                    titleGenerateModel
+                                                                        && titleGenerateModel.accountId === option.account.id
+                                                                        && titleGenerateModel.modelId === option.model.id
+                                                                        ? "opacity-100"
+                                                                        : "opacity-0"
+                                                                )}
+                                                            />
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>

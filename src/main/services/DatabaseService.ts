@@ -705,9 +705,9 @@ class DatabaseService {
   }
 
   /**
-   * 加载默认的 providers
+   * 加载默认的 provider definitions
    */
-  private loadDefaultProviders(): IProvider[] {
+  private loadProviderDefinitions(): ProviderDefinition[] {
     try {
       // 获取项目根目录
       // 在开发环境中，__dirname 类似于: /path/to/project/out/main
@@ -731,15 +731,15 @@ class DatabaseService {
         console.log(`  - ${filePath} (exists: ${fs.existsSync(filePath)})`)
         if (fs.existsSync(filePath)) {
           const data = fs.readFileSync(filePath, 'utf-8')
-          console.log(`[DatabaseService] ✓ Loaded providers from: ${filePath}`)
-          return JSON.parse(data) as IProvider[]
+          console.log(`[DatabaseService] ✓ Loaded provider definitions from: ${filePath}`)
+          return JSON.parse(data) as ProviderDefinition[]
         }
       }
 
       console.warn('[DatabaseService] ⚠ providers.json not found in any path, using empty array')
       return []
     } catch (error) {
-      console.error('[DatabaseService] Failed to load default providers:', error)
+      console.error('[DatabaseService] Failed to load provider definitions:', error)
       return []
     }
   }
@@ -791,19 +791,20 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized')
 
     try {
-      // 加载默认 providers
-      const defaultProviders = this.loadDefaultProviders()
-      console.log(`[DatabaseService] Loaded ${defaultProviders.length} default providers`)
+      // 加载默认 provider definitions
+      const defaultProviderDefinitions = this.loadProviderDefinitions()
+      console.log(`[DatabaseService] Loaded ${defaultProviderDefinitions.length} provider definitions`)
 
       // 默认配置
       const defaultConfig: IAppConfig = {
-        providers: defaultProviders,
-        version: 1.9,
+        providerDefinitions: defaultProviderDefinitions,
+        accounts: [],
+        version: 2.0,
         tools: {
           maxWebSearchItems: 3
         },
         configForUpdate: {
-          version: 1.9,
+          version: 2.0,
         }
       }
 
@@ -812,15 +813,15 @@ class DatabaseService {
 
       if (!config) {
         // 首次使用，使用默认配置
-        console.log('[DatabaseService] First time use, saving default config with', defaultProviders.length, 'providers')
+        console.log('[DatabaseService] First time use, saving default config with', defaultProviderDefinitions.length, 'provider definitions')
         this.saveConfig(defaultConfig)
-        console.log('[DatabaseService] Initialized with default config, providers count:', defaultProviders.length)
+        console.log('[DatabaseService] Initialized with default config, providerDefinitions count:', defaultProviderDefinitions.length)
         return defaultConfig
       }
 
       // 检查版本并升级
       console.log('[DatabaseService] Existing config version:', config.version, 'default version:', defaultConfig.version)
-      console.log('[DatabaseService] Existing config providers count:', config.providers?.length || 0)
+      console.log('[DatabaseService] Existing config providerDefinitions count:', config.providerDefinitions?.length || 0)
       if (defaultConfig.version! > config.version!) {
         const upgraded = {
           ...config,
@@ -832,7 +833,7 @@ class DatabaseService {
         return upgraded
       }
 
-      console.log('[DatabaseService] Returning existing config, providers count:', config.providers?.length || 0)
+      console.log('[DatabaseService] Returning existing config, providerDefinitions count:', config.providerDefinitions?.length || 0)
       return config
     } catch (error) {
       console.error('[DatabaseService] Failed to init config:', error)

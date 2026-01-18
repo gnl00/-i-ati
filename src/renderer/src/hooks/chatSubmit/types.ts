@@ -59,7 +59,8 @@ export interface ChatControlState {
 }
 
 export interface ChatMetaState {
-  model: IModel
-  provider: IProvider
+  model: AccountModel
+  account: ProviderAccount
+  providerDefinition: ProviderDefinition
   snapshot: RequestSnapshot
 }

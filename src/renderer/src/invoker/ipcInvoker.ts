@@ -303,8 +303,9 @@ export async function invokeChatCompressionExecute(data: {
   chatId: number
   chatUuid: string
   messages: MessageEntity[]
-  model: IModel
-  provider: IProvider
+  model: AccountModel
+  account: ProviderAccount
+  providerDefinition: ProviderDefinition
   config?: CompressionConfig
 }): Promise<CompressionResult> {
   const ipc = getElectronIPC()
@@ -316,8 +317,9 @@ export async function invokeChatTitleGenerate(data: {
   chatId?: number
   chatUuid?: string
   content: string
-  model: IModel
-  provider: IProvider
+  model: AccountModel
+  account: ProviderAccount
+  providerDefinition: ProviderDefinition
 }): Promise<{ title: string }> {
   const ipc = getElectronIPC()
   return await ipc.invoke(CHAT_TITLE_GENERATE, data)

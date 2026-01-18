@@ -4,27 +4,42 @@ import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui
 import { cn } from '@renderer/lib/utils'
 import { getProviderIcon } from '@renderer/utils/providerIcons'
 import { Check, ChevronsUpDown } from 'lucide-react'
-import React from 'react'
+import React, { useMemo } from 'react'
+import type { ModelOption } from '@renderer/store/appConfig'
 
 interface ModelSelectorProps {
-  selectedModel: IModel | undefined
-  models: IModel[]
-  providers: IProvider[]
+  selectedModel: ModelOption | undefined
+  modelOptions: ModelOption[]
   isOpen: boolean
   onOpenChange: (open: boolean) => void
-  onModelSelect: (model: IModel, providerName: string) => void
+  onModelSelect: (ref: ModelRef) => void
   triggerClassName?: string
 }
 
 const ModelSelector: React.FC<ModelSelectorProps> = ({
   selectedModel,
-  models,
-  providers,
+  modelOptions,
   isOpen,
   onOpenChange,
   onModelSelect,
   triggerClassName
 }) => {
+  const groupedOptions = useMemo(() => {
+    const groups = new Map<string, { account: ProviderAccount; definition?: ProviderDefinition; models: AccountModel[] }>()
+    modelOptions.forEach(option => {
+      const accountId = option.account.id
+      if (!groups.has(accountId)) {
+        groups.set(accountId, {
+          account: option.account,
+          definition: option.definition,
+          models: []
+        })
+      }
+      groups.get(accountId)!.models.push(option.model)
+    })
+    return Array.from(groups.values())
+  }, [modelOptions])
+
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
@@ -37,12 +52,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           <span className="flex flex-grow justify-center overflow-x-hidden">
             {selectedModel ? (
               (() => {
-                return selectedModel.type === 'vlm' ? (
+                return selectedModel.model.type === 'vlm' ? (
                   <span className="flex items-center space-x-1.5">
-                    <span>{selectedModel.name}</span>
+                    <span>{selectedModel.model.label}</span>
                     <i className="ri-eye-line text-green-500 text-[10px]"></i>
                   </span>
-                ) : <span>{selectedModel.name}</span>
+                ) : <span>{selectedModel.model.label}</span>
               })()) : ("Select Model")}
           </span>
           <ChevronsUpDown className="flex opacity-50 w-4 h-4" />
@@ -56,47 +71,61 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         <Command className='rounded-xl bg-transparent dark:bg-gray-900'>
           <CommandInput placeholder="Search model" className="h-auto" />
           <CommandList>
-            {(models.findIndex(fm => fm.enable === true) != -1) && <CommandEmpty>Oops...NotFound</CommandEmpty>}
-            {providers.map((p) => p.models.length > 0 && p.models.findIndex(m => m.enable) !== -1 && (
-              <CommandGroup
-                key={p.name}
-                value={p.name}
-                className='scroll-smooth [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
-                heading={
-                  <div className="flex items-center gap-2 px-2 py-1.5 dark:bg-gray-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-gray-800">
-                    <img
-                      src={getProviderIcon(p.name)}
-                      alt={p.name}
-                      className="w-4 h-4 object-contain dark:invert dark:brightness-90 opacity-70"
-                    />
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-tight">
-                      {p.name}
-                    </span>
-                  </div>
-                }
-              >
+            <CommandEmpty>No model found.</CommandEmpty>
+            {groupedOptions.map((group) => {
+              if (group.models.length === 0) {
+                return null
+              }
+              const displayName = group.definition?.displayName || group.account.label
+              const showAccountLabel = group.definition && group.account.label !== displayName
+              return (
+                <CommandGroup
+                  key={group.account.id}
+                  value={group.account.label}
+                  className='scroll-smooth [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
+                  heading={
+                    <div className="flex items-center gap-2 px-2 py-1.5 dark:bg-gray-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-gray-800">
+                      <img
+                        src={getProviderIcon(group.definition?.iconKey || group.definition?.id || group.account.providerId)}
+                        alt={displayName}
+                        className="w-4 h-4 object-contain dark:invert dark:brightness-90 opacity-70"
+                      />
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-tight">
+                        {displayName}
+                        {showAccountLabel && (
+                          <span className="text-[10px] text-gray-400 ml-1">
+                            {group.account.label}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  }
+                >
                 <div className="pt-1">
                   {
-                    p.models.map((m) => m.enable && (
+                    group.models.map((m) => m.enabled !== false && (
                       <CommandItem
-                        key={m.provider + '/' + m.value}
-                        value={m.provider + '/' + m.value}
+                        key={`${group.account.id}/${m.id}`}
+                        value={`${group.account.id}/${m.id}`}
                         className="aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/20 aria-selected:text-blue-700 dark:aria-selected:text-blue-300 pl-4 py-2"
                         onSelect={(_) => {
-                          onModelSelect(m, p.name)
+                          onModelSelect({ accountId: group.account.id, modelId: m.id })
                         }}
                       >
-                        <span className="truncate">{m.name}</span>
+                        <span className="truncate">{m.label}</span>
                         {m.type === 'vlm' && <i className="ri-eye-line text-green-500 ml-2 text-xs"></i>}
-                        {(selectedModel && selectedModel.value === m.value && selectedModel.provider === p.name) &&
+                        {(selectedModel
+                          && selectedModel.model.id === m.id
+                          && selectedModel.account.id === group.account.id) &&
                           <Check className={cn("ml-auto w-4 h-4 text-blue-500")} />
                         }
                       </CommandItem>
                     ))
                   }
                 </div>
-              </CommandGroup>
-            ))}
+                </CommandGroup>
+              )
+            })}
           </CommandList>
         </Command>
       </PopoverContent>

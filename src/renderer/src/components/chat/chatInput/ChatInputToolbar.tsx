@@ -3,14 +3,13 @@ import React from 'react'
 import ConfigPanel from './toolbar/ConfigPanel'
 import McpSelector from './toolbar/McpSelector'
 import ModelSelector from './toolbar/ModelSelector'
+import type { ModelOption } from '@renderer/store/appConfig'
 
 interface ChatInputToolbarProps {
   // Model selector props
-  selectedModel: IModel | undefined
-  models: IModel[]
-  providers: IProvider[]
-  setSelectedModel: (model: IModel) => void
-  setCurrentProviderName: (name: string) => void
+  selectedModel: ModelOption | undefined
+  modelOptions: ModelOption[]
+  setSelectedModelRef: (ref: ModelRef) => void
 
   // MCP selector props
   selectedMcpServerNames: string[]
@@ -29,10 +28,8 @@ interface ChatInputToolbarProps {
 
 const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   selectedModel,
-  models,
-  providers,
-  setSelectedModel,
-  setCurrentProviderName,
+  modelOptions,
+  setSelectedModelRef,
   selectedMcpServerNames,
   mcpServerConfig,
   toggleMcpConnection,
@@ -60,9 +57,8 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
     "focus-visible:ring-0 focus-visible:ring-offset-0"
   )
 
-  const handleModelSelect = (model: IModel, providerName: string) => {
-    setSelectedModel(model)
-    setCurrentProviderName(providerName)
+  const handleModelSelect = (ref: ModelRef) => {
+    setSelectedModelRef(ref)
     setSelectModelPopoutState(false)
   }
 
@@ -80,8 +76,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
       <div id="modelSelector" className="app-undragable bg-transparent">
         <ModelSelector
           selectedModel={selectedModel}
-          models={models}
-          providers={providers}
+          modelOptions={modelOptions}
           isOpen={selectModelPopoutState}
           onOpenChange={setSelectModelPopoutState}
           onModelSelect={handleModelSelect}

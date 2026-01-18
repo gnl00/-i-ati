@@ -24,25 +24,27 @@ export class DefaultFinalizeService implements FinalizeService {
     const snapshot = context.meta.snapshot
 
     const appConfig = useAppConfigStore.getState()
-    const { titleGenerateEnabled, titleGenerateModel, providers } = appConfig
+    const { titleGenerateEnabled, titleGenerateModel } = appConfig
 
     if (!chatEntity.title || chatEntity.title === 'NewChat') {
       let title = context.input.textCtx.substring(0, 30)
       if (titleGenerateEnabled) {
         try {
-          const model = titleGenerateModel || snapshot.model
-          const titleProvider = providers?.findLast(p => p.name === model.provider)
-          if (titleProvider) {
-            const response = await invokeChatTitleGenerate({
-              submissionId: meta.submissionId,
-              chatId: metaWithChat.chatId,
-              chatUuid: metaWithChat.chatUuid,
-              content: context.input.textCtx,
-              model,
-              provider: titleProvider
-            })
-            title = response.title || title
-          }
+          const resolved = titleGenerateModel ? appConfig.resolveModelRef(titleGenerateModel) : undefined
+          const titleModel = resolved?.model ?? snapshot.model
+          const titleAccount = resolved?.account ?? snapshot.account
+          const titleProviderDefinition = resolved?.definition ?? snapshot.providerDefinition
+
+          const response = await invokeChatTitleGenerate({
+            submissionId: meta.submissionId,
+            chatId: metaWithChat.chatId,
+            chatUuid: metaWithChat.chatUuid,
+            content: context.input.textCtx,
+            model: titleModel,
+            account: titleAccount,
+            providerDefinition: titleProviderDefinition
+          })
+          title = response.title || title
         } catch (error) {
           console.error('[Finalize] Failed to generate title:', error)
         }
@@ -53,7 +55,7 @@ export class DefaultFinalizeService implements FinalizeService {
     await this.messageService.updateAssistantMessagesFromSegments(context, publisher, metaWithChat)
     await this.messageService.persistToolMessages(context, publisher, metaWithChat)
 
-    chatEntity.model = context.meta.model.value
+    chatEntity.model = context.meta.model.id
     chatEntity.updateTime = Date.now()
     await updateChat(chatEntity)
 
@@ -73,7 +75,8 @@ export class DefaultFinalizeService implements FinalizeService {
         chatUuid: chatEntity.uuid,
         messages: context.session.messageEntities,
         model: snapshot.model,
-        provider: snapshot.provider,
+        account: snapshot.account,
+        providerDefinition: snapshot.providerDefinition,
         config: compressionConfig
       }).catch(error => {
         console.error('[Compression] Failed to compress messages:', error)

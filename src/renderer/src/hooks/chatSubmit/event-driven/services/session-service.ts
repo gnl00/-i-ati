@@ -5,8 +5,9 @@ import type { ChatSubmitEventMeta } from '../events'
 
 export type SessionPrepareInput = {
   input: ChatInputState
-  model: IModel
-  providers: IProvider[]
+  modelRef: ModelRef
+  accounts: ProviderAccount[]
+  providerDefinitions: ProviderDefinition[]
   chatId?: number
   chatUuid?: string
   controller?: AbortController
