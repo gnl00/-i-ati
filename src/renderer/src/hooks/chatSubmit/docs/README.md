@@ -36,3 +36,6 @@ submission.started
 
 ## Event Trace
 Key lifecycle events are persisted (excluding `stream.chunk`) for debugging.
+
+## Main-driven Mode
+Main-process streaming is always enabled. The renderer consumes `chat-submit:event` and only updates UI.

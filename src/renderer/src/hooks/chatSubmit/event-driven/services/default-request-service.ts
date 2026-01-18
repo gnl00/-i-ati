@@ -1,4 +1,4 @@
-import { embeddedToolsRegistry } from '@tools/index'
+import { embeddedToolsRegistry } from '@tools/registry'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { getActiveCompressedSummariesByChatId } from '@renderer/db/CompressedSummaryRepository'
 import { RequestMessageBuilder } from '@renderer/services/RequestMessageBuilder'

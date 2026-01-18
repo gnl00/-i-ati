@@ -49,7 +49,7 @@ Key lifecycle events (excluding `stream.chunk`) are persisted to the database vi
 - `ChatContext` (chatId, chatUuid, title, list)
 - `ChatStore` (messages, fetch/stream flags, request controller)
 
-Feature flag: `useEventDriven` in `src/renderer/src/hooks/chatSubmit/index.tsx`.
+Request/stream/tool execution runs in the main process and emits `chat-submit:event` to the renderer. The renderer only renders and applies deltas.
 
 ## Key Files
 - Event bus + types:

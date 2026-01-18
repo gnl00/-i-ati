@@ -1,5 +1,7 @@
 # Streaming Parser 层架构
 
+> Note: Renderer no longer runs streaming orchestration or tool execution. Those live in main; renderer keeps parsers/segment utilities for UI deltas.
+
 ## 概述
 
 Parser 层是流式响应解析的核心组件，负责从 LLM 返回的流式数据中提取和分类信息。它是渐进式重构的第一步，将原本混杂在 `handleStreamingChunk` 中的解析逻辑分离到独立的、可测试的模块中。

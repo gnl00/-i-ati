@@ -231,7 +231,7 @@ private validateMessages(messages: ChatMessage[]): void {
 
 ### 步骤 4: Adapter 转换
 
-**OpenAI Adapter** (`src/request/adapters/openai.ts`)
+**OpenAI Adapter** (`src/main/request/adapters/openai.ts`)
 
 ```typescript
 transformRequest(req: IUnifiedRequest): any {
@@ -250,7 +250,7 @@ transformRequest(req: IUnifiedRequest): any {
 }
 ```
 
-**Claude Adapter** (`src/request/adapters/claude.ts`)
+**Claude Adapter** (`src/main/request/adapters/claude.ts`)
 
 Claude Messages API 需要特殊处理：系统提示词必须放在单独的 `system` 字段中。
 
@@ -283,9 +283,9 @@ transformRequest(req: IUnifiedRequest): any {
 | `src/renderer/src/hooks/chatSubmit/prepare.ts` | 消息准备 |
 | `src/renderer/src/hooks/chatSubmit/request.ts` | 获取压缩摘要，调用 RequestMessageBuilder |
 | `src/renderer/src/services/RequestMessageBuilder.ts` | **核心**：统一的消息构建器 |
-| `src/renderer/src/services/compressionService.ts` | 压缩策略分析、摘要生成 |
-| `src/request/adapters/openai.ts` | OpenAI adapter 转换 |
-| `src/request/adapters/claude.ts` | Claude adapter 转换（特殊处理 system 字段） |
+| `src/main/services/compressionService.ts` | 压缩策略分析、摘要生成（主线程执行） |
+| `src/main/request/adapters/openai.ts` | OpenAI adapter 转换 |
+| `src/main/request/adapters/claude.ts` | Claude adapter 转换（特殊处理 system 字段） |
 
 ---
 

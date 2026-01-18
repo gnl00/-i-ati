@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
-import { invokeDirectoryTree, invokeReadTextFile } from '@tools/fileOperations/renderer/FileOperationsInvoker'
+import { invokeDirectoryTree, invokeReadTextFile } from '@renderer-tools/fileOperations/renderer/FileOperationsInvoker'
 import type { TreeNode } from '@tools/fileOperations/index.d'
 import { type FileTreeNode } from './WorkspaceFileTree'
 

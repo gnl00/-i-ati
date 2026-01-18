@@ -81,8 +81,13 @@ export class ChatSubmissionService {
       return context
     } catch (error: any) {
       if (this.isAbortError(error)) {
-        await this.emitAbortOnce('cancelled')
+        if (!error?.__fromMain) {
+          await this.emitAbortOnce('cancelled')
+        }
       } else {
+        if (error?.__fromMain) {
+          throw error
+        }
         const metaWithChat: ChatSubmitEventMeta = context?.session?.chatEntity
           ? {
               submissionId,

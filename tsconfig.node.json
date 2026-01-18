@@ -8,7 +8,8 @@
     "src/mcp/**/*",
     "src/constants/**/*",
     "src/renderer/src/config/**/*",
-    "src/tools/**/*"
+    "src/shared/**/*",
+    "src/main/tools/**/*"
   ],
   "compilerOptions": {
     "composite": true,
@@ -20,11 +21,17 @@
       "@main/*": [
         "src/main/*"
       ],
+      "@main-tools/*": [
+        "src/main/tools/*"
+      ],
+      "@request/*": [
+        "src/main/request/*"
+      ],
       "@mcp/*": [
         "src/mcp/*"
       ],
       "@tools/*": [
-        "src/tools/*"
+        "src/shared/tools/*"
       ],
       "@constants/*": [
         "src/constants/*"

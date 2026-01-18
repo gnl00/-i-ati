@@ -7,7 +7,7 @@ import '@speed-highlight/core/themes/atom-dark.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
-import { initializeEmbeddedTools } from '@tools/index'
+import { initializeEmbeddedTools } from '@renderer-tools'
 import { initializeAppConfig, useAppConfigStore } from './store/appConfig'
 
 // 初始化配置 (从 SQLite 加载)

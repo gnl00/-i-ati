@@ -19,4 +19,3 @@ export const defaultConfig: IAppConfig = {
     version: configVersion,
   }
 }
-

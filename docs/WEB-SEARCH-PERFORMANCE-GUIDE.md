@@ -122,7 +122,7 @@
 #### 症状
 
 ```typescript
-// src/tools/webSearch/webSearchInvoker.ts
+// src/renderer/src/tools/webTools/renderer/WebToolsInvoker.ts
 const searchResponse = await window.electron?.ipcRenderer.invoke(
   WEB_SEARCH_ACTION,
   {
@@ -359,7 +359,7 @@ const saveConfig = (configData: AppConfigType): void => {
 #### 文件结构
 
 ```
-src/tools/webSearch/
+src/main/tools/webTools/
 ├── BrowserWindowPool.ts       # 窗口池核心实现
 ├── webSearchProcessor.ts      # 搜索处理器（使用窗口池）
 ├── webSearchInvoker.ts        # IPC 调用层
@@ -368,7 +368,7 @@ src/tools/webSearch/
 
 #### 核心类设计
 
-**文件：** `src/tools/webSearch/BrowserWindowPool.ts`
+**文件：** `src/main/tools/webTools/main/BrowserWindowPool.ts`
 
 ```typescript
 interface PooledWindow {
@@ -482,7 +482,7 @@ app.on('window-all-closed', () => {
 
 ### 2. 搜索处理器改造
 
-**文件：** `src/tools/webSearch/webSearchProcessor.ts`
+**文件：** `src/main/tools/webTools/main/WebToolsProcessor.ts`
 
 #### Before（每次创建新窗口）
 
@@ -690,7 +690,7 @@ const saveConfig = (configData: AppConfigType): void => {
 
 #### 调整窗口池大小
 
-**文件：** `src/tools/webSearch/BrowserWindowPool.ts`
+**文件：** `src/main/tools/webTools/main/BrowserWindowPool.ts`
 
 ```typescript
 export function getWindowPool(): BrowserWindowPool {
@@ -1325,9 +1325,9 @@ async function summarizeResults(results: WebSearchResultV2[]): Promise<string> {
 
 | 文件路径 | 功能描述 | 代码行数 |
 |---------|---------|---------|
-| `src/tools/webSearch/BrowserWindowPool.ts` | 窗口池核心实现 | ~250 |
-| `src/tools/webSearch/webSearchProcessor.ts` | 搜索处理器 | ~250 |
-| `src/tools/webSearch/webSearchInvoker.ts` | IPC 调用层 | ~30 |
+| `src/main/tools/webTools/main/BrowserWindowPool.ts` | 窗口池核心实现 | ~250 |
+| `src/main/tools/webTools/main/WebToolsProcessor.ts` | 搜索处理器 | ~250 |
+| `src/renderer/src/tools/webTools/renderer/WebToolsInvoker.ts` | IPC 调用层 | ~30 |
 | `src/main/main-ipc.ts` | IPC 处理器 | ~60 |
 | `src/main/app-config.ts` | 配置管理 | ~70 |
 | `src/config/index.ts` | 默认配置 | ~15 |
@@ -1344,7 +1344,7 @@ async function summarizeResults(results: WebSearchResultV2[]): Promise<string> {
 | 文件路径 | 功能描述 |
 |---------|---------|
 | `src/types/index.d.ts` | 全局类型定义 |
-| `src/tools/webSearch/index.d.ts` | WebSearch 类型定义 |
+| `src/shared/tools/webTools/index.d.ts` | WebSearch 类型定义 |
 
 ### 测试环境
 

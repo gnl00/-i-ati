@@ -1,18 +1,11 @@
-import { generateTitlePrompt } from '@renderer/constant/prompts'
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { compressionService } from '@renderer/services/compressionService'
-import { unifiedChatRequest } from '@request/index'
+import { invokeChatCompressionExecute, invokeChatTitleGenerate } from '@renderer/invoker/ipcInvoker'
 import type { SubmissionContext } from '../context'
 import type { EventPublisher } from '../event-publisher'
 import type { ChatSubmitEventMeta } from '../events'
 import type { FinalizeService } from './finalize-service'
 import type { MessageService } from './message-service'
-
-const providerTypeMap: Record<string, ProviderType> = {
-  'Anthropic': 'claude',
-  'Claude': 'claude'
-}
 
 export class DefaultFinalizeService implements FinalizeService {
   constructor(private readonly messageService: MessageService) {}
@@ -36,12 +29,16 @@ export class DefaultFinalizeService implements FinalizeService {
       let title = context.input.textCtx.substring(0, 30)
       if (titleGenerateEnabled) {
         try {
-          title = await this.generateTitle(
-            context.input.textCtx,
-            titleGenerateModel,
-            context.meta.model,
-            providers
-          )
+          const model = titleGenerateModel || context.meta.model
+          const titleProvider = providers?.findLast(p => p.name === model.provider)
+          if (titleProvider) {
+            const response = await invokeChatTitleGenerate({
+              content: context.input.textCtx,
+              model,
+              provider: titleProvider
+            })
+            title = response.title || title
+          }
         } catch (error) {
           console.error('[Finalize] Failed to generate title:', error)
         }
@@ -66,45 +63,17 @@ export class DefaultFinalizeService implements FinalizeService {
 
     const compressionConfig = appConfig.compression
     if (compressionConfig?.enabled && compressionConfig?.autoCompress) {
-      compressionService.compress(
-        chatEntity.id!,
-        chatEntity.uuid,
-        context.session.messageEntities,
-        context.meta.model,
-        context.meta.provider
-      ).catch(error => {
+      invokeChatCompressionExecute({
+        chatId: chatEntity.id!,
+        chatUuid: chatEntity.uuid,
+        messages: context.session.messageEntities,
+        model: context.meta.model,
+        provider: context.meta.provider,
+        config: compressionConfig
+      }).catch(error => {
         console.error('[Compression] Failed to compress messages:', error)
       })
     }
   }
 
-  private async generateTitle(
-    content: string,
-    titleGenerateModel: IModel | undefined,
-    selectedModel: IModel,
-    providers: IProvider[]
-  ): Promise<string> {
-    const model = titleGenerateModel || selectedModel
-    const titleProvider = providers.findLast(p => p.name === model.provider)!
-    const providerType = providerTypeMap[titleProvider.name] || 'openai'
-
-    const titleReq: IUnifiedRequest = {
-      providerType,
-      apiVersion: 'v1',
-      baseUrl: titleProvider.apiUrl,
-      apiKey: titleProvider.apiKey,
-      model: model.value,
-      prompt: generateTitlePrompt,
-      messages: [{ role: 'user', content, segments: [] }],
-      stream: false,
-      options: {
-        temperature: 0.7,
-        maxTokens: 100,
-        topP: 0.7
-      }
-    }
-
-    const response = await unifiedChatRequest(titleReq, null, () => { }, () => { })
-    return response.content
-  }
 }

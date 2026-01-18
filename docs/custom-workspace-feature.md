@@ -188,7 +188,7 @@ ipcMain.handle(FILE_SET_WORKSPACE_BASE_DIR, (_event, args) => {
 
 #### 3.4 Main Process - FileOperationsProcessor.ts
 
-**文件路径：** `src/tools/fileOperations/main/FileOperationsProcessor.ts`
+**文件路径：** `src/main/tools/fileOperations/main/FileOperationsProcessor.ts`
 
 **修改功能：**
 - `setWorkspaceBaseDir()`: 支持自定义路径参数
@@ -323,8 +323,8 @@ updateChatList() → 再次同步 workspace
 2. `src/renderer/src/components/chat/chatInput/ChatInputActions.tsx` - UI 组件
 3. `src/renderer/src/context/ChatContext.tsx` - Context 管理
 4. `src/main/main-ipc.ts` - IPC 处理
-5. `src/tools/fileOperations/main/FileOperationsProcessor.ts` - 文件操作
-6. `src/tools/fileOperations/renderer/FileOperationsInvoker.ts` - IPC 调用
+5. `src/main/tools/fileOperations/main/FileOperationsProcessor.ts` - 文件操作
+6. `src/renderer/src/tools/fileOperations/renderer/FileOperationsInvoker.ts` - IPC 调用
 7. `src/renderer/src/hooks/chatSubmit/prepare.ts` - 消息准备
 8. `src/renderer/src/hooks/chatSubmit/finalize.ts` - 消息完成
 
