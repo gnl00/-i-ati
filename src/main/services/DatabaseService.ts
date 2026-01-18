@@ -64,6 +64,7 @@ interface CompressedSummaryRow {
   status: string
 }
 
+
 /**
  * SQLite 数据库服务
  */
@@ -101,6 +102,9 @@ class DatabaseService {
     getActiveCompressedSummariesByChatId?: Database.Statement
     updateCompressedSummaryStatus?: Database.Statement
     deleteCompressedSummary?: Database.Statement
+
+    // ChatSubmitEventTrace statements
+    insertChatSubmitEvent?: Database.Statement
   } = {}
 
   private constructor() {
@@ -223,6 +227,22 @@ class DatabaseService {
       )
     `)
 
+    // 创建 chat_submit_events 表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_submit_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        submission_id TEXT NOT NULL,
+        chat_id INTEGER,
+        chat_uuid TEXT,
+        sequence INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        payload TEXT,
+        meta TEXT,
+        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+      )
+    `)
+
     console.log('[DatabaseService] Tables created')
   }
 
@@ -241,6 +261,10 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_uuid ON compressed_summaries(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_status_chat ON compressed_summaries(status, chat_id);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_message_range ON compressed_summaries(chat_id, start_message_id, end_message_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_submission ON chat_submit_events(submission_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_chat_id ON chat_submit_events(chat_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_chat_uuid ON chat_submit_events(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_timestamp ON chat_submit_events(timestamp);
     `)
 
     console.log('[DatabaseService] Indexes created')
@@ -364,6 +388,13 @@ class DatabaseService {
       DELETE FROM compressed_summaries WHERE id = ?
     `)
 
+    // ChatSubmitEventTrace statements
+    this.stmts.insertChatSubmitEvent = this.db.prepare(`
+      INSERT INTO chat_submit_events (
+        submission_id, chat_id, chat_uuid, sequence, type, timestamp, payload, meta
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
     console.log('[DatabaseService] Statements prepared')
   }
 
@@ -406,6 +437,7 @@ class DatabaseService {
       tokens: row.tokens ?? undefined,
     }
   }
+
 
   // ==================== Chat 操作 ====================
 
@@ -817,6 +849,32 @@ class DatabaseService {
       this.db = null
       this.isInitialized = false
       console.log('[DatabaseService] Database closed')
+    }
+  }
+
+  // ==================== ChatSubmitEventTrace Methods ====================
+
+  /**
+   * 保存 chat submit 事件轨迹
+   */
+  public saveChatSubmitEvent(data: ChatSubmitEventTrace): number {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const result = this.stmts.insertChatSubmitEvent!.run(
+        data.submissionId,
+        data.chatId ?? null,
+        data.chatUuid ?? null,
+        data.sequence,
+        data.type,
+        data.timestamp,
+        data.payload ? JSON.stringify(data.payload) : null,
+        data.meta ? JSON.stringify(data.meta) : null
+      )
+      return result.lastInsertRowid as number
+    } catch (error) {
+      console.error('[DatabaseService] Failed to save chat submit event:', error)
+      throw error
     }
   }
 

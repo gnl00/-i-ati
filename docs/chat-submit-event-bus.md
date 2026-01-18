@@ -41,6 +41,9 @@ submission.started
 - Tool calls are flushed to assistant messages before tool execution results are emitted.
 - Tool result messages are attached before persistence notifications are emitted.
 
+## Event Trace Recording
+Key lifecycle events (excluding `stream.chunk`) are persisted to the database via `ChatSubmitEventTraceRecorder`. This enables post-mortem debugging without high-volume chunk logging.
+
 ## UI Hook-up
 `useChatSubmitV2` subscribes to events and updates:
 - `ChatContext` (chatId, chatUuid, title, list)

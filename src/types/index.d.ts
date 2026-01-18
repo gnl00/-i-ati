@@ -165,6 +165,18 @@ declare interface MessageEntity {
   tokens?: number
 }
 
+declare interface ChatSubmitEventTrace {
+  id?: number
+  submissionId: string
+  chatId?: number
+  chatUuid?: string
+  sequence: number
+  type: string
+  timestamp: number
+  payload?: any
+  meta?: any
+}
+
 declare interface BaseChatMessage {
   role: string
   content: string | VLMContent[]
