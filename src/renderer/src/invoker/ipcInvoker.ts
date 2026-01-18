@@ -28,7 +28,8 @@ import {
   DB_MESSAGE_DELETE,
   DB_CONFIG_GET,
   DB_CONFIG_SAVE,
-  DB_CONFIG_INIT
+  DB_CONFIG_INIT,
+  DB_CHAT_SUBMIT_EVENT_SAVE
 } from '@constants/index'
 
 /**
@@ -254,6 +255,16 @@ export async function invokeDbConfigSave(config: IAppConfig): Promise<void> {
 export async function invokeDbConfigInit(): Promise<IAppConfig> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CONFIG_INIT)
+}
+
+// ============ Database Operations - Chat Submit Event Trace ============
+
+/**
+ * 保存 chat submit 事件轨迹
+ */
+export async function invokeDbChatSubmitEventSave(data: ChatSubmitEventTrace): Promise<number> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_SUBMIT_EVENT_SAVE, data)
 }
 
 // ============ CompressedSummary Operations ============

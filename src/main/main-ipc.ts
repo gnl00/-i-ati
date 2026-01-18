@@ -90,7 +90,8 @@ import {
   DB_MESSAGE_DELETE,
   DB_CONFIG_GET,
   DB_CONFIG_SAVE,
-  DB_CONFIG_INIT
+  DB_CONFIG_INIT,
+  DB_CHAT_SUBMIT_EVENT_SAVE
 } from '../constants'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
 
@@ -389,6 +390,13 @@ function mainIPCSetup() {
   ipcMain.handle(DB_CONFIG_INIT, async (_event) => {
     console.log(`[Database IPC] Init config`)
     return DatabaseService.initConfig()
+  })
+
+  // ==================== Database Operations - Chat Submit Event Trace ====================
+
+  ipcMain.handle(DB_CHAT_SUBMIT_EVENT_SAVE, async (_event, data: ChatSubmitEventTrace) => {
+    console.log('[Database IPC] Save chat submit event')
+    return DatabaseService.saveChatSubmitEvent(data)
   })
 
   // CompressedSummary handlers

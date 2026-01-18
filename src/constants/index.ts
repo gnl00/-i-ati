@@ -80,5 +80,8 @@ export const DB_CONFIG_GET = 'db:config:get'
 export const DB_CONFIG_SAVE = 'db:config:save'
 export const DB_CONFIG_INIT = 'db:config:init'
 
+// Database Operations - Chat Submit Event Trace
+export const DB_CHAT_SUBMIT_EVENT_SAVE = 'db:chat-submit-event:save'
+
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'

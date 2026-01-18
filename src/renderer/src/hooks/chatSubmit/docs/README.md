@@ -33,3 +33,6 @@ submission.started
 
 ## Further Reading
 - `docs/chat-submit-event-bus.md`
+
+## Event Trace
+Key lifecycle events are persisted (excluding `stream.chunk`) for debugging.

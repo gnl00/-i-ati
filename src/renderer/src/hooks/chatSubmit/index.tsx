@@ -5,6 +5,7 @@ import { useRef } from 'react'
 import {
   ChatSubmissionService,
   ChatSubmitEventBus,
+  ChatSubmitEventTraceRecorder,
   DefaultFinalizeService,
   DefaultMessageService,
   DefaultRequestService,
@@ -29,7 +30,7 @@ function useChatSubmitV2() {
     chatContext.setLastMsgStatus(false)
   }
 
-  const bindEventHandlers = (bus: ChatSubmitEventBus) => {
+  const bindEventHandlers = (bus: ChatSubmitEventBus, recorder: ChatSubmitEventTraceRecorder) => {
     const handledOnce = new Set<string>()
     const markOnce = (type: string, submissionId?: string) => {
       const key = submissionId ? `${type}:${submissionId}` : type
@@ -128,6 +129,7 @@ function useChatSubmitV2() {
 
     return () => {
       unsubscribers.forEach(unsub => unsub())
+      recorder.close()
       bus.close()
     }
   }
@@ -142,7 +144,9 @@ function useChatSubmitV2() {
     }
 
     const bus = new ChatSubmitEventBus()
-    const cleanup = bindEventHandlers(bus)
+    const recorder = new ChatSubmitEventTraceRecorder()
+    const cleanup = bindEventHandlers(bus, recorder)
+    recorder.bind(bus)
     activeBusRef.current = bus
 
     const messageService = new DefaultMessageService()
