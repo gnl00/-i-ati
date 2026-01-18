@@ -470,8 +470,9 @@ function mainIPCSetup() {
     chatId?: number
     chatUuid?: string
     content: string
-    model: IModel
-    provider: IProvider
+    model: AccountModel
+    account: ProviderAccount
+    providerDefinition: ProviderDefinition
   }) => {
     console.log('[Title IPC] Generate title')
     const emitter = data.submissionId
@@ -488,7 +489,12 @@ function mainIPCSetup() {
     })
 
     try {
-      const title = await generateTitle(data.content, data.model, data.provider)
+      const title = await generateTitle(
+        data.content,
+        data.model,
+        data.account,
+        data.providerDefinition
+      )
       emitter?.emit('title.generate.completed', { title })
       return { title }
     } catch (error) {

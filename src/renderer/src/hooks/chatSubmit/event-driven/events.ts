@@ -36,7 +36,7 @@ type SerializedError = {
 }
 
 export type ChatSubmitEventPayloads = {
-  'submission.started': { model: IModel }
+  'submission.started': { modelRef: ModelRef }
   'submission.aborted': { reason?: string }
   'submission.failed': { error: Error }
   'submission.completed': { assistantMessageId: number }
@@ -63,7 +63,7 @@ export type ChatSubmitEventPayloads = {
   'tool.result.attached': { toolCallId: string; message: MessageEntity }
   'tool.result.persisted': { toolCallId: string; message: MessageEntity }
   'chat.updated': { chatEntity: ChatEntity }
-  'title.generate.started': { model: IModel; contentLength: number }
+  'title.generate.started': { model: AccountModel; contentLength: number }
   'title.generate.completed': { title: string }
   'title.generate.failed': { error: SerializedError }
   'compression.started': { messageCount: number }

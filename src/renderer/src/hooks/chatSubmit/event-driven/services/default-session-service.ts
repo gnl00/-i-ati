@@ -9,7 +9,7 @@ import type { ChatSubmitEventMeta } from '../events'
 import type { SessionPrepareInput, SessionService } from './session-service'
 
 const buildUserMessage = (
-  model: IModel,
+  model: AccountModel,
   textCtx: string,
   mediaCtx: ClipbordImg[] | string[]
 ): ChatMessage => {
@@ -44,8 +44,23 @@ export class DefaultSessionService implements SessionService {
     publisher: EventPublisher,
     meta: ChatSubmitEventMeta
   ): Promise<SubmissionContext> {
-    const { input: chatInput, model, providers } = input
+    const { input: chatInput, modelRef, accounts, providerDefinitions } = input
     let { chatId, chatUuid } = input
+
+    const account = accounts.find(item => item.id === modelRef.accountId)
+    if (!account) {
+      throw new Error('Account not found')
+    }
+
+    const model = account.models.find(item => item.id === modelRef.modelId)
+    if (!model) {
+      throw new Error('Model not found')
+    }
+
+    const providerDefinition = providerDefinitions.find(def => def.id === account.providerId)
+    if (!providerDefinition) {
+      throw new Error('Provider definition not found')
+    }
 
     let chatEntity: ChatEntity
     let workspacePath = ''
@@ -64,7 +79,7 @@ export class DefaultSessionService implements SessionService {
         uuid: currChatUuid,
         title: 'NewChat',
         messages: [],
-        model: model.value,
+        model: model.id,
         workspacePath,
         createTime: Date.now(),
         updateTime: Date.now()
@@ -104,14 +119,12 @@ export class DefaultSessionService implements SessionService {
 
     const controller = input.controller || new AbortController()
 
-    const provider = providers.findLast(p => p.name === model.provider)
-    if (!provider) {
-      throw new Error('Provider not found')
-    }
-
     const snapshot: RequestSnapshot = {
-      provider,
-      model
+      providerDefinition,
+      account,
+      model,
+      providerType: providerDefinition.adapterType,
+      apiVersion: providerDefinition.apiVersion
     }
 
     const context: SubmissionContext = {
@@ -130,7 +143,8 @@ export class DefaultSessionService implements SessionService {
       },
       meta: {
         model,
-        provider,
+        account,
+        providerDefinition,
         snapshot
       },
       systemPrompts

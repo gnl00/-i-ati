@@ -91,7 +91,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
 const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
     const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
-    const { providers } = useAppConfigStore()
+    const { accounts, providerDefinitions } = useAppConfigStore()
     const { chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList } = useChatContext()
 
     /**
@@ -157,6 +157,18 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
         { from: 'from-[#FFFFFF]', via: 'via-[#6284FF]', to: 'to-[#FF0000]' },
         { from: 'from-[#00DBDE]', via: 'via-[#6284FF]', to: 'to-[#FC00FF]' },
     ], [])
+    const modelGroups = useMemo(() => {
+        const groups = new Map<string, { account: ProviderAccount; definition?: ProviderDefinition; models: AccountModel[] }>()
+        accounts.forEach(account => {
+            const definition = providerDefinitions.find(def => def.id === account.providerId)
+            const enabledModels = account.models.filter(model => model.enabled !== false)
+            if (enabledModels.length === 0) {
+                return
+            }
+            groups.set(account.id, { account, definition, models: enabledModels })
+        })
+        return Array.from(groups.values())
+    }, [accounts, providerDefinitions])
     const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
     const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
     const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
@@ -448,20 +460,23 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                 <CommandList className='overflow-scroll'>
                                                                     <CommandEmpty>No model found.</CommandEmpty>
                                                                     {
-                                                                        providers.map(p => {
-                                                                            return p.models.length != 0 && p.models.findIndex(m => m.enable) !== -1 && (
-                                                                                <CommandGroup key={p.name}>
-                                                                                    <p className='text-sm text-gray-400 select-none'>{p.name}</p>
-                                                                                    {
-                                                                                        p.models.map(m => m.enable && (
-                                                                                            <CommandItem key={m.value.concat('/').concat(m.provider)} value={m.value.concat('/').concat(m.provider)}>
-                                                                                                {m.name}
-                                                                                            </CommandItem>
-                                                                                        ))
-                                                                                    }
-                                                                                </CommandGroup>
-                                                                            )
-                                                                        })
+                                                                        modelGroups.map(group => (
+                                                                            <CommandGroup key={group.account.id}>
+                                                                                <p className='text-sm text-gray-400 select-none'>
+                                                                                    {group.definition?.displayName || group.account.label}
+                                                                                </p>
+                                                                                {
+                                                                                    group.models.map(model => (
+                                                                                        <CommandItem
+                                                                                            key={`${group.account.id}/${model.id}`}
+                                                                                            value={`${group.account.id}/${model.id}`}
+                                                                                        >
+                                                                                            {model.label}
+                                                                                        </CommandItem>
+                                                                                    ))
+                                                                                }
+                                                                            </CommandGroup>
+                                                                        ))
                                                                     }
                                                                 </CommandList>
                                                             </Command>

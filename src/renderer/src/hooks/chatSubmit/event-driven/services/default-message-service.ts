@@ -49,7 +49,7 @@ export class DefaultMessageService implements MessageService {
     const assistantMessage: MessageEntity = {
       body: {
         role: 'assistant',
-        model: context.meta.model.name,
+        model: context.meta.model.label,
         content: '',
         segments: [],
         typewriterCompleted: false

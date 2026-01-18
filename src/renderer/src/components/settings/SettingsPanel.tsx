@@ -10,7 +10,7 @@ import { Plug, Server, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
 import { MCPServersManagerContent } from './MCPServersManager'
-import ProvidersManager from './ProvidersManager'
+import ProvidersManager from './ProvidersManagerNext'
 import ToolsManager from './ToolsManager'
 
 interface PreferenceProps { }
@@ -21,7 +21,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const {
         appConfig,
         setAppConfig,
-        providers,
+        accounts,
+        providerDefinitions,
         titleGenerateModel,
         titleGenerateEnabled,
         memoryEnabled,
@@ -59,7 +60,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const saveConfigurationClick = (): void => {
         const updatedAppConfig = {
             ...appConfig,
-            providers: providers,
+            accounts: accounts,
+            providerDefinitions: providerDefinitions,
             tools: {
                 ...appConfig.tools,
                 titleGenerateModel: titleGenerateModel,

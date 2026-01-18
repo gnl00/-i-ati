@@ -32,7 +32,10 @@ export const PROVIDER_ICON_MAP: Record<string, string> = {
  * @param provider - The provider name (case-insensitive)
  * @returns The icon source URL, or the default robot icon if not found
  */
-export const getProviderIcon = (provider: string): string => {
+export const getProviderIcon = (provider?: string): string => {
+  if (!provider) {
+    return robotIcon
+  }
   return PROVIDER_ICON_MAP[provider.toLowerCase()] ?? robotIcon
 }
 

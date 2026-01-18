@@ -15,8 +15,9 @@ export type CompressionJob = {
   chatId: number
   chatUuid: string
   messages: MessageEntity[]
-  model: IModel
-  provider: IProvider
+  model: AccountModel
+  account: ProviderAccount
+  providerDefinition: ProviderDefinition
   config?: CompressionConfig
 }
 
@@ -122,8 +123,9 @@ class MessageCompressionService {
    */
   async generateSummary(
     messages: MessageEntity[],
-    model: IModel,
-    provider: IProvider,
+    model: AccountModel,
+    account: ProviderAccount,
+    providerDefinition: ProviderDefinition,
     previousSummary?: string
   ): Promise<string> {
     // 1. 构建对话文本
@@ -176,11 +178,13 @@ ${conversationText}
 
     // 3. 构建请求
     const request: IUnifiedRequest = {
-      baseUrl: provider.apiUrl,
+      providerType: providerDefinition.adapterType,
+      apiVersion: providerDefinition.apiVersion,
+      baseUrl: account.apiUrl,
       messages: [{ role: 'user', content: userContent, segments: [] }],
-      apiKey: provider.apiKey,
+      apiKey: account.apiKey,
       prompt: '',
-      model: model.value,
+      model: model.id,
       modelType: model.type,
       tools: [],
       stream: false
@@ -198,7 +202,7 @@ ${conversationText}
    * 执行压缩
    */
   async compress(job: CompressionJob): Promise<CompressionResult> {
-    const { chatId, chatUuid, messages, model, provider, config } = job
+    const { chatId, chatUuid, messages, model, account, providerDefinition, config } = job
     if (!config || !config.enabled) {
       return { success: false, error: 'Compression disabled' }
     }
@@ -241,7 +245,8 @@ ${conversationText}
       const summary = await this.generateSummary(
         messagesToCompress,
         model,
-        provider,
+        account,
+        providerDefinition,
         latestSummary?.summary
       )
       // console.log(`[Compression] Summary: ${summary}`)
@@ -271,7 +276,7 @@ ${conversationText}
         summaryTokenCount,
         compressionRatio,
         compressedAt: Date.now(),
-        compressionModel: model.value,
+        compressionModel: model.id,
         compressionVersion: 1,
         status: 'active'
       }

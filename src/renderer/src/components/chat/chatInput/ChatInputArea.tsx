@@ -1,6 +1,5 @@
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
 import { Textarea } from '@renderer/components/ui/textarea'
-import { useChatContext } from '@renderer/context/ChatContext'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
 import { useSlashCommands } from '@renderer/hooks/useSlashCommands'
 import { useMcpConnection } from '@renderer/hooks/useMcpConnection'
@@ -24,8 +23,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onMessagesUpdate,
   suggestedPrompt,
 }, ref) => {
-  const { setChatContent } = useChatContext()
-
   // Use Zustand selectors to avoid unnecessary re-renders
   // Only subscribe to specific state slices instead of the entire store
   const imageSrcBase64List = useChatStore(state => state.imageSrcBase64List)
@@ -36,21 +33,39 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
-  const selectedModel = useChatStore(state => state.selectedModel)
-  const setSelectedModel = useChatStore(state => state.setSelectedModel)
+  const selectedModelRef = useChatStore(state => state.selectedModelRef)
+  const setSelectedModelRef = useChatStore(state => state.setSelectedModelRef)
   const getAllMcpTools = useChatStore(state => state.getAllMcpTools)
 
   const {
-    providers,
-    models,
-    setCurrentProviderName,
+    accounts,
+    providerDefinitions,
+    resolveModelRef,
     mcpServerConfig,
   } = useAppConfigStore()
+
+  const modelOptions = useMemo(() => {
+    return accounts.flatMap(account =>
+      account.models
+        .filter(model => model.enabled !== false)
+        .map(model => ({
+          account,
+          model,
+          definition: providerDefinitions.find(def => def.id === account.providerId)
+        }))
+    )
+  }, [accounts, providerDefinitions])
+
+  const selectedModel = useMemo(() => {
+    return resolveModelRef(selectedModelRef)
+  }, [resolveModelRef, selectedModelRef, accounts, providerDefinitions])
+
   useEffect(() => {
-    if (models && models.length === 1) {
-      setSelectedModel(models[0])
+    if (!selectedModelRef && modelOptions.length === 1) {
+      const onlyOption = modelOptions[0]
+      setSelectedModelRef({ accountId: onlyOption.account.id, modelId: onlyOption.model.id })
     }
-  }, [models])
+  }, [modelOptions, selectedModelRef, setSelectedModelRef])
 
   // Use MCP connection hook
   const {
@@ -121,7 +136,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     if (!inputContent) {
       return
     }
-    if (!selectedModel) {
+    if (!selectedModelRef) {
       toast.warning('Please select a model')
       return
     }
@@ -154,7 +169,17 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         caretOverlayRef.current?.updateCaret()
       }
     })
-  }, [inputContent, imageSrcBase64List, setChatContent, handleChatSubmit])
+  }, [
+    inputContent,
+    imageSrcBase64List,
+    selectedModelRef,
+    currentSystemPrompt,
+    getAllMcpTools,
+    webSearchEnable,
+    onMessagesUpdate,
+    setImageSrcBase64List,
+    handleChatSubmitCallback
+  ])
 
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
@@ -189,13 +214,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         toast.error('Input text content is required')
         return
       }
-      if (!selectedModel) {
+      if (!selectedModelRef) {
         toast.error('Please select a model')
         return
       }
       onSubmitClick(e)
     }
-  }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModel])
+  }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef])
 
   const onTextAreaPaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
@@ -237,10 +262,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         >
           <ChatInputToolbar
             selectedModel={selectedModel}
-            models={models}
-            providers={providers}
-            setSelectedModel={setSelectedModel}
-            setCurrentProviderName={setCurrentProviderName}
+            modelOptions={modelOptions}
+            setSelectedModelRef={setSelectedModelRef}
             selectedMcpServerNames={selectedMcpServerNames}
             mcpServerConfig={mcpServerConfig}
             toggleMcpConnection={toggleMcpConnection}

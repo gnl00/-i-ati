@@ -5,7 +5,7 @@ import { create } from 'zustand'
 export type ChatState = {
   appVersion: string
   // Chat data
-  selectedModel: IModel | undefined
+  selectedModelRef: ModelRef | undefined
   messages: MessageEntity[]
   imageSrcBase64List: ClipbordImg[]
   currentChatId: number | null
@@ -30,7 +30,7 @@ export type ChatState = {
 
 export type ChatAction = {
   // UI 状态更新
-  setSelectedModel: (mode: IModel) => void
+  setSelectedModelRef: (ref: ModelRef) => void
   setFetchState: (state: boolean) => void
   setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
   setReadStreamState: (state: boolean) => void
@@ -72,7 +72,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   appVersion: __APP_VERSION__,
 
   // Chat state
-  selectedModel: undefined,
+  selectedModelRef: undefined,
   messages: [],
   imageSrcBase64List: [],
   currentChatId: null,
@@ -100,7 +100,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
 
   // ============ UI 状态更新方法 ============
 
-  setSelectedModel: (mode) => set({ selectedModel: mode }),
+  setSelectedModelRef: (ref) => set({ selectedModelRef: ref }),
   setFetchState: (state) => set({ fetchState: state }),
   setCurrentReqCtrl: (ctrl) => set({ currentReqCtrl: ctrl }),
   setReadStreamState: (state) => set({ readStreamState: state }),
@@ -275,7 +275,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       const fallbackMessage: MessageEntity = {
         body: {
           role: 'assistant',
-          model: state.selectedModel?.name || 'unknown',
+        model: state.selectedModelRef?.modelId || 'unknown',
           content: '',
           segments: [errorSegment],
           typewriterCompleted: true

@@ -5,19 +5,21 @@ import { defaultConfig } from '../config'
 let configInitialized = false
 let configInitPromise: Promise<void> | null = null
 
+export type ModelOption = {
+  account: ProviderAccount
+  model: AccountModel
+  definition?: ProviderDefinition
+}
+
 type AppConfigState = {
   appConfig: IAppConfig
-  // Provider management
-  providers: IProvider[]
-  currentProviderName: string | undefined
-  models: IModel[]
-  provider: IProvider | undefined
-  // Tool settings
-  titleGenerateModel: IModel | undefined
+  providerDefinitions: ProviderDefinition[]
+  accounts: ProviderAccount[]
+  currentAccountId: string | undefined
+  titleGenerateModel: ModelRef | undefined
   titleGenerateEnabled: boolean
   memoryEnabled: boolean
   mcpServerConfig: { mcpServers?: {} }
-  // Compression settings
   compression: CompressionConfig | undefined
 }
 
@@ -25,19 +27,27 @@ type AppConfigAction = {
   _setAppConfig: (config: IAppConfig) => void
   setAppConfig: (config: IAppConfig) => Promise<void>
   getAppConfig: () => IAppConfig
-  // Provider actions
-  setProviders: (providers: IProvider[]) => void
-  setCurrentProviderName: (providerName: string) => void
-  getProviderByName: (providerName: string) => IProvider | undefined
-  updateProvider: (providerName: string, updates: Partial<IProvider>) => void
-  addProvider: (provider: IProvider) => void
-  removeProvider: (providerName: string) => void
-  updateModel: (providerName: string, modelValue: string, updates: Partial<IModel>) => void
-  addModel: (providerName: string, model: IModel) => void
-  removeModel: (providerName: string, modelValue: string) => void
-  toggleModelEnable: (providerName: string, modelValue: string) => void
-  // Tool setting actions
-  setTitleGenerateModel: (titleModel: IModel) => void
+
+  setProviderDefinitions: (definitions: ProviderDefinition[]) => void
+  setAccounts: (accounts: ProviderAccount[]) => void
+  setCurrentAccountId: (accountId: string | undefined) => void
+
+  getProviderDefinitionById: (providerId: string) => ProviderDefinition | undefined
+  getAccountById: (accountId: string) => ProviderAccount | undefined
+  getAccountModel: (accountId: string, modelId: string) => AccountModel | undefined
+  resolveModelRef: (ref?: ModelRef) => ModelOption | undefined
+  getModelOptions: () => ModelOption[]
+
+  addAccount: (account: ProviderAccount) => void
+  updateAccount: (accountId: string, updates: Partial<ProviderAccount>) => void
+  removeAccount: (accountId: string) => void
+
+  addModel: (accountId: string, model: AccountModel) => void
+  updateModel: (accountId: string, modelId: string, updates: Partial<AccountModel>) => void
+  removeModel: (accountId: string, modelId: string) => void
+  toggleModelEnabled: (accountId: string, modelId: string) => void
+
+  setTitleGenerateModel: (modelRef: ModelRef | undefined) => void
   setTitleGenerateEnabled: (state: boolean) => void
   setMemoryEnabled: (state: boolean) => void
   setMcpServerConfig: (config: any) => void
@@ -46,10 +56,9 @@ type AppConfigAction = {
 export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, get) => ({
   // State - Config
   appConfig: defaultConfig,
-
-  // State - Providers
-  providers: defaultConfig.providers || [],
-  currentProviderName: '',
+  providerDefinitions: defaultConfig.providerDefinitions || [],
+  accounts: defaultConfig.accounts || [],
+  currentAccountId: undefined,
 
   // State - Tool settings
   titleGenerateModel: defaultConfig.tools?.titleGenerateModel || undefined,
@@ -60,23 +69,12 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   // State - Compression settings
   compression: defaultConfig.compression,
 
-  // Computed - Models (derived from providers)
-  get models() {
-    return get().providers.flatMap(p => p.models.filter(m => m.enable !== false))
-  },
-
-  // Computed - Current provider
-  get provider() {
-    const { providers, currentProviderName } = get()
-    return providers.find(p => p.name === currentProviderName)
-  },
-
   // Internal setter (used by initializeAppConfig)
   _setAppConfig: (config: IAppConfig) => {
-    // console.log('[appConfig] _setAppConfig called, providers count:', config.providers?.length || 0)
     set({
       appConfig: config,
-      providers: config.providers || [],
+      providerDefinitions: config.providerDefinitions || [],
+      accounts: config.accounts || [],
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
@@ -91,7 +89,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     await saveConfig(updatedConfig)
     set({
       appConfig: updatedConfig,
-      providers: updatedConfig.providers || [],
+      providerDefinitions: updatedConfig.providerDefinitions || [],
+      accounts: updatedConfig.accounts || [],
       titleGenerateModel: updatedConfig.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: updatedConfig.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: updatedConfig.tools?.memoryEnabled ?? true,
@@ -103,119 +102,126 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   // Getter
   getAppConfig: () => get().appConfig,
 
-  // Provider actions
-  setProviders: (providers: IProvider[]) => set({ providers }),
+  setProviderDefinitions: (definitions) => set({ providerDefinitions: definitions }),
+  setAccounts: (accounts) => set({ accounts }),
+  setCurrentAccountId: (accountId) => set({ currentAccountId: accountId }),
 
-  setCurrentProviderName: (providerName: string) => set((state) => ({
-    currentProviderName: providerName,
-    provider: state.providers.find(p => p.name === providerName)
-  })),
-
-  getProviderByName: (providerName: string) => {
-    const { providers } = get()
-    return providers.find(p => p.name === providerName)
+  getProviderDefinitionById: (providerId) => {
+    return get().providerDefinitions.find(def => def.id === providerId)
   },
 
-  updateProvider: (providerName: string, updates: Partial<IProvider>) => set((state) => ({
-    providers: state.providers.map(p => {
-      if (p.name === providerName) {
-        const nextP = { ...p, ...updates }
-        nextP.models = nextP.models.map(m => {
-          m.provider = nextP.name
-          return m
-        })
-        return nextP
-      } else {
-        return p
-      }
-    })
+  getAccountById: (accountId) => {
+    return get().accounts.find(account => account.id === accountId)
+  },
+
+  getAccountModel: (accountId, modelId) => {
+    const account = get().accounts.find(item => item.id === accountId)
+    return account?.models.find(model => model.id === modelId)
+  },
+
+  resolveModelRef: (ref) => {
+    if (!ref) return undefined
+    const account = get().accounts.find(item => item.id === ref.accountId)
+    if (!account) return undefined
+    const model = account.models.find(item => item.id === ref.modelId)
+    if (!model) return undefined
+    const definition = get().providerDefinitions.find(def => def.id === account.providerId)
+    return { account, model, definition }
+  },
+
+  getModelOptions: () => {
+    const { accounts, providerDefinitions } = get()
+    return accounts.flatMap(account =>
+      account.models
+        .filter(model => model.enabled !== false)
+        .map(model => ({
+          account,
+          model,
+          definition: providerDefinitions.find(def => def.id === account.providerId)
+        }))
+    )
+  },
+
+  addAccount: (account) => set((state) => ({
+    accounts: [account, ...state.accounts],
+    currentAccountId: account.id
   })),
 
-  addProvider: (provider: IProvider) => set((state) => ({
-    providers: [provider, ...state.providers],
-    currentProviderName: provider.name
+  updateAccount: (accountId, updates) => set((state) => ({
+    accounts: state.accounts.map(account =>
+      account.id === accountId ? { ...account, ...updates } : account
+    )
   })),
 
-  removeProvider: (providerName: string) => set((state) => {
-    const newProviders = state.providers.filter(p => p.name !== providerName)
-    const shouldClearTitleModel = state.titleGenerateModel &&
-      state.titleGenerateModel.provider === providerName;
+  removeAccount: (accountId) => set((state) => {
+    const nextAccounts = state.accounts.filter(account => account.id !== accountId)
+    const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
 
     return {
-      providers: newProviders,
-      currentProviderName: state.currentProviderName === providerName
-        ? (newProviders[0]?.name || undefined)
-        : state.currentProviderName,
+      accounts: nextAccounts,
+      currentAccountId: state.currentAccountId === accountId ? undefined : state.currentAccountId,
       titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
     }
   }),
 
-  updateModel: (providerName: string, modelValue: string, updates: Partial<IModel>) => set((state) => ({
-    providers: state.providers.map(p =>
-      p.name === providerName
-        ? {
-          ...p,
-          models: p.models.map(m =>
-            m.value === modelValue ? { ...m, ...updates } : m
-          )
-        }
-        : p
+  addModel: (accountId, model) => set((state) => ({
+    accounts: state.accounts.map(account =>
+      account.id === accountId
+        ? { ...account, models: [...account.models, model] }
+        : account
     )
   })),
 
-  addModel: (providerName: string, model: IModel) => set((state) => ({
-    providers: state.providers.map(p =>
-      p.name === providerName
-        ? { ...p, models: [...p.models, { ...model, provider: providerName }] }
-        : p
-    ),
-    models: [...state.models, model]
+  updateModel: (accountId, modelId, updates) => set((state) => ({
+    accounts: state.accounts.map(account =>
+      account.id === accountId
+        ? {
+          ...account,
+          models: account.models.map(model =>
+            model.id === modelId ? { ...model, ...updates } : model
+          )
+        }
+        : account
+    )
   })),
 
-  removeModel: (providerName: string, modelValue: string) => set((state) => {
-    const shouldClearTitleModel = state.titleGenerateModel &&
-      state.titleGenerateModel.provider === providerName &&
-      state.titleGenerateModel.value === modelValue;
+  removeModel: (accountId, modelId) => set((state) => {
+    const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
+      && state.titleGenerateModel?.modelId === modelId
 
     return {
-      providers: state.providers.map(p =>
-        p.name === providerName
-          ? { ...p, models: p.models.filter(m => m.value !== modelValue) }
-          : p
+      accounts: state.accounts.map(account =>
+        account.id === accountId
+          ? { ...account, models: account.models.filter(model => model.id !== modelId) }
+          : account
       ),
       titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
-    };
+    }
   }),
 
-  toggleModelEnable: (providerName: string, modelValue: string) => set((state) => {
-    const targetModel = state.providers
-      .find(p => p.name === providerName)
-      ?.models.find(m => m.value === modelValue);
-
-    const shouldClearTitleModel = state.titleGenerateModel &&
-      state.titleGenerateModel.provider === providerName &&
-      state.titleGenerateModel.value === modelValue &&
-      targetModel?.enable === true;
+  toggleModelEnabled: (accountId, modelId) => set((state) => {
+    const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
+      && state.titleGenerateModel?.modelId === modelId
 
     return {
-      providers: state.providers.map(p =>
-        p.name === providerName
+      accounts: state.accounts.map(account =>
+        account.id === accountId
           ? {
-            ...p,
-            models: p.models.map(m =>
-              m.value === modelValue ? { ...m, enable: !m.enable } : m
+            ...account,
+            models: account.models.map(model =>
+              model.id === modelId ? { ...model, enabled: model.enabled === false } : model
             )
           }
-          : p
+          : account
       ),
       titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel
-    };
+    }
   }),
 
   // Tool setting actions
-  setTitleGenerateModel: (tmodel: IModel) => set({ titleGenerateModel: tmodel }),
-  setTitleGenerateEnabled: (state: boolean) => set({ titleGenerateEnabled: state }),
-  setMemoryEnabled: (state: boolean) => set({ memoryEnabled: state }),
+  setTitleGenerateModel: (modelRef) => set({ titleGenerateModel: modelRef }),
+  setTitleGenerateEnabled: (state) => set({ titleGenerateEnabled: state }),
+  setMemoryEnabled: (state) => set({ memoryEnabled: state }),
   setMcpServerConfig: (config: any) => set({ mcpServerConfig: config })
 }))
 
@@ -228,7 +234,7 @@ export const initializeAppConfig = async (): Promise<void> => {
     try {
       const { initConfig } = await import('../db/ConfigRepository')
       const loadedConfig = await initConfig()
-      console.log('[appConfig] Config loaded from SQLite, providers count:', loadedConfig.providers?.length || 0)
+      console.log('[appConfig] Config loaded from SQLite, account count:', loadedConfig.accounts?.length || 0)
       useAppConfigStore.getState()._setAppConfig(loadedConfig)
       configInitialized = true
       console.log('[@i] App config initialized from SQLite')
@@ -241,7 +247,7 @@ export const initializeAppConfig = async (): Promise<void> => {
   return configInitPromise
 }
 
-// 导出类型，供其他文件使用
+// Export type
 class Wrapper {
   f() {
     return useAppConfigStore();

@@ -1,8 +1,9 @@
 // embedded config for app
 // configForUpdate only work on configVersion > previous version
-const configVersion = 1.9
+const configVersion = 2.0
 export const defaultConfig: IAppConfig = {
-  providers: [],
+  providerDefinitions: [],
+  accounts: [],
   version: configVersion,
   tools: {
     maxWebSearchItems: 3,

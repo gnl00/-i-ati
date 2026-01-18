@@ -167,8 +167,9 @@ function useChatSubmitV2() {
           tools: options.tools,
           prompt: options.prompt
         },
-        model: chatStore.selectedModel!,
-        providers: appConfig.providers,
+        modelRef: chatStore.selectedModelRef!,
+        accounts: appConfig.accounts,
+        providerDefinitions: appConfig.providerDefinitions,
         chatId: chatContext.chatId,
         chatUuid: chatContext.chatUuid
       }, bus)

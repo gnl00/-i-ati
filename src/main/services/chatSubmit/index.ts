@@ -160,10 +160,9 @@ export class MainChatSubmitService {
       request,
       meta: {
         model: {
-          name: request.model,
-          value: request.model,
-          provider: request.providerType || 'unknown',
-          type: request.modelType || 'llm'
+          id: request.model,
+          label: request.model,
+          type: (request.modelType as ModelType) || 'llm'
         }
       },
       streaming: {

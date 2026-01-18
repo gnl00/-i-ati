@@ -38,16 +38,17 @@ interface ApiModelsResponse {
 
 // 缓存数据结构
 interface CachedModels {
-    models: IModel[]
+    models: AccountModel[]
     timestamp: number
-    providerName: string
+    accountId: string
 }
 
 interface FetchModelsDrawerProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    currentProvider: IProvider | undefined
-    addModel: (providerName: string, model: IModel) => void
+    currentAccount: ProviderAccount | undefined
+    providerDefinition?: ProviderDefinition
+    addModel: (accountId: string, model: AccountModel) => void
 }
 
 const CACHE_TTL = 60 * 1000 // 1 分钟缓存过期时间
@@ -55,11 +56,12 @@ const CACHE_TTL = 60 * 1000 // 1 分钟缓存过期时间
 const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     open,
     onOpenChange,
-    currentProvider,
+    currentAccount,
+    providerDefinition,
     addModel
 }) => {
     const [isFetching, setIsFetching] = useState<boolean>(false)
-    const [fetchedModels, setFetchedModels] = useState<IModel[]>([])
+    const [fetchedModels, setFetchedModels] = useState<AccountModel[]>([])
     const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(new Set())
     const [searchQuery, setSearchQuery] = useState<string>('')
 
@@ -85,21 +87,19 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
         return 'llm'
     }
 
-    const transformApiModelsToIModels = (
-        response: ApiModelsResponse,
-        providerName: string
-    ): IModel[] => {
+    const transformApiModelsToAccountModels = (
+        response: ApiModelsResponse
+    ): AccountModel[] => {
         return response.data.map(apiModel => ({
-            enable: true,
-            provider: providerName,
-            name: apiModel.id,
-            value: apiModel.id,
-            type: inferModelType(apiModel.id)
+            id: apiModel.id,
+            label: apiModel.id,
+            type: inferModelType(apiModel.id),
+            enabled: true
         }))
     }
 
-    const fetchModelsFromProvider = async (provider: IProvider): Promise<IModel[]> => {
-        let baseUrl = provider.apiUrl.replace(/\/$/, '')
+    const fetchModelsFromProvider = async (account: ProviderAccount): Promise<AccountModel[]> => {
+        let baseUrl = account.apiUrl.replace(/\/$/, '')
         let endpoint = ''
 
         // Heuristic: If baseUrl ends with /v1, just append /models
@@ -113,7 +113,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
         const response = await fetch(endpoint, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${provider.apiKey}`,
+                'Authorization': `Bearer ${account.apiKey}`,
                 'Content-Type': 'application/json',
             },
             signal: AbortSignal.timeout(30000),
@@ -125,19 +125,19 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
         }
 
         const data: ApiModelsResponse = await response.json()
-        return transformApiModelsToIModels(data, provider.name)
+        return transformApiModelsToAccountModels(data)
     }
 
     // 事件处理函数
-    const getFilteredModels = (): IModel[] => {
+    const getFilteredModels = (): AccountModel[] => {
         if (!searchQuery.trim()) {
             return fetchedModels
         }
 
         const query = searchQuery.toLowerCase()
         return fetchedModels.filter(model =>
-            model.name.toLowerCase().includes(query) ||
-            model.value.toLowerCase().includes(query)
+            model.label.toLowerCase().includes(query) ||
+            model.id.toLowerCase().includes(query)
         )
     }
 
@@ -152,10 +152,10 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     }
 
     const handleSelectAll = () => {
-        const filteredIds = getFilteredModels().map(m => m.value)
-        const currentProviderIds = new Set(currentProvider?.models.map(m => m.value) || [])
+        const filteredIds = getFilteredModels().map(m => m.id)
+        const currentAccountIds = new Set(currentAccount?.models.map(m => m.id) || [])
         // Only select ones that aren't already added
-        const selectableIds = filteredIds.filter(id => !currentProviderIds.has(id))
+        const selectableIds = filteredIds.filter(id => !currentAccountIds.has(id))
 
         setSelectedModelIds(new Set(selectableIds))
     }
@@ -165,18 +165,18 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     }
 
     const handleImportSelected = () => {
-        if (!currentProvider || selectedModelIds.size === 0) {
+        if (!currentAccount || selectedModelIds.size === 0) {
             return
         }
 
-        const existingIds = new Set(currentProvider.models.map(m => m.value))
+        const existingIds = new Set(currentAccount.models.map(m => m.id))
         const modelsToAdd = fetchedModels.filter(m =>
-            selectedModelIds.has(m.value) && !existingIds.has(m.value)
+            selectedModelIds.has(m.id) && !existingIds.has(m.id)
         )
         const skippedCount = selectedModelIds.size - modelsToAdd.length
 
         modelsToAdd.forEach(model => {
-            addModel(currentProvider.name, model)
+            addModel(currentAccount.id, model)
         })
 
         onOpenChange(false)
@@ -190,19 +190,19 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     }
 
     const handleFetch = async () => {
-        if (!currentProvider) {
-            toast.error('Please select a provider first')
+        if (!currentAccount) {
+            toast.error('Please select an account first')
             return
         }
 
-        if (!currentProvider.apiKey) {
+        if (!currentAccount.apiKey) {
             toast.error('API Key is required to fetch models')
             return
         }
 
         setIsFetching(true)
         try {
-            const models = await fetchModelsFromProvider(currentProvider)
+            const models = await fetchModelsFromProvider(currentAccount)
 
             if (models.length === 0) {
                 toast.warning('No models found for this provider')
@@ -215,10 +215,10 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
             // 更新缓存
             setModelsCache(prev => {
                 const newCache = new Map(prev)
-                newCache.set(currentProvider.name, {
+                newCache.set(currentAccount.id, {
                     models,
                     timestamp: Date.now(),
-                    providerName: currentProvider.name
+                    accountId: currentAccount.id
                 })
                 return newCache
             })
@@ -240,8 +240,8 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     }
 
     // 检查缓存是否有效
-    const isCacheValid = (providerName: string): boolean => {
-        const cached = modelsCache.get(providerName)
+    const isCacheValid = (accountId: string): boolean => {
+        const cached = modelsCache.get(accountId)
         if (!cached) return false
 
         const now = Date.now()
@@ -250,10 +250,10 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
 
     // 当 Drawer 打开时，检查缓存或重新获取
     React.useEffect(() => {
-        if (open && currentProvider?.apiKey) {
-            const cached = modelsCache.get(currentProvider.name)
+        if (open && currentAccount?.apiKey) {
+            const cached = modelsCache.get(currentAccount.id)
 
-            if (cached && isCacheValid(currentProvider.name)) {
+            if (cached && isCacheValid(currentAccount.id)) {
                 // 使用缓存数据
                 setFetchedModels(cached.models)
                 setSelectedModelIds(new Set())
@@ -263,7 +263,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 handleFetch()
             }
         }
-    }, [open, currentProvider?.name])
+    }, [open, currentAccount?.id, currentAccount?.apiKey])
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
@@ -272,9 +272,11 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                     <div className="space-y-1.5">
                         <DrawerTitle className="flex items-center gap-2 text-xl">
                             Import Models
-                            {currentProvider && (
+                            {currentAccount && (
                                 <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
-                                    {currentProvider.name}
+                                    {providerDefinition
+                                        ? `${providerDefinition.displayName} · ${currentAccount.label}`
+                                        : currentAccount.label}
                                 </Badge>
                             )}
                         </DrawerTitle>
@@ -369,10 +371,10 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                     <TableHead className="w-[50px] pl-6">
                                         <input
                                             type="checkbox"
-                                            checked={selectedModelIds.size > 0 && selectedModelIds.size === getFilteredModels().filter(m => !currentProvider?.models.some(em => em.value === m.value)).length}
+                                            checked={selectedModelIds.size > 0 && selectedModelIds.size === getFilteredModels().filter(m => !currentAccount?.models.some(em => em.id === m.id)).length}
                                             onChange={(e) => e.target.checked ? handleSelectAll() : handleDeselectAll()}
                                             className="translate-y-0.5 w-4 h-4 rounded border-primary text-primary focus:ring-offset-0 focus:ring-1 focus:ring-primary/50 cursor-pointer disabled:opacity-50"
-                                            disabled={getFilteredModels().every(m => currentProvider?.models.some(em => em.value === m.value))}
+                                            disabled={getFilteredModels().every(m => currentAccount?.models.some(em => em.id === m.id))}
                                         />
                                     </TableHead>
                                     <TableHead className="w-[40%]">Model ID</TableHead>
@@ -382,8 +384,8 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             </TableHeader>
                             <TableBody>
                                 {getFilteredModels().map((model, idx) => {
-                                    const isSelected = selectedModelIds.has(model.value)
-                                    const isExisting = currentProvider?.models.some(m => m.value === model.value)
+                                    const isSelected = selectedModelIds.has(model.id)
+                                    const isExisting = currentAccount?.models.some(m => m.id === model.id)
 
                                     return (
                                         <TableRow
@@ -393,7 +395,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                                 isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/50",
                                                 isExisting && "bg-muted/30 opacity-70 hover:bg-muted/30 cursor-default"
                                             )}
-                                            onClick={() => !isExisting && handleModelToggle(model.value)}
+                                            onClick={() => !isExisting && handleModelToggle(model.id)}
                                         >
                                             <TableCell className="pl-6">
                                                 {isExisting ? (
@@ -402,14 +404,14 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                                     <input
                                                         type="checkbox"
                                                         checked={isSelected}
-                                                        onChange={() => handleModelToggle(model.value)}
+                                                        onChange={() => handleModelToggle(model.id)}
                                                         className="translate-y-0.5 w-4 h-4 rounded border-gray-300 text-primary focus:ring-offset-0 focus:ring-1 focus:ring-primary/50 cursor-pointer"
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
                                                 )}
                                             </TableCell>
                                             <TableCell className="font-mono text-sm font-medium">
-                                                {model.value}
+                                                {model.id}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge

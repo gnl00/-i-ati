@@ -13,8 +13,9 @@ import type {
 
 export type ChatSubmissionInput = {
   input: ChatInputState
-  model: IModel
-  providers: IProvider[]
+  modelRef: ModelRef
+  accounts: ProviderAccount[]
+  providerDefinitions: ProviderDefinition[]
   chatId?: number
   chatUuid?: string
 }
@@ -48,15 +49,16 @@ export class ChatSubmissionService {
     this.activePublisher = publisher
     this.ended = false
 
-    await publisher.emit('submission.started', { model: payload.model }, meta)
+    await publisher.emit('submission.started', { modelRef: payload.modelRef }, meta)
 
     let context: SubmissionContext | null = null
 
     try {
       context = await this.deps.sessionService.prepare({
         input: payload.input,
-        model: payload.model,
-        providers: payload.providers,
+        modelRef: payload.modelRef,
+        accounts: payload.accounts,
+        providerDefinitions: payload.providerDefinitions,
         chatId: payload.chatId,
         chatUuid: payload.chatUuid,
         controller
