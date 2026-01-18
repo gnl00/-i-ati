@@ -40,14 +40,9 @@ import officialProviderDefinitions from '../../../../data/providers.json'
 
 interface ProvidersManagerNextProps { }
 
-const normalizeProviderId = (name: string): string => {
-    return name.trim().toLowerCase().replace(/\s+/g, '-')
-}
-
 const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     const {
         providerDefinitions,
-        setProviderDefinitions,
         accounts,
         currentAccountId,
         setCurrentAccountId,
@@ -75,7 +70,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     const [nextAddModelValue, setNextAddModelValue] = useState<string>('')
     const [nextAddModelType, setNextAddModelType] = useState<string>('')
 
-    const [newProviderName, setNewProviderName] = useState<string>('')
+    const [newProviderId, setNewProviderId] = useState<string>('')
     const [newAccountLabel, setNewAccountLabel] = useState<string>('')
     const [newProviderApi, setNewProviderApi] = useState<string>('')
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>('')
@@ -90,6 +85,12 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
             setSelectedProviderId(visibleProviderDefinitions[0].id)
         }
     }, [visibleProviderDefinitions, selectedProviderId])
+
+    useEffect(() => {
+        if (selectedProviderId) {
+            setNewProviderId(selectedProviderId)
+        }
+    }, [selectedProviderId])
 
     useEffect(() => {
         if (!selectedProviderId) {
@@ -144,39 +145,19 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     }
 
     const onAddProviderBtnClick = (e: React.MouseEvent) => {
-        if (!newProviderName.trim() || !newProviderApi || !newProviderApiKey) {
-            alert(`Please input providerName/baseUrl/Key(Token)`)
+        if (!newProviderId || !newProviderApi || !newProviderApiKey) {
+            alert(`Please select provider/baseUrl/Key(Token)`)
             e.preventDefault()
             return
         }
 
-        const nameTrim = newProviderName.trim()
-        const nameLower = nameTrim.toLowerCase()
-        const normalizedId = normalizeProviderId(nameTrim) || `custom-${uuidv4()}`
-
-        const existingDefinition = visibleProviderDefinitions.find(def =>
-            def.id.toLowerCase() === nameLower || def.displayName.toLowerCase() === nameLower
-        )
-
-        const providerId = existingDefinition?.id || normalizedId
-        const providerDisplayName = existingDefinition?.displayName || nameTrim
-
-        if (!existingDefinition) {
-            const newDefinition: ProviderDefinition = {
-                id: providerId,
-                displayName: providerDisplayName,
-                adapterType: 'openai',
-                apiVersion: 'v1',
-                iconKey: normalizedId
-            }
-            setProviderDefinitions([...visibleProviderDefinitions, newDefinition])
-        }
-
+        const definition = visibleProviderDefinitions.find(def => def.id === newProviderId)
+        const providerDisplayName = definition?.displayName || newProviderId
         const label = newAccountLabel.trim() || `${providerDisplayName} Account`
 
         const newAccount: ProviderAccount = {
             id: uuidv4(),
-            providerId: providerId,
+            providerId: newProviderId,
             label,
             apiUrl: newProviderApi,
             apiKey: newProviderApiKey,
@@ -184,7 +165,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
         }
         addAccount(newAccount)
         setCurrentAccountId(newAccount.id)
-        setSelectedProviderId(providerId)
+        setSelectedProviderId(newProviderId)
 
         toast.success(`Added ${label}`)
     }
@@ -196,7 +177,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
 
     const onProviderCardClick = (definition: ProviderDefinition) => {
         setSelectedProviderId(definition.id)
-        setNewProviderName(definition.displayName)
+        setNewProviderId(definition.id)
     }
 
     const onModelEnableStatusChange = (_checked: boolean, model: AccountModel) => {
@@ -267,25 +248,40 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                             </DrawerTrigger>
                             <DrawerContent>
                                 <DrawerHeader>
-                                    <DrawerTitle>Add New Account</DrawerTitle>
+                                    <DrawerTitle>Add New Provider Account</DrawerTitle>
                                 </DrawerHeader>
                                 <div id='add-new-provider-drawer' className="px-4 pb-4 app-undragable">
                                     <div className="flex flex-col gap-4">
                                         <div className="flex flex-col items-start gap-2">
-                                            <Label htmlFor="name" className="text-sm font-medium">Provider Name</Label>
-                                            <Input
-                                                id="name"
-                                                placeholder="OpenAI"
-                                                className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
-                                                value={newProviderName}
-                                                onChange={e => { setNewProviderName(e.target.value) }}
-                                            />
+                                            <Label htmlFor="name" className="text-sm font-medium">Provider Type</Label>
+                                            <Select value={newProviderId} onValueChange={setNewProviderId}>
+                                                <SelectTrigger id="name" className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10">
+                                                    <SelectValue placeholder="Select provider" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectGroup>
+                                                    {visibleProviderDefinitions.map(def => (
+                                                        <SelectItem key={def.id} value={def.id}>
+                                                            <div className="flex items-center gap-2">
+                                                                <img
+                                                                    draggable={false}
+                                                                    src={getProviderIcon(def.iconKey || def.id)}
+                                                                    alt={def.displayName}
+                                                                    className="w-4 h-4 flex-none"
+                                                                />
+                                                                <span>{def.displayName}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectGroup>
+                                            </SelectContent>
+                                            </Select>
                                         </div>
                                         <div className="flex flex-col items-start gap-2">
-                                            <Label htmlFor="account-label" className="text-sm font-medium">Account Label</Label>
+                                            <Label htmlFor="account-label" className="text-sm font-medium">Provider Label</Label>
                                             <Input
                                                 id="account-label"
-                                                placeholder="Personal / Work"
+                                                placeholder="Custom Label"
                                                 className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
                                                 value={newAccountLabel}
                                                 onChange={e => { setNewAccountLabel(e.target.value) }}
@@ -341,10 +337,10 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                 </div>
                                 <DrawerFooter className="flex-row gap-2 px-4 pb-4">
                                     <DrawerClose asChild>
-                                        <Button variant="outline" className="flex-1">Cancel</Button>
+                                        <Button variant="outline" className="flex-1 rounded-xl">Cancel</Button>
                                     </DrawerClose>
                                     <DrawerTrigger asChild>
-                                        <Button onClick={onAddProviderBtnClick} className="flex-1">Save</Button>
+                                        <Button onClick={onAddProviderBtnClick} className="flex-1 rounded-xl">Save</Button>
                                     </DrawerTrigger>
                                 </DrawerFooter>
                             </DrawerContent>
@@ -539,21 +535,21 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                 <div className='flex-1 overflow-y-auto scroll-smooth [&>div]:!overflow-visible'>
                                     <TooltipProvider>
                                         <Table id="provider-models-table" className='relative'>
-                                            <TableHeader className='sticky top-0 z-10 bg-gray-50 dark:bg-gray-900/50 backdrop-blur-sm'>
-                                                <TableRow className='border-b border-gray-200 dark:border-gray-700'>
-                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Name</TableHead>
-                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Model ID</TableHead>
-                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Type</TableHead>
-                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Status</TableHead>
-                                                    <TableHead className='px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Action</TableHead>
+                                            <TableHeader className='sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700'>
+                                                <TableRow className='border-none hover:bg-transparent'>
+                                                    <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Name</TableHead>
+                                                    <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Model ID</TableHead>
+                                                    <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Type</TableHead>
+                                                    <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Status</TableHead>
+                                                    <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Action</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {/* Add New Model Row */}
-                                                <TableRow className='border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30'>
+                                                <TableRow className='border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/70 transition-colors duration-200'>
                                                     <TableCell className='px-3 py-3'>
                                                         <Input
-                                                            className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0'
+                                                            className='h-9 text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 dark:text-gray-200 focus-visible:ring-1 focus-visible:ring-gray-400 dark:focus-visible:ring-gray-500 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-all duration-200'
                                                             value={nextAddModelLabel}
                                                             onChange={e => setNextAddModelLabel(e.target.value)}
                                                             placeholder="Name"
@@ -561,7 +557,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                     </TableCell>
                                                     <TableCell className='px-3 py-3'>
                                                         <Input
-                                                            className='h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0'
+                                                            className='h-9 text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 dark:text-gray-200 focus-visible:ring-1 focus-visible:ring-gray-400 dark:focus-visible:ring-gray-500 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-all duration-200 font-mono'
                                                             value={nextAddModelValue}
                                                             onChange={e => setNextAddModelValue(e.target.value)}
                                                             placeholder="ID"
@@ -569,7 +565,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                     </TableCell>
                                                     <TableCell className='px-4 py-3'>
                                                         <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
-                                                            <SelectTrigger className="h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
+                                                            <SelectTrigger className="h-9 text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 dark:text-gray-200 focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200">
                                                                 <SelectValue placeholder="Type" />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -589,7 +585,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                             onClick={onAddModelClick}
                                                             size={'sm'}
                                                             variant={'default'}
-                                                            className='h-7 px-3 text-xs shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 group will-change-transform'
+                                                            className='h-7 px-3 text-xs transition-all duration-200 hover:scale-105 active:scale-95 group'
                                                         >
                                                             <i className="ri-add-circle-line mr-1 text-sm group-hover:rotate-90 transition-transform duration-300"></i>
                                                             Add
@@ -601,17 +597,23 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                     currentAccount?.models.map((m, idx) => (
                                                         <TableRow
                                                             key={idx}
+                                                            style={{
+                                                                animationDelay: `${idx * 40}ms`,
+                                                                animationFillMode: 'both'
+                                                            }}
                                                             className={cn(
-                                                                'border-b border-gray-200 dark:border-gray-700 transition-all duration-150',
-                                                                'hover:bg-gray-50 dark:hover:bg-gray-700/50',
-                                                                idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/30 dark:bg-gray-800/50'
+                                                                'border-b border-gray-200/60 dark:border-gray-700/60 transition-all duration-200 ease-out group/row',
+                                                                'hover:bg-gray-50 dark:hover:bg-gray-700/40',
+                                                                'hover:border-gray-300 dark:hover:border-gray-600',
+                                                                'animate-in fade-in slide-in-from-bottom-1',
+                                                                idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/30 dark:bg-gray-800/40'
                                                             )}
                                                         >
                                                             <TableCell className='px-4 py-3 text-left max-w-0'>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <p
-                                                                            className='truncate text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 transition-colors'
+                                                                            className='truncate text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-150'
                                                                             onClick={_ => onModelTableCellClick(m.label)}
                                                                         >
                                                                             {m.label}
@@ -626,36 +628,38 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <p
-                                                                            className='truncate text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-mono'
+                                                                            className='truncate text-[13px] text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-150 font-mono'
                                                                             onClick={_ => onModelTableCellClick(m.id)}
                                                                         >
                                                                             {m.id}
                                                                         </p>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent>
+                                                                    <TooltipContent className='font-mono'>
                                                                         <p>{m.id}</p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </TableCell>
                                                             <TableCell className='px-4 py-3 text-center'>
-                                                                <span className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'>
-                                                                    {m.type.toUpperCase()}
-                                                                </span>
+                                                                <Badge variant="secondary" className='text-[10px] font-medium uppercase px-2 py-0.5'>
+                                                                    {m.type}
+                                                                </Badge>
                                                             </TableCell>
                                                             <TableCell className='px-4 py-3 text-center'>
-                                                                <Switch
-                                                                    className='h-6'
-                                                                    checked={m.enabled !== false}
-                                                                    onCheckedChange={checked => onModelEnableStatusChange(checked, m)}
-                                                                />
+                                                                <div className='inline-flex items-center justify-center'>
+                                                                    <Switch
+                                                                        className='h-6 transition-all duration-200'
+                                                                        checked={m.enabled !== false}
+                                                                        onCheckedChange={checked => onModelEnableStatusChange(checked, m)}
+                                                                    />
+                                                                </div>
                                                             </TableCell>
                                                             <TableCell className='px-4 py-3 text-center'>
                                                                 <button
                                                                     onClick={_ => onModelDelClick(m)}
-                                                                    className='inline-flex items-center justify-center p-1.5 rounded-md text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-300 transition-all duration-200 hover:scale-110 active:scale-95'
+                                                                    className='inline-flex items-center justify-center p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-110 active:scale-90 group/del'
                                                                     title="Delete model"
                                                                 >
-                                                                    <Trash className='w-4 h-4' />
+                                                                    <Trash className='w-4 h-4 group-hover/del:animate-[wiggle_0.3s_ease-in-out]' />
                                                                 </button>
                                                             </TableCell>
                                                         </TableRow>
@@ -666,6 +670,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                     <TableRow>
                                                         <TableCell colSpan={5} className='px-4 py-12 text-center'>
                                                             <div className='flex flex-col items-center justify-center text-gray-400 dark:text-gray-500'>
+                                                                <i className="ri-inbox-line text-4xl mb-2 opacity-40"></i>
                                                                 <p className='text-sm'>No models yet</p>
                                                                 <p className='text-xs mt-1'>Add a model using the form above</p>
                                                             </div>
