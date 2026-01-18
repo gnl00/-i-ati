@@ -29,7 +29,12 @@ import {
   DB_CONFIG_GET,
   DB_CONFIG_SAVE,
   DB_CONFIG_INIT,
-  DB_CHAT_SUBMIT_EVENT_SAVE
+  DB_CHAT_SUBMIT_EVENT_SAVE,
+  CHAT_SUBMIT_SUBMIT,
+  CHAT_SUBMIT_CANCEL,
+  CHAT_SUBMIT_EVENT,
+  CHAT_COMPRESSION_EXECUTE,
+  CHAT_TITLE_GENERATE
 } from '@constants/index'
 
 /**
@@ -255,6 +260,63 @@ export async function invokeDbConfigSave(config: IAppConfig): Promise<void> {
 export async function invokeDbConfigInit(): Promise<IAppConfig> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CONFIG_INIT)
+}
+
+// ============ Chat Submit (Main-driven) ============
+
+export async function invokeChatSubmit(data: {
+  submissionId: string
+  request: IUnifiedRequest
+  chatId?: number
+  chatUuid?: string
+}): Promise<{ accepted: boolean; submissionId: string }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(CHAT_SUBMIT_SUBMIT, data)
+}
+
+export async function invokeChatSubmitCancel(data: { submissionId: string; reason?: string }): Promise<{ cancelled: boolean }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(CHAT_SUBMIT_CANCEL, data)
+}
+
+export function subscribeChatSubmitEvents(
+  handler: (event: {
+    type: string
+    payload: any
+    submissionId: string
+    chatId?: number
+    chatUuid?: string
+    sequence: number
+    timestamp: number
+  }) => void
+): () => void {
+  const ipc = getElectronIPC()
+  const listener = (_event: any, data: any) => handler(data)
+  ipc.on(CHAT_SUBMIT_EVENT, listener)
+  return () => ipc.removeListener(CHAT_SUBMIT_EVENT, listener)
+}
+
+// ============ Compression (Main-driven) ============
+
+export async function invokeChatCompressionExecute(data: {
+  chatId: number
+  chatUuid: string
+  messages: MessageEntity[]
+  model: IModel
+  provider: IProvider
+  config?: CompressionConfig
+}): Promise<CompressionResult> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(CHAT_COMPRESSION_EXECUTE, data)
+}
+
+export async function invokeChatTitleGenerate(data: {
+  content: string
+  model: IModel
+  provider: IProvider
+}): Promise<{ title: string }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(CHAT_TITLE_GENERATE, data)
 }
 
 // ============ Database Operations - Chat Submit Event Trace ============

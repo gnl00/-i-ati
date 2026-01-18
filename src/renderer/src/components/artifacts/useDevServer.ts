@@ -8,7 +8,7 @@ import {
   invokeStartDevServer,
   invokeStopDevServer,
   invokeGetDevServerStatus
-} from '@tools/devServer/renderer/DevServerInvoker'
+} from '@renderer-tools/devServer/renderer/DevServerInvoker'
 
 export type DevServerStatus = 'idle' | 'starting' | 'running' | 'error' | 'stopped'
 

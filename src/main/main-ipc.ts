@@ -1,5 +1,5 @@
 import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
-import { processWebSearch, processWebFetch } from '@tools/webTools/main/WebToolsProcessor'
+import { processWebSearch, processWebFetch } from '@main-tools/webTools/main/WebToolsProcessor'
 import {
   processReadTextFile,
   processReadMediaFile,
@@ -14,26 +14,28 @@ import {
   processGetFileInfo,
   processCreateDirectory,
   processMoveFile
-} from '@tools/fileOperations/main/FileOperationsProcessor'
+} from '@main-tools/fileOperations/main/FileOperationsProcessor'
 import {
   processCheckPreviewSh,
   processStartDevServer,
   processStopDevServer,
   processGetDevServerStatus,
   processGetDevServerLogs
-} from '@tools/devServer/main/DevServerProcessor'
+} from '@main-tools/devServer/main/DevServerProcessor'
 import {
   processMemoryRetrieval,
   processMemorySave
-} from '@tools/memory/main/MemoryToolsProcessor'
+} from '@main-tools/memory/main/MemoryToolsProcessor'
 import {
   processExecuteCommand
-} from '@tools/command/main/CommandProcessor'
+} from '@main-tools/command/main/CommandProcessor'
 import { ipcMain, shell, dialog } from 'electron'
 import streamingjson from 'streaming-json'
 import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
 import MemoryService from './services/memory/MemoryService'
 import DatabaseService from './services/DatabaseService'
+import { compressionService, type CompressionJob } from './services/compressionService'
+import { generateTitle } from './services/titleService'
 import {
   OPEN_EXTERNAL,
   PIN_WINDOW,
@@ -91,9 +93,16 @@ import {
   DB_CONFIG_GET,
   DB_CONFIG_SAVE,
   DB_CONFIG_INIT,
-  DB_CHAT_SUBMIT_EVENT_SAVE
+  DB_CHAT_SUBMIT_EVENT_SAVE,
+  CHAT_SUBMIT_SUBMIT,
+  CHAT_SUBMIT_CANCEL,
+  CHAT_COMPRESSION_EXECUTE,
+  CHAT_TITLE_GENERATE
 } from '../constants'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
+import { MainChatSubmitService } from './services/chatSubmit'
+
+const chatSubmitService = new MainChatSubmitService()
 
 function mainIPCSetup() {
   ipcMain.handle(PIN_WINDOW, (_event, pinState) => pinWindow(pinState))
@@ -390,6 +399,44 @@ function mainIPCSetup() {
   ipcMain.handle(DB_CONFIG_INIT, async (_event) => {
     console.log(`[Database IPC] Init config`)
     return DatabaseService.initConfig()
+  })
+
+  // ==================== Chat Submit (Main-driven) ====================
+
+  ipcMain.handle(CHAT_SUBMIT_SUBMIT, async (_event, data: {
+    submissionId: string
+    request: IUnifiedRequest
+    chatId?: number
+    chatUuid?: string
+  }) => {
+    console.log(`[ChatSubmit IPC] Submit: ${data.submissionId}`)
+    void chatSubmitService.submit(data).catch((error) => {
+      console.error(`[ChatSubmit IPC] Submit failed: ${data.submissionId}`, error)
+    })
+    return { accepted: true, submissionId: data.submissionId }
+  })
+
+  ipcMain.handle(CHAT_SUBMIT_CANCEL, async (_event, data: { submissionId: string; reason?: string }) => {
+    console.log(`[ChatSubmit IPC] Cancel: ${data.submissionId}`)
+    chatSubmitService.cancel(data.submissionId, data.reason)
+    return { cancelled: true }
+  })
+
+  // ==================== Compression (Main-driven) ====================
+
+  ipcMain.handle(CHAT_COMPRESSION_EXECUTE, async (_event, data: CompressionJob) => {
+    console.log(`[Compression IPC] Compress chat ${data.chatId}`)
+    return compressionService.compress(data)
+  })
+
+  ipcMain.handle(CHAT_TITLE_GENERATE, async (_event, data: {
+    content: string
+    model: IModel
+    provider: IProvider
+  }) => {
+    console.log('[Title IPC] Generate title')
+    const title = await generateTitle(data.content, data.model, data.provider)
+    return { title }
   })
 
   // ==================== Database Operations - Chat Submit Event Trace ====================

@@ -6,8 +6,11 @@ export default defineConfig({
   main: {
     resolve: {
       alias: {
+        '@main': resolve('src/main'),
         '@mcp': resolve('src/mcp'),
-        '@tools': resolve('src/tools')
+        '@request': resolve('src/main/request'),
+        '@tools': resolve('src/shared/tools'),
+        '@main-tools': resolve('src/main/tools')
       }
     }
   },
@@ -18,10 +21,10 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src'),
         '@constants': resolve('src/constants'),
         '~types': resolve('src/types'),
-        '@request': resolve('src/request'),
         '@config': resolve('src/config'),
         '@resources': resolve('resources'),
-        '@tools': resolve('src/tools')
+        '@tools': resolve('src/shared/tools'),
+        '@renderer-tools': resolve('src/renderer/src/tools')
       }
     },
     plugins: [react()],

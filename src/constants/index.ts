@@ -85,3 +85,10 @@ export const DB_CHAT_SUBMIT_EVENT_SAVE = 'db:chat-submit-event:save'
 
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
+
+// Chat Submit (Main-driven)
+export const CHAT_SUBMIT_SUBMIT = 'chat-submit:submit'
+export const CHAT_SUBMIT_CANCEL = 'chat-submit:cancel'
+export const CHAT_SUBMIT_EVENT = 'chat-submit:event'
+export const CHAT_COMPRESSION_EXECUTE = 'chat-compression:execute'
+export const CHAT_TITLE_GENERATE = 'chat-title:generate'

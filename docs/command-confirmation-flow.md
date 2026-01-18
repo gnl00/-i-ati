@@ -98,7 +98,7 @@ interface CommandConfirmationProps {
 
 ### 3. CommandInvoker
 
-**文件：** `src/tools/command/renderer/CommandInvoker.ts`
+**文件：** `src/renderer/src/tools/command/renderer/CommandInvoker.ts`
 
 **功能：** 调用命令执行并处理确认流程
 
@@ -199,9 +199,9 @@ const cancel = useCommandConfirmationStore(state => state.cancel)
 |------|------|
 | `src/renderer/src/components/chat/chatMessage/CommandConfirmation.tsx` | 确认 UI 组件 |
 | `src/renderer/src/store/commandConfirmation.ts` | 确认状态管理 |
-| `src/tools/command/renderer/CommandInvoker.ts` | 命令调用器 |
+| `src/renderer/src/tools/command/renderer/CommandInvoker.ts` | 命令调用器 |
 | `src/renderer/src/components/chat/chatMessage/assistant-message.tsx` | 消息展示组件 |
-| `src/tools/command/main/CommandProcessor.ts` | 命令处理器（风险评估） |
+| `src/main/tools/command/main/CommandProcessor.ts` | 命令处理器（风险评估） |
 
 ## 总结
 
@@ -256,9 +256,7 @@ const cancel = useCommandConfirmationStore(state => state.cancel)
 
 - `docs/message-compression-flow.md` - 消息构建流程
 - `docs/message-builder-design.md` - MessageBuilder 设计
-- `src/tools/command/README.md` - 命令工具文档
-
-
+- `src/main/tools/command/README.md` - 命令工具文档
 
 
 

@@ -7,15 +7,14 @@
     "src/constants/**/*",
     "src/renderer/src/config/**/*",
     "src/types/**/*",
-    "src/request/**/*",
-    "src/tools/**/*",
+    "src/shared/**/*",
+    "src/renderer/src/tools/**/*",
     "src/renderer/data/**/*",
     "resources/**/*",
-    "data/**/*",
-    "src/tools/definitions/**/*"
+    "data/**/*"
   ],
   "exclude": [
-    "src/tools/**/main/**/*"
+    "src/main/tools/**/*"
   ],
   "compilerOptions": {
     "composite": true,
@@ -34,14 +33,17 @@
       "~types/*": [
         "src/types/*"
       ],
-      "@request/*": [
-        "src/request/*"
-      ],
       "@resources/*": [
         "resources/*"
       ],
       "@tools/*": [
-        "src/tools/*"
+        "src/shared/tools/*"
+      ],
+      "@renderer-tools": [
+        "src/renderer/src/tools/index.ts"
+      ],
+      "@renderer-tools/*": [
+        "src/renderer/src/tools/*"
       ]
     }
   }

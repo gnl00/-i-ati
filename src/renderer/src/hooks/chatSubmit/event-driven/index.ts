@@ -23,7 +23,6 @@ export {
   DefaultMessageService,
   DefaultRequestService,
   DefaultSessionService,
-  DefaultToolService,
   DefaultFinalizeService,
-  DefaultStreamingService
+  MainDrivenStreamingService
 } from './services'

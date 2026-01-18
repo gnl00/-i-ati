@@ -10,8 +10,7 @@ import {
   DefaultMessageService,
   DefaultRequestService,
   DefaultSessionService,
-  DefaultStreamingService,
-  DefaultToolService
+  MainDrivenStreamingService
 } from './event-driven'
 
 function useChatSubmitV2() {
@@ -154,7 +153,7 @@ function useChatSubmitV2() {
       sessionService: new DefaultSessionService(),
       messageService,
       requestService: new DefaultRequestService(),
-      streamingService: new DefaultStreamingService(messageService, new DefaultToolService()),
+      streamingService: new MainDrivenStreamingService(messageService),
       finalizeService: new DefaultFinalizeService(messageService)
     })
     activeSubmissionRef.current = submissionService

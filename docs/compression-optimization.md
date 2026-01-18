@@ -45,7 +45,7 @@
 
 ## 实现细节
 
-### 1. compressionService.ts 修改
+### 1. src/main/services/compressionService.ts 修改
 
 **generateSummary 方法**：
 - 新增 `previousSummary` 可选参数
