@@ -11,6 +11,85 @@ export type ModelOption = {
   definition?: ProviderDefinition
 }
 
+const normalizeProviderId = (value: string): string => {
+  return value.trim().toLowerCase().replace(/\s+/g, '-')
+}
+
+const normalizeProviderIdSafe = (value: string): string => {
+  const normalized = normalizeProviderId(value)
+  return normalized || value
+}
+
+const normalizeProviderDefinitions = (
+  definitions: ProviderDefinition[] = []
+): ProviderDefinition[] => {
+  const byId = new Map<string, ProviderDefinition>()
+  definitions.forEach(def => {
+    const normalizedId = normalizeProviderIdSafe(def.id || def.displayName || '')
+    if (!normalizedId) {
+      return
+    }
+    const nextDef = normalizedId === def.id ? def : { ...def, id: normalizedId }
+    if (!byId.has(normalizedId)) {
+      byId.set(normalizedId, nextDef)
+    }
+  })
+  return Array.from(byId.values())
+}
+
+const normalizeAccounts = (
+  accounts: ProviderAccount[] = [],
+  preferAccountId?: string
+): ProviderAccount[] => {
+  const normalized = accounts.map(account => {
+    const normalizedProviderId = normalizeProviderIdSafe(account.providerId)
+    if (normalizedProviderId === account.providerId) {
+      return account
+    }
+    return { ...account, providerId: normalizedProviderId }
+  })
+
+  const seen = new Set<string>()
+  const deduped: ProviderAccount[] = []
+
+  if (preferAccountId) {
+    const preferred = normalized.find(account => account.id === preferAccountId)
+    if (preferred) {
+      deduped.push(preferred)
+      seen.add(preferred.providerId)
+    }
+  }
+
+  normalized.forEach(account => {
+    if (seen.has(account.providerId)) {
+      return
+    }
+    seen.add(account.providerId)
+    deduped.push(account)
+  })
+
+  return deduped
+}
+
+const mergeProviderDefinitions = (
+  current: ProviderDefinition[] = [],
+  defaults: ProviderDefinition[] = []
+): ProviderDefinition[] => {
+  const normalizedCurrent = normalizeProviderDefinitions(current)
+  const normalizedDefaults = normalizeProviderDefinitions(defaults)
+  const currentById = new Map(normalizedCurrent.map(def => [def.id, def]))
+  const merged: ProviderDefinition[] = []
+
+  normalizedDefaults.forEach(def => {
+    const override = currentById.get(def.id)
+    merged.push(override ?? def)
+    currentById.delete(def.id)
+  })
+
+  currentById.forEach(def => merged.push(def))
+  return merged
+}
+
 type AppConfigState = {
   appConfig: IAppConfig
   providerDefinitions: ProviderDefinition[]
@@ -71,10 +150,20 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Internal setter (used by initializeAppConfig)
   _setAppConfig: (config: IAppConfig) => {
+    const nextProviderDefinitions = mergeProviderDefinitions(
+      config.providerDefinitions || [],
+      defaultConfig.providerDefinitions || []
+    )
+    const nextAccounts = normalizeAccounts(config.accounts || [])
+
     set({
-      appConfig: config,
-      providerDefinitions: config.providerDefinitions || [],
-      accounts: config.accounts || [],
+      appConfig: {
+        ...config,
+        providerDefinitions: nextProviderDefinitions,
+        accounts: nextAccounts
+      },
+      providerDefinitions: nextProviderDefinitions,
+      accounts: nextAccounts,
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
@@ -86,24 +175,39 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   // Public setter (saves to SQLite)
   setAppConfig: async (updatedConfig: IAppConfig) => {
     const { saveConfig } = await import('../db/ConfigRepository')
-    await saveConfig(updatedConfig)
+    const nextProviderDefinitions = mergeProviderDefinitions(
+      updatedConfig.providerDefinitions || [],
+      defaultConfig.providerDefinitions || []
+    )
+    const nextAccounts = normalizeAccounts(updatedConfig.accounts || [])
+
+    const nextConfig = {
+      ...updatedConfig,
+      providerDefinitions: nextProviderDefinitions,
+      accounts: nextAccounts
+    }
+
+    await saveConfig(nextConfig)
     set({
-      appConfig: updatedConfig,
-      providerDefinitions: updatedConfig.providerDefinitions || [],
-      accounts: updatedConfig.accounts || [],
-      titleGenerateModel: updatedConfig.tools?.titleGenerateModel || undefined,
-      titleGenerateEnabled: updatedConfig.tools?.titleGenerateEnabled ?? true,
-      memoryEnabled: updatedConfig.tools?.memoryEnabled ?? true,
-      mcpServerConfig: { ...updatedConfig.mcp },
-      compression: updatedConfig.compression
+      appConfig: nextConfig,
+      providerDefinitions: nextProviderDefinitions,
+      accounts: nextAccounts,
+      titleGenerateModel: nextConfig.tools?.titleGenerateModel || undefined,
+      titleGenerateEnabled: nextConfig.tools?.titleGenerateEnabled ?? true,
+      memoryEnabled: nextConfig.tools?.memoryEnabled ?? true,
+      mcpServerConfig: { ...nextConfig.mcp },
+      compression: nextConfig.compression
     })
   },
 
   // Getter
   getAppConfig: () => get().appConfig,
 
-  setProviderDefinitions: (definitions) => set({ providerDefinitions: definitions }),
-  setAccounts: (accounts) => set({ accounts }),
+  setProviderDefinitions: (definitions) => set((state) => ({
+    providerDefinitions: normalizeProviderDefinitions(definitions),
+    accounts: normalizeAccounts(state.accounts)
+  })),
+  setAccounts: (accounts) => set({ accounts: normalizeAccounts(accounts) }),
   setCurrentAccountId: (accountId) => set({ currentAccountId: accountId }),
 
   getProviderDefinitionById: (providerId) => {
@@ -142,16 +246,27 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     )
   },
 
-  addAccount: (account) => set((state) => ({
-    accounts: [account, ...state.accounts],
-    currentAccountId: account.id
-  })),
+  addAccount: (account) => {
+    const normalizedAccount = {
+      ...account,
+      providerId: normalizeProviderIdSafe(account.providerId)
+    }
+    set((state) => ({
+      accounts: normalizeAccounts([normalizedAccount, ...state.accounts], normalizedAccount.id),
+      currentAccountId: normalizedAccount.id
+    }))
+  },
 
-  updateAccount: (accountId, updates) => set((state) => ({
-    accounts: state.accounts.map(account =>
-      account.id === accountId ? { ...account, ...updates } : account
-    )
-  })),
+  updateAccount: (accountId, updates) => set((state) => {
+    const nextAccounts = state.accounts.map(account => {
+      if (account.id !== accountId) return account
+      const nextProviderId = updates.providerId
+        ? normalizeProviderIdSafe(updates.providerId)
+        : account.providerId
+      return { ...account, ...updates, providerId: nextProviderId }
+    })
+    return { accounts: normalizeAccounts(nextAccounts, accountId) }
+  }),
 
   removeAccount: (accountId) => set((state) => {
     const nextAccounts = state.accounts.filter(account => account.id !== accountId)

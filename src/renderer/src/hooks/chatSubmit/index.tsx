@@ -16,7 +16,7 @@ import {
 function useChatSubmitV2() {
   const chatContext = useChatContext()
   const chatStore = useChatStore()
-  const appConfig = useAppConfigStore()
+  const { accounts, providerDefinitions } = useAppConfigStore()
 
   const activeSubmissionRef = useRef<ChatSubmissionService | null>(null)
   const activeBusRef = useRef<ChatSubmitEventBus | null>(null)
@@ -168,8 +168,8 @@ function useChatSubmitV2() {
           prompt: options.prompt
         },
         modelRef: chatStore.selectedModelRef!,
-        accounts: appConfig.accounts,
-        providerDefinitions: appConfig.providerDefinitions,
+        accounts,
+        providerDefinitions,
         chatId: chatContext.chatId,
         chatUuid: chatContext.chatUuid
       }, bus)

@@ -793,11 +793,13 @@ class DatabaseService {
     try {
       // 加载默认 provider definitions
       const defaultProviderDefinitions = this.loadProviderDefinitions()
-      console.log(`[DatabaseService] Loaded ${defaultProviderDefinitions.length} provider definitions`)
+      const normalizedDefaults = this.normalizeProviderDefinitions(defaultProviderDefinitions)
+      const defaultProviderList = normalizedDefaults.definitions
+      console.log(`[DatabaseService] Loaded ${defaultProviderList.length} provider definitions`)
 
       // 默认配置
       const defaultConfig: IAppConfig = {
-        providerDefinitions: defaultProviderDefinitions,
+        providerDefinitions: defaultProviderList,
         accounts: [],
         version: 2.0,
         tools: {
@@ -813,32 +815,140 @@ class DatabaseService {
 
       if (!config) {
         // 首次使用，使用默认配置
-        console.log('[DatabaseService] First time use, saving default config with', defaultProviderDefinitions.length, 'provider definitions')
+        console.log('[DatabaseService] First time use, saving default config with', defaultProviderList.length, 'provider definitions')
         this.saveConfig(defaultConfig)
-        console.log('[DatabaseService] Initialized with default config, providerDefinitions count:', defaultProviderDefinitions.length)
+        console.log('[DatabaseService] Initialized with default config, providerDefinitions count:', defaultProviderList.length)
         return defaultConfig
       }
 
-      // 检查版本并升级
+      const normalizedDefinitions = this.normalizeProviderDefinitions(config.providerDefinitions || [])
+      const normalizedAccounts = this.normalizeAccounts(config.accounts || [])
+
+      let nextConfig = {
+        ...config,
+        providerDefinitions: normalizedDefinitions.definitions,
+        accounts: normalizedAccounts.accounts
+      }
+      let shouldSave = normalizedDefinitions.changed || normalizedAccounts.changed
+
       console.log('[DatabaseService] Existing config version:', config.version, 'default version:', defaultConfig.version)
       console.log('[DatabaseService] Existing config providerDefinitions count:', config.providerDefinitions?.length || 0)
+
+      const currentDefinitions = nextConfig.providerDefinitions || []
+      if (currentDefinitions.length === 0) {
+        nextConfig = {
+          ...nextConfig,
+          providerDefinitions: defaultProviderList
+        }
+        shouldSave = true
+        console.log('[DatabaseService] Backfilled providerDefinitions from defaults')
+      } else {
+        const currentById = new Map(currentDefinitions.map(def => [def.id, def]))
+        const merged: ProviderDefinition[] = []
+        let mergedChanged = false
+
+        defaultProviderList.forEach(def => {
+          const override = currentById.get(def.id)
+          if (override) {
+            merged.push(override)
+            currentById.delete(def.id)
+          } else {
+            merged.push(def)
+            mergedChanged = true
+          }
+        })
+
+        currentById.forEach(def => merged.push(def))
+
+        if (mergedChanged || merged.length !== currentDefinitions.length) {
+          nextConfig = {
+            ...nextConfig,
+            providerDefinitions: merged
+          }
+          shouldSave = true
+          console.log('[DatabaseService] Merged providerDefinitions with defaults')
+        }
+      }
+
       if (defaultConfig.version! > config.version!) {
-        const upgraded = {
-          ...config,
+        nextConfig = {
+          ...nextConfig,
           ...defaultConfig.configForUpdate,
           version: defaultConfig.version
         }
-        this.saveConfig(upgraded)
+        shouldSave = true
         console.log(`[DatabaseService] Upgraded config from ${config.version} to ${defaultConfig.version}`)
-        return upgraded
       }
 
-      console.log('[DatabaseService] Returning existing config, providerDefinitions count:', config.providerDefinitions?.length || 0)
-      return config
+      if (shouldSave) {
+        this.saveConfig(nextConfig)
+        return nextConfig
+      }
+
+      console.log('[DatabaseService] Returning existing config, providerDefinitions count:', nextConfig.providerDefinitions?.length || 0)
+      return nextConfig
     } catch (error) {
       console.error('[DatabaseService] Failed to init config:', error)
       throw error
     }
+  }
+
+  private normalizeProviderId(value: string): string {
+    return value.trim().toLowerCase().replace(/\s+/g, '-')
+  }
+
+  private normalizeProviderDefinitions(
+    definitions: ProviderDefinition[]
+  ): { definitions: ProviderDefinition[]; changed: boolean } {
+    const byId = new Map<string, ProviderDefinition>()
+    let changed = false
+
+    definitions.forEach(def => {
+      const normalizedId = this.normalizeProviderId(def.id || def.displayName || '')
+      if (!normalizedId) {
+        return
+      }
+      const nextDef = normalizedId === def.id ? def : { ...def, id: normalizedId }
+      if (normalizedId !== def.id) {
+        changed = true
+      }
+      if (byId.has(normalizedId)) {
+        changed = true
+        return
+      }
+      byId.set(normalizedId, nextDef)
+    })
+
+    return { definitions: Array.from(byId.values()), changed }
+  }
+
+  private normalizeAccounts(
+    accounts: ProviderAccount[]
+  ): { accounts: ProviderAccount[]; changed: boolean } {
+    let changed = false
+    const normalized = accounts.map(account => {
+      const normalizedProviderId = this.normalizeProviderId(account.providerId || '')
+      if (!normalizedProviderId) {
+        return account
+      }
+      if (normalizedProviderId !== account.providerId) {
+        changed = true
+        return { ...account, providerId: normalizedProviderId }
+      }
+      return account
+    })
+    const deduped: ProviderAccount[] = []
+    const seen = new Set<string>()
+    normalized.forEach(account => {
+      if (seen.has(account.providerId)) {
+        changed = true
+        return
+      }
+      seen.add(account.providerId)
+      deduped.push(account)
+    })
+
+    return { accounts: deduped, changed }
   }
 
   /**
