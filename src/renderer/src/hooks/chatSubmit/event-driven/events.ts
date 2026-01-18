@@ -22,6 +22,18 @@ export type ChatSubmitEventType =
   | 'tool.result.attached'
   | 'tool.result.persisted'
   | 'chat.updated'
+  | 'title.generate.started'
+  | 'title.generate.completed'
+  | 'title.generate.failed'
+  | 'compression.started'
+  | 'compression.completed'
+  | 'compression.failed'
+
+type SerializedError = {
+  name: string
+  message: string
+  stack?: string
+}
 
 export type ChatSubmitEventPayloads = {
   'submission.started': { model: IModel }
@@ -51,6 +63,12 @@ export type ChatSubmitEventPayloads = {
   'tool.result.attached': { toolCallId: string; message: MessageEntity }
   'tool.result.persisted': { toolCallId: string; message: MessageEntity }
   'chat.updated': { chatEntity: ChatEntity }
+  'title.generate.started': { model: IModel; contentLength: number }
+  'title.generate.completed': { title: string }
+  'title.generate.failed': { error: SerializedError }
+  'compression.started': { messageCount: number }
+  'compression.completed': { result: CompressionResult }
+  'compression.failed': { error: SerializedError; result?: CompressionResult }
 }
 
 export type ChatSubmitEventMeta = {

@@ -28,7 +28,13 @@ const TRACE_EVENT_TYPES: ChatSubmitEventType[] = [
   'tool.exec.failed',
   'tool.result.attached',
   'tool.result.persisted',
-  'chat.updated'
+  'chat.updated',
+  'title.generate.started',
+  'title.generate.completed',
+  'title.generate.failed',
+  'compression.started',
+  'compression.completed',
+  'compression.failed'
 ]
 
 export class ChatSubmitEventTraceRecorder {

@@ -299,6 +299,7 @@ export function subscribeChatSubmitEvents(
 // ============ Compression (Main-driven) ============
 
 export async function invokeChatCompressionExecute(data: {
+  submissionId: string
   chatId: number
   chatUuid: string
   messages: MessageEntity[]
@@ -311,6 +312,9 @@ export async function invokeChatCompressionExecute(data: {
 }
 
 export async function invokeChatTitleGenerate(data: {
+  submissionId: string
+  chatId?: number
+  chatUuid?: string
   content: string
   model: IModel
   provider: IProvider

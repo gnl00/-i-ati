@@ -9,6 +9,7 @@ export default defineConfig({
         '@main': resolve('src/main'),
         '@mcp': resolve('src/mcp'),
         '@request': resolve('src/main/request'),
+        '@shared': resolve('src/shared'),
         '@tools': resolve('src/shared/tools'),
         '@main-tools': resolve('src/main/tools')
       }
@@ -23,6 +24,7 @@ export default defineConfig({
         '~types': resolve('src/types'),
         '@config': resolve('src/config'),
         '@resources': resolve('resources'),
+        '@shared': resolve('src/shared'),
         '@tools': resolve('src/shared/tools'),
         '@renderer-tools': resolve('src/renderer/src/tools')
       }

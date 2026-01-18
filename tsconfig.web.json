@@ -36,6 +36,9 @@
       "@resources/*": [
         "resources/*"
       ],
+      "@shared/*": [
+        "src/shared/*"
+      ],
       "@tools/*": [
         "src/shared/tools/*"
       ],
