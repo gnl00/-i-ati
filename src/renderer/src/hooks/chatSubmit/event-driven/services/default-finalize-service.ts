@@ -21,6 +21,7 @@ export class DefaultFinalizeService implements FinalizeService {
       chatId: context.session.currChatId,
       chatUuid: chatEntity.uuid
     }
+    const snapshot = context.meta.snapshot
 
     const appConfig = useAppConfigStore.getState()
     const { titleGenerateEnabled, titleGenerateModel, providers } = appConfig
@@ -29,7 +30,7 @@ export class DefaultFinalizeService implements FinalizeService {
       let title = context.input.textCtx.substring(0, 30)
       if (titleGenerateEnabled) {
         try {
-          const model = titleGenerateModel || context.meta.model
+          const model = titleGenerateModel || snapshot.model
           const titleProvider = providers?.findLast(p => p.name === model.provider)
           if (titleProvider) {
             const response = await invokeChatTitleGenerate({
@@ -71,8 +72,8 @@ export class DefaultFinalizeService implements FinalizeService {
         chatId: chatEntity.id!,
         chatUuid: chatEntity.uuid,
         messages: context.session.messageEntities,
-        model: context.meta.model,
-        provider: context.meta.provider,
+        model: snapshot.model,
+        provider: snapshot.provider,
         config: compressionConfig
       }).catch(error => {
         console.error('[Compression] Failed to compress messages:', error)

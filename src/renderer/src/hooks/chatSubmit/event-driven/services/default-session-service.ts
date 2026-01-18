@@ -104,6 +104,16 @@ export class DefaultSessionService implements SessionService {
 
     const controller = input.controller || new AbortController()
 
+    const provider = providers.findLast(p => p.name === model.provider)
+    if (!provider) {
+      throw new Error('Provider not found')
+    }
+
+    const snapshot: RequestSnapshot = {
+      provider,
+      model
+    }
+
     const context: SubmissionContext = {
       input: chatInput,
       session: {
@@ -120,7 +130,8 @@ export class DefaultSessionService implements SessionService {
       },
       meta: {
         model,
-        provider: providers.findLast(p => p.name === model.provider)!
+        provider,
+        snapshot
       },
       systemPrompts
     }
