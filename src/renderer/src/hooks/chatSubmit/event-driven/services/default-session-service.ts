@@ -1,4 +1,4 @@
-import { systemPrompt as systemPromptBuilder } from '@renderer/constant/prompts'
+import { systemPrompt as systemPromptBuilder } from '@shared/prompts'
 import { getChatById, saveChat } from '@renderer/db/ChatRepository'
 import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'

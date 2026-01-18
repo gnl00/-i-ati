@@ -33,6 +33,9 @@ export class DefaultFinalizeService implements FinalizeService {
           const titleProvider = providers?.findLast(p => p.name === model.provider)
           if (titleProvider) {
             const response = await invokeChatTitleGenerate({
+              submissionId: meta.submissionId,
+              chatId: metaWithChat.chatId,
+              chatUuid: metaWithChat.chatUuid,
               content: context.input.textCtx,
               model,
               provider: titleProvider
@@ -64,6 +67,7 @@ export class DefaultFinalizeService implements FinalizeService {
     const compressionConfig = appConfig.compression
     if (compressionConfig?.enabled && compressionConfig?.autoCompress) {
       invokeChatCompressionExecute({
+        submissionId: meta.submissionId,
         chatId: chatEntity.id!,
         chatUuid: chatEntity.uuid,
         messages: context.session.messageEntities,

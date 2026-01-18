@@ -1,5 +1,28 @@
+type SystemInfo = {
+  platform: string
+  arch: string
+  osType: string
+}
+
+const getSystemInfo = (): SystemInfo => {
+  const candidate = (globalThis as { systemInfo?: () => SystemInfo }).systemInfo
+  if (typeof candidate === 'function') {
+    try {
+      return candidate()
+    } catch {
+      // fall through to default values
+    }
+  }
+
+  return {
+    platform: typeof process !== 'undefined' ? process.platform : 'unknown',
+    arch: typeof process !== 'undefined' ? process.arch : 'unknown',
+    osType: 'unknown'
+  }
+}
+
 export const systemPrompt = (workspace: string) => {
-  const sysInfo = window.systemInfo()
+  const sysInfo = getSystemInfo()
 
   return `<identity_context>
 ## Role & Authority
@@ -227,7 +250,7 @@ To provide world-class, production-quality output while maintaining a transparen
 `
 }
 
-export const generateTitlePrompt = (content: string) => {
+export const generateTitlePrompt = (content: string): string => {
   return `你是聊天标题生成专家。根据用户输入的内容，生成简洁准确的标题。
 
 ## 核心原则

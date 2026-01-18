@@ -34,8 +34,9 @@ import streamingjson from 'streaming-json'
 import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
 import MemoryService from './services/memory/MemoryService'
 import DatabaseService from './services/DatabaseService'
-import { compressionService, type CompressionJob } from './services/compressionService'
-import { generateTitle } from './services/titleService'
+import { compressionService, type CompressionJob } from './services/CompressionService'
+import { generateTitle } from './services/TitleService'
+import { ChatSubmitEventEmitter } from './services/chatSubmit/event-emitter'
 import {
   OPEN_EXTERNAL,
   PIN_WINDOW,
@@ -103,6 +104,14 @@ import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximiz
 import { MainChatSubmitService } from './services/chatSubmit'
 
 const chatSubmitService = new MainChatSubmitService()
+
+function serializeError(error: any): { name: string; message: string; stack?: string } {
+  return {
+    name: error?.name || 'Error',
+    message: error?.message || 'Unknown error',
+    stack: error?.stack
+  }
+}
 
 function mainIPCSetup() {
   ipcMain.handle(PIN_WINDOW, (_event, pinState) => pinWindow(pinState))
@@ -424,19 +433,68 @@ function mainIPCSetup() {
 
   // ==================== Compression (Main-driven) ====================
 
-  ipcMain.handle(CHAT_COMPRESSION_EXECUTE, async (_event, data: CompressionJob) => {
+  ipcMain.handle(CHAT_COMPRESSION_EXECUTE, async (_event, data: CompressionJob & { submissionId?: string }) => {
     console.log(`[Compression IPC] Compress chat ${data.chatId}`)
-    return compressionService.compress(data)
+    const emitter = data.submissionId
+      ? new ChatSubmitEventEmitter({
+          submissionId: data.submissionId,
+          chatId: data.chatId,
+          chatUuid: data.chatUuid
+        })
+      : null
+
+    emitter?.emit('compression.started', { messageCount: data.messages.length })
+
+    try {
+      const result = await compressionService.compress(data)
+      if (result.success) {
+        emitter?.emit('compression.completed', { result })
+      } else {
+        emitter?.emit('compression.failed', {
+          error: {
+            name: 'CompressionError',
+            message: result.error || 'Compression failed'
+          },
+          result
+        })
+      }
+      return result
+    } catch (error) {
+      emitter?.emit('compression.failed', { error: serializeError(error) })
+      throw error
+    }
   })
 
   ipcMain.handle(CHAT_TITLE_GENERATE, async (_event, data: {
+    submissionId?: string
+    chatId?: number
+    chatUuid?: string
     content: string
     model: IModel
     provider: IProvider
   }) => {
     console.log('[Title IPC] Generate title')
-    const title = await generateTitle(data.content, data.model, data.provider)
-    return { title }
+    const emitter = data.submissionId
+      ? new ChatSubmitEventEmitter({
+          submissionId: data.submissionId,
+          chatId: data.chatId,
+          chatUuid: data.chatUuid
+        })
+      : null
+
+    emitter?.emit('title.generate.started', {
+      model: data.model,
+      contentLength: data.content?.length || 0
+    })
+
+    try {
+      const title = await generateTitle(data.content, data.model, data.provider)
+      emitter?.emit('title.generate.completed', { title })
+      return { title }
+    } catch (error) {
+      emitter?.emit('title.generate.failed', { error: serializeError(error) })
+      throw error
+    }
   })
 
   // ==================== Database Operations - Chat Submit Event Trace ====================
