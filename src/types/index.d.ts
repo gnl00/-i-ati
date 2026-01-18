@@ -82,6 +82,15 @@ declare interface IUnifiedRequest {
   }
 }
 
+declare interface RequestSnapshot {
+  provider: IProvider
+  model: IModel
+  options?: IUnifiedRequest['options']
+  providerType?: ProviderType
+  apiVersion?: ProviderAPIVersion
+  stream?: boolean
+}
+
 // 工具调用格式
 declare interface IToolCall {
   id: string

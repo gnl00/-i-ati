@@ -38,13 +38,19 @@ export class DefaultRequestService implements RequestService {
       finalTools.push(...context.input.tools)
     }
 
+    const snapshot = context.meta.snapshot
+
     const request: IUnifiedRequest = {
-      baseUrl: context.meta.provider.apiUrl,
+      providerType: snapshot.providerType,
+      apiVersion: snapshot.apiVersion,
+      baseUrl: snapshot.provider.apiUrl,
       messages: finalMessages,
-      apiKey: context.meta.provider.apiKey,
-      model: context.meta.model.value,
-      modelType: context.meta.model.type,
-      tools: finalTools
+      apiKey: snapshot.provider.apiKey,
+      model: snapshot.model.value,
+      modelType: snapshot.model.type,
+      tools: finalTools,
+      options: snapshot.options,
+      stream: snapshot.stream
     }
 
     context.request = request
