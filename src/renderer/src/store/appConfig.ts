@@ -71,25 +71,6 @@ const normalizeAccounts = (
   return deduped
 }
 
-const mergeProviderDefinitions = (
-  current: ProviderDefinition[] = [],
-  defaults: ProviderDefinition[] = []
-): ProviderDefinition[] => {
-  const normalizedCurrent = normalizeProviderDefinitions(current)
-  const normalizedDefaults = normalizeProviderDefinitions(defaults)
-  const currentById = new Map(normalizedCurrent.map(def => [def.id, def]))
-  const merged: ProviderDefinition[] = []
-
-  normalizedDefaults.forEach(def => {
-    const override = currentById.get(def.id)
-    merged.push(override ?? def)
-    currentById.delete(def.id)
-  })
-
-  currentById.forEach(def => merged.push(def))
-  return merged
-}
-
 type AppConfigState = {
   appConfig: IAppConfig
   providerDefinitions: ProviderDefinition[]
@@ -150,9 +131,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Internal setter (used by initializeAppConfig)
   _setAppConfig: (config: IAppConfig) => {
-    const nextProviderDefinitions = mergeProviderDefinitions(
-      config.providerDefinitions || [],
-      defaultConfig.providerDefinitions || []
+    const nextProviderDefinitions = normalizeProviderDefinitions(
+      config.providerDefinitions || []
     )
     const nextAccounts = normalizeAccounts(config.accounts || [])
 
@@ -175,9 +155,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   // Public setter (saves to SQLite)
   setAppConfig: async (updatedConfig: IAppConfig) => {
     const { saveConfig } = await import('../db/ConfigRepository')
-    const nextProviderDefinitions = mergeProviderDefinitions(
-      updatedConfig.providerDefinitions || [],
-      defaultConfig.providerDefinitions || []
+    const nextProviderDefinitions = normalizeProviderDefinitions(
+      updatedConfig.providerDefinitions || []
     )
     const nextAccounts = normalizeAccounts(updatedConfig.accounts || [])
 
