@@ -13,7 +13,7 @@ import {
   FILE_LIST_ALLOWED_DIRS_ACTION,
   FILE_CREATE_DIR_ACTION,
   FILE_MOVE_ACTION
-} from '@constants/index'
+} from '@shared/constants/index'
 import { useChatStore } from '@renderer/store'
 import type {
   ReadTextFileArgs,

@@ -9,7 +9,7 @@ import {
   DEV_SERVER_STOP,
   DEV_SERVER_STATUS,
   DEV_SERVER_LOGS
-} from '@constants/index'
+} from '@shared/constants/index'
 import type {
   CheckPreviewShArgs,
   CheckPreviewShResponse,

@@ -3,7 +3,7 @@
  * 渲染进程中的命令执行调用器
  */
 
-import { COMMAND_EXECUTE_ACTION } from '@constants/index'
+import { COMMAND_EXECUTE_ACTION } from '@shared/constants/index'
 import { useCommandConfirmationStore } from '@renderer/store/commandConfirmation'
 import type {
   ExecuteCommandArgs,

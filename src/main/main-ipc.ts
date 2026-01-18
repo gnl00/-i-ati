@@ -99,7 +99,7 @@ import {
   CHAT_SUBMIT_CANCEL,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE
-} from '../constants'
+} from '@shared/constants'
 import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from './main-window'
 import { MainChatSubmitService } from './services/chatSubmit'
 

@@ -35,7 +35,7 @@ import {
   CHAT_SUBMIT_EVENT,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE
-} from '@constants/index'
+} from '@shared/constants/index'
 
 /**
  * 获取 Electron IPC Renderer

@@ -1,5 +1,5 @@
-import { CHAT_SUBMIT_EVENT } from '../../../constants'
-import { mainWindow } from '../../main-window'
+import { CHAT_SUBMIT_EVENT } from '@shared/constants'
+import { mainWindow } from '@main/main-window'
 
 export type ChatSubmitEventEnvelope = {
   type: string

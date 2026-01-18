@@ -6,7 +6,7 @@
     "src/preload/**/*",
     "src/types/**/*",
     "src/main/mcp/**/*",
-    "src/constants/**/*",
+    "src/shared/constants/**/*",
     "src/renderer/src/config/**/*",
     "src/shared/**/*",
     "src/main/tools/**/*"
@@ -37,7 +37,7 @@
         "src/shared/tools/*"
       ],
       "@constants/*": [
-        "src/constants/*"
+        "src/shared/constants/*"
       ]
     }
   }
