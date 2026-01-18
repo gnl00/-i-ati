@@ -1,4 +1,4 @@
-import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@mcp/client'
+import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@main/mcp/client'
 import { processWebSearch, processWebFetch } from '@main-tools/webTools/main/WebToolsProcessor'
 import {
   processReadTextFile,

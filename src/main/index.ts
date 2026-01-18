@@ -1,5 +1,5 @@
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { mcpClient } from '@mcp/client'
+import { mcpClient } from '@main/mcp/client'
 import { BrowserWindow, app, globalShortcut } from 'electron'
 import { destroyWindowPool, getWindowPool } from './tools/webTools/main/BrowserWindowPool'
 import { cleanupDevServers } from './tools/devServer/main/DevServerProcessor'

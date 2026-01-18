@@ -9,7 +9,7 @@
  * - 支持 embedded 和 MCP 两种工具类型
  */
 
-import { toolCall as mcpToolCall } from '@mcp/client'
+import { toolCall as mcpToolCall } from '@main/mcp/client'
 import { v4 as uuidv4 } from 'uuid'
 import { normalizeToolArgs } from '../../utils'
 import type { ToolCallProps } from '../../types'
