@@ -265,7 +265,6 @@ export const generateTitlePrompt = (content: string): string => {
   - 英文标题：≤ 12 个单词
   - 中文标题：≤ 18 个字符
 - ✅ **语言一致**：与用户首条消息使用相同的语言
-- ✅ **默认标题**：如果内容为空或不清晰，输出 \`New Chat\`
 
 **格式禁止**:
 - ❌ 不要使用 Markdown 格式（如 \`\`\`、\`**\`、\`#\` 等）

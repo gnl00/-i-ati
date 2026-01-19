@@ -56,7 +56,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           "border border-emerald-300/60 dark:border-emerald-700/60",
           "shadow-sm shadow-emerald-500/10 dark:shadow-emerald-500/20",
           "hover:shadow hover:shadow-emerald-500/25 dark:hover:shadow-emerald-500/35",
-          "hover:scale-[1.02]",
           "active:scale-[0.98]"
         ]
       : [
@@ -67,7 +66,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           "hover:bg-slate-100 dark:hover:bg-slate-700",
           "hover:text-slate-700 dark:hover:text-slate-300",
           "hover:border-slate-300 dark:hover:border-slate-600",
-          "hover:scale-[1.02]",
           "active:scale-[0.98]"
         ],
     "text-xs font-medium",
@@ -86,7 +84,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           "border border-amber-300/60 dark:border-amber-700/60",
           "shadow-sm shadow-amber-500/10 dark:shadow-amber-500/20",
           "hover:shadow hover:shadow-amber-500/25 dark:hover:shadow-amber-500/35",
-          "hover:scale-[1.02]",
           "active:scale-[0.98]"
         ]
       : [
@@ -97,7 +94,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           "hover:bg-slate-100 dark:hover:bg-slate-700",
           "hover:text-slate-700 dark:hover:text-slate-300",
           "hover:border-slate-300 dark:hover:border-slate-600",
-          "hover:scale-[1.02]",
           "active:scale-[0.98]"
         ],
     "text-xs font-medium",
