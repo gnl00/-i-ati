@@ -9,6 +9,8 @@ import { useChatStore } from '@renderer/store'
 import { invokeSelectDirectory, invokeSkillImportFolder } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
+import { Input } from '../ui/input'
+import { Search, X } from 'lucide-react'
 
 const SkillsManager: React.FC = () => {
   const { currentChatId, currentChatUuid } = useChatStore()
@@ -17,6 +19,7 @@ const SkillsManager: React.FC = () => {
   const [activeSkills, setActiveSkills] = useState<string[]>([])
   const [folders, setFolders] = useState<string[]>([])
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [pendingSkills, setPendingSkills] = useState<Set<string>>(new Set())
   const [pendingFolders, setPendingFolders] = useState<Set<string>>(new Set())
 
@@ -25,6 +28,22 @@ const SkillsManager: React.FC = () => {
   const sortedSkills = useMemo(() => {
     return [...skills].sort((a, b) => a.name.localeCompare(b.name))
   }, [skills])
+
+  const filteredSkills = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return sortedSkills
+    }
+    const query = searchQuery.toLowerCase()
+    return sortedSkills.filter(skill => {
+      const haystack = [
+        skill.name,
+        skill.description,
+        skill.compatibility || '',
+        skill.allowedTools?.join(' ') || ''
+      ].join(' ').toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [sortedSkills, searchQuery])
 
   const refreshSkills = async (): Promise<void> => {
     setIsRefreshing(true)
@@ -244,7 +263,7 @@ const SkillsManager: React.FC = () => {
                 </Badge>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                Add folders to scan for skills. Only direct subfolders are scanned.
+                Add folders to scan for skills. Subfolders are scanned recursively and stop at any folder containing SKILL.md.
               </p>
               <p className="text-xs text-gray-400">
                 Name conflicts are resolved by appending the folder name (e.g. <span className="font-mono">skill-folder</span>).
@@ -252,11 +271,11 @@ const SkillsManager: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={scanAllFolders}
                 disabled={folders.length === 0 || pendingFolders.size > 0}
-                className="shadow-sm"
+                className="shadow-sm rounded-3xl text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
               >
                 <i className="ri-refresh-line mr-1.5"></i>
                 Rescan All
@@ -264,7 +283,7 @@ const SkillsManager: React.FC = () => {
               <Button
                 size="sm"
                 onClick={handleAddFolder}
-                className="shadow-sm"
+                className="shadow-sm rounded-3xl"
               >
                 <i className="ri-folder-add-line mr-1.5"></i>
                 Add Folder
@@ -286,11 +305,11 @@ const SkillsManager: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="xs"
                       onClick={() => handleRemoveFolder(folder)}
                       disabled={isPending}
-                      className="shadow-sm"
+                      className="shadow-sm rounded-3xl text-red-400 hover:text-red-500"
                     >
                       <i className="ri-delete-bin-line mr-1.5"></i>
                       Remove
@@ -303,11 +322,11 @@ const SkillsManager: React.FC = () => {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
-          <div className="p-5">
+          <div className="p-5 flex justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
-                  Installed Skills
+                  Available Skills
                 </Label>
                 <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
                   {skills.length} total
@@ -319,25 +338,60 @@ const SkillsManager: React.FC = () => {
             </div>
             <div className="mt-3 flex items-center gap-2">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={refreshSkills}
                 disabled={isRefreshing}
-                className="shadow-sm"
+                className="shadow-sm rounded-3xl text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
               >
                 <i className="ri-refresh-line mr-1.5"></i>
-                Refresh List
+                Refresh
               </Button>
+            </div>
+          </div>
+          <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/30">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+              <Input
+                placeholder="Search installed skills..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9 h-9 text-sm bg-white/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-gray-900/10 dark:focus-visible:ring-gray-100/10 focus-visible:ring-offset-0 transition-all rounded-xl placeholder:text-muted-foreground/50 shadow-sm"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
           <div className="bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50">
             <div className="max-h-[360px] overflow-y-auto">
-              {sortedSkills.length === 0 && (
+              {filteredSkills.length === 0 && (
                 <div className="p-5 text-sm text-gray-500 dark:text-gray-400">
-                  No skills installed yet.
+                  {searchQuery ? (
+                    <div className="flex flex-col items-start gap-2">
+                      <span>No skills match your search.</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSearchQuery('')}
+                        className="px-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                      >
+                        Reset search
+                      </Button>
+                    </div>
+                  ) : (
+                    'No skills installed yet.'
+                  )}
                 </div>
               )}
-              {sortedSkills.map(skill => {
+              {filteredSkills.map(skill => {
                 const isActive = activeSkills.includes(skill.name)
                 const isPending = pendingSkills.has(skill.name)
                 return (

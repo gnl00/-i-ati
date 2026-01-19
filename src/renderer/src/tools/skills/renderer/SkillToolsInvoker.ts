@@ -1,4 +1,4 @@
-import { SKILL_LOAD_ACTION, SKILL_UNLOAD_ACTION } from '@shared/constants/index'
+import { SKILL_LOAD_ACTION, SKILL_READ_FILE_ACTION, SKILL_UNLOAD_ACTION } from '@shared/constants/index'
 import { useChatStore } from '@renderer/store'
 
 interface LoadSkillArgs {
@@ -14,6 +14,14 @@ interface UnloadSkillArgs {
   chat_uuid?: string
 }
 
+interface ReadSkillFileArgs {
+  name: string
+  path: string
+  encoding?: string
+  start_line?: number
+  end_line?: number
+}
+
 interface LoadSkillResponse {
   success: boolean
   skill?: SkillMetadata
@@ -25,6 +33,14 @@ interface LoadSkillResponse {
 interface UnloadSkillResponse {
   success: boolean
   removed?: boolean
+  message?: string
+}
+
+interface ReadSkillFileResponse {
+  success: boolean
+  file_path?: string
+  content?: string
+  lines?: number
   message?: string
 }
 
@@ -58,5 +74,14 @@ export async function invokeUnloadSkill(args: UnloadSkillArgs): Promise<UnloadSk
     return await ipc.invoke(SKILL_UNLOAD_ACTION, withChatUuid(args))
   } catch (error: any) {
     return { success: false, removed: false, message: error.message || 'Unknown error occurred' }
+  }
+}
+
+export async function invokeReadSkillFile(args: ReadSkillFileArgs): Promise<ReadSkillFileResponse> {
+  try {
+    const ipc = getElectronIPC()
+    return await ipc.invoke(SKILL_READ_FILE_ACTION, args)
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Unknown error occurred' }
   }
 }

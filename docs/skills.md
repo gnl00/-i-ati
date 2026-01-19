@@ -35,10 +35,12 @@ Archive extraction relies on system `tar`/`unzip` availability.
 
 ## Import from folders
 
-In the Settings UI, you can add one or more folders. The app scans **only the direct subfolders** for `SKILL.md` and installs each skill found.
-On app start, the app re-scans each configured folder to pick up new or updated skills.
+In the Settings UI, you can add one or more folders. The app scans subfolders **recursively** for `SKILL.md` and installs each skill found (stopping at any folder containing `SKILL.md`). Each discovered skill is copied into the app-level `skills/` directory.
+On app start, the app re-scans each configured folder to pick up new or updated skills. Rescans overwrite previously installed skills when the source path matches, so repeated scans do not create duplicates.
 
 If a skill name conflicts with an existing one, the installed name is rewritten to include the folder name, using hyphens only (for example: `pdf-processing-myskills`). The `@` character is not allowed by the skills spec.
+
+To support rescan deduplication, each installed skill includes a `.skill-source.json` file that records its original source path.
 
 ## Unloading skills
 
@@ -58,3 +60,14 @@ On each request, the system prompt includes a `## Skills` section:
 - **Loaded Skills**: full `SKILL.md` content for skills loaded into the chat
 
 When multiple skills are loaded, the most recently loaded skill takes precedence.
+
+## Reading skill references
+
+`SKILL.md` may refer to other files (for example `references/REFERENCE.md`). Use the `read_skill_file` tool to access those files:
+
+```
+read_skill_file({
+  "name": "pdf-processing",
+  "path": "references/REFERENCE.md"
+})
+```

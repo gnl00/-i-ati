@@ -48,5 +48,39 @@ export default [
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "read_skill_file",
+      "description": "Read a file inside an installed skill (for example references/*.md or assets). Paths are relative to the skill root.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Installed skill name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path inside the skill directory (e.g. references/REFERENCE.md)."
+          },
+          "encoding": {
+            "type": "string",
+            "description": "Text encoding (default: utf-8)."
+          },
+          "start_line": {
+            "type": "integer",
+            "description": "Optional 1-based start line."
+          },
+          "end_line": {
+            "type": "integer",
+            "description": "Optional 1-based end line."
+          }
+        },
+        "required": ["name", "path"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
   }
 ]

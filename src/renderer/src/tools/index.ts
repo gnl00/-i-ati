@@ -24,7 +24,7 @@ import { embeddedToolsRegistry, type ToolDefinition } from '@tools/registry'
 import { invokeWebFetch, invokeWebSearch } from '@renderer-tools/webTools/renderer/WebToolsInvoker'
 import { invokeMemoryRetrieval, invokeMemorySave } from '@renderer-tools/memory/renderer/MemoryToolsInvoker'
 import { invokeExecuteCommand } from '@renderer-tools/command/renderer/CommandInvoker'
-import { invokeLoadSkill, invokeUnloadSkill } from '@renderer-tools/skills/renderer/SkillToolsInvoker'
+import { invokeLoadSkill, invokeReadSkillFile, invokeUnloadSkill } from '@renderer-tools/skills/renderer/SkillToolsInvoker'
 
 /**
  * 工具处理器映射表
@@ -77,7 +77,8 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
 
   // Skill operations
   'load_skill': invokeLoadSkill,
-  'unload_skill': invokeUnloadSkill
+  'unload_skill': invokeUnloadSkill,
+  'read_skill_file': invokeReadSkillFile
 }
 
 /**

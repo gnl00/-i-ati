@@ -173,10 +173,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         </div>
                         <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
                         <Button
-                            size="xs"
+                            size="lg"
                             onClick={saveConfigurationClick}
                             disabled={!hasUnsavedChanges}
-                            className="h-7 px-3 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 font-medium will-change-transform"
+                            className="h-7 px-3 bg-gray-900 rounded-3xl hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 font-medium will-change-transform"
                         >
                             <i className="ri-save-line mr-1.5 text-sm"></i>
                             Save

@@ -952,6 +952,50 @@ class DatabaseService {
   }
 
   /**
+   * 检查数据库是否就绪
+   */
+  public isReady(): boolean {
+    return this.isInitialized
+  }
+
+  /**
+   * 获取指定 key 的配置值
+   */
+  public getConfigValue(key: string): string | undefined {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!key) return undefined
+
+    try {
+      const row = this.stmts.getConfig!.get(key) as ConfigRow | undefined
+      if (!row) return undefined
+      return row.value
+    } catch (error) {
+      console.error('[DatabaseService] Failed to get config value:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 保存指定 key 的配置值
+   */
+  public saveConfigValue(key: string, value: string, version?: number | null): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!key) return
+
+    try {
+      this.stmts.upsertConfig!.run(
+        key,
+        value,
+        version ?? null,
+        Date.now()
+      )
+    } catch (error) {
+      console.error('[DatabaseService] Failed to save config value:', error)
+      throw error
+    }
+  }
+
+  /**
    * 初始化配置（首次使用或版本升级）
    */
   public initConfig(): IAppConfig {
