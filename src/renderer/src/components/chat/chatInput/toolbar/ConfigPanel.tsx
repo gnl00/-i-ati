@@ -6,8 +6,8 @@ import { Label } from '@renderer/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { Slider } from "@renderer/components/ui/slider"
 import { Textarea } from '@renderer/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
+import { useAssistantStore } from '@renderer/store/assistant'
 import React, { useState } from 'react'
 
 interface ConfigPanelProps {
@@ -28,49 +28,108 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onSystemPromptChange
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const { currentAssistant, setCurrentAssistant } = useAssistantStore()
+  const [displayAssistant, setDisplayAssistant] = useState<Assistant | null>(null)
+  const [isExiting, setIsExiting] = useState(false)
+
+  // Handle assistant change with exit animation
+  React.useEffect(() => {
+    if (currentAssistant) {
+      setDisplayAssistant(currentAssistant)
+      setIsExiting(false)
+    } else if (displayAssistant) {
+      // Start exit animation
+      setIsExiting(true)
+      // Remove after animation completes
+      const timer = setTimeout(() => {
+        setDisplayAssistant(null)
+        setIsExiting(false)
+      }, 300) // Match animation duration
+      return () => clearTimeout(timer)
+    }
+  }, [currentAssistant])
 
   const handleResetDefaults = () => {
     onTemperatureChange([1])
     onTopPChange([1])
     onSystemPromptChange('')
+    setCurrentAssistant(null) // Clear assistant selection
   }
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          role="combobox"
-          className={cn(
-            "group relative h-7 w-7 rounded-xl overflow-hidden",
-            "transition-all duration-300 ease-out",
-            "bg-slate-50/50 dark:bg-slate-800/50",
-            "border border-slate-200/50 dark:border-slate-700/50",
-            "hover:bg-slate-100 dark:hover:bg-slate-700",
-            "hover:border-slate-300 dark:hover:border-slate-600",
-            "hover:shadow-sm",
-            "active:scale-95",
-            isOpen && [
-              "bg-slate-100 dark:bg-slate-700",
-              "border-slate-300 dark:border-slate-600",
-              "shadow-sm"
-            ]
+        <div className="relative flex items-center group">
+          {/* Assistant Icon - Slides in/out with animation */}
+          {displayAssistant?.icon && (
+            <div
+              key={displayAssistant.id}
+              className={cn(
+                "flex items-center justify-center h-7 px-2 rounded-l-xl",
+                "bg-slate-50/50 dark:bg-slate-800/50",
+                "border-l border-t border-b border-slate-200/50 dark:border-slate-700/50",
+                "transition-all duration-300 ease-out",
+                isExiting
+                  ? "animate-out slide-out-to-right-2 fade-out-0 duration-300"
+                  : "animate-in slide-in-from-right-2 fade-in-0 duration-300",
+                "group-hover:bg-slate-100 dark:group-hover:bg-slate-700",
+                "group-hover:border-slate-300 dark:group-hover:border-slate-600",
+                isOpen && [
+                  "bg-slate-100 dark:bg-slate-700",
+                  "border-slate-300 dark:border-slate-600"
+                ]
+              )}
+            >
+              <span className="text-xs leading-none text-gray-500 hover:text-gray-700 font-medium transition-all">
+                {displayAssistant.icon + ' ' + displayAssistant.name}
+              </span>
+            </div>
           )}
-        >
-          {/* Animated background on hover */}
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-100/0 via-slate-100/50 to-slate-200/0 dark:from-slate-700/0 dark:via-slate-700/30 dark:to-slate-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-          <TokensIcon
+          {/* Token Button - Connects seamlessly with assistant icon */}
+          <Button
+            variant="outline"
+            size="icon"
+            role="combobox"
             className={cn(
-              "relative z-10 w-4 h-4 text-slate-500 dark:text-slate-400",
+              "relative h-7 w-7 overflow-hidden",
               "transition-all duration-300 ease-out",
-              "group-hover:text-slate-700 dark:group-hover:text-slate-300",
-              "group-hover:scale-110 group-hover:rotate-90",
-              isOpen && "rotate-90 scale-110 text-slate-700 dark:text-slate-300"
+              "bg-slate-50/50 dark:bg-slate-800/50",
+              "border border-slate-200/50 dark:border-slate-700/50",
+              "group-hover:bg-slate-100 dark:group-hover:bg-slate-700",
+              "group-hover:border-slate-300 dark:group-hover:border-slate-600",
+              "group-hover:shadow-sm",
+              "active:scale-95",
+              currentAssistant?.icon ? [
+                // When assistant is present, remove left border radius to connect
+                "rounded-r-xl rounded-l-none",
+                "border-l-0"
+              ] : [
+                // When no assistant, keep full rounded
+                "rounded-xl"
+              ],
+              isOpen && [
+                "bg-slate-100 dark:bg-slate-700",
+                "border-slate-300 dark:border-slate-600",
+                "shadow-sm"
+              ]
             )}
-          />
-        </Button>
+          >
+            {/* Animated background on hover */}
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-100/0 via-slate-100/50 to-slate-200/0 dark:from-slate-700/0 dark:via-slate-700/30 dark:to-slate-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+            {/* TokensIcon */}
+            <TokensIcon
+              className={cn(
+                "relative z-10 w-4 h-4 text-slate-500 dark:text-slate-400",
+                "transition-all duration-300 ease-out",
+                "group-hover:text-slate-700 dark:group-hover:text-slate-300",
+                "group-hover:scale-110 group-hover:rotate-90",
+                isOpen && "rotate-90 scale-110 text-slate-700 dark:text-slate-300"
+              )}
+            />
+          </Button>
+        </div>
       </PopoverTrigger>
       <PopoverContent
         className={cn(

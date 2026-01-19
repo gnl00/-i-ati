@@ -34,6 +34,7 @@ interface ChatSheetProps { }
 // Assistant Card 组件
 interface AssistantCardProps {
     assistant?: Assistant
+    currentAssistantId?: string
     label?: string
     icon?: string
     gradientType?: string
@@ -44,6 +45,7 @@ interface AssistantCardProps {
 
 const AssistantCard: React.FC<AssistantCardProps> = ({
     assistant,
+    currentAssistantId,
     label,
     icon,
     gradientType = 'bg-gradient-to-br',
@@ -73,18 +75,29 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
                 {displayIcon || displayLabel.charAt(0)}
             </div>
 
-            {/* Top Area (Empty for now, acts as spacer) */}
+            {/* Top Area - Status Indicator */}
             <div className="w-full flex justify-end">
-                {/* Optional: Status dot or icon could go here */}
-                <div className="w-1.5 h-1.5 rounded-full bg-white/40 group-hover:bg-white/80 transition-colors" />
+                {/* Status dot with enhanced animation for selected state */}
+                <div className={cn(
+                    "rounded-full transition-all duration-300 ease-out",
+                    currentAssistantId === assistant?.id ? [
+                        // Selected state - larger, brighter, with pulse animation
+                        "w-2 h-2 bg-white",
+                        "animate-ping duration-1500"
+                    ] : [
+                        // Unselected state - smaller, dimmer
+                        "w-1.5 h-1.5 bg-white/40",
+                        "group-hover:bg-white/80 group-hover:scale-110"
+                    ]
+                )} />
             </div>
 
             {/* Label Area */}
             <div className="relative z-10">
                 <p className="text-[10px] font-medium text-white/70 uppercase tracking-wider mb-0.5 transform translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-                    Assistant
+                    {displayIcon || displayLabel.charAt(0)}
                 </p>
-                <span className="text-base font-bold text-white leading-tight drop-shadow-sm tracking-tight">
+                <span className="text-sm font-semibold text-white leading-tight drop-shadow-sm tracking-tight">
                     {displayLabel}
                 </span>
             </div>
@@ -100,7 +113,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
     const { accounts, providerDefinitions } = useAppConfigStore()
     const { chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList } = useChatContext()
-    const { assistants, loadAssistants, isLoading: isLoadingAssistants, setCurrentAssistant } = useAssistantStore()
+    const { assistants, loadAssistants, isLoading: isLoadingAssistants, currentAssistant, setCurrentAssistant } = useAssistantStore()
 
     // Load assistants on mount
     useEffect(() => {
@@ -166,7 +179,6 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const handleAssistantClick = (assistant: Assistant) => {
         setCurrentAssistant(assistant)
         setSheetOpenState(false)
-        sonnerToast.success(`Selected ${assistant.name}`)
     }
 
     const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])
@@ -404,6 +416,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                         <AssistantCard
                                             key={assistant.id}
                                             assistant={assistant}
+                                            currentAssistantId={currentAssistant?.id}
                                             gradientType={bgGradientTypes[index % bgGradientTypes.length]}
                                             gradientColors={bgGradientColors[index % bgGradientColors.length]}
                                             onClick={() => handleAssistantClick(assistant)}
