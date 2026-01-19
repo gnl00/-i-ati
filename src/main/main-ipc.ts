@@ -29,7 +29,7 @@ import {
 import {
   processExecuteCommand
 } from '@main-tools/command/main/CommandProcessor'
-import { processLoadSkill, processUnloadSkill } from '@main-tools/skills/main/SkillToolsProcessor'
+import { processLoadSkill, processReadSkillFile, processUnloadSkill } from '@main-tools/skills/main/SkillToolsProcessor'
 import { ipcMain, shell, dialog } from 'electron'
 import streamingjson from 'streaming-json'
 import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
@@ -49,6 +49,7 @@ import {
   SKILL_LOAD_ACTION,
   SKILL_UNLOAD_ACTION,
   SKILL_IMPORT_ACTION,
+  SKILL_READ_FILE_ACTION,
   WIN_CLOSE,
   WIN_MINIMIZE,
   WIN_MAXIMIZE,
@@ -173,6 +174,11 @@ function mainIPCSetup() {
   ipcMain.handle(SKILL_GET_ACTION, async (_event, { name }) => {
     console.log(`[Skill IPC] Get skill content: ${name}`)
     return await SkillService.getSkillContent(name)
+  })
+
+  ipcMain.handle(SKILL_READ_FILE_ACTION, async (_event, args) => {
+    console.log('[Skill IPC] Read skill file')
+    return await processReadSkillFile(args)
   })
 
   ipcMain.handle(SKILL_LOAD_ACTION, async (_event, args) => {

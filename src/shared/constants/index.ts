@@ -11,6 +11,7 @@ export const SKILL_GET_ACTION = 'skill:get'
 export const SKILL_LOAD_ACTION = 'skill:load'
 export const SKILL_UNLOAD_ACTION = 'skill:unload'
 export const SKILL_IMPORT_ACTION = 'skill:import-folder'
+export const SKILL_READ_FILE_ACTION = 'skill:read-file'
 
 // Window Operations Actions
 export const WIN_CLOSE = 'win-close'

@@ -5,6 +5,7 @@ import { existsSync } from 'fs'
 import { execFile } from 'child_process'
 import os from 'os'
 import { promisify } from 'util'
+import DatabaseService from '@main/services/DatabaseService'
 
 type SkillFrontmatter = {
   name: string
@@ -35,8 +36,36 @@ type SkillImportSummary = {
 
 const SKILL_FILE = 'SKILL.md'
 const SKILLS_DIR = 'skills'
+const SKILL_METADATA_CACHE_KEY = 'skillsMetadataCache'
+const SKILL_SOURCE_FILE = '.skill-source.json'
 const SKILL_NAME_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const execFileAsync = promisify(execFile)
+const skillMetadataCache: {
+  root: string | null
+  dirty: boolean
+  items: SkillMetadata[]
+} = {
+  root: null,
+  dirty: true,
+  items: []
+}
+const SKILL_METADATA_CACHE_VERSION = 1
+
+type SkillMetadataCacheItem = SkillMetadata & {
+  mtimeMs: number
+}
+
+type SkillMetadataCacheFile = {
+  version: number
+  generatedAt: number
+  root: string
+  items: SkillMetadataCacheItem[]
+}
+
+type SkillSourceInfo = {
+  source: string
+  importedAt: number
+}
 
 const isUrl = (value: string): boolean => /^https?:\/\//i.test(value)
 
@@ -229,9 +258,22 @@ const validateOptionalLength = (value: string | undefined, max: number, field: s
   }
 }
 
+const ensureCacheRoot = (root: string): void => {
+  if (skillMetadataCache.root !== root) {
+    skillMetadataCache.root = root
+    skillMetadataCache.dirty = true
+    skillMetadataCache.items = []
+  }
+}
+
+const markSkillCacheDirty = (): void => {
+  skillMetadataCache.dirty = true
+}
+
 const ensureSkillsDir = async (): Promise<string> => {
   const root = path.join(app.getPath('userData'), SKILLS_DIR)
   await fs.mkdir(root, { recursive: true })
+  ensureCacheRoot(root)
   return root
 }
 
@@ -252,6 +294,162 @@ const buildSkillMetadata = (frontmatter: SkillFrontmatter): SkillMetadata => ({
   metadata: frontmatter.metadata,
   allowedTools: frontmatter.allowedTools
 })
+
+const resolveSkillNameForDirectory = (frontmatterName: string, dirName: string): string => {
+  if (frontmatterName === dirName) {
+    return frontmatterName
+  }
+  const normalized = normalizeSkillName(frontmatterName)
+  if (normalized && normalized === dirName) {
+    return dirName
+  }
+  return frontmatterName
+}
+
+const readSkillSourceInfo = async (skillDir: string): Promise<SkillSourceInfo | null> => {
+  const sourceFile = path.join(skillDir, SKILL_SOURCE_FILE)
+  if (!existsSync(sourceFile)) {
+    return null
+  }
+
+  try {
+    const raw = await fs.readFile(sourceFile, 'utf-8')
+    const parsed = JSON.parse(raw) as SkillSourceInfo
+    if (!parsed?.source) {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+const writeSkillSourceInfo = async (skillDir: string, source?: string): Promise<void> => {
+  if (!source) {
+    return
+  }
+  const payload: SkillSourceInfo = {
+    source,
+    importedAt: Date.now()
+  }
+  const sourceFile = path.join(skillDir, SKILL_SOURCE_FILE)
+  await fs.writeFile(sourceFile, `${JSON.stringify(payload, null, 2)}\n`, 'utf-8')
+}
+
+const canUseDbCache = (): boolean => {
+  try {
+    return DatabaseService.isReady()
+  } catch {
+    return false
+  }
+}
+
+const readSkillMetadata = async (
+  skillDir: string
+): Promise<SkillMetadataCacheItem | null> => {
+  const skillFile = path.join(skillDir, SKILL_FILE)
+  if (!existsSync(skillFile)) {
+    return null
+  }
+
+  try {
+    const stat = await fs.stat(skillFile)
+    const content = await fs.readFile(skillFile, 'utf-8')
+    const parsed = parseFrontmatter(content)
+    const dirName = path.basename(skillDir)
+    const effectiveName = resolveSkillNameForDirectory(parsed.frontmatter.name, dirName)
+    parsed.frontmatter.name = effectiveName
+    validateSkillName(parsed.frontmatter.name)
+    validateSkillDescription(parsed.frontmatter.description)
+    validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
+    if (parsed.frontmatter.name !== path.basename(skillDir)) {
+      console.warn(`[SkillService] SKILL.md name does not match directory: ${path.basename(skillDir)}`)
+      return null
+    }
+    const sourceInfo = await readSkillSourceInfo(skillDir)
+    return {
+      ...buildSkillMetadata(parsed.frontmatter),
+      mtimeMs: stat.mtimeMs,
+      source: sourceInfo?.source
+    }
+  } catch (error) {
+    console.warn(`[SkillService] Failed to parse skill in ${path.basename(skillDir)}:`, error)
+    return null
+  }
+}
+
+const readMetadataCacheFile = async (root: string): Promise<SkillMetadataCacheFile | null> => {
+  if (!canUseDbCache()) {
+    return null
+  }
+  try {
+    const raw = DatabaseService.getConfigValue(SKILL_METADATA_CACHE_KEY)
+    if (!raw) {
+      return null
+    }
+    const parsed = JSON.parse(raw) as SkillMetadataCacheFile
+    if (!parsed || parsed.version !== SKILL_METADATA_CACHE_VERSION || parsed.root !== root) {
+      return null
+    }
+    if (!Array.isArray(parsed.items)) {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+const writeMetadataCacheFile = async (
+  root: string,
+  items: SkillMetadataCacheItem[]
+): Promise<void> => {
+  if (!canUseDbCache()) {
+    return
+  }
+  const payload: SkillMetadataCacheFile = {
+    version: SKILL_METADATA_CACHE_VERSION,
+    generatedAt: Date.now(),
+    root,
+    items
+  }
+  DatabaseService.saveConfigValue(
+    SKILL_METADATA_CACHE_KEY,
+    JSON.stringify(payload),
+    SKILL_METADATA_CACHE_VERSION
+  )
+}
+
+const isCacheValid = async (root: string, cache: SkillMetadataCacheFile): Promise<boolean> => {
+  const entries = await fs.readdir(root, { withFileTypes: true })
+  const cachedByName = new Map(cache.items.map(item => [item.name, item]))
+  const seen = new Set<string>()
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue
+    }
+
+    const skillDir = path.join(root, entry.name)
+    const skillFile = path.join(skillDir, SKILL_FILE)
+    if (!existsSync(skillFile)) {
+      continue
+    }
+
+    const cached = cachedByName.get(entry.name)
+    if (!cached) {
+      return false
+    }
+
+    const stat = await fs.stat(skillFile)
+    if (Math.round(stat.mtimeMs) !== Math.round(cached.mtimeMs)) {
+      return false
+    }
+    seen.add(entry.name)
+  }
+
+  return seen.size === cachedByName.size
+}
 
 const runCommand = async (command: string, args: string[]): Promise<string> => {
   try {
@@ -369,11 +567,16 @@ const installSkillFromDirectory = async (
   const skillFile = path.join(sourceDir, SKILL_FILE)
   const content = await fs.readFile(skillFile, 'utf-8')
   const parsed = parseFrontmatter(content)
+  const rawName = parsed.frontmatter.name
+  const dirName = path.basename(sourceDir)
+  const effectiveName = requireNameMatch
+    ? resolveSkillNameForDirectory(parsed.frontmatter.name, dirName)
+    : parsed.frontmatter.name
+  parsed.frontmatter.name = effectiveName
   validateSkillName(parsed.frontmatter.name)
   validateSkillDescription(parsed.frontmatter.description)
   validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
 
-  const dirName = path.basename(sourceDir)
   if (requireNameMatch && parsed.frontmatter.name !== dirName) {
     throw new Error(`Skill name must match directory name: ${dirName}`)
   }
@@ -392,12 +595,13 @@ const installSkillFromDirectory = async (
   }
 
   await fs.cp(sourceDir, destDir, { recursive: true })
-  if (targetName !== parsed.frontmatter.name) {
+  if (targetName !== parsed.frontmatter.name || rawName !== parsed.frontmatter.name) {
     const destSkillFile = path.join(destDir, SKILL_FILE)
     const destContent = await fs.readFile(destSkillFile, 'utf-8')
     const updated = rewriteSkillName(destContent, targetName)
     await fs.writeFile(destSkillFile, updated, 'utf-8')
   }
+  await writeSkillSourceInfo(destDir, sourceLabel)
 
   return {
     ...buildSkillMetadata(parsed.frontmatter),
@@ -409,8 +613,20 @@ const installSkillFromDirectory = async (
 class SkillService {
   static async listSkills(): Promise<SkillMetadata[]> {
     const root = await ensureSkillsDir()
+    if (!skillMetadataCache.dirty) {
+      return [...skillMetadataCache.items]
+    }
+
+    const cached = await readMetadataCacheFile(root)
+    if (cached && await isCacheValid(root, cached)) {
+      const items = cached.items.map(({ mtimeMs: _mtimeMs, ...rest }) => rest)
+      skillMetadataCache.items = items
+      skillMetadataCache.dirty = false
+      return [...items]
+    }
+
     const entries = await fs.readdir(root, { withFileTypes: true })
-    const results: SkillMetadata[] = []
+    const results: SkillMetadataCacheItem[] = []
 
     for (const entry of entries) {
       if (!entry.isDirectory()) {
@@ -418,28 +634,18 @@ class SkillService {
       }
 
       const skillDir = path.join(root, entry.name)
-      const skillFile = path.join(skillDir, SKILL_FILE)
-      if (!existsSync(skillFile)) {
-        continue
-      }
-
-      try {
-        const content = await fs.readFile(skillFile, 'utf-8')
-        const parsed = parseFrontmatter(content)
-        validateSkillName(parsed.frontmatter.name)
-        validateSkillDescription(parsed.frontmatter.description)
-        validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
-        if (parsed.frontmatter.name !== entry.name) {
-          console.warn(`[SkillService] SKILL.md name does not match directory: ${entry.name}`)
-          continue
-        }
-        results.push(buildSkillMetadata(parsed.frontmatter))
-      } catch (error) {
-        console.warn(`[SkillService] Failed to parse skill in ${entry.name}:`, error)
+      const metadata = await readSkillMetadata(skillDir)
+      if (metadata) {
+        results.push(metadata)
       }
     }
 
-    return results.sort((a, b) => a.name.localeCompare(b.name))
+    const sorted = results.sort((a, b) => a.name.localeCompare(b.name))
+    await writeMetadataCacheFile(root, sorted)
+    const items = sorted.map(({ mtimeMs: _mtimeMs, ...rest }) => rest)
+    skillMetadataCache.items = items
+    skillMetadataCache.dirty = false
+    return [...items]
   }
 
   static async getSkillContent(name: string): Promise<string> {
@@ -484,7 +690,16 @@ class SkillService {
 
         const skillDir = skillDirs[0]
         const requireNameMatch = path.resolve(skillDir) !== path.resolve(extractDir)
-        return await installSkillFromDirectory(skillDir, args, root, allowOverwrite, args.source, requireNameMatch)
+        const metadata = await installSkillFromDirectory(
+          skillDir,
+          args,
+          root,
+          allowOverwrite,
+          args.source,
+          requireNameMatch
+        )
+        markSkillCacheDirty()
+        return metadata
       } finally {
         await fs.rm(tempDir, { recursive: true, force: true })
       }
@@ -514,6 +729,8 @@ class SkillService {
 
       await fs.mkdir(destDir, { recursive: true })
       await fs.writeFile(path.join(destDir, SKILL_FILE), content, 'utf-8')
+      await writeSkillSourceInfo(destDir, args.source)
+      markSkillCacheDirty()
       return { ...buildSkillMetadata(parsed.frontmatter), source: args.source }
     }
 
@@ -536,7 +753,16 @@ class SkillService {
 
         const skillDir = skillDirs[0]
         const requireNameMatch = path.resolve(skillDir) !== path.resolve(extractDir)
-        return await installSkillFromDirectory(skillDir, args, root, allowOverwrite, args.source, requireNameMatch)
+        const metadata = await installSkillFromDirectory(
+          skillDir,
+          args,
+          root,
+          allowOverwrite,
+          sourcePath,
+          requireNameMatch
+        )
+        markSkillCacheDirty()
+        return metadata
       } finally {
         await fs.rm(tempDir, { recursive: true, force: true })
       }
@@ -544,7 +770,16 @@ class SkillService {
 
     const stat = await fs.stat(sourcePath)
     if (stat.isDirectory()) {
-      return await installSkillFromDirectory(sourcePath, args, root, allowOverwrite, args.source, true)
+      const metadata = await installSkillFromDirectory(
+        sourcePath,
+        args,
+        root,
+        allowOverwrite,
+        sourcePath,
+        true
+      )
+      markSkillCacheDirty()
+      return metadata
     }
 
     const content = await fs.readFile(sourcePath, 'utf-8')
@@ -566,7 +801,9 @@ class SkillService {
 
     await fs.mkdir(destDir, { recursive: true })
     await fs.writeFile(path.join(destDir, SKILL_FILE), content, 'utf-8')
-    return { ...buildSkillMetadata(parsed.frontmatter), source: args.source }
+    await writeSkillSourceInfo(destDir, sourcePath)
+    markSkillCacheDirty()
+    return { ...buildSkillMetadata(parsed.frontmatter), source: sourcePath }
   }
 
   static async importSkillsFromFolder(folderPath: string): Promise<SkillImportSummary> {
@@ -588,28 +825,35 @@ class SkillService {
     const existing = new Set<string>()
     const currentSkills = await SkillService.listSkills()
     currentSkills.forEach(skill => existing.add(skill.name))
-
-    const entries = await fs.readdir(folderPath, { withFileTypes: true })
-    for (const entry of entries) {
-      if (!entry.isDirectory()) {
-        continue
+    const currentBySource = new Map<string, SkillMetadata>()
+    currentSkills.forEach(skill => {
+      if (skill.source && !isUrl(skill.source)) {
+        currentBySource.set(path.resolve(skill.source), skill)
       }
+    })
 
-      const skillDir = path.join(folderPath, entry.name)
+    const skillDirs = await findSkillDirectories(folderPath)
+    for (const skillDir of skillDirs) {
       const skillFile = path.join(skillDir, SKILL_FILE)
-      if (!existsSync(skillFile)) {
-        continue
-      }
 
       try {
         const content = await fs.readFile(skillFile, 'utf-8')
         const parsed = parseFrontmatter(content)
+        const dirName = path.basename(skillDir)
+        const effectiveName = resolveSkillNameForDirectory(parsed.frontmatter.name, dirName)
+        parsed.frontmatter.name = effectiveName
         validateSkillName(parsed.frontmatter.name)
         validateSkillDescription(parsed.frontmatter.description)
         validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
 
+        const sourcePath = path.resolve(skillDir)
+        const existingBySource = currentBySource.get(sourcePath)
         let targetName = parsed.frontmatter.name
-        if (existing.has(targetName)) {
+        let allowOverwrite = false
+        if (existingBySource) {
+          targetName = existingBySource.name
+          allowOverwrite = true
+        } else if (existing.has(targetName)) {
           const folderName = path.basename(folderPath)
           targetName = buildConflictName(targetName, folderName, existing)
           renamed.push({ from: parsed.frontmatter.name, to: targetName })
@@ -619,18 +863,22 @@ class SkillService {
           skillDir,
           { source: skillDir },
           root,
-          false,
-          folderPath,
+          allowOverwrite,
+          sourcePath,
           true,
           targetName
         )
         installed.push(metadata)
         existing.add(metadata.name)
+        if (metadata.source && !isUrl(metadata.source)) {
+          currentBySource.set(path.resolve(metadata.source), metadata)
+        }
       } catch (error: any) {
         failed.push({ path: skillDir, error: error.message || 'Unknown error' })
       }
     }
 
+    markSkillCacheDirty()
     return { installed, renamed, skipped, failed }
   }
 
