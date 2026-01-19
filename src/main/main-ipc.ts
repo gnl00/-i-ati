@@ -29,11 +29,13 @@ import {
 import {
   processExecuteCommand
 } from '@main-tools/command/main/CommandProcessor'
+import { processLoadSkill, processUnloadSkill } from '@main-tools/skills/main/SkillToolsProcessor'
 import { ipcMain, shell, dialog } from 'electron'
 import streamingjson from 'streaming-json'
 import EmbeddingServiceInstance from './services/embedding/EmbeddingService'
 import MemoryService from './services/memory/MemoryService'
 import DatabaseService from './services/DatabaseService'
+import { SkillService } from './services/skills/SkillService'
 import { compressionService, type CompressionJob } from './services/CompressionService'
 import { generateTitle } from './services/TitleService'
 import { ChatSubmitEventEmitter } from './services/chatSubmit/event-emitter'
@@ -42,6 +44,11 @@ import {
   PIN_WINDOW,
   WEB_SEARCH_ACTION,
   WEB_FETCH_ACTION,
+  SKILL_LIST_ACTION,
+  SKILL_GET_ACTION,
+  SKILL_LOAD_ACTION,
+  SKILL_UNLOAD_ACTION,
+  SKILL_IMPORT_ACTION,
   WIN_CLOSE,
   WIN_MINIMIZE,
   WIN_MAXIMIZE,
@@ -85,6 +92,9 @@ import {
   DB_CHAT_GET_BY_ID,
   DB_CHAT_UPDATE,
   DB_CHAT_DELETE,
+  DB_CHAT_SKILL_ADD,
+  DB_CHAT_SKILL_REMOVE,
+  DB_CHAT_SKILLS_GET,
   DB_MESSAGE_SAVE,
   DB_MESSAGE_GET_ALL,
   DB_MESSAGE_GET_BY_ID,
@@ -153,6 +163,31 @@ function mainIPCSetup() {
   ipcMain.handle(WEB_FETCH_ACTION, (_event, { url }) => {
     console.log(`[WebFetch IPC] Fetching URL: ${url}`)
     return processWebFetch({ url })
+  })
+
+  ipcMain.handle(SKILL_LIST_ACTION, async () => {
+    console.log('[Skill IPC] List installed skills')
+    return await SkillService.listSkills()
+  })
+
+  ipcMain.handle(SKILL_GET_ACTION, async (_event, { name }) => {
+    console.log(`[Skill IPC] Get skill content: ${name}`)
+    return await SkillService.getSkillContent(name)
+  })
+
+  ipcMain.handle(SKILL_LOAD_ACTION, async (_event, args) => {
+    console.log('[Skill IPC] Load skill')
+    return await processLoadSkill(args)
+  })
+
+  ipcMain.handle(SKILL_UNLOAD_ACTION, async (_event, args) => {
+    console.log('[Skill IPC] Unload skill')
+    return await processUnloadSkill(args)
+  })
+
+  ipcMain.handle(SKILL_IMPORT_ACTION, async (_event, { folderPath }) => {
+    console.log('[Skill IPC] Import skills from folder')
+    return await SkillService.importSkillsFromFolder(folderPath)
   })
 
   // File Operations handlers
@@ -364,6 +399,21 @@ function mainIPCSetup() {
   ipcMain.handle(DB_CHAT_DELETE, async (_event, id) => {
     console.log(`[Database IPC] Delete chat: ${id}`)
     return DatabaseService.deleteChat(id)
+  })
+
+  ipcMain.handle(DB_CHAT_SKILL_ADD, async (_event, { chatId, skillName }) => {
+    console.log(`[Database IPC] Add chat skill: ${chatId} ${skillName}`)
+    return DatabaseService.addChatSkill(chatId, skillName)
+  })
+
+  ipcMain.handle(DB_CHAT_SKILL_REMOVE, async (_event, { chatId, skillName }) => {
+    console.log(`[Database IPC] Remove chat skill: ${chatId} ${skillName}`)
+    return DatabaseService.removeChatSkill(chatId, skillName)
+  })
+
+  ipcMain.handle(DB_CHAT_SKILLS_GET, async (_event, chatId) => {
+    console.log(`[Database IPC] Get chat skills: ${chatId}`)
+    return DatabaseService.getChatSkills(chatId)
   })
 
   // ==================== Database Operations - Message ====================

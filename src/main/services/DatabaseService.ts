@@ -24,6 +24,16 @@ interface ChatRow {
 }
 
 /**
+ * 数据库行接口 - ChatSkill
+ */
+interface ChatSkillRow {
+  chat_id: number
+  skill_name: string
+  load_order: number
+  loaded_at: number
+}
+
+/**
  * 数据库行接口 - Message
  */
 interface MessageRow {
@@ -101,6 +111,11 @@ class DatabaseService {
     getWorkspacePathByUuid?: Database.Statement
     updateChat?: Database.Statement
     deleteChat?: Database.Statement
+    // Chat skills statements
+    insertChatSkill?: Database.Statement
+    deleteChatSkill?: Database.Statement
+    getChatSkillsByChatId?: Database.Statement
+    getChatSkillMaxOrder?: Database.Statement
 
     // Message statements
     insertMessage?: Database.Statement
@@ -212,6 +227,17 @@ class DatabaseService {
       )
     `)
 
+    // 创建 chat_skills 表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_skills (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        skill_name TEXT NOT NULL,
+        load_order INTEGER NOT NULL,
+        loaded_at INTEGER NOT NULL
+      )
+    `)
+
     // 创建 messages 表
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -312,6 +338,8 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_chat_submit_events_timestamp ON chat_submit_events(timestamp);
       CREATE INDEX IF NOT EXISTS idx_assistants_is_built_in ON assistants(is_built_in);
       CREATE INDEX IF NOT EXISTS idx_assistants_is_default ON assistants(is_default);
+      CREATE INDEX IF NOT EXISTS idx_chat_skills_chat_id ON chat_skills(chat_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_skills_skill_name ON chat_skills(skill_name);
     `)
 
     console.log('[DatabaseService] Indexes created')
@@ -367,6 +395,24 @@ class DatabaseService {
 
     this.stmts.deleteChat = this.db.prepare(`
       DELETE FROM chats WHERE id = ?
+    `)
+
+    // Chat skills statements
+    this.stmts.insertChatSkill = this.db.prepare(`
+      INSERT INTO chat_skills (chat_id, skill_name, load_order, loaded_at)
+      VALUES (?, ?, ?, ?)
+    `)
+
+    this.stmts.deleteChatSkill = this.db.prepare(`
+      DELETE FROM chat_skills WHERE chat_id = ? AND skill_name = ?
+    `)
+
+    this.stmts.getChatSkillsByChatId = this.db.prepare(`
+      SELECT * FROM chat_skills WHERE chat_id = ? ORDER BY load_order ASC
+    `)
+
+    this.stmts.getChatSkillMaxOrder = this.db.prepare(`
+      SELECT MAX(load_order) as max_order FROM chat_skills WHERE chat_id = ?
     `)
 
     // Message statements
@@ -649,6 +695,52 @@ class DatabaseService {
       console.log(`[DatabaseService] Deleted chat: ${id}`)
     } catch (error) {
       console.error('[DatabaseService] Failed to delete chat:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取聊天已加载的技能列表（按加载顺序）
+   */
+  public getChatSkills(chatId: number): string[] {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const rows = this.stmts.getChatSkillsByChatId!.all(chatId) as ChatSkillRow[]
+      return rows.map(row => row.skill_name)
+    } catch (error) {
+      console.error('[DatabaseService] Failed to get chat skills:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 添加聊天技能（后加载优先）
+   */
+  public addChatSkill(chatId: number, skillName: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      this.stmts.deleteChatSkill!.run(chatId, skillName)
+      const row = this.stmts.getChatSkillMaxOrder!.get(chatId) as { max_order: number | null } | undefined
+      const maxOrder = row?.max_order ?? 0
+      this.stmts.insertChatSkill!.run(chatId, skillName, maxOrder + 1, Date.now())
+    } catch (error) {
+      console.error('[DatabaseService] Failed to add chat skill:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 移除聊天技能
+   */
+  public removeChatSkill(chatId: number, skillName: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      this.stmts.deleteChatSkill!.run(chatId, skillName)
+    } catch (error) {
+      console.error('[DatabaseService] Failed to remove chat skill:', error)
       throw error
     }
   }

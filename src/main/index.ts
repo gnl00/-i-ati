@@ -8,6 +8,7 @@ import { mainIPCSetup as ipcSetup } from './main-ipc'
 import { createWindow } from './main-window'
 import DatabaseService from './services/DatabaseService'
 import MemoryService from './services/memory/MemoryService'
+import { SkillService } from './services/skills/SkillService'
 
 // const reactDevToolsPath = path.join(
 //   os.homedir(),
@@ -23,10 +24,14 @@ app.whenReady().then(async () => {
   // Initialize database service
   console.log('[App] Initializing database service...')
   await DatabaseService.initialize()
+  const appConfig = DatabaseService.initConfig()
 
   // Initialize memory service
   console.log('[App] Initializing memory service...')
   await MemoryService.initialize()
+
+  // Initialize skills from configured folders (background)
+  void SkillService.initializeFromConfig(appConfig)
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')

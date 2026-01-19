@@ -8,6 +8,9 @@ import {
   OPEN_EXTERNAL,
   WEB_SEARCH_ACTION,
   WEB_FETCH_ACTION,
+  SKILL_LIST_ACTION,
+  SKILL_GET_ACTION,
+  SKILL_IMPORT_ACTION,
   WIN_CLOSE,
   WIN_MINIMIZE,
   WIN_MAXIMIZE,
@@ -20,6 +23,9 @@ import {
   DB_CHAT_GET_BY_ID,
   DB_CHAT_UPDATE,
   DB_CHAT_DELETE,
+  DB_CHAT_SKILL_ADD,
+  DB_CHAT_SKILL_REMOVE,
+  DB_CHAT_SKILLS_GET,
   DB_MESSAGE_SAVE,
   DB_MESSAGE_GET_ALL,
   DB_MESSAGE_GET_BY_ID,
@@ -139,6 +145,37 @@ export async function invokeWebFetchIPC(args: { url: string }): Promise<any> {
   return await ipc.invoke(WEB_FETCH_ACTION, args)
 }
 
+// ============ Skills Operations ============
+
+/**
+ * 获取已安装技能的元数据列表
+ */
+export async function invokeSkillList(): Promise<SkillMetadata[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(SKILL_LIST_ACTION)
+}
+
+/**
+ * 获取指定技能的完整内容
+ */
+export async function invokeSkillGetContent(name: string): Promise<string> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(SKILL_GET_ACTION, { name })
+}
+
+/**
+ * 扫描目录并导入技能
+ */
+export async function invokeSkillImportFolder(folderPath: string): Promise<{
+  installed: SkillMetadata[]
+  renamed: Array<{ from: string; to: string }>
+  skipped: Array<{ path: string; reason: string }>
+  failed: Array<{ path: string; error: string }>
+}> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(SKILL_IMPORT_ACTION, { folderPath })
+}
+
 // ============ File Operations ============
 
 /**
@@ -189,6 +226,30 @@ export async function invokeDbChatUpdate(data: ChatEntity): Promise<void> {
 export async function invokeDbChatDelete(id: number): Promise<void> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CHAT_DELETE, id)
+}
+
+/**
+ * 添加聊天技能
+ */
+export async function invokeDbChatSkillAdd(args: { chatId: number; skillName: string }): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_SKILL_ADD, args)
+}
+
+/**
+ * 移除聊天技能
+ */
+export async function invokeDbChatSkillRemove(args: { chatId: number; skillName: string }): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_SKILL_REMOVE, args)
+}
+
+/**
+ * 获取聊天已加载技能
+ */
+export async function invokeDbChatSkillsGet(chatId: number): Promise<string[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_SKILLS_GET, chatId)
 }
 
 // ============ Database Operations - Message ============

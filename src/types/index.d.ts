@@ -52,6 +52,9 @@ declare interface IAppConfig {
     maxWebSearchItems?: number
     memoryEnabled?: boolean
   }
+  skills?: {
+    folders?: string[]
+  }
   compression?: CompressionConfig
   mcp?: { mcpServers?: {} }
   version?: number
@@ -170,6 +173,16 @@ declare interface MCPTool {
     description?: string
     parameters?: Record<string, unknown>
   }
+}
+
+declare interface SkillMetadata {
+  name: string
+  description: string
+  license?: string
+  compatibility?: string
+  metadata?: Record<string, string>
+  allowedTools?: string[]
+  source?: string
 }
 
 declare interface ChatEntity {

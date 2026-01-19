@@ -6,12 +6,13 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { Plug, Server, Wrench } from "lucide-react"
+import { Plug, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
 import { MCPServersManagerContent } from './MCPServersManager'
 import ProvidersManager from './ProvidersManagerNext'
 import ToolsManager from './ToolsManager'
+import SkillsManager from './SkillsManager'
 
 interface PreferenceProps { }
 
@@ -112,6 +113,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             value: 'mcp-server',
             label: 'MCP Server',
             icon: <Plug className="w-3 h-3" />
+        },
+        {
+            value: 'skills',
+            label: 'Skills',
+            icon: <Sparkles className="w-3 h-3" />
         }
     ]
 
@@ -208,6 +214,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             />
                         </div>
                     </div>
+                </TabsContent>
+
+                <TabsContent value="skills">
+                    <SkillsManager />
                 </TabsContent>
             </Tabs>
         </div>

@@ -6,6 +6,11 @@ export const OPEN_EXTERNAL = 'open-external'
 export const WEB_SEARCH_ACTION = 'web-search-action'
 export const WEB_FETCH_ACTION = 'web-fetch-action'
 export const TOOL_SEARCH_ACTION = 'tool-search-action'
+export const SKILL_LIST_ACTION = 'skill:list'
+export const SKILL_GET_ACTION = 'skill:get'
+export const SKILL_LOAD_ACTION = 'skill:load'
+export const SKILL_UNLOAD_ACTION = 'skill:unload'
+export const SKILL_IMPORT_ACTION = 'skill:import-folder'
 
 // Window Operations Actions
 export const WIN_CLOSE = 'win-close'
@@ -66,6 +71,9 @@ export const DB_CHAT_GET_ALL = 'db:chat:get-all'
 export const DB_CHAT_GET_BY_ID = 'db:chat:get-by-id'
 export const DB_CHAT_UPDATE = 'db:chat:update'
 export const DB_CHAT_DELETE = 'db:chat:delete'
+export const DB_CHAT_SKILL_ADD = 'db:chat-skill:add'
+export const DB_CHAT_SKILL_REMOVE = 'db:chat-skill:remove'
+export const DB_CHAT_SKILLS_GET = 'db:chat-skill:get'
 
 // Database Operations - Message
 export const DB_MESSAGE_SAVE = 'db:message:save'
