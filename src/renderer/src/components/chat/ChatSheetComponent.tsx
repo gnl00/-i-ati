@@ -61,6 +61,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
             className={cn(
                 "group relative flex flex-col justify-between p-3 h-24 rounded-xl shadow-sm transition-all duration-300 cursor-pointer overflow-hidden ring-1 ring-black/5 dark:ring-white/10",
                 "hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02]",
+                currentAssistantId === assistant?.id && "scale-[1.05] -translate-y-1",
                 gradientColors && [
                     gradientType,
                     gradientColors.from,
@@ -80,15 +81,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
                 {/* Status dot with enhanced animation for selected state */}
                 <div className={cn(
                     "rounded-full transition-all duration-300 ease-out",
-                    currentAssistantId === assistant?.id ? [
-                        // Selected state - larger, brighter, with pulse animation
-                        "w-2 h-2 bg-white",
-                        "animate-ping duration-1500"
-                    ] : [
-                        // Unselected state - smaller, dimmer
-                        "w-1.5 h-1.5 bg-white/40",
-                        "group-hover:bg-white/80 group-hover:scale-110"
-                    ]
+                    "w-1.5 h-1.5 bg-white/40 group-hover:bg-white/80 group-hover:scale-110"
                 )} />
             </div>
 

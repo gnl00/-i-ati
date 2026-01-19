@@ -127,7 +127,7 @@ function generateAssistantId(): string {
 export async function initializeBuiltInAssistants(): Promise<void> {
   try {
     console.log('[AssistantInitializer] Starting initialization of built-in assistants')
-    await DatabaseService.deleteAllAssistants()
+    // await DatabaseService.deleteAllAssistants()
 
     // 获取所有现有的 assistants
     const existingAssistants = await DatabaseService.getAllAssistants()
