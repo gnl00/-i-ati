@@ -9,6 +9,7 @@ import toolSearchTools from './registry_search_tools'
 import webTools from './web_tools'
 import memoryTools from './memory_tools'
 import commandTools from './command_tools'
+import skillsTools from './skills_tools'
 
 /**
  * 合并所有工具定义
@@ -19,7 +20,8 @@ export const tools = [
   ...webTools,
   ...fileOperationsTools,
   ...memoryTools,
-  ...commandTools
+  ...commandTools,
+  ...skillsTools
 ]
 
 /**

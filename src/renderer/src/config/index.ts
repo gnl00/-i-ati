@@ -11,6 +11,9 @@ export const defaultConfig: IAppConfig = {
     maxWebSearchItems: 3,
     memoryEnabled: true
   },
+  skills: {
+    folders: []
+  },
   compression: {
     enabled: true,
     triggerThreshold: 30,

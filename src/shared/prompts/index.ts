@@ -168,6 +168,8 @@ To provide world-class, production-quality output while maintaining a transparen
 - **自动修复**: 命令报错时，分析 stderr 并尝试主动修复（如自动安装缺失依赖），而非直接报错给用户。
 </command_execution>
 
+$$skill-slot$$
+
 <package_management>
 ## Package Management & Environment Rules
 

@@ -19,6 +19,7 @@ import {
 import { processWebFetch, processWebSearch } from '@main-tools/webTools/main/WebToolsProcessor'
 import { processMemoryRetrieval, processMemorySave } from '@main-tools/memory/main/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main-tools/command/main/CommandProcessor'
+import { processLoadSkill, processUnloadSkill } from '@main-tools/skills/main/SkillToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.availableTools(),
@@ -41,7 +42,9 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   move_file: processMoveFile,
   memory_retrieval: processMemoryRetrieval,
   memory_save: processMemorySave,
-  execute_command: processExecuteCommand
+  execute_command: processExecuteCommand,
+  load_skill: processLoadSkill,
+  unload_skill: processUnloadSkill
 }
 
 export function initializeMainEmbeddedTools(): void {

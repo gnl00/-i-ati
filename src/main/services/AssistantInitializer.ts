@@ -131,7 +131,7 @@ export async function initializeBuiltInAssistants(): Promise<void> {
 
     // 获取所有现有的 assistants
     const existingAssistants = await DatabaseService.getAllAssistants()
-    console.log(JSON.stringify(existingAssistants));
+    // console.log(JSON.stringify(existingAssistants));
 
     // 检查是否已有内置助手
     const hasBuiltInAssistants = existingAssistants.some(a => a.isBuiltIn)
