@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@renderer/lib/utils'
+import { useAssistantStore } from '@renderer/store/assistant'
 import './WelcomeMessage.css'
 
 // ============================================================================
@@ -12,16 +13,9 @@ const CONFIG = {
 // ============================================================================
 // Types
 // ============================================================================
-interface Suggestion {
-  icon: string
-  title: string
-  description: string
-  prompt: string
-}
-
 interface WelcomeMessageProps {
   className?: string
-  onSuggestionClick?: (suggestion: Suggestion) => void
+  onAssistantClick?: (assistant: Assistant) => void
   isExiting?: boolean
 }
 
@@ -30,39 +24,20 @@ interface WelcomeMessageProps {
 // ============================================================================
 const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
   className,
-  onSuggestionClick,
+  onAssistantClick,
   isExiting = false
 }) => {
+  // Store
+  const { assistants, loadAssistants, isLoading } = useAssistantStore()
+
   // Text State
   const [typedText, setTypedText] = useState('')
   const fullText = "How can I help you today?"
 
-  const suggestions: Suggestion[] = [
-    {
-      icon: '💻',
-      title: 'Help me code',
-      description: 'Debug, explain, or write code',
-      prompt: 'Help me with coding. I need assistance with debugging, understanding code, or writing new code.'
-    },
-    {
-      icon: '✨',
-      title: 'Creative writing',
-      description: 'Stories, essays, or content ideas',
-      prompt: 'Help me with creative writing. I\'m looking for ideas for stories, essays, or other content.'
-    },
-    {
-      icon: '🧠',
-      title: 'Problem solving',
-      description: 'Analyze and solve complex problems',
-      prompt: 'Help me solve this problem. I need to analyze and find a solution.'
-    },
-    {
-      icon: '💡',
-      title: 'Brainstorm ideas',
-      description: 'Generate and explore new concepts',
-      prompt: 'Help me brainstorm ideas. I want to explore new concepts and possibilities.'
-    }
-  ]
+  // Load assistants on mount
+  useEffect(() => {
+    loadAssistants()
+  }, [])
 
   // Typewriter Effect
   useEffect(() => {
@@ -82,8 +57,8 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
     return () => clearInterval(typeInterval)
   }, [fullText, isExiting])
 
-  const handleSuggestionClick = (suggestion: Suggestion) => {
-    onSuggestionClick?.(suggestion)
+  const handleAssistantClick = (assistant: Assistant) => {
+    onAssistantClick?.(assistant)
   }
 
   // Render
@@ -110,44 +85,54 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
             Ask me a question or share what you're working on.
           </p>
 
-          {/* Suggestion Cards */}
+          {/* Assistant Cards */}
           <div className="w-full animate-slide-up">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {suggestions.map((suggestion, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  className="group text-left p-6 rounded-2xl border border-border bg-card hover:bg-accent/50 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
-                >
-                  <div className="flex items-start gap-4">
-                    <span className="text-2xl group-hover:scale-110 transition-transform duration-300">
-                      {suggestion.icon}
-                    </span>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-foreground mb-1">
-                        {suggestion.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {suggestion.description}
-                      </p>
+            {isLoading ? (
+              <div className="text-center text-muted-foreground">
+                Loading assistants...
+              </div>
+            ) : assistants.length === 0 ? (
+              <div className="text-center text-muted-foreground">
+                No assistants available
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {assistants.map((assistant) => (
+                  <button
+                    key={assistant.id}
+                    onClick={() => handleAssistantClick(assistant)}
+                    className="group text-left p-6 rounded-2xl border border-border bg-card hover:bg-accent/50 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
+                  >
+                    <div className="flex items-start gap-4">
+                      <span className="text-2xl group-hover:scale-110 transition-transform duration-300">
+                        {assistant.icon || '🤖'}
+                      </span>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-foreground mb-1">
+                          {assistant.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {assistant.description || 'No description'}
+                        </p>
+                      </div>
+                      <svg
+                        className="w-5 h-5 text-muted-foreground group-hover:text-foreground opacity-0 group-hover:opacity-100 transition-all duration-300 transform -translate-x-2 group-hover:translate-x-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
                     </div>
-                    <svg
-                      className="w-5 h-5 text-muted-foreground group-hover:text-foreground opacity-0 group-hover:opacity-100 transition-all duration-300 transform -translate-x-2 group-hover:translate-x-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="animate-fade-in-delayed-2 pt-4">

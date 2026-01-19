@@ -64,6 +64,23 @@ interface CompressedSummaryRow {
   status: string
 }
 
+/**
+ * 数据库行接口 - Assistant
+ */
+interface AssistantRow {
+  id: string
+  name: string
+  icon: string | null
+  description: string | null
+  model_account_id: string
+  model_model_id: string
+  system_prompt: string
+  created_at: number
+  updated_at: number
+  is_built_in: number  // 0 or 1
+  is_default: number   // 0 or 1
+}
+
 
 /**
  * SQLite 数据库服务
@@ -105,6 +122,13 @@ class DatabaseService {
 
     // ChatSubmitEventTrace statements
     insertChatSubmitEvent?: Database.Statement
+
+    // Assistant statements
+    insertAssistant?: Database.Statement
+    getAllAssistants?: Database.Statement
+    getAssistantById?: Database.Statement
+    updateAssistant?: Database.Statement
+    deleteAssistant?: Database.Statement
   } = {}
 
   private constructor() {
@@ -158,6 +182,10 @@ class DatabaseService {
       const chatCount = this.db.prepare('SELECT COUNT(*) as count FROM chats').get() as { count: number }
       const messageCount = this.db.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number }
       console.log(`[DatabaseService] Initialized with ${chatCount.count} chats and ${messageCount.count} messages`)
+
+      // 初始化内置 Assistants
+      const { initializeBuiltInAssistants } = await import('./AssistantInitializer')
+      await initializeBuiltInAssistants()
     } catch (error) {
       console.error('[DatabaseService] Failed to initialize:', error)
       throw error
@@ -243,6 +271,23 @@ class DatabaseService {
       )
     `)
 
+    // 创建 assistants 表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS assistants (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        icon TEXT,
+        description TEXT,
+        model_account_id TEXT NOT NULL,
+        model_model_id TEXT NOT NULL,
+        system_prompt TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        is_built_in INTEGER DEFAULT 0,
+        is_default INTEGER DEFAULT 0
+      )
+    `)
+
     console.log('[DatabaseService] Tables created')
   }
 
@@ -265,6 +310,8 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_chat_submit_events_chat_id ON chat_submit_events(chat_id);
       CREATE INDEX IF NOT EXISTS idx_chat_submit_events_chat_uuid ON chat_submit_events(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_chat_submit_events_timestamp ON chat_submit_events(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_assistants_is_built_in ON assistants(is_built_in);
+      CREATE INDEX IF NOT EXISTS idx_assistants_is_default ON assistants(is_default);
     `)
 
     console.log('[DatabaseService] Indexes created')
@@ -393,6 +440,34 @@ class DatabaseService {
       INSERT INTO chat_submit_events (
         submission_id, chat_id, chat_uuid, sequence, type, timestamp, payload, meta
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    // Assistant statements
+    this.stmts.insertAssistant = this.db.prepare(`
+      INSERT INTO assistants (
+        id, name, icon, description, model_account_id, model_model_id,
+        system_prompt, created_at, updated_at, is_built_in, is_default
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    this.stmts.getAllAssistants = this.db.prepare(`
+      SELECT * FROM assistants ORDER BY created_at DESC
+    `)
+
+    this.stmts.getAssistantById = this.db.prepare(`
+      SELECT * FROM assistants WHERE id = ?
+    `)
+
+    this.stmts.updateAssistant = this.db.prepare(`
+      UPDATE assistants SET
+        name = ?, icon = ?, description = ?, model_account_id = ?,
+        model_model_id = ?, system_prompt = ?, updated_at = ?,
+        is_built_in = ?, is_default = ?
+      WHERE id = ?
+    `)
+
+    this.stmts.deleteAssistant = this.db.prepare(`
+      DELETE FROM assistants WHERE id = ?
     `)
 
     console.log('[DatabaseService] Statements prepared')
@@ -1073,6 +1148,143 @@ class DatabaseService {
       console.log(`[DatabaseService] Deleted compressed summary: ${id}`)
     } catch (error) {
       console.error('[DatabaseService] Failed to delete compressed summary:', error)
+      throw error
+    }
+  }
+
+  // ==================== Assistant Methods ====================
+
+  /**
+   * 将数据库行转换为 Assistant
+   */
+  private rowToAssistant(row: AssistantRow): Assistant {
+    return {
+      id: row.id,
+      name: row.name,
+      icon: row.icon || undefined,
+      description: row.description || undefined,
+      modelRef: {
+        accountId: row.model_account_id,
+        modelId: row.model_model_id
+      },
+      systemPrompt: row.system_prompt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      isBuiltIn: row.is_built_in === 1,
+      isDefault: row.is_default === 1
+    }
+  }
+
+  /**
+   * 保存 Assistant
+   */
+  public saveAssistant(assistant: Assistant): string {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      this.stmts.insertAssistant!.run(
+        assistant.id,
+        assistant.name,
+        assistant.icon || null,
+        assistant.description || null,
+        assistant.modelRef.accountId,
+        assistant.modelRef.modelId,
+        assistant.systemPrompt,
+        assistant.createdAt,
+        assistant.updatedAt,
+        assistant.isBuiltIn ? 1 : 0,
+        assistant.isDefault ? 1 : 0
+      )
+      console.log(`[DatabaseService] Saved assistant: ${assistant.id}`)
+      return assistant.id
+    } catch (error) {
+      console.error('[DatabaseService] Failed to save assistant:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取所有 Assistants
+   */
+  public getAllAssistants(): Assistant[] {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const rows = this.stmts.getAllAssistants!.all() as AssistantRow[]
+      return rows.map(row => this.rowToAssistant(row))
+    } catch (error) {
+      console.error('[DatabaseService] Failed to get all assistants:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 删除所有 Assistants
+   */
+  public deleteAllAssistants(): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      this.db.prepare('DELETE FROM assistants').run()
+      console.log('[DatabaseService] Deleted all assistants')
+    } catch (error) {
+      console.error('[DatabaseService] Failed to delete all assistants:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 根据 ID 获取 Assistant
+   */
+  public getAssistantById(id: string): Assistant | undefined {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      const row = this.stmts.getAssistantById!.get(id) as AssistantRow | undefined
+      return row ? this.rowToAssistant(row) : undefined
+    } catch (error) {
+      console.error('[DatabaseService] Failed to get assistant by id:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 更新 Assistant
+   */
+  public updateAssistant(assistant: Assistant): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      this.stmts.updateAssistant!.run(
+        assistant.name,
+        assistant.icon || null,
+        assistant.description || null,
+        assistant.modelRef.accountId,
+        assistant.modelRef.modelId,
+        assistant.systemPrompt,
+        assistant.updatedAt,
+        assistant.isBuiltIn ? 1 : 0,
+        assistant.isDefault ? 1 : 0,
+        assistant.id
+      )
+      console.log(`[DatabaseService] Updated assistant: ${assistant.id}`)
+    } catch (error) {
+      console.error('[DatabaseService] Failed to update assistant:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 删除 Assistant
+   */
+  public deleteAssistant(id: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    try {
+      this.stmts.deleteAssistant!.run(id)
+      console.log(`[DatabaseService] Deleted assistant: ${id}`)
+    } catch (error) {
+      console.error('[DatabaseService] Failed to delete assistant:', error)
       throw error
     }
   }
