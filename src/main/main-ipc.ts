@@ -95,6 +95,11 @@ import {
   DB_CONFIG_SAVE,
   DB_CONFIG_INIT,
   DB_CHAT_SUBMIT_EVENT_SAVE,
+  DB_ASSISTANT_SAVE,
+  DB_ASSISTANT_GET_ALL,
+  DB_ASSISTANT_GET_BY_ID,
+  DB_ASSISTANT_UPDATE,
+  DB_ASSISTANT_DELETE,
   CHAT_SUBMIT_SUBMIT,
   CHAT_SUBMIT_CANCEL,
   CHAT_COMPRESSION_EXECUTE,
@@ -508,6 +513,33 @@ function mainIPCSetup() {
   ipcMain.handle(DB_CHAT_SUBMIT_EVENT_SAVE, async (_event, data: ChatSubmitEventTrace) => {
     console.log('[Database IPC] Save chat submit event')
     return DatabaseService.saveChatSubmitEvent(data)
+  })
+
+  // ==================== Database Operations - Assistant ====================
+
+  ipcMain.handle(DB_ASSISTANT_SAVE, async (_event, data: Assistant) => {
+    console.log(`[Database IPC] Save assistant: ${data.name}`)
+    return DatabaseService.saveAssistant(data)
+  })
+
+  ipcMain.handle(DB_ASSISTANT_GET_ALL, async (_event) => {
+    console.log('[Database IPC] Get all assistants')
+    return DatabaseService.getAllAssistants()
+  })
+
+  ipcMain.handle(DB_ASSISTANT_GET_BY_ID, async (_event, id: string) => {
+    console.log(`[Database IPC] Get assistant by id: ${id}`)
+    return DatabaseService.getAssistantById(id)
+  })
+
+  ipcMain.handle(DB_ASSISTANT_UPDATE, async (_event, data: Assistant) => {
+    console.log(`[Database IPC] Update assistant: ${data.id}`)
+    return DatabaseService.updateAssistant(data)
+  })
+
+  ipcMain.handle(DB_ASSISTANT_DELETE, async (_event, id: string) => {
+    console.log(`[Database IPC] Delete assistant: ${id}`)
+    return DatabaseService.deleteAssistant(id)
   })
 
   // CompressedSummary handlers

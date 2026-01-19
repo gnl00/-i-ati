@@ -72,7 +72,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   return (
-      <ChatContext.Provider 
+      <ChatContext.Provider
         value={{
           chatContent, setChatContent,
           editableContentId, setEditableContentId,

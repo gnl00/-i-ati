@@ -30,6 +30,11 @@ import {
   DB_CONFIG_SAVE,
   DB_CONFIG_INIT,
   DB_CHAT_SUBMIT_EVENT_SAVE,
+  DB_ASSISTANT_SAVE,
+  DB_ASSISTANT_GET_ALL,
+  DB_ASSISTANT_GET_BY_ID,
+  DB_ASSISTANT_UPDATE,
+  DB_ASSISTANT_DELETE,
   CHAT_SUBMIT_SUBMIT,
   CHAT_SUBMIT_CANCEL,
   CHAT_SUBMIT_EVENT,
@@ -333,6 +338,48 @@ export async function invokeChatTitleGenerate(data: {
 export async function invokeDbChatSubmitEventSave(data: ChatSubmitEventTrace): Promise<number> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CHAT_SUBMIT_EVENT_SAVE, data)
+}
+
+// ============ Database Operations - Assistant ============
+
+/**
+ * 保存 Assistant
+ */
+export async function invokeDbAssistantSave(data: Assistant): Promise<string> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_ASSISTANT_SAVE, data)
+}
+
+/**
+ * 获取所有 Assistants
+ */
+export async function invokeDbAssistantGetAll(): Promise<Assistant[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_ASSISTANT_GET_ALL)
+}
+
+/**
+ * 根据 ID 获取 Assistant
+ */
+export async function invokeDbAssistantGetById(id: string): Promise<Assistant | undefined> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_ASSISTANT_GET_BY_ID, id)
+}
+
+/**
+ * 更新 Assistant
+ */
+export async function invokeDbAssistantUpdate(data: Assistant): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_ASSISTANT_UPDATE, data)
+}
+
+/**
+ * 删除 Assistant
+ */
+export async function invokeDbAssistantDelete(id: string): Promise<boolean> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_ASSISTANT_DELETE, id)
 }
 
 // ============ CompressedSummary Operations ============

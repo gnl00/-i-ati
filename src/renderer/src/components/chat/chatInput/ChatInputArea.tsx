@@ -6,6 +6,7 @@ import { useMcpConnection } from '@renderer/hooks/useMcpConnection'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import { useAssistantStore } from '@renderer/store/assistant'
 import { embeddedToolsRegistry } from "@tools/registry"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -16,12 +17,10 @@ import ChatInputActions from './ChatInputActions'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
-  suggestedPrompt?: string  // 接收来自 WelcomeMessage 的建议（自动填充）
 }
 
 const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   onMessagesUpdate,
-  suggestedPrompt,
 }, ref) => {
   // Use Zustand selectors to avoid unnecessary re-renders
   // Only subscribe to specific state slices instead of the entire store
@@ -74,10 +73,20 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     isConnecting: isConnectingMcpServer
   } = useMcpConnection()
 
+  // Get currentAssistant from assistant store
+  const { currentAssistant } = useAssistantStore()
+
   const [inputContent, setInputContent] = useState<string>('')
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
+
+  // Apply currentAssistant's systemPrompt to currentSystemPrompt
+  useEffect(() => {
+    if (currentAssistant?.systemPrompt) {
+      setCurrentSystemPrompt(currentAssistant.systemPrompt)
+    }
+  }, [currentAssistant])
 
   // Textarea ref
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -188,19 +197,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     // Delegate command detection to the hook
     handleCommandInputChange(value)
   }, [handleCommandInputChange])
-
-  // 监听 suggestedPrompt 的变化（自动填充到 textarea）
-  useEffect(() => {
-    if (suggestedPrompt && suggestedPrompt !== inputContent) {
-      setInputContent(suggestedPrompt)
-      // 聚焦到 textarea 并将光标移到末尾
-      setTimeout(() => {
-        textareaRef.current?.focus()
-        const length = textareaRef.current?.value.length || 0
-        textareaRef.current?.setSelectionRange(length, length)
-      }, 0)
-    }
-  }, [suggestedPrompt])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Delegate command palette navigation to the hook

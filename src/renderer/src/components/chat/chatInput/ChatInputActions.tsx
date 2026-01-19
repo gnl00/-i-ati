@@ -8,6 +8,7 @@ import {
 } from "@renderer/components/ui/tooltip"
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
+import { useAssistantStore } from '@renderer/store/assistant'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
@@ -44,6 +45,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 }) => {
   const readStreamState = useChatStore(state => state.readStreamState)
   const messages = useChatStore(state => state.messages)
+  const { setCurrentAssistant } = useAssistantStore()
   const {
     chatId,
     chatUuid,
@@ -80,6 +82,9 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 
   // 优化的 New Chat 处理逻辑
   const handleNewChat = async () => {
+    // 清空 currentAssistant
+    setCurrentAssistant(null)
+
     // 如果当前 chat 存在且没有任何消息，直接清空 workspace 复用当前 chat
     if (chatId && chatUuid && messages.length === 0) {
       const currentChat = getChatFromList({ chatId, chatList })

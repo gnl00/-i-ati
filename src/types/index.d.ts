@@ -374,3 +374,28 @@ declare interface CompressionStrategy {
   messagesToKeep: number[]      // 保留的消息 ID
   existingSummaries: CompressedSummaryEntity[]  // 已有的压缩摘要
 }
+
+// ==================== Assistant Types ====================
+
+/**
+ * AI 助手（Assistant）
+ * 预配置的 AI 助手，包含模型和系统提示词
+ */
+declare interface Assistant {
+  id: string                    // 唯一标识
+  name: string                  // 助手名称
+  icon?: string                 // 助手图标（emoji 或图标名称）
+  description?: string          // 助手描述
+
+  // 模型配置
+  modelRef: ModelRef            // 使用的模型引用
+
+  // 系统提示词
+  systemPrompt: string          // 系统提示词（定义助手行为和对话风格）
+
+  // 元数据
+  createdAt: number             // 创建时间
+  updatedAt: number             // 更新时间
+  isBuiltIn?: boolean           // 是否为内置助手
+  isDefault?: boolean           // 是否为默认助手
+}

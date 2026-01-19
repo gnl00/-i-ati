@@ -83,6 +83,13 @@ export const DB_CONFIG_INIT = 'db:config:init'
 // Database Operations - Chat Submit Event Trace
 export const DB_CHAT_SUBMIT_EVENT_SAVE = 'db:chat-submit-event:save'
 
+// Database Operations - Assistant
+export const DB_ASSISTANT_SAVE = 'db:assistant:save'
+export const DB_ASSISTANT_GET_ALL = 'db:assistant:get-all'
+export const DB_ASSISTANT_GET_BY_ID = 'db:assistant:get-by-id'
+export const DB_ASSISTANT_UPDATE = 'db:assistant:update'
+export const DB_ASSISTANT_DELETE = 'db:assistant:delete'
+
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
 

@@ -7,6 +7,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/
 import { useChatContext } from '@renderer/context/ChatContext'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
+import { useAssistantStore } from '@renderer/store/assistant'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, FileCode, Monitor } from 'lucide-react'
 import React, { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -68,13 +69,15 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const [isWelcomeExiting, setIsWelcomeExiting] = useState<boolean>(false)
   const hasShownWelcomeRef = useRef<boolean>(false)
 
-  // 方案 4: 预览 + 快速发送 - 存储建议的 prompt
-  const [suggestedPrompt, setSuggestedPrompt] = useState<string>('')
+  // 从 Assistant Store 获取 setCurrentAssistant
+  const { setCurrentAssistant } = useAssistantStore()
 
-  // 处理示例卡片点击
-  const handleSuggestionClick = useCallback((suggestion: any) => {
-    setSuggestedPrompt(suggestion.prompt)
-  }, [])
+  // 处理 Assistant 卡片点击
+  const handleAssistantClick = useCallback((assistant: Assistant) => {
+    // 设置当前选中的 Assistant
+    setCurrentAssistant(assistant)
+    console.log('[ChatWindow] Selected assistant:', assistant.name)
+  }, [setCurrentAssistant])
 
   // Detect first message - trigger exit animation then hide welcome
   useLayoutEffect(() => {
@@ -190,7 +193,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   )}
                 >
                   <WelcomeMessage
-                    onSuggestionClick={handleSuggestionClick}
+                    onAssistantClick={handleAssistantClick}
                     isExiting={isWelcomeExiting}
                   />
                 </div>
@@ -261,7 +264,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
           <ChatInputArea
             ref={inputAreaRef}
             onMessagesUpdate={onMessagesUpdate}
-            suggestedPrompt={suggestedPrompt}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

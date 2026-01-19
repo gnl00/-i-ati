@@ -23,6 +23,7 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useSheetStore } from '@renderer/store/sheet'
+import { useAssistantStore } from '@renderer/store/assistant'
 import { switchWorkspace } from '@renderer/utils/workspaceUtils'
 import { BadgePlus, ChevronsUpDown, } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
@@ -32,7 +33,9 @@ interface ChatSheetProps { }
 
 // Assistant Card 组件
 interface AssistantCardProps {
-    label: string
+    assistant?: Assistant
+    label?: string
+    icon?: string
     gradientType?: string
     gradientColors?: { from: string; via: string; to: string }
     className?: string
@@ -40,12 +43,16 @@ interface AssistantCardProps {
 }
 
 const AssistantCard: React.FC<AssistantCardProps> = ({
+    assistant,
     label,
+    icon,
     gradientType = 'bg-gradient-to-br',
     gradientColors,
     className,
     onClick
 }) => {
+    const displayLabel = assistant?.name || label || 'Assistant'
+    const displayIcon = assistant?.icon || icon
     return (
         <div
             onClick={onClick}
@@ -61,9 +68,9 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
                 className
             )}
         >
-            {/* Decorative Background Character */}
+            {/* Decorative Background - Icon or First Character */}
             <div className="absolute -right-2 -top-4 opacity-10 text-7xl font-black text-black dark:text-white transform -rotate-12 transition-transform duration-500 group-hover:rotate-0 group-hover:scale-110 pointer-events-none select-none">
-                {label.charAt(0)}
+                {displayIcon || displayLabel.charAt(0)}
             </div>
 
             {/* Top Area (Empty for now, acts as spacer) */}
@@ -78,7 +85,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
                     Assistant
                 </p>
                 <span className="text-base font-bold text-white leading-tight drop-shadow-sm tracking-tight">
-                    {label}
+                    {displayLabel}
                 </span>
             </div>
 
@@ -93,6 +100,12 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
     const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
     const { accounts, providerDefinitions } = useAppConfigStore()
     const { chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList } = useChatContext()
+    const { assistants, loadAssistants, isLoading: isLoadingAssistants, setCurrentAssistant } = useAssistantStore()
+
+    // Load assistants on mount
+    useEffect(() => {
+        loadAssistants()
+    }, [])
 
     /**
      * 批量完成当前 chat 的所有消息的打字机效果
@@ -147,6 +160,13 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
         ).catch(err => {
             console.error('[ChatSheet] Failed to batch update typewriterCompleted:', err)
         })
+    }
+
+    // Handle assistant click
+    const handleAssistantClick = (assistant: Assistant) => {
+        setCurrentAssistant(assistant)
+        setSheetOpenState(false)
+        sonnerToast.success(`Selected ${assistant.name}`)
     }
 
     const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])
@@ -370,39 +390,33 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                             "overflow-hidden transition-all duration-300 ease-out",
                             isCarouselExpanded ? "max-h-[240px]" : "max-h-[110px]"
                         )}>
-                            <div className="grid grid-cols-4 gap-2 pb-2 pt-2">
-                                {/* 第一行：始终显示 */}
-                                {/* Hi 卡片 */}
-                                <AssistantCard
-                                    label="Hi"
-                                    gradientColors={{ from: 'from-[#43CBFF]', via: 'via-[#9708CC]', to: 'to-[#9708CC]' }}
-                                    className="text-lg"
-                                />
-
-                                {/* Assistant 1-3 */}
-                                {Array.from({ length: 3 }).map((_, index) => (
-                                    <AssistantCard
-                                        key={index}
-                                        label={`A-${index + 1}`}
-                                        gradientType={bgGradientTypes[index % bgGradientTypes.length]}
-                                        gradientColors={bgGradientColors[index % bgGradientColors.length]}
-                                    />
-                                ))}
-
-                                {/* 第二行：展开时显示，带淡入淡出动画 */}
-                                {Array.from({ length: 2 }).map((_, index) => (
-                                    <AssistantCard
-                                        key={`second-row-${index}`}
-                                        label={`A-${index + 4}`}
-                                        gradientType={bgGradientTypes[(index + 3) % bgGradientTypes.length]}
-                                        gradientColors={bgGradientColors[(index + 3) % bgGradientColors.length]}
-                                        className={cn(
-                                            isCarouselExpanded
-                                                ? "opacity-100 translate-y-0"
-                                                : "opacity-0 -translate-y-2 pointer-events-none"
-                                        )}
-                                    />
-                                ))}
+                            {isLoadingAssistants ? (
+                                <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+                                    Loading assistants...
+                                </div>
+                            ) : assistants.length === 0 ? (
+                                <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+                                    No assistants available
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-4 gap-2 pb-2 pt-2">
+                                    {assistants.map((assistant, index) => (
+                                        <AssistantCard
+                                            key={assistant.id}
+                                            assistant={assistant}
+                                            gradientType={bgGradientTypes[index % bgGradientTypes.length]}
+                                            gradientColors={bgGradientColors[index % bgGradientColors.length]}
+                                            onClick={() => handleAssistantClick(assistant)}
+                                            className={cn(
+                                                index >= 4 && (
+                                                    isCarouselExpanded
+                                                        ? "opacity-100 translate-y-0"
+                                                        : "opacity-0 -translate-y-2 pointer-events-none"
+                                                ),
+                                                "transition-all duration-300"
+                                            )}
+                                        />
+                                    ))}
 
                                 {/* Add 按钮 */}
                                 <div
@@ -422,24 +436,30 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                 <p className="text-[10px] font-medium text-gray-400 mt-2 uppercase tracking-wide group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">Create</p>
                                             </div>
                                         </DrawerTrigger>
-                                        <DrawerContent className="max-h-[85vh]">
-                                            <DrawerHeader>
-                                                <DrawerTitle>Create Assistant</DrawerTitle>
-                                                <DrawerDescription>Customize your AI assistant with a name, model, and system prompt.</DrawerDescription>
+                                        <DrawerContent className="max-h-[85vh] border-t border-slate-200 dark:border-slate-800">
+                                            <DrawerHeader className="space-y-2 pb-6">
+                                                <DrawerTitle className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                                                    Create Assistant
+                                                </DrawerTitle>
+                                                <DrawerDescription className="text-sm text-slate-600 dark:text-slate-400">
+                                                    Customize your AI assistant with a name, model, and system prompt.
+                                                </DrawerDescription>
                                             </DrawerHeader>
-                                            <div className='px-4 pb-4 space-y-4 overflow-y-auto'>
+                                            <div className='px-6 pb-4 space-y-5 overflow-y-auto'>
+                                                {/* Name Input */}
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="assistant-name" className="text-sm font-medium">
+                                                    <Label htmlFor="assistant-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                                         Name <span className="text-red-500">*</span>
                                                     </Label>
                                                     <Input
                                                         id="assistant-name"
                                                         placeholder='e.g., Code Helper, Writing Assistant'
-                                                        className="w-full"
+                                                        className="h-10 border-slate-200 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-700 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-slate-200 dark:focus-visible:border-slate-700"
                                                     />
                                                 </div>
+                                                {/* Model Selector */}
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="assistant-model" className="text-sm font-medium">
+                                                    <Label htmlFor="assistant-model" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                                         Model <span className="text-red-500">*</span>
                                                     </Label>
                                                     <Popover>
@@ -448,9 +468,9 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                 id="assistant-model"
                                                                 variant="outline"
                                                                 role="combobox"
-                                                                className="w-full justify-between"
+                                                                className="w-full h-10 justify-between border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                                                             >
-                                                                {"Select a model..."}
+                                                                <span className="text-slate-500 dark:text-slate-400">Select a model...</span>
                                                                 <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                                                             </Button>
                                                         </PopoverTrigger>
@@ -483,40 +503,42 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                         </PopoverContent>
                                                     </Popover>
                                                 </div>
+                                                {/* System Prompt */}
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="assistant-prompt" className="text-sm font-medium">
+                                                    <Label htmlFor="assistant-prompt" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                                         System Prompt <span className="text-red-500">*</span>
                                                     </Label>
                                                     <Textarea
                                                         id="assistant-prompt"
                                                         placeholder="You are a helpful assistant that..."
-                                                        className="w-full min-h-[120px] resize-none"
+                                                        className="min-h-[120px] resize-none border-slate-200 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-700 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-slate-200 dark:focus-visible:border-slate-700"
                                                     />
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
                                                         Define how your assistant should behave and respond.
                                                     </p>
                                                 </div>
                                             </div>
-                                            <DrawerFooter className="flex-row gap-2">
+                                            {/* Footer */}
+                                            <DrawerFooter className="flex-row gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800">
                                                 <DrawerClose asChild>
-                                                    <Button variant="outline" className="flex-1">Cancel</Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="flex-1 h-10 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                                                    >
+                                                        Cancel
+                                                    </Button>
                                                 </DrawerClose>
-                                                <Button className="flex-1">Create Assistant</Button>
+                                                <Button
+                                                    className="flex-1 h-10 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900 transition-all"
+                                                >
+                                                    Create Assistant
+                                                </Button>
                                             </DrawerFooter>
                                         </DrawerContent>
                                     </Drawer>
                                 </div>
-
-                                {/* 第 8 个位置占位 */}
-                                <div
-                                    className={cn(
-                                        "h-24 transition-all duration-300",
-                                        isCarouselExpanded
-                                            ? "opacity-100 translate-y-0"
-                                            : "opacity-0 -translate-y-2"
-                                    )}
-                                ></div>
                             </div>
+                            )}
                         </div>
                     </div>
 
