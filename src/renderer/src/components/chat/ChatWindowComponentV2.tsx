@@ -9,7 +9,7 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, FileCode, Monitor } from 'lucide-react'
-import React, { forwardRef, memo, useCallback, useEffect, useRef, useState } from 'react'
+import React, { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useChatScroll } from './useChatScroll'
 
@@ -77,7 +77,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [])
 
   // Detect first message - trigger exit animation then hide welcome
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (messageKeys.length > 0 && showWelcome && !hasShownWelcomeRef.current) {
       hasShownWelcomeRef.current = true
       // Start exit animation immediately
@@ -86,7 +86,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       setTimeout(() => {
         setShowWelcome(false)
         setIsWelcomeExiting(false)
-      }, 280) // Match animation duration
+      }, 260) // Match animation duration
     }
   }, [messageKeys.length, showWelcome])
 
@@ -99,14 +99,10 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [chatUuid, messageKeys.length])
 
-  const totalCount = messageKeys.length + (showWelcome ? 1 : 0)
+  const totalCount = messageKeys.length
   const getItemKey = useCallback((index: number) => {
-    if (showWelcome) {
-      if (index === 0) return 'welcome'
-      return messageKeys[index - 1] ?? `msg-${index - 1}`
-    }
     return messageKeys[index] ?? `msg-${index}`
-  }, [showWelcome, messageKeys])
+  }, [messageKeys])
 
   const estimateSize = useCallback(() => 120, [])
 
@@ -158,8 +154,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   style={{ height: rowVirtualizer.getTotalSize() }}
                 >
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                    const isWelcomeRow = showWelcome && virtualRow.index === 0
-                    const messageIndex = showWelcome ? virtualRow.index - 1 : virtualRow.index
+                    const messageIndex = virtualRow.index
                     const isLatest = messageIndex === messageKeys.length - 1
 
                     return (
@@ -175,24 +170,31 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                           transform: `translateY(${virtualRow.start}px)`
                         }}
                       >
-                        {isWelcomeRow ? (
-                          <WelcomeMessage
-                            onSuggestionClick={handleSuggestionClick}
-                            isExiting={isWelcomeExiting}
-                          />
-                        ) : messageIndex >= 0 ? (
-                          <ChatMessageRow
-                            messageIndex={messageIndex}
-                            isLatest={isLatest}
-                            onTyping={onTyping}
-                          />
-                        ) : null}
+                        <ChatMessageRow
+                          messageIndex={messageIndex}
+                          isLatest={isLatest}
+                          onTyping={onTyping}
+                        />
                       </div>
                     )
                   })}
                 </div>
                 <div id="scrollBottomEl" ref={chatPaddingElRef} className="h-px"></div>
               </div>
+
+              {showWelcome && (
+                <div
+                  className={cn(
+                    "welcome-overlay",
+                    isWelcomeExiting && "welcome-overlay-exit"
+                  )}
+                >
+                  <WelcomeMessage
+                    onSuggestionClick={handleSuggestionClick}
+                    isExiting={isWelcomeExiting}
+                  />
+                </div>
+              )}
 
               {/* ScrollToBottom 按钮 - 绝对定位在 ChatPanel 底部中间 */}
               {showScrollToBottom && (

@@ -66,6 +66,9 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
 
   // Typewriter Effect
   useEffect(() => {
+    if (isExiting) {
+      return
+    }
     let i = 0
     const typeInterval = setInterval(() => {
       if (i <= fullText.length) {
@@ -77,7 +80,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
     }, CONFIG.TYPEWRITER_SPEED)
 
     return () => clearInterval(typeInterval)
-  }, [])
+  }, [fullText, isExiting])
 
   const handleSuggestionClick = (suggestion: Suggestion) => {
     onSuggestionClick?.(suggestion)
@@ -87,8 +90,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
   return (
     <div
       className={cn(
-        "relative w-full h-[70vh] flex items-center justify-center",
-        isExiting && "animate-exit",
+        "welcome-message relative w-full h-[70vh] flex items-center justify-center",
         className
       )}
     >
