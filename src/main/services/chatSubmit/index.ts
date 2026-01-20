@@ -33,7 +33,20 @@ class MainStreamingMessageManager {
   ) {}
 
   rebuildRequestMessages(): void {
-    this.request.messages = this.messageEntities.map(entity => entity.body)
+    const bodies = normalizeToolCallOrdering(
+      this.messageEntities.map(entity => entity.body)
+    )
+    while (bodies.length > 0) {
+      const last = bodies[bodies.length - 1]
+      if (last.role !== 'assistant') break
+      const hasToolCalls = last.toolCalls && last.toolCalls.length > 0
+      const hasContent = typeof last.content === 'string'
+        ? last.content.trim().length > 0
+        : Array.isArray(last.content) && last.content.length > 0
+      if (hasToolCalls || hasContent) break
+      bodies.pop()
+    }
+    this.request.messages = bodies
   }
 
   updateLastAssistantMessage(updater: (message: MessageEntity) => MessageEntity): void {
@@ -76,6 +89,7 @@ class MainStreamingMessageManager {
   }
 
   async addToolCallMessage(toolCalls: IToolCall[], content: string): Promise<void> {
+    this.ensureAssistantTail()
     this.updateLastAssistantMessage((message) => ({
       ...message,
       body: {
@@ -133,6 +147,133 @@ class MainStreamingMessageManager {
     }
     return -1
   }
+
+  private ensureAssistantTail(): void {
+    const last = this.messageEntities[this.messageEntities.length - 1]
+    if (last?.body?.role === 'assistant') {
+      return
+    }
+
+    this.messageEntities.push({
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: [],
+        typewriterCompleted: false
+      }
+    })
+  }
+}
+
+const normalizeToolCallOrdering = (messages: ChatMessage[]): ChatMessage[] => {
+  if (messages.length === 0) return messages
+
+  const carried = new Map<string, IToolCall>()
+  const normalized: ChatMessage[] = []
+
+  const hasContent = (msg: ChatMessage): boolean => {
+    if (typeof msg.content === 'string') {
+      return msg.content.trim().length > 0
+    }
+    return Array.isArray(msg.content) && msg.content.length > 0
+  }
+
+  const snapshotToolCalls = (toolCalls: IToolCall[] | undefined): void => {
+    if (!toolCalls || toolCalls.length === 0) return
+    toolCalls.forEach(call => {
+      if (call.id && !carried.has(call.id)) {
+        carried.set(call.id, call)
+      }
+    })
+  }
+
+  const buildToolCall = (toolMessage: ChatMessage): IToolCall | null => {
+    const toolCallId = toolMessage.toolCallId
+    if (!toolCallId) return null
+    const existing = carried.get(toolCallId)
+    if (existing) return existing
+    return {
+      id: toolCallId,
+      type: 'function',
+      function: {
+        name: toolMessage.name || 'unknown',
+        arguments: '{}'
+      }
+    }
+  }
+
+  for (let i = 0; i < messages.length; i += 1) {
+    const message = messages[i]
+
+    if (message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0) {
+      const assistantIds = new Set(message.toolCalls.map(call => call.id).filter(Boolean))
+      let j = i + 1
+      const toolBatchIds = new Set<string>()
+      while (j < messages.length && messages[j].role === 'tool') {
+        const toolId = messages[j].toolCallId
+        if (toolId) {
+          toolBatchIds.add(toolId)
+        }
+        j += 1
+      }
+      const batchCoversAll = assistantIds.size > 0
+        && assistantIds.size === toolBatchIds.size
+        && Array.from(assistantIds).every(id => toolBatchIds.has(id))
+      if (batchCoversAll) {
+        normalized.push(message)
+        continue
+      }
+
+      snapshotToolCalls(message.toolCalls)
+      const cleaned = { ...message, toolCalls: undefined }
+      if (hasContent(cleaned)) {
+        normalized.push(cleaned)
+      }
+      continue
+    }
+
+    if (message.role === 'tool') {
+      const prev = normalized[normalized.length - 1]
+      const prevHasToolCall = prev?.role === 'assistant' && prev.toolCalls?.some(call => call.id === message.toolCallId)
+      if (prevHasToolCall) {
+        normalized.push(message)
+        continue
+      }
+
+      const batch: ChatMessage[] = []
+      let j = i
+      while (j < messages.length && messages[j].role === 'tool') {
+        batch.push(messages[j])
+        j += 1
+      }
+
+      const toolCalls: IToolCall[] = []
+      for (const toolMessage of batch) {
+        const call = buildToolCall(toolMessage)
+        if (call) {
+          toolCalls.push(call)
+          carried.delete(call.id)
+        }
+      }
+
+      if (toolCalls.length > 0) {
+        normalized.push({
+          role: 'assistant',
+          content: '',
+          segments: [],
+          toolCalls
+        })
+      }
+
+      normalized.push(...batch)
+      i = j - 1
+      continue
+    }
+
+    normalized.push(message)
+  }
+
+  return normalized
 }
 
 export class MainChatSubmitService {
@@ -301,8 +442,8 @@ export class MainChatSubmitService {
   }
 
   private ensureAssistantPlaceholder(messageEntities: MessageEntity[], request: IUnifiedRequest): void {
-    const hasAssistant = messageEntities.some(entity => entity.body.role === 'assistant')
-    if (hasAssistant) {
+    const lastMessage = messageEntities[messageEntities.length - 1]
+    if (lastMessage?.body?.role === 'assistant') {
       return
     }
 

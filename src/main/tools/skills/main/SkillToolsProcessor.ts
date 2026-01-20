@@ -51,6 +51,7 @@ interface ReadSkillFileResponse {
 
 const isUrl = (value: string): boolean => /^https?:\/\//i.test(value)
 const SKILL_NAME_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const SKILLS_DIR = 'skills'
 
 const resolveSourcePath = (source: string, chatUuid?: string): string => {
   if (isUrl(source) || path.isAbsolute(source)) {
@@ -65,6 +66,14 @@ const resolveSourcePath = (source: string, chatUuid?: string): string => {
   }
 
   return path.join(app.getPath('userData'), source)
+}
+
+const isPotentialSkillName = (value: string): boolean => {
+  return SKILL_NAME_REGEX.test(value) && !value.includes('/') && !value.includes('\\')
+}
+
+const resolveInstalledSkillPath = (name: string): string => {
+  return path.join(app.getPath('userData'), SKILLS_DIR, name, 'SKILL.md')
 }
 
 const resolveSkillFilePath = (name: string, relativePath: string): string => {
@@ -86,6 +95,33 @@ const resolveSkillFilePath = (name: string, relativePath: string): string => {
 
 export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillResponse> {
   try {
+    if (args?.source && isPotentialSkillName(args.source)) {
+      const installedSkillFile = resolveInstalledSkillPath(args.source)
+      if (existsSync(installedSkillFile)) {
+        const allSkills = await SkillService.listSkills()
+        const skill = allSkills.find(item => item.name === args.source)
+        if (!skill) {
+          throw new Error(`Installed skill "${args.source}" is invalid or missing metadata`)
+        }
+        const content = await SkillService.getSkillContent(skill.name)
+        let activated = false
+        if (args.activate !== false && args.chat_uuid) {
+          const chat = DatabaseService.getChatByUuid(args.chat_uuid)
+          if (chat?.id) {
+            DatabaseService.addChatSkill(chat.id, skill.name)
+            activated = true
+          }
+        }
+        return {
+          success: true,
+          skill,
+          content,
+          activated,
+          message: activated ? 'Skill activated.' : 'Skill loaded.'
+        }
+      }
+    }
+
     const skill = await SkillService.loadSkill({
       source: resolveSourcePath(args.source, args.chat_uuid),
       name: args.name,
