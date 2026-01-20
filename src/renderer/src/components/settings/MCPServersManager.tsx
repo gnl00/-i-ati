@@ -329,7 +329,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                     v{item.server.version}
                                   </Badge>
                                   {isOfficial && (
-                                    <Badge variant="outline" className="text-[9px] font-bold h-4 px-1.5 rounded-lg text-gray-900 border-gray-900 dark:text-white dark:border-gray-100 bg-transparent">
+                                    <Badge variant="outline" className="text-[9px] font-semibold h-4 px-1.5 rounded-lg shadow-sm dark:text-white dark:border-gray-100 bg-transparent">
                                       OFFICIAL
                                     </Badge>
                                   )}
@@ -348,15 +348,15 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
                         <div className="pt-0 flex-shrink-0 z-10">
                           <Button
-                            size="sm"
+                            size="round"
                             variant={installed ? 'secondary' : 'default'}
                             onClick={() => handleInstallServer(item)}
                             disabled={installed}
                             className={cn(
-                              'h-8 px-4 text-xs font-semibold transition-all duration-200 rounded-lg shadow-sm',
+                              'py-3 px-2 text-xs transition-all duration-200 rounded-3xl shadow-sm',
                               installed
                                 ? "bg-gray-100 text-muted-foreground hover:bg-gray-100 cursor-default opacity-70"
-                                : "bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:hover:bg-gray-100 dark:text-gray-900 hover:shadow-md"
+                                : "bg-gray-700 hover:bg-gray-800 text-white dark:bg-white dark:hover:bg-gray-100 dark:text-gray-900 hover:shadow-md"
                             )}
                           >
                             {installed ? (
