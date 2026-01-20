@@ -419,7 +419,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                 <div className='p-4 space-y-4'>
                                     <div className='flex items-center justify-between'>
                                         <div className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                                            Account Settings
+                                            Provider Settings
                                         </div>
                                         <Button
                                             size="xs"
@@ -432,7 +432,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                     </div>
                                     <div className='space-y-1'>
                                         <Label htmlFor="account-label" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-                                            Account Label
+                                            Provider Label
                                         </Label>
                                         <Input
                                             id="account-label"
