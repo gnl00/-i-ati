@@ -44,8 +44,6 @@ export interface MessageService {
     meta: ChatSubmitEventMeta
   ): Promise<void>
 
-  rebuildRequestMessages(context: SubmissionContext): void
-
   updateAssistantMessagesFromSegments(
     context: SubmissionContext,
     publisher: EventPublisher,

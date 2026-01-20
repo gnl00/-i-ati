@@ -29,8 +29,8 @@ interface ReadSkillFileArgs {
 
 interface LoadSkillResponse {
   success: boolean
+  name?: string
   skill?: SkillMetadata
-  content?: string
   activated?: boolean
   message?: string
 }
@@ -114,8 +114,8 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
         }
         return {
           success: true,
+          name: skill.name,
           skill,
-          content,
           activated,
           message: activated ? 'Skill activated.' : 'Skill loaded.'
         }
@@ -140,8 +140,8 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
 
     return {
       success: true,
+      name: skill.name,
       skill,
-      content,
       activated,
       message: activated ? 'Skill loaded and activated.' : 'Skill loaded.'
     }

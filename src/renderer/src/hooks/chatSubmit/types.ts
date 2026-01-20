@@ -42,6 +42,8 @@ export interface ChatInputState {
   mediaCtx: ClipbordImg[] | string[]
   tools?: any[]
   prompt?: string
+  options?: IUnifiedRequest['options']
+  stream?: boolean
 }
 
 export interface ChatSessionState {

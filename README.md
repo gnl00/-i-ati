@@ -1,6 +1,6 @@
 # @i-app
 
-> An AI API client
+> Yeah We aim to build an Agent.
 
 ## Usages
 
@@ -82,7 +82,7 @@ pnpm build:mac
 - [X] chat message split to multipart
 - [X] command panel
 - [ ] llm arena
-- [ ] skills
+- [X] skills
 
 ## Reference
 

@@ -475,7 +475,15 @@ function mainIPCSetup() {
 
   ipcMain.handle(CHAT_SUBMIT_SUBMIT, async (_event, data: {
     submissionId: string
-    request: IUnifiedRequest
+    input: {
+      textCtx: string
+      mediaCtx: ClipbordImg[] | string[]
+      tools?: any[]
+      prompt?: string
+      options?: IUnifiedRequest['options']
+      stream?: boolean
+    }
+    modelRef: ModelRef
     chatId?: number
     chatUuid?: string
   }) => {
@@ -639,6 +647,17 @@ function mainIPCSetup() {
     const selectedPath = result.filePaths[0]
     console.log(`[Workspace] Directory selected: ${selectedPath}`)
     return { success: true, path: selectedPath }
+  })
+
+  // Check if path is directory handler
+  ipcMain.handle('check-is-directory', async (_event, path: string) => {
+    try {
+      const { stat } = await import('fs/promises')
+      const stats = await stat(path)
+      return { success: true, isDirectory: stats.isDirectory() }
+    } catch (error) {
+      return { success: false, isDirectory: false, error: (error as Error).message }
+    }
   })
 
 }

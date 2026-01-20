@@ -332,7 +332,15 @@ export async function invokeDbConfigInit(): Promise<IAppConfig> {
 
 export async function invokeChatSubmit(data: {
   submissionId: string
-  request: IUnifiedRequest
+  input: {
+    textCtx: string
+    mediaCtx: ClipbordImg[] | string[]
+    tools?: any[]
+    prompt?: string
+    options?: IUnifiedRequest['options']
+    stream?: boolean
+  }
+  modelRef: ModelRef
   chatId?: number
   chatUuid?: string
 }): Promise<{ accepted: boolean; submissionId: string }> {
@@ -502,4 +510,12 @@ export async function invokeDbCompressedSummaryDelete(id: number): Promise<void>
 export async function invokeSelectDirectory(): Promise<{ success: boolean; path: string | null }> {
   const ipc = getElectronIPC()
   return await ipc.invoke('select-directory')
+}
+
+/**
+ * 检查路径是否为目录
+ */
+export async function invokeCheckIsDirectory(path: string): Promise<{ success: boolean; isDirectory: boolean; error?: string }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke('check-is-directory', path)
 }

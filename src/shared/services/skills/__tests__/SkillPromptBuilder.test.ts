@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSkillsPrompt } from './SkillPromptBuilder'
+import { buildSkillsPrompt } from '@shared/services/skills/SkillPromptBuilder'
 
 describe('buildSkillsPrompt', () => {
   it('returns empty string when no skills are provided', () => {

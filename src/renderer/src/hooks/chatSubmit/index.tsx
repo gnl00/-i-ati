@@ -1,6 +1,7 @@
 import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import { embeddedToolsRegistry } from '@tools/registry'
 import { useRef } from 'react'
 import {
   ChatSubmissionService,
@@ -136,7 +137,7 @@ function useChatSubmitV2() {
   const onSubmit = async (
     textCtx: string,
     mediaCtx: ClipbordImg[] | string[],
-    options: { tools?: any[], prompt: string }
+    options: { tools?: any[]; prompt?: string; stream?: boolean; options?: IUnifiedRequest['options'] }
   ): Promise<void> => {
     if (activeSubmissionRef.current) {
       return
@@ -149,6 +150,36 @@ function useChatSubmitV2() {
     activeBusRef.current = bus
 
     const messageService = new DefaultMessageService()
+    const state = useChatStore.getState()
+    const toolsByName = new Map<string, any>()
+    const normalizeToolDef = (tool: any): any => tool?.function ?? tool
+
+    state.getAllMcpTools().forEach(tool => {
+      const normalized = normalizeToolDef(tool)
+      const name = normalized?.name
+      if (name) {
+        toolsByName.set(name, normalized)
+      }
+    })
+
+    if (state.webSearchEnable) {
+      const tool = embeddedToolsRegistry.getTool('web_search')
+      const normalized = normalizeToolDef(tool)
+      const name = normalized?.name
+      if (name) {
+        toolsByName.set(name, normalized)
+      }
+    }
+
+    if (options.tools && options.tools.length > 0) {
+      options.tools.forEach(tool => {
+        const normalized = normalizeToolDef(tool)
+        const name = normalized?.name
+        if (name) {
+          toolsByName.set(name, normalized)
+        }
+      })
+    }
     const submissionService = new ChatSubmissionService({
       sessionService: new DefaultSessionService(),
       messageService,
@@ -164,8 +195,10 @@ function useChatSubmitV2() {
         input: {
           textCtx,
           mediaCtx,
-          tools: options.tools,
-          prompt: options.prompt
+          tools: Array.from(toolsByName.values()),
+          prompt: options.prompt,
+          options: options.options,
+          stream: options.stream
         },
         modelRef: chatStore.selectedModelRef!,
         accounts,

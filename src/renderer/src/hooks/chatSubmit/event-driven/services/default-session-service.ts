@@ -1,8 +1,4 @@
-import { systemPrompt as systemPromptBuilder } from '@shared/prompts'
 import { getChatById, saveChat } from '@renderer/db/ChatRepository'
-import { getChatSkills } from '@renderer/db/ChatSkillRepository'
-import { getSkillContent, listInstalledSkills } from '@renderer/services/skills/SkillService'
-import { buildSkillsPrompt } from '@renderer/services/skills/SkillPromptBuilder'
 import { getMessageByIds } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { v4 as uuidv4 } from 'uuid'
@@ -115,39 +111,7 @@ export class DefaultSessionService implements SessionService {
       chatUuid: chatUuid
     }
 
-    const defaultSystemPrompt = systemPromptBuilder(workspacePath)
-    let skillsPrompt = ''
-    try {
-      const availableSkills = await listInstalledSkills()
-      const chatSkills = chatId ? await getChatSkills(chatId) : []
-      if (availableSkills.length > 0 || chatSkills.length > 0) {
-        const loadedSkills = await Promise.all(
-          chatSkills.map(async (name) => {
-            try {
-              const content = await getSkillContent(name)
-              return { name, content }
-            } catch (error) {
-              console.warn(`[Skills] Failed to load skill content: ${name}`, error)
-              return null
-            }
-          })
-        )
-        skillsPrompt = buildSkillsPrompt(
-          availableSkills,
-          loadedSkills.filter(Boolean) as { name: string; content: string }[]
-        )
-      }
-    } catch (error) {
-      console.warn('[Skills] Failed to build skills prompt:', error)
-    }
-
-    const skillSlotToken = '$$skill-slot$$'
-    const composedSystemPrompt = defaultSystemPrompt.includes(skillSlotToken)
-      ? defaultSystemPrompt.replace(skillSlotToken, skillsPrompt)
-      : `${defaultSystemPrompt}${skillsPrompt}`
-    const systemPrompts = chatInput.prompt
-      ? [chatInput.prompt, composedSystemPrompt]
-      : [composedSystemPrompt]
+    const systemPrompts = chatInput.prompt ? [chatInput.prompt] : []
 
     const controller = input.controller || new AbortController()
 
