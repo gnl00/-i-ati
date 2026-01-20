@@ -608,7 +608,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                     <Button
                                         size="xs"
                                         variant="outline"
-                                        className='text-xs text-gray-600 dark:text-gray-400 font-medium transition-all data-[disabled]:text-gray-400 data-[disabled]:dark:text-gray-500'
+                                        className='rounded-3xl shadow-sm text-xs text-gray-600 dark:text-gray-400 font-medium transition-all data-[disabled]:text-gray-400 data-[disabled]:dark:text-gray-500'
                                         onClick={() => setShowFetchModelsDrawer(true)}
                                         disabled={!currentAccount?.apiKey}
                                     >
@@ -669,7 +669,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                             onClick={onAddModelClick}
                                                             size={'sm'}
                                                             variant={'default'}
-                                                            className='h-7 px-3 text-xs transition-all duration-200 hover:scale-105 active:scale-95 group'
+                                                            className='h-7 px-3 rounded-3xl text-xs transition-all duration-200 hover:scale-105 active:scale-95 group'
                                                         >
                                                             <i className="ri-add-circle-line mr-1 text-sm group-hover:rotate-90 transition-transform duration-300"></i>
                                                             Add
