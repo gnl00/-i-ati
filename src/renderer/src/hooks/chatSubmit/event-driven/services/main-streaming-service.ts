@@ -45,6 +45,63 @@ export class MainDrivenStreamingService implements StreamingService {
 
     let pendingOutcome: MainStreamingOutcome | null = null
 
+    const toolCallNames = new Map<string, string>()
+
+    const upsertToolCallSegment = (
+      toolCallId: string,
+      payload: { result?: any; cost?: number; error?: Error; status?: string },
+      isError: boolean
+    ): void => {
+      const name = toolCallNames.get(toolCallId) || 'unknown'
+      const content = isError
+        ? { error: payload.error?.message || 'Tool execution failed', status: payload.status }
+        : payload.result ?? { status: payload.status }
+
+      this.messageService.updateLastAssistantMessage(
+        context,
+        (message) => {
+          const segments = message.body.segments || []
+          let found = false
+          const nextSegments = segments.map(segment => {
+            if (segment.type === 'toolCall' && segment.toolCallId === toolCallId) {
+              found = true
+              return {
+                ...segment,
+                name,
+                content,
+                cost: payload.cost ?? segment.cost,
+                isError,
+                timestamp: Date.now()
+              }
+            }
+            return segment
+          })
+
+          if (!found) {
+            nextSegments.push({
+              type: 'toolCall',
+              name,
+              content,
+              cost: payload.cost,
+              isError,
+              timestamp: Date.now(),
+              toolCallId
+            })
+          }
+
+          return {
+            ...message,
+            body: {
+              ...message.body,
+              segments: nextSegments
+            }
+          }
+        },
+        publisher,
+        metaWithChat
+      )
+    }
+
     const unsubscribe = subscribeChatSubmitEvents((event: MainEventEnvelope) => {
       if (event.submissionId !== submissionId) {
         return
@@ -65,6 +122,11 @@ export class MainDrivenStreamingService implements StreamingService {
         case 'tool.call.flushed': {
           void publisher.emit('tool.call.flushed', event.payload, metaWithChat)
           const toolCalls = event.payload?.toolCalls || []
+          toolCalls.forEach((call: IToolCall) => {
+            if (call.id) {
+              toolCallNames.set(call.id, call.function?.name || 'unknown')
+            }
+          })
           const content = extractContentFromSegments(
             this.getLastAssistantMessage(context).body.segments
           )
@@ -87,6 +149,35 @@ export class MainDrivenStreamingService implements StreamingService {
         }
         default: {
           void publisher.emit(event.type, event.payload, metaWithChat)
+        }
+      }
+
+      if (event.type === 'tool.exec.started') {
+        const toolCallId = event.payload?.toolCallId
+        if (toolCallId) {
+          upsertToolCallSegment(toolCallId, { status: 'running' }, false)
+        }
+      }
+
+      if (event.type === 'tool.exec.completed') {
+        const toolCallId = event.payload?.toolCallId
+        if (toolCallId) {
+          upsertToolCallSegment(toolCallId, {
+            result: event.payload?.result,
+            cost: event.payload?.cost,
+            status: 'completed'
+          }, false)
+        }
+      }
+
+      if (event.type === 'tool.exec.failed') {
+        const toolCallId = event.payload?.toolCallId
+        if (toolCallId) {
+          upsertToolCallSegment(toolCallId, {
+            error: event.payload?.error,
+            cost: event.payload?.cost,
+            status: 'failed'
+          }, true)
         }
       }
 
