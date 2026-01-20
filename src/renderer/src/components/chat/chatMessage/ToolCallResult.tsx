@@ -90,11 +90,11 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
               : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
           )}>
             {isError ? <X className="w-2.5 h-2.5" /> : <Check className="w-2.5 h-2.5" />}
-            {isError ? 'Error' : 'Success'}
+            {isError ? 'ERR' : 'OK'}
           </span>
 
           <div className="flex items-center gap-1.5">
-            <Wrench className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+            <Wrench className="w-3 h-3 text-zinc-400/70 dark:text-zinc-500/70" />
             <span className={cn(
               "font-mono text-[11px] font-semibold tracking-tight leading-none",
               isError ? "text-red-700 dark:text-red-300" : "text-zinc-700 dark:text-zinc-200"
