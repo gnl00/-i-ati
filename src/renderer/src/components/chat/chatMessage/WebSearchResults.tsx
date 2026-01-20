@@ -45,7 +45,7 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ r
   }, [results])
 
   return (
-    <div className="space-y-1.5 px-2 my-1.5">
+    <div className="space-y-1 px-1 my-0.5">
       {/* Header with search info */}
       <div className="flex items-center gap-2 px-0.5">
         <Search className="w-3 h-3 text-slate-500 dark:text-slate-400" />
