@@ -36,6 +36,7 @@ declare interface ProviderDefinition {
   adapterType: ProviderType
   apiVersion?: ProviderAPIVersion
   iconKey?: string
+  defaultApiUrl?: string
 }
 
 declare interface ModelRef {

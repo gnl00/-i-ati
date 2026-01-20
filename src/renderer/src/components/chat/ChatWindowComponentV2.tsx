@@ -16,12 +16,16 @@ import { useChatScroll } from './useChatScroll'
 
 const ChatMessageRow: React.FC<{
   messageIndex: number
-  isLatest: boolean
+  lastAssistantIndex: number
+  lastMessageIndex: number
   onTyping: () => void
-}> = memo(({ messageIndex, isLatest, onTyping }) => {
+}> = memo(({ messageIndex, lastAssistantIndex, lastMessageIndex, onTyping }) => {
   const message = useChatStore(state => state.messages[messageIndex])
 
   if (!message) return null
+  const isLatest = message.body.role === 'assistant'
+    ? messageIndex === lastAssistantIndex
+    : messageIndex === lastMessageIndex
 
   return (
     <ChatMessageComponent
@@ -39,6 +43,14 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const messageKeys = useChatStore(
     useShallow(state => state.messages.map((msg, idx) => msg.id ?? `temp-${idx}`))
   )
+  const lastAssistantIndex = useChatStore(state => {
+    for (let i = state.messages.length - 1; i >= 0; i--) {
+      if (state.messages[i].body.role === 'assistant') {
+        return i
+      }
+    }
+    return -1
+  })
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const artifacts = useChatStore(state => state.artifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
@@ -103,6 +115,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [chatUuid, messageKeys.length])
 
   const totalCount = messageKeys.length
+  const lastMessageIndex = messageKeys.length - 1
   const getItemKey = useCallback((index: number) => {
     return messageKeys[index] ?? `msg-${index}`
   }, [messageKeys])
@@ -158,7 +171,6 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                 >
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                     const messageIndex = virtualRow.index
-                    const isLatest = messageIndex === messageKeys.length - 1
 
                     return (
                       <div
@@ -175,7 +187,8 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                       >
                         <ChatMessageRow
                           messageIndex={messageIndex}
-                          isLatest={isLatest}
+                          lastAssistantIndex={lastAssistantIndex}
+                          lastMessageIndex={lastMessageIndex}
                           onTyping={onTyping}
                         />
                       </div>

@@ -133,7 +133,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
             id: uuidv4(),
             providerId,
             label,
-            apiUrl: '',
+            apiUrl: definition?.defaultApiUrl || '',
             apiKey: '',
             models: []
         }
@@ -192,7 +192,8 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
             displayName,
             adapterType,
             apiVersion: 'v1',
-            iconKey: providerId
+            iconKey: providerId,
+            defaultApiUrl: baseUrl
         }
 
         setProviderDefinitions([...providerDefinitions, newDefinition])
@@ -298,6 +299,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
 
     const currentDefinition = visibleProviderDefinitions.find(def => def.id === currentAccount?.providerId)
     const selectedDefinition = visibleProviderDefinitions.find(def => def.id === selectedProviderId)
+    const defaultApiUrl = selectedDefinition?.defaultApiUrl || ''
 
     return (
         <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
@@ -545,7 +547,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                         <Input
                                             id="provider-api-url"
                                             className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
-                                            placeholder='https://api.example.com'
+                                            placeholder={defaultApiUrl || 'https://api.example.com'}
                                             value={editAccountApiUrl}
                                             onChange={(e) => {
                                                 setEditAccountApiUrl(e.target.value)
@@ -554,6 +556,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                         />
                                         <p className="text-[10px] text-gray-400 dark:text-gray-500">
                                             Enter the base URL only (without version or endpoint path)
+                                            {defaultApiUrl ? ` • Default: ${defaultApiUrl}` : ''}
                                         </p>
                                     </div>
                                     <div className='space-y-1'>

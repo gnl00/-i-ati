@@ -4,48 +4,55 @@
     "displayName": "OpenAI",
     "adapterType": "openai",
     "apiVersion": "v1",
-    "iconKey": "openai"
+    "iconKey": "openai",
+    "defaultApiUrl": "https://api.openai.com"
   },
   {
     "id": "anthropic",
     "displayName": "Anthropic",
     "adapterType": "claude",
     "apiVersion": "v1",
-    "iconKey": "anthropic"
+    "iconKey": "anthropic",
+    "defaultApiUrl": "https://api.anthropic.com"
   },
   {
     "id": "openrouter",
     "displayName": "OpenRouter",
     "adapterType": "openai",
     "apiVersion": "v1",
-    "iconKey": "openrouter"
+    "iconKey": "openrouter",
+    "defaultApiUrl": "https://openrouter.ai/api"
   },
   {
     "id": "groq",
     "displayName": "Groq",
     "adapterType": "openai",
     "apiVersion": "v1",
-    "iconKey": "groq"
+    "iconKey": "groq",
+    "defaultApiUrl": "https://api.groq.com/openai"
   },
   {
     "id": "deepseek",
     "displayName": "DeepSeek",
     "adapterType": "openai",
     "apiVersion": "v1",
-    "iconKey": "deepseek"
+    "iconKey": "deepseek",
+    "defaultApiUrl": "https://api.deepseek.com"
   },
   {
     "id": "siliconflow",
     "displayName": "SiliconFlow",
     "adapterType": "openai",
     "apiVersion": "v1",
-    "iconKey": "siliconflow"
+    "iconKey": "siliconflow",
+    "defaultApiUrl": "https://api.siliconflow.cn"
   },
   {
     "id": "moonshot",
     "displayName": "MoonShot",
     "adapterType": "openai",
     "apiVersion": "v1",
-    "iconKey": "moonshot"
+    "iconKey": "moonshot",
+    "defaultApiUrl": "https://api.moonshot.cn"
   }
 ]
