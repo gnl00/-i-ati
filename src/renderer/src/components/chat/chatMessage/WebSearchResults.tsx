@@ -6,7 +6,7 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious
-} from '../ui/carousel'
+} from '@renderer/components/ui/carousel'
 
 interface WebSearchResult {
   query: string

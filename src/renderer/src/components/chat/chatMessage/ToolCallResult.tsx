@@ -4,7 +4,7 @@ import { cn } from '@renderer/lib/utils';
 import { Check, ChevronDown, Clipboard, Clock, X } from "lucide-react";
 import React, { useMemo, useState, useTransition } from 'react';
 import { toast } from 'sonner';
-import { SpeedCodeHighlight } from './common/SpeedCodeHighlight';
+import { SpeedCodeHighlight } from '@renderer/components/chat/common/SpeedCodeHighlight';
 import { WebSearchResults } from './WebSearchResults';
 
 interface ToolCallResultProps {
