@@ -25,6 +25,20 @@ function getStreamingTextRenderMode(): 'markdown' | 'switch' {
   return (globalThis as any).__STREAMING_TEXT_RENDER_MODE ?? 'switch'
 }
 
+function getSegmentRenderKey(segment: MessageSegment, index: number): string {
+  if (segment.type === 'toolCall' && segment.toolCallId) {
+    return `tool-${segment.toolCallId}`
+  }
+  if (segment.type === 'error' && segment.error?.timestamp) {
+    return `error-${segment.error.timestamp}`
+  }
+  const timestamp = (segment as { timestamp?: number }).timestamp
+  if (timestamp) {
+    return `${segment.type}-${timestamp}`
+  }
+  return `${segment.type}-${index}`
+}
+
 export interface AssistantMessageProps {
   index: number
   message: ChatMessage
@@ -184,15 +198,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         {segments.map((segment, segIdx) => {
           if (!shouldRenderSegment(segIdx)) return null
 
-          // 生成唯一的 key
-          let key: string
-          if (segment.type === 'toolCall' && segment.toolCallId && segment.toolCallIndex !== undefined) {
-            // 对于 toolCall segment，使用 toolCallId-index 作为唯一 key
-            key = `tool-${segment.toolCallId}-${segment.toolCallIndex}`
-          } else {
-            // 对于其他 segment，使用 type-segIdx
-            key = `${segment.type}-${segIdx}`
-          }
+          const key = getSegmentRenderKey(segment, segIdx)
 
           if (segment.type === 'text') {
             const visibleTokenCount = getSegmentVisibleLength(segIdx)

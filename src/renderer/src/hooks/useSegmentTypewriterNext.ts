@@ -97,15 +97,17 @@ export const useSegmentTypewriterNext = (
 
   // Queue Management Refs
   // 注意：现在队列存储的是 tokens 而不是 characters
-  const segmentQueuesRef = useRef<Map<number, string[]>>(new Map())
-  const consumedLengthsRef = useRef<Map<number, number>>(new Map())
-  const processedLengthRef = useRef<Map<number, number>>(new Map())
-  const completedSegmentsRef = useRef<Set<number>>(new Set())
+  const segmentQueuesRef = useRef<Map<string, string[]>>(new Map())
+  const consumedLengthsRef = useRef<Map<string, number>>(new Map())
+  const processedLengthRef = useRef<Map<string, number>>(new Map())
+  const completedSegmentsRef = useRef<Set<string>>(new Set())
 
   // 新增：缓存每个 segment 的 tokenized 结果
-  const tokenCacheRef = useRef<Map<number, string[]>>(new Map())
-  const lastLoggedTokenCountRef = useRef<Map<number, number>>(new Map())
-  const segmentContentSnapshotRef = useRef<Map<number, string>>(new Map())
+  const tokenCacheRef = useRef<Map<string, string[]>>(new Map())
+  const lastLoggedTokenCountRef = useRef<Map<string, number>>(new Map())
+  const segmentContentSnapshotRef = useRef<Map<string, string>>(new Map())
+
+  const activeSegmentKeyRef = useRef<string | null>(null)
 
   // Keep refs up to date
   useEffect(() => {
@@ -131,9 +133,33 @@ export const useSegmentTypewriterNext = (
     return tokenizeText(content)
   }, [granularity])
 
+  const getSegmentKey = useCallback((segment: MessageSegment, index: number): string => {
+    if (segment.type === 'toolCall' && segment.toolCallId) {
+      return `tool-${segment.toolCallId}`
+    }
+    if (segment.type === 'error' && segment.error?.timestamp) {
+      return `error-${segment.error.timestamp}`
+    }
+    const timestamp = (segment as { timestamp?: number }).timestamp
+    if (timestamp) {
+      return `${segment.type}-${timestamp}`
+    }
+    return `${segment.type}-${index}`
+  }, [])
+
+  const findSegmentIndexByKey = useCallback((key: string): number => {
+    const currentSegments = segmentsRef.current
+    for (let i = 0; i < currentSegments.length; i++) {
+      if (getSegmentKey(currentSegments[i], i) === key) {
+        return i
+      }
+    }
+    return -1
+  }, [getSegmentKey])
+
   // 确保 segment 队列是最新的（增量添加新 tokens）
-  const ensureSegmentQueue = useCallback((segmentIndex: number, content: string) => {
-    const processed = processedLengthRef.current.get(segmentIndex) || 0
+  const ensureSegmentQueue = useCallback((segmentKey: string, content: string) => {
+    const processed = processedLengthRef.current.get(segmentKey) || 0
 
     // 获取新增的原始文本
     const newRawContent = content.slice(processed)
@@ -142,55 +168,56 @@ export const useSegmentTypewriterNext = (
     // 使用 splitContent 进行分词
     const newTokens = splitContent(newRawContent)
 
-    const queue = segmentQueuesRef.current.get(segmentIndex) || []
+    const queue = segmentQueuesRef.current.get(segmentKey) || []
     queue.push(...newTokens)
-    segmentQueuesRef.current.set(segmentIndex, queue)
+    segmentQueuesRef.current.set(segmentKey, queue)
 
     // 更新已处理的原始字符串长度
-    processedLengthRef.current.set(segmentIndex, content.length)
+    processedLengthRef.current.set(segmentKey, content.length)
 
     // 更新 token 缓存
     const allTokens = splitContent(content)
-    tokenCacheRef.current.set(segmentIndex, allTokens)
+    tokenCacheRef.current.set(segmentKey, allTokens)
   }, [splitContent])
 
   useEffect(() => {
     segments.forEach((segment, segmentIndex) => {
       if (segment.type !== 'text') return
 
-      const previousContent = segmentContentSnapshotRef.current.get(segmentIndex)
+      const segmentKey = getSegmentKey(segment, segmentIndex)
+      const previousContent = segmentContentSnapshotRef.current.get(segmentKey)
       if (previousContent === segment.content) return
-      segmentContentSnapshotRef.current.set(segmentIndex, segment.content)
+      segmentContentSnapshotRef.current.set(segmentKey, segment.content)
 
       const tokens = splitContent(segment.content)
-      tokenCacheRef.current.set(segmentIndex, tokens)
+      tokenCacheRef.current.set(segmentKey, tokens)
 
-      const lastLoggedCount = lastLoggedTokenCountRef.current.get(segmentIndex) || 0
+      const lastLoggedCount = lastLoggedTokenCountRef.current.get(segmentKey) || 0
       if (tokens.length > lastLoggedCount) {
         const newTokens = tokens.slice(lastLoggedCount)
         // console.log('[TypewriterTokens]', { segmentIndex, tokens: newTokens })
-        lastLoggedTokenCountRef.current.set(segmentIndex, tokens.length)
+        lastLoggedTokenCountRef.current.set(segmentKey, tokens.length)
       }
     })
-  }, [segments, splitContent])
+  }, [segments, splitContent, getSegmentKey])
 
   // 消费下一个 token
-  const consumeNextToken = useCallback((segmentIndex: number) => {
-    const queue = segmentQueuesRef.current.get(segmentIndex)
+  const consumeNextToken = useCallback((segmentKey: string) => {
+    const queue = segmentQueuesRef.current.get(segmentKey)
     if (queue && queue.length > 0) {
       queue.shift()
-      const consumed = consumedLengthsRef.current.get(segmentIndex) || 0
-      consumedLengthsRef.current.set(segmentIndex, consumed + 1)
+      const consumed = consumedLengthsRef.current.get(segmentKey) || 0
+      consumedLengthsRef.current.set(segmentKey, consumed + 1)
       return true
     }
     return false
   }, [])
 
   // 清理 segment 队列
-  const cleanupSegmentQueue = useCallback((segmentIndex: number) => {
-    segmentQueuesRef.current.delete(segmentIndex)
-    processedLengthRef.current.delete(segmentIndex)
-    tokenCacheRef.current.delete(segmentIndex)
+  const cleanupSegmentQueue = useCallback((segmentKey: string) => {
+    segmentQueuesRef.current.delete(segmentKey)
+    processedLengthRef.current.delete(segmentKey)
+    tokenCacheRef.current.delete(segmentKey)
   }, [])
 
   const getLastTextSegmentIndex = useCallback(() => {
@@ -242,16 +269,17 @@ export const useSegmentTypewriterNext = (
       const segment = currentSegments[i]
       if (segment.type !== 'text') continue
 
-      const consumed = consumedLengthsRef.current.get(i) || 0
-      const tokens = tokenCacheRef.current.get(i) || splitContent(segment.content)
+      const segmentKey = getSegmentKey(segment, i)
+      const consumed = consumedLengthsRef.current.get(segmentKey) || 0
+      const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
 
       if (consumed < tokens.length) {
-        return i
+        return getSegmentKey(segment, i)
       }
     }
 
-    return -1
-  }, [splitContent])
+    return null
+  }, [splitContent, getSegmentKey])
 
   // 强制完成打字机效果
   const forceComplete = useCallback(() => {
@@ -267,24 +295,30 @@ export const useSegmentTypewriterNext = (
 
   // 移动到下一个 segment
   const moveToNextSegment = useCallback(() => {
-    if (activeSegmentIndex !== -1) {
-      cleanupSegmentQueue(activeSegmentIndex)
+    const currentKey = activeSegmentKeyRef.current
+    if (currentKey) {
+      cleanupSegmentQueue(currentKey)
     }
 
-    const nextIndex = findNextPendingSegment()
-    if (nextIndex !== -1) {
+    const nextKey = findNextPendingSegment()
+    if (nextKey) {
+      activeSegmentKeyRef.current = nextKey
+      const nextIndex = findSegmentIndexByKey(nextKey)
       setActiveSegmentIndex(nextIndex)
       setCurrentSegmentOffset(0)
       lastRenderedOffsetRef.current = 0
-      onSegmentStartRef.current?.(nextIndex)
+      if (nextIndex !== -1) {
+        onSegmentStartRef.current?.(nextIndex)
+      }
     } else {
       setActiveSegmentIndex(-1)
+      activeSegmentKeyRef.current = null
       if (!isStreamingRef.current) {
         setIsAllComplete(true)
         onAllCompleteRef.current?.()
       }
     }
-  }, [activeSegmentIndex, findNextPendingSegment, cleanupSegmentQueue])
+  }, [findNextPendingSegment, cleanupSegmentQueue, findSegmentIndexByKey])
 
   /**
    * ============================================================================
@@ -297,11 +331,15 @@ export const useSegmentTypewriterNext = (
     const currentSegments = segmentsRef.current
 
     // 1. 启动第一个 segment
-    if (activeSegmentIndex === -1) {
-      const nextIndex = findNextPendingSegment()
-      if (nextIndex !== -1) {
+    if (!activeSegmentKeyRef.current) {
+      const nextKey = findNextPendingSegment()
+      if (nextKey) {
+        activeSegmentKeyRef.current = nextKey
+        const nextIndex = findSegmentIndexByKey(nextKey)
         setActiveSegmentIndex(nextIndex)
-        onSegmentStartRef.current?.(nextIndex)
+        if (nextIndex !== -1) {
+          onSegmentStartRef.current?.(nextIndex)
+        }
       } else if (!isStreamingRef.current) {
         setIsAllComplete(true)
         onAllCompleteRef.current?.()
@@ -312,7 +350,21 @@ export const useSegmentTypewriterNext = (
     }
 
     // 2. 验证当前 segment
-    const currentSegment = currentSegments[activeSegmentIndex]
+    const currentKey = activeSegmentKeyRef.current
+    if (!currentKey) {
+      moveToNextSegment()
+      animationFrameRef.current = requestAnimationFrame(animate)
+      return
+    }
+
+    const currentIndex = findSegmentIndexByKey(currentKey)
+    if (currentIndex === -1) {
+      moveToNextSegment()
+      animationFrameRef.current = requestAnimationFrame(animate)
+      return
+    }
+
+    const currentSegment = currentSegments[currentIndex]
     if (!currentSegment || currentSegment.type !== 'text') {
       moveToNextSegment()
       animationFrameRef.current = requestAnimationFrame(animate)
@@ -320,19 +372,23 @@ export const useSegmentTypewriterNext = (
     }
 
     // 3. 确保队列最新
-    ensureSegmentQueue(activeSegmentIndex, currentSegment.content)
+    const resolvedKey = getSegmentKey(currentSegment, currentIndex)
+    if (resolvedKey !== currentKey) {
+      activeSegmentKeyRef.current = resolvedKey
+    }
+    ensureSegmentQueue(currentKey, currentSegment.content)
 
     // 4. 计算速度
-    const queue = segmentQueuesRef.current.get(activeSegmentIndex)
+    const queue = segmentQueuesRef.current.get(currentKey)
     const queueLength = queue?.length || 0
     const speed = calculateSpeed(queueLength)
 
     // 5. 消费 token
     if (timestamp - lastUpdateRef.current >= speed) {
-      const tokenConsumed = consumeNextToken(activeSegmentIndex)
+      const tokenConsumed = consumeNextToken(currentKey)
 
       if (tokenConsumed) {
-        const consumed = consumedLengthsRef.current.get(activeSegmentIndex) || 0
+        const consumed = consumedLengthsRef.current.get(currentKey) || 0
 
         // 批量更新优化：不是每个 token 都更新状态
         const shouldUpdateState = timestamp - lastStateUpdateRef.current >= batchUpdateInterval
@@ -347,7 +403,7 @@ export const useSegmentTypewriterNext = (
         lastUpdateRef.current = timestamp
 
         // 获取 token 总数
-        const tokens = tokenCacheRef.current.get(activeSegmentIndex)
+        const tokens = tokenCacheRef.current.get(currentKey)
         const totalTokens = tokens?.length || 0
 
         // 检查是否完成
@@ -357,18 +413,18 @@ export const useSegmentTypewriterNext = (
             lastRenderedOffsetRef.current = consumed
             onTypingRef.current?.()
           }
-          if (shouldCompleteSegment(activeSegmentIndex)) {
-            completedSegmentsRef.current.add(activeSegmentIndex)
-            onSegmentCompleteRef.current?.(activeSegmentIndex)
-            moveToNextSegment()
-          }
+        if (shouldCompleteSegment(currentIndex)) {
+          completedSegmentsRef.current.add(currentKey)
+          onSegmentCompleteRef.current?.(currentIndex)
+          moveToNextSegment()
+        }
           animationFrameRef.current = requestAnimationFrame(animate)
           return
         }
       } else {
         // 队列为空，检查是否完成
-        const consumed = consumedLengthsRef.current.get(activeSegmentIndex) || 0
-        const tokens = tokenCacheRef.current.get(activeSegmentIndex)
+        const consumed = consumedLengthsRef.current.get(currentKey) || 0
+        const tokens = tokenCacheRef.current.get(currentKey)
         const totalTokens = tokens?.length || 0
 
         if (consumed >= totalTokens) {
@@ -377,9 +433,9 @@ export const useSegmentTypewriterNext = (
             lastRenderedOffsetRef.current = consumed
             onTypingRef.current?.()
           }
-          if (shouldCompleteSegment(activeSegmentIndex)) {
-            completedSegmentsRef.current.add(activeSegmentIndex)
-            onSegmentCompleteRef.current?.(activeSegmentIndex)
+          if (shouldCompleteSegment(currentIndex)) {
+            completedSegmentsRef.current.add(currentKey)
+            onSegmentCompleteRef.current?.(currentIndex)
             moveToNextSegment()
           }
           animationFrameRef.current = requestAnimationFrame(animate)
@@ -398,8 +454,24 @@ export const useSegmentTypewriterNext = (
     consumeNextToken,
     moveToNextSegment,
     batchUpdateInterval,
-    shouldCompleteSegment
+    shouldCompleteSegment,
+    getSegmentKey,
+    findSegmentIndexByKey
   ])
+
+  useEffect(() => {
+    const activeKey = activeSegmentKeyRef.current
+    if (!activeKey) {
+      if (activeSegmentIndex !== -1) {
+        setActiveSegmentIndex(-1)
+      }
+      return
+    }
+    const nextIndex = findSegmentIndexByKey(activeKey)
+    if (nextIndex !== -1 && nextIndex !== activeSegmentIndex) {
+      setActiveSegmentIndex(nextIndex)
+    }
+  }, [segments, activeSegmentIndex, findSegmentIndexByKey])
 
   /**
    * ============================================================================
@@ -438,13 +510,20 @@ export const useSegmentTypewriterNext = (
       return Infinity
     }
 
-    if (completedSegmentsRef.current.has(index)) return Infinity
+    const segmentKey = getSegmentKey(segment, index)
+    if (completedSegmentsRef.current.has(segmentKey)) return Infinity
 
-    if (index < activeSegmentIndex) return Infinity
-    if (index > activeSegmentIndex) return 0
+    if (segmentKey === activeSegmentKeyRef.current) {
+      return currentSegmentOffset
+    }
 
-    return currentSegmentOffset
-  }, [enabled, isAllComplete, activeSegmentIndex, currentSegmentOffset])
+    const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
+    const consumed = consumedLengthsRef.current.get(segmentKey) || 0
+    if (consumed >= tokens.length) {
+      return Infinity
+    }
+    return 0
+  }, [enabled, isAllComplete, currentSegmentOffset, getSegmentKey, splitContent])
 
   // 辅助函数：判断指定 segment 是否应该渲染
   const shouldRenderSegment = useCallback((index: number) => {
@@ -455,19 +534,25 @@ export const useSegmentTypewriterNext = (
 
     if (segment.type !== 'text') return true
 
-    if (completedSegmentsRef.current.has(index)) return true
+    const segmentKey = getSegmentKey(segment, index)
+    if (completedSegmentsRef.current.has(segmentKey)) return true
 
-    if (index === activeSegmentIndex) return true
+    if (segmentKey === activeSegmentKeyRef.current) return true
+
+    const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
+    const consumed = consumedLengthsRef.current.get(segmentKey) || 0
+    if (consumed >= tokens.length) return true
 
     return false
-  }, [enabled, isAllComplete, activeSegmentIndex])
+  }, [enabled, isAllComplete, getSegmentKey, splitContent])
 
   // 新增：获取可见的 tokens（用于动效渲染）
   const getVisibleTokens = useCallback((index: number) => {
     const segment = segmentsRef.current[index]
     if (!segment || segment.type !== 'text') return []
 
-    const tokens = tokenCacheRef.current.get(index) || splitContent(segment.content)
+    const segmentKey = getSegmentKey(segment, index)
+    const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
     const visibleLength = getSegmentVisibleLength(index)
 
     if (visibleLength === Infinity) {
@@ -475,7 +560,7 @@ export const useSegmentTypewriterNext = (
     }
 
     return tokens.slice(0, visibleLength)
-  }, [getSegmentVisibleLength, splitContent])
+  }, [getSegmentVisibleLength, splitContent, getSegmentKey])
 
   return {
     activeSegmentIndex,
