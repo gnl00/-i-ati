@@ -32,10 +32,6 @@ export class MainDrivenStreamingService implements StreamingService {
     publisher: EventPublisher,
     meta: ChatSubmitEventMeta
   ): Promise<SubmissionContext> {
-    if (!context.request) {
-      throw new Error('Missing request in submission context')
-    }
-
     const submissionId = meta.submissionId
     const metaWithChat = {
       ...meta,
@@ -206,10 +202,13 @@ export class MainDrivenStreamingService implements StreamingService {
     context.control.signal.addEventListener('abort', abortListener)
 
     try {
-      await publisher.emit('request.sent', { messageCount: context.request.messages.length }, metaWithChat)
       await invokeChatSubmit({
         submissionId,
-        request: context.request,
+        input: context.input,
+        modelRef: {
+          accountId: context.meta.account.id,
+          modelId: context.meta.model.id
+        },
         chatId: context.session.currChatId,
         chatUuid: context.session.chatEntity.uuid
       })

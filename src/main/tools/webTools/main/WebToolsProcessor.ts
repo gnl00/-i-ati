@@ -5,8 +5,9 @@ import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@to
 import { getWindowPool } from './BrowserWindowPool'
 
 interface WebSearchProcessArgs {
-  fetchCounts: number
-  param: string
+  fetchCounts?: number
+  param?: string
+  query?: string
   snippetsOnly?: boolean
 }
 
@@ -172,14 +173,26 @@ async function fetchPageContent(url: string, contentWindow: BrowserWindow): Prom
 /**
  * Web Search - 执行网页搜索
  */
-const processWebSearch = async ({ fetchCounts, param, snippetsOnly }: WebSearchProcessArgs): Promise<WebSearchResponse> => {
+const processWebSearch = async ({
+  fetchCounts,
+  param,
+  query,
+  snippetsOnly
+}: WebSearchProcessArgs): Promise<WebSearchResponse> => {
   const searchStartTime = Date.now()
   const windowPool = getWindowPool()
   let searchWindow: BrowserWindow | null = null
 
   try {
+    const rawQuery = param ?? query ?? ''
+    const trimmedQuery = typeof rawQuery === 'string' ? rawQuery.trim() : String(rawQuery).trim()
+    if (!trimmedQuery) {
+      return { success: false, results: [], error: 'query is required' }
+    }
+    const resolvedFetchCounts = typeof fetchCounts === 'number' && fetchCounts > 0 ? fetchCounts : 3
+
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log(`[SEARCH START] Query: "${param}", Count: ${fetchCounts}, SnippetsOnly: ${Boolean(snippetsOnly)}`)
+    console.log(`[SEARCH START] Query: "${trimmedQuery}", Count: ${resolvedFetchCounts}, SnippetsOnly: ${Boolean(snippetsOnly)}`)
     console.log(`[SEARCH START] Timestamp: ${new Date().toISOString()}`)
 
     // Acquire a search window from the pool
@@ -189,7 +202,7 @@ const processWebSearch = async ({ fetchCounts, param, snippetsOnly }: WebSearchP
     console.log(`[WINDOW ACQUIRE] Search window acquired in ${windowCreateTime}ms`)
 
     const searchSite = 'www.bing.com'
-    const queryStr = (param as string).trim().replaceAll(' ', '+')
+    const queryStr = trimmedQuery.replaceAll(' ', '+')
     const searchUrl = `https://${searchSite}/search?q=${queryStr}`
 
     // Load search page
@@ -214,7 +227,7 @@ const processWebSearch = async ({ fetchCounts, param, snippetsOnly }: WebSearchP
     const searchItems: BingSearchItem[] = await searchWindow.webContents.executeJavaScript(`
       (() => {
         const results = []
-        const count = ${fetchCounts}
+        const count = ${resolvedFetchCounts}
         const searchResultItems = document.querySelectorAll('ol#b_results li.b_algo')
 
         for (let i = 0; i < Math.min(count, searchResultItems.length); i++) {

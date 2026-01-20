@@ -1,5 +1,4 @@
 import { saveMessage, updateMessage } from '@renderer/db/MessageRepository'
-import { RequestMessageBuilder } from '@renderer/services/RequestMessageBuilder'
 import { logger } from '../../logger'
 import { extractContentFromSegments } from '../streaming/segment-utils'
 import type { SubmissionContext } from '../context'
@@ -215,18 +214,6 @@ export class DefaultMessageService implements MessageService {
         chatUuid: context.session.chatEntity.uuid
       })
     }
-  }
-
-  rebuildRequestMessages(context: SubmissionContext): void {
-    if (!context.request) {
-      return
-    }
-    const messageBuilder = new RequestMessageBuilder()
-      .setSystemPrompts(context.systemPrompts || [])
-      .setMessages(context.session.messageEntities)
-      .setCompressionSummary(context.compressionSummary || null)
-
-    context.request.messages = messageBuilder.build()
   }
 
   async updateAssistantMessagesFromSegments(

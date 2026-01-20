@@ -371,10 +371,10 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                 </div>
 
                 {/* Header - 固定高度 */}
-                <SheetHeader className="flex-shrink-0 pt-4 pb-2">
+                <SheetHeader className="flex-shrink-0 pt-4">
                     <SheetTitle>@i-ati</SheetTitle>
                     <SheetDescription>
-                        - Just an AI API client.
+                        -
                     </SheetDescription>
                 </SheetHeader>
 

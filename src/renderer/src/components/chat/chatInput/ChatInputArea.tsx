@@ -7,13 +7,13 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useAssistantStore } from '@renderer/store/assistant'
-import { embeddedToolsRegistry } from "@tools/registry"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { CustomCaretOverlay, CustomCaretRef } from '../common/CustomCaretOverlay'
 import CommandPalette from './CommandPalette'
 import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
+import { invokeCheckIsDirectory } from '@renderer/invoker/ipcInvoker'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
@@ -28,13 +28,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const setImageSrcBase64List = useChatStore(state => state.setImageSrcBase64List)
   const currentReqCtrl = useChatStore(state => state.currentReqCtrl)
   const readStreamState = useChatStore(state => state.readStreamState)
-  const webSearchEnable = useChatStore(state => state.webSearchEnable)
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const setSelectedModelRef = useChatStore(state => state.setSelectedModelRef)
-  const getAllMcpTools = useChatStore(state => state.getAllMcpTools)
 
   const {
     accounts,
@@ -80,6 +78,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
+  const [isDragging, setIsDragging] = useState<boolean>(false)
+  const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
 
   // Apply currentAssistant's systemPrompt to currentSystemPrompt
   useEffect(() => {
@@ -157,16 +157,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     }
 
     onMessagesUpdate() // for chat-window scroll to the end
-    const tools = getAllMcpTools()
-    if (webSearchEnable) {
-      const f = embeddedToolsRegistry.getTool('web_search')
-      if (f) {
-        tools.push({
-          ...f.function
-        })
+    handleChatSubmitCallback(inputContent, imageSrcBase64List, {
+      prompt: currentSystemPrompt,
+      options: {
+        temperature: chatTemperature[0],
+        topP: chatTopP[0]
       }
-    }
-    handleChatSubmitCallback(inputContent, imageSrcBase64List, { tools: tools, prompt: currentSystemPrompt })
+    })
     setInputContent('')
     setImageSrcBase64List([])
 
@@ -183,8 +180,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     imageSrcBase64List,
     selectedModelRef,
     currentSystemPrompt,
-    getAllMcpTools,
-    webSearchEnable,
     onMessagesUpdate,
     setImageSrcBase64List,
     handleChatSubmitCallback
@@ -243,6 +238,56 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     handleCommandBlur()
   }, [handleCommandBlur])
 
+  // Handle drag and drop events
+  const onDragEnter = useCallback((e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const onDragLeave = useCallback((e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const onDragOver = useCallback((e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const onDrop = useCallback(async (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = Array.from(e.dataTransfer.files)
+
+    // Get the first file/folder path and set as workspace
+    if (files.length > 0) {
+      try {
+        const fullPath = window.electron.webUtils.getPathForFile(files[0])
+        // console.log('[ChatInputArea] Dropped file/folder full path:', fullPath)
+
+        // Check if the path is a directory
+        const checkResult = await invokeCheckIsDirectory(fullPath)
+        if (!checkResult.success || !checkResult.isDirectory) {
+          toast.warning('Please drop a folder, not a file')
+          return
+        }
+
+        // Set workspace path to trigger ChatInputActions
+        setWorkspacePathToSelect(fullPath)
+
+        // Reset after a short delay to allow re-triggering
+        setTimeout(() => setWorkspacePathToSelect(null), 100)
+      } catch (error) {
+        // console.error('[ChatInputArea] Failed to get file path:', error)
+        toast.error('Failed to process dropped item')
+      }
+    }
+  }, [])
+
   return (
     <div ref={ref} id='inputArea' className={cn('rounded-md w-full h-full flex flex-col')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
@@ -273,12 +318,27 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           />
 
           <div className="relative flex-1 overflow-hidden">
+            {/* Drag overlay indicator */}
+            {isDragging && (
+              <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center bg-gray-900/5 dark:bg-gray-100/5 backdrop-blur-[2px]">
+                <div className="flex flex-col items-center gap-3 px-6 py-4 rounded-2xl bg-white/90 dark:bg-gray-800/90 border border-gray-300 dark:border-gray-600 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                    <svg className="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span className="text-sm font-medium">Drop folder to set workspace</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <Textarea
               ref={textareaRef}
               className={
-                cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 transition-colors duration-200 ease-out',
+                cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 transition-all duration-300 ease-out',
                   'rounded-none resize-none overflow-y-auto text-sm px-2 pt-0.5 pb-2 font-medium text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
                   'placeholder:text-gray-400 dark:placeholder:text-gray-500 leading-relaxed',
+                  isDragging && 'bg-gray-100/80 dark:bg-gray-700/80 shadow-inner'
                 )
               }
               placeholder={readStreamState ? 'Processing...Wait a moment' : 'Type anything to chat'}
@@ -287,6 +347,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               onKeyDown={onTextAreaKeyDown}
               onPaste={onTextAreaPaste}
               onBlur={onTextAreaBlur}
+              onDragEnter={onDragEnter}
+              onDragLeave={onDragLeave}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
               disabled={readStreamState}
             />
 
@@ -305,6 +369,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
           onNewChat={startNewChat}
           onSubmit={onSubmitClick}
           onCancel={cancelChatSubmit}
+          workspacePathToSelect={workspacePathToSelect}
         />
       </div>
 

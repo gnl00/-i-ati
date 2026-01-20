@@ -21,7 +21,7 @@ import {
   Package,
   FolderOpen
 } from 'lucide-react'
-import React, { useMemo } from 'react'
+import React, { useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 
 interface ChatInputActionsProps {
@@ -32,6 +32,7 @@ interface ChatInputActionsProps {
   onNewChat: () => void
   onSubmit: () => void
   onCancel?: () => void
+  workspacePathToSelect?: string | null
 }
 
 const ChatInputActions: React.FC<ChatInputActionsProps> = ({
@@ -41,7 +42,8 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   setArtifactsPanel,
   onNewChat,
   onSubmit,
-  onCancel
+  onCancel,
+  workspacePathToSelect
 }) => {
   const readStreamState = useChatStore(state => state.readStreamState)
   const messages = useChatStore(state => state.messages)
@@ -90,7 +92,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
       const currentChat = getChatFromList({ chatId, chatList })
       if (currentChat && currentChat.workspacePath) {
         await updateWorkspacePath(undefined)
-        toast.success('Workspace cleared')
+        // toast.success('Workspace cleared')
         return
       }
     }
@@ -99,42 +101,49 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     onNewChat()
   }
 
-  const handleWorkspaceSelect = async () => {
+  const handleWorkspaceSelect = async (directPath?: string) => {
     try {
-      const result = await invokeSelectDirectory()
+      let selectedPath = directPath
 
-      if (result.success && result.path) {
-        // 如果当前没有 chat，先初始化一个新 chat
-        if (!chatId && !chatUuid) {
-          const newChatUuid = uuidv4()
-          const newChatEntity: ChatEntity = {
-            uuid: newChatUuid,
-            title: 'NewChat',
-            messages: [],
-            workspacePath: result.path,
-            createTime: Date.now(),
-            updateTime: Date.now()
-          }
+      // If no direct path provided, show directory picker
+      if (!selectedPath) {
+        const result = await invokeSelectDirectory()
+        if (!result.success || !result.path) {
+          return
+        }
+        selectedPath = result.path
+      }
 
-          const newChatId = await saveChat(newChatEntity)
+      // If current no chat, initialize a new chat first
+      if (!chatId && !chatUuid) {
+        const newChatUuid = uuidv4()
+        const newChatEntity: ChatEntity = {
+          uuid: newChatUuid,
+          title: 'NewChat',
+          messages: [],
+          workspacePath: selectedPath,
+          createTime: Date.now(),
+          updateTime: Date.now()
+        }
 
-          // 添加新 chat 到 chatList
-          newChatEntity.id = newChatId
-          setChatList([newChatEntity, ...chatList])
+        const newChatId = await saveChat(newChatEntity)
 
-          // 然后更新状态
-          setChatId(newChatId)
-          setChatUuid(newChatUuid)
-          setChatTitle('NewChat')
+        // 添加新 chat 到 chatList
+        newChatEntity.id = newChatId
+        setChatList([newChatEntity, ...chatList])
 
-          // toast.success(`New chat created with workspace: ${result.path}`)
-        } else {
-          // 更新现有 chat 的 workspacePath
-          const currentChat = getChatFromList({ chatId, chatList })
-          if (currentChat) {
-            await updateWorkspacePath(result.path)
-            toast.success(`Workspace updated: ${result.path}`)
-          }
+        // 然后更新状态
+        setChatId(newChatId)
+        setChatUuid(newChatUuid)
+        setChatTitle('NewChat')
+
+        // toast.success(`New chat created with workspace: ${selectedPath}`)
+      } else {
+        // 更新现有 chat 的 workspacePath
+        const currentChat = getChatFromList({ chatId, chatList })
+        if (currentChat) {
+          await updateWorkspacePath(selectedPath)
+          // toast.success(`Workspace updated: ${selectedPath}`)
         }
       }
     } catch (error) {
@@ -142,6 +151,13 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
       toast.error('Failed to select workspace')
     }
   }
+
+  // Watch for workspace path changes from drag and drop
+  useEffect(() => {
+    if (workspacePathToSelect) {
+      handleWorkspaceSelect(workspacePathToSelect)
+    }
+  }, [workspacePathToSelect])
 
   const handleStopClick = () => {
     // console.log('[onStopClick] Triggered, currentReqCtrl:', currentReqCtrl)

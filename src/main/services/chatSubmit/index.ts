@@ -10,10 +10,23 @@ import type { ToolExecutionProgress } from './streaming/executor/types'
 import type { ToolCall } from './types'
 import { AbortError } from './errors'
 import DatabaseService from '../DatabaseService'
+import { systemPrompt as systemPromptBuilder } from '@shared/prompts'
+import { buildSkillsPrompt } from '@shared/services/skills/SkillPromptBuilder'
+import { RequestMessageBuilder } from '@shared/services/RequestMessageBuilder'
+import { embeddedToolsRegistry } from '@tools/registry'
+import { SkillService } from '../skills/SkillService'
 
 type MainChatSubmitInput = {
   submissionId: string
-  request: IUnifiedRequest
+  input: {
+    textCtx: string
+    mediaCtx: ClipbordImg[] | string[]
+    tools?: any[]
+    prompt?: string
+    options?: IUnifiedRequest['options']
+    stream?: boolean
+  }
+  modelRef: ModelRef
   chatId?: number
   chatUuid?: string
 }
@@ -293,7 +306,7 @@ export class MainChatSubmitService {
 
     this.active.set(input.submissionId, { controller, emitter })
 
-    const request = { ...input.request }
+    const request = await this.buildRequest(input)
     const messageEntities = request.messages.map(body => ({ body }))
     this.ensureAssistantPlaceholder(messageEntities, request)
 
@@ -401,6 +414,8 @@ export class MainChatSubmitService {
       }
     })
 
+    emitter.emit('request.built', { messageCount: request.messages.length })
+    emitter.emit('request.sent', { messageCount: request.messages.length })
     emitter.emit('stream.started', { stream: request.stream !== false })
 
     let ok = false
@@ -456,6 +471,174 @@ export class MainChatSubmitService {
         typewriterCompleted: false
       }
     })
+  }
+
+  private async buildRequest(input: MainChatSubmitInput): Promise<IUnifiedRequest> {
+    const config = DatabaseService.getConfig()
+    if (!config) {
+      throw new Error('App config not found')
+    }
+
+    const account = config.accounts?.find(item => item.id === input.modelRef.accountId)
+    if (!account) {
+      throw new Error('Account not found')
+    }
+
+    const model = account.models.find(item => item.id === input.modelRef.modelId)
+    if (!model) {
+      throw new Error('Model not found')
+    }
+
+    const providerDefinition = config.providerDefinitions?.find(def => def.id === account.providerId)
+    if (!providerDefinition) {
+      throw new Error('Provider definition not found')
+    }
+
+    const chat = this.resolveChatEntity(input.chatId, input.chatUuid)
+    const chatId = chat.id ?? input.chatId
+    const workspacePath = this.resolveWorkspacePath(chat, input.chatUuid)
+
+    const systemPrompts = await this.buildSystemPrompts(
+      workspacePath,
+      chatId,
+      input.input.prompt
+    )
+
+    const compressionSummary = this.resolveCompressionSummary(config, chatId)
+    const messageEntities = this.resolveMessageEntities(chat)
+
+    const finalMessages = new RequestMessageBuilder()
+      .setSystemPrompts(systemPrompts)
+      .setMessages(messageEntities)
+      .setCompressionSummary(compressionSummary)
+      .build()
+
+    const tools = this.buildTools(input.input.tools)
+
+    return {
+      providerType: providerDefinition.adapterType,
+      apiVersion: providerDefinition.apiVersion,
+      baseUrl: account.apiUrl,
+      messages: finalMessages,
+      apiKey: account.apiKey,
+      model: model.id,
+      modelType: model.type,
+      tools,
+      options: input.input.options,
+      stream: input.input.stream
+    }
+  }
+
+  private resolveChatEntity(chatId?: number, chatUuid?: string): ChatEntity {
+    let chat: ChatEntity | undefined
+    if (chatId) {
+      chat = DatabaseService.getChatById(chatId)
+    }
+    if (!chat && chatUuid) {
+      chat = DatabaseService.getChatByUuid(chatUuid)
+    }
+    if (!chat) {
+      throw new Error('Chat not found')
+    }
+    return chat
+  }
+
+  private resolveWorkspacePath(chat: ChatEntity, chatUuid?: string): string {
+    if (chat.workspacePath) {
+      return chat.workspacePath
+    }
+    const fallbackUuid = chat.uuid || chatUuid
+    return `./workspaces/${fallbackUuid || 'tmp'}`
+  }
+
+  private resolveCompressionSummary(
+    config: IAppConfig,
+    chatId?: number
+  ): CompressedSummaryEntity | null {
+    if (!config.compression?.enabled || !chatId) {
+      return null
+    }
+    const summaries = DatabaseService.getActiveCompressedSummariesByChatId(chatId)
+    return summaries.length > 0 ? summaries[0] : null
+  }
+
+  private resolveMessageEntities(chat: ChatEntity): MessageEntity[] {
+    const ids = chat.messages || []
+    if (ids.length === 0) {
+      return []
+    }
+    return DatabaseService.getMessageByIds(ids)
+  }
+
+  private buildTools(extraTools?: any[]): any[] {
+    const toolsByName = new Map<string, any>()
+
+    for (const tool of embeddedToolsRegistry.getAllTools()) {
+      const name = tool.function?.name
+      if (!name) continue
+      toolsByName.set(name, { ...tool.function })
+    }
+
+    if (Array.isArray(extraTools)) {
+      for (const tool of extraTools) {
+        const name = tool?.name
+        if (!name) continue
+        toolsByName.set(name, tool)
+      }
+    }
+
+    return Array.from(toolsByName.values())
+  }
+
+  private async buildSystemPrompts(
+    workspacePath: string,
+    chatId?: number,
+    prompt?: string
+  ): Promise<string[]> {
+    const defaultSystemPrompt = systemPromptBuilder(workspacePath)
+    const skillsPrompt = await this.buildSkillsPrompt(chatId)
+
+    const skillSlotToken = '$$skill-slot$$'
+    const composedSystemPrompt = defaultSystemPrompt.includes(skillSlotToken)
+      ? defaultSystemPrompt.replace(skillSlotToken, skillsPrompt)
+      : `${defaultSystemPrompt}${skillsPrompt}`
+
+    if (prompt) {
+      return [prompt, composedSystemPrompt]
+    }
+
+    return [composedSystemPrompt]
+  }
+
+  private async buildSkillsPrompt(chatId?: number): Promise<string> {
+    try {
+      const availableSkills = await SkillService.listSkills()
+      const chatSkills = chatId ? DatabaseService.getChatSkills(chatId) : []
+
+      if (availableSkills.length === 0 && chatSkills.length === 0) {
+        return ''
+      }
+
+      const loadedSkills = await Promise.all(
+        chatSkills.map(async (name) => {
+          try {
+            const content = await SkillService.getSkillContent(name)
+            return { name, content }
+          } catch (error) {
+            console.warn(`[Skills] Failed to load skill content: ${name}`, error)
+            return null
+          }
+        })
+      )
+
+      return buildSkillsPrompt(
+        availableSkills,
+        loadedSkills.filter(Boolean) as { name: string; content: string }[]
+      )
+    } catch (error) {
+      console.warn('[Skills] Failed to build skills prompt:', error)
+      return ''
+    }
   }
 }
 
