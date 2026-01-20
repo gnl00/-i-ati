@@ -57,11 +57,10 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
           onClick={toggleOpen}
           className={cn(
             "relative z-10 flex w-auto self-start items-center gap-3 px-3 py-1.5 cursor-pointer select-none",
-            "rounded-md border transition-all duration-200 ease-out",
-            "border-transparent", // Start transparent/subtle
+            "rounded-xl border transition-all duration-200 ease-out",
             isOpen
               ? "bg-zinc-100 dark:bg-zinc-800/50 border-zinc-200/50 dark:border-zinc-700/50"
-              : "bg-white/50 dark:bg-zinc-900/30 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 border-zinc-100/50 dark:border-zinc-800/50"
+              : "bg-white/70 shadow-sm dark:bg-zinc-900/30 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 border-zinc-100/50 dark:border-zinc-800/50"
           )}
         >
           {/* Status Indicator (Icon) */}

@@ -32,6 +32,11 @@ export default [
           "url": {
             "type": "string",
             "description": "The URL to fetch content from. Must be a fully-formed valid URL."
+          },
+          "cleanMode": {
+            "type": "string",
+            "description": "Content cleaning mode: lite (shorter, more aggressive) or full (more structure).",
+            "enum": ["lite", "full"]
           }
         },
         "required": ["url"],

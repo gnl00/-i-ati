@@ -285,12 +285,12 @@ const SkillsManager: React.FC = () => {
                   </Button>
                   <Button
                     size="xs"
-                    variant={'outline'}
+                    variant={'default'}
                     onClick={(e) => {
                       e.stopPropagation()
                       handleAddFolder()
                     }}
-                    className="shadow-sm rounded-3xl border-gray-100 text-gray-700 dark:text-gray-500"
+                    className="shadow-sm rounded-3xl"
                   >
                     <i className="ri-folder-add-line mr-1.5"></i>
                     Add Folder
