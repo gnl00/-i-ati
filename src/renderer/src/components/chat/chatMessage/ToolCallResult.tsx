@@ -21,17 +21,47 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
   const isWebSearch = tc.name === 'web_search'
   const webSearchData = isWebSearch && tc.content?.results ? tc.content : null
   const isError = tc.isError;
+  const [isJsonExpanded, setIsJsonExpanded] = useState(false);
+  const jsonLineThreshold = 24;
+  const contentCharThreshold = 1500;
 
   // Memoize JSON stringification
-  const jsonContent = useMemo(() => {
-    return JSON.stringify(tc.content, null, 2)
+  const contentString = useMemo(() => {
+    return typeof tc.content?.content === 'string' ? tc.content.content : ''
   }, [tc.content])
+
+  const contentLineCount = useMemo(() => {
+    return contentString ? contentString.split('\n').length : 0
+  }, [contentString])
+
+  const isContentLong = contentLineCount > jsonLineThreshold || contentString.length > contentCharThreshold
+
+  const jsonBaseContent = useMemo(() => {
+    if (!isJsonExpanded && isContentLong && tc.content && typeof tc.content === 'object') {
+      const preview = contentString
+        ? `${contentString.slice(0, contentCharThreshold)}${contentString.length > contentCharThreshold ? '...' : ''}`
+        : contentString
+      return JSON.stringify({ ...(tc.content as Record<string, unknown>), content: preview }, null, 2)
+    }
+    return JSON.stringify(tc.content, null, 2)
+  }, [tc.content, isJsonExpanded, isContentLong, contentString])
+
+  const jsonLines = useMemo(() => jsonBaseContent.split('\n'), [jsonBaseContent])
+  const isJsonLong = isContentLong || jsonLines.length > jsonLineThreshold
+  const visibleJsonContent = isJsonLong && !isJsonExpanded
+    ? jsonLines.slice(0, jsonLineThreshold).join('\n')
+    : jsonBaseContent
 
   const onCopyClick = (e: React.MouseEvent, content: any) => {
     e.stopPropagation();
     const text = typeof content === 'string' ? content : jsonContent;
     navigator.clipboard.writeText(text);
     toast.success('Result Copied');
+  }
+
+  const toggleJsonExpand = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsJsonExpanded(prev => !prev);
   }
 
   const toggleOpen = () => setIsOpen(!isOpen);
@@ -51,63 +81,58 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
         "group relative flex flex-col transition-all",
         isOpen ? "gap-2" : "gap-0"
       )}>
-
-        {/* Tech Capsule Header */}
-        <div
-          onClick={toggleOpen}
-          className={cn(
-            "relative z-10 flex w-auto self-start items-center gap-3 px-3 py-1.5 cursor-pointer select-none",
-            "rounded-xl border transition-all duration-200 ease-out",
-            isOpen
-              ? "bg-zinc-100 dark:bg-zinc-800/50 border-zinc-200/50 dark:border-zinc-700/50"
-              : "bg-white/70 shadow-sm dark:bg-zinc-900/30 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 border-zinc-100/50 dark:border-zinc-800/50"
-          )}
-        >
-          {/* Status Indicator (Icon) */}
-          <div className={cn(
-            "flex items-center justify-center w-3.5 h-3.5 rounded-full ring-1",
+        {/* Inline Log Row */}
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300">
+          <span className={cn(
+            "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold leading-none",
             isError
-              ? "bg-red-100 text-red-600 ring-red-200 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-900"
-              : "bg-emerald-100 text-emerald-600 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:ring-emerald-900"
+              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
           )}>
-            {isError ? <X className="w-2 h-2" /> : <Check className="w-2 h-2" />}
-          </div>
+            {isError ? <X className="w-2.5 h-2.5" /> : <Check className="w-2.5 h-2.5" />}
+            {isError ? 'Error' : 'Success'}
+          </span>
 
-          {/* Tool Identifier */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Wrench className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
             <span className={cn(
-              "font-mono text-[11px] font-semibold tracking-tight",
-              isError ? "text-red-700 dark:text-red-400" : "text-zinc-700 dark:text-zinc-200"
+              "font-mono text-[11px] font-semibold tracking-tight leading-none",
+              isError ? "text-red-700 dark:text-red-300" : "text-zinc-700 dark:text-zinc-200"
             )}>
               {tc.name}
             </span>
           </div>
 
-          {/* Divider */}
-          <div className="w-px h-3 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+          {tc.cost && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-zinc-900/40 border border-zinc-200/70 dark:border-zinc-800/60">
+              {(tc.cost / 1000).toFixed(3)}s
+            </span>
+          )}
 
-          {/* Metadata / Action */}
-          <div className="flex items-center gap-3">
-            {tc.cost && (
-              <span className="font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
-                {(tc.cost / 1000).toFixed(3)}s
-              </span>
+          <button
+            type="button"
+            onClick={toggleOpen}
+            className={cn(
+              "h-6 w-6 inline-flex items-center justify-center rounded-full",
+              "text-zinc-500 dark:text-zinc-400",
+              "hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60",
+              "transition-all duration-200"
             )}
-
+            aria-label={isOpen ? 'Hide Result' : 'View Result'}
+          >
             <ChevronDown className={cn(
-              "w-3 h-3 text-zinc-400 dark:text-zinc-500 transition-transform duration-300",
+              "w-3 h-3 transition-transform duration-300",
               isOpen && "rotate-180 text-zinc-600 dark:text-zinc-300"
             )} />
-          </div>
+          </button>
         </div>
 
         {/* Data Log Content */}
         <AnimatePresence initial={false}>
           {isOpen && (
             <motion.div
-              initial={{ height: 0, opacity: 0, marginLeft: 0 }}
-              animate={{ height: "auto", opacity: 1, marginLeft: 12 }}
+              initial={{ height: 0, opacity: 0, marginTop: 0 }}
+              animate={{ height: "auto", opacity: 1, marginTop: 2 }}
               transition={{
                 duration: 0.3,
                 ease: "circOut"
@@ -115,7 +140,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
               exit={{
                 height: 0,
                 opacity: 0,
-                marginLeft: 0,
+                marginTop: 0,
                 transition: {
                   duration: 0.2,
                   ease: "easeInOut"
@@ -123,18 +148,21 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
               }}
               className="overflow-hidden"
             >
-              {/* Connection Line */}
-              <div className="absolute left-[13px] top-[34px] bottom-0 w-px bg-zinc-200 dark:bg-zinc-800 origin-top" />
-
               <div className={cn(
-                "relative rounded-lg overflow-hidden border ml-1",
+                "relative rounded-xl overflow-hidden border",
+                "shadow-[0_10px_30px_rgba(0,0,0,0.06)]",
                 isError
-                  ? "bg-red-50/10 dark:bg-red-950/10 border-red-100 dark:border-red-900/30"
-                  : "bg-white/50 dark:bg-black/20 border-zinc-200 dark:border-zinc-800"
+                  ? "bg-red-50/20 dark:bg-red-950/20 border-red-100/80 dark:border-red-900/40"
+                  : "bg-white/70 dark:bg-black/30 border-zinc-200/70 dark:border-zinc-800/70"
               )}>
+                <div className={cn(
+                  "absolute inset-0 pointer-events-none",
+                  "bg-gradient-to-b from-white/60 via-transparent to-white/40",
+                  "dark:from-black/40 dark:to-black/60"
+                )} />
 
                 {isWebSearch && webSearchData ? (
-                  <div className="p-3 bg-zinc-50 dark:bg-zinc-900/50">
+                  <div className="p-3 bg-zinc-50/80 dark:bg-zinc-900/60">
                     <WebSearchResults results={webSearchData.results} />
                   </div>
                 ) : (
@@ -146,6 +174,19 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                         <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
                           Output Payload
                         </span>
+                        {isJsonLong && (
+                          <button
+                            type="button"
+                            onClick={toggleJsonExpand}
+                            className="text-[9px] font-semibold text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                          >
+                            {isJsonExpanded
+                              ? 'Collapse'
+                              : isContentLong && contentLineCount > 0
+                                ? `Expand content (${contentLineCount})`
+                                : `Expand (${jsonLines.length})`}
+                          </button>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
@@ -160,7 +201,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                     {/* Code Block */}
                     <div className="max-h-64 overflow-y-auto custom-scrollbar w-full bg-white dark:bg-[#09090b]">
                       <SpeedCodeHighlight
-                        code={jsonContent}
+                        code={visibleJsonContent}
                         language="json"
                         isDarkMode={isDarkMode}
                       /* Passing style via props not supported, relying on SpeedCodeHighlight's internal style. 
@@ -168,6 +209,11 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                          For now, the container handles most layout. */
                       />
                     </div>
+                    {isJsonLong && !isJsonExpanded && (
+                      <div className="px-3 py-2 text-[10px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80">
+                        Showing a preview. Use “Expand” to view full content.
+                      </div>
+                    )}
                     {/* Footer Decoration */}
                     <div className="h-1 w-full bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800" />
                   </>
