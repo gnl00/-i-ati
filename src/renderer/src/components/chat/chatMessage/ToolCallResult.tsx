@@ -84,7 +84,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
         {/* Inline Log Row */}
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300">
           <span className={cn(
-            "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold leading-none",
+            "inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none",
             isError
               ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
               : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
