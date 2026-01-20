@@ -511,7 +511,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                 <div className='p-4 space-y-2'>
                                     <div className='flex items-center justify-between'>
                                         <div className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                                            Account Settings
+                                            Provider Settings
                                         </div>
                                         <Button
                                             size="xs"
@@ -525,12 +525,12 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                     </div>
                                     <div className='space-y-1'>
                                         <Label htmlFor="account-label" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-                                            Account Label
+                                            Label
                                         </Label>
                                         <Input
                                             id="account-label"
                                             className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
-                                            placeholder='Account label'
+                                            placeholder='Provider label'
                                             value={editAccountLabel}
                                             onChange={(e) => {
                                                 setEditAccountLabel(e.target.value)

@@ -892,21 +892,21 @@ class DatabaseService {
         path.join(process.resourcesPath, 'data/providers.json'),
       ]
 
-      console.log('[DatabaseService] Project root:', projectRoot)
-      console.log('[DatabaseService] Searching for providers.json in:')
+      // console.log('[DatabaseService] Project root:', projectRoot)
+      // console.log('[DatabaseService] Searching for providers.json in:')
       for (const filePath of possiblePaths) {
-        console.log(`  - ${filePath} (exists: ${fs.existsSync(filePath)})`)
+        // console.log(`  - ${filePath} (exists: ${fs.existsSync(filePath)})`)
         if (fs.existsSync(filePath)) {
           const data = fs.readFileSync(filePath, 'utf-8')
-          console.log(`[DatabaseService] ✓ Loaded provider definitions from: ${filePath}`)
+          // console.log(`[DatabaseService] ✓ Loaded provider definitions from: ${filePath}`)
           return JSON.parse(data) as ProviderDefinition[]
         }
       }
 
-      console.warn('[DatabaseService] ⚠ providers.json not found in any path, using empty array')
+      // console.warn('[DatabaseService] ⚠ providers.json not found in any path, using empty array')
       return []
     } catch (error) {
-      console.error('[DatabaseService] Failed to load provider definitions:', error)
+      // console.error('[DatabaseService] Failed to load provider definitions:', error)
       return []
     }
   }
