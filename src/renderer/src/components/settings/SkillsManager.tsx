@@ -10,7 +10,13 @@ import { invokeSelectDirectory, invokeSkillImportFolder } from '@renderer/invoke
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
 import { Input } from '../ui/input'
-import { Search, X } from 'lucide-react'
+import { Search, X, ChevronDown } from 'lucide-react'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from '@renderer/components/ui/accordion'
 
 const SkillsManager: React.FC = () => {
   const { currentChatId, currentChatUuid } = useChatStore()
@@ -251,79 +257,93 @@ const SkillsManager: React.FC = () => {
   return (
     <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
       <div className='w-full h-full space-y-2 p-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500'>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
-          <div className="flex items-start justify-between gap-6">
-            <div className="flex-1 space-y-1">
-              <div className="flex items-center gap-2">
-                <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
-                  Skill Folders
-                </Label>
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-indigo-600 border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800">
-                  SKILLS
-                </Badge>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                Add folders to scan for skills. Subfolders are scanned recursively and stop at any folder containing SKILL.md.
-              </p>
-              <p className="text-xs text-gray-400">
-                Name conflicts are resolved by appending the folder name (e.g. <span className="font-mono">skill-folder</span>).
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={scanAllFolders}
-                disabled={folders.length === 0 || pendingFolders.size > 0}
-                className="shadow-sm rounded-3xl text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
-              >
-                <i className="ri-refresh-line mr-1.5"></i>
-                Rescan All
-              </Button>
-              <Button
-                size="xs"
-                variant={'outline'}
-                onClick={handleAddFolder}
-                className="shadow-sm rounded-3xl"
-              >
-                <i className="ri-folder-add-line mr-1.5"></i>
-                Add Folder
-              </Button>
-            </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            {folders.length === 0 && (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                No folders added yet.
-              </p>
-            )}
-            {folders.map(folder => {
-              const isPending = pendingFolders.has(folder)
-              return (
-                <div key={folder} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900/40">
-                  <div className="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">
-                    {folder}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleRemoveFolder(folder)}
-                      disabled={isPending}
-                      className="shadow-sm rounded-3xl text-red-400 hover:text-red-500"
-                    >
-                      <i className="ri-delete-bin-line mr-1.5"></i>
-                      Remove
-                    </Button>
-                  </div>
+        <Accordion type="single" collapsible defaultValue="folders" className="w-full">
+          <AccordionItem value="folders" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow transition-all duration-200">
+            <AccordionTrigger className="px-4 py-3 hover:no-underline group">
+              <div className="flex items-center justify-between w-full pr-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-base font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
+                    Skill Folders
+                  </Label>
+                  <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-indigo-600 border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800">
+                    {folders.length}
+                  </Badge>
                 </div>
-              )
-            })}
-          </div>
-        </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      scanAllFolders()
+                    }}
+                    disabled={folders.length === 0 || pendingFolders.size > 0}
+                    className="shadow-sm rounded-3xl text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
+                  >
+                    <i className="ri-refresh-line mr-1.5"></i>
+                    Rescan All
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant={'outline'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleAddFolder()
+                    }}
+                    className="shadow-sm rounded-3xl border-gray-100 text-gray-700 dark:text-gray-500"
+                  >
+                    <i className="ri-folder-add-line mr-1.5"></i>
+                    Add Folder
+                  </Button>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-3">
+              <div className="space-y-2 pt-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Add folders to scan for skills. Subfolders are scanned recursively and stop at any folder containing SKILL.md.
+                </p>
+                <p className="text-xs text-gray-400">
+                  Name conflicts are resolved by appending the folder name (e.g. <span className="font-mono">skill-folder</span>).
+                </p>
+                {folders.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 pt-2">
+                    No folders added yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2 pt-2">
+                    {folders.map(folder => {
+                      const isPending = pendingFolders.has(folder)
+                      return (
+                        <div key={folder} className="group/folder flex items-center justify-between gap-3 px-3 py-1 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900/40">
+                          <div className="flex-1 text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">
+                            {folder}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => handleRemoveFolder(folder)}
+                              disabled={isPending}
+                              className="shadow-sm rounded-3xl text-red-400 hover:text-red-500 opacity-0 group-hover/folder:opacity-100 transition-opacity"
+                            >
+                              <i className="ri-delete-bin-line mr-1.5"></i>
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
-          <div className="p-5 flex justify-between">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow">
+          <div className="p-4 flex justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
@@ -411,7 +431,7 @@ const SkillsManager: React.FC = () => {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                         {skill.description}
                       </p>
                       {skill.compatibility && (
