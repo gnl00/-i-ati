@@ -286,8 +286,12 @@ const skillDirExists = async (dirPath: string): Promise<boolean> => {
   }
 }
 
-const buildSkillMetadata = (frontmatter: SkillFrontmatter): SkillMetadata => ({
-  name: frontmatter.name,
+const buildSkillMetadata = (
+  frontmatter: SkillFrontmatter,
+  options?: { name?: string; frontmatterName?: string }
+): SkillMetadata => ({
+  name: options?.name ?? frontmatter.name,
+  frontmatterName: options?.frontmatterName ?? frontmatter.name,
   description: frontmatter.description,
   license: frontmatter.license,
   compatibility: frontmatter.compatibility,
@@ -295,15 +299,9 @@ const buildSkillMetadata = (frontmatter: SkillFrontmatter): SkillMetadata => ({
   allowedTools: frontmatter.allowedTools
 })
 
-const resolveSkillNameForDirectory = (frontmatterName: string, dirName: string): string => {
-  if (frontmatterName === dirName) {
-    return frontmatterName
-  }
+const resolveSkillNameForDirectory = (frontmatterName: string): string => {
   const normalized = normalizeSkillName(frontmatterName)
-  if (normalized && normalized === dirName) {
-    return dirName
-  }
-  return frontmatterName
+  return normalized || frontmatterName
 }
 
 const readSkillSourceInfo = async (skillDir: string): Promise<SkillSourceInfo | null> => {
@@ -356,19 +354,19 @@ const readSkillMetadata = async (
     const stat = await fs.stat(skillFile)
     const content = await fs.readFile(skillFile, 'utf-8')
     const parsed = parseFrontmatter(content)
-    const dirName = path.basename(skillDir)
-    const effectiveName = resolveSkillNameForDirectory(parsed.frontmatter.name, dirName)
-    parsed.frontmatter.name = effectiveName
-    validateSkillName(parsed.frontmatter.name)
+    const rawName = parsed.frontmatter.name
+    const normalizedName = resolveSkillNameForDirectory(rawName)
+    validateSkillName(normalizedName)
     validateSkillDescription(parsed.frontmatter.description)
     validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
-    if (parsed.frontmatter.name !== path.basename(skillDir)) {
-      console.warn(`[SkillService] SKILL.md name does not match directory: ${path.basename(skillDir)}`)
-      return null
-    }
+
+    const dirName = path.basename(skillDir)
     const sourceInfo = await readSkillSourceInfo(skillDir)
     return {
-      ...buildSkillMetadata(parsed.frontmatter),
+      ...buildSkillMetadata(parsed.frontmatter, {
+        name: dirName,
+        frontmatterName: rawName
+      }),
       mtimeMs: stat.mtimeMs,
       source: sourceInfo?.source
     }
@@ -561,7 +559,6 @@ const installSkillFromDirectory = async (
   root: string,
   allowOverwrite: boolean,
   sourceLabel: string,
-  requireNameMatch: boolean,
   overrideName?: string
 ): Promise<SkillMetadata> => {
   const skillFile = path.join(sourceDir, SKILL_FILE)
@@ -569,22 +566,16 @@ const installSkillFromDirectory = async (
   const parsed = parseFrontmatter(content)
   const rawName = parsed.frontmatter.name
   const dirName = path.basename(sourceDir)
-  const effectiveName = requireNameMatch
-    ? resolveSkillNameForDirectory(parsed.frontmatter.name, dirName)
-    : parsed.frontmatter.name
-  parsed.frontmatter.name = effectiveName
-  validateSkillName(parsed.frontmatter.name)
+  const normalizedName = resolveSkillNameForDirectory(rawName)
+  validateSkillName(normalizedName)
   validateSkillDescription(parsed.frontmatter.description)
   validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
 
-  if (requireNameMatch && parsed.frontmatter.name !== dirName) {
-    throw new Error(`Skill name must match directory name: ${dirName}`)
-  }
-  if (args.name && args.name !== parsed.frontmatter.name) {
+  if (args.name && args.name !== normalizedName) {
     throw new Error(`Skill name mismatch: expected "${args.name}"`)
   }
 
-  const targetName = overrideName ?? parsed.frontmatter.name
+  const targetName = overrideName ?? normalizedName
   validateSkillName(targetName)
   const destDir = path.join(root, targetName)
   if (await skillDirExists(destDir)) {
@@ -595,16 +586,13 @@ const installSkillFromDirectory = async (
   }
 
   await fs.cp(sourceDir, destDir, { recursive: true })
-  if (targetName !== parsed.frontmatter.name || rawName !== parsed.frontmatter.name) {
-    const destSkillFile = path.join(destDir, SKILL_FILE)
-    const destContent = await fs.readFile(destSkillFile, 'utf-8')
-    const updated = rewriteSkillName(destContent, targetName)
-    await fs.writeFile(destSkillFile, updated, 'utf-8')
-  }
   await writeSkillSourceInfo(destDir, sourceLabel)
 
   return {
-    ...buildSkillMetadata(parsed.frontmatter),
+    ...buildSkillMetadata(parsed.frontmatter, {
+      name: targetName,
+      frontmatterName: rawName
+    }),
     name: targetName,
     source: sourceLabel
   }
@@ -689,14 +677,12 @@ class SkillService {
         }
 
         const skillDir = skillDirs[0]
-        const requireNameMatch = path.resolve(skillDir) !== path.resolve(extractDir)
         const metadata = await installSkillFromDirectory(
           skillDir,
           args,
           root,
           allowOverwrite,
-          args.source,
-          requireNameMatch
+          args.source
         )
         markSkillCacheDirty()
         return metadata
@@ -712,17 +698,19 @@ class SkillService {
       }
       const content = await response.text()
       const parsed = parseFrontmatter(content)
-      validateSkillName(parsed.frontmatter.name)
+      const rawName = parsed.frontmatter.name
+      const normalizedName = resolveSkillNameForDirectory(rawName)
+      validateSkillName(normalizedName)
       validateSkillDescription(parsed.frontmatter.description)
       validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
-      if (args.name && args.name !== parsed.frontmatter.name) {
+      if (args.name && args.name !== normalizedName) {
         throw new Error(`Skill name mismatch: expected "${args.name}"`)
       }
 
-      const destDir = path.join(root, parsed.frontmatter.name)
+      const destDir = path.join(root, normalizedName)
       if (await skillDirExists(destDir)) {
         if (!allowOverwrite) {
-          throw new Error(`Skill "${parsed.frontmatter.name}" already installed`)
+          throw new Error(`Skill "${normalizedName}" already installed`)
         }
         await fs.rm(destDir, { recursive: true, force: true })
       }
@@ -731,7 +719,13 @@ class SkillService {
       await fs.writeFile(path.join(destDir, SKILL_FILE), content, 'utf-8')
       await writeSkillSourceInfo(destDir, args.source)
       markSkillCacheDirty()
-      return { ...buildSkillMetadata(parsed.frontmatter), source: args.source }
+      return {
+        ...buildSkillMetadata(parsed.frontmatter, {
+          name: normalizedName,
+          frontmatterName: rawName
+        }),
+        source: args.source
+      }
     }
 
     const sourcePath = path.isAbsolute(args.source)
@@ -752,14 +746,12 @@ class SkillService {
         }
 
         const skillDir = skillDirs[0]
-        const requireNameMatch = path.resolve(skillDir) !== path.resolve(extractDir)
         const metadata = await installSkillFromDirectory(
           skillDir,
           args,
           root,
           allowOverwrite,
-          sourcePath,
-          requireNameMatch
+          sourcePath
         )
         markSkillCacheDirty()
         return metadata
@@ -775,8 +767,7 @@ class SkillService {
         args,
         root,
         allowOverwrite,
-        sourcePath,
-        true
+        sourcePath
       )
       markSkillCacheDirty()
       return metadata
@@ -784,17 +775,19 @@ class SkillService {
 
     const content = await fs.readFile(sourcePath, 'utf-8')
     const parsed = parseFrontmatter(content)
-    validateSkillName(parsed.frontmatter.name)
+    const rawName = parsed.frontmatter.name
+    const normalizedName = resolveSkillNameForDirectory(rawName)
+    validateSkillName(normalizedName)
     validateSkillDescription(parsed.frontmatter.description)
     validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
-    if (args.name && args.name !== parsed.frontmatter.name) {
+    if (args.name && args.name !== normalizedName) {
       throw new Error(`Skill name mismatch: expected "${args.name}"`)
     }
 
-    const destDir = path.join(root, parsed.frontmatter.name)
+    const destDir = path.join(root, normalizedName)
     if (await skillDirExists(destDir)) {
       if (!allowOverwrite) {
-        throw new Error(`Skill "${parsed.frontmatter.name}" already installed`)
+        throw new Error(`Skill "${normalizedName}" already installed`)
       }
       await fs.rm(destDir, { recursive: true, force: true })
     }
@@ -803,7 +796,13 @@ class SkillService {
     await fs.writeFile(path.join(destDir, SKILL_FILE), content, 'utf-8')
     await writeSkillSourceInfo(destDir, sourcePath)
     markSkillCacheDirty()
-    return { ...buildSkillMetadata(parsed.frontmatter), source: sourcePath }
+    return {
+      ...buildSkillMetadata(parsed.frontmatter, {
+        name: normalizedName,
+        frontmatterName: rawName
+      }),
+      source: sourcePath
+    }
   }
 
   static async importSkillsFromFolder(folderPath: string): Promise<SkillImportSummary> {
@@ -839,16 +838,15 @@ class SkillService {
       try {
         const content = await fs.readFile(skillFile, 'utf-8')
         const parsed = parseFrontmatter(content)
-        const dirName = path.basename(skillDir)
-        const effectiveName = resolveSkillNameForDirectory(parsed.frontmatter.name, dirName)
-        parsed.frontmatter.name = effectiveName
-        validateSkillName(parsed.frontmatter.name)
+        const rawName = parsed.frontmatter.name
+        const normalizedName = resolveSkillNameForDirectory(rawName)
+        validateSkillName(normalizedName)
         validateSkillDescription(parsed.frontmatter.description)
         validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
 
         const sourcePath = path.resolve(skillDir)
         const existingBySource = currentBySource.get(sourcePath)
-        let targetName = parsed.frontmatter.name
+        let targetName = normalizedName
         let allowOverwrite = false
         if (existingBySource) {
           targetName = existingBySource.name
@@ -856,7 +854,7 @@ class SkillService {
         } else if (existing.has(targetName)) {
           const folderName = path.basename(folderPath)
           targetName = buildConflictName(targetName, folderName, existing)
-          renamed.push({ from: parsed.frontmatter.name, to: targetName })
+          renamed.push({ from: rawName, to: targetName })
         }
 
         const metadata = await installSkillFromDirectory(
@@ -865,7 +863,6 @@ class SkillService {
           root,
           allowOverwrite,
           sourcePath,
-          true,
           targetName
         )
         installed.push(metadata)

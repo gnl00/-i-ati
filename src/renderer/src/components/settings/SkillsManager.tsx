@@ -272,7 +272,7 @@ const SkillsManager: React.FC = () => {
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
-                size="sm"
+                size="xs"
                 onClick={scanAllFolders}
                 disabled={folders.length === 0 || pendingFolders.size > 0}
                 className="shadow-sm rounded-3xl text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
@@ -281,7 +281,8 @@ const SkillsManager: React.FC = () => {
                 Rescan All
               </Button>
               <Button
-                size="sm"
+                size="xs"
+                variant={'outline'}
                 onClick={handleAddFolder}
                 className="shadow-sm rounded-3xl"
               >
@@ -339,7 +340,7 @@ const SkillsManager: React.FC = () => {
             <div className="mt-3 flex items-center gap-2">
               <Button
                 variant="ghost"
-                size="sm"
+                size="xs"
                 onClick={refreshSkills}
                 disabled={isRefreshing}
                 className="shadow-sm rounded-3xl text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"

@@ -177,6 +177,7 @@ declare interface MCPTool {
 
 declare interface SkillMetadata {
   name: string
+  frontmatterName?: string
   description: string
   license?: string
   compatibility?: string
