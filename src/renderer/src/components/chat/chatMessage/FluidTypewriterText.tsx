@@ -16,7 +16,7 @@ const AnimatedToken = memo(({ children }: { children: string }) => {
         "inline-block whitespace-pre-wrap",
         "transition-[opacity,transform,filter] duration-200 ease-out will-change-[opacity,transform,filter]",
         "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
-        entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-sm"
+        entered ? "opacity-100 blur-0" : "opacity-0 blur-sm"
       ].join(' ')}
     >
       {children}
@@ -48,7 +48,7 @@ export const FluidTypewriterText = ({
   content = '',
   visibleCount,
   visibleTokens,
-  animationWindow = 12
+  animationWindow = 15
 }: FluidTypewriterTextProps) => {
   // 缓存 tokenize 结果（如已传入 visibleTokens，则跳过分词）
   const tokens = useMemo(() => {
