@@ -140,7 +140,7 @@ export async function invokeWebSearchIPC(args: { param: string; fetchCounts?: nu
 /**
  * 执行 Web Fetch（获取指定 URL 的页面内容）
  */
-export async function invokeWebFetchIPC(args: { url: string }): Promise<any> {
+export async function invokeWebFetchIPC(args: { url: string; cleanMode?: 'lite' | 'full' }): Promise<any> {
   const ipc = getElectronIPC()
   return await ipc.invoke(WEB_FETCH_ACTION, args)
 }

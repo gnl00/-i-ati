@@ -161,9 +161,9 @@ function mainIPCSetup() {
     return processWebSearch({ fetchCounts: counts, param, snippetsOnly })
   })
 
-  ipcMain.handle(WEB_FETCH_ACTION, (_event, { url }) => {
-    console.log(`[WebFetch IPC] Fetching URL: ${url}`)
-    return processWebFetch({ url })
+  ipcMain.handle(WEB_FETCH_ACTION, (_event, args) => {
+    console.log(`[WebFetch IPC] Fetching URL: ${args?.url}`)
+    return processWebFetch(args)
   })
 
   ipcMain.handle(SKILL_LIST_ACTION, async () => {

@@ -7,6 +7,7 @@ import {
   CarouselNext,
   CarouselPrevious
 } from '@renderer/components/ui/carousel'
+import { cn } from '@renderer/lib/utils'
 
 interface WebSearchResult {
   query: string
@@ -25,6 +26,8 @@ interface WebSearchResultsProps {
 // Memoize the component to prevent unnecessary re-renders
 export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ results }) => {
   // Memoize sorted results to avoid re-sorting on every render
+  console.log('results', results);
+
   const sortedResults = useMemo(() => {
     return [...results].sort((a, b) => {
       if (a.success && !b.success) return -1
@@ -38,7 +41,7 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ r
     return {
       successCount: results.filter((r) => r.success).length,
       totalCount: results.length
-    }
+    }    
   }, [results])
 
   return (
@@ -114,7 +117,7 @@ const WebSearchResultCard: React.FC<WebSearchResultCardProps> = React.memo(({ re
 
   if (!result.success) {
     return (
-      <div className="h-full flex flex-col group relative rounded-lg p-2 border border-dashed transition-all duration-200 bg-stone-50/20 dark:bg-slate-800/20 border-stone-200 dark:border-slate-700/50 opacity-60 hover:opacity-90 grayscale-[0.8] hover:grayscale-0">
+      <div className="h-full flex flex-col group/webcard relative rounded-lg p-2 border border-dashed transition-all duration-200 bg-stone-50/20 dark:bg-slate-800/20 border-stone-200 dark:border-slate-700/50 opacity-60 hover:opacity-90 grayscale-[0.8] hover:grayscale-0">
         {/* Index badge */}
         <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center bg-stone-200 dark:bg-slate-700 text-stone-400 dark:text-slate-500 text-[8px] font-bold border border-white dark:border-slate-800">
           {index + 1}
@@ -161,10 +164,10 @@ const WebSearchResultCard: React.FC<WebSearchResultCardProps> = React.memo(({ re
       href={result.link}
       target="_blank"
       rel="noopener noreferrer"
-      className="h-full flex flex-col group relative rounded-lg p-2 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 hover:border-blue-400/30 dark:hover:border-blue-500/30 bg-white dark:bg-slate-800/50"
+      className="h-full flex flex-col group/webcard relative rounded-lg p-2 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 hover:border-blue-400/30 dark:hover:border-blue-500/30 bg-white dark:bg-slate-800/50"
     >
       {/* Index badge - 悬浮小数字 (更加低调) */}
-      <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[8px] font-bold border border-white dark:border-slate-800 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+      <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[8px] font-bold border border-white dark:border-slate-800 group-hover/webcard:bg-blue-500 group-hover/webcard:text-white transition-colors">
         {index + 1}
       </div>
 
@@ -190,9 +193,11 @@ const WebSearchResultCard: React.FC<WebSearchResultCardProps> = React.memo(({ re
 
       {/* Content */}
       <div className="flex-1 space-y-1">
-        <h3 className="text-[11px] font-bold leading-tight line-clamp-2 text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+        <h3 className={cn(
+          "text-[11px] font-bold leading-tight line-clamp-2 text-slate-700 dark:text-slate-200 group-hover/webcard:text-blue-600 dark:group-hover/webcard:text-blue-400 transition-colors"
+        )}>
           {result.title || 'Untitled'}
-          <ExternalLink className="inline-block w-2.5 h-2.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity align-text-top" />
+          <ExternalLink className="inline-block w-2.5 h-2.5 ml-1 opacity-0 group-hover/webcard:opacity-100 transition-opacity align-text-top" />
         </h3>
 
         {result.snippet && (

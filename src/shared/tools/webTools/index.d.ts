@@ -29,6 +29,7 @@ export interface WebSearchResponse {
 
 export interface WebFetchArgs {
   url: string
+  cleanMode?: 'lite' | 'full'
   prompt: string
 }
 

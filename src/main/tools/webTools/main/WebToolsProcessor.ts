@@ -11,8 +11,11 @@ interface WebSearchProcessArgs {
   snippetsOnly?: boolean
 }
 
+type CleanMode = 'lite' | 'full'
+
 interface WebFetchProcessArgs {
   url: string
+  cleanMode?: CleanMode
 }
 
 interface BingSearchItem {
@@ -26,7 +29,7 @@ const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 /**
  * 创建并配置 Turndown 实例
  */
-function createTurndownService(): TurndownService {
+function createTurndownService(mode: CleanMode): TurndownService {
   const turndownService = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
@@ -36,6 +39,33 @@ function createTurndownService(): TurndownService {
 
   // 移除不需要的元素
   turndownService.remove(['script', 'style', 'noscript'])
+
+  turndownService.addRule('emptyLinks', {
+    filter: (node) => {
+      return node.nodeName === 'A' && !node.textContent?.trim()
+    },
+    replacement: () => ''
+  })
+
+  turndownService.addRule('emptyImages', {
+    filter: (node) => {
+      return node.nodeName === 'IMG' && !node.getAttribute('alt') && !node.getAttribute('title')
+    },
+    replacement: () => ''
+  })
+
+  if (mode === 'lite') {
+    turndownService.addRule('trimLongCodeBlocks', {
+      filter: (node) => node.nodeName === 'PRE',
+      replacement: (content) => {
+        const trimmed = content.trim()
+        if (trimmed.length > 4000) {
+          return `${trimmed.slice(0, 4000)}\n...`
+        }
+        return `\n\n${trimmed}\n\n`
+      }
+    })
+  }
 
   return turndownService
 }
@@ -57,12 +87,23 @@ function extractContentWithCheerio(html: string): string {
       'nav',
       'header',
       'footer',
+      'aside',
       '.ad',
       '.advertisement',
       '.sidebar',
       '.comments',
+      '.comment',
+      '.share',
+      '.sharing',
+      '.social',
+      '.subscribe',
+      '.newsletter',
+      '.cookie',
+      '.consent',
       '[class*="related"]',
       '[class*="recommend"]',
+      '[class*="promo"]',
+      '[class*="sponsor"]',
       '[class*="hot"]',
       'iframe',
       'noscript'
@@ -76,9 +117,15 @@ function extractContentWithCheerio(html: string): string {
     const mainSelectors = [
       'main',
       'article',
+      '[itemprop="articleBody"]',
+      '[data-testid="article-body"]',
+      '[data-content="article"]',
       '[role="main"]',
       '.content',
       '.main-content',
+      '.post',
+      '.post-content',
+      '.entry-content',
       '#content',
       '#main'
     ]
@@ -109,9 +156,9 @@ function extractContentWithCheerio(html: string): string {
  * @param html 清理后的 HTML 字符串
  * @returns Markdown 格式的文本
  */
-function convertHtmlToMarkdown(html: string): string {
+function convertHtmlToMarkdown(html: string, mode: CleanMode): string {
   try {
-    const turndownService = createTurndownService()
+    const turndownService = createTurndownService(mode)
     const markdown = turndownService.turndown(html)
     return markdown
   } catch (error) {
@@ -129,7 +176,11 @@ function convertHtmlToMarkdown(html: string): string {
  * @param contentWindow 用于加载页面的 BrowserWindow
  * @returns 包含页面标题、最终 URL 和提取的文本内容
  */
-async function fetchPageContent(url: string, contentWindow: BrowserWindow): Promise<{
+async function fetchPageContent(
+  url: string,
+  contentWindow: BrowserWindow,
+  mode: CleanMode
+): Promise<{
   pageTitle: string
   finalUrl: string
   extractedText: string
@@ -158,10 +209,10 @@ async function fetchPageContent(url: string, contentWindow: BrowserWindow): Prom
   const cleanedHtml = extractContentWithCheerio(pageData.html)
 
   // 将 HTML 转换为 Markdown
-  const markdown = convertHtmlToMarkdown(cleanedHtml)
+  const markdown = convertHtmlToMarkdown(cleanedHtml, mode)
 
   // 使用 postClean 进行最终清理
-  const extractedText = postClean(markdown)
+  const extractedText = mode === 'full' ? postCleanFull(markdown) : postCleanLite(markdown)
 
   return {
     pageTitle: pageData.title,
@@ -189,6 +240,7 @@ const processWebSearch = async ({
     if (!trimmedQuery) {
       return { success: false, results: [], error: 'query is required' }
     }
+    const resolvedQuery = trimmedQuery
     const resolvedFetchCounts = typeof fetchCounts === 'number' && fetchCounts > 0 ? fetchCounts : 3
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
@@ -274,7 +326,7 @@ const processWebSearch = async ({
       return {
         success: true,
         results: searchItems.map((item): WebSearchResultV2 => ({
-          query: param as string,
+          query: resolvedQuery,
           success: true,
           link: item.link,
           title: item.title,
@@ -294,7 +346,7 @@ const processWebSearch = async ({
         let contentWindow: BrowserWindow | null = null
 
         const resultItem: WebSearchResultV2 = {
-          query: param as string,
+          query: resolvedQuery,
           success: false,
           link: item.link,
           title: item.title,
@@ -310,13 +362,13 @@ const processWebSearch = async ({
           console.log(`[SCRAPE ${index + 1}] Content window #${index + 1} acquired in ${contentWindowTime}ms`)
 
           const contentLoadStart = Date.now()
-          const { pageTitle, finalUrl, extractedText } = await fetchPageContent(item.link, contentWindow)
+          const { pageTitle, finalUrl, extractedText } = await fetchPageContent(item.link, contentWindow, 'lite')
           const contentLoadTime = Date.now() - contentLoadStart
           console.log(`[SCRAPE ${index + 1}] Page loaded in ${contentLoadTime}ms - ${item.link}`)
 
           resultItem.link = finalUrl
           resultItem.title = pageTitle || item.title
-          resultItem.content = postClean(extractedText)
+          resultItem.content = extractedText
           resultItem.success = true
 
           const itemTime = Date.now() - itemStart
@@ -367,7 +419,7 @@ const processWebSearch = async ({
 /**
  * Web Fetch - 获取指定 URL 的页面内容
  */
-const processWebFetch = async ({ url }: WebFetchProcessArgs): Promise<WebFetchResponse> => {
+const processWebFetch = async ({ url, cleanMode }: WebFetchProcessArgs): Promise<WebFetchResponse> => {
   const fetchStartTime = Date.now()
   const windowPool = getWindowPool()
   let contentWindow: BrowserWindow | null = null
@@ -383,11 +435,12 @@ const processWebFetch = async ({ url }: WebFetchProcessArgs): Promise<WebFetchRe
     console.log(`[WINDOW ACQUIRE] Content window acquired in ${windowCreateTime}ms`)
 
     const fetchStart = Date.now()
-    const { pageTitle, finalUrl, extractedText } = await fetchPageContent(url, contentWindow)
+    const mode = cleanMode === 'full' ? 'full' : 'lite'
+    const { pageTitle, finalUrl, extractedText } = await fetchPageContent(url, contentWindow, mode)
     const fetchTime = Date.now() - fetchStart
     console.log(`[PAGE FETCH] Page fetched in ${fetchTime}ms`)
 
-    const cleanedContent = postClean(extractedText)
+    const cleanedContent = extractedText
 
     const totalTime = Date.now() - fetchStartTime
     console.log(`[WEB FETCH COMPLETE] Total time: ${totalTime}ms`)
@@ -437,7 +490,7 @@ function waitForCondition(checkFn: () => Promise<boolean>, timeout: number, inte
   })
 }
 
-function postClean(text: string): string {
+function postCleanLite(text: string): string {
   return text
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]+/g, ' ')
@@ -447,6 +500,18 @@ function postClean(text: string): string {
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/(分享到|广告|推广|Copyright|备案号|关注我们|订阅|Newsletter).*$/gim, '')
+    .trim()
+}
+
+function postCleanFull(text: string): string {
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
