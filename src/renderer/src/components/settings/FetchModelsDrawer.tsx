@@ -461,7 +461,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                 <Button
                                     variant="outline"
                                     disabled={isFetching}
-                                    className="w-24"
+                                    className="w-24 rounded-3xl"
                                 >
                                     Cancel
                                 </Button>
@@ -469,7 +469,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             <Button
                                 onClick={handleImportSelected}
                                 disabled={selectedModelIds.size === 0 || isFetching}
-                                className="w-32 gap-2"
+                                className="w-32 gap-2 rounded-3xl"
                             >
                                 <Download className="h-4 w-4" />
                                 Import
