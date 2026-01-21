@@ -30,6 +30,12 @@ import {
     TooltipProvider,
     TooltipTrigger
 } from "@renderer/components/ui/tooltip"
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@renderer/components/ui/accordion"
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { Trash } from "lucide-react"
 import { toast } from 'sonner'
@@ -508,113 +514,178 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                         </div>
                     ) : (
                         <>
-                            {/* Provider Configuration Form */}
-                            <div className='flex-none bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden'>
-                                <div className='p-4 space-y-2'>
-                                    <div className='flex items-center justify-between'>
-                                        <div className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                                            Provider Configurations
-                                        </div>
-                                        <Button
-                                            size="xs"
-                                            variant="ghost"
-                                            className='text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30'
-                                            onClick={(e) => onAccountDeleteClick(e, currentAccount)}
-                                            disabled={!currentAccount}
-                                        >
-                                            Reset
-                                        </Button>
-                                    </div>
-                                    <div className='space-y-1'>
-                                        <Label htmlFor="account-label" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-                                            Label
-                                        </Label>
-                                        <Input
-                                            id="account-label"
-                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
-                                            placeholder='Provider label'
-                                            value={editAccountLabel}
-                                            onChange={(e) => {
-                                                setEditAccountLabel(e.target.value)
-                                                updateCurrentAccount({ label: e.target.value })
-                                            }}
-                                        />
-                                    </div>
-                                    <div className='space-y-1'>
-                                        <Label htmlFor="provider-api-url" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-                                            API Base URL
-                                        </Label>
-                                        <Input
-                                            id="provider-api-url"
-                                            className='h-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
-                                            placeholder={defaultApiUrl || 'https://api.example.com'}
-                                            value={editAccountApiUrl}
-                                            onChange={(e) => {
-                                                setEditAccountApiUrl(e.target.value)
-                                                updateCurrentAccount({ apiUrl: e.target.value })
-                                            }}
-                                        />
-                                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                                            Enter the base URL only (without version or endpoint path)
-                                        </p>
-                                    </div>
-                                    <div className='space-y-1'>
-                                        <Label htmlFor="provider-api-key" className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-                                            API Key
-                                        </Label>
-                                        <div className="relative w-full">
-                                            <Input
-                                                id="provider-api-key"
-                                                type={showApiKey ? "text" : "password"}
-                                                className='h-10 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all'
-                                            placeholder='sk-********'
-                                            value={editAccountApiKey}
-                                            onChange={(e) => {
-                                                setEditAccountApiKey(e.target.value)
-                                                updateCurrentAccount({ apiKey: e.target.value })
-                                            }}
-                                        />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowApiKey(!showApiKey)}
-                                                className={cn(
-                                                    "absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center p-1 rounded-md",
-                                                    "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300",
-                                                    "hover:bg-gray-100 dark:hover:bg-gray-600/50",
-                                                    "transition-all duration-200",
-                                                    "active:scale-90 hover:scale-110"
-                                                )}
-                                                tabIndex={-1}
-                                            >
-                                                <span className={cn(
-                                                    "transition-all duration-300 ease-in-out",
-                                                    showApiKey ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
-                                                )}>
-                                                    <EyeOff className="w-4 h-4" />
+                            {/* Provider Configuration Accordion */}
+                            <Accordion type="single" collapsible defaultValue="config" className='flex-none'>
+                                <AccordionItem value="config" className='border-0'>
+                                    <div className='bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden'>
+                                        <AccordionTrigger className={cn(
+                                            'px-4 py-2.5 hover:no-underline',
+                                            'bg-gradient-to-r from-slate-50/80 to-transparent dark:from-slate-800/40 dark:to-transparent',
+                                            'border-b border-gray-200/50 dark:border-gray-700/50',
+                                            'transition-all duration-300',
+                                            '[&[data-state=open]]:bg-gradient-to-r [&[data-state=open]]:from-blue-50/50 [&[data-state=open]]:to-transparent',
+                                            'dark:[&[data-state=open]]:from-blue-900/20 dark:[&[data-state=open]]:to-transparent'
+                                        )}>
+                                            <div className='flex items-center justify-between w-full mr-2'>
+                                                <span className='text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide'>
+                                                    Configuration
                                                 </span>
-                                                <span className={cn(
-                                                    "transition-all duration-300 ease-in-out",
-                                                    !showApiKey ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
-                                                )}>
-                                                    <Eye className="w-4 h-4" />
-                                                </span>
-                                            </button>
-                                        </div>
+                                                <Button
+                                                    size="xs"
+                                                    variant="ghost"
+                                                    className={cn(
+                                                        'text-xs h-6 px-2',
+                                                        'text-rose-500 hover:text-rose-600',
+                                                        'hover:bg-rose-50 dark:hover:bg-rose-950/30',
+                                                        'transition-all duration-200',
+                                                        'opacity-0 group-hover:opacity-100'
+                                                    )}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        onAccountDeleteClick(e, currentAccount)
+                                                    }}
+                                                    disabled={!currentAccount}
+                                                >
+                                                    <i className="ri-refresh-line mr-1 text-xs"></i>
+                                                    Reset
+                                                </Button>
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className='px-4 pb-3 pt-2'>
+                                            <div className='space-y-2'>
+                                                <div className='space-y-1'>
+                                                    <Label htmlFor="account-label" className='text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide'>
+                                                        Label
+                                                    </Label>
+                                                    <Input
+                                                        id="account-label"
+                                                        className={cn(
+                                                            'h-9 text-sm',
+                                                            'bg-slate-50/50 dark:bg-slate-900/30',
+                                                            'border-slate-200 dark:border-slate-700',
+                                                            'focus-visible:ring-0 focus-visible:ring-offset-0',
+                                                            'focus-visible:border-blue-500 dark:focus-visible:border-blue-400',
+                                                            'focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]',
+                                                            'transition-all duration-200'
+                                                        )}
+                                                        placeholder='Provider label'
+                                                        value={editAccountLabel}
+                                                        onChange={(e) => {
+                                                            setEditAccountLabel(e.target.value)
+                                                            updateCurrentAccount({ label: e.target.value })
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className='space-y-1'>
+                                                    <Label htmlFor="provider-api-url" className='text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide'>
+                                                        API Base URL
+                                                    </Label>
+                                                    <Input
+                                                        id="provider-api-url"
+                                                        className={cn(
+                                                            'h-9 text-sm',
+                                                            'bg-slate-50/50 dark:bg-slate-900/30',
+                                                            'border-slate-200 dark:border-slate-700',
+                                                            'focus-visible:ring-0 focus-visible:ring-offset-0',
+                                                            'focus-visible:border-blue-500 dark:focus-visible:border-blue-400',
+                                                            'focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]',
+                                                            'transition-all duration-200'
+                                                        )}
+                                                        placeholder={defaultApiUrl || 'https://api.example.com'}
+                                                        value={editAccountApiUrl}
+                                                        onChange={(e) => {
+                                                            setEditAccountApiUrl(e.target.value)
+                                                            updateCurrentAccount({ apiUrl: e.target.value })
+                                                        }}
+                                                    />
+                                                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                                                        Base URL only • No version path
+                                                    </p>
+                                                </div>
+                                                <div className='space-y-1'>
+                                                    <Label htmlFor="provider-api-key" className='text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide'>
+                                                        API Key
+                                                    </Label>
+                                                    <div className="relative w-full">
+                                                        <Input
+                                                            id="provider-api-key"
+                                                            type={showApiKey ? "text" : "password"}
+                                                            className={cn(
+                                                                'h-9 text-sm pr-10',
+                                                                'bg-slate-50/50 dark:bg-slate-900/30',
+                                                                'border-slate-200 dark:border-slate-700',
+                                                                'focus-visible:ring-0 focus-visible:ring-offset-0',
+                                                                'focus-visible:border-blue-500 dark:focus-visible:border-blue-400',
+                                                                'focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]',
+                                                                'transition-all duration-200'
+                                                            )}
+                                                            placeholder='sk-********'
+                                                            value={editAccountApiKey}
+                                                            onChange={(e) => {
+                                                                setEditAccountApiKey(e.target.value)
+                                                                updateCurrentAccount({ apiKey: e.target.value })
+                                                            }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowApiKey(!showApiKey)}
+                                                            className={cn(
+                                                                "absolute right-2 top-1/2 -translate-y-1/2",
+                                                                "flex items-center justify-center p-1 rounded-md",
+                                                                "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300",
+                                                                "hover:bg-slate-100 dark:hover:bg-slate-700/50",
+                                                                "transition-all duration-200",
+                                                                "active:scale-90 hover:scale-110"
+                                                            )}
+                                                            tabIndex={-1}
+                                                        >
+                                                            <span className={cn(
+                                                                "transition-all duration-300 ease-in-out",
+                                                                showApiKey ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
+                                                            )}>
+                                                                <EyeOff className="w-3.5 h-3.5" />
+                                                            </span>
+                                                            <span className={cn(
+                                                                "transition-all duration-300 ease-in-out",
+                                                                !showApiKey ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
+                                                            )}>
+                                                                <Eye className="w-3.5 h-3.5" />
+                                                            </span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </AccordionContent>
                                     </div>
-                                </div>
-                            </div>
+                                </AccordionItem>
+                            </Accordion>
                             {/* Models List */}
                             <div className='flex-1 flex justify-between flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
                                 <div className='flex justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
                                     <h3 className='text-sm font-medium flex items-center text-gray-700 dark:text-gray-300'>Models</h3>
                                     <Button
                                         size="xs"
-                                        variant="outline"
-                                        className='rounded-3xl shadow-sm text-xs text-gray-600 dark:text-gray-400 font-medium transition-all data-[disabled]:text-gray-400 data-[disabled]:dark:text-gray-500'
+                                        variant="ghost"
+                                        className={cn(
+                                            'group relative rounded-xl text-[11px] font-semibold tracking-tight',
+                                            'px-3 py-2 h-auto',
+                                            'text-slate-600 dark:text-slate-400',
+                                            'bg-white dark:bg-slate-900',
+                                            'dark:hover:bg-slate-800',
+                                            'hover:text-slate-900 dark:hover:text-slate-100',
+                                            'active:scale-95',
+                                            'transition-all duration-200',
+                                            'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-slate-900',
+                                            'disabled:hover:border-slate-300 dark:disabled:hover:border-slate-700',
+                                            'disabled:hover:shadow-sm disabled:hover:text-slate-600 dark:disabled:hover:text-slate-400'
+                                        )}
                                         onClick={() => setShowFetchModelsDrawer(true)}
                                         disabled={!currentAccount?.apiKey}
                                     >
-                                        <i className="ri-download-cloud-line mr-1"></i>
+                                        <i className={cn(
+                                            "ri-download-cloud-line mr-1.5 text-sm",
+                                            "transition-all duration-300",
+                                        )}></i>
                                         Fetch Models
                                     </Button>
                                 </div>
@@ -633,26 +704,65 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                             <TableBody>
                                                 {/* Add New Model Row */}
                                                 <TableRow className='border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/70 transition-colors duration-200'>
-                                                    <TableCell className='px-3 py-3'>
-                                                        <Input
-                                                            className='h-9 text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 dark:text-gray-200 focus-visible:ring-1 focus-visible:ring-gray-400 dark:focus-visible:ring-gray-500 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-all duration-200'
-                                                            value={nextAddModelLabel}
-                                                            onChange={e => setNextAddModelLabel(e.target.value)}
-                                                            placeholder="Name"
-                                                        />
+                                                    <TableCell className='px-3 py-3 w-[40%]'>
+                                                        <div className="relative">
+                                                            <Input
+                                                                className={cn(
+                                                                    'h-9 text-sm font-medium',
+                                                                    'border-0 border-b-2 border-slate-300 dark:border-slate-600',
+                                                                    'rounded-none px-2',
+                                                                    'bg-transparent dark:bg-transparent',
+                                                                    'text-slate-700 dark:text-slate-200',
+                                                                    'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+                                                                    'outline-none focus:outline-none focus-visible:outline-none',
+                                                                    'focus-visible:ring-0 focus-visible:ring-offset-0',
+                                                                    'focus-visible:border-b-blue-500 dark:focus-visible:border-b-blue-400',
+                                                                    'transition-all duration-200',
+                                                                    'shadow-none focus-visible:shadow-none'
+                                                                )}
+                                                                value={nextAddModelLabel}
+                                                                onChange={e => setNextAddModelLabel(e.target.value)}
+                                                                placeholder="ModelName"
+                                                            />
+                                                        </div>
                                                     </TableCell>
-                                                    <TableCell className='px-3 py-3'>
-                                                        <Input
-                                                            className='h-9 text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 dark:text-gray-200 focus-visible:ring-1 focus-visible:ring-gray-400 dark:focus-visible:ring-gray-500 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-all duration-200 font-mono'
-                                                            value={nextAddModelValue}
-                                                            onChange={e => setNextAddModelValue(e.target.value)}
-                                                            placeholder="ID"
-                                                        />
+                                                    <TableCell className='px-3 py-3 w-[40%]'>
+                                                        <div className="relative">
+                                                            <Input
+                                                                className={cn(
+                                                                    'h-9 text-sm font-medium',
+                                                                    'border-0 border-b-2 border-slate-300 dark:border-slate-600',
+                                                                    'rounded-none px-2',
+                                                                    'bg-transparent dark:bg-transparent',
+                                                                    'text-slate-700 dark:text-slate-200',
+                                                                    'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+                                                                    'outline-none focus:outline-none focus-visible:outline-none',
+                                                                    'focus-visible:ring-0 focus-visible:ring-offset-0',
+                                                                    'focus-visible:border-b-blue-500 dark:focus-visible:border-b-blue-400',
+                                                                    'transition-all duration-200',
+                                                                    'shadow-none focus-visible:shadow-none'
+                                                                )}
+                                                                value={nextAddModelValue}
+                                                                onChange={e => setNextAddModelValue(e.target.value)}
+                                                                placeholder="ModelID"
+                                                            />
+                                                        </div>
                                                     </TableCell>
-                                                    <TableCell className='px-4 py-3'>
+                                                    <TableCell colSpan={2} className='px-4 py-3'>
                                                         <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
-                                                            <SelectTrigger className="h-9 text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 dark:text-gray-200 focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200">
-                                                                <SelectValue placeholder="Type" />
+                                                            <SelectTrigger className={cn(
+                                                                'h-9 text-sm font-medium',
+                                                                'border-0 border-b-2 border-slate-300 dark:border-slate-600',
+                                                                'rounded-none px-2',
+                                                                'bg-transparent dark:bg-transparent',
+                                                                'text-slate-700 dark:text-slate-200',
+                                                                'outline-none focus:outline-none focus-visible:outline-none',
+                                                                'focus:ring-0 focus:ring-offset-0',
+                                                                'focus:border-b-blue-500 dark:focus:border-b-blue-400',
+                                                                'transition-all duration-200',
+                                                                'shadow-none'
+                                                            )}>
+                                                                <SelectValue placeholder="Type" className="placeholder:text-slate-400 dark:placeholder:text-slate-500" />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectGroup>
@@ -664,16 +774,13 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                         </Select>
                                                     </TableCell>
                                                     <TableCell className='px-4 py-3 text-center'>
-                                                        <span className='text-xs text-gray-400 dark:text-gray-500'>-</span>
-                                                    </TableCell>
-                                                    <TableCell className='px-4 py-3 text-center'>
                                                         <Button
                                                             onClick={onAddModelClick}
                                                             size={'sm'}
                                                             variant={'default'}
-                                                            className='h-7 px-3 rounded-3xl text-xs transition-all duration-200 hover:scale-105 active:scale-95 group'
+                                                            className='h-7 px-3 rounded-3xl text-xs'
                                                         >
-                                                            <i className="ri-add-circle-line mr-1 text-sm group-hover:rotate-90 transition-transform duration-300"></i>
+                                                            <i className="ri-add-circle-line mr-1 text-sm"></i>
                                                             Add
                                                         </Button>
                                                     </TableCell>
@@ -714,13 +821,13 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <p
-                                                                            className='truncate text-[13px] text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-150 font-mono'
+                                                                            className='truncate text-[13px] text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-150'
                                                                             onClick={_ => onModelTableCellClick(m.id)}
                                                                         >
                                                                             {m.id}
                                                                         </p>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent className='font-mono'>
+                                                                    <TooltipContent>
                                                                         <p>{m.id}</p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
