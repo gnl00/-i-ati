@@ -9,7 +9,7 @@ import {
 } from "@renderer/components/ui/table"
 import { cn } from '@renderer/lib/utils'
 import React, { useEffect, useMemo, useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Search } from 'lucide-react'
 import { Cross1Icon } from '@radix-ui/react-icons'
 
 import { Button } from "@renderer/components/ui/button"
@@ -77,6 +77,20 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
     const [nextAddModelLabel, setNextAddModelLabel] = useState<string>('')
     const [nextAddModelValue, setNextAddModelValue] = useState<string>('')
     const [nextAddModelType, setNextAddModelType] = useState<string>('')
+    const [modelSearchQuery, setModelSearchQuery] = useState<string>('')
+
+    const filteredModels = useMemo(() => {
+        const models = currentAccount?.models ?? []
+        const query = modelSearchQuery.trim().toLowerCase()
+        if (!query) return models
+        return models.filter(model => {
+            return (
+                model.label.toLowerCase().includes(query) ||
+                model.id.toLowerCase().includes(query) ||
+                model.type.toLowerCase().includes(query)
+            )
+        })
+    }, [currentAccount?.models, modelSearchQuery])
 
     const [newDefinitionDisplayName, setNewDefinitionDisplayName] = useState<string>('')
     const [newDefinitionAdapterType, setNewDefinitionAdapterType] = useState<string>('openai')
@@ -661,8 +675,30 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                             </Accordion>
                             {/* Models List */}
                             <div className='flex-1 flex justify-between flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
-                                <div className='flex justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
+                                <div className='flex justify-between items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
                                     <h3 className='text-sm font-medium flex items-center text-gray-700 dark:text-gray-300'>Models</h3>
+                                    <div className='flex-1 flex items-center'>
+                                        <div className='relative w-full max-w-[260px]'>
+                                            <Search className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400' />
+                                            <Input
+                                                value={modelSearchQuery}
+                                                onChange={e => setModelSearchQuery(e.target.value)}
+                                                placeholder="Search models..."
+                                                className={cn(
+                                                    'h-8 pl-8 pr-3 text-xs font-medium',
+                                                    'bg-white/80 dark:bg-gray-800/60',
+                                                    'border border-gray-200/70 dark:border-gray-700/70',
+                                                    'rounded-xl',
+                                                    'text-gray-700 dark:text-gray-200',
+                                                    'placeholder:text-gray-400',
+                                                    'focus-visible:ring-0 focus-visible:ring-offset-0',
+                                                    'focus-visible:border-blue-500 dark:focus-visible:border-blue-400',
+                                                    'focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]',
+                                                    'transition-all duration-200'
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
                                     <Button
                                         size="xs"
                                         variant="ghost"
@@ -787,7 +823,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                 </TableRow>
                                                 {/* Model List */}
                                                 {
-                                                    currentAccount?.models.map((m, idx) => (
+                                                    filteredModels.map((m, idx) => (
                                                         <TableRow
                                                             key={idx}
                                                             style={{
@@ -866,6 +902,17 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                                 <i className="ri-inbox-line text-4xl mb-2 opacity-40"></i>
                                                                 <p className='text-sm'>No models yet</p>
                                                                 <p className='text-xs mt-1'>Add a model using the form above</p>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                                {currentAccount?.models.length !== 0 && filteredModels.length === 0 && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className='px-4 py-12 text-center'>
+                                                            <div className='flex flex-col items-center justify-center text-gray-400 dark:text-gray-500'>
+                                                                <i className="ri-search-line text-3xl mb-2 opacity-40"></i>
+                                                                <p className='text-sm'>No models match your search</p>
+                                                                <p className='text-xs mt-1'>Try a different keyword</p>
                                                             </div>
                                                         </TableCell>
                                                     </TableRow>
