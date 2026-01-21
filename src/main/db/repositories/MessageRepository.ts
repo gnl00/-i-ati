@@ -14,6 +14,8 @@ class MessageRepository {
     insertMessage: Database.Statement
     getAllMessages: Database.Statement
     getMessageById: Database.Statement
+    getMessagesByChatId: Database.Statement
+    getMessagesByChatUuid: Database.Statement
     updateMessage: Database.Statement
     deleteMessage: Database.Statement
   }
@@ -30,6 +32,12 @@ class MessageRepository {
       `),
       getMessageById: db.prepare(`
         SELECT * FROM messages WHERE id = ?
+      `),
+      getMessagesByChatId: db.prepare(`
+        SELECT * FROM messages WHERE chat_id = ? ORDER BY id ASC
+      `),
+      getMessagesByChatUuid: db.prepare(`
+        SELECT * FROM messages WHERE chat_uuid = ? ORDER BY id ASC
       `),
       updateMessage: db.prepare(`
         UPDATE messages SET chat_id = ?, chat_uuid = ?, body = ?, tokens = ?
@@ -55,6 +63,14 @@ class MessageRepository {
 
   getMessageById(id: number): MessageRow | undefined {
     return this.stmts.getMessageById.get(id) as MessageRow | undefined
+  }
+
+  getMessagesByChatId(chatId: number): MessageRow[] {
+    return this.stmts.getMessagesByChatId.all(chatId) as MessageRow[]
+  }
+
+  getMessagesByChatUuid(chatUuid: string): MessageRow[] {
+    return this.stmts.getMessagesByChatUuid.all(chatUuid) as MessageRow[]
   }
 
   getMessageByIds(ids: number[]): MessageRow[] {

@@ -254,6 +254,34 @@ class DatabaseService {
     }
   }
 
+  public getMessagesByChatId(chatId: number): MessageEntity[] {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.messageRepo) throw new Error('Message repository not initialized')
+
+    const rows = this.messageRepo.getMessagesByChatId(chatId)
+    return rows.map(row => ({
+      id: row.id,
+      chatId: row.chat_id ?? undefined,
+      chatUuid: row.chat_uuid ?? undefined,
+      body: JSON.parse(row.body),
+      tokens: row.tokens ?? undefined
+    }))
+  }
+
+  public getMessagesByChatUuid(chatUuid: string): MessageEntity[] {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.messageRepo) throw new Error('Message repository not initialized')
+
+    const rows = this.messageRepo.getMessagesByChatUuid(chatUuid)
+    return rows.map(row => ({
+      id: row.id,
+      chatId: row.chat_id ?? undefined,
+      chatUuid: row.chat_uuid ?? undefined,
+      body: JSON.parse(row.body),
+      tokens: row.tokens ?? undefined
+    }))
+  }
+
   public getMessageByIds(ids: number[]): MessageEntity[] {
     if (!this.db) throw new Error('Database not initialized')
     if (!this.messageRepo) throw new Error('Message repository not initialized')

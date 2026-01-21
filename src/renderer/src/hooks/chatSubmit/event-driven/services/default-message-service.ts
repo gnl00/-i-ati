@@ -1,3 +1,4 @@
+import { updateChat } from '@renderer/db/ChatRepository'
 import { saveMessage, updateMessage } from '@renderer/db/MessageRepository'
 import { logger } from '../../logger'
 import { extractContentFromSegments } from '../streaming/segment-utils'
@@ -30,6 +31,7 @@ export class DefaultMessageService implements MessageService {
     const chatMessages = context.session.chatEntity.messages || []
     context.session.chatEntity.messages = [...chatMessages, msgId]
     syncChatMessages(context)
+    await updateChat(context.session.chatEntity)
 
     await publisher.emit('message.created', { message: userMessageEntity }, {
       ...meta,
@@ -64,6 +66,7 @@ export class DefaultMessageService implements MessageService {
     const chatMessages = context.session.chatEntity.messages || []
     context.session.chatEntity.messages = [...chatMessages, msgId]
     syncChatMessages(context)
+    await updateChat(context.session.chatEntity)
 
     await publisher.emit('message.created', { message: assistantMessage }, {
       ...meta,
@@ -194,6 +197,9 @@ export class DefaultMessageService implements MessageService {
 
     context.session.messageEntities.push(toolResultEntity)
     syncChatMessages(context)
+    if (saved) {
+      await updateChat(context.session.chatEntity)
+    }
 
     await publisher.emit('tool.result.attached', {
       toolCallId: toolMsg.toolCallId || '',
