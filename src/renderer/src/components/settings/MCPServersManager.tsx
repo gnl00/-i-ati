@@ -153,13 +153,13 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
     if (item.server.remotes?.[0]) {
       const remote = item.server.remotes[0]
-      config = { type: remote.type === 'sse' ? 'sse' : 'streamableHttp', url: remote.url }
+      config = { type: remote.type === 'sse' ? 'sse' : 'streamableHttp', url: remote.url, description: item.server.description }
     } else if (item.server.packages?.[0]) {
       const pkg = item.server.packages[0]
       if (pkg.registryType === 'npm') {
-        config = { command: 'npx', args: ['-y', pkg.identifier] }
+        config = { command: 'npx', args: ['-y', pkg.identifier], description: item.server.description }
       } else if (pkg.registryType === 'oci') {
-        config = { command: 'docker', args: ['run', '-i', pkg.identifier] }
+        config = { command: 'docker', args: ['run', '-i', pkg.identifier], description: item.server.description }
       }
     } else {
       config = {}
@@ -484,11 +484,16 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                       {Object.entries(mcpServerConfig.mcpServers || {}).map(([name, config], index) => {
                         const serverType = config.type || (config.command ? 'STDIO' : 'GENERIC')
                         const configDisplay = config.url || (config.command && `${config.command} ${config.args?.join(' ') || ''}`)
+                        const fallbackDescription =
+                          config.description ||
+                          registryServers.find((item) => item.server.name === name)?.server.description ||
+                          searchResults.find((item) => item.server.name === name)?.server.description ||
+                          serversCache?.servers.find((item) => item.server.name === name)?.server.description
 
                         return (
                           <div
                             key={name}
-                            className="group relative bg-white dark:bg-gray-900/60 rounded-xl border border-gray-200/60 dark:border-gray-800/60 transition-all duration-300 shadow-sm hover:shadow-md dark:hover:shadow-black/30 overflow-hidden"
+                            className="group relative rounded-xl border transition-all duration-300 overflow-hidden will-change-transform bg-white dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 shadow hover:shadow-md"
                             style={{
                               animationDelay: `${index * 50}ms`,
                               animation: 'fadeInUp 0.4s ease-out forwards',
@@ -502,20 +507,18 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                   <div className="flex items-start gap-3 flex-1 min-w-0">
                                     {/* Icon */}
                                     <div className="h-11 w-11 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-sm group-hover:scale-105 will-change-transform">
-                                      <Server className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300" />
+                                      <Server className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
                                     </div>
 
                                     {/* Server info */}
                                     <div className="flex-1 min-w-0 pt-0.5">
-                                      <div className="flex items-center gap-2 mb-1.5">
-                                        <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 tracking-tight truncate">
+                                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                        <h4 className="font-bold text-[14px] leading-tight tracking-tight truncate text-gray-900 dark:text-gray-100">
                                           {name}
                                         </h4>
-                                      </div>
-                                      <div className="flex items-center gap-2">
                                         <Badge
                                           className={cn(
-                                            "text-[10px] font-medium px-2 py-0.5 h-5 border-none rounded-md transition-colors duration-200 cursor-default",
+                                            "text-[9px] font-medium px-2 py-0.5 h-5 border-none rounded-md transition-colors duration-200 cursor-default",
                                             serverType === 'sse'
                                               ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40"
                                               : serverType === 'STDIO'
@@ -528,22 +531,25 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                           {serverType}
                                         </Badge>
                                       </div>
+                                      <p className="text-[10px] text-muted-foreground/60 font-mono tracking-tight truncate">
+                                        @{name}
+                                      </p>
                                     </div>
                                   </div>
 
-                                  {/* Right side: Installed badge + Action buttons */}
+                                  {/* Right side: Status + Action buttons */}
                                   <div className="flex flex-col items-end gap-2 flex-shrink-0 select-none">
                                     <Badge
                                       variant="outline"
-                                      className="text-[9px] text-green-600 dark:text-green-400 font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-transparent bg-green-50 dark:bg-green-900/20 transition-all duration-300 flex items-center gap-1.5"
+                                      className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-transparent bg-emerald-50 dark:bg-emerald-900/20 transition-all duration-300 flex items-center gap-1.5"
                                     >
                                       <span className="relative flex h-1.5 w-1.5">
-                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                                       </span>
                                       Running
                                     </Badge>
 
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <div className="flex items-center gap-1">
                                       <Button
                                         variant="ghost"
                                         size="sm"
@@ -560,7 +566,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => handleUninstallServer(name)}
-                                        className="h-8 w-8 p-0 text-muted-foreground text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                                        className="h-8 w-8 p-0 text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
                                         title="Uninstall Server"
                                       >
                                         <Trash2 className="h-4 w-4" />
@@ -568,11 +574,19 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                     </div>
                                   </div>
                                 </div>
+
+                                {fallbackDescription && (
+                                  <div className="mt-3 pl-1">
+                                    <p className="text-xs font-sans text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed font-medium">
+                                      {fallbackDescription}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
 
                               {/* CONFIGURATION FOOTER */}
                               {configDisplay ? (
-                                <div className="bg-gray-50/50 dark:bg-gray-900/40 border-t border-gray-100 dark:border-gray-800/60 px-4 py-2.5 flex items-center gap-3 transition-colors group-hover:bg-gray-50/80 dark:group-hover:bg-gray-900/60">
+                                <div className="bg-gray-50/50 dark:bg-gray-900/40 border-t border-gray-100 dark:border-gray-800/60 px-4 py-3 flex items-center gap-3 transition-colors group-hover:bg-gray-50/80 dark:group-hover:bg-gray-900/60">
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 shrink-0 select-none">
                                     Source
                                   </span>
@@ -581,8 +595,8 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                                   </code>
                                 </div>
                               ) : (
-                                <div className="bg-gray-50/30 dark:bg-gray-900/20 border-t border-gray-100 dark:border-gray-800/40 px-4 py-2">
-                                  <p className="text-[10px] text-muted-foreground/40 italic">
+                                <div className="bg-gray-50/50 dark:bg-gray-900/40 border-t border-gray-100 dark:border-gray-800/60 px-4 py-3 transition-colors group-hover:bg-gray-50/80 dark:group-hover:bg-gray-900/60">
+                                  <p className="text-[10px] text-muted-foreground/60 italic">
                                     No configuration specified
                                   </p>
                                 </div>
