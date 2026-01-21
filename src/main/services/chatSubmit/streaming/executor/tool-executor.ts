@@ -174,11 +174,12 @@ export class ToolExecutor implements IToolExecutor {
     }
 
     // 否则是 MCP 工具
-    return await mcpToolCall({
-      callId: call.id || `call_${uuidv4()}`,
-      tool: toolName,
-      args: call.args
-    })
+    const callId = call.id || `call_${uuidv4()}`
+    const rawArgs = typeof call.args === 'string'
+      ? JSON.parse(call.args)
+      : call.args
+    const safeArgs = (rawArgs && typeof rawArgs === 'object') ? rawArgs : {}
+    return await mcpToolCall(callId, toolName, safeArgs as { [x: string]: unknown })
   }
 
   /**

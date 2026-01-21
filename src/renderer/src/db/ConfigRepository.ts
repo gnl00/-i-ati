@@ -20,10 +20,25 @@ const initConfig = async (): Promise<IAppConfig> => {
 }
 
 // Export config as JSON string
-const exportConfigAsJSON = async (): Promise<string> => {
+const exportConfigAsJSON = async (options?: {
+  includeProviders?: boolean
+}): Promise<string> => {
   const config = await getConfig()
   if (!config) throw new Error('No config to export')
-  return JSON.stringify(config, null, 2)
+
+  if (!options?.includeProviders) {
+    return JSON.stringify(config, null, 2)
+  }
+
+  const { getProviderDefinitions, getProviderAccounts } = await import('./ProviderRepository')
+  const providerDefinitions = await getProviderDefinitions()
+  const accounts = await getProviderAccounts()
+
+  return JSON.stringify({
+    ...config,
+    providerDefinitions,
+    accounts
+  }, null, 2)
 }
 
 // Import config from JSON string

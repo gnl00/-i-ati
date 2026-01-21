@@ -6,7 +6,7 @@ export class ClaudeAdapter extends BaseAdapter {
   apiVersion = 'v1'
 
   getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/v1/messages`
+    return `${baseUrl}/messages`
   }
 
   getHeaders(req: IUnifiedRequest): Record<string, string> {
@@ -190,7 +190,7 @@ export class ClaudeChatAdapter extends BaseAdapter {
   apiVersion = 'chat'
 
   getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/v1/chat/completions`
+    return `${baseUrl}/chat/completions`
   }
 
   getHeaders(req: IUnifiedRequest): Record<string, string> {
@@ -332,7 +332,7 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
   apiVersion = 'legacy'
 
   getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/v1/complete`
+    return `${baseUrl}/complete`
   }
 
   transformRequest(req: IUnifiedRequest): any {

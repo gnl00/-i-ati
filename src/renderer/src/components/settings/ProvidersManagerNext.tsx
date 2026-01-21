@@ -513,7 +513,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                 <div className='p-4 space-y-2'>
                                     <div className='flex items-center justify-between'>
                                         <div className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                                            Provider Settings
+                                            Provider Configurations
                                         </div>
                                         <Button
                                             size="xs"
@@ -522,7 +522,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                             onClick={(e) => onAccountDeleteClick(e, currentAccount)}
                                             disabled={!currentAccount}
                                         >
-                                            Delete Account
+                                            Reset
                                         </Button>
                                     </div>
                                     <div className='space-y-1'>
@@ -556,7 +556,6 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                         />
                                         <p className="text-[10px] text-gray-400 dark:text-gray-500">
                                             Enter the base URL only (without version or endpoint path)
-                                            {defaultApiUrl ? ` • Default: ${defaultApiUrl}` : ''}
                                         </p>
                                     </div>
                                     <div className='space-y-1'>
