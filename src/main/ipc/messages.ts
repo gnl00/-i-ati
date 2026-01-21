@@ -5,6 +5,8 @@ import {
   DB_MESSAGE_GET_ALL,
   DB_MESSAGE_GET_BY_ID,
   DB_MESSAGE_GET_BY_IDS,
+  DB_MESSAGE_GET_BY_CHAT_ID,
+  DB_MESSAGE_GET_BY_CHAT_UUID,
   DB_MESSAGE_UPDATE,
   DB_MESSAGE_DELETE
 } from '@shared/constants'
@@ -28,6 +30,16 @@ export function registerMessageHandlers(): void {
   ipcMain.handle(DB_MESSAGE_GET_BY_IDS, async (_event, ids) => {
     console.log(`[Database IPC] Get messages by ids: ${ids?.length ?? 0}`)
     return DatabaseService.getMessageByIds(ids)
+  })
+
+  ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_ID, async (_event, chatId) => {
+    console.log(`[Database IPC] Get messages by chat id: ${chatId}`)
+    return DatabaseService.getMessagesByChatId(chatId)
+  })
+
+  ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_UUID, async (_event, chatUuid) => {
+    console.log(`[Database IPC] Get messages by chat uuid: ${chatUuid}`)
+    return DatabaseService.getMessagesByChatUuid(chatUuid)
   })
 
   ipcMain.handle(DB_MESSAGE_UPDATE, async (_event, data) => {

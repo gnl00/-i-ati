@@ -6,7 +6,7 @@
 
 1. **SQLite** (持久化)
    - 存储完整对话历史（含 tool result）
-   - `chat.messages: number[]` 维护消息 ID 顺序
+   - 消息通过 `messages` 表按 `chat_id/chat_uuid` 关联，不依赖 `chat.messages`
 
 2. **SubmissionContext.session.messageEntities** (内存)
    - 当前提交的消息集合
@@ -67,18 +67,15 @@ request.messages: [user, assistant(with toolCalls), tool]
 
 --- Finalize 阶段 ---
 保存 assistant message → SQLite (id: 3)
-更新 chat.messages = [1, 2, 3]
 
 最终状态：
 SQLite: [user(1), tool(2), assistant(3)]
 store.messages: [user(1), assistant(3)]  // assistant 的 id 从 -1 变为 3
-chat.messages: [1, 2, 3]
 ```
 
 **注意**：
 - `store.messages` 中只有 2 条消息（user 和 assistant），tool result 不显示
-- `chat.messages` 中有 3 个 ID，包含所有消息（user, tool, assistant）
-- 下次加载对话时，会从 SQLite 加载所有 3 条消息
+- 下次加载对话时，会从 SQLite 的 messages 表加载所有消息
 
 ---
 
@@ -90,11 +87,8 @@ chat.messages: [1, 2, 3]
 
 ```typescript
 // ✅ 正确
-let existingMessages: MessageEntity[] = []
-if (chatEntity.messages && chatEntity.messages.length > 0) {
-  existingMessages = await getMessageByIds(chatEntity.messages)
-  store.setMessages(existingMessages)  // 仅用于 UI
-}
+const existingMessages = await getMessagesByChatId(chatId)
+store.setMessages(existingMessages)  // 仅用于 UI
 const allMessages = [...existingMessages, userMessageEntity]
 
 // ❌ 错误

@@ -43,7 +43,7 @@
 
   prepare.ts:
     saveMessage() ────→ IPC ────→ SQLite
-    getMessageByIds() ────→ IPC ←──── SQLite
+    getMessagesByChatId() ────→ IPC ←──── SQLite
     setMessages() ────→ Zustand
 
   finalize.ts:

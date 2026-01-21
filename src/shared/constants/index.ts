@@ -87,6 +87,8 @@ export const DB_MESSAGE_SAVE = 'db:message:save'
 export const DB_MESSAGE_GET_ALL = 'db:message:get-all'
 export const DB_MESSAGE_GET_BY_ID = 'db:message:get-by-id'
 export const DB_MESSAGE_GET_BY_IDS = 'db:message:get-by-ids'
+export const DB_MESSAGE_GET_BY_CHAT_ID = 'db:message:get-by-chat-id'
+export const DB_MESSAGE_GET_BY_CHAT_UUID = 'db:message:get-by-chat-uuid'
 export const DB_MESSAGE_UPDATE = 'db:message:update'
 export const DB_MESSAGE_DELETE = 'db:message:delete'
 

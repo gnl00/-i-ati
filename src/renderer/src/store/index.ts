@@ -1,5 +1,5 @@
 import { getChatById } from '@renderer/db/ChatRepository'
-import { getMessageByIds, saveMessage, updateMessage, deleteMessage } from '@renderer/db/MessageRepository'
+import { getMessagesByChatId, saveMessage, updateMessage, deleteMessage } from '@renderer/db/MessageRepository'
 import { create } from 'zustand'
 
 export type ChatState = {
@@ -164,10 +164,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     }
 
     // 2. 从 SQLite 加载消息
-    let messages: MessageEntity[] = []
-    if (chat.messages && chat.messages.length > 0) {
-      messages = await getMessageByIds(chat.messages)
-    }
+    const messages = await getMessagesByChatId(chatId)
 
     // 3. 更新 Zustand state（触发 UI 更新）
     set({

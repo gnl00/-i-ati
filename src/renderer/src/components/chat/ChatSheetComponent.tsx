@@ -18,7 +18,7 @@ import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
 import { useChatContext } from '@renderer/context/ChatContext'
 import { deleteChat, getAllChat, updateChat } from '@renderer/db/ChatRepository'
-import { getMessageByIds, updateMessage } from '@renderer/db/MessageRepository'
+import { updateMessage } from '@renderer/db/MessageRepository'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
@@ -259,11 +259,9 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
             setChatUuid(chat.uuid)
             setChatId(chat.id)
 
-            // 先获取完整的聊天数据（包含消息 ID 列表）
-            const { getChatById } = await import('@renderer/db/ChatRepository')
-            const fullChat = await getChatById(chat.id!)
-            if (fullChat && fullChat.messages.length > 0) {
-                getMessageByIds(fullChat.messages).then(messageList => {
+            const { getMessagesByChatId } = await import('@renderer/db/MessageRepository')
+            if (chat.id) {
+                getMessagesByChatId(chat.id).then(messageList => {
                     setMessages(messageList)
                 }).catch(err => {
                     toast({
