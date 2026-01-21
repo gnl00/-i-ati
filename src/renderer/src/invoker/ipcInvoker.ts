@@ -54,7 +54,9 @@ import {
   CHAT_SUBMIT_CANCEL,
   CHAT_SUBMIT_EVENT,
   CHAT_COMPRESSION_EXECUTE,
-  CHAT_TITLE_GENERATE
+  CHAT_TITLE_GENERATE,
+  CHECK_IS_DIRECTORY,
+  SELECT_DIRECTORY
 } from '@shared/constants/index'
 
 /**
@@ -565,7 +567,7 @@ export async function invokeDbCompressedSummaryDelete(id: number): Promise<void>
  */
 export async function invokeSelectDirectory(): Promise<{ success: boolean; path: string | null }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke('select-directory')
+  return await ipc.invoke(SELECT_DIRECTORY)
 }
 
 /**
@@ -573,5 +575,5 @@ export async function invokeSelectDirectory(): Promise<{ success: boolean; path:
  */
 export async function invokeCheckIsDirectory(path: string): Promise<{ success: boolean; isDirectory: boolean; error?: string }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke('check-is-directory', path)
+  return await ipc.invoke(CHECK_IS_DIRECTORY, path)
 }
