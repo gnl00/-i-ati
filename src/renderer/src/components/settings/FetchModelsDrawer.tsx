@@ -65,6 +65,10 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(new Set())
     const [searchQuery, setSearchQuery] = useState<string>('')
 
+    // 分页状态
+    const [displayedCount, setDisplayedCount] = useState<number>(20)
+    const PAGE_SIZE = 20
+
     // 为每个 provider 缓存模型数据
     const [modelsCache, setModelsCache] = useState<Map<string, CachedModels>>(new Map())
 
@@ -131,14 +135,37 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     // 事件处理函数
     const getFilteredModels = (): AccountModel[] => {
         if (!searchQuery.trim()) {
-            return fetchedModels
+            return fetchedModels.slice(0, displayedCount)
         }
 
         const query = searchQuery.toLowerCase()
-        return fetchedModels.filter(model =>
+        const filtered = fetchedModels.filter(model =>
             model.label.toLowerCase().includes(query) ||
             model.id.toLowerCase().includes(query)
         )
+        return filtered.slice(0, displayedCount)
+    }
+
+    const loadMore = () => {
+        setDisplayedCount(prev => prev + PAGE_SIZE)
+    }
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const target = e.currentTarget
+        const scrolledToBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50
+
+        if (scrolledToBottom && !isFetching) {
+            const totalFiltered = searchQuery.trim()
+                ? fetchedModels.filter(model =>
+                    model.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    model.id.toLowerCase().includes(searchQuery.toLowerCase())
+                ).length
+                : fetchedModels.length
+
+            if (displayedCount < totalFiltered) {
+                loadMore()
+            }
+        }
     }
 
     const handleModelToggle = (modelId: string) => {
@@ -211,6 +238,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
             setFetchedModels(models)
             setSelectedModelIds(new Set())
             setSearchQuery('')
+            setDisplayedCount(PAGE_SIZE) // 重置分页
 
             // 更新缓存
             setModelsCache(prev => {
@@ -239,6 +267,11 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
         }
     }
 
+    // 当搜索查询改变时，重置分页
+    React.useEffect(() => {
+        setDisplayedCount(PAGE_SIZE)
+    }, [searchQuery])
+
     // 检查缓存是否有效
     const isCacheValid = (accountId: string): boolean => {
         const cached = modelsCache.get(accountId)
@@ -258,6 +291,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 setFetchedModels(cached.models)
                 setSelectedModelIds(new Set())
                 setSearchQuery('')
+                setDisplayedCount(PAGE_SIZE) // 重置分页
             } else {
                 // 缓存不存在或已过期，重新获取
                 handleFetch()
@@ -341,7 +375,10 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 </div>
 
                 {/* 模型列表 */}
-                <div className="flex-1 overflow-y-auto min-h-[300px] px-6">
+                <div
+                    className="flex-1 overflow-y-auto min-h-[300px] px-6"
+                    onScroll={handleScroll}
+                >
                     {isFetching ? (
                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
                             <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
@@ -444,6 +481,28 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             </TableBody>
                         </Table>
                     )}
+
+                    {/* 加载提示 */}
+                    {!isFetching && getFilteredModels().length > 0 && (() => {
+                        const totalFiltered = searchQuery.trim()
+                            ? fetchedModels.filter(model =>
+                                model.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                model.id.toLowerCase().includes(searchQuery.toLowerCase())
+                            ).length
+                            : fetchedModels.length
+
+                        const hasMore = displayedCount < totalFiltered
+
+                        return (
+                            <div className="py-4 text-center text-sm text-muted-foreground">
+                                {hasMore ? (
+                                    <p>Showing {displayedCount} of {totalFiltered} models. Scroll down for more...</p>
+                                ) : (
+                                    <p>Showing all {totalFiltered} models</p>
+                                )}
+                            </div>
+                        )
+                    })()}
                 </div>
 
                 {/* Footer */}
