@@ -7,6 +7,7 @@ import remarkMath from 'remark-math'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
 import { cn } from '@renderer/lib/utils'
 import { ChevronDown, Lightbulb } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useTheme } from '@renderer/components/theme-provider'
 import { useChatStore } from '@renderer/store'
 import { useCommandConfirmationStore } from '@renderer/store/commandConfirmation'
@@ -93,64 +94,74 @@ const TextSegment: React.FC<{
 })
 
 /**
- * Reasoning segment component (collapsible accordion).
+ * Reasoning segment component (collapsible with Framer Motion).
  */
 const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment }) => {
   // Fix malformed code blocks in reasoning content
   const fixedContent = fixMalformedCodeBlocks(segment.content)
   const entered = useEnterTransition('enter')
+  const [isOpen, setIsOpen] = React.useState(false)
+
+  const toggleOpen = () => setIsOpen(!isOpen)
 
   return (
-    <Accordion type="single" collapsible className='w-fit'>
-      <AccordionItem
-        value={`reasoning-${segment.content}`}
-        className='border-none bg-transparent shadow-none'
+    <div className='w-fit my-2'>
+      {/* Trigger Button */}
+      <button
+        onClick={toggleOpen}
+        className={cn(
+          'group inline-flex items-center gap-1.5 rounded-lg px-2 py-1',
+          'transition-all duration-300 ease-out',
+          'hover:bg-slate-200/60 dark:hover:bg-slate-700/40',
+          'focus:outline-none focus-visible:outline-none'
+        )}
       >
-        <AccordionTrigger
-          className={cn(
-            'group py-1.5 hover:no-underline',
-            'transition-all duration-300 ease-out',
-            'bg-transparent',
-            '[&[data-state=open]]:bg-transparent'
-          )}
-        >
-          <div className='inline-flex items-center gap-1.5 rounded-lg px-2 py-1 transition-all duration-300 ease-out group-hover:bg-slate-200/60 dark:group-hover:bg-slate-700/40'>
-            <Lightbulb className={cn(
-              'w-3 h-3 text-slate-400 dark:text-slate-500',
-              'transition-all duration-300 ease-out',
-              'group-hover:text-slate-500 dark:group-hover:text-slate-300',
-              'group-data-[state=open]:scale-110 group-data-[state=open]:rotate-12'
-            )} />
-            <span className={cn(
-              'text-[10px] font-semibold uppercase tracking-tight',
-              'text-slate-500 dark:text-slate-400',
-              'transition-colors duration-300 ease-out',
-              'group-hover:text-slate-700 dark:group-hover:text-slate-300'
-            )}>
-              Reasoning
-            </span>
-            <ChevronDown className={cn(
-              'w-3 h-3 text-slate-400/80 dark:text-slate-500/70',
-              'transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
-              'group-data-[state=open]:rotate-180 group-data-[state=open]:scale-110'
-            )} />
-          </div>
-        </AccordionTrigger>
-        <AccordionContent
-          className={cn(
-            'overflow-hidden',
-            'transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
-            'data-[state=open]:animate-reasoning-expand',
-            'data-[state=closed]:animate-reasoning-collapse'
-          )}
-        >
-          <div className={cn(
+        <Lightbulb className={cn(
+          'w-3 h-3 text-slate-400 dark:text-slate-500',
+          'transition-all duration-300 ease-out',
+          'group-hover:text-slate-500 dark:group-hover:text-slate-300',
+          isOpen && 'scale-110 rotate-12'
+        )} />
+        <span className={cn(
+          'text-[10px] font-semibold uppercase tracking-tight',
+          'text-slate-500 dark:text-slate-400',
+          'transition-colors duration-300 ease-out',
+          'group-hover:text-slate-700 dark:group-hover:text-slate-300'
+        )}>
+          Reasoning
+        </span>
+        <ChevronDown className={cn(
+          'w-3 h-3 text-slate-400/80 dark:text-slate-500/70',
+          'transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+          isOpen && 'rotate-180 scale-110'
+        )} />
+      </button>
+
+      {/* Content with Framer Motion */}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+            animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+            exit={{
+              height: 0,
+              opacity: 0,
+              marginTop: 0,
+              transition: { duration: 0.25, ease: "easeInOut" }
+            }}
+            transition={{
+              duration: 0.3,
+              ease: "circOut" // smooth easing without bounce
+            }}
+            className="overflow-hidden"
+          >
+            <div className={cn(
             'ml-3 pl-3 mt-1',
             'bg-transparent',
-            'border-l-2 border-dashed border-slate-300/60 dark:border-slate-600/50',
+            'border-l-2 border-dashed',
+            'border-slate-300/60 dark:border-slate-600/50',
             'relative',
-            'transition-all duration-300 ease-out',
-            'animate-reasoning-border-fade'
+            'transition-colors duration-300 ease-out'
           )}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
@@ -179,9 +190,10 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
               {fixedContent}
             </ReactMarkdown>
           </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 })
 

@@ -84,7 +84,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
         isOpen ? "gap-2" : "gap-0"
       )}>
         {/* Inline Log Row */}
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit">
           <span className={cn(
             "inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none",
             isError
@@ -106,7 +106,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
             <Wrench className="w-3 h-3 text-zinc-400/70 dark:text-zinc-500/70" />
             <span className={cn(
               "font-mono text-[11px] font-semibold tracking-tight leading-none",
-              isError ? "text-red-700 dark:text-red-300" : "text-zinc-700 dark:text-zinc-200"
+              isError ? "text-red-700 dark:text-red-300" : "text-slate-500 dark:text-zinc-200"
             )}>
               {tc.name}
             </span>
