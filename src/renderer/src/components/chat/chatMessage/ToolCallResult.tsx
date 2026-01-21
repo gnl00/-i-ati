@@ -2,7 +2,7 @@ import { SpeedCodeHighlight } from '@renderer/components/chat/common/SpeedCodeHi
 import { Button } from '@renderer/components/ui/button';
 import { cn } from '@renderer/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronDown, Clipboard, Wrench, X } from "lucide-react";
+import { Check, ChevronDown, Clipboard, Loader2, Wrench, X } from "lucide-react";
 import React, { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { WebSearchResults } from './WebSearchResults';
@@ -21,6 +21,8 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
   const isWebSearch = tc.name === 'web_search'
   const webSearchData = isWebSearch && tc.content?.results ? tc.content : null
   const isError = tc.isError;
+  const status = typeof tc.content?.status === 'string' ? tc.content.status : undefined
+  const isRunning = !isError && status === 'running'
   const [isJsonExpanded, setIsJsonExpanded] = useState(false);
   const jsonLineThreshold = 24;
   const contentCharThreshold = 1500;
@@ -87,10 +89,17 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
             "inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none",
             isError
               ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+              : isRunning
+                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
           )}>
-            {isError ? <X className="w-2.5 h-2.5" /> : <Check className="w-2.5 h-2.5" />}
-            {isError ? 'ERR' : 'OK'}
+            {isError
+              ? <X className="w-2.5 h-2.5" />
+              : isRunning
+                ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                : <Check className="w-2.5 h-2.5" />
+            }
+            {isError ? 'ERR' : isRunning ? 'RUNNING' : 'OK'}
           </span>
 
           <div className="flex items-center gap-1.5">
@@ -184,7 +193,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                               ? 'Collapse'
                               : isContentLong && contentLineCount > 0
                                 ? `Expand content (${contentLineCount})`
-                                : `Expand (${jsonLines.length})`}
+                                : `Expand (${jsonLines.length}) lines`}
                           </button>
                         )}
                       </div>
