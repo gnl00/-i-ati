@@ -563,11 +563,13 @@ export class MainChatSubmitService {
   }
 
   private resolveMessageEntities(chat: ChatEntity): MessageEntity[] {
-    const ids = chat.messages || []
-    if (ids.length === 0) {
-      return []
+    if (chat.id) {
+      return DatabaseService.getMessagesByChatId(chat.id)
     }
-    return DatabaseService.getMessageByIds(ids)
+    if (chat.uuid) {
+      return DatabaseService.getMessagesByChatUuid(chat.uuid)
+    }
+    return []
   }
 
   private buildTools(extraTools?: any[]): any[] {
