@@ -151,14 +151,14 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                             variant="outline"
                                             role="combobox"
                                             aria-expanded={selectTitleModelPopoutState}
-                                            className="w-[300px] justify-between bg-white dark:bg-gray-800 h-9 text-sm"
+                                            className="w-fit justify-between bg-white dark:bg-gray-800 h-9 text-sm"
                                         >
                                             <div className="flex items-center gap-2 truncate">
                                                 <span className="truncate font-medium">
                                                     {selectedTitleModel ? selectedTitleModel.model.label : "Select model..."}
                                                 </span>
                                                 {selectedTitleModel && (
-                                                    <span className="text-xs text-gray-400 font-mono">
+                                                    <span className="text-xs text-gray-400">
                                                         {selectedTitleModel.definition?.displayName || selectedTitleModel.account.label}
                                                     </span>
                                                 )}
@@ -166,8 +166,8 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-[300px] p-0" align="end">
-                                        <Command>
+                                    <PopoverContent className="w-fit p-0 rounded-xl bg-white/50 backdrop-blur-lg" align="end">
+                                        <Command className='rounded-3xl bg-transparent'>
                                             <CommandInput placeholder="Search model..." className="h-9" />
                                             <CommandList>
                                                 <CommandEmpty>No model found.</CommandEmpty>
@@ -183,7 +183,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                                                     modelId: option.model.id
                                                                 })
                                                             }}
-                                                            className="cursor-pointer"
+                                                            className="cursor-pointer rounded-xl"
                                                         >
                                                             <div className="flex flex-col">
                                                                 <span>{option.model.label}</span>

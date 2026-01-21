@@ -387,7 +387,12 @@ const SkillsManager: React.FC = () => {
                 placeholder="Search installed skills..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9 h-9 text-sm bg-white/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-gray-900/10 dark:focus-visible:ring-gray-100/10 focus-visible:ring-offset-0 transition-all rounded-xl placeholder:text-muted-foreground/50 shadow-sm"
+                className="pl-9 pr-9 h-9 text-sm bg-white/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50 dark:text-gray-200 
+                  focus-visible:ring-0 focus-visible:ring-offset-0
+                  focus-visible:border-blue-500 dark:focus-visible:border-blue-400
+                  focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]
+                  transition-all duration-200 
+                  rounded-xl placeholder:text-muted-foreground/50 shadow-sm"
               />
               {searchQuery && (
                 <button
