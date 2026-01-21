@@ -338,6 +338,30 @@
   }
 }
 
+/* Model Badge Pulse Animation */
+@keyframes modelBadgePulse {
+  0%, 100% {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border-color: rgba(148, 163, 184, 0.6);
+  }
+  50% {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    border-color: rgba(148, 163, 184, 0.8);
+  }
+}
+
+/* Model Badge Dot Animation */
+@keyframes modelBadgeDot {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
 @layer utilities {
   .animate-shine {
     position: relative;
@@ -403,6 +427,15 @@
 
   .animate-assistant-message-in {
     animation: assistantMessageSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* Model Badge Animations */
+  .animate-model-badge-pulse {
+    animation: modelBadgePulse 2s ease-in-out infinite;
+  }
+
+  .animate-model-badge-dot {
+    animation: modelBadgeDot 1.4s ease-in-out infinite;
   }
 }
 

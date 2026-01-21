@@ -182,16 +182,32 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
       <div>
         {/* Model Badge */}
         {m.model && (
-          <Badge
+          <div
             id='model-badge'
-            variant="outline"
             className={cn(
-              'select-none text-gray-700 dark:text-gray-300 mb-1 dark:border-white/20',
-              showLoadingIndicator && isLatest ? 'animate-shine-infinite' : ''
+              'inline-flex items-center gap-1.5 px-2.5 py-1 mb-1.5 rounded-lg',
+              'select-none font-medium text-[11px] tracking-wide',
+              'bg-slate-50/80 dark:bg-slate-800/60',
+              'border border-slate-200/60 dark:border-slate-700/50',
+              'shadow-sm',
+              'transition-all duration-300 ease-out',
+              'backdrop-blur-sm',
+              showLoadingIndicator && isLatest && 'animate-shine-infinite'
             )}
           >
-            @{m.model}
-          </Badge>
+            {/* Icon indicator */}
+            <div className={cn(
+              'w-1.5 h-1.5 rounded-full',
+              'bg-slate-400 dark:bg-slate-500',
+              'transition-all duration-300',
+              showLoadingIndicator && isLatest && 'animate-model-badge-dot'
+            )} />
+
+            {/* Model name */}
+            <span className="text-slate-600 dark:text-slate-400">
+              {m.model}
+            </span>
+          </div>
         )}
 
         {/* Segments */}
