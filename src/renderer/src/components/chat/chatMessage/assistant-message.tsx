@@ -111,6 +111,7 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
         onClick={toggleOpen}
         className={cn(
           'group inline-flex items-center gap-1.5 rounded-lg px-2 py-1',
+          'border-0 ring-0 outline-none',
           'transition-all duration-300 ease-out',
           'hover:bg-slate-200/60 dark:hover:bg-slate-700/40',
           'focus:outline-none focus-visible:outline-none'
