@@ -764,11 +764,11 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                             )}>
                                                                 <SelectValue placeholder="Type" className="placeholder:text-slate-400 dark:placeholder:text-slate-500" />
                                                             </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectGroup>
-                                                                    <SelectItem value="llm">LLM</SelectItem>
-                                                                    <SelectItem value="vlm">VLM</SelectItem>
-                                                                    <SelectItem value="t2i">T2I</SelectItem>
+                                                            <SelectContent className="bg-white/20 rounded-2xl shadow-sm backdrop-blur-lg text-gray-400 dark:text-gray-300 font-medium tracking-wider">
+                                                                <SelectGroup defaultValue={'llm'}>
+                                                                    <SelectItem value="llm" className="rounded-lg">LLM</SelectItem>
+                                                                    <SelectItem value="vlm" className="rounded-lg">VLM</SelectItem>
+                                                                    <SelectItem value="t2i" className="rounded-lg">T2I</SelectItem>
                                                                 </SelectGroup>
                                                             </SelectContent>
                                                         </Select>
@@ -778,7 +778,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                             onClick={onAddModelClick}
                                                             size={'sm'}
                                                             variant={'default'}
-                                                            className='h-7 px-3 rounded-3xl text-xs'
+                                                            className='h-7 px-3 rounded-3xl text-xs transition-transform duration-200 hover:scale-105 active:scale-95'
                                                         >
                                                             <i className="ri-add-circle-line mr-1 text-sm"></i>
                                                             Add
@@ -849,7 +849,7 @@ const ProvidersManagerNext: React.FC<ProvidersManagerNextProps> = () => {
                                                             <TableCell className='px-4 py-3 text-center'>
                                                                 <button
                                                                     onClick={_ => onModelDelClick(m)}
-                                                                    className='inline-flex items-center justify-center p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-110 active:scale-90 group/del'
+                                                                    className='inline-flex items-center justify-center p-1.5 rounded-md text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-110 active:scale-90 group/del'
                                                                     title="Delete model"
                                                                 >
                                                                     <Trash className='w-4 h-4 group-hover/del:animate-[wiggle_0.3s_ease-in-out]' />
