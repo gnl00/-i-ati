@@ -5,9 +5,8 @@ import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
-import { Badge } from "@renderer/components/ui/badge"
 import { cn } from '@renderer/lib/utils'
-import { BrainCircuit } from 'lucide-react'
+import { ChevronDown, Lightbulb } from 'lucide-react'
 import { useTheme } from '@renderer/components/theme-provider'
 import { useChatStore } from '@renderer/store'
 import { useCommandConfirmationStore } from '@renderer/store/commandConfirmation'
@@ -102,24 +101,79 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
   const entered = useEnterTransition('enter')
 
   return (
-    <Accordion type="single" collapsible className='pl-0.5 pr-0.5 rounded-xl'>
-      <AccordionItem value={`reasoning-${segment.content}`}>
-        <AccordionTrigger className='py-2'>
-          <div className='flex items-center gap-2'>
-            <BrainCircuit className='w-4 h-4 text-gray-500 dark:text-gray-400' />
-            <span className='text-xs text-gray-500 dark:text-gray-400 font-medium'>Reasoning</span>
+    <Accordion type="single" collapsible className='w-fit'>
+      <AccordionItem
+        value={`reasoning-${segment.content}`}
+        className='border-none bg-transparent shadow-none'
+      >
+        <AccordionTrigger
+          className={cn(
+            'group py-1.5 hover:no-underline',
+            'transition-all duration-300 ease-out',
+            'bg-transparent',
+            '[&[data-state=open]]:bg-transparent'
+          )}
+        >
+          <div className='inline-flex items-center gap-1.5 rounded-lg px-2 py-1 transition-all duration-300 ease-out group-hover:bg-slate-200/60 dark:group-hover:bg-slate-700/40'>
+            <Lightbulb className={cn(
+              'w-3 h-3 text-slate-400 dark:text-slate-500',
+              'transition-all duration-300 ease-out',
+              'group-hover:text-slate-500 dark:group-hover:text-slate-300',
+              'group-data-[state=open]:scale-110 group-data-[state=open]:rotate-12'
+            )} />
+            <span className={cn(
+              'text-[10px] font-semibold uppercase tracking-tight',
+              'text-slate-500 dark:text-slate-400',
+              'transition-colors duration-300 ease-out',
+              'group-hover:text-slate-700 dark:group-hover:text-slate-300'
+            )}>
+              Reasoning
+            </span>
+            <ChevronDown className={cn(
+              'w-3 h-3 text-slate-400/80 dark:text-slate-500/70',
+              'transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+              'group-data-[state=open]:rotate-180 group-data-[state=open]:scale-110'
+            )} />
           </div>
         </AccordionTrigger>
-        <AccordionContent>
-          <div className='prose px-2 py-1 text-xs text-gray-500 dark:text-gray-400 italic'>
+        <AccordionContent
+          className={cn(
+            'overflow-hidden',
+            'transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+            'data-[state=open]:animate-reasoning-expand',
+            'data-[state=closed]:animate-reasoning-collapse'
+          )}
+        >
+          <div className={cn(
+            'ml-3 pl-3 mt-1',
+            'bg-transparent',
+            'border-l-2 border-dashed border-slate-300/60 dark:border-slate-600/50',
+            'relative',
+            'transition-all duration-300 ease-out',
+            'animate-reasoning-border-fade'
+          )}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
               skipHtml={false}
               className={cn(
-                "prose px-0.5 py-0.5 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-4 prose-hr:mb-4 prose-code:text-gray-400 dark:prose-code:text-gray-100 dark:text-slate-300",
-                "transition-[opacity,transform,filter] duration-300 ease-out will-change-[opacity,transform,filter]",
-                "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
-                entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-sm"
+                "prose prose-sm max-w-none",
+                "prose-slate dark:prose-invert",
+                // 统一设置文本颜色和大小
+                "text-[13px] text-slate-500 dark:text-slate-400 italic",
+                // 段落间距
+                "prose-p:my-1.5 prose-p:leading-relaxed",
+                // 代码块样式（覆盖斜体）
+                "prose-code:text-slate-600 dark:prose-code:text-slate-400",
+                "prose-code:bg-slate-200/50 dark:prose-code:bg-slate-800/50",
+                "prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[10px] prose-code:not-italic",
+                // 分隔线
+                "prose-hr:border-slate-200 dark:prose-hr:border-slate-700 prose-hr:my-2",
+                // 粗体（覆盖斜体）
+                "prose-strong:text-slate-600 dark:prose-strong:text-slate-300 prose-strong:font-semibold prose-strong:not-italic",
+                // 动画
+                "transition-[opacity,transform] duration-400 ease-out",
+                "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0",
+                entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
               )}
             >
               {fixedContent}
