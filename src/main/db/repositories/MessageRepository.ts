@@ -8,6 +8,8 @@ interface MessageRow {
   tokens: number | null
 }
 
+type ChatRole = 'system' | 'user' | 'assistant' | 'tool'
+
 class MessageRepository {
   private db: Database.Database
   private stmts: {
@@ -49,9 +51,19 @@ class MessageRepository {
     }
   }
 
+  private shouldCountForChat(bodyJson: string | null | undefined): boolean {
+    if (!bodyJson) return false
+    try {
+      const parsed = JSON.parse(bodyJson) as { role?: ChatRole }
+      return parsed?.role === 'user' || parsed?.role === 'assistant'
+    } catch {
+      return false
+    }
+  }
+
   insertMessage(row: Omit<MessageRow, 'id'>): number {
     const result = this.stmts.insertMessage.run(row.chat_id, row.chat_uuid, row.body, row.tokens)
-    if (row.chat_id) {
+    if (row.chat_id && this.shouldCountForChat(row.body)) {
       this.db.prepare('UPDATE chats SET msg_count = msg_count + 1 WHERE id = ?').run(row.chat_id)
     }
     return Number(result.lastInsertRowid)
@@ -80,13 +92,33 @@ class MessageRepository {
   }
 
   updateMessage(row: MessageRow): void {
+    const prev = this.db.prepare('SELECT chat_id, body FROM messages WHERE id = ?').get(row.id) as { chat_id: number | null; body?: string } | undefined
     this.stmts.updateMessage.run(row.chat_id, row.chat_uuid, row.body, row.tokens, row.id)
+    if (!prev) return
+
+    const prevCounted = this.shouldCountForChat(prev.body)
+    const nextCounted = this.shouldCountForChat(row.body)
+
+    if (prev.chat_id === row.chat_id) {
+      if (!row.chat_id) return
+      if (prevCounted === nextCounted) return
+      const delta = nextCounted ? 1 : -1
+      this.db.prepare('UPDATE chats SET msg_count = msg_count + ? WHERE id = ?').run(delta, row.chat_id)
+      return
+    }
+
+    if (prev.chat_id && prevCounted) {
+      this.db.prepare('UPDATE chats SET msg_count = msg_count - 1 WHERE id = ?').run(prev.chat_id)
+    }
+    if (row.chat_id && nextCounted) {
+      this.db.prepare('UPDATE chats SET msg_count = msg_count + 1 WHERE id = ?').run(row.chat_id)
+    }
   }
 
   deleteMessage(id: number): void {
-    const message = this.db.prepare('SELECT chat_id FROM messages WHERE id = ?').get(id) as { chat_id: number | null } | undefined
+    const message = this.db.prepare('SELECT chat_id, body FROM messages WHERE id = ?').get(id) as { chat_id: number | null; body?: string } | undefined
     this.stmts.deleteMessage.run(id)
-    if (message?.chat_id) {
+    if (message?.chat_id && this.shouldCountForChat(message.body)) {
       this.db.prepare('UPDATE chats SET msg_count = msg_count - 1 WHERE id = ?').run(message.chat_id)
     }
   }

@@ -30,6 +30,8 @@ import {
   DB_MESSAGE_GET_ALL,
   DB_MESSAGE_GET_BY_ID,
   DB_MESSAGE_GET_BY_IDS,
+  DB_MESSAGE_GET_BY_CHAT_ID,
+  DB_MESSAGE_GET_BY_CHAT_UUID,
   DB_MESSAGE_UPDATE,
   DB_MESSAGE_DELETE,
   DB_CONFIG_GET,
@@ -295,6 +297,22 @@ export async function invokeDbMessageGetById(id: number): Promise<MessageEntity 
 export async function invokeDbMessageGetByIds(ids: number[]): Promise<MessageEntity[]> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_MESSAGE_GET_BY_IDS, ids)
+}
+
+/**
+ * 根据 chatId 获取消息
+ */
+export async function invokeDbMessageGetByChatId(chatId: number): Promise<MessageEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_GET_BY_CHAT_ID, chatId)
+}
+
+/**
+ * 根据 chatUuid 获取消息
+ */
+export async function invokeDbMessageGetByChatUuid(chatUuid: string): Promise<MessageEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_GET_BY_CHAT_UUID, chatUuid)
 }
 
 /**
