@@ -24,6 +24,10 @@ interface ChatInputToolbarProps {
   onTemperatureChange: (val: number[]) => void
   onTopPChange: (val: number[]) => void
   onSystemPromptChange: (val: string) => void
+
+  // Queue preview
+  queuedFirstText?: string
+  queuedCount?: number
 }
 
 const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
@@ -39,10 +43,14 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   currentSystemPrompt,
   onTemperatureChange,
   onTopPChange,
-  onSystemPromptChange
+  onSystemPromptChange,
+  queuedFirstText,
+  queuedCount
 }) => {
   const [selectModelPopoutState, setSelectModelPopoutState] = React.useState(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = React.useState(false)
+  const [queueVisible, setQueueVisible] = React.useState(false)
+  const [queueExiting, setQueueExiting] = React.useState(false)
 
   // Model selector trigger styles with emerald/teal theme
   const modelSelectorClassName = cn(
@@ -110,6 +118,32 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
     await toggleMcpConnection(serverName, serverConfig)
   }
 
+  const queuePreview = React.useMemo(() => {
+    if (!queuedFirstText || !queuedFirstText.trim()) {
+      return 'Queued media'
+    }
+    const text = queuedFirstText.trim().replace(/\s+/g, ' ')
+    const maxLen = 24
+    return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text
+  }, [queuedFirstText])
+
+  React.useEffect(() => {
+    if (typeof queuedCount === 'number' && queuedCount > 0) {
+      setQueueVisible(true)
+      setQueueExiting(false)
+      return
+    }
+    if (!queueVisible) {
+      return
+    }
+    setQueueExiting(true)
+    const timer = window.setTimeout(() => {
+      setQueueVisible(false)
+      setQueueExiting(false)
+    }, 200)
+    return () => window.clearTimeout(timer)
+  }, [queuedCount, queueVisible])
+
   return (
     <div
       id="inputSelector"
@@ -142,7 +176,22 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
 
       {/* Config Panel */}
       <div id="customPanel" className='flex-grow w-full bg-transparent'>
-        <div className='flex justify-end w-auto'>
+        <div className='flex items-center justify-end gap-2 w-auto'>
+          {queueVisible && queuePreview && (
+            <div className={cn(
+              "flex items-center gap-1.5 px-1 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 max-w-[240px]",
+              queueExiting
+                ? "animate-out fade-out-0 slide-out-to-right-2 duration-200"
+                : "animate-in fade-in-0 slide-in-from-right-2 duration-200"
+            )}>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500/70 dark:bg-amber-400/70" />
+              <span className="uppercase tracking-wider text-[9px] text-slate-500 dark:text-slate-400">Queued</span>
+              <span className="truncate">{queuePreview}</span>
+              {queuedCount && queuedCount > 1 && (
+                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400">+{queuedCount - 1}</span>
+              )}
+            </div>
+          )}
           <ConfigPanel
             chatTemperature={chatTemperature}
             chatTopP={chatTopP}
