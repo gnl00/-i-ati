@@ -302,20 +302,28 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
             <DrawerContent className="max-h-[80vh] flex flex-col">
-                <DrawerHeader className="border-b shrink-0 flex flex-row items-center justify-between space-y-0 pb-4">
-                    <div className="space-y-1.5">
-                        <DrawerTitle className="flex items-center gap-2 text-xl">
-                            Import Models
+                {/* Technical Header */}
+                <DrawerHeader className="relative border-b border-slate-200/60 dark:border-slate-800/60 shrink-0 flex flex-row items-center justify-between space-y-0 pb-4">
+                    <div className="space-y-2 z-10">
+                        <DrawerTitle className="flex items-center gap-3 text-xl font-bold tracking-tight">
+                            {/* Corner Bracket Decoration */}
+                            <span className="text-blue-500 dark:text-blue-400 text-xs font-mono">⟨⟨</span>
+                            <span className="bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                                IMPORT MODELS
+                            </span>
                             {currentAccount && (
-                                <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+                                <Badge
+                                    variant="outline"
+                                    className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-sm"
+                                >
                                     {providerDefinition
                                         ? `${providerDefinition.displayName} · ${currentAccount.label}`
                                         : currentAccount.label}
                                 </Badge>
                             )}
                         </DrawerTitle>
-                        <DrawerDescription>
-                            Fetch and import available models from your provider directly.
+                        <DrawerDescription className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            Fetch and import available models from your provider
                         </DrawerDescription>
                     </div>
                     <Button
@@ -323,42 +331,78 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                         size="icon"
                         onClick={handleFetch}
                         disabled={isFetching}
-                        className={cn("h-8 w-8", isFetching && "animate-spin")}
+                        className={cn(
+                            "h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-10",
+                            "hover:border-blue-400/50 dark:hover:border-blue-500/50 hover:bg-blue-50/50 dark:hover:bg-blue-950/30",
+                            "transition-all duration-200",
+                            isFetching && "animate-spin"
+                        )}
                         title="Refresh models"
                     >
-                        {isFetching ? <Loader2 className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                        {isFetching ? (
+                            <Loader2 className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                        ) : (
+                            <RefreshCw className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                        )}
                     </Button>
                 </DrawerHeader>
 
-                {/* 搜索和操作栏 */}
-                <div className="px-6 py-3 border-b bg-muted/30 shrink-0 flex items-center gap-3">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {/* Technical Search Bar */}
+                <div className="relative px-6 py-3 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-100/30 dark:bg-slate-900/20 shrink-0 flex items-center gap-3">
+                    {/* Grid pattern overlay */}
+                    <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03] pointer-events-none" style={{
+                        backgroundImage: 'linear-gradient(rgba(148, 163, 184, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, 0.5) 1px, transparent 1px)',
+                        backgroundSize: '20px 20px'
+                    }} />
+
+                    <div className="relative flex-1 group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors" />
                         <Input
-                            placeholder="Search models..."
+                            placeholder="SEARCH_QUERY :: ModelId | Label"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 transition-all"
+                            className={cn(
+                                "pl-10 pr-10 h-9 text-xs",
+                                "bg-white/70 dark:bg-slate-950/50",
+                                "border-slate-300/60 dark:border-slate-700/60",
+                                "text-slate-700 dark:text-slate-300",
+                                "placeholder:text-slate-400 dark:placeholder:text-slate-600 placeholder:text-[10px]",
+                                "focus-visible:ring-0 focus-visible:ring-offset-0",
+                                "focus-visible:border-blue-500 dark:focus-visible:border-blue-400",
+                                "focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]",
+                                "transition-all duration-200"
+                            )}
                             disabled={isFetching}
                         />
                         {searchQuery && (
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 hover:bg-transparent text-muted-foreground hover:text-foreground"
+                                className={cn(
+                                    "absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0",
+                                    "hover:bg-red-500/10 dark:hover:bg-red-500/20",
+                                    "text-slate-400 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400",
+                                    "transition-all duration-150"
+                                )}
                                 onClick={() => setSearchQuery('')}
                             >
                                 <X className="h-3 w-3" />
                             </Button>
                         )}
                     </div>
-                    <div className="flex items-center gap-1 border-l pl-3 h-6">
+                    <div className="flex items-center gap-1.5 border-l border-slate-300/60 dark:border-slate-700/60 pl-3">
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={handleSelectAll}
                             disabled={getFilteredModels().length === 0 || isFetching}
-                            className="h-8 text-xs px-2"
+                            className={cn(
+                                "h-7 text-[10px] px-2.5 font-semibold tracking-wide",
+                                "border border-transparent",
+                                "hover:border-slate-300 dark:hover:border-slate-700",
+                                "hover:bg-slate-200/50 dark:hover:bg-slate-800/50",
+                                "transition-all duration-150"
+                            )}
                         >
                             Select All
                         </Button>
@@ -367,7 +411,14 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             size="sm"
                             onClick={handleDeselectAll}
                             disabled={selectedModelIds.size === 0 || isFetching}
-                            className="h-8 text-xs px-2"
+                            className={cn(
+                                "h-7 text-[10px] px-2.5 font-semibold tracking-wide",
+                                "border border-transparent",
+                                "hover:border-red-300 dark:hover:border-red-800",
+                                "hover:bg-red-50 dark:hover:bg-red-950/30",
+                                "hover:text-red-600 dark:hover:text-red-400",
+                                "transition-all duration-150"
+                            )}
                         >
                             Clear
                         </Button>
@@ -376,47 +427,74 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
 
                 {/* 模型列表 */}
                 <div
-                    className="flex-1 overflow-y-auto min-h-[300px] px-6"
+                    className="flex-1 overflow-y-auto min-h-[300px] px-6 bg-white/40 dark:bg-slate-950/40"
                     onScroll={handleScroll}
                 >
                     {isFetching ? (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
-                            <p className="text-sm font-medium animate-pulse">Fetching models from provider...</p>
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 pt-4">
+                            <div className="relative">
+                                <Loader2 className="h-10 w-10 animate-spin text-blue-500 dark:text-blue-400" />
+                                <div className="absolute inset-0 h-10 w-10 animate-ping rounded-full bg-blue-400/20 dark:bg-blue-500/20" />
+                            </div>
+                            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 tracking-wide">
+                                [ FETCHING MODELS ]
+                            </p>
+                            <div className="flex gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0ms' }} />
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '150ms' }} />
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '300ms' }} />
+                            </div>
                         </div>
                     ) : getFilteredModels().length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-                            <Search className="h-10 w-10 text-muted-foreground/30" />
-                            <p className="text-sm font-medium">
-                                {searchQuery ? 'No models match your search' : 'No models available'}
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+                            <div className="relative">
+                                <Search className="h-12 w-12 text-slate-300 dark:text-slate-700" />
+                                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+                                    <X className="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+                                </div>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                {searchQuery ? '[ NO MATCH FOUND ]' : '[ NO MODELS AVAILABLE ]'}
                             </p>
                             {searchQuery && (
                                 <Button
                                     variant="link"
                                     size="sm"
                                     onClick={() => setSearchQuery('')}
-                                    className="text-primary"
+                                    className="text-blue-600 dark:text-blue-400 text-xs hover:text-blue-700 dark:hover:text-blue-300"
                                 >
-                                    Clear filters
+                                    → Clear filters
                                 </Button>
                             )}
                         </div>
                     ) : (
                         <Table>
-                            <TableHeader className="sticky top-0 bg-background shadow-sm z-10">
-                                <TableRow className="hover:bg-transparent border-b">
-                                    <TableHead className="w-[50px] pl-6">
-                                        <input
+                            <TableHeader className="sticky top-0 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm z-10 border-b border-slate-200 dark:border-slate-800">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead className="w-[50px] pl-6 text-[10px] text-slate-500 dark:text-slate-500 tracking-wider">
+                                        <Input
                                             type="checkbox"
                                             checked={selectedModelIds.size > 0 && selectedModelIds.size === getFilteredModels().filter(m => !currentAccount?.models.some(em => em.id === m.id)).length}
                                             onChange={(e) => e.target.checked ? handleSelectAll() : handleDeselectAll()}
-                                            className="translate-y-0.5 w-4 h-4 rounded border-primary text-primary focus:ring-offset-0 focus:ring-1 focus:ring-primary/50 cursor-pointer disabled:opacity-50"
+                                            className={cn(
+                                                "w-3.5 h-3.5 rounded border-2 border-slate-300 dark:border-slate-700",
+                                                "text-slate-800 dark:text-slate-200",
+                                                "focus:ring-offset-0 focus:ring-2 focus:ring-slate-400/50 dark:focus:ring-slate-500/50",
+                                                "cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+                                                "transition-all duration-150"
+                                            )}
                                             disabled={getFilteredModels().every(m => currentAccount?.models.some(em => em.id === m.id))}
                                         />
                                     </TableHead>
-                                    <TableHead className="w-[40%]">Model ID</TableHead>
-                                    <TableHead className="w-[20%]">Type</TableHead>
-                                    <TableHead>Status</TableHead>
+                                    <TableHead className="font-mono text-[10px] text-slate-500 dark:text-slate-500 tracking-wider uppercase">
+                                        Model ID
+                                    </TableHead>
+                                    <TableHead className="w-[100px] font-mono text-[10px] text-slate-500 dark:text-slate-500 tracking-wider uppercase">
+                                        Type
+                                    </TableHead>
+                                    <TableHead className="w-[120px] font-mono text-[10px] text-slate-500 dark:text-slate-500 tracking-wider uppercase">
+                                        Status
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -428,36 +506,72 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                         <TableRow
                                             key={idx}
                                             className={cn(
-                                                "cursor-pointer transition-colors",
-                                                isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/50",
-                                                isExisting && "bg-muted/30 opacity-70 hover:bg-muted/30 cursor-default"
+                                                "group cursor-pointer border-b border-slate-100 dark:border-slate-900/50 transition-all duration-200",
+                                                !isExisting && "hover:bg-slate-50/50 dark:hover:bg-slate-900/30",
+                                                isExisting && "bg-slate-50/30 dark:bg-slate-900/20 opacity-60 cursor-not-allowed"
                                             )}
                                             onClick={() => !isExisting && handleModelToggle(model.id)}
                                         >
+
                                             <TableCell className="pl-6">
                                                 {isExisting ? (
-                                                    <Check className="h-4 w-4 text-muted-foreground/50" />
+                                                    <div className="w-4 h-4 rounded border-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                                        <Check className="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+                                                    </div>
                                                 ) : (
-                                                    <input
+                                                    <Input
                                                         type="checkbox"
                                                         checked={isSelected}
                                                         onChange={() => handleModelToggle(model.id)}
-                                                        className="translate-y-0.5 w-4 h-4 rounded border-gray-300 text-primary focus:ring-offset-0 focus:ring-1 focus:ring-primary/50 cursor-pointer"
+                                                        className={cn(
+                                                            "w-3.5 h-3.5 rounded border-2",
+                                                            isSelected
+                                                                ? "border-slate-700 dark:border-slate-300 bg-slate-700 dark:bg-slate-300"
+                                                                : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950",
+                                                            "text-white dark:text-slate-900",
+                                                            "focus:ring-offset-0 focus:ring-2 focus:ring-slate-400/50 dark:focus:ring-slate-500/50",
+                                                            "cursor-pointer transition-all duration-150",
+                                                            "hover:border-slate-500 dark:hover:border-slate-400"
+                                                        )}
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
                                                 )}
                                             </TableCell>
-                                            <TableCell className="font-mono text-sm font-medium">
+                                            <TableCell className={cn(
+                                                "text-xs font-medium transition-colors",
+                                                isSelected
+                                                    ? "text-blue-500 dark:text-blue-400"
+                                                    : "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100"
+                                            )}>
                                                 {model.id}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge
                                                     variant="secondary"
                                                     className={cn(
-                                                        "text-[10px] px-2 py-0 h-5 font-mono",
-                                                        model.type === 't2i' && "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-                                                        model.type === 'vlm' && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-                                                        model.type === 'llm' && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                                                        "text-[9px] px-2 py-0.5 h-5 font-bold tracking-tight",
+                                                        "border transition-all duration-150",
+                                                        model.type === 't2i' && cn(
+                                                            "bg-purple-50 dark:bg-purple-950/30",
+                                                            "text-purple-600 dark:text-purple-400",
+                                                            "border-purple-200 dark:border-purple-900/50",
+                                                            "group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40",
+                                                            "group-hover:border-purple-300 dark:group-hover:border-purple-800"
+                                                        ),
+                                                        model.type === 'vlm' && cn(
+                                                            "bg-blue-50 dark:bg-blue-950/30",
+                                                            "text-blue-600 dark:text-blue-400",
+                                                            "border-blue-200 dark:border-blue-900/50",
+                                                            "group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40",
+                                                            "group-hover:border-blue-300 dark:group-hover:border-blue-800"
+                                                        ),
+                                                        model.type === 'llm' && cn(
+                                                            "bg-slate-50 dark:bg-slate-900/50",
+                                                            "text-slate-600 dark:text-slate-400",
+                                                            "border-slate-200 dark:border-slate-800",
+                                                            "group-hover:bg-slate-100 dark:group-hover:bg-slate-800/70",
+                                                            "group-hover:border-slate-300 dark:group-hover:border-slate-700"
+                                                        )
                                                     )}
                                                 >
                                                     {model.type.toUpperCase()}
@@ -465,13 +579,17 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                             </TableCell>
                                             <TableCell>
                                                 {isExisting ? (
-                                                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                                                    <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-500 font-semibold tracking-tight">
                                                         <Check className="w-3 h-3" />
-                                                        Added
+                                                        ADDED
+                                                    </span>
+                                                ) : isSelected ? (
+                                                    <span className="inline-flex items-center gap-1.5 text-[10px] text-blue-500 dark:text-blue-400 font-semibold tracking-tight">
+                                                        SELECTED
                                                     </span>
                                                 ) : (
-                                                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                                        Available
+                                                    <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold tracking-tight">
+                                                        AVAILABLE
                                                     </span>
                                                 )}
                                             </TableCell>
@@ -494,44 +612,82 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                         const hasMore = displayedCount < totalFiltered
 
                         return (
-                            <div className="py-4 text-center text-sm text-muted-foreground">
-                                {hasMore ? (
-                                    <p>Showing {displayedCount} of {totalFiltered} models. Scroll down for more...</p>
-                                ) : (
-                                    <p>Showing all {totalFiltered} models</p>
-                                )}
+                            <div className="py-5 text-center">
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/60">
+                                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 tracking-wide">
+                                        {hasMore ? (
+                                            <>
+                                                <span className="text-blue-600 dark:text-blue-400">{displayedCount}</span>
+                                                {' / '}
+                                                <span>{totalFiltered}</span>
+                                                {' '}
+                                                LOADED · SCROLL FOR MORE
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                                {' '}
+                                                ALL {totalFiltered} MODELS LOADED
+                                            </>
+                                        )}
+                                    </span>
+                                </div>
                             </div>
                         )
                     })()}
                 </div>
 
-                {/* Footer */}
-                <DrawerFooter className="border-t bg-muted/10 shrink-0">
-                    <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {/* Technical Footer */}
+                <DrawerFooter className="relative border-t border-slate-200/60 dark:border-slate-800/60 bg-slate-100/30 dark:bg-slate-900/20 shrink-0 overflow-hidden">
+                    {/* Corner decoration */}
+                    <div className="absolute bottom-0 left-0 w-24 h-full bg-gradient-to-tr from-blue-500/5 to-transparent pointer-events-none" />
+
+                    <div className="flex items-center justify-between w-full z-10">
+                        <div className="flex items-center gap-3">
                             {selectedModelIds.size > 0 ? (
-                                <span className="text-primary font-medium">{selectedModelIds.size} selected</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 tracking-tight">
+                                        {selectedModelIds.size} SELECTED
+                                    </span>
+                                </div>
                             ) : (
-                                <span>No models selected</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-500 tracking-tight">
+                                    [ NO SELECTION ]
+                                </span>
                             )}
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex gap-2">
                             <DrawerClose asChild>
                                 <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     disabled={isFetching}
-                                    className="w-24 rounded-3xl"
+                                    className={cn(
+                                        "h-9 px-6 text-xs tracking-wide rounded-full text-red-300 dark:text-red-400 hover:text-red-400 dark:hover:text-red-300",
+                                        "border-slate-300 dark:border-slate-700",
+                                        "hover:bg-slate-200/50 dark:hover:bg-slate-800/50",
+                                        "transition-all duration-150"
+                                    )}
                                 >
-                                    Cancel
+                                    CANCEL
                                 </Button>
                             </DrawerClose>
                             <Button
                                 onClick={handleImportSelected}
                                 disabled={selectedModelIds.size === 0 || isFetching}
-                                className="w-32 gap-2 rounded-3xl"
+                                className={cn(
+                                    "h-9 px-6 gap-2 text-xs rounded-full font-semibold tracking-wide",
+                                    "bg-blue-500 dark:bg-blue-400",
+                                    "hover:bg-blue-600 dark:hover:bg-blue-500",
+                                    "text-white dark:text-slate-950",
+                                    "shadow-md shadow-blue-500/20 dark:shadow-blue-400/20",
+                                    "border border-blue-700/50 dark:border-blue-400/50",
+                                    "transition-all duration-150",
+                                    "hover:shadow-xl hover:shadow-blue-500/30 dark:hover:shadow-blue-400/30",
+                                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                                )}
                             >
-                                <Download className="h-4 w-4" />
-                                Import
+                                <Download className="h-3.5 w-3.5" />
+                                IMPORT
                             </Button>
                         </div>
                     </div>

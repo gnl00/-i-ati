@@ -270,31 +270,6 @@ const SkillsManager: React.FC = () => {
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      scanAllFolders()
-                    }}
-                    disabled={folders.length === 0 || pendingFolders.size > 0}
-                    className="shadow-sm rounded-3xl text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
-                  >
-                    <i className="ri-refresh-line mr-1.5"></i>
-                    Rescan All
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant={'default'}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleAddFolder()
-                    }}
-                    className="shadow-sm rounded-3xl"
-                  >
-                    <i className="ri-folder-add-line mr-1.5"></i>
-                    Add Folder
-                  </Button>
                   <ChevronDown className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </div>
               </div>
@@ -304,9 +279,44 @@ const SkillsManager: React.FC = () => {
                 <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
                   Add folders to scan for skills. Subfolders are scanned recursively and stop at any folder containing SKILL.md.
                 </p>
-                <p className="text-xs text-gray-400">
-                  Name conflicts are resolved by appending the folder name (e.g. <span className="font-mono">skill-folder</span>).
-                </p>
+                <div id="action-button-container" className='w-full flex p-0'>
+                <div className='flex-1'>
+                  <p className="text-xs text-gray-400">
+                    Name conflicts are resolved by appending the folder name (e.g. <span className="font-mono">skill-folder</span>).
+                  </p>
+                </div>
+                <div
+                  id="action-button"
+                  className="inline-flex gap-0.5 rounded-full border border-gray-200/80 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/40 p-1"
+                >
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      scanAllFolders()
+                    }}
+                    disabled={folders.length === 0 || pendingFolders.size > 0}
+                    className="h-8 rounded-full px-3 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-gray-800/70 disabled:opacity-60"
+                  >
+                    <i className="ri-refresh-line mr-1.5"></i>
+                    Rescan All
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="default"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleAddFolder()
+                    }}
+                    className="h-8 rounded-full px-3 text-xs font-medium shadow-none bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-900 hover:to-gray-800 dark:from-gray-100 dark:to-gray-200 dark:hover:from-white dark:hover:to-gray-100 text-white dark:text-gray-900"
+                  >
+                    <i className="ri-folder-add-line mr-1.5"></i>
+                    Add Folder
+                  </Button>
+                </div>
+                </div>
+
                 {folders.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400 pt-2">
                     No folders added yet.
@@ -326,7 +336,7 @@ const SkillsManager: React.FC = () => {
                               size="xs"
                               onClick={() => handleRemoveFolder(folder)}
                               disabled={isPending}
-                              className="shadow-sm rounded-3xl text-red-400 hover:text-red-500 opacity-0 group-hover/folder:opacity-100 transition-opacity"
+                              className="h-7 rounded-full px-2.5 text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50/70 dark:hover:bg-rose-500/10 opacity-0 group-hover/folder:opacity-100 transition-all disabled:opacity-50"
                             >
                               <i className="ri-delete-bin-line mr-1.5"></i>
                               Remove
@@ -363,7 +373,7 @@ const SkillsManager: React.FC = () => {
                 size="xs"
                 onClick={refreshSkills}
                 disabled={isRefreshing}
-                className="shadow-sm rounded-3xl text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
+                className="h-8 rounded-full px-3 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-gray-800/70 disabled:opacity-60"
               >
                 <i className="ri-refresh-line mr-1.5"></i>
                 Refresh
