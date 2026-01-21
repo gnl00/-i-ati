@@ -5,7 +5,7 @@
     "adapterType": "openai",
     "apiVersion": "v1",
     "iconKey": "openai",
-    "defaultApiUrl": "https://api.openai.com"
+    "defaultApiUrl": "https://api.openai.com/v1"
   },
   {
     "id": "anthropic",
@@ -13,7 +13,7 @@
     "adapterType": "claude",
     "apiVersion": "v1",
     "iconKey": "anthropic",
-    "defaultApiUrl": "https://api.anthropic.com"
+    "defaultApiUrl": "https://api.anthropic.com/v1"
   },
   {
     "id": "openrouter",
@@ -21,7 +21,7 @@
     "adapterType": "openai",
     "apiVersion": "v1",
     "iconKey": "openrouter",
-    "defaultApiUrl": "https://openrouter.ai/api"
+    "defaultApiUrl": "https://openrouter.ai/api/v1"
   },
   {
     "id": "groq",
@@ -29,7 +29,7 @@
     "adapterType": "openai",
     "apiVersion": "v1",
     "iconKey": "groq",
-    "defaultApiUrl": "https://api.groq.com/openai"
+    "defaultApiUrl": "https://api.groq.com/openai/v1"
   },
   {
     "id": "deepseek",
@@ -37,7 +37,7 @@
     "adapterType": "openai",
     "apiVersion": "v1",
     "iconKey": "deepseek",
-    "defaultApiUrl": "https://api.deepseek.com"
+    "defaultApiUrl": "https://api.deepseek.com/v1"
   },
   {
     "id": "siliconflow",
@@ -45,7 +45,7 @@
     "adapterType": "openai",
     "apiVersion": "v1",
     "iconKey": "siliconflow",
-    "defaultApiUrl": "https://api.siliconflow.cn"
+    "defaultApiUrl": "https://api.siliconflow.cn/v1"
   },
   {
     "id": "moonshot",
@@ -53,6 +53,6 @@
     "adapterType": "openai",
     "apiVersion": "v1",
     "iconKey": "moonshot",
-    "defaultApiUrl": "https://api.moonshot.cn"
+    "defaultApiUrl": "https://api.moonshot.cn/v1"
   }
 ]

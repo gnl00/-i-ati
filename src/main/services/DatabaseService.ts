@@ -6,90 +6,16 @@
 
 import { app } from 'electron'
 import path from 'path'
-import Database from 'better-sqlite3'
 import * as fs from 'fs'
-
-/**
- * 数据库行接口 - Chat
- */
-interface ChatRow {
-  id: number
-  uuid: string
-  title: string
-  msg_count: number
-  model: string | null
-  workspace_path: string | null
-  create_time: number
-  update_time: number
-}
-
-/**
- * 数据库行接口 - ChatSkill
- */
-interface ChatSkillRow {
-  chat_id: number
-  skill_name: string
-  load_order: number
-  loaded_at: number
-}
-
-/**
- * 数据库行接口 - Message
- */
-interface MessageRow {
-  id: number
-  chat_id: number | null
-  chat_uuid: string | null
-  body: string // JSON string
-  tokens: number | null
-}
-
-/**
- * 数据库行接口 - Config
- */
-interface ConfigRow {
-  key: string
-  value: string // JSON string
-  version: number | null
-  updated_at: number
-}
-
-/**
- * 数据库行接口 - CompressedSummary
- */
-interface CompressedSummaryRow {
-  id: number
-  chat_id: number
-  chat_uuid: string
-  message_ids: string  // JSON string
-  start_message_id: number
-  end_message_id: number
-  summary: string
-  original_token_count: number | null
-  summary_token_count: number | null
-  compression_ratio: number | null
-  compressed_at: number
-  compression_model: string | null
-  compression_version: number | null
-  status: string
-}
-
-/**
- * 数据库行接口 - Assistant
- */
-interface AssistantRow {
-  id: string
-  name: string
-  icon: string | null
-  description: string | null
-  model_account_id: string
-  model_model_id: string
-  system_prompt: string
-  created_at: number
-  updated_at: number
-  is_built_in: number  // 0 or 1
-  is_default: number   // 0 or 1
-}
+import { AppDatabase } from '../db/Database'
+import { ConfigRepository } from '../db/repositories/ConfigRepository'
+import { ProviderRepository } from '../db/repositories/ProviderRepository'
+import { ChatRepository } from '../db/repositories/ChatRepository'
+import { ChatSkillRepository } from '../db/repositories/ChatSkillRepository'
+import { MessageRepository } from '../db/repositories/MessageRepository'
+import { CompressedSummaryRepository, CompressedSummaryRow } from '../db/repositories/CompressedSummaryRepository'
+import { ChatSubmitEventRepository } from '../db/repositories/ChatSubmitEventRepository'
+import { AssistantRepository, AssistantRow } from '../db/repositories/AssistantRepository'
 
 
 /**
@@ -97,60 +23,21 @@ interface AssistantRow {
  */
 class DatabaseService {
   private static instance: DatabaseService
-  private db: Database.Database | null = null
-  private dbPath: string
+  private dbCore: AppDatabase
+  private db: ReturnType<AppDatabase['getDb']> | null = null
   private isInitialized: boolean = false
 
-  // 预编译语句缓存
-  private stmts: {
-    // Chat statements
-    insertChat?: Database.Statement
-    getAllChats?: Database.Statement
-    getChatById?: Database.Statement
-    getChatByUuid?: Database.Statement
-    getWorkspacePathByUuid?: Database.Statement
-    updateChat?: Database.Statement
-    deleteChat?: Database.Statement
-    // Chat skills statements
-    insertChatSkill?: Database.Statement
-    deleteChatSkill?: Database.Statement
-    getChatSkillsByChatId?: Database.Statement
-    getChatSkillMaxOrder?: Database.Statement
-
-    // Message statements
-    insertMessage?: Database.Statement
-    getAllMessages?: Database.Statement
-    getMessageById?: Database.Statement
-    updateMessage?: Database.Statement
-    deleteMessage?: Database.Statement
-
-    // Config statements
-    getConfig?: Database.Statement
-    upsertConfig?: Database.Statement
-
-    // CompressedSummary statements
-    insertCompressedSummary?: Database.Statement
-    getCompressedSummariesByChatId?: Database.Statement
-    getActiveCompressedSummariesByChatId?: Database.Statement
-    updateCompressedSummaryStatus?: Database.Statement
-    deleteCompressedSummary?: Database.Statement
-
-    // ChatSubmitEventTrace statements
-    insertChatSubmitEvent?: Database.Statement
-
-    // Assistant statements
-    insertAssistant?: Database.Statement
-    getAllAssistants?: Database.Statement
-    getAssistantById?: Database.Statement
-    updateAssistant?: Database.Statement
-    deleteAssistant?: Database.Statement
-  } = {}
+  private configRepo?: ConfigRepository
+  private providerRepo?: ProviderRepository
+  private chatRepo?: ChatRepository
+  private chatSkillRepo?: ChatSkillRepository
+  private messageRepo?: MessageRepository
+  private summaryRepo?: CompressedSummaryRepository
+  private submitEventRepo?: ChatSubmitEventRepository
+  private assistantRepo?: AssistantRepository
 
   private constructor() {
-    // 数据库存储路径
-    const userDataPath = app.getPath('userData')
-    this.dbPath = path.join(userDataPath, 'chat.db')
-    console.log('[DatabaseService] Database path:', this.dbPath)
+    this.dbCore = AppDatabase.getInstance()
   }
 
   /**
@@ -174,23 +61,15 @@ class DatabaseService {
     try {
       console.log('[DatabaseService] Initializing database service...')
 
-      // 打开数据库连接
-      this.db = new Database(this.dbPath)
-
-      // 启用 WAL 模式以提高并发性能
-      this.db.pragma('journal_mode = WAL')
-
-      // 创建表
-      this.createTables()
-
-      // 迁移旧表结构
-      this.ensureChatWorkspacePathColumn()
-
-      // 创建索引
-      this.createIndexes()
-
-      // 准备常用语句
-      this.prepareStatements()
+      this.db = this.dbCore.initialize()
+      this.configRepo = new ConfigRepository(this.db)
+      this.providerRepo = new ProviderRepository(this.db)
+      this.chatRepo = new ChatRepository(this.db)
+      this.chatSkillRepo = new ChatSkillRepository(this.db)
+      this.messageRepo = new MessageRepository(this.db)
+      this.summaryRepo = new CompressedSummaryRepository(this.db)
+      this.submitEventRepo = new ChatSubmitEventRepository(this.db)
+      this.assistantRepo = new AssistantRepository(this.db)
 
       this.isInitialized = true
 
@@ -207,668 +86,206 @@ class DatabaseService {
     }
   }
 
-  /**
-   * 创建数据库表
-   */
-  private createTables(): void {
+  // ==================== Chat / Message Methods ====================
+
+  public saveChat(data: ChatEntity): number {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatRepo) throw new Error('Chat repository not initialized')
 
-    // 创建 chats 表（添加 msg_count 和 model 字段）
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS chats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        uuid TEXT NOT NULL UNIQUE,
-        title TEXT NOT NULL,
-        msg_count INTEGER NOT NULL DEFAULT 0,
-        model TEXT,
-        workspace_path TEXT,
-        create_time INTEGER NOT NULL,
-        update_time INTEGER NOT NULL
-      )
-    `)
-
-    // 创建 chat_skills 表
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS chat_skills (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER NOT NULL,
-        skill_name TEXT NOT NULL,
-        load_order INTEGER NOT NULL,
-        loaded_at INTEGER NOT NULL
-      )
-    `)
-
-    // 创建 messages 表
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER,
-        chat_uuid TEXT,
-        body TEXT NOT NULL,
-        tokens INTEGER,
-        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
-      )
-    `)
-
-    // 创建 configs 表
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS configs (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        version INTEGER,
-        updated_at INTEGER NOT NULL
-      )
-    `)
-
-    // 创建 compressed_summaries 表
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS compressed_summaries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER NOT NULL,
-        chat_uuid TEXT NOT NULL,
-        message_ids TEXT NOT NULL,
-        start_message_id INTEGER NOT NULL,
-        end_message_id INTEGER NOT NULL,
-        summary TEXT NOT NULL,
-        original_token_count INTEGER,
-        summary_token_count INTEGER,
-        compression_ratio REAL,
-        compressed_at INTEGER NOT NULL,
-        compression_model TEXT,
-        compression_version INTEGER DEFAULT 1,
-        status TEXT DEFAULT 'active',
-        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
-      )
-    `)
-
-    // 创建 chat_submit_events 表
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS chat_submit_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        submission_id TEXT NOT NULL,
-        chat_id INTEGER,
-        chat_uuid TEXT,
-        sequence INTEGER NOT NULL,
-        type TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        payload TEXT,
-        meta TEXT,
-        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
-      )
-    `)
-
-    // 创建 assistants 表
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS assistants (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        icon TEXT,
-        description TEXT,
-        model_account_id TEXT NOT NULL,
-        model_model_id TEXT NOT NULL,
-        system_prompt TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        is_built_in INTEGER DEFAULT 0,
-        is_default INTEGER DEFAULT 0
-      )
-    `)
-
-    console.log('[DatabaseService] Tables created')
-  }
-
-  /**
-   * 创建索引
-   */
-  private createIndexes(): void {
-    if (!this.db) throw new Error('Database not initialized')
-
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_chats_uuid ON chats(uuid);
-      CREATE INDEX IF NOT EXISTS idx_chats_update_time ON chats(update_time DESC);
-      CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
-      CREATE INDEX IF NOT EXISTS idx_messages_chat_uuid ON messages(chat_uuid);
-      CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_id ON compressed_summaries(chat_id);
-      CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_uuid ON compressed_summaries(chat_uuid);
-      CREATE INDEX IF NOT EXISTS idx_compressed_summaries_status_chat ON compressed_summaries(status, chat_id);
-      CREATE INDEX IF NOT EXISTS idx_compressed_summaries_message_range ON compressed_summaries(chat_id, start_message_id, end_message_id);
-      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_submission ON chat_submit_events(submission_id);
-      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_chat_id ON chat_submit_events(chat_id);
-      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_chat_uuid ON chat_submit_events(chat_uuid);
-      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_timestamp ON chat_submit_events(timestamp);
-      CREATE INDEX IF NOT EXISTS idx_assistants_is_built_in ON assistants(is_built_in);
-      CREATE INDEX IF NOT EXISTS idx_assistants_is_default ON assistants(is_default);
-      CREATE INDEX IF NOT EXISTS idx_chat_skills_chat_id ON chat_skills(chat_id);
-      CREATE INDEX IF NOT EXISTS idx_chat_skills_skill_name ON chat_skills(skill_name);
-    `)
-
-    console.log('[DatabaseService] Indexes created')
-  }
-
-  /**
-   * 兼容旧数据库：为 chats 表补齐 workspace_path 字段
-   */
-  private ensureChatWorkspacePathColumn(): void {
-    if (!this.db) throw new Error('Database not initialized')
-
-    const columns = this.db.prepare(`PRAGMA table_info(chats)`).all() as { name: string }[]
-    const hasWorkspacePath = columns.some(column => column.name === 'workspace_path')
-
-    if (!hasWorkspacePath) {
-      this.db.exec(`ALTER TABLE chats ADD COLUMN workspace_path TEXT`)
-      console.log('[DatabaseService] Migrated chats table: added workspace_path')
+    const now = Date.now()
+    const row = {
+      id: data.id ?? 0,
+      uuid: data.uuid,
+      title: data.title,
+      msg_count: data.msgCount ?? 0,
+      model: data.model ?? null,
+      workspace_path: data.workspacePath ?? null,
+      create_time: data.createTime ?? now,
+      update_time: data.updateTime ?? now
     }
+    return this.chatRepo.insertChat(row)
   }
 
-  /**
-   * 准备常用 SQL 语句
-   */
-  private prepareStatements(): void {
+  public getAllChats(): ChatEntity[] {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatRepo) throw new Error('Chat repository not initialized')
 
-    // Chat statements
-    this.stmts.insertChat = this.db.prepare(`
-      INSERT INTO chats (uuid, title, model, workspace_path, create_time, update_time)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `)
-
-    this.stmts.getAllChats = this.db.prepare(`
-      SELECT * FROM chats ORDER BY update_time DESC
-    `)
-
-    this.stmts.getChatById = this.db.prepare(`
-      SELECT * FROM chats WHERE id = ?
-    `)
-
-    this.stmts.getChatByUuid = this.db.prepare(`
-      SELECT * FROM chats WHERE uuid = ?
-    `)
-
-    this.stmts.getWorkspacePathByUuid = this.db.prepare(`
-      SELECT workspace_path FROM chats WHERE uuid = ?
-    `)
-
-    this.stmts.updateChat = this.db.prepare(`
-      UPDATE chats SET uuid = ?, title = ?, model = ?, workspace_path = ?, create_time = ?, update_time = ?
-      WHERE id = ?
-    `)
-
-    this.stmts.deleteChat = this.db.prepare(`
-      DELETE FROM chats WHERE id = ?
-    `)
-
-    // Chat skills statements
-    this.stmts.insertChatSkill = this.db.prepare(`
-      INSERT INTO chat_skills (chat_id, skill_name, load_order, loaded_at)
-      VALUES (?, ?, ?, ?)
-    `)
-
-    this.stmts.deleteChatSkill = this.db.prepare(`
-      DELETE FROM chat_skills WHERE chat_id = ? AND skill_name = ?
-    `)
-
-    this.stmts.getChatSkillsByChatId = this.db.prepare(`
-      SELECT * FROM chat_skills WHERE chat_id = ? ORDER BY load_order ASC
-    `)
-
-    this.stmts.getChatSkillMaxOrder = this.db.prepare(`
-      SELECT MAX(load_order) as max_order FROM chat_skills WHERE chat_id = ?
-    `)
-
-    // Message statements
-    this.stmts.insertMessage = this.db.prepare(`
-      INSERT INTO messages (chat_id, chat_uuid, body, tokens)
-      VALUES (?, ?, ?, ?)
-    `)
-
-    this.stmts.getAllMessages = this.db.prepare(`
-      SELECT * FROM messages
-    `)
-
-    this.stmts.getMessageById = this.db.prepare(`
-      SELECT * FROM messages WHERE id = ?
-    `)
-
-    this.stmts.updateMessage = this.db.prepare(`
-      UPDATE messages SET chat_id = ?, chat_uuid = ?, body = ?, tokens = ?
-      WHERE id = ?
-    `)
-
-    this.stmts.deleteMessage = this.db.prepare(`
-      DELETE FROM messages WHERE id = ?
-    `)
-
-    // Config statements
-    this.stmts.getConfig = this.db.prepare(`
-      SELECT * FROM configs WHERE key = ?
-    `)
-
-    this.stmts.upsertConfig = this.db.prepare(`
-      INSERT INTO configs (key, value, version, updated_at)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET
-        value = excluded.value,
-        version = excluded.version,
-        updated_at = excluded.updated_at
-    `)
-
-    // CompressedSummary statements
-    this.stmts.insertCompressedSummary = this.db.prepare(`
-      INSERT INTO compressed_summaries (
-        chat_id, chat_uuid, message_ids, start_message_id, end_message_id,
-        summary, original_token_count, summary_token_count, compression_ratio,
-        compressed_at, compression_model, compression_version, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-
-    this.stmts.getCompressedSummariesByChatId = this.db.prepare(`
-      SELECT * FROM compressed_summaries
-      WHERE chat_id = ?
-      ORDER BY start_message_id ASC
-    `)
-
-    this.stmts.getActiveCompressedSummariesByChatId = this.db.prepare(`
-      SELECT * FROM compressed_summaries
-      WHERE chat_id = ? AND status = 'active'
-      ORDER BY start_message_id ASC
-    `)
-
-    this.stmts.updateCompressedSummaryStatus = this.db.prepare(`
-      UPDATE compressed_summaries SET status = ? WHERE id = ?
-    `)
-
-    this.stmts.deleteCompressedSummary = this.db.prepare(`
-      DELETE FROM compressed_summaries WHERE id = ?
-    `)
-
-    // ChatSubmitEventTrace statements
-    this.stmts.insertChatSubmitEvent = this.db.prepare(`
-      INSERT INTO chat_submit_events (
-        submission_id, chat_id, chat_uuid, sequence, type, timestamp, payload, meta
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-
-    // Assistant statements
-    this.stmts.insertAssistant = this.db.prepare(`
-      INSERT INTO assistants (
-        id, name, icon, description, model_account_id, model_model_id,
-        system_prompt, created_at, updated_at, is_built_in, is_default
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-
-    this.stmts.getAllAssistants = this.db.prepare(`
-      SELECT * FROM assistants ORDER BY created_at DESC
-    `)
-
-    this.stmts.getAssistantById = this.db.prepare(`
-      SELECT * FROM assistants WHERE id = ?
-    `)
-
-    this.stmts.updateAssistant = this.db.prepare(`
-      UPDATE assistants SET
-        name = ?, icon = ?, description = ?, model_account_id = ?,
-        model_model_id = ?, system_prompt = ?, updated_at = ?,
-        is_built_in = ?, is_default = ?
-      WHERE id = ?
-    `)
-
-    this.stmts.deleteAssistant = this.db.prepare(`
-      DELETE FROM assistants WHERE id = ?
-    `)
-
-    console.log('[DatabaseService] Statements prepared')
-  }
-
-  /**
-   * 将数据库行转换为 ChatEntity
-   */
-  private rowToChatEntity(row: ChatRow): ChatEntity {
-    return {
+    const rows = this.chatRepo.getAllChats()
+    return rows.map(row => ({
       id: row.id,
       uuid: row.uuid,
       title: row.title,
-      messages: [], // 空数组，需要通过 getMessagesByChatId 获取
       msgCount: row.msg_count,
       model: row.model ?? undefined,
       workspacePath: row.workspace_path ?? undefined,
       createTime: row.create_time,
       updateTime: row.update_time,
+      messages: []
+    }))
+  }
+
+  public getChatById(id: number): ChatEntity | undefined {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatRepo) throw new Error('Chat repository not initialized')
+
+    const row = this.chatRepo.getChatById(id)
+    if (!row) return undefined
+    return {
+      id: row.id,
+      uuid: row.uuid,
+      title: row.title,
+      msgCount: row.msg_count,
+      model: row.model ?? undefined,
+      workspacePath: row.workspace_path ?? undefined,
+      createTime: row.create_time,
+      updateTime: row.update_time,
+      messages: []
     }
   }
 
-  /**
-   * 获取聊天的所有消息 ID
-   */
-  private getMessageIdsByChatId(chatId: number): number[] {
+  public getChatByUuid(uuid: string): ChatEntity | undefined {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatRepo) throw new Error('Chat repository not initialized')
 
-    const rows = this.db.prepare('SELECT id FROM messages WHERE chat_id = ? ORDER BY id ASC').all(chatId) as { id: number }[]
-    return rows.map(row => row.id)
+    const row = this.chatRepo.getChatByUuid(uuid)
+    if (!row) return undefined
+    return {
+      id: row.id,
+      uuid: row.uuid,
+      title: row.title,
+      msgCount: row.msg_count,
+      model: row.model ?? undefined,
+      workspacePath: row.workspace_path ?? undefined,
+      createTime: row.create_time,
+      updateTime: row.update_time,
+      messages: []
+    }
   }
 
-  /**
-   * 将数据库行转换为 MessageEntity
-   */
-  private rowToMessageEntity(row: MessageRow): MessageEntity {
+  public getWorkspacePathByUuid(uuid: string): string | undefined {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatRepo) throw new Error('Chat repository not initialized')
+    return this.chatRepo.getWorkspacePathByUuid(uuid)
+  }
+
+  public updateChat(data: ChatEntity): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatRepo) throw new Error('Chat repository not initialized')
+    if (!data.id) return
+
+    const row = {
+      id: data.id,
+      uuid: data.uuid,
+      title: data.title,
+      msg_count: data.msgCount ?? 0,
+      model: data.model ?? null,
+      workspace_path: data.workspacePath ?? null,
+      create_time: data.createTime ?? Date.now(),
+      update_time: data.updateTime ?? Date.now()
+    }
+    this.chatRepo.updateChat(row)
+  }
+
+  public deleteChat(id: number): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatRepo) throw new Error('Chat repository not initialized')
+    this.chatRepo.deleteChat(id)
+  }
+
+  public getChatSkills(chatId: number): string[] {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatSkillRepo) throw new Error('Chat skill repository not initialized')
+
+    const rows = this.chatSkillRepo.getChatSkills(chatId)
+    return rows.map(row => row.skill_name)
+  }
+
+  public addChatSkill(chatId: number, skillName: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatSkillRepo) throw new Error('Chat skill repository not initialized')
+    this.chatSkillRepo.addChatSkill(chatId, skillName)
+  }
+
+  public removeChatSkill(chatId: number, skillName: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.chatSkillRepo) throw new Error('Chat skill repository not initialized')
+    this.chatSkillRepo.removeChatSkill(chatId, skillName)
+  }
+
+  public saveMessage(data: MessageEntity): number {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.messageRepo) throw new Error('Message repository not initialized')
+
+    const row = {
+      chat_id: data.chatId ?? null,
+      chat_uuid: data.chatUuid ?? null,
+      body: JSON.stringify(data.body),
+      tokens: data.tokens ?? null
+    }
+    return this.messageRepo.insertMessage(row)
+  }
+
+  public getAllMessages(): MessageEntity[] {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.messageRepo) throw new Error('Message repository not initialized')
+
+    const rows = this.messageRepo.getAllMessages()
+    return rows.map(row => ({
+      id: row.id,
+      chatId: row.chat_id ?? undefined,
+      chatUuid: row.chat_uuid ?? undefined,
+      body: JSON.parse(row.body),
+      tokens: row.tokens ?? undefined
+    }))
+  }
+
+  public getMessageById(id: number): MessageEntity | undefined {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!this.messageRepo) throw new Error('Message repository not initialized')
+
+    const row = this.messageRepo.getMessageById(id)
+    if (!row) return undefined
     return {
       id: row.id,
       chatId: row.chat_id ?? undefined,
       chatUuid: row.chat_uuid ?? undefined,
       body: JSON.parse(row.body),
-      tokens: row.tokens ?? undefined,
+      tokens: row.tokens ?? undefined
     }
   }
 
-
-  // ==================== Chat 操作 ====================
-
-  /**
-   * 保存聊天
-   */
-  public saveChat(data: ChatEntity): number {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const result = this.stmts.insertChat!.run(
-        data.uuid,
-        data.title,
-        data.model ?? null,
-        data.workspacePath ?? null,
-        data.createTime,
-        data.updateTime
-      )
-      console.log(`[DatabaseService] Saved chat: ${result.lastInsertRowid}`)
-      return result.lastInsertRowid as number
-    } catch (error) {
-      console.error('[DatabaseService] Failed to save chat:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 获取所有聊天（不包含消息列表）
-   */
-  public getAllChats(): ChatEntity[] {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const rows = this.stmts.getAllChats!.all() as ChatRow[]
-      return rows.map(row => {
-        const chat = this.rowToChatEntity(row)
-        // 不填充 messages 字段，保持为空数组
-        chat.messages = []
-        return chat
-      })
-    } catch (error) {
-      console.error('[DatabaseService] Failed to get all chats:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 根据 ID 获取聊天
-   */
-  public getChatById(id: number): ChatEntity | undefined {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const row = this.stmts.getChatById!.get(id) as ChatRow | undefined
-      if (!row) return undefined
-
-      const chat = this.rowToChatEntity(row)
-      // 填充 messages 字段
-      chat.messages = this.getMessageIdsByChatId(row.id)
-      return chat
-    } catch (error) {
-      console.error('[DatabaseService] Failed to get chat by id:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 根据 UUID 获取聊天
-   */
-  public getChatByUuid(uuid: string): ChatEntity | undefined {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const row = this.stmts.getChatByUuid!.get(uuid) as ChatRow | undefined
-      if (!row) return undefined
-
-      const chat = this.rowToChatEntity(row)
-      // 填充 messages 字段
-      chat.messages = this.getMessageIdsByChatId(row.id)
-      return chat
-    } catch (error) {
-      console.error('[DatabaseService] Failed to get chat by uuid:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 根据 UUID 获取 workspace_path
-   */
-  public getWorkspacePathByUuid(uuid: string): string | undefined {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const row = this.stmts.getWorkspacePathByUuid!.get(uuid) as { workspace_path: string | null } | undefined
-      return row?.workspace_path ?? undefined
-    } catch (error) {
-      console.error('[DatabaseService] Failed to get workspace path by uuid:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 更新聊天
-   */
-  public updateChat(data: ChatEntity): void {
-    if (!this.db) throw new Error('Database not initialized')
-    if (!data.id) throw new Error('Chat id is required for update')
-
-    try {
-      this.stmts.updateChat!.run(
-        data.uuid,
-        data.title,
-        data.model ?? null,
-        data.workspacePath ?? null,
-        data.createTime,
-        data.updateTime,
-        data.id
-      )
-      console.log(`[DatabaseService] Updated chat: ${data.id}`)
-    } catch (error) {
-      console.error('[DatabaseService] Failed to update chat:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 删除聊天
-   */
-  public deleteChat(id: number): void {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      this.stmts.deleteChat!.run(id)
-      console.log(`[DatabaseService] Deleted chat: ${id}`)
-    } catch (error) {
-      console.error('[DatabaseService] Failed to delete chat:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 获取聊天已加载的技能列表（按加载顺序）
-   */
-  public getChatSkills(chatId: number): string[] {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const rows = this.stmts.getChatSkillsByChatId!.all(chatId) as ChatSkillRow[]
-      return rows.map(row => row.skill_name)
-    } catch (error) {
-      console.error('[DatabaseService] Failed to get chat skills:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 添加聊天技能（后加载优先）
-   */
-  public addChatSkill(chatId: number, skillName: string): void {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      this.stmts.deleteChatSkill!.run(chatId, skillName)
-      const row = this.stmts.getChatSkillMaxOrder!.get(chatId) as { max_order: number | null } | undefined
-      const maxOrder = row?.max_order ?? 0
-      this.stmts.insertChatSkill!.run(chatId, skillName, maxOrder + 1, Date.now())
-    } catch (error) {
-      console.error('[DatabaseService] Failed to add chat skill:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 移除聊天技能
-   */
-  public removeChatSkill(chatId: number, skillName: string): void {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      this.stmts.deleteChatSkill!.run(chatId, skillName)
-    } catch (error) {
-      console.error('[DatabaseService] Failed to remove chat skill:', error)
-      throw error
-    }
-  }
-
-  // ==================== Message 操作 ====================
-
-  /**
-   * 保存消息
-   */
-  public saveMessage(data: MessageEntity): number {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const result = this.stmts.insertMessage!.run(
-        data.chatId ?? null,
-        data.chatUuid ?? null,
-        JSON.stringify(data.body),
-        data.tokens ?? null
-      )
-
-      // 如果消息关联了聊天，递增该聊天的 msg_count
-      if (data.chatId) {
-        this.db.prepare('UPDATE chats SET msg_count = msg_count + 1 WHERE id = ?').run(data.chatId)
-      }
-
-      console.log(`[DatabaseService] Saved message: ${result.lastInsertRowid}`)
-      return result.lastInsertRowid as number
-    } catch (error) {
-      console.error('[DatabaseService] Failed to save message:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 获取所有消息
-   */
-  public getAllMessages(): MessageEntity[] {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const rows = this.stmts.getAllMessages!.all() as MessageRow[]
-      return rows.map(row => this.rowToMessageEntity(row))
-    } catch (error) {
-      console.error('[DatabaseService] Failed to get all messages:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 根据 ID 获取消息
-   */
-  public getMessageById(id: number): MessageEntity | undefined {
-    if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      const row = this.stmts.getMessageById!.get(id) as MessageRow | undefined
-      return row ? this.rowToMessageEntity(row) : undefined
-    } catch (error) {
-      console.error('[DatabaseService] Failed to get message by id:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 根据多个 ID 获取消息（批量查询）
-   */
   public getMessageByIds(ids: number[]): MessageEntity[] {
     if (!this.db) throw new Error('Database not initialized')
-    if (ids.length === 0) return []
+    if (!this.messageRepo) throw new Error('Message repository not initialized')
 
-    try {
-      const stmt = this.stmts.getMessageById!
-      const transaction = this.db.transaction((ids: number[]) => {
-        return ids.map(id => stmt.get(id)).filter(row => row !== undefined)
-      })
-      const rows = transaction(ids) as MessageRow[]
-      return rows.map(row => this.rowToMessageEntity(row))
-    } catch (error) {
-      console.error('[DatabaseService] Failed to get messages by ids:', error)
-      throw error
-    }
+    const rows = this.messageRepo.getMessageByIds(ids)
+    return rows.map(row => ({
+      id: row.id,
+      chatId: row.chat_id ?? undefined,
+      chatUuid: row.chat_uuid ?? undefined,
+      body: JSON.parse(row.body),
+      tokens: row.tokens ?? undefined
+    }))
   }
 
-  /**
-   * 更新消息
-   */
   public updateMessage(data: MessageEntity): void {
     if (!this.db) throw new Error('Database not initialized')
-    if (!data.id) throw new Error('Message id is required for update')
+    if (!this.messageRepo) throw new Error('Message repository not initialized')
+    if (!data.id) return
 
-    try {
-      this.stmts.updateMessage!.run(
-        data.chatId ?? null,
-        data.chatUuid ?? null,
-        JSON.stringify(data.body),
-        data.tokens ?? null,
-        data.id
-      )
-      console.log(`[DatabaseService] Updated message: ${data.id}`)
-    } catch (error) {
-      console.error('[DatabaseService] Failed to update message:', error)
-      throw error
-    }
+    this.messageRepo.updateMessage({
+      id: data.id,
+      chat_id: data.chatId ?? null,
+      chat_uuid: data.chatUuid ?? null,
+      body: JSON.stringify(data.body),
+      tokens: data.tokens ?? null
+    })
   }
 
-  /**
-   * 删除消息
-   */
   public deleteMessage(id: number): void {
     if (!this.db) throw new Error('Database not initialized')
-
-    try {
-      // 先获取消息的 chat_id，用于更新 msg_count
-      const message = this.db.prepare('SELECT chat_id FROM messages WHERE id = ?').get(id) as { chat_id: number | null } | undefined
-
-      // 删除消息
-      this.stmts.deleteMessage!.run(id)
-
-      // 如果消息关联了聊天，递减该聊天的 msg_count
-      if (message?.chat_id) {
-        this.db.prepare('UPDATE chats SET msg_count = msg_count - 1 WHERE id = ?').run(message.chat_id)
-      }
-
-      console.log(`[DatabaseService] Deleted message: ${id}`)
-    } catch (error) {
-      console.error('[DatabaseService] Failed to delete message:', error)
-      throw error
-    }
+    if (!this.messageRepo) throw new Error('Message repository not initialized')
+    this.messageRepo.deleteMessage(id)
   }
 
   /**
@@ -920,11 +337,18 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized')
 
     try {
-      const row = this.stmts.getConfig!.get('appConfig') as ConfigRow | undefined
+      const row = this.configRepo?.getConfig()
       if (!row) return undefined
 
       const config = JSON.parse(row.value) as IAppConfig
-      return config
+      const providerDefinitions = this.getProviderDefinitionsFromDb()
+      const accounts = this.getProviderAccountsFromDb()
+
+      return {
+        ...config,
+        providerDefinitions,
+        accounts
+      }
     } catch (error) {
       console.error('[DatabaseService] Failed to get config:', error)
       throw error
@@ -938,11 +362,21 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized')
 
     try {
-      this.stmts.upsertConfig!.run(
-        'appConfig',
-        JSON.stringify(config),
-        config.version ?? null,
-        Date.now()
+      const hasDefinitions = Object.prototype.hasOwnProperty.call(config, 'providerDefinitions')
+      const hasAccounts = Object.prototype.hasOwnProperty.call(config, 'accounts')
+      if (hasDefinitions) {
+        const providerDefinitions = config.providerDefinitions ?? []
+        this.saveProviderDefinitionsToDb(providerDefinitions)
+      }
+      if (hasAccounts) {
+        const accounts = config.accounts ?? []
+        this.saveProviderAccountsToDb(accounts)
+      }
+
+      const { providerDefinitions: _defs, accounts: _accounts, ...baseConfig } = config
+      this.configRepo?.saveConfig(
+        JSON.stringify(baseConfig),
+        baseConfig.version ?? null
       )
       console.log('[DatabaseService] Saved config')
     } catch (error) {
@@ -966,9 +400,7 @@ class DatabaseService {
     if (!key) return undefined
 
     try {
-      const row = this.stmts.getConfig!.get(key) as ConfigRow | undefined
-      if (!row) return undefined
-      return row.value
+      return this.configRepo?.getValue(key)
     } catch (error) {
       console.error('[DatabaseService] Failed to get config value:', error)
       throw error
@@ -983,12 +415,7 @@ class DatabaseService {
     if (!key) return
 
     try {
-      this.stmts.upsertConfig!.run(
-        key,
-        value,
-        version ?? null,
-        Date.now()
-      )
+      this.configRepo?.saveValue(key, value, version ?? null)
     } catch (error) {
       console.error('[DatabaseService] Failed to save config value:', error)
       throw error
@@ -1010,8 +437,6 @@ class DatabaseService {
 
       // 默认配置
       const defaultConfig: IAppConfig = {
-        providerDefinitions: defaultProviderList,
-        accounts: [],
         version: 2.0,
         tools: {
           maxWebSearchItems: 3
@@ -1028,50 +453,39 @@ class DatabaseService {
         // 首次使用，使用默认配置
         console.log('[DatabaseService] First time use, saving default config with', defaultProviderList.length, 'provider definitions')
         this.saveConfig(defaultConfig)
+        this.ensureProviderDefinitions(defaultProviderList)
         console.log('[DatabaseService] Initialized with default config, providerDefinitions count:', defaultProviderList.length)
-        return defaultConfig
+        return {
+          ...defaultConfig,
+          providerDefinitions: this.getProviderDefinitionsFromDb(),
+          accounts: this.getProviderAccountsFromDb()
+        }
       }
-
-      const normalizedDefinitions = this.normalizeProviderDefinitions(config.providerDefinitions || [])
-      const normalizedAccounts = this.normalizeAccounts(config.accounts || [])
-
-      let nextConfig = {
-        ...config,
-        providerDefinitions: normalizedDefinitions.definitions,
-        accounts: normalizedAccounts.accounts
-      }
-      let shouldSave = normalizedDefinitions.changed || normalizedAccounts.changed
 
       console.log('[DatabaseService] Existing config version:', config.version, 'default version:', defaultConfig.version)
-      console.log('[DatabaseService] Existing config providerDefinitions count:', config.providerDefinitions?.length || 0)
-
-      const currentDefinitions = nextConfig.providerDefinitions || []
-      if (currentDefinitions.length === 0) {
-        nextConfig = {
-          ...nextConfig,
-          providerDefinitions: defaultProviderList
-        }
-        shouldSave = true
-        console.log('[DatabaseService] Backfilled providerDefinitions from defaults')
+      const providerCount = this.providerRepo?.countProviderDefinitions() ?? 0
+      if (providerCount === 0) {
+        this.ensureProviderDefinitions(defaultProviderList)
+        console.log('[DatabaseService] Seeded provider definitions from defaults')
       }
 
       if (defaultConfig.version! > config.version!) {
-        nextConfig = {
-          ...nextConfig,
+        const nextConfig = {
+          ...config,
           ...defaultConfig.configForUpdate,
           version: defaultConfig.version
         }
-        shouldSave = true
+        this.saveConfig(nextConfig)
+        config = nextConfig
         console.log(`[DatabaseService] Upgraded config from ${config.version} to ${defaultConfig.version}`)
       }
 
-      if (shouldSave) {
-        this.saveConfig(nextConfig)
-        return nextConfig
+      console.log('[DatabaseService] Returning existing config, providerDefinitions count:', this.getProviderDefinitionsFromDb().length)
+      return {
+        ...config,
+        providerDefinitions: this.getProviderDefinitionsFromDb(),
+        accounts: this.getProviderAccountsFromDb()
       }
-
-      console.log('[DatabaseService] Returning existing config, providerDefinitions count:', nextConfig.providerDefinitions?.length || 0)
-      return nextConfig
     } catch (error) {
       console.error('[DatabaseService] Failed to init config:', error)
       throw error
@@ -1107,33 +521,291 @@ class DatabaseService {
     return { definitions: Array.from(byId.values()), changed }
   }
 
-  private normalizeAccounts(
-    accounts: ProviderAccount[]
-  ): { accounts: ProviderAccount[]; changed: boolean } {
-    let changed = false
-    const normalized = accounts.map(account => {
-      const normalizedProviderId = this.normalizeProviderId(account.providerId || '')
-      if (!normalizedProviderId) {
-        return account
-      }
-      if (normalizedProviderId !== account.providerId) {
-        changed = true
-        return { ...account, providerId: normalizedProviderId }
-      }
-      return account
-    })
-    const deduped: ProviderAccount[] = []
-    const seen = new Set<string>()
-    normalized.forEach(account => {
-      if (seen.has(account.providerId)) {
-        changed = true
-        return
-      }
-      seen.add(account.providerId)
-      deduped.push(account)
+
+  private getProviderDefinitionsFromDb(): ProviderDefinition[] {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const rows = this.providerRepo?.getProviderDefinitions() ?? []
+    return rows.map(row => ({
+      id: row.id,
+      displayName: row.display_name,
+      adapterType: row.adapter_type as ProviderType,
+      apiVersion: row.api_version ?? undefined,
+      iconKey: row.icon_key ?? undefined,
+      defaultApiUrl: row.default_api_url ?? undefined
+    }))
+  }
+
+  private getProviderAccountsFromDb(): ProviderAccount[] {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const accountRows = this.providerRepo?.getProviderAccounts() ?? []
+    const modelRows = this.providerRepo?.getProviderModels() ?? []
+    const modelsByAccount = new Map<string, AccountModel[]>()
+
+    modelRows.forEach(row => {
+      const models = modelsByAccount.get(row.account_id) || []
+      models.push({
+        id: row.model_id,
+        label: row.label,
+        type: row.type as ModelType,
+        enabled: row.enabled === 1
+      })
+      modelsByAccount.set(row.account_id, models)
     })
 
-    return { accounts: deduped, changed }
+    return accountRows.map(row => ({
+      id: row.id,
+      providerId: row.provider_id,
+      label: row.label,
+      apiUrl: row.api_url,
+      apiKey: row.api_key,
+      models: modelsByAccount.get(row.id) || []
+    }))
+  }
+
+  private ensureProviderDefinitions(definitions: ProviderDefinition[]): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!definitions.length) return
+
+    const normalized = this.normalizeProviderDefinitions(definitions).definitions
+    const now = Date.now()
+    const tx = this.db.transaction(() => {
+      normalized.forEach(def => {
+        this.providerRepo?.upsertProviderDefinition({
+          id: def.id,
+          display_name: def.displayName,
+          adapter_type: def.adapterType,
+          api_version: def.apiVersion ?? null,
+          icon_key: def.iconKey ?? null,
+          default_api_url: def.defaultApiUrl ?? null,
+          created_at: now,
+          updated_at: now
+        })
+      })
+    })
+    tx()
+  }
+
+  private saveProviderDefinitionsToDb(definitions: ProviderDefinition[]): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const normalized = this.normalizeProviderDefinitions(definitions).definitions
+    const existingRows = this.providerRepo?.getProviderDefinitions() ?? []
+    const existingIds = new Set(existingRows.map(row => row.id))
+    const incomingIds = new Set(normalized.map(def => def.id))
+    const now = Date.now()
+
+    const tx = this.db.transaction(() => {
+      normalized.forEach(def => {
+        this.providerRepo?.upsertProviderDefinition({
+          id: def.id,
+          display_name: def.displayName,
+          adapter_type: def.adapterType,
+          api_version: def.apiVersion ?? null,
+          icon_key: def.iconKey ?? null,
+          default_api_url: def.defaultApiUrl ?? null,
+          created_at: now,
+          updated_at: now
+        })
+      })
+
+      existingIds.forEach(id => {
+        if (incomingIds.has(id)) return
+        const accountRows = this.db!.prepare('SELECT id FROM provider_accounts WHERE provider_id = ?')
+          .all(id) as { id: string }[]
+        accountRows.forEach(row => {
+          this.providerRepo?.deleteProviderModelsByAccountId(row.id)
+        })
+        this.providerRepo?.deleteProviderAccountsByProviderId(id)
+        this.providerRepo?.deleteProviderDefinition(id)
+      })
+    })
+    tx()
+  }
+
+  private saveProviderAccountsToDb(accounts: ProviderAccount[]): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const existingRows = this.providerRepo?.getProviderAccounts() ?? []
+    const existingIds = new Set(existingRows.map(row => row.id))
+    const incomingIds = new Set(accounts.map(account => account.id))
+    const now = Date.now()
+
+    const tx = this.db.transaction(() => {
+      accounts.forEach(account => {
+        this.assertProviderExists(account.providerId)
+        this.providerRepo?.upsertProviderAccount({
+          id: account.id,
+          provider_id: account.providerId,
+          label: account.label,
+          api_url: account.apiUrl,
+          api_key: account.apiKey,
+          created_at: now,
+          updated_at: now
+        })
+
+        const models = account.models || []
+        const existingModelRows = this.db!.prepare('SELECT model_id FROM provider_models WHERE account_id = ?')
+          .all(account.id) as { model_id: string }[]
+        const existingModelIds = new Set(existingModelRows.map(row => row.model_id))
+        const incomingModelIds = new Set(models.map(model => model.id))
+
+        models.forEach(model => {
+          this.providerRepo?.upsertProviderModel({
+            account_id: account.id,
+            model_id: model.id,
+            label: model.label,
+            type: model.type,
+            enabled: model.enabled ? 1 : 0,
+            created_at: now,
+            updated_at: now
+          })
+        })
+
+        existingModelIds.forEach(modelId => {
+          if (incomingModelIds.has(modelId)) return
+          this.providerRepo?.deleteProviderModel(account.id, modelId)
+        })
+      })
+
+      existingIds.forEach(id => {
+        if (incomingIds.has(id)) return
+        this.providerRepo?.deleteProviderModelsByAccountId(id)
+        this.providerRepo?.deleteProviderAccount(id)
+      })
+    })
+    tx()
+  }
+
+  public getProviderDefinitions(): ProviderDefinition[] {
+    return this.getProviderDefinitionsFromDb()
+  }
+
+  public saveProviderDefinition(definition: ProviderDefinition): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const normalized = this.normalizeProviderDefinitions([definition]).definitions[0]
+    if (!normalized) return
+    const now = Date.now()
+    this.providerRepo?.upsertProviderDefinition({
+      id: normalized.id,
+      display_name: normalized.displayName,
+      adapter_type: normalized.adapterType,
+      api_version: normalized.apiVersion ?? null,
+      icon_key: normalized.iconKey ?? null,
+      default_api_url: normalized.defaultApiUrl ?? null,
+      created_at: now,
+      updated_at: now
+    })
+  }
+
+  public deleteProviderDefinition(providerId: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!providerId) return
+
+    const accountRows = this.db.prepare('SELECT id FROM provider_accounts WHERE provider_id = ?')
+      .all(providerId) as { id: string }[]
+    accountRows.forEach(row => {
+      this.providerRepo?.deleteProviderModelsByAccountId(row.id)
+    })
+    this.providerRepo?.deleteProviderAccountsByProviderId(providerId)
+    this.providerRepo?.deleteProviderDefinition(providerId)
+  }
+
+  public getProviderAccounts(): ProviderAccount[] {
+    return this.getProviderAccountsFromDb()
+  }
+
+  public saveProviderAccount(account: ProviderAccount): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!account?.id) return
+
+    this.assertProviderExists(account.providerId)
+    const now = Date.now()
+    const tx = this.db.transaction(() => {
+      this.providerRepo?.upsertProviderAccount({
+        id: account.id,
+        provider_id: account.providerId,
+        label: account.label,
+        api_url: account.apiUrl,
+        api_key: account.apiKey,
+        created_at: now,
+        updated_at: now
+      })
+
+      const models = account.models || []
+      const existingRows = this.db!.prepare('SELECT model_id FROM provider_models WHERE account_id = ?')
+        .all(account.id) as { model_id: string }[]
+      const existingIds = new Set(existingRows.map(row => row.model_id))
+      const incomingIds = new Set(models.map(model => model.id))
+
+      models.forEach(model => {
+        this.providerRepo?.upsertProviderModel({
+          account_id: account.id,
+          model_id: model.id,
+          label: model.label,
+          type: model.type,
+          enabled: model.enabled ? 1 : 0,
+          created_at: now,
+          updated_at: now
+        })
+      })
+
+      existingIds.forEach(modelId => {
+        if (incomingIds.has(modelId)) return
+        this.providerRepo?.deleteProviderModel(account.id, modelId)
+      })
+    })
+    tx()
+  }
+
+  public deleteProviderAccount(accountId: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!accountId) return
+
+    this.providerRepo?.deleteProviderModelsByAccountId(accountId)
+    this.providerRepo?.deleteProviderAccount(accountId)
+  }
+
+  public saveProviderModel(accountId: string, model: AccountModel): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!accountId || !model?.id) return
+
+    const now = Date.now()
+    this.providerRepo?.upsertProviderModel({
+      account_id: accountId,
+      model_id: model.id,
+      label: model.label,
+      type: model.type,
+      enabled: model.enabled ? 1 : 0,
+      created_at: now,
+      updated_at: now
+    })
+  }
+
+  public deleteProviderModel(accountId: string, modelId: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!accountId || !modelId) return
+
+    this.providerRepo?.deleteProviderModel(accountId, modelId)
+  }
+
+  public setProviderModelEnabled(accountId: string, modelId: string, enabled: boolean): void {
+    if (!this.db) throw new Error('Database not initialized')
+    if (!accountId || !modelId) return
+
+    this.providerRepo?.updateProviderModelEnabled(accountId, modelId, enabled ? 1 : 0)
+  }
+
+  private assertProviderExists(providerId: string): void {
+    if (!providerId) {
+      throw new Error('ProviderId is required')
+    }
+    const row = this.providerRepo?.getProviderDefinitionById(providerId)
+    if (!row) {
+      throw new Error(`Provider not found for providerId: ${providerId}`)
+    }
   }
 
   /**
@@ -1141,8 +813,16 @@ class DatabaseService {
    */
   public close(): void {
     if (this.db) {
-      this.db.close()
+      this.dbCore.close()
       this.db = null
+      this.configRepo = undefined
+      this.providerRepo = undefined
+      this.chatRepo = undefined
+      this.chatSkillRepo = undefined
+      this.messageRepo = undefined
+      this.summaryRepo = undefined
+      this.submitEventRepo = undefined
+      this.assistantRepo = undefined
       this.isInitialized = false
       console.log('[DatabaseService] Database closed')
     }
@@ -1155,19 +835,19 @@ class DatabaseService {
    */
   public saveChatSubmitEvent(data: ChatSubmitEventTrace): number {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.submitEventRepo) throw new Error('Chat submit event repository not initialized')
 
     try {
-      const result = this.stmts.insertChatSubmitEvent!.run(
-        data.submissionId,
-        data.chatId ?? null,
-        data.chatUuid ?? null,
-        data.sequence,
-        data.type,
-        data.timestamp,
-        data.payload ? JSON.stringify(data.payload) : null,
-        data.meta ? JSON.stringify(data.meta) : null
-      )
-      return result.lastInsertRowid as number
+      return this.submitEventRepo.insert({
+        submission_id: data.submissionId,
+        chat_id: data.chatId ?? null,
+        chat_uuid: data.chatUuid ?? null,
+        sequence: data.sequence,
+        type: data.type,
+        timestamp: data.timestamp,
+        payload: data.payload ? JSON.stringify(data.payload) : null,
+        meta: data.meta ? JSON.stringify(data.meta) : null
+      })
     } catch (error) {
       console.error('[DatabaseService] Failed to save chat submit event:', error)
       throw error
@@ -1203,25 +883,26 @@ class DatabaseService {
    */
   public saveCompressedSummary(data: CompressedSummaryEntity): number {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.summaryRepo) throw new Error('Compressed summary repository not initialized')
 
     try {
-      const result = this.stmts.insertCompressedSummary!.run(
-        data.chatId,
-        data.chatUuid,
-        JSON.stringify(data.messageIds),
-        data.startMessageId,
-        data.endMessageId,
-        data.summary,
-        data.originalTokenCount ?? null,
-        data.summaryTokenCount ?? null,
-        data.compressionRatio ?? null,
-        data.compressedAt,
-        data.compressionModel ?? null,
-        data.compressionVersion ?? 1,
-        data.status ?? 'active'
-      )
-      console.log(`[DatabaseService] Saved compressed summary: ${result.lastInsertRowid}`)
-      return result.lastInsertRowid as number
+      const id = this.summaryRepo.insert({
+        chat_id: data.chatId,
+        chat_uuid: data.chatUuid,
+        message_ids: JSON.stringify(data.messageIds),
+        start_message_id: data.startMessageId,
+        end_message_id: data.endMessageId,
+        summary: data.summary,
+        original_token_count: data.originalTokenCount ?? null,
+        summary_token_count: data.summaryTokenCount ?? null,
+        compression_ratio: data.compressionRatio ?? null,
+        compressed_at: data.compressedAt,
+        compression_model: data.compressionModel ?? null,
+        compression_version: data.compressionVersion ?? 1,
+        status: data.status ?? 'active'
+      })
+      console.log(`[DatabaseService] Saved compressed summary: ${id}`)
+      return id
     } catch (error) {
       console.error('[DatabaseService] Failed to save compressed summary:', error)
       throw error
@@ -1233,9 +914,10 @@ class DatabaseService {
    */
   public getCompressedSummariesByChatId(chatId: number): CompressedSummaryEntity[] {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.summaryRepo) throw new Error('Compressed summary repository not initialized')
 
     try {
-      const rows = this.stmts.getCompressedSummariesByChatId!.all(chatId) as CompressedSummaryRow[]
+      const rows = this.summaryRepo.getByChatId(chatId)
       return rows.map(row => this.rowToCompressedSummaryEntity(row))
     } catch (error) {
       console.error('[DatabaseService] Failed to get compressed summaries:', error)
@@ -1248,9 +930,10 @@ class DatabaseService {
    */
   public getActiveCompressedSummariesByChatId(chatId: number): CompressedSummaryEntity[] {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.summaryRepo) throw new Error('Compressed summary repository not initialized')
 
     try {
-      const rows = this.stmts.getActiveCompressedSummariesByChatId!.all(chatId) as CompressedSummaryRow[]
+      const rows = this.summaryRepo.getActiveByChatId(chatId)
       return rows.map(row => this.rowToCompressedSummaryEntity(row))
     } catch (error) {
       console.error('[DatabaseService] Failed to get active compressed summaries:', error)
@@ -1263,9 +946,10 @@ class DatabaseService {
    */
   public updateCompressedSummaryStatus(id: number, status: 'active' | 'superseded' | 'invalid'): void {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.summaryRepo) throw new Error('Compressed summary repository not initialized')
 
     try {
-      this.stmts.updateCompressedSummaryStatus!.run(status, id)
+      this.summaryRepo.updateStatus(id, status)
       console.log(`[DatabaseService] Updated compressed summary status: ${id} -> ${status}`)
     } catch (error) {
       console.error('[DatabaseService] Failed to update compressed summary status:', error)
@@ -1278,9 +962,10 @@ class DatabaseService {
    */
   public deleteCompressedSummary(id: number): void {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.summaryRepo) throw new Error('Compressed summary repository not initialized')
 
     try {
-      this.stmts.deleteCompressedSummary!.run(id)
+      this.summaryRepo.delete(id)
       console.log(`[DatabaseService] Deleted compressed summary: ${id}`)
     } catch (error) {
       console.error('[DatabaseService] Failed to delete compressed summary:', error)
@@ -1316,21 +1001,22 @@ class DatabaseService {
    */
   public saveAssistant(assistant: Assistant): string {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.assistantRepo) throw new Error('Assistant repository not initialized')
 
     try {
-      this.stmts.insertAssistant!.run(
-        assistant.id,
-        assistant.name,
-        assistant.icon || null,
-        assistant.description || null,
-        assistant.modelRef.accountId,
-        assistant.modelRef.modelId,
-        assistant.systemPrompt,
-        assistant.createdAt,
-        assistant.updatedAt,
-        assistant.isBuiltIn ? 1 : 0,
-        assistant.isDefault ? 1 : 0
-      )
+      this.assistantRepo.insert({
+        id: assistant.id,
+        name: assistant.name,
+        icon: assistant.icon || null,
+        description: assistant.description || null,
+        model_account_id: assistant.modelRef.accountId,
+        model_model_id: assistant.modelRef.modelId,
+        system_prompt: assistant.systemPrompt,
+        created_at: assistant.createdAt,
+        updated_at: assistant.updatedAt,
+        is_built_in: assistant.isBuiltIn ? 1 : 0,
+        is_default: assistant.isDefault ? 1 : 0
+      })
       console.log(`[DatabaseService] Saved assistant: ${assistant.id}`)
       return assistant.id
     } catch (error) {
@@ -1344,9 +1030,10 @@ class DatabaseService {
    */
   public getAllAssistants(): Assistant[] {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.assistantRepo) throw new Error('Assistant repository not initialized')
 
     try {
-      const rows = this.stmts.getAllAssistants!.all() as AssistantRow[]
+      const rows = this.assistantRepo.getAll()
       return rows.map(row => this.rowToAssistant(row))
     } catch (error) {
       console.error('[DatabaseService] Failed to get all assistants:', error)
@@ -1359,9 +1046,10 @@ class DatabaseService {
    */
   public deleteAllAssistants(): void {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.assistantRepo) throw new Error('Assistant repository not initialized')
 
     try {
-      this.db.prepare('DELETE FROM assistants').run()
+      this.assistantRepo.deleteAll()
       console.log('[DatabaseService] Deleted all assistants')
     } catch (error) {
       console.error('[DatabaseService] Failed to delete all assistants:', error)
@@ -1374,9 +1062,10 @@ class DatabaseService {
    */
   public getAssistantById(id: string): Assistant | undefined {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.assistantRepo) throw new Error('Assistant repository not initialized')
 
     try {
-      const row = this.stmts.getAssistantById!.get(id) as AssistantRow | undefined
+      const row = this.assistantRepo.getById(id)
       return row ? this.rowToAssistant(row) : undefined
     } catch (error) {
       console.error('[DatabaseService] Failed to get assistant by id:', error)
@@ -1389,20 +1078,22 @@ class DatabaseService {
    */
   public updateAssistant(assistant: Assistant): void {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.assistantRepo) throw new Error('Assistant repository not initialized')
 
     try {
-      this.stmts.updateAssistant!.run(
-        assistant.name,
-        assistant.icon || null,
-        assistant.description || null,
-        assistant.modelRef.accountId,
-        assistant.modelRef.modelId,
-        assistant.systemPrompt,
-        assistant.updatedAt,
-        assistant.isBuiltIn ? 1 : 0,
-        assistant.isDefault ? 1 : 0,
-        assistant.id
-      )
+      this.assistantRepo.update({
+        id: assistant.id,
+        name: assistant.name,
+        icon: assistant.icon || null,
+        description: assistant.description || null,
+        model_account_id: assistant.modelRef.accountId,
+        model_model_id: assistant.modelRef.modelId,
+        system_prompt: assistant.systemPrompt,
+        created_at: assistant.createdAt ?? Date.now(),
+        updated_at: assistant.updatedAt,
+        is_built_in: assistant.isBuiltIn ? 1 : 0,
+        is_default: assistant.isDefault ? 1 : 0
+      })
       console.log(`[DatabaseService] Updated assistant: ${assistant.id}`)
     } catch (error) {
       console.error('[DatabaseService] Failed to update assistant:', error)
@@ -1415,9 +1106,10 @@ class DatabaseService {
    */
   public deleteAssistant(id: string): void {
     if (!this.db) throw new Error('Database not initialized')
+    if (!this.assistantRepo) throw new Error('Assistant repository not initialized')
 
     try {
-      this.stmts.deleteAssistant!.run(id)
+      this.assistantRepo.delete(id)
       console.log(`[DatabaseService] Deleted assistant: ${id}`)
     } catch (error) {
       console.error('[DatabaseService] Failed to delete assistant:', error)

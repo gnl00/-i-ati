@@ -7,7 +7,7 @@ export class OpenAIAdapter extends BaseAdapter {
   apiVersion = 'v1'
 
   getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/v1/chat/completions`
+    return `${baseUrl}/chat/completions`
   }
 
   transformRequest(req: IUnifiedRequest): any {
@@ -163,7 +163,7 @@ export class OpenAIV2Adapter extends BaseAdapter {
   apiVersion = 'v2'
 
   getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/v1/response`
+    return `${baseUrl}/response`
   }
 
   transformRequest(req: IUnifiedRequest): any {
@@ -284,7 +284,7 @@ export class OpenAIImage1Adapter extends BaseAdapter {
   apiVersion = 'gpt-image-1'
 
   getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/v1/images/generations`
+    return `${baseUrl}/images/generations`
   }
 
   transformRequest(req: IUnifiedRequest): any {
@@ -360,7 +360,7 @@ export class GoogleOpenAIImageCompatibleAdapter extends BaseAdapter {
   apiVersion = 'image'
 
   getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/v1/chat/completions`
+    return `${baseUrl}/chat/completions`
   }
 
   transformRequest(req: IUnifiedRequest): any {

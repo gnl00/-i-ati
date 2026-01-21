@@ -439,7 +439,7 @@ export class MainChatSubmitService {
     }
   }
 
-  cancel(submissionId: string, reason?: string): void {
+  cancel(submissionId: string, _reason?: string): void {
     const active = this.active.get(submissionId)
     if (!active) return
     if (!active.controller.signal.aborted) {

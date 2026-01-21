@@ -35,6 +35,15 @@ import {
   DB_CONFIG_GET,
   DB_CONFIG_SAVE,
   DB_CONFIG_INIT,
+  DB_PROVIDER_DEFINITIONS_GET_ALL,
+  DB_PROVIDER_DEFINITION_SAVE,
+  DB_PROVIDER_DEFINITION_DELETE,
+  DB_PROVIDER_ACCOUNTS_GET_ALL,
+  DB_PROVIDER_ACCOUNT_SAVE,
+  DB_PROVIDER_ACCOUNT_DELETE,
+  DB_PROVIDER_MODEL_SAVE,
+  DB_PROVIDER_MODEL_DELETE,
+  DB_PROVIDER_MODEL_SET_ENABLED,
   DB_CHAT_SUBMIT_EVENT_SAVE,
   DB_ASSISTANT_SAVE,
   DB_ASSISTANT_GET_ALL,
@@ -326,6 +335,53 @@ export async function invokeDbConfigSave(config: IAppConfig): Promise<void> {
 export async function invokeDbConfigInit(): Promise<IAppConfig> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CONFIG_INIT)
+}
+
+// ============ Database Operations - Providers ============
+
+export async function invokeDbProviderDefinitionsGetAll(): Promise<ProviderDefinition[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_DEFINITIONS_GET_ALL)
+}
+
+export async function invokeDbProviderDefinitionSave(definition: ProviderDefinition): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_DEFINITION_SAVE, definition)
+}
+
+export async function invokeDbProviderDefinitionDelete(providerId: string): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_DEFINITION_DELETE, providerId)
+}
+
+export async function invokeDbProviderAccountsGetAll(): Promise<ProviderAccount[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_ACCOUNTS_GET_ALL)
+}
+
+export async function invokeDbProviderAccountSave(account: ProviderAccount): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_ACCOUNT_SAVE, account)
+}
+
+export async function invokeDbProviderAccountDelete(accountId: string): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_ACCOUNT_DELETE, accountId)
+}
+
+export async function invokeDbProviderModelSave(data: { accountId: string; model: AccountModel }): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_MODEL_SAVE, data)
+}
+
+export async function invokeDbProviderModelDelete(data: { accountId: string; modelId: string }): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_MODEL_DELETE, data)
+}
+
+export async function invokeDbProviderModelSetEnabled(data: { accountId: string; modelId: string; enabled: boolean }): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PROVIDER_MODEL_SET_ENABLED, data)
 }
 
 // ============ Chat Submit (Main-driven) ============

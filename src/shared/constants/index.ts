@@ -89,6 +89,18 @@ export const DB_CONFIG_GET = 'db:config:get'
 export const DB_CONFIG_SAVE = 'db:config:save'
 export const DB_CONFIG_INIT = 'db:config:init'
 
+export const DB_PROVIDER_DEFINITIONS_GET_ALL = 'db:provider-definitions:get-all'
+export const DB_PROVIDER_DEFINITION_SAVE = 'db:provider-definition:save'
+export const DB_PROVIDER_DEFINITION_DELETE = 'db:provider-definition:delete'
+
+export const DB_PROVIDER_ACCOUNTS_GET_ALL = 'db:provider-accounts:get-all'
+export const DB_PROVIDER_ACCOUNT_SAVE = 'db:provider-account:save'
+export const DB_PROVIDER_ACCOUNT_DELETE = 'db:provider-account:delete'
+
+export const DB_PROVIDER_MODEL_SAVE = 'db:provider-model:save'
+export const DB_PROVIDER_MODEL_DELETE = 'db:provider-model:delete'
+export const DB_PROVIDER_MODEL_SET_ENABLED = 'db:provider-model:set-enabled'
+
 // Database Operations - Chat Submit Event Trace
 export const DB_CHAT_SUBMIT_EVENT_SAVE = 'db:chat-submit-event:save'
 

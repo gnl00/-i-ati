@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import { defaultConfig } from '../config'
 
 // Initialization tracking
@@ -69,6 +70,91 @@ const normalizeAccounts = (
   })
 
   return deduped
+}
+
+const persistProviderDefinitions = async (
+  previous: ProviderDefinition[],
+  next: ProviderDefinition[]
+): Promise<void> => {
+  try {
+    const { saveProviderDefinition, deleteProviderDefinition } = await import('../db/ProviderRepository')
+    const prevIds = new Set(previous.map(def => def.id))
+    const nextIds = new Set(next.map(def => def.id))
+
+    await Promise.all(next.map(def => saveProviderDefinition(def)))
+    const removed = Array.from(prevIds).filter(id => !nextIds.has(id))
+    await Promise.all(removed.map(id => deleteProviderDefinition(id)))
+  } catch (error) {
+    console.error('[appConfig] Failed to persist provider definitions:', error)
+  }
+}
+
+const persistProviderAccounts = async (
+  previous: ProviderAccount[],
+  next: ProviderAccount[]
+): Promise<void> => {
+  try {
+    const { saveProviderAccount, deleteProviderAccount } = await import('../db/ProviderRepository')
+    const prevIds = new Set(previous.map(account => account.id))
+    const nextIds = new Set(next.map(account => account.id))
+
+    await Promise.all(next.map(account => saveProviderAccount(account)))
+    const removed = Array.from(prevIds).filter(id => !nextIds.has(id))
+    await Promise.all(removed.map(id => deleteProviderAccount(id)))
+  } catch (error) {
+    console.error('[appConfig] Failed to persist provider accounts:', error)
+    if (error instanceof Error && error.message.includes('Provider not found')) {
+      toast.error('Provider not found. Please select a valid provider before saving.')
+    }
+  }
+}
+
+const persistProviderAccount = async (account: ProviderAccount): Promise<void> => {
+  try {
+    const { saveProviderAccount } = await import('../db/ProviderRepository')
+    await saveProviderAccount(account)
+  } catch (error) {
+    console.error('[appConfig] Failed to persist provider account:', error)
+    if (error instanceof Error && error.message.includes('Provider not found')) {
+      toast.error('Provider not found. Please select a valid provider before saving.')
+    }
+  }
+}
+
+const removeProviderAccount = async (accountId: string): Promise<void> => {
+  try {
+    const { deleteProviderAccount } = await import('../db/ProviderRepository')
+    await deleteProviderAccount(accountId)
+  } catch (error) {
+    console.error('[appConfig] Failed to delete provider account:', error)
+  }
+}
+
+const persistProviderModel = async (accountId: string, model: AccountModel): Promise<void> => {
+  try {
+    const { saveProviderModel } = await import('../db/ProviderRepository')
+    await saveProviderModel(accountId, model)
+  } catch (error) {
+    console.error('[appConfig] Failed to persist provider model:', error)
+  }
+}
+
+const removeProviderModel = async (accountId: string, modelId: string): Promise<void> => {
+  try {
+    const { deleteProviderModel } = await import('../db/ProviderRepository')
+    await deleteProviderModel(accountId, modelId)
+  } catch (error) {
+    console.error('[appConfig] Failed to delete provider model:', error)
+  }
+}
+
+const setProviderModelEnabled = async (accountId: string, modelId: string, enabled: boolean): Promise<void> => {
+  try {
+    const { setProviderModelEnabled } = await import('../db/ProviderRepository')
+    await setProviderModelEnabled(accountId, modelId, enabled)
+  } catch (error) {
+    console.error('[appConfig] Failed to set provider model enabled:', error)
+  }
 }
 
 type AppConfigState = {
@@ -169,9 +255,11 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       accounts: nextAccounts
     }
 
-    await saveConfig(nextConfig)
+    const { providerDefinitions: _defs, accounts: _accounts, ...baseConfig } = nextConfig
+
+    await saveConfig(baseConfig)
     set({
-      appConfig: nextConfig,
+      appConfig: baseConfig,
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts,
       providersRevision: 0,
@@ -186,15 +274,25 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   // Getter
   getAppConfig: () => get().appConfig,
 
-  setProviderDefinitions: (definitions) => set((state) => ({
-    providerDefinitions: normalizeProviderDefinitions(definitions),
-    accounts: normalizeAccounts(state.accounts),
-    providersRevision: state.providersRevision + 1
-  })),
-  setAccounts: (accounts) => set((state) => ({
-    accounts: normalizeAccounts(accounts),
-    providersRevision: state.providersRevision + 1
-  })),
+  setProviderDefinitions: (definitions) => {
+    const prevDefinitions = get().providerDefinitions
+    const nextDefinitions = normalizeProviderDefinitions(definitions)
+    set((state) => ({
+      providerDefinitions: nextDefinitions,
+      accounts: normalizeAccounts(state.accounts),
+      providersRevision: state.providersRevision + 1
+    }))
+    void persistProviderDefinitions(prevDefinitions, nextDefinitions)
+  },
+  setAccounts: (accounts) => {
+    const prevAccounts = get().accounts
+    const nextAccounts = normalizeAccounts(accounts)
+    set((state) => ({
+      accounts: nextAccounts,
+      providersRevision: state.providersRevision + 1
+    }))
+    void persistProviderAccounts(prevAccounts, nextAccounts)
+  },
   setCurrentAccountId: (accountId) => set({ currentAccountId: accountId }),
 
   getProviderDefinitionById: (providerId) => {
@@ -243,91 +341,152 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       currentAccountId: normalizedAccount.id,
       providersRevision: state.providersRevision + 1
     }))
+    void persistProviderAccount(normalizedAccount)
   },
 
-  updateAccount: (accountId, updates) => set((state) => {
-    const nextAccounts = state.accounts.map(account => {
-      if (account.id !== accountId) return account
-      const nextProviderId = updates.providerId
-        ? normalizeProviderIdSafe(updates.providerId)
-        : account.providerId
-      return { ...account, ...updates, providerId: nextProviderId }
+  updateAccount: (accountId, updates) => {
+    let updatedAccount: ProviderAccount | undefined
+    set((state) => {
+      const nextAccounts = state.accounts.map(account => {
+        if (account.id !== accountId) return account
+        const nextProviderId = updates.providerId
+          ? normalizeProviderIdSafe(updates.providerId)
+          : account.providerId
+        updatedAccount = { ...account, ...updates, providerId: nextProviderId }
+        return updatedAccount
+      })
+      return {
+        accounts: normalizeAccounts(nextAccounts, accountId),
+        providersRevision: state.providersRevision + 1
+      }
     })
-    return {
-      accounts: normalizeAccounts(nextAccounts, accountId),
-      providersRevision: state.providersRevision + 1
+    if (updatedAccount) {
+      void persistProviderAccount(updatedAccount)
     }
-  }),
+  },
 
-  removeAccount: (accountId) => set((state) => {
-    const nextAccounts = state.accounts.filter(account => account.id !== accountId)
-    const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
+  removeAccount: (accountId) => {
+    set((state) => {
+      const nextAccounts = state.accounts.filter(account => account.id !== accountId)
+      const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
 
-    return {
-      accounts: nextAccounts,
-      currentAccountId: state.currentAccountId === accountId ? undefined : state.currentAccountId,
-      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
-      providersRevision: state.providersRevision + 1
-    }
-  }),
+      return {
+        accounts: nextAccounts,
+        currentAccountId: state.currentAccountId === accountId ? undefined : state.currentAccountId,
+        titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+        providersRevision: state.providersRevision + 1
+      }
+    })
+    void removeProviderAccount(accountId)
+  },
 
-  addModel: (accountId, model) => set((state) => ({
-    accounts: state.accounts.map(account =>
-      account.id === accountId
-        ? { ...account, models: [...account.models, model] }
-        : account
-    ),
-    providersRevision: state.providersRevision + 1
-  })),
-
-  updateModel: (accountId, modelId, updates) => set((state) => ({
-    accounts: state.accounts.map(account =>
-      account.id === accountId
-        ? {
-          ...account,
-          models: account.models.map(model =>
-            model.id === modelId ? { ...model, ...updates } : model
-          )
-        }
-        : account
-    ),
-    providersRevision: state.providersRevision + 1
-  })),
-
-  removeModel: (accountId, modelId) => set((state) => {
-    const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
-      && state.titleGenerateModel?.modelId === modelId
-
-    return {
-      accounts: state.accounts.map(account =>
+  addModel: (accountId, model) => {
+    let updatedAccount: ProviderAccount | undefined
+    set((state) => {
+      const nextAccounts = state.accounts.map(account =>
         account.id === accountId
-          ? { ...account, models: account.models.filter(model => model.id !== modelId) }
+          ? { ...account, models: [...account.models, model] }
           : account
-      ),
-      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
-      providersRevision: state.providersRevision + 1
+      )
+      updatedAccount = nextAccounts.find(account => account.id === accountId)
+      return {
+        accounts: nextAccounts,
+        providersRevision: state.providersRevision + 1
+      }
+    })
+    if (updatedAccount) {
+      void persistProviderModel(accountId, model)
     }
-  }),
+  },
 
-  toggleModelEnabled: (accountId, modelId) => set((state) => {
-    const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
-      && state.titleGenerateModel?.modelId === modelId
-
-    return {
-      accounts: state.accounts.map(account =>
+  updateModel: (accountId, modelId, updates) => {
+    let updatedAccount: ProviderAccount | undefined
+    let nextModel: AccountModel | undefined
+    set((state) => {
+      const nextAccounts = state.accounts.map(account =>
         account.id === accountId
           ? {
             ...account,
             models: account.models.map(model =>
-              model.id === modelId ? { ...model, enabled: model.enabled === false } : model
+              model.id === modelId
+                ? (() => {
+                  nextModel = { ...model, ...updates }
+                  return nextModel
+                })()
+                : model
             )
           }
           : account
-      ),
-      titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
-      providersRevision: state.providersRevision + 1
+      )
+      updatedAccount = nextAccounts.find(account => account.id === accountId)
+      return {
+        accounts: nextAccounts,
+        providersRevision: state.providersRevision + 1
+      }
+    })
+    if (updatedAccount && nextModel) {
+      void persistProviderModel(accountId, nextModel)
     }
-  }),
+  },
+
+  removeModel: (accountId, modelId) => {
+    let updatedAccount: ProviderAccount | undefined
+    set((state) => {
+      const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
+        && state.titleGenerateModel?.modelId === modelId
+
+      const nextAccounts = state.accounts.map(account =>
+        account.id === accountId
+          ? { ...account, models: account.models.filter(model => model.id !== modelId) }
+          : account
+      )
+      updatedAccount = nextAccounts.find(account => account.id === accountId)
+
+      return {
+        accounts: nextAccounts,
+        titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+        providersRevision: state.providersRevision + 1
+      }
+    })
+    if (updatedAccount) {
+      void removeProviderModel(accountId, modelId)
+    }
+  },
+
+  toggleModelEnabled: (accountId, modelId) => {
+    let updatedAccount: ProviderAccount | undefined
+    let nextEnabled = true
+    set((state) => {
+      const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
+        && state.titleGenerateModel?.modelId === modelId
+
+      const nextAccounts = state.accounts.map(account =>
+        account.id === accountId
+          ? {
+            ...account,
+            models: account.models.map(model =>
+              model.id === modelId
+                ? (() => {
+                  nextEnabled = model.enabled === false
+                  return { ...model, enabled: nextEnabled }
+                })()
+                : model
+            )
+          }
+          : account
+      )
+      updatedAccount = nextAccounts.find(account => account.id === accountId)
+
+      return {
+        accounts: nextAccounts,
+        titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+        providersRevision: state.providersRevision + 1
+      }
+    })
+    if (updatedAccount) {
+      void setProviderModelEnabled(accountId, modelId, nextEnabled)
+    }
+  },
 
   // Tool setting actions
   setTitleGenerateModel: (modelRef) => set({ titleGenerateModel: modelRef }),
