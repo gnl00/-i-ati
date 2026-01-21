@@ -28,6 +28,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const setImageSrcBase64List = useChatStore(state => state.setImageSrcBase64List)
   const currentReqCtrl = useChatStore(state => state.currentReqCtrl)
   const readStreamState = useChatStore(state => state.readStreamState)
+  const messages = useChatStore(state => state.messages)
+  const currentChatId = useChatStore(state => state.currentChatId)
+  const currentChatUuid = useChatStore(state => state.currentChatUuid)
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
@@ -75,6 +78,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const { currentAssistant } = useAssistantStore()
 
   const [inputContent, setInputContent] = useState<string>('')
+  const [queuedMessages, setQueuedMessages] = useState<Array<{
+    text: string
+    images: ClipbordImg[]
+    prompt: string
+    temperature: number
+    topP: number
+  }>>([])
+  const [queuePaused, setQueuePaused] = useState<boolean>(false)
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
@@ -93,6 +104,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   // Custom Caret Ref
   const caretOverlayRef = useRef<CustomCaretRef>(null)
+  const queueTimerRef = useRef<number | null>(null)
+  const queueFlushingRef = useRef(false)
 
   // Callback to handle command execution with textarea cleanup
   const handleCommandExecute = useCallback((command: any) => {
@@ -135,14 +148,58 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const startNewChat = useCallback(() => {
     startNewChatBase()
     setCurrentSystemPrompt('')
+    setQueuedMessages([])
+    setQueuePaused(false)
   }, [startNewChatBase])
 
   const { onSubmit: handleChatSubmit, cancel: cancelChatSubmit } = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
+  const submitMessage = useCallback((payload: {
+    text: string
+    images: ClipbordImg[]
+    prompt: string
+    temperature: number
+    topP: number
+  }) => {
+    onMessagesUpdate()
+    handleChatSubmitCallback(payload.text, payload.images, {
+      prompt: payload.prompt,
+      options: {
+        temperature: payload.temperature,
+        topP: payload.topP
+      }
+    })
+  }, [handleChatSubmitCallback, onMessagesUpdate])
+
+  const enqueueMessage = useCallback((payload: {
+    text: string
+    images: ClipbordImg[]
+    prompt: string
+    temperature: number
+    topP: number
+  }) => {
+    if (queuedMessages.length >= 5) {
+      toast.warning('Queue is full (max 5)')
+      return
+    }
+    setQueuedMessages(prev => [...prev, payload])
+    setInputContent('')
+    setImageSrcBase64List([])
+
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.value = ''
+        textareaRef.current.dispatchEvent(new Event('input', { bubbles: true }))
+        caretOverlayRef.current?.updateCaret()
+      }
+    })
+  }, [queuedMessages.length, setImageSrcBase64List])
+
   const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent) => {
-    if (!inputContent) {
+    const trimmedInput = inputContent.trim()
+    if (!trimmedInput) {
       return
     }
     if (!selectedModelRef) {
@@ -156,22 +213,29 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       forceComplete()
     }
 
-    onMessagesUpdate() // for chat-window scroll to the end
-    handleChatSubmitCallback(inputContent, imageSrcBase64List, {
+    setQueuePaused(false)
+
+    const payload = {
+      text: trimmedInput,
+      images: imageSrcBase64List,
       prompt: currentSystemPrompt,
-      options: {
-        temperature: chatTemperature[0],
-        topP: chatTopP[0]
-      }
-    })
+      temperature: chatTemperature[0],
+      topP: chatTopP[0]
+    }
+
+    if (readStreamState || queuedMessages.length > 0) {
+      enqueueMessage(payload)
+      return
+    }
+
+    submitMessage(payload)
     setInputContent('')
     setImageSrcBase64List([])
 
-    // Reset caret position after clearing input
     requestAnimationFrame(() => {
       if (textareaRef.current) {
-        textareaRef.current.value = '' // Ensure DOM is synced
-        textareaRef.current.dispatchEvent(new Event('input', { bubbles: true })) // Trigger auto-resize if needed
+        textareaRef.current.value = ''
+        textareaRef.current.dispatchEvent(new Event('input', { bubbles: true }))
         caretOverlayRef.current?.updateCaret()
       }
     })
@@ -180,10 +244,68 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     imageSrcBase64List,
     selectedModelRef,
     currentSystemPrompt,
-    onMessagesUpdate,
-    setImageSrcBase64List,
-    handleChatSubmitCallback
+    chatTemperature,
+    chatTopP,
+    readStreamState,
+    queuedMessages.length,
+    enqueueMessage,
+    submitMessage,
+    setImageSrcBase64List
   ])
+
+  useEffect(() => {
+    if (readStreamState || queuePaused || queuedMessages.length === 0) {
+      return
+    }
+    if (queueFlushingRef.current) {
+      return
+    }
+    if (queueTimerRef.current) {
+      window.clearTimeout(queueTimerRef.current)
+    }
+    queueTimerRef.current = window.setTimeout(() => {
+      if (readStreamState) {
+        return
+      }
+      setQueuedMessages(prev => {
+        if (prev.length === 0) {
+          return prev
+        }
+        const [nextItem, ...rest] = prev
+        queueFlushingRef.current = true
+        submitMessage(nextItem)
+        return rest
+      })
+    }, 200)
+    return () => {
+      if (queueTimerRef.current) {
+        window.clearTimeout(queueTimerRef.current)
+        queueTimerRef.current = null
+      }
+    }
+  }, [readStreamState, queuePaused, queuedMessages.length, submitMessage])
+
+  useEffect(() => {
+    if (!readStreamState) {
+      queueFlushingRef.current = false
+    }
+  }, [readStreamState])
+
+  useEffect(() => {
+    if (readStreamState) {
+      return
+    }
+    const lastAssistant = [...messages].reverse().find(msg => msg.body.role === 'assistant')
+    const hasError = (lastAssistant?.body?.segments || []).some(segment => (segment as any).type === 'error')
+    if (hasError) {
+      setQueuePaused(true)
+    }
+  }, [messages, readStreamState])
+
+  useEffect(() => {
+    setQueuedMessages([])
+    setQueuePaused(false)
+  }, [currentChatId, currentChatUuid])
 
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
@@ -201,7 +323,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     // Handle Shift+Enter for submit
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault()
-      if (!inputContent) {
+      if (!inputContent.trim()) {
         toast.error('Input text content is required')
         return
       }
@@ -298,7 +420,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         <div
           className={cn(
             'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out',
-            readStreamState && 'opacity-60 grayscale pointer-events-none'
+            readStreamState && 'opacity-80'
           )}
         >
           <ChatInputToolbar
@@ -315,6 +437,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             onTemperatureChange={setChatTemperature}
             onTopPChange={setChatTopP}
             onSystemPromptChange={setCurrentSystemPrompt}
+            queuedFirstText={queuedMessages[0]?.text}
+            queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
           />
 
           <div className="relative flex-1 overflow-hidden">
@@ -341,7 +465,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   isDragging && 'bg-gray-100/80 dark:bg-gray-700/80 shadow-inner'
                 )
               }
-              placeholder={readStreamState ? 'Processing...Wait a moment' : 'Type anything to chat'}
+              placeholder={'Type anything to chat'}
               value={inputContent}
               onChange={onTextAreaChange}
               onKeyDown={onTextAreaKeyDown}
@@ -351,7 +475,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               onDragLeave={onDragLeave}
               onDragOver={onDragOver}
               onDrop={onDrop}
-              disabled={readStreamState}
             />
 
             <CustomCaretOverlay
