@@ -21,6 +21,7 @@ function useChatSubmitV2() {
 
   const activeSubmissionRef = useRef<ChatSubmissionService | null>(null)
   const activeBusRef = useRef<ChatSubmitEventBus | null>(null)
+  const lastErrorMessageRef = useRef<{ id: number; chatUuid: string | null } | null>(null)
 
   const resetUiState = () => {
     chatStore.setCurrentReqCtrl(undefined)
@@ -57,6 +58,47 @@ function useChatSubmitV2() {
         nextMessages = [...messages, message]
       }
       state.setMessages(nextMessages)
+    }
+
+    const clearPreviousErrorMessage = async () => {
+      const errorInfo = lastErrorMessageRef.current
+      if (!errorInfo) {
+        return
+      }
+      const state = useChatStore.getState()
+      if (errorInfo.chatUuid && state.currentChatUuid && errorInfo.chatUuid !== state.currentChatUuid) {
+        lastErrorMessageRef.current = null
+        return
+      }
+      const message = state.messages.find(item => item.id === errorInfo.id)
+      if (!message || message.body.role !== 'assistant') {
+        lastErrorMessageRef.current = null
+        return
+      }
+      const segments = message.body.segments || []
+      const hasError = segments.some(seg => (seg as any).type === 'error')
+      if (!hasError) {
+        lastErrorMessageRef.current = null
+        return
+      }
+      const hasNonErrorSegments = segments.some(seg => (seg as any).type !== 'error')
+      const hasContent = typeof message.body.content === 'string'
+        ? message.body.content.trim().length > 0
+        : Array.isArray(message.body.content) && message.body.content.length > 0
+
+      if (!hasNonErrorSegments && !hasContent) {
+        await state.deleteMessage(errorInfo.id)
+      } else {
+        const updated: MessageEntity = {
+          ...message,
+          body: {
+            ...message.body,
+            segments: segments.filter(seg => (seg as any).type !== 'error')
+          }
+        }
+        await state.updateMessage(updated)
+      }
+      lastErrorMessageRef.current = null
     }
 
     const unsubscribers = [
@@ -109,6 +151,7 @@ function useChatSubmitV2() {
         if (!markOnce('submission.completed', envelope.submissionId)) {
           return
         }
+        void clearPreviousErrorMessage()
         chatContext.setLastMsgStatus(true)
         chatStore.setReadStreamState(false)
       }),
@@ -116,7 +159,13 @@ function useChatSubmitV2() {
         if (!markOnce('submission.failed', envelope.submissionId)) {
           return
         }
-        await chatStore.updateLastAssistantMessageWithError(error)
+        const errorMessageId = await chatStore.updateLastAssistantMessageWithError(error)
+        if (errorMessageId) {
+          lastErrorMessageRef.current = {
+            id: errorMessageId,
+            chatUuid: chatStore.currentChatUuid
+          }
+        }
         resetUiState()
       }),
       bus.on('submission.aborted', (_, envelope) => {
