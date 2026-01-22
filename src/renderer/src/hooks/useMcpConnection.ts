@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useChatStore } from '@renderer/store'
 import { invokeMcpConnect, invokeMcpDisconnect } from '@renderer/invoker/ipcInvoker'
-import { embeddedToolsRegistry } from '@tools/registry'
 import { toast } from 'sonner'
 
 /**
@@ -52,14 +51,6 @@ export const useMcpConnection = () => {
         addSelectedMcpServer(serverName)
         addMcpTools(serverName, tools)
 
-        // Register tools in the registry
-        tools.forEach((tool: any) => {
-          embeddedToolsRegistry.registerExternal(tool.name, {
-            type: 'function',
-            function: tool
-          })
-        })
-
         toast.success(msg)
         return { success: true, tools }
       } else {
@@ -85,14 +76,6 @@ export const useMcpConnection = () => {
    */
   const disconnect = useCallback(async (serverName: string) => {
     try {
-      // Unregister tools from the registry
-      const tools = getMcpTools(serverName)
-      if (tools) {
-        tools.forEach((tool: any) => {
-          embeddedToolsRegistry.unregisterExternal(tool.name)
-        })
-      }
-
       // Update store
       removeSelectedMcpServer(serverName)
       removeMcpTools(serverName)

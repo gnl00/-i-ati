@@ -3,7 +3,7 @@
  * 管理基于 chatUUID 的工作空间目录
  */
 
-import { invokeCreateDirectory } from '@renderer-tools/fileOperations/renderer/FileOperationsInvoker'
+import { invokeCreateDirectory } from '@renderer/tools/fileOperations/renderer/FileOperationsInvoker'
 
 /**
  * 工作空间配置

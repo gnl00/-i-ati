@@ -42,10 +42,7 @@
       "@tools/*": [
         "src/shared/tools/*"
       ],
-      "@renderer-tools": [
-        "src/renderer/src/tools/index.ts"
-      ],
-      "@renderer-tools/*": [
+      "@renderer/tools/*": [
         "src/renderer/src/tools/*"
       ]
     }

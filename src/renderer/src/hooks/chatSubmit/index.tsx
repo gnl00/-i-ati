@@ -1,7 +1,7 @@
 import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { embeddedToolsRegistry } from '@tools/registry'
+import toolsDefinitions from '@tools/definitions'
 import { useRef } from 'react'
 import {
   ChatSubmissionService,
@@ -202,6 +202,10 @@ function useChatSubmitV2() {
     const state = useChatStore.getState()
     const toolsByName = new Map<string, any>()
     const normalizeToolDef = (tool: any): any => tool?.function ?? tool
+    const findToolDefinition = (name: string) => {
+      const match = (toolsDefinitions as any[]).find(tool => tool?.function?.name === name)
+      return match?.function ?? match
+    }
 
     state.getAllMcpTools().forEach(tool => {
       const normalized = normalizeToolDef(tool)
@@ -212,7 +216,7 @@ function useChatSubmitV2() {
     })
 
     if (state.webSearchEnable) {
-      const tool = embeddedToolsRegistry.getTool('web_search')
+      const tool = findToolDefinition('web_search')
       const normalized = normalizeToolDef(tool)
       const name = normalized?.name
       if (name) {
