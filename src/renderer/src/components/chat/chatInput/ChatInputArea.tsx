@@ -86,6 +86,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     topP: number
   }>>([])
   const [queuePaused, setQueuePaused] = useState<boolean>(false)
+  const [editingQueue, setEditingQueue] = useState<boolean>(false)
   const [chatTemperature, setChatTemperature] = useState<number[]>([1])
   const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
@@ -106,6 +107,13 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const caretOverlayRef = useRef<CustomCaretRef>(null)
   const queueTimerRef = useRef<number | null>(null)
   const queueFlushingRef = useRef(false)
+  const editingQueueRef = useRef<{
+    text: string
+    images: ClipbordImg[]
+    prompt: string
+    temperature: number
+    topP: number
+  } | null>(null)
 
   // Callback to handle command execution with textarea cleanup
   const handleCommandExecute = useCallback((command: any) => {
@@ -150,6 +158,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     setCurrentSystemPrompt('')
     setQueuedMessages([])
     setQueuePaused(false)
+    setEditingQueue(false)
+    editingQueueRef.current = null
   }, [startNewChatBase])
 
   const { onSubmit: handleChatSubmit, cancel: cancelChatSubmit } = useChatSubmit()
@@ -223,7 +233,30 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       topP: chatTopP[0]
     }
 
-    if (readStreamState || queuedMessages.length > 0) {
+    if (editingQueue) {
+      const editedPayload = {
+        text: trimmedInput,
+        images: imageSrcBase64List,
+        prompt: editingQueueRef.current?.prompt ?? currentSystemPrompt,
+        temperature: editingQueueRef.current?.temperature ?? chatTemperature[0],
+        topP: editingQueueRef.current?.topP ?? chatTopP[0]
+      }
+
+      setEditingQueue(false)
+      editingQueueRef.current = null
+      setInputContent('')
+      setImageSrcBase64List([])
+
+      if (readStreamState || queuePaused || queuedMessages.length > 0) {
+        setQueuedMessages(prev => [editedPayload, ...prev])
+        return
+      }
+
+      submitMessage(editedPayload)
+      return
+    }
+
+    if (readStreamState || queuePaused || queuedMessages.length > 0) {
       enqueueMessage(payload)
       return
     }
@@ -247,6 +280,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     chatTemperature,
     chatTopP,
     readStreamState,
+    queuePaused,
+    editingQueue,
     queuedMessages.length,
     enqueueMessage,
     submitMessage,
@@ -254,7 +289,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   ])
 
   useEffect(() => {
-    if (readStreamState || queuePaused || queuedMessages.length === 0) {
+    if (readStreamState || queuePaused || editingQueue || queuedMessages.length === 0) {
       return
     }
     if (queueFlushingRef.current) {
@@ -283,7 +318,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         queueTimerRef.current = null
       }
     }
-  }, [readStreamState, queuePaused, queuedMessages.length, submitMessage])
+  }, [readStreamState, queuePaused, editingQueue, queuedMessages.length, submitMessage])
 
   useEffect(() => {
     if (!readStreamState) {
@@ -305,7 +340,25 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   useEffect(() => {
     setQueuedMessages([])
     setQueuePaused(false)
+    setEditingQueue(false)
+    editingQueueRef.current = null
   }, [currentChatId, currentChatUuid])
+
+  const startEditQueuedMessage = useCallback(() => {
+    if (editingQueue || queuedMessages.length === 0) {
+      return
+    }
+    const [first, ...rest] = queuedMessages
+    editingQueueRef.current = first
+    setEditingQueue(true)
+    setQueuedMessages(rest)
+    setInputContent(first.text || '')
+    setImageSrcBase64List(first.images || [])
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      caretOverlayRef.current?.updateCaret()
+    })
+  }, [editingQueue, queuedMessages, setImageSrcBase64List])
 
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
@@ -316,6 +369,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [handleCommandInputChange])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.shiftKey && e.key === 'ArrowUp') {
+      if (queuedMessages.length > 0 && !editingQueue) {
+        e.preventDefault()
+        startEditQueuedMessage()
+        return
+      }
+    }
+
     // Delegate command palette navigation to the hook
     const handled = handleCommandKeyDown(e)
     if (handled) return
@@ -333,7 +394,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       }
       onSubmitClick(e)
     }
-  }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef])
+  }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef, queuedMessages.length, editingQueue, startEditQueuedMessage])
 
   const onTextAreaPaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
