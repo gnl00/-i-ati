@@ -381,8 +381,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     const handled = handleCommandKeyDown(e)
     if (handled) return
 
-    // Handle Shift+Enter for submit
-    if (e.key === 'Enter' && e.shiftKey) {
+    // Handle Enter for submit, Shift+Enter for newline
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       if (!inputContent.trim()) {
         toast.error('Input text content is required')
@@ -393,6 +393,22 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         return
       }
       onSubmitClick(e)
+      return
+    }
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault()
+      const target = e.currentTarget
+      const start = target.selectionStart ?? inputContent.length
+      const end = target.selectionEnd ?? inputContent.length
+      const nextValue = `${inputContent.slice(0, start)}\n${inputContent.slice(end)}`
+      setInputContent(nextValue)
+      handleCommandInputChange(nextValue)
+      requestAnimationFrame(() => {
+        const nextPos = start + 1
+        target.selectionStart = nextPos
+        target.selectionEnd = nextPos
+        caretOverlayRef.current?.updateCaret()
+      })
     }
   }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef, queuedMessages.length, editingQueue, startEditQueuedMessage])
 
@@ -526,7 +542,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   isDragging && 'bg-gray-100/80 dark:bg-gray-700/80 shadow-inner'
                 )
               }
-              placeholder={'Type anything to chat'}
+              placeholder={'Type anything to chat\n\n[Enter] Send  •  [Shift+Enter] New line\n[Shift+↑] Edit queued message'}
               value={inputContent}
               onChange={onTextAreaChange}
               onKeyDown={onTextAreaKeyDown}
