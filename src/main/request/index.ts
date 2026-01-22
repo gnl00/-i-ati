@@ -18,6 +18,9 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   }
 
   const requestBody = adapter.transformRequest(req)
+  if (req.requestOverrides && typeof req.requestOverrides === 'object' && !Array.isArray(req.requestOverrides)) {
+    applyRequestOverrides(requestBody, req.requestOverrides)
+  }
   if (requestBody.messages) {
     requestBody.messages = requestBody.messages.map((m): BaseChatMessage => ({
       role: m.role,
@@ -65,4 +68,51 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   } finally {
     afterFetch()
   }
+}
+
+const FORBIDDEN_OVERRIDE_KEYS = new Set(['stream', 'messages', 'tools', 'model'])
+
+const isPlainObject = (value: any): value is Record<string, any> => {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+const hasForbiddenKey = (obj: any): boolean => {
+  if (!isPlainObject(obj)) return false
+  for (const [key, value] of Object.entries(obj)) {
+    if (FORBIDDEN_OVERRIDE_KEYS.has(key)) return true
+    if (isPlainObject(value) && hasForbiddenKey(value)) return true
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (hasForbiddenKey(item)) return true
+      }
+    }
+  }
+  return false
+}
+
+const applyRequestOverrides = (target: any, overrides: Record<string, any>): void => {
+  if (hasForbiddenKey(overrides)) {
+    console.warn('[Request] requestOverrides contains forbidden keys, ignoring')
+    return
+  }
+  mergeDeep(target, overrides)
+}
+
+const mergeDeep = (target: any, source: any): void => {
+  if (!isPlainObject(source) || !isPlainObject(target)) {
+    return
+  }
+  Object.entries(source).forEach(([key, value]) => {
+    if (FORBIDDEN_OVERRIDE_KEYS.has(key)) {
+      return
+    }
+    if (isPlainObject(value)) {
+      if (!isPlainObject(target[key])) {
+        target[key] = {}
+      }
+      mergeDeep(target[key], value)
+    } else {
+      target[key] = value
+    }
+  })
 }

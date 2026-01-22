@@ -37,6 +37,7 @@ declare interface ProviderDefinition {
   apiVersion?: ProviderAPIVersion
   iconKey?: string
   defaultApiUrl?: string
+  requestOverrides?: Record<string, any>
 }
 
 declare interface ModelRef {
@@ -96,6 +97,7 @@ declare interface IUnifiedRequest {
   messages: ChatMessage[]
   stream?: boolean
   tools?: any[]
+  requestOverrides?: Record<string, any>
   options?: {
     temperature?: number
     maxTokens?: number

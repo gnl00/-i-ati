@@ -554,14 +554,25 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized')
 
     const rows = this.providerRepo?.getProviderDefinitions() ?? []
-    return rows.map(row => ({
-      id: row.id,
-      displayName: row.display_name,
-      adapterType: row.adapter_type as ProviderType,
-      apiVersion: row.api_version ?? undefined,
-      iconKey: row.icon_key ?? undefined,
-      defaultApiUrl: row.default_api_url ?? undefined
-    }))
+    return rows.map(row => {
+      let requestOverrides: Record<string, any> | undefined
+      if (row.request_overrides) {
+        try {
+          requestOverrides = JSON.parse(row.request_overrides)
+        } catch {
+          requestOverrides = undefined
+        }
+      }
+      return {
+        id: row.id,
+        displayName: row.display_name,
+        adapterType: row.adapter_type as ProviderType,
+        apiVersion: row.api_version ?? undefined,
+        iconKey: row.icon_key ?? undefined,
+        defaultApiUrl: row.default_api_url ?? undefined,
+        requestOverrides
+      }
+    })
   }
 
   private getProviderAccountsFromDb(): ProviderAccount[] {
@@ -607,6 +618,7 @@ class DatabaseService {
           api_version: def.apiVersion ?? null,
           icon_key: def.iconKey ?? null,
           default_api_url: def.defaultApiUrl ?? null,
+          request_overrides: def.requestOverrides ? JSON.stringify(def.requestOverrides) : null,
           created_at: now,
           updated_at: now
         })
@@ -633,6 +645,7 @@ class DatabaseService {
           api_version: def.apiVersion ?? null,
           icon_key: def.iconKey ?? null,
           default_api_url: def.defaultApiUrl ?? null,
+          request_overrides: def.requestOverrides ? JSON.stringify(def.requestOverrides) : null,
           created_at: now,
           updated_at: now
         })
