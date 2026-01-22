@@ -59,7 +59,7 @@ export type ChatAction = {
   updateMessage: (message: MessageEntity) => Promise<void>
   deleteMessage: (messageId: number) => Promise<void>
   upsertMessage: (message: MessageEntity) => void
-  updateLastAssistantMessageWithError: (error: Error) => Promise<void>
+  updateLastAssistantMessageWithError: (error: Error) => Promise<number | undefined>
   clearMessages: () => void
   setCurrentChat: (chatId: number | null, chatUuid: string | null) => void
 
@@ -272,7 +272,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       const fallbackMessage: MessageEntity = {
         body: {
           role: 'assistant',
-        model: state.selectedModelRef?.modelId || 'unknown',
+          model: state.selectedModelRef?.modelId || 'unknown',
           content: '',
           segments: [errorSegment],
           typewriterCompleted: true
@@ -280,8 +280,8 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
         chatId: state.currentChatId || undefined,
         chatUuid: state.currentChatUuid || undefined
       }
-      await get().addMessage(fallbackMessage)
-      return
+      const msgId = await get().addMessage(fallbackMessage)
+      return msgId
     }
 
     // 更新消息，添加 error segment
@@ -298,6 +298,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     } else {
       get().upsertMessage(updatedMessage)
     }
+    return updatedMessage.id
   },
 
   /**
