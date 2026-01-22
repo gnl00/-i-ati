@@ -736,6 +736,7 @@ class DatabaseService {
       api_version: normalized.apiVersion ?? null,
       icon_key: normalized.iconKey ?? null,
       default_api_url: normalized.defaultApiUrl ?? null,
+      request_overrides: normalized.requestOverrides ? JSON.stringify(normalized.requestOverrides) : null,
       created_at: now,
       updated_at: now
     })

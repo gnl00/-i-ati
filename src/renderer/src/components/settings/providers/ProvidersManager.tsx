@@ -22,7 +22,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
         accounts,
         currentAccountId,
         setCurrentAccountId,
-        addAccount,
+        addProviderWithAccount,
         updateAccount,
         removeAccount,
     } = useAppConfigStore()
@@ -96,7 +96,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
     }
 
 
-    const onAddProviderBtnClick = (e: React.MouseEvent) => {
+    const onAddProviderBtnClick = async (e: React.MouseEvent) => {
         const displayName = newDefinitionDisplayName.trim()
         const baseUrl = newProviderApi.trim()
         const apiKey = newProviderApiKey.trim()
@@ -127,7 +127,6 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
             defaultApiUrl: baseUrl
         }
 
-        setProviderDefinitions([...providerDefinitions, newDefinition])
         const newAccount: ProviderAccount = {
             id: uuidv4(),
             providerId,
@@ -137,8 +136,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
             models: []
         }
 
-        addAccount(newAccount)
-        setCurrentAccountId(newAccount.id)
+        await addProviderWithAccount(newDefinition, newAccount)
         setSelectedProviderId(providerId)
 
         setNewDefinitionDisplayName('')

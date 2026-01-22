@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@renderer/components/ui/drawer'
-import { Textarea } from '@renderer/components/ui/textarea'
 import { Button } from '@renderer/components/ui/button'
-import { cn } from '@renderer/lib/utils'
 import { toast } from 'sonner'
 import { Badge } from '@renderer/components/ui/badge'
+import CodeMirror from '@uiw/react-codemirror'
+import { json } from '@codemirror/lang-json'
 
 type ProviderAdvanceConfigDrawerProps = {
   open: boolean
@@ -108,18 +108,46 @@ export const ProviderAdvanceConfigDrawer: React.FC<ProviderAdvanceConfigDrawerPr
               Keys <span className="font-mono">stream</span>, <span className="font-mono">messages</span>, <span className="font-mono">tools</span>, <span className="font-mono">model</span> are blocked.
             </p>
           </div>
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder='{\n  \"temperature\": 0.7,\n  \"tool_config\": { \"mode\": \"auto\" }\n}'
-            className={cn(
-              'min-h-[220px] font-mono text-xs',
-              'bg-white dark:bg-gray-950/40',
-              'border-slate-200 dark:border-slate-800',
-              'focus-visible:ring-0 focus-visible:ring-offset-0',
-              'focus-visible:border-blue-500 dark:focus-visible:border-blue-400'
-            )}
-          />
+          <div className="min-h-[220px] rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-gray-950/40 overflow-hidden">
+            <CodeMirror
+              value={draft}
+              height="220px"
+              extensions={[json()]}
+              onChange={(value) => setDraft(value)}
+              theme="dark"
+              placeholder='{\n  \"temperature\": 0.7,\n  \"tool_config\": { \"mode\": \"auto\" }\n}'
+              basicSetup={{
+                lineNumbers: true,
+                highlightActiveLineGutter: true,
+                highlightSpecialChars: true,
+                foldGutter: true,
+                drawSelection: true,
+                dropCursor: true,
+                allowMultipleSelections: true,
+                indentOnInput: true,
+                syntaxHighlighting: true,
+                bracketMatching: true,
+                closeBrackets: true,
+                autocompletion: true,
+                rectangularSelection: true,
+                crosshairCursor: true,
+                highlightActiveLine: true,
+                highlightSelectionMatches: true,
+                closeBracketsKeymap: true,
+                defaultKeymap: true,
+                searchKeymap: true,
+                historyKeymap: true,
+                foldKeymap: true,
+                completionKeymap: true,
+                lintKeymap: true
+              }}
+              style={{
+                fontFamily: 'JetBrains Mono, Fira Code, ui-monospace, monospace',
+                fontSize: '12px',
+                height: '220px'
+              }}
+            />
+          </div>
         </div>
         <DrawerFooter className="px-6 pb-6">
           <div className="flex items-center gap-2 w-full">
