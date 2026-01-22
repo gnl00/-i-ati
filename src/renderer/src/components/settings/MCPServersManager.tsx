@@ -229,21 +229,25 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           />
 
           {activeTab === 'local' && (
-            <div className="flex items-center gap-2 px-1.5 py-0.5 rounded-full bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700/80 shadow-sm backdrop-blur-md transition-all duration-300">
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-gray-100/90 to-gray-50/90 dark:from-gray-800/70 dark:to-gray-900/50 border border-gray-200/70 dark:border-gray-700/50 shadow-sm backdrop-blur-md transition-all duration-300">
+              <Code className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
               <Label
                 htmlFor="edit-mode"
                 className={cn(
-                  "text-[9px] uppercase tracking-wider font-bold transition-colors duration-200 cursor-pointer select-none",
-                  editMode === 'json' ? "text-primary" : "text-muted-foreground"
+                  "text-[10px] uppercase tracking-wider font-bold transition-all duration-200 cursor-pointer select-none",
+                  editMode === 'json'
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-500"
                 )}
               >
-                JSON
+                JSON Mode
               </Label>
+              <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
               <Switch
                 id="edit-mode"
                 checked={editMode === 'json'}
                 onCheckedChange={(checked) => setEditMode(checked ? 'json' : 'visual')}
-                className="scale-75 data-[state=checked]:bg-primary"
+                className="scale-90 data-[state=checked]:bg-blue-600 dark:data-[state=checked]:bg-blue-500"
               />
             </div>
           )}
@@ -333,8 +337,8 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           </div>
         </TabsContent>
 
-        <TabsContent value="local" className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300">
-          <div className="flex-1 overflow-hidden flex flex-col bg-transparent mt-4">
+        <TabsContent value="local" className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 pb-4 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-transparent mt-4">
             {editMode === 'visual' ? (
               <div className="overflow-hidden h-full flex flex-col">
                 {Object.keys(mcpServerConfig.mcpServers || {}).length === 0 ? (
@@ -419,30 +423,47 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                 )}
               </div>
             ) : (
-              <div className="h-full overflow-hidden flex flex-col p-4 pt-0">
-                <div className="flex-1 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-inner bg-gray-50/50 dark:bg-black/20">
+              <div className="h-full overflow-hidden flex flex-col gap-3">
+                <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-sm bg-white dark:bg-gray-900/60 backdrop-blur-sm relative">
+                  {/* Top gradient overlay */}
+                  <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-gray-100/50 to-transparent dark:from-gray-800/30 dark:to-transparent pointer-events-none z-10" />
+
                   <CodeEditor
                     value={configJson}
                     language="json"
                     placeholder="{}"
                     onChange={(e) => handleJsonConfigChange(e.target.value)}
-                    className="h-full w-full dark:bg-gray-950/50"
+                    className="w-full"
                     style={{
                       fontFamily: 'JetBrains Mono, Fira Code, ui-monospace, monospace',
-                      fontSize: 12,
+                      fontSize: 13,
+                      lineHeight: 1.6,
                       height: '100%',
                       backgroundColor: 'transparent'
                     }}
-                    padding={16}
+                    padding={10}
                     data-color-mode="dark"
                   />
+
+                  {/* Bottom gradient overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-100/50 to-transparent dark:from-gray-800/30 dark:to-transparent pointer-events-none" />
                 </div>
-                <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground font-medium px-1">
-                  <div className="flex items-center gap-1.5">
-                    <Code className="h-3 w-3" />
-                    <span>DIRECT CONFIG FORMATTING</span>
+
+                <div className="flex-shrink-0 flex items-center justify-between px-3 py-2.5 rounded-xl bg-gradient-to-r from-gray-100/80 to-gray-50/80 dark:from-gray-800/60 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/40 backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg bg-gray-900 dark:bg-gray-100 flex items-center justify-center shadow-sm">
+                      <Code className="h-3.5 w-3.5 text-white dark:text-black" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">JSON Editor</span>
+                      <span className="text-[9px] font-medium text-muted-foreground/70">Direct configuration mode</span>
+                    </div>
                   </div>
-                  <span>AUTO-SAVED</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-700/30">
+                      <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Auto-Saved</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

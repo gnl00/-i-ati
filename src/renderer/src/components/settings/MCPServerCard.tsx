@@ -2,7 +2,7 @@ import React from 'react'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
-import { Check, Code, ExternalLink, Trash2 } from 'lucide-react'
+import { Check, Code, ExternalLink } from 'lucide-react'
 
 type RepositoryInfo = {
   url?: string
