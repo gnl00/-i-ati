@@ -13,7 +13,8 @@ import { Label } from '@renderer/components/ui/label'
 import { Switch } from '@renderer/components/ui/switch'
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs'
 import { cn } from '@renderer/lib/utils'
-import CodeEditor from '@uiw/react-textarea-code-editor'
+import CodeMirror from '@uiw/react-codemirror'
+import { json } from '@codemirror/lang-json'
 import {
   Code,
   Globe,
@@ -425,28 +426,43 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
             ) : (
               <div className="h-full overflow-hidden flex flex-col gap-3">
                 <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-sm bg-white dark:bg-gray-900/60 backdrop-blur-sm relative">
-                  {/* Top gradient overlay */}
-                  <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-gray-100/50 to-transparent dark:from-gray-800/30 dark:to-transparent pointer-events-none z-10" />
-
-                  <CodeEditor
+                  <CodeMirror
                     value={configJson}
-                    language="json"
-                    placeholder="{}"
-                    onChange={(e) => handleJsonConfigChange(e.target.value)}
-                    className="w-full"
+                    height="100%"
+                    extensions={[json()]}
+                    onChange={(value) => handleJsonConfigChange(value)}
+                    theme="dark"
+                    basicSetup={{
+                      lineNumbers: true,
+                      highlightActiveLineGutter: true,
+                      highlightSpecialChars: true,
+                      foldGutter: true,
+                      drawSelection: true,
+                      dropCursor: true,
+                      allowMultipleSelections: true,
+                      indentOnInput: true,
+                      syntaxHighlighting: true,
+                      bracketMatching: true,
+                      closeBrackets: true,
+                      autocompletion: true,
+                      rectangularSelection: true,
+                      crosshairCursor: true,
+                      highlightActiveLine: true,
+                      highlightSelectionMatches: true,
+                      closeBracketsKeymap: true,
+                      defaultKeymap: true,
+                      searchKeymap: true,
+                      historyKeymap: true,
+                      foldKeymap: true,
+                      completionKeymap: true,
+                      lintKeymap: true
+                    }}
                     style={{
                       fontFamily: 'JetBrains Mono, Fira Code, ui-monospace, monospace',
-                      fontSize: 13,
-                      lineHeight: 1.6,
-                      height: '100%',
-                      backgroundColor: 'transparent'
+                      fontSize: '13px',
+                      height: '100%'
                     }}
-                    padding={10}
-                    data-color-mode="dark"
                   />
-
-                  {/* Bottom gradient overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-100/50 to-transparent dark:from-gray-800/30 dark:to-transparent pointer-events-none" />
                 </div>
 
                 <div className="flex-shrink-0 flex items-center justify-between px-3 py-2.5 rounded-xl bg-gradient-to-r from-gray-100/80 to-gray-50/80 dark:from-gray-800/60 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/40 backdrop-blur-sm">
@@ -455,7 +471,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                       <Code className="h-3.5 w-3.5 text-white dark:text-black" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">JSON Editor</span>
+                      <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">JSON Edit Mode</span>
                       <span className="text-[9px] font-medium text-muted-foreground/70">Direct configuration mode</span>
                     </div>
                   </div>
