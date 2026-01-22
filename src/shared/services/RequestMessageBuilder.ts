@@ -64,6 +64,10 @@ class RequestMessageBuilder {
     messages = this.fixOrphanedToolMessages(messages)
     // console.log(`[RequestMessageBuilder] After orphaned tool fix: ${messages.length} messages`)
 
+    // Step 3.5: 修复不匹配的 tool 调用/响应
+    messages = this.repairToolCallPairs(messages)
+    // console.log(`[RequestMessageBuilder] After tool call pairing: ${messages.length} messages`)
+
     // Step 4: 插入系统提示词
     messages = this.insertSystemPrompts(messages)
     // console.log(`[RequestMessageBuilder] After system prompts: ${messages.length} messages`)
@@ -175,6 +179,56 @@ class RequestMessageBuilder {
       }
       return true
     })
+  }
+
+  /**
+   * 步骤 3.5: 修复不匹配的 tool 调用/响应
+   * - 若 assistant 的 toolCalls 数量与后续 tool 响应数量不一致，裁剪至匹配部分
+   * - 避免发送不成对的 toolCalls，触发上游 API 报错
+   */
+  private repairToolCallPairs(messages: ChatMessage[]): ChatMessage[] {
+    const repaired: ChatMessage[] = []
+
+    for (let i = 0; i < messages.length; i += 1) {
+      const msg = messages[i]
+
+      if (msg.role !== 'assistant' || !msg.toolCalls || msg.toolCalls.length === 0) {
+        repaired.push(msg)
+        continue
+      }
+
+      const toolCalls = msg.toolCalls
+      const toolBatch: ChatMessage[] = []
+      let j = i + 1
+      while (j < messages.length && messages[j].role === 'tool') {
+        toolBatch.push(messages[j])
+        j += 1
+      }
+
+      if (toolBatch.length === toolCalls.length) {
+        repaired.push(msg)
+        repaired.push(...toolBatch)
+        i = j - 1
+        continue
+      }
+
+      const availableIds = new Set(toolBatch.map(tool => tool.toolCallId).filter(Boolean) as string[])
+      const filteredCalls = toolCalls.filter(call => call.id && availableIds.has(call.id))
+      const filteredIdSet = new Set(filteredCalls.map(call => call.id).filter(Boolean) as string[])
+      const filteredTools = toolBatch.filter(tool => tool.toolCallId && filteredIdSet.has(tool.toolCallId))
+
+      if (filteredCalls.length === 0) {
+        const cleaned = { ...msg, toolCalls: undefined }
+        repaired.push(cleaned)
+      } else {
+        repaired.push({ ...msg, toolCalls: filteredCalls })
+        repaired.push(...filteredTools)
+      }
+
+      i = j - 1
+    }
+
+    return repaired
   }
 
   /**
