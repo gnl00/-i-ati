@@ -186,6 +186,7 @@ type AppConfigAction = {
   getModelOptions: () => ModelOption[]
 
   addAccount: (account: ProviderAccount) => void
+  addProviderWithAccount: (definition: ProviderDefinition, account: ProviderAccount) => Promise<void>
   updateAccount: (accountId: string, updates: Partial<ProviderAccount>) => void
   removeAccount: (accountId: string) => void
 
@@ -342,6 +343,36 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       providersRevision: state.providersRevision + 1
     }))
     void persistProviderAccount(normalizedAccount)
+  },
+
+  addProviderWithAccount: async (definition, account) => {
+    const normalizedProviderId = normalizeProviderIdSafe(definition.id || definition.displayName || '')
+    const normalizedDefinition: ProviderDefinition = {
+      ...definition,
+      id: normalizedProviderId,
+      displayName: definition.displayName?.trim() || normalizedProviderId
+    }
+    const normalizedAccount: ProviderAccount = {
+      ...account,
+      providerId: normalizedProviderId
+    }
+
+    try {
+      const { saveProviderDefinition, saveProviderAccount } = await import('../db/ProviderRepository')
+      await saveProviderDefinition(normalizedDefinition)
+      await saveProviderAccount(normalizedAccount)
+    } catch (error) {
+      console.error('[appConfig] Failed to add provider with account:', error)
+      toast.error('Failed to save provider')
+      return
+    }
+
+    set((state) => ({
+      providerDefinitions: normalizeProviderDefinitions([normalizedDefinition, ...state.providerDefinitions]),
+      accounts: normalizeAccounts([normalizedAccount, ...state.accounts], normalizedAccount.id),
+      currentAccountId: normalizedAccount.id,
+      providersRevision: state.providersRevision + 1
+    }))
   },
 
   updateAccount: (accountId, updates) => {
