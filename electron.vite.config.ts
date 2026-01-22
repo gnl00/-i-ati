@@ -25,8 +25,7 @@ export default defineConfig({
         '@config': resolve('src/config'),
         '@resources': resolve('resources'),
         '@shared': resolve('src/shared'),
-        '@tools': resolve('src/shared/tools'),
-        '@renderer-tools': resolve('src/renderer/src/tools')
+        '@tools': resolve('src/shared/tools')
       }
     },
     plugins: [react()],

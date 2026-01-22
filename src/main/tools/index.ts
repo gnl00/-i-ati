@@ -22,7 +22,7 @@ import { processExecuteCommand } from '@main-tools/command/main/CommandProcessor
 import { processLoadSkill, processUnloadSkill, processReadSkillFile } from '@main-tools/skills/main/SkillToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
-  list_tools: async () => embeddedToolsRegistry.availableTools(),
+  list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
   search_tools: (args) => embeddedToolsRegistry.searchTools(args),
   web_search: processWebSearch,
   web_fetch: processWebFetch,

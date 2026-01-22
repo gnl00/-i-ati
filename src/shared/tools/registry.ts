@@ -123,6 +123,22 @@ class EmbeddedToolsRegistry {
   }
 
   /**
+   * 获取所有工具定义（embedded + external）
+   */
+  getAllToolDefinitions(): ToolDefinition[] {
+    const definitions: ToolDefinition[] = []
+    this.tools.forEach(tool => {
+      if (tool.definition) {
+        definitions.push(tool.definition)
+      }
+    })
+    this.externalTools.forEach(tool => {
+      definitions.push(tool)
+    })
+    return definitions
+  }
+
+  /**
    * 执行工具
    */
   async execute(toolName: string, args: any): Promise<any> {
