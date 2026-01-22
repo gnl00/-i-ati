@@ -541,7 +541,8 @@ export class MainChatSubmitService {
       modelType: model.type,
       tools,
       options: input.input.options,
-      stream: input.input.stream
+      stream: input.input.stream,
+      requestOverrides: providerDefinition.requestOverrides
     }
   }
 

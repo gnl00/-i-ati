@@ -10,7 +10,7 @@ import { Plug, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
 import { MCPServersManagerContent } from './MCPServersManager'
-import ProvidersManager from './ProvidersManagerNext'
+import ProvidersManager from './providers/ProvidersManager'
 import ToolsManager from './ToolsManager'
 import SkillsManager from './SkillsManager'
 

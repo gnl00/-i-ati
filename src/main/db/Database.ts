@@ -115,6 +115,7 @@ class AppDatabase {
         api_version TEXT,
         icon_key TEXT,
         default_api_url TEXT,
+        request_overrides TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -237,6 +238,7 @@ class AppDatabase {
       console.log('[Database] Migrated chats table: added workspace_path')
     }
   }
+
 }
 
 export { AppDatabase }

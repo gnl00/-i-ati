@@ -22,6 +22,7 @@ import { cn } from '@renderer/lib/utils'
 import { Check, Download, Loader2, RefreshCw, Search, X } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 
 // API 响应类型
 interface ApiModelItem {
@@ -48,7 +49,6 @@ interface FetchModelsDrawerProps {
     onOpenChange: (open: boolean) => void
     currentAccount: ProviderAccount | undefined
     providerDefinition?: ProviderDefinition
-    addModel: (accountId: string, model: AccountModel) => void
 }
 
 const CACHE_TTL = 60 * 1000 // 1 分钟缓存过期时间
@@ -57,9 +57,9 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     open,
     onOpenChange,
     currentAccount,
-    providerDefinition,
-    addModel
+    providerDefinition
 }) => {
+    const { addModel } = useAppConfigStore()
     const [isFetching, setIsFetching] = useState<boolean>(false)
     const [fetchedModels, setFetchedModels] = useState<AccountModel[]>([])
     const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(new Set())
@@ -311,6 +311,11 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             <span className="bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                                 IMPORT MODELS
                             </span>
+                        </DrawerTitle>
+                        <DrawerDescription className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            <span>
+                                Fetch and import available models from your provider
+                            </span>
                             {currentAccount && (
                                 <Badge
                                     variant="outline"
@@ -321,9 +326,6 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                         : currentAccount.label}
                                 </Badge>
                             )}
-                        </DrawerTitle>
-                        <DrawerDescription className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                            Fetch and import available models from your provider
                         </DrawerDescription>
                     </div>
                     <Button
