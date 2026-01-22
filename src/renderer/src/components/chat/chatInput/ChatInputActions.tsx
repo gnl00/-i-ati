@@ -376,7 +376,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               <div className="relative flex items-center gap-1.5">
                 <PaperPlaneIcon className="w-4 h-4 text-white -rotate-45 group-hover:scale-105 transition-transform duration-300" />
                 <sub className="text-white/80 flex items-center gap-0.5 text-[10px]">
-                  <ArrowBigUp className="w-2.5 h-2.5" />
                   <CornerDownLeft className="w-2.5 h-2.5" />
                 </sub>
               </div>
