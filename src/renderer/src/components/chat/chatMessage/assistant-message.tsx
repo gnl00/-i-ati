@@ -133,7 +133,7 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
         </span>
         <ChevronDown className={cn(
           'w-3 h-3 text-slate-400/80 dark:text-slate-500/70',
-          'transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+          'transition-all duration-300 [transition-timing-function:cubic-bezier(0.34,1.56,0.64,1)]',
           isOpen && 'rotate-180 scale-110'
         )} />
       </button>
