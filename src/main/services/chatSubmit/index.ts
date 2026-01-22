@@ -183,6 +183,7 @@ const normalizeToolCallOrdering = (messages: ChatMessage[]): ChatMessage[] => {
 
   const carried = new Map<string, IToolCall>()
   const normalized: ChatMessage[] = []
+  const consumedToolIndexes = new Set<number>()
 
   const hasContent = (msg: ChatMessage): boolean => {
     if (typeof msg.content === 'string') {
@@ -216,36 +217,51 @@ const normalizeToolCallOrdering = (messages: ChatMessage[]): ChatMessage[] => {
   }
 
   for (let i = 0; i < messages.length; i += 1) {
+    if (consumedToolIndexes.has(i)) {
+      continue
+    }
     const message = messages[i]
 
     if (message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0) {
-      const assistantIds = new Set(message.toolCalls.map(call => call.id).filter(Boolean))
+      const toolCallIds = message.toolCalls.map(call => call.id).filter(Boolean) as string[]
+      const availableToolMessages = new Map<string, ChatMessage>()
       let j = i + 1
-      const toolBatchIds = new Set<string>()
-      while (j < messages.length && messages[j].role === 'tool') {
-        const toolId = messages[j].toolCallId
-        if (toolId) {
-          toolBatchIds.add(toolId)
+      while (j < messages.length) {
+        const candidate = messages[j]
+        if (candidate.role === 'user') {
+          break
+        }
+        if (candidate.role === 'tool' && candidate.toolCallId && toolCallIds.includes(candidate.toolCallId)) {
+          if (!availableToolMessages.has(candidate.toolCallId)) {
+            availableToolMessages.set(candidate.toolCallId, candidate)
+            consumedToolIndexes.add(j)
+          }
         }
         j += 1
       }
-      const batchCoversAll = assistantIds.size > 0
-        && assistantIds.size === toolBatchIds.size
-        && Array.from(assistantIds).every(id => toolBatchIds.has(id))
-      if (batchCoversAll) {
-        normalized.push(message)
-        continue
-      }
 
-      snapshotToolCalls(message.toolCalls)
-      const cleaned = { ...message, toolCalls: undefined }
-      if (hasContent(cleaned)) {
-        normalized.push(cleaned)
+      const filteredToolCalls = message.toolCalls.filter(call => call.id && availableToolMessages.has(call.id))
+      const orderedToolMessages = filteredToolCalls
+        .map(call => availableToolMessages.get(call.id as string))
+        .filter(Boolean) as ChatMessage[]
+
+      if (filteredToolCalls.length === 0) {
+        snapshotToolCalls(message.toolCalls)
+        const cleaned = { ...message, toolCalls: undefined }
+        if (hasContent(cleaned)) {
+          normalized.push(cleaned)
+        }
+      } else {
+        normalized.push({ ...message, toolCalls: filteredToolCalls })
+        normalized.push(...orderedToolMessages)
       }
       continue
     }
 
     if (message.role === 'tool') {
+      if (consumedToolIndexes.has(i)) {
+        continue
+      }
       const prev = normalized[normalized.length - 1]
       const prevHasToolCall = prev?.role === 'assistant' && prev.toolCalls?.some(call => call.id === message.toolCallId)
       if (prevHasToolCall) {

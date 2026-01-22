@@ -9,6 +9,7 @@
  */
 
 import { unifiedChatRequest } from '@request/index'
+import { buildCompressionPrompt } from '@shared/prompts'
 import DatabaseService from './DatabaseService'
 
 export type CompressionJob = {
@@ -96,10 +97,14 @@ class MessageCompressionService {
     const toCompress = sortedMessages.slice(0, compressCount)
     const toKeep = sortedMessages.slice(compressCount)
 
+    const pairedCompress = this.addToolPairs(toCompress, sortedMessages)
+    const pairedIds = new Set(pairedCompress.map(m => m.id!))
+    const nextToKeep = sortedMessages.filter(m => !pairedIds.has(m.id!))
+
     return {
       shouldCompress: true,
-      messagesToCompress: toCompress.map(m => m.id!),
-      messagesToKeep: toKeep.map(m => m.id!),
+      messagesToCompress: pairedCompress.map(m => m.id!),
+      messagesToKeep: nextToKeep.map(m => m.id!),
       existingSummaries
     }
   }
@@ -112,6 +117,50 @@ class MessageCompressionService {
     const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length
     const otherChars = text.length - chineseChars
     return Math.ceil(chineseChars / 1.5 + otherChars / 4)
+  }
+
+  /**
+   * 将 toolCalls 与 tool responses 成对加入压缩集
+   */
+  private addToolPairs(toCompress: MessageEntity[], allMessages: MessageEntity[]): MessageEntity[] {
+    const compressIds = new Set(toCompress.map(m => m.id!).filter(Boolean))
+    const toolCallIds = new Set<string>()
+
+    for (const message of toCompress) {
+      const body = message.body
+      if (body.role === 'assistant' && body.toolCalls && body.toolCalls.length > 0) {
+        body.toolCalls.forEach(call => {
+          if (call.id) {
+            toolCallIds.add(call.id)
+          }
+        })
+      }
+      if (body.role === 'tool' && body.toolCallId) {
+        toolCallIds.add(body.toolCallId)
+      }
+    }
+
+    if (toolCallIds.size === 0) {
+      return toCompress
+    }
+
+    const expanded = [...toCompress]
+    for (const message of allMessages) {
+      if (!message.id || compressIds.has(message.id)) continue
+      const body = message.body
+      if (body.role === 'assistant' && body.toolCalls && body.toolCalls.length > 0) {
+        const hasMatch = body.toolCalls.some(call => call.id && toolCallIds.has(call.id))
+        if (hasMatch) {
+          expanded.push(message)
+          compressIds.add(message.id)
+        }
+      } else if (body.role === 'tool' && body.toolCallId && toolCallIds.has(body.toolCallId)) {
+        expanded.push(message)
+        compressIds.add(message.id)
+      }
+    }
+
+    return expanded.sort((a, b) => (a.id || 0) - (b.id || 0))
   }
 
   /**
@@ -140,41 +189,10 @@ class MessageCompressionService {
       .join('\n\n')
 
     // 2. 构建压缩 prompt（根据是否有旧摘要使用不同的 prompt）
-    let prompt: string
-    let userContent: string
-
-    if (previousSummary) {
-      // 有旧摘要：基于旧摘要 + 新消息生成新摘要
-      prompt = `你需要将之前的对话摘要与新的对话内容合并，生成一个新的综合摘要。
-
-之前的摘要：
-${previousSummary}
-
-新的对话内容：
-${conversationText}
-
-要求：
-1. 将之前的摘要与新对话内容整合为一个连贯的摘要
-2. 保留重要的事实、决策和结论
-3. 保持时间顺序
-4. 简洁明了，控制在 500 字以内
-5. 使用第三人称描述
-6. 避免重复，突出新增的关键信息`
-      userContent = prompt
-    } else {
-      // 没有旧摘要：直接压缩新消息
-      prompt = `请将以下对话压缩为简洁的摘要，保留关键信息和上下文：
-
-${conversationText}
-
-要求：
-1. 保留重要的事实、决策和结论
-2. 保持时间顺序
-3. 简洁明了，控制在 500 字以内
-4. 使用第三人称描述
-5. 重点关注用户的需求和助手的回答要点`
-      userContent = prompt
-    }
+    const userContent = buildCompressionPrompt({
+      conversationText,
+      previousSummary
+    })
 
     // 3. 构建请求
     const request: IUnifiedRequest = {

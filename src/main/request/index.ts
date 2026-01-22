@@ -36,6 +36,7 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
     console.log(`[Request] baseUrl: ${req.baseUrl}`)
     console.log(`[Request] adapter: ${adapter.providerType}/${adapter.apiVersion}`)
     console.log(`[Request] endpoint: ${endpoint}`)
+    console.log(`[Request] messages: ${JSON.stringify(requestBody.messages)}`)
 
     const fetchResponse = await fetch(endpoint, {
       method: 'POST',
