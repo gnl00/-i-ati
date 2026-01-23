@@ -73,7 +73,7 @@ export const AnimatedTabsList: React.FC<AnimatedTabsListProps> = ({
       {/* Animated Indicator - Rendered BEHIND the triggers */}
       {indicatorStyle && (
         <div
-          className="absolute left-0 top-1 bottom-1 rounded-lg shadow-sm bg-white dark:bg-gray-800 border border-black/5 dark:border-white/5 z-0 transition-all duration-300 ease-out will-change-transform"
+          className="absolute left-0 top-1 bottom-1 rounded-lg shadow-xs bg-white dark:bg-gray-800 border border-black/5 dark:border-white/5 z-0 transition-all duration-300 ease-out will-change-transform"
           style={{
             transform: `translateX(${indicatorStyle.left}px)`,
             width: `${indicatorStyle.width}px`

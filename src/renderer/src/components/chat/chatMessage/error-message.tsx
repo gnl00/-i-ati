@@ -35,14 +35,14 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
     <div className="my-2 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 p-3">
       {/* Error Header - Show name and message */}
       <div className="flex items-start gap-2">
-        <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+        <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           {error.name && (
             <div className="text-xs font-semibold text-red-700 dark:text-red-300 mb-1">
               {error.name}
             </div>
           )}
-          <p className="text-sm text-red-600 dark:text-red-300 break-words">
+          <p className="text-sm text-red-600 dark:text-red-300 wrap-break-word">
             {error.message}
           </p>
         </div>
@@ -118,7 +118,7 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
               <span className="text-xs font-semibold text-red-700 dark:text-red-300 block mb-1">
                 Stack Trace:
               </span>
-              <pre className="text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+              <pre className="text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 p-2 rounded overflow-x-auto whitespace-pre-wrap wrap-break-word">
                 {error.stack}
               </pre>
             </div>

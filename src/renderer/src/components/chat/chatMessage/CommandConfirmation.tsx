@@ -31,7 +31,7 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
       icon: ShieldAlert,
       title: 'Dangerous Command',
       gradient: 'from-red-500/10 via-red-500/5 to-transparent',
-      borderGlow: 'shadow-sm',
+      borderGlow: 'shadow-xs',
       iconBg: 'bg-red-500/10 dark:bg-red-500/20',
       iconColor: 'text-red-600 dark:text-red-400',
       titleColor: 'text-red-900 dark:text-red-100',
@@ -43,7 +43,7 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
     icon: AlertTriangle,
     title: 'Risky Command',
     gradient: 'from-orange-500/10 via-orange-500/5 to-transparent',
-    borderGlow: 'shadow-sm',
+    borderGlow: 'shadow-xs',
     iconBg: 'bg-orange-500/10 dark:bg-orange-500/20',
     iconColor: 'text-orange-600 dark:text-orange-400',
     titleColor: 'text-orange-900 dark:text-orange-100',
@@ -80,14 +80,14 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
     >
       {/* 主容器 */}
       <div className={cn(
-        'relative overflow-hidden rounded-xl border-2 backdrop-blur-sm',
+        'relative overflow-hidden rounded-xl border-2 backdrop-blur-xs',
         'bg-white/80 dark:bg-gray-900/80',
         config.borderColor,
         config.borderGlow
       )}>
         {/* 背景 */}
         <div className={cn(
-          'absolute inset-0 bg-gradient-to-br opacity-50',
+          'absolute inset-0 bg-linear-to-br opacity-50',
           config.gradient
         )} />
 
@@ -97,7 +97,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
           <div className="flex items-start gap-3 mb-2.5">
             {/* 图标 */}
             <div className={cn(
-              'flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0',
+              'flex items-center justify-center w-9 h-9 rounded-lg shrink-0',
               config.iconBg
             )}>
               <Icon className={cn('w-5 h-5', config.iconColor)} />
@@ -120,7 +120,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
             )}>
               {/* 命令内容 */}
               <div className="px-3 py-2 flex items-center gap-2">
-                <Terminal className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                <Terminal className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 shrink-0" />
                 <code className={cn(
                   'text-xs font-mono leading-relaxed',
                   'text-gray-800 dark:text-gray-200',
@@ -157,7 +157,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                 'flex-1 sm:flex-initial sm:min-w-[120px] font-medium rounded-3xl',
                 request.risk_level === 'dangerous'
                   ? 'bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700'
-                  : 'text-orange-600 bg-orange-50 border-orange-400 border-[1px] hover:bg-orange-100 hover:border-orange-500 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-600 dark:hover:bg-orange-900/50 dark:hover:border-orange-500'
+                  : 'text-orange-600 bg-orange-50 border-orange-400 border hover:bg-orange-100 hover:border-orange-500 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-600 dark:hover:bg-orange-900/50 dark:hover:border-orange-500'
               )}
             >
               Execute Anyway

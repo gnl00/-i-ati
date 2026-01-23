@@ -119,7 +119,7 @@ CommandConfirmation
 
 **1. 毛玻璃效果**
 ```css
-backdrop-blur-sm
+backdrop-blur-xs
 bg-white/80 dark:bg-gray-900/80
 ```
 

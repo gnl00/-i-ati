@@ -91,7 +91,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
   }
 
   return (
-    <div className='flex-1 flex justify-between flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50'>
+    <div className='flex-1 flex justify-between flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200/50 dark:border-gray-700/50'>
       <div className='flex justify-between items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
         <h3 className='text-sm font-medium flex items-center text-gray-700 dark:text-gray-300'>Models</h3>
         <div className='flex-1 flex items-center'>
@@ -128,7 +128,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
             'transition-all duration-200',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-slate-900',
             'disabled:hover:border-slate-300 dark:disabled:hover:border-slate-700',
-            'disabled:hover:shadow-sm disabled:hover:text-slate-600 dark:disabled:hover:text-slate-400'
+            'disabled:hover:shadow-xs disabled:hover:text-slate-600 dark:disabled:hover:text-slate-400'
           )}
           onClick={onOpenFetchModels}
           disabled={isFetchDisabled}
@@ -140,10 +140,10 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
           Fetch Models
         </Button>
       </div>
-      <div className='flex-1 overflow-y-auto scroll-smooth [&>div]:!overflow-visible'>
+      <div className='flex-1 overflow-y-auto scroll-smooth [&>div]:overflow-visible!'>
         <TooltipProvider>
           <Table id="provider-models-table" className='relative'>
-            <TableHeader className='sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700'>
+            <TableHeader className='sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xs border-b border-gray-200 dark:border-gray-700'>
               <TableRow className='border-none hover:bg-transparent'>
                 <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Name</TableHead>
                 <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Model ID</TableHead>
@@ -165,7 +165,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                         'bg-transparent dark:bg-transparent',
                         'text-slate-700 dark:text-slate-200',
                         'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-                        'outline-none focus:outline-none focus-visible:outline-none',
+                        'outline-hidden focus:outline-hidden focus-visible:outline-hidden',
                         'focus-visible:ring-0 focus-visible:ring-offset-0',
                         'focus-visible:border-b-blue-500 dark:focus-visible:border-b-blue-400',
                         'transition-all duration-200',
@@ -187,7 +187,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                         'bg-transparent dark:bg-transparent',
                         'text-slate-700 dark:text-slate-200',
                         'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-                        'outline-none focus:outline-none focus-visible:outline-none',
+                        'outline-hidden focus:outline-hidden focus-visible:outline-hidden',
                         'focus-visible:ring-0 focus-visible:ring-offset-0',
                         'focus-visible:border-b-blue-500 dark:focus-visible:border-b-blue-400',
                         'transition-all duration-200',
@@ -207,7 +207,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                       'rounded-none px-2',
                       'bg-transparent dark:bg-transparent',
                       'text-slate-700 dark:text-slate-200',
-                      'outline-none focus:outline-none focus-visible:outline-none',
+                      'outline-hidden focus:outline-hidden focus-visible:outline-hidden',
                       'focus:ring-0 focus:ring-offset-0',
                       'focus:border-b-blue-500 dark:focus:border-b-blue-400',
                       'transition-all duration-200',
@@ -215,7 +215,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                     )}>
                       <SelectValue placeholder="Type" className="placeholder:text-slate-400 dark:placeholder:text-slate-500" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white/20 rounded-2xl shadow-sm backdrop-blur-lg text-gray-400 dark:text-gray-300 font-medium tracking-wider">
+                    <SelectContent className="bg-white/20 rounded-2xl shadow-xs backdrop-blur-lg text-gray-400 dark:text-gray-300 font-medium tracking-wider">
                       <SelectGroup defaultValue={'llm'}>
                         <SelectItem value="llm" className="rounded-lg">LLM</SelectItem>
                         <SelectItem value="vlm" className="rounded-lg">VLM</SelectItem>

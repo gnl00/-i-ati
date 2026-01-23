@@ -56,7 +56,7 @@ export const ArtifactsFooter: React.FC<ArtifactsFooterProps> = ({
             <Button
               size="sm"
               variant="default"
-              className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold"
+              className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white shadow-xs font-semibold"
               disabled={!selectedFileContent}
               onClick={onCopyFile}
             >
@@ -79,7 +79,7 @@ export const ArtifactsFooter: React.FC<ArtifactsFooterProps> = ({
             <Button
               size="sm"
               variant="default"
-              className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold"
+              className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white shadow-xs font-semibold"
               disabled={artifactFilesCount === 0}
               onClick={onCopyFile}
             >

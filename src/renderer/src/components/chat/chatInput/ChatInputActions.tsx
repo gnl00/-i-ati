@@ -180,9 +180,9 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   return (
     <div
       id="inputAreaBottom"
-      className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 pl-2 flex border-b-[1px] border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700 flex-none h-10"
+      className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 pl-2 flex border-b border-l border-r border-blue-gray-200 dark:border-gray-700 flex-none h-10"
     >
-      <div className='flex-grow flex items-center space-x-2 select-none relative'>
+      <div className='grow flex items-center space-x-2 select-none relative'>
         {/* New Chat Button */}
         <TooltipProvider delayDuration={400}>
           <Tooltip>
@@ -199,7 +199,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                   "hover:bg-slate-100 dark:hover:bg-slate-700",
                   "hover:text-slate-700 dark:hover:text-slate-300",
                   "hover:border-slate-300 dark:hover:border-slate-600",
-                  "hover:shadow-sm",
+                  "hover:shadow-xs",
                   "active:scale-95"
                 )}
                 onClick={handleNewChat}
@@ -229,11 +229,11 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                   artifacts
                     ? [
                         // Active state - purple/violet gradient
-                        "bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40",
+                        "bg-linear-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40",
                         "text-purple-700 dark:text-purple-400",
                         "border border-purple-300/60 dark:border-purple-700/60",
-                        "shadow-sm shadow-purple-500/10 dark:shadow-purple-500/20",
-                        "hover:shadow hover:shadow-purple-500/25 dark:hover:shadow-purple-500/35",
+                        "shadow-xs shadow-purple-500/10 dark:shadow-purple-500/20",
+                        "hover:shadow-sm hover:shadow-purple-500/25 dark:hover:shadow-purple-500/35",
                         "hover:text-purple-500",
                         "active:scale-95"
                       ]
@@ -245,7 +245,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                         "hover:bg-slate-100 dark:hover:bg-slate-700",
                         "hover:text-slate-700 dark:hover:text-slate-300",
                         "hover:border-slate-300 dark:hover:border-slate-600",
-                        "hover:shadow-sm",
+                        "hover:shadow-xs",
                         "active:scale-95"
                       ]
                 )}
@@ -253,7 +253,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               >
                 {/* Animated background gradient on hover (active state only) */}
                 {artifacts && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-100/0 via-purple-100/50 to-violet-100/0 dark:from-purple-900/0 dark:via-purple-900/30 dark:to-violet-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute inset-0 bg-linear-to-r from-purple-100/0 via-purple-100/50 to-violet-100/0 dark:from-purple-900/0 dark:via-purple-900/30 dark:to-violet-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 )}
 
                 <Package
@@ -285,11 +285,11 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                   isCustomWorkspace
                     ? [
                         // Selected state - sky/blue gradient
-                        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/40",
+                        "bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/40",
                         "text-blue-700 dark:text-blue-300",
                         "border border-blue-300/60 dark:border-blue-700/60",
-                        "shadow-sm shadow-blue-500/10 dark:shadow-blue-500/20",
-                        "hover:shadow hover:shadow-blue-500/25 dark:hover:shadow-blue-500/35",
+                        "shadow-xs shadow-blue-500/10 dark:shadow-blue-500/20",
+                        "hover:shadow-sm hover:shadow-blue-500/25 dark:hover:shadow-blue-500/35",
                         // "hover:brightness-105",
                         "hover:text-blue-500",
                         "active:scale-[0.98] active:brightness-95"
@@ -302,7 +302,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                         "hover:bg-slate-100 dark:hover:bg-slate-700",
                         "hover:text-slate-700 dark:hover:text-slate-300",
                         "hover:border-slate-300 dark:hover:border-slate-600",
-                        "hover:shadow-sm",
+                        "hover:shadow-xs",
                         "active:scale-[0.98]"
                       ]
                 )}
@@ -310,7 +310,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               >
                 {/* Animated background gradient on hover */}
                 {isCustomWorkspace && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-100/0 via-blue-100/50 to-blue-200/0 dark:from-blue-900/0 dark:via-blue-900/30 dark:to-blue-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute inset-0 bg-linear-to-r from-blue-100/0 via-blue-100/50 to-blue-200/0 dark:from-blue-900/0 dark:via-blue-900/30 dark:to-blue-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 )}
 
                 {/* Icon with smooth scale animation */}
@@ -360,7 +360,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               size={'sm'}
               className={cn(
                 'group relative rounded-full h-8 px-3',
-                'bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700',
+                'bg-linear-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700',
                 'border border-slate-600/50 dark:border-slate-500/50',
                 'shadow-lg shadow-slate-500/20 dark:shadow-slate-600/25',
                 'hover:shadow-xl hover:shadow-slate-500/30 dark:hover:shadow-slate-600/40',
@@ -370,7 +370,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               )}
             >
               {/* Shine effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out" />
+              <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out" />
 
               {/* Icon and shortcuts */}
               <div className="relative flex items-center gap-1.5">
@@ -386,7 +386,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               size={'sm'}
               className={cn(
                 'group relative rounded-full h-8 px-3',
-                'bg-gradient-to-br from-red-500 to-red-600 dark:from-red-600 dark:to-red-700',
+                'bg-linear-to-br from-red-500 to-red-600 dark:from-red-600 dark:to-red-700',
                 'border border-red-400/50 dark:border-red-500/50',
                 'shadow-lg shadow-red-500/25 dark:shadow-red-600/30',
                 'hover:shadow-xl hover:shadow-red-500/40 dark:hover:shadow-red-600/50',

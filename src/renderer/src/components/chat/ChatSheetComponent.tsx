@@ -48,7 +48,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
     currentAssistantId,
     label,
     icon,
-    gradientType = 'bg-gradient-to-br',
+    gradientType = 'bg-linear-to-br',
     gradientColors,
     className,
     onClick
@@ -59,7 +59,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
         <div
             onClick={onClick}
             className={cn(
-                "group relative flex flex-col justify-between p-3 h-24 rounded-xl shadow-sm transition-all duration-300 cursor-pointer overflow-hidden ring-1 ring-black/5 dark:ring-white/10",
+                "group relative flex flex-col justify-between p-3 h-24 rounded-xl shadow-xs transition-all duration-300 cursor-pointer overflow-hidden ring-1 ring-black/5 dark:ring-white/10",
                 "hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02]",
                 currentAssistantId === assistant?.id && "scale-[1.05] -translate-y-1",
                 gradientColors && [
@@ -90,13 +90,13 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
                 <p className="text-[10px] font-medium text-white/70 uppercase tracking-wider mb-0.5 transform translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                     {displayIcon || displayLabel.charAt(0)}
                 </p>
-                <span className="text-sm font-semibold text-white leading-tight drop-shadow-sm tracking-tight">
+                <span className="text-sm font-semibold text-white leading-tight drop-shadow-xs tracking-tight">
                     {displayLabel}
                 </span>
             </div>
 
             {/* Glass Shine Effect */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
         </div>
     )
 }
@@ -174,7 +174,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
         setSheetOpenState(false)
     }
 
-    const bgGradientTypes = useMemo(() => ['bg-gradient-to-t', 'bg-gradient-to-tr', 'bg-gradient-to-r', 'bg-gradient-to-br', 'bg-gradient-to-b', 'bg-gradient-to-bl', 'bg-gradient-to-l', 'bg-gradient-to-tl'], [])
+    const bgGradientTypes = useMemo(() => ['bg-linear-to-t', 'bg-linear-to-tr', 'bg-linear-to-r', 'bg-linear-to-br', 'bg-linear-to-b', 'bg-linear-to-bl', 'bg-linear-to-l', 'bg-linear-to-tl'], [])
     const bgGradientColors = useMemo(() => [
         { from: 'from-[#FFD26F]', via: 'via-[#3687FF]', to: 'to-[#3677FF]' },
         { from: 'from-[#43CBFF]', via: 'via-[#9708CC]', to: 'to-[#9708CC]' },
@@ -369,7 +369,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                 </div>
 
                 {/* Header - 固定高度 */}
-                <SheetHeader className="flex-shrink-0 pt-4">
+                <SheetHeader className="shrink-0 pt-4">
                     <SheetTitle>@i-ati</SheetTitle>
                     <SheetDescription>
                         -
@@ -379,7 +379,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                 {/* 主内容区 - 占据剩余空间 */}
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                     {/* Carousel 区域 - 可折叠 */}
-                    <div className="flex-shrink-0 px-4 pt-2 border rounded-xl">
+                    <div className="shrink-0 px-4 pt-2 border rounded-xl">
                         <div className="flex items-center justify-between mb-2" onClick={() => setIsCarouselExpanded(!isCarouselExpanded)}>
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Assistants</h3>
                             <button
@@ -458,7 +458,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                     <Input
                                                         id="assistant-name"
                                                         placeholder='e.g., Code Helper, Writing Assistant'
-                                                        className="h-10 border-slate-200 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-700 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-slate-200 dark:focus-visible:border-slate-700"
+                                                        className="h-10 border-slate-200 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-700 focus-visible:outline-hidden focus-visible:ring-0 focus-visible:border-slate-200 dark:focus-visible:border-slate-700"
                                                     />
                                                 </div>
                                                 {/* Model Selector */}
@@ -515,7 +515,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                     <Textarea
                                                         id="assistant-prompt"
                                                         placeholder="You are a helpful assistant that..."
-                                                        className="min-h-[120px] resize-none border-slate-200 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-700 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-slate-200 dark:focus-visible:border-slate-700"
+                                                        className="min-h-[120px] resize-none border-slate-200 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-700 focus-visible:outline-hidden focus-visible:ring-0 focus-visible:border-slate-200 dark:focus-visible:border-slate-700"
                                                     />
                                                     <p className="text-xs text-slate-500 dark:text-slate-400">
                                                         Define how your assistant should behave and respond.
@@ -549,11 +549,11 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                     {/* 聊天列表区域 - 占据剩余空间 */}
                     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                         {/* New Chat 按钮 */}
-                        <div className="flex-shrink-0 py-3">
+                        <div className="shrink-0 py-3">
                             <Button
                                 onClick={onNewChatClick}
                                 variant={"default"}
-                                className="w-full p-2.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-lg shadow-sm bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
+                                className="w-full p-2.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-lg shadow-xs bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
                             >
                                 <BadgePlus className='w-4 h-4' />
                                 <span className="ml-2">New Chat</span>
@@ -567,7 +567,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                     {Object.entries(groupedChatList).map(([groupName, items]) => (
                                         <div key={groupName} className="mb-2">
                                             {/* 日期分组标题 - sticky */}
-                                            <div className="sticky top-0 bg-background/98 backdrop-blur-md z-10 pt-3 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+                                            <div className="sticky top-0 bg-background/98 backdrop-blur-md z-10 pt-3 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700 shadow-xs">
                                                 <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
                                                     {groupName}
                                                 </h4>
@@ -590,8 +590,8 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                                 "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer",
                                                                 "transition-all duration-200 ease-out",
                                                                 isActive
-                                                                    ? "bg-gradient-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-[''] after:absolute after:bottom-0.5 after:left-3 after:w-48 after:h-0.5 after:bg-gradient-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15"
-                                                                    : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-sm hover:scale-[1.01]"
+                                                                    ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-[''] after:absolute after:bottom-0.5 after:left-3 after:w-48 after:h-0.5 after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15"
+                                                                    : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-xs hover:scale-[1.01]"
                                                             )}
                                                         >
                                                             {/* 聊天标题 */}
@@ -615,7 +615,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                                                             </div>
 
                                                             {/* 消息数量 / 操作按钮 */}
-                                                            <div className="flex-shrink-0 flex items-center gap-1 h-7 relative w-16">
+                                                            <div className="shrink-0 flex items-center gap-1 h-7 relative w-16">
                                                                 {/* 消息数量标签 */}
                                                                 <span
                                                                     className={cn(
@@ -721,7 +721,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => 
                 </div>
 
                 {/* Footer - 固定在底部 */}
-                <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+                <div className="shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-800">
                     <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span>v1.0.0</span>
                         <div className="flex items-center gap-2">

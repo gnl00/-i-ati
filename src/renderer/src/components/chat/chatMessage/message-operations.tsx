@@ -29,7 +29,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
     <div
       id={isUser ? "usr-msg-operation" : "assistant-message-operation"}
       className={cn(
-        "min-h-[1.5rem] transition-opacity duration-200",
+        "min-h-6 transition-opacity duration-200",
         isUser
           ? "mt-0.5 pr-2 space-x-1 flex text-gray-400 dark:text-gray-500"
           : "mt-0.5 pl-2 space-x-1 flex text-gray-500 dark:text-gray-400",

@@ -308,7 +308,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                         <DrawerTitle className="flex items-center gap-3 text-xl font-bold tracking-tight">
                             {/* Corner Bracket Decoration */}
                             <span className="text-blue-500 dark:text-blue-400 text-xs font-mono">⟨⟨</span>
-                            <span className="bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                            <span className="bg-linear-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                                 IMPORT MODELS
                             </span>
                         </DrawerTitle>
@@ -319,7 +319,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             {currentAccount && (
                                 <Badge
                                     variant="outline"
-                                    className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-sm"
+                                    className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-xs"
                                 >
                                     {providerDefinition
                                         ? `${providerDefinition.displayName} · ${currentAccount.label}`
@@ -334,7 +334,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                         onClick={handleFetch}
                         disabled={isFetching}
                         className={cn(
-                            "h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-10",
+                            "h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xs z-10",
                             "hover:border-blue-400/50 dark:hover:border-blue-500/50 hover:bg-blue-50/50 dark:hover:bg-blue-950/30",
                             "transition-all duration-200",
                             isFetching && "animate-spin"
@@ -471,7 +471,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                         </div>
                     ) : (
                         <Table>
-                            <TableHeader className="sticky top-0 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm z-10 border-b border-slate-200 dark:border-slate-800">
+                            <TableHeader className="sticky top-0 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs shadow-xs z-10 border-b border-slate-200 dark:border-slate-800">
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead className="w-[50px] pl-6 text-[10px] text-slate-500 dark:text-slate-500 tracking-wider">
                                         <Input
@@ -642,7 +642,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 {/* Technical Footer */}
                 <DrawerFooter className="relative border-t border-slate-200/60 dark:border-slate-800/60 bg-slate-100/30 dark:bg-slate-900/20 shrink-0 overflow-hidden">
                     {/* Corner decoration */}
-                    <div className="absolute bottom-0 left-0 w-24 h-full bg-gradient-to-tr from-blue-500/5 to-transparent pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-24 h-full bg-linear-to-tr from-blue-500/5 to-transparent pointer-events-none" />
 
                     <div className="flex items-center justify-between w-full z-10">
                         <div className="flex items-center gap-3">

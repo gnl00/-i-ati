@@ -61,7 +61,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
         "group relative rounded-xl border transition-all duration-300 overflow-hidden will-change-transform",
         "bg-white dark:bg-gray-900/40",
         "border-gray-200/80 dark:border-gray-800/80",
-        "shadow",
+        "shadow-sm",
         "hover:shadow-md",
         "flex flex-col",
         installed && mode === 'registry' && "bg-gray-50/80 dark:bg-gray-900/20 border-gray-100 dark:border-gray-800/30 opacity-60 hover:opacity-100 grayscale-[0.5] hover:grayscale-0"
@@ -77,7 +77,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
           <div className="p-3 flex items-start justify-between gap-4 flex-1">
             <div className="flex-1 min-w-0 relative">
               <div className="flex items-start gap-4 mb-3">
-                <div className="h-11 w-11 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-sm group-hover:scale-105 will-change-transform">
+                <div className="h-11 w-11 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-xs group-hover:scale-105 will-change-transform">
                   {iconUrl ? (
                     <img
                       src={iconUrl}
@@ -203,7 +203,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
           <div className="p-3 flex items-start justify-between gap-4 flex-1">
             <div className="flex-1 min-w-0 relative">
               <div className="flex items-start gap-4 mb-3">
-                <div className="h-11 w-11 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-sm group-hover:scale-105 will-change-transform">
+                <div className="h-11 w-11 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center shrink-0 border border-gray-100 dark:border-gray-700/50 transition-all duration-300 shadow-xs group-hover:scale-105 will-change-transform">
                   <span className="text-base font-bold text-gray-600 dark:text-gray-400 uppercase">
                     {displayName.charAt(0)}
                   </span>
@@ -232,7 +232,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
               )}
             </div>
 
-            <div className="flex flex-col items-end gap-2 flex-shrink-0 select-none">
+            <div className="flex flex-col items-end gap-2 shrink-0 select-none">
               <Badge
                 variant="outline"
                 className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-transparent bg-emerald-50 dark:bg-emerald-900/20 transition-all duration-300 flex items-center gap-1.5"
@@ -251,7 +251,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                 {connectionType && (
                   <Badge
                     className={cn(
-                      "text-[10px] font-medium px-2 py-0.5 h-5 border-none rounded-md transition-colors duration-200 cursor-default uppercase w-fit flex-shrink-0",
+                      "text-[10px] font-medium px-2 py-0.5 h-5 border-none rounded-md transition-colors duration-200 cursor-default uppercase w-fit shrink-0",
                       getConnectionBadgeClass(connectionType)
                     )}
                   >
@@ -262,7 +262,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                   {configDisplay}
                 </code>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -309,7 +309,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -327,7 +327,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                     "bg-red-600 dark:bg-red-600",
                     "text-white dark:text-white",
                     "border border-red-500/50 dark:border-red-500/50",
-                    "shadow-sm",
+                    "shadow-xs",
                     "hover:bg-red-700 dark:hover:bg-red-500",
                     "hover:scale-105",
                     "active:scale-95",

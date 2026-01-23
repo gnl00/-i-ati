@@ -537,7 +537,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               ref={textareaRef}
               className={
                 cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 transition-all duration-300 ease-out',
-                  'rounded-none resize-none overflow-y-auto text-sm px-2 pt-0.5 pb-2 font-medium text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700',
+                  'rounded-none resize-none overflow-y-auto text-sm px-2 pt-0.5 pb-2 font-medium text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l border-r border-blue-gray-200 dark:border-gray-700',
                   'placeholder:text-gray-400 dark:placeholder:text-gray-500 leading-relaxed',
                   isDragging && 'bg-gray-100/80 dark:bg-gray-700/80 shadow-inner'
                 )

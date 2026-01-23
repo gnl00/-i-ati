@@ -17,12 +17,12 @@ const ImageGalleryComponent: React.FC<ImageGalleryProps> = () => {
                 {imageSrcBase64List.map((imgItem, index) => (
                     <div
                         key={index}
-                        className="h-full min-w-[10rem] relative"
+                        className="h-full min-w-40 relative"
                         onMouseOver={_ => { setIptImgHoverIndex(index) }}
                         onMouseLeave={_ => { setIptImgHoverIndex(-1) }}
                     >
                         <img className={cn(
-                            "h-full w-full p-0.5 object-cover backdrop-blur rounded-md",
+                            "h-full w-full p-0.5 object-cover backdrop-blur-sm rounded-md",
                             "transition-transform duration-300 ease-in-out",
                             "hover:scale-110"
                         )}

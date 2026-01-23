@@ -32,7 +32,7 @@ export const StreamingMarkdownSwitch: React.FC<{
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           skipHtml={false}
           remarkRehypeOptions={{ passThrough: ['link'] }}
-          className="!m-0"
+          className="m-0!"
           components={markdownCodeComponents}
         >
           {fixedFullText}
