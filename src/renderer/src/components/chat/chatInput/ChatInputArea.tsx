@@ -14,6 +14,7 @@ import CommandPalette from './CommandPalette'
 import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
 import { invokeCheckIsDirectory } from '@renderer/invoker/ipcInvoker'
+import { ArrowBigUp, CornerDownLeft } from 'lucide-react'
 
 interface ChatInputAreaProps {
   onMessagesUpdate: () => void
@@ -545,6 +546,47 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               </div>
             )}
 
+            {!inputContent && (
+              <div
+                className={cn(
+                  'absolute inset-0 z-10 pointer-events-none px-2 pt-1.5 pb-2',
+                  'text-gray-400 dark:text-gray-500',
+                  'select-none'
+                )}
+              >
+                <div className="text-sm font-medium leading-relaxed">
+                  Type anything to chat
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
+                    <CornerDownLeft className="h-3 w-3" />
+                    Enter
+                  </span>
+                  <span className="text-gray-300 dark:text-gray-600">Send</span>
+                  <span className="mx-1 text-gray-300 dark:text-gray-600">•</span>
+                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
+                    <ArrowBigUp className="h-3 w-3" />
+                    Shift
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
+                    <CornerDownLeft className="h-3 w-3" />
+                    Enter
+                  </span>
+                  <span className="text-gray-300 dark:text-gray-600">New line</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-2 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
+                    <ArrowBigUp className="h-3 w-3" />
+                    Shift
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
+                    ↑
+                  </span>
+                  <span className="text-gray-300 dark:text-gray-600">Edit queued message</span>
+                </div>
+              </div>
+            )}
+
             <Textarea
               ref={textareaRef}
               className={
@@ -554,7 +596,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
                   isDragging && 'bg-gray-100/80 dark:bg-gray-700/80 shadow-inner'
                 )
               }
-              placeholder={'Type anything to chat\n\n[Enter] Send  •  [Shift+Enter] New line\n[Shift+↑] Edit queued message'}
+              placeholder=""
               value={inputContent}
               onChange={onTextAreaChange}
               onKeyDown={onTextAreaKeyDown}
