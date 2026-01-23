@@ -64,11 +64,12 @@ export async function processMemoryRetrieval(
     }
   } catch (error) {
     console.error('[MemoryTools] Failed to retrieve memories:', error)
+    const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
       count: 0,
       memories: [],
-      message: `Failed to retrieve memories: ${error.message}`
+      message: `Failed to retrieve memories: ${message}`
     }
   }
 }
@@ -105,9 +106,10 @@ export async function processMemorySave(
     }
   } catch (error) {
     console.error('[MemoryTools] Failed to save memory:', error)
+    const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
-      message: `Failed to save memory: ${error.message}`
+      message: `Failed to save memory: ${message}`
     }
   }
 }

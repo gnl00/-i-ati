@@ -5,7 +5,7 @@
  * 使用 sqlite-vec 扩展进行高效向量搜索
  */
 
-import EmbeddingServiceInstance, { EmbeddingService } from '../embedding/EmbeddingService'
+import EmbeddingServiceInstance from '../embedding/EmbeddingService'
 import { app } from 'electron'
 import path from 'path'
 import Database from 'better-sqlite3'
@@ -396,14 +396,6 @@ class MemoryService {
   }
 
   /**
-   * 计算余弦相似度（纯 SQL 实现）
-   * 注意：这是一个辅助方法，实际搜索在应用层计算
-   */
-  private cosineSimilarity(embedding1: number[], embedding2: number[]): number {
-    return EmbeddingService.cosineSimilarity(embedding1, embedding2)
-  }
-
-  /**
    * 基于查询文本搜索相关记忆
    * 使用 sqlite-vec 进行高效向量搜索
    * @param query 查询文本
@@ -419,7 +411,6 @@ class MemoryService {
     const {
       chatId,
       topK = 5,
-      threshold = 0.5,
       excludeIds = [],
       timeRange,
     } = options

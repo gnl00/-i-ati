@@ -44,16 +44,6 @@ import type {
 
 // ============ Helper Functions ============
 
-/**
- * Resolve file path relative to userData directory
- * All file operations use paths relative to app.getPath('userData')
- * @deprecated Use resolveFilePath instead
- */
-function resolveUserDataPath(relativePath: string): string {
-  const userDataPath = app.getPath('userData')
-  return join(userDataPath, relativePath)
-}
-
 const DEFAULT_WORKSPACE_NAME = 'tmp'
 
 function resolveWorkspaceBaseDir(chatUuid?: string): string {

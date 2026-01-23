@@ -34,9 +34,9 @@ vi.mock('@main/services/memory/MemoryService', () => {
           }
 
           // 模拟相似度计算
-          const similarity = query.includes('TypeScript') && memory.content.includes('TypeScript')
+          const similarity = query.includes('TypeScript') && memory.context_en.includes('TypeScript')
             ? 0.85
-            : query.includes('programming') && memory.content.includes('programming')
+            : query.includes('programming') && memory.context_en.includes('programming')
             ? 0.75
             : 0.3
 
@@ -91,7 +91,8 @@ describe('MemoryToolsProcessor', () => {
   describe('processMemorySave', () => {
     it('应该成功保存带完整 metadata 的记忆', async () => {
       const args = {
-        content: 'User prefers TypeScript over JavaScript',
+        context_origin: 'User prefers TypeScript over JavaScript',
+        context_en: 'User prefers TypeScript over JavaScript',
         chatId: testChatId,
         metadata: {
           category: 'preference',
@@ -114,7 +115,8 @@ describe('MemoryToolsProcessor', () => {
 
     it('应该成功保存不带 metadata 的记忆', async () => {
       const args = {
-        content: 'User is working on an Electron project',
+        context_origin: 'User is working on an Electron project',
+        context_en: 'User is working on an Electron project',
         chatId: testChatId
       }
 
@@ -124,9 +126,10 @@ describe('MemoryToolsProcessor', () => {
       expect(response.memoryId).toBeDefined()
       expect(MemoryService.addMemory).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: args.content,
           chatId: args.chatId,
-          role: 'system'
+          role: 'system',
+          context_origin: args.context_origin,
+          context_en: args.context_en
         })
       )
 
@@ -137,7 +140,8 @@ describe('MemoryToolsProcessor', () => {
 
     it('应该验证 addMemory 被正确调用', async () => {
       const args = {
-        content: 'Test memory content',
+        context_origin: 'Test memory content',
+        context_en: 'Test memory content',
         chatId: testChatId,
         metadata: { category: 'test' }
       }
@@ -148,7 +152,8 @@ describe('MemoryToolsProcessor', () => {
         expect.objectContaining({
           chatId: testChatId,
           role: 'system',
-          content: 'Test memory content',
+          context_origin: 'Test memory content',
+          context_en: 'Test memory content',
           metadata: { category: 'test' }
         })
       )
@@ -159,14 +164,15 @@ describe('MemoryToolsProcessor', () => {
     beforeEach(async () => {
       // 准备测试数据
       const testMemories = [
-        { content: 'User prefers TypeScript for type safety', metadata: { category: 'preference' } },
-        { content: 'User is building an Electron app', metadata: { category: 'project' } },
-        { content: 'User likes functional programming style', metadata: { category: 'preference' } }
+        { context: 'User prefers TypeScript for type safety', metadata: { category: 'preference' } },
+        { context: 'User is building an Electron app', metadata: { category: 'project' } },
+        { context: 'User likes functional programming style', metadata: { category: 'preference' } }
       ]
 
       for (const memory of testMemories) {
         const response = await processMemorySave({
-          content: memory.content,
+          context_origin: memory.context,
+          context_en: memory.context,
           chatId: testChatId,
           metadata: memory.metadata
         })
@@ -206,7 +212,7 @@ describe('MemoryToolsProcessor', () => {
       expect(response.success).toBe(true)
       if (response.memories.length > 0) {
         const memory = response.memories[0]
-        expect(memory.content).toBeDefined()
+        expect(memory.context_en).toBeDefined()
         expect(memory.similarity).toBeDefined()
         expect(memory.similarity).toBeGreaterThanOrEqual(0)
         expect(memory.similarity).toBeLessThanOrEqual(1)
@@ -260,7 +266,8 @@ describe('MemoryToolsProcessor', () => {
     it('应该按 chatId 过滤记忆', async () => {
       const otherChatId = 888
       const otherResponse = await processMemorySave({
-        content: 'This is from another chat',
+        context_origin: 'This is from another chat',
+        context_en: 'This is from another chat',
         chatId: otherChatId
       })
       if (otherResponse.memoryId) {

@@ -186,8 +186,8 @@ class BrowserWindowPool {
     window.webContents.setUserAgent(this.config.userAgent)
 
     // Handle window crashes
-    window.webContents.on('crashed', () => {
-      console.error('[WindowPool] Search window crashed')
+    window.webContents.on('render-process-gone', (_event, details) => {
+      console.error('[WindowPool] Search window crashed', details)
       this.handleWindowCrash(window, this.searchWindows)
     })
 
@@ -210,8 +210,8 @@ class BrowserWindowPool {
     window.webContents.setUserAgent(this.config.userAgent)
 
     // Handle window crashes
-    window.webContents.on('crashed', () => {
-      console.error('[WindowPool] Content window crashed')
+    window.webContents.on('render-process-gone', (_event, details) => {
+      console.error('[WindowPool] Content window crashed', details)
       this.handleWindowCrash(window, this.contentWindows)
     })
 

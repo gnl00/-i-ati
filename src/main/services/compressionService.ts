@@ -95,7 +95,6 @@ class MessageCompressionService {
       (a, b) => (a.id || 0) - (b.id || 0)
     )
     const toCompress = sortedMessages.slice(0, compressCount)
-    const toKeep = sortedMessages.slice(compressCount)
 
     const pairedCompress = this.addToolPairs(toCompress, sortedMessages)
     const pairedIds = new Set(pairedCompress.map(m => m.id!))
