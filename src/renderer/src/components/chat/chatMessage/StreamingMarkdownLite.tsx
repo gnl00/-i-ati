@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useMemo, type JSX } from 'react';
 import { cn } from '@renderer/lib/utils'
 import { FluidTypewriterText } from './FluidTypewriterText'
 

@@ -3,9 +3,9 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 interface UseChatScrollParams {
   chatUuid?: string
   messageCount: number
-  scrollContainerRef: RefObject<HTMLDivElement>
-  chatListRef: RefObject<HTMLDivElement>
-  chatPaddingElRef: RefObject<HTMLDivElement>
+  scrollContainerRef: RefObject<HTMLDivElement | null>
+  chatListRef: RefObject<HTMLDivElement | null>
+  chatPaddingElRef: RefObject<HTMLDivElement | null>
 }
 
 interface UseChatScrollResult {

@@ -10,7 +10,7 @@ export interface SlashCommand {
 }
 
 export interface UseSlashCommandsOptions {
-  textareaRef?: React.RefObject<HTMLTextAreaElement>
+  textareaRef?: React.RefObject<HTMLTextAreaElement | null>
   onCommandExecute?: (command: SlashCommand) => void
 }
 

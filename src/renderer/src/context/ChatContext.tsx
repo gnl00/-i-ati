@@ -6,7 +6,7 @@ import { getChatFromList } from '@renderer/utils/chatWorkspace'
 type ChatContextType = {
   editableContentId: number | undefined
   setEditableContentId: (id: number) => void
-  chatListRef: React.RefObject<VListHandle>
+  chatListRef: React.RefObject<VListHandle | null>
   chatContent: string
   setChatContent: (content: string) => void
   chatId: number | undefined
