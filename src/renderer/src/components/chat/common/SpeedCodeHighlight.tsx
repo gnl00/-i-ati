@@ -1,5 +1,6 @@
 import { highlightElement } from '@speed-highlight/core'
 import React, { useEffect, useRef } from 'react'
+import { loadSpeedHighlightTheme } from '@renderer/utils/styleLoaders'
 
 interface SpeedCodeHighlightProps {
   code: string
@@ -35,6 +36,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
     // This prevents the highlighting from blocking the accordion's expand animation
     const timeoutId = setTimeout(() => {
       try {
+        void loadSpeedHighlightTheme()
         highlightElement(element, language)
       } catch (error) {
         console.warn('Failed to highlight code:', error)
