@@ -5,7 +5,6 @@ import { loadSpeedHighlightTheme } from '@renderer/utils/styleLoaders'
 interface SpeedCodeHighlightProps {
   code: string
   language?: string
-  isDarkMode?: boolean
   className?: string
 }
 
@@ -20,7 +19,6 @@ interface SpeedCodeHighlightProps {
 export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(({
   code,
   language = 'json',
-  isDarkMode = false,
   className = ''
 }) => {
   const codeRef = useRef<HTMLDivElement>(null)
@@ -37,7 +35,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
     const timeoutId = setTimeout(() => {
       try {
         void loadSpeedHighlightTheme()
-        highlightElement(element, language)
+        highlightElement(element, language as any)
       } catch (error) {
         console.warn('Failed to highlight code:', error)
       }

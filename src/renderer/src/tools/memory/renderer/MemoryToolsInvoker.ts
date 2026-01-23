@@ -32,12 +32,13 @@ export async function invokeMemoryRetrieval(
     const response = await window.electron.ipcRenderer.invoke('memory-retrieval-action', args)
     return response
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     console.error('[MemoryToolsInvoker] Failed to invoke memory_retrieval:', error)
     return {
       success: false,
       count: 0,
       memories: [],
-      message: `Failed to retrieve memories: ${error.message}`
+      message: `Failed to retrieve memories: ${message}`
     }
   }
 }
@@ -52,10 +53,11 @@ export async function invokeMemorySave(
     const response = await window.electron.ipcRenderer.invoke('memory-save-action', args)
     return response
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     console.error('[MemoryToolsInvoker] Failed to invoke memory_save:', error)
     return {
       success: false,
-      message: `Failed to save memory: ${error.message}`
+      message: `Failed to save memory: ${message}`
     }
   }
 }

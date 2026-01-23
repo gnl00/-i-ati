@@ -47,7 +47,8 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       }, 300) // Match animation duration
       return () => clearTimeout(timer)
     }
-  }, [currentAssistant])
+    return undefined
+  }, [currentAssistant, displayAssistant])
 
   const handleResetDefaults = () => {
     onTemperatureChange([1])

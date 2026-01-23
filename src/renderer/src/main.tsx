@@ -4,7 +4,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { rendererStartupTracer } from '@renderer/utils/startupTracer'
-import { initializeAppConfig, useAppConfigStore } from './store/appConfig'
+import { initializeAppConfig } from './store/appConfig'
 
 rendererStartupTracer.mark('renderer.boot')
 

@@ -101,7 +101,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
     )
 }
 
-const ChatSheetComponent: React.FC<ChatSheetProps> = (props: ChatSheetProps) => {
+const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
     const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
     const { accounts, providerDefinitions } = useAppConfigStore()

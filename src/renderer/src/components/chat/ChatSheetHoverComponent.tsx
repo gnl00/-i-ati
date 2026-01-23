@@ -3,7 +3,7 @@ import { useSheetStore } from '@renderer/store/sheet'
 
 interface ChatSheetHoverProps { }
 
-const ChatSheetHoverComponent: React.FC<ChatSheetHoverProps> = (props: ChatSheetHoverProps) => {
+const ChatSheetHoverComponent: React.FC<ChatSheetHoverProps> = (_: ChatSheetHoverProps) => {
   const { setSheetOpenState } = useSheetStore()
   return (
     <div

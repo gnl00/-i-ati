@@ -116,7 +116,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   } | null>(null)
 
   // Callback to handle command execution with textarea cleanup
-  const handleCommandExecute = useCallback((command: any) => {
+  const handleCommandExecute = useCallback((_command: any) => {
     const textarea = textareaRef.current
     if (textarea) {
       const cursorPos = textarea.selectionStart

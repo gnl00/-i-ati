@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useRef, useState } from 'react'
-import { VListHandle } from 'virtua'
 import { updateChat } from '@renderer/db/ChatRepository'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
+
+type VListHandle = {
+  scrollToIndex?: (index: number) => void
+  scrollTo?: (options: unknown) => void
+}
 
 type ChatContextType = {
   editableContentId: number | undefined

@@ -6,8 +6,8 @@ import type { RequestService } from './request-service'
 export class DefaultRequestService implements RequestService {
   async build(
     context: SubmissionContext,
-    publisher: EventPublisher,
-    meta: ChatSubmitEventMeta
+    _publisher: EventPublisher,
+    _meta: ChatSubmitEventMeta
   ): Promise<SubmissionContext> {
     return context
   }

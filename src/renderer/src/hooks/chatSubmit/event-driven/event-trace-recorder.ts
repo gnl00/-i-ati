@@ -84,7 +84,9 @@ export class ChatSubmitEventTraceRecorder {
     }
 
     this.queue = this.queue
-      .then(() => saveChatSubmitEvent(trace))
+      .then(async () => {
+        await saveChatSubmitEvent(trace)
+      })
       .catch((error) => {
         logger.warn('Failed to save chat submit event trace', error as Error)
       })

@@ -117,23 +117,13 @@ export const CodeWrapperNoHeader = React.memo(({ children, language }: { childre
   return <CodeWrapper children={children} language={language} showHeader={false} />
 })
 
-export const CodeCopyWrapper = React.memo(({ children, code, _language }: { children: React.ReactNode, code: string, _language?: string }) => {
+export const CodeCopyWrapper = React.memo(({ children, code }: { children: React.ReactNode, code: string }) => {
   const copyToClipboard = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(String(code));
-      toast({
-        variant: 'default',
-        duration: 1000,
-        className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-        description: '✅ Copied',
-      })
+      toast.success("Copied")
     } catch (err) {
-      toast({
-        variant: 'destructive',
-        duration: 1000,
-        className: 'flex fixed bottom-1 right-1 sm:w-1/3 md:w-1/4 lg:w-1/5',
-        description: '❌ Copy failed',
-      })
+      toast.error("Copy failed")
     }
   }, [code])
 

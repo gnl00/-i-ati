@@ -3,6 +3,7 @@
  * 统一管理所有 Renderer 进程到 Main 进程的 IPC 调用
  */
 
+import type { ChatSubmitEvent } from '@renderer/hooks/chatSubmit/event-driven/events'
 import {
   PIN_WINDOW,
   OPEN_EXTERNAL,
@@ -430,15 +431,7 @@ export async function invokeChatSubmitCancel(data: { submissionId: string; reaso
 }
 
 export function subscribeChatSubmitEvents(
-  handler: (event: {
-    type: string
-    payload: any
-    submissionId: string
-    chatId?: number
-    chatUuid?: string
-    sequence: number
-    timestamp: number
-  }) => void
+  handler: (event: ChatSubmitEvent) => void
 ): () => void {
   const ipc = getElectronIPC()
   const listener = (_event: any, data: any) => handler(data)

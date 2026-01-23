@@ -3,7 +3,6 @@ import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
 import FetchModelsDrawer from './FetchModelsDrawer'
 import { v4 as uuidv4 } from 'uuid'
-import { Badge } from "../ui/badge"
 import { ProviderModelsList } from './ProviderModelsList'
 import ProviderConfigurations from './ProviderConfigurations'
 import ProviderListSidebar from './ProviderListSidebar'
@@ -23,6 +22,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
         currentAccountId,
         setCurrentAccountId,
         addProviderWithAccount,
+        addAccount,
         updateAccount,
         removeAccount,
     } = useAppConfigStore()

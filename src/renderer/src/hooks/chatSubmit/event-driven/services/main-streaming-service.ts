@@ -4,19 +4,9 @@ import { SegmentBuilder } from '../streaming/parser'
 import { extractContentFromSegments } from '../streaming/segment-utils'
 import type { SubmissionContext } from '../context'
 import type { EventPublisher } from '../event-publisher'
-import type { ChatSubmitEventMeta, ChatSubmitEventType } from '../events'
+import type { ChatSubmitEvent, ChatSubmitEventMeta, ChatSubmitEventPayloads } from '../events'
 import type { MessageService } from './message-service'
 import type { StreamingService } from './streaming-service'
-
-type MainEventEnvelope = {
-  type: ChatSubmitEventType
-  payload: any
-  submissionId: string
-  chatId?: number
-  chatUuid?: string
-  sequence: number
-  timestamp: number
-}
 
 type MainStreamingOutcome = {
   ok: boolean
@@ -98,7 +88,7 @@ export class MainDrivenStreamingService implements StreamingService {
       )
     }
 
-    const unsubscribe = subscribeChatSubmitEvents((event: MainEventEnvelope) => {
+    const unsubscribe = subscribeChatSubmitEvents((event: ChatSubmitEvent) => {
       if (event.submissionId !== submissionId) {
         return
       }
@@ -112,12 +102,13 @@ export class MainDrivenStreamingService implements StreamingService {
         case 'tool.exec.failed':
         case 'submission.aborted':
         case 'submission.failed': {
-          void publisher.emit(event.type, event.payload, metaWithChat)
+          void publisher.emit(event.type as any, event.payload as any, metaWithChat)
           break
         }
         case 'tool.call.flushed': {
-          void publisher.emit('tool.call.flushed', event.payload, metaWithChat)
-          const toolCalls = event.payload?.toolCalls || []
+          const payload = event.payload as ChatSubmitEventPayloads['tool.call.flushed']
+          void publisher.emit('tool.call.flushed', payload, metaWithChat)
+          const toolCalls = payload?.toolCalls || []
           toolCalls.forEach((call: IToolCall) => {
             if (call.id) {
               toolCallNames.set(call.id, call.function?.name || 'unknown')
@@ -130,7 +121,8 @@ export class MainDrivenStreamingService implements StreamingService {
           break
         }
         case 'tool.result.attached': {
-          const toolMessage = event.payload?.message as MessageEntity | undefined
+          const payload = event.payload as ChatSubmitEventPayloads['tool.result.attached']
+          const toolMessage = payload?.message as MessageEntity | undefined
           if (toolMessage) {
             this.attachToolResultMessage(context, toolMessage)
             void publisher.emit('tool.result.attached', {
@@ -144,45 +136,48 @@ export class MainDrivenStreamingService implements StreamingService {
           break
         }
         default: {
-          void publisher.emit(event.type, event.payload, metaWithChat)
+          void publisher.emit(event.type as any, event.payload as any, metaWithChat)
         }
       }
 
       if (event.type === 'tool.exec.started') {
-        const toolCallId = event.payload?.toolCallId
+        const toolCallId = (event.payload as ChatSubmitEventPayloads['tool.exec.started'])?.toolCallId
         if (toolCallId) {
           upsertToolCallSegment(toolCallId, { status: 'running' }, false)
         }
       }
 
       if (event.type === 'tool.exec.completed') {
-        const toolCallId = event.payload?.toolCallId
+        const payload = event.payload as ChatSubmitEventPayloads['tool.exec.completed']
+        const toolCallId = payload?.toolCallId
         if (toolCallId) {
           upsertToolCallSegment(toolCallId, {
-            result: event.payload?.result,
-            cost: event.payload?.cost,
+            result: payload?.result,
+            cost: payload?.cost,
             status: 'completed'
           }, false)
         }
       }
 
       if (event.type === 'tool.exec.failed') {
-        const toolCallId = event.payload?.toolCallId
+        const payload = event.payload as ChatSubmitEventPayloads['tool.exec.failed']
+        const toolCallId = payload?.toolCallId
         if (toolCallId) {
           upsertToolCallSegment(toolCallId, {
-            error: event.payload?.error,
-            cost: event.payload?.cost,
+            error: payload?.error,
+            cost: (payload as any)?.cost,
             status: 'failed'
           }, true)
         }
       }
 
       if (event.type === 'stream.chunk') {
-        this.applyDeltaToAssistant(context, event.payload, publisher, metaWithChat)
+        this.applyDeltaToAssistant(context, event.payload as ChatSubmitEventPayloads['stream.chunk'], publisher, metaWithChat)
       }
 
       if (event.type === 'submission.failed') {
-        const error = this.normalizeError(event.payload?.error)
+        const payload = event.payload as ChatSubmitEventPayloads['submission.failed']
+        const error = this.normalizeError(payload?.error)
         pendingOutcome = { ok: false, error }
       }
 
@@ -215,15 +210,17 @@ export class MainDrivenStreamingService implements StreamingService {
 
       await this.waitForCompletion(() => pendingOutcome)
 
-      if (pendingOutcome?.aborted) {
+      const outcome = pendingOutcome as MainStreamingOutcome | null
+
+      if (outcome?.aborted) {
         const abortError = new AbortError('Request aborted')
         ;(abortError as any).__fromMain = true
         throw abortError
       }
 
-      if (pendingOutcome?.error) {
-        ;(pendingOutcome.error as any).__fromMain = true
-        throw pendingOutcome.error
+      if (outcome?.error) {
+        ;(outcome.error as any).__fromMain = true
+        throw outcome.error
       }
 
       return context
