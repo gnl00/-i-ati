@@ -15,16 +15,16 @@ import {
   processGetFileInfo,
   processCreateDirectory,
   processMoveFile
-} from '@main-tools/fileOperations/main/FileOperationsProcessor'
+} from '@main/tools/fileOperations/FileOperationsProcessor'
 import {
   processCheckPreviewSh,
   processStartDevServer,
   processStopDevServer,
   processGetDevServerStatus,
   processGetDevServerLogs
-} from '@main-tools/devServer/main/DevServerProcessor'
+} from '@main/tools/devServer/DevServerProcessor'
 import { processMemoryRetrieval, processMemorySave } from '@main/tools/memory/MemoryToolsProcessor'
-import { processExecuteCommand } from '@main-tools/command/main/CommandProcessor'
+import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import EmbeddingServiceInstance from '@main/services/embedding/EmbeddingService'
 import MemoryService from '@main/services/memory/MemoryService'
 import {

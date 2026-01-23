@@ -11,7 +11,6 @@ export default defineConfig({
         '@request': resolve('src/main/request'),
         '@shared': resolve('src/shared'),
         '@tools': resolve('src/shared/tools'),
-        '@main-tools': resolve('src/main/tools')
       }
     }
   },
