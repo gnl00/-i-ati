@@ -220,26 +220,6 @@ const parseFrontmatter = (content: string): ParsedSkill => {
   }
 }
 
-const rewriteSkillName = (content: string, newName: string): string => {
-  const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/)
-  if (!match) {
-    return content
-  }
-  const frontmatterLines = match[1].split(/\r?\n/)
-  let replaced = false
-  const nextLines = frontmatterLines.map(line => {
-    if (/^\s*name\s*:/i.test(line)) {
-      replaced = true
-      return `name: ${newName}`
-    }
-    return line
-  })
-  if (!replaced) {
-    nextLines.unshift(`name: ${newName}`)
-  }
-  return `---\n${nextLines.join('\n')}\n---\n${match[2] ?? ''}`
-}
-
 const validateSkillName = (name: string): void => {
   if (!name || name.length > 64 || !SKILL_NAME_REGEX.test(name)) {
     throw new Error(`Invalid skill name: "${name}"`)
@@ -360,11 +340,10 @@ const readSkillMetadata = async (
     validateSkillDescription(parsed.frontmatter.description)
     validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
 
-    const dirName = path.basename(skillDir)
     const sourceInfo = await readSkillSourceInfo(skillDir)
     return {
       ...buildSkillMetadata(parsed.frontmatter, {
-        name: dirName,
+        name: path.basename(skillDir),
         frontmatterName: rawName
       }),
       mtimeMs: stat.mtimeMs,
@@ -565,7 +544,6 @@ const installSkillFromDirectory = async (
   const content = await fs.readFile(skillFile, 'utf-8')
   const parsed = parseFrontmatter(content)
   const rawName = parsed.frontmatter.name
-  const dirName = path.basename(sourceDir)
   const normalizedName = resolveSkillNameForDirectory(rawName)
   validateSkillName(normalizedName)
   validateSkillDescription(parsed.frontmatter.description)

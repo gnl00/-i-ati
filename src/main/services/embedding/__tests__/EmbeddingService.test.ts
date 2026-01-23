@@ -37,7 +37,7 @@ describe('EmbeddingService', () => {
     vi.clearAllMocks()
 
     // 创建 mock pipeline 实例
-    mockPipelineInstance = vi.fn(async (text: string, options?: any) => {
+    mockPipelineInstance = vi.fn(async (_text: string, _options?: any) => {
       // 模拟返回 384 维的 embedding 向量
       const embedding = new Float32Array(384).fill(0.1)
       return { data: embedding }

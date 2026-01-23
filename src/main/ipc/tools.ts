@@ -178,19 +178,19 @@ export function registerToolHandlers(): void {
 
   ipcMain.handle(MEMORY_ADD, async (_event, args) => {
     console.log('[Memory IPC] Add')
-    return await MemoryService.saveMemory(args)
+    return await MemoryService.addMemory(args)
   })
   ipcMain.handle(MEMORY_ADD_BATCH, async (_event, args) => {
     console.log('[Memory IPC] Add batch')
-    return await MemoryService.saveMemoryBatch(args)
+    return await MemoryService.addBatchMemories(args)
   })
   ipcMain.handle(MEMORY_SEARCH, async (_event, args) => {
     console.log('[Memory IPC] Search')
-    return await MemoryService.searchMemory(args)
+    return await MemoryService.searchMemories(args.query ?? args, args.options ?? {})
   })
   ipcMain.handle(MEMORY_GET_CHAT, async (_event, args) => {
     console.log('[Memory IPC] Get chat')
-    return await MemoryService.getChatMemory(args)
+    return await MemoryService.getChatMemories(args.chatId ?? args)
   })
   ipcMain.handle(MEMORY_DELETE, async (_event, args) => {
     console.log('[Memory IPC] Delete')
@@ -198,15 +198,15 @@ export function registerToolHandlers(): void {
   })
   ipcMain.handle(MEMORY_DELETE_CHAT, async (_event, args) => {
     console.log('[Memory IPC] Delete chat')
-    return await MemoryService.deleteChatMemory(args)
+    return await MemoryService.deleteChatMemories(args.chatId ?? args)
   })
   ipcMain.handle(MEMORY_GET_STATS, async (_event) => {
     console.log('[Memory IPC] Get stats')
-    return await MemoryService.getMemoryStats()
+    return await MemoryService.getStats()
   })
   ipcMain.handle(MEMORY_CLEAR, async (_event) => {
     console.log('[Memory IPC] Clear')
-    return await MemoryService.clearMemory()
+    return await MemoryService.clear()
   })
 
   ipcMain.handle(EMBEDDING_GENERATE, async (_event, args) => {
@@ -215,7 +215,7 @@ export function registerToolHandlers(): void {
   })
   ipcMain.handle(EMBEDDING_GENERATE_BATCH, async (_event, args) => {
     console.log('[Embedding IPC] Generate batch')
-    return await EmbeddingServiceInstance.generateEmbeddings(args)
+    return await EmbeddingServiceInstance.generateBatchEmbeddings(args.texts ?? args, args.options)
   })
   ipcMain.handle(EMBEDDING_GET_MODEL_INFO, async (_event) => {
     console.log('[Embedding IPC] Get model info')

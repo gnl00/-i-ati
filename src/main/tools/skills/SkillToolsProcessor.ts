@@ -103,7 +103,6 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
         if (!skill) {
           throw new Error(`Installed skill "${args.source}" is invalid or missing metadata`)
         }
-        const content = await SkillService.getSkillContent(skill.name)
         let activated = false
         if (args.activate !== false && args.chat_uuid) {
           const chat = DatabaseService.getChatByUuid(args.chat_uuid)
@@ -128,7 +127,6 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       allowOverwrite: args.allowOverwrite
     })
 
-    const content = await SkillService.getSkillContent(skill.name)
     let activated = false
     if (args.activate !== false && args.chat_uuid) {
       const chat = DatabaseService.getChatByUuid(args.chat_uuid)
@@ -147,10 +145,11 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
     }
   } catch (error) {
     console.error('[SkillTools] Failed to load skill:', error)
+    const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
       activated: false,
-      message: `Failed to load skill: ${error.message}`
+      message: `Failed to load skill: ${message}`
     }
   }
 }
@@ -173,10 +172,11 @@ export async function processUnloadSkill(args: UnloadSkillArgs): Promise<UnloadS
     return { success: true, removed: true, message: 'Skill removed.' }
   } catch (error) {
     console.error('[SkillTools] Failed to unload skill:', error)
+    const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
       removed: false,
-      message: `Failed to unload skill: ${error.message}`
+      message: `Failed to unload skill: ${message}`
     }
   }
 }
@@ -213,11 +213,12 @@ export async function processReadSkillFile(args: ReadSkillFileArgs): Promise<Rea
       content: resultContent,
       lines: totalLines
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('[SkillTools] Failed to read skill file:', error)
+    const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
-      message: error.message || 'Failed to read skill file'
+      message
     }
   }
 }

@@ -3,7 +3,7 @@ import DatabaseService from '@main/services/DatabaseService'
 import { compressionService, type CompressionJob } from '@main/services/CompressionService'
 import { generateTitle } from '@main/services/TitleService'
 import { ChatSubmitEventEmitter } from '@main/services/chatSubmit/event-emitter'
-import { MainChatSubmitService } from '@main/services/chatSubmit'
+import { MainChatSubmitService, type MainChatSubmitInput } from '@main/services/chatSubmit'
 import {
   DB_CHAT_SAVE,
   DB_CHAT_GET_ALL,
@@ -76,15 +76,7 @@ export function registerChatHandlers(): void {
     return DatabaseService.getChatSkills(chatId)
   })
 
-  ipcMain.handle(CHAT_SUBMIT_SUBMIT, async (_event, data: {
-    submissionId: string
-    input: string
-    modelRef: ModelRef
-    chatId?: number
-    chatUuid?: string
-    options?: IUnifiedRequest['options']
-    stream?: boolean
-  }) => {
+  ipcMain.handle(CHAT_SUBMIT_SUBMIT, async (_event, data: MainChatSubmitInput) => {
     console.log(`[ChatSubmit IPC] Submit: ${data.submissionId}`)
     return chatSubmitService.submit(data)
   })
@@ -111,7 +103,7 @@ export function registerChatHandlers(): void {
 
     try {
       const result = await compressionService.execute(data)
-      if (result.ok) {
+      if (result.success) {
         emitter?.emit('compression.completed', { result })
       } else {
         emitter?.emit('compression.failed', {

@@ -111,7 +111,8 @@ class EmbeddingService {
       console.log(`[EmbeddingService] Model initialized successfully in ${elapsed}ms`)
     } catch (error) {
       console.error('[EmbeddingService] Failed to initialize model:', error)
-      throw new Error(`Failed to initialize embedding model: ${error.message}`)
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to initialize embedding model: ${message}`)
     }
   }
 
@@ -158,7 +159,8 @@ class EmbeddingService {
       }
     } catch (error) {
       console.error('[EmbeddingService] Failed to generate embedding:', error)
-      throw new Error(`Failed to generate embedding: ${error.message}`)
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to generate embedding: ${message}`)
     }
   }
 
@@ -219,7 +221,8 @@ class EmbeddingService {
       }
     } catch (error) {
       console.error('[EmbeddingService] Failed to generate batch embeddings:', error)
-      throw new Error(`Failed to generate batch embeddings: ${error.message}`)
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to generate batch embeddings: ${message}`)
     }
   }
 
