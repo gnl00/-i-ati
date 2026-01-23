@@ -107,6 +107,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const caretOverlayRef = useRef<CustomCaretRef>(null)
   const queueTimerRef = useRef<number | null>(null)
   const queueFlushingRef = useRef(false)
+  const isComposingRef = useRef(false)
   const editingQueueRef = useRef<{
     text: string
     images: ClipbordImg[]
@@ -369,6 +370,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [handleCommandInputChange])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.nativeEvent.isComposing || isComposingRef.current)) {
+      return
+    }
     if (e.shiftKey && e.key === 'ArrowUp') {
       if (queuedMessages.length > 0 && !editingQueue) {
         e.preventDefault()
@@ -411,6 +415,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       })
     }
   }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef, queuedMessages.length, editingQueue, startEditQueuedMessage])
+
+  const onTextAreaCompositionStart = useCallback(() => {
+    isComposingRef.current = true
+  }, [])
+
+  const onTextAreaCompositionEnd = useCallback(() => {
+    isComposingRef.current = false
+  }, [])
 
   const onTextAreaPaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
@@ -546,6 +558,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
               value={inputContent}
               onChange={onTextAreaChange}
               onKeyDown={onTextAreaKeyDown}
+              onCompositionStart={onTextAreaCompositionStart}
+              onCompositionEnd={onTextAreaCompositionEnd}
               onPaste={onTextAreaPaste}
               onBlur={onTextAreaBlur}
               onDragEnter={onDragEnter}
