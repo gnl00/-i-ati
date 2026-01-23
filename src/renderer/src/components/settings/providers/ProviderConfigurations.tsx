@@ -3,7 +3,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { cn } from '@renderer/lib/utils'
-import { Eye, EyeOff } from 'lucide-react'
+import { ChevronDown, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ProviderAdvanceConfigDrawer } from '@renderer/components/settings/providers/ProviderAdvanceConfigDrawer'
 
@@ -54,9 +54,15 @@ const ProviderConfigurations = ({
                         'dark:data-[state=open]:from-blue-900/20 dark:data-[state=open]:to-transparent'
                     , 'group')}>
                         <div className='flex items-center justify-between w-full mr-2'>
-                            <span className='text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide'>
-                                Configuration
-                            </span>
+                            <div className='flex items-center gap-2'>
+                                <span className='text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide'>
+                                    Configuration
+                                </span>
+                                <ChevronDown className={cn(
+                                    'h-4 w-4 text-gray-500 dark:text-gray-400 transition-transform duration-200',
+                                    'group-data-[state=open]:rotate-180'
+                                )} />
+                            </div>
                             <div
                                 role="button"
                                 tabIndex={0}

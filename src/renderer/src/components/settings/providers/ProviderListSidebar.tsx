@@ -49,25 +49,26 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
 
     return (
         <div className='w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-md shadow-xs'>
-            <div className='flex-none bg-linear-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b dark:border-gray-700 p-2'>
+            <div className='flex-none p-2'>
                 <Drawer>
                     <DrawerTrigger className={cn(
                         'group w-full p-0 rounded-lg',
-                        'text-gray-600 dark:text-gray-400',
-                        'hover:text-gray-900 dark:hover:text-gray-100',
-                        'hover:bg-white dark:hover:bg-gray-700',
-                        'hover:shadow-md hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50',
+                        'text-gray-600 dark:text-slate-300',
+                        'hover:text-gray-900 dark:hover:text-white',
+                        'hover:bg-white dark:hover:bg-slate-900/70',
+                        'hover:shadow-md hover:shadow-gray-200/50 dark:hover:shadow-black/50',
                         'active:scale-[0.98]',
                         'transition-all duration-200 ease-out',
-                        'border border-transparent hover:border-gray-200 dark:hover:border-gray-600',
-                        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+                        'border border-transparent hover:border-gray-200 dark:hover:border-slate-700/70',
+                        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900'
                     )}>
-                        <div className='flex items-center justify-center gap-2 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-linear-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-750'>
+                        <div className='flex items-center justify-center gap-2 py-2 border-2 border-dashed border-gray-300 dark:border-slate-600/80 rounded-lg bg-linear-to-r from-gray-50 to-white dark:from-slate-950/70 dark:via-slate-900/70 dark:to-slate-900/60'>
                             <i className={cn(
                                 'ri-add-circle-line text-xl transition-all duration-200 ease-out',
-                                'group-hover:scale-110 group-hover:rotate-90'
+                                'group-hover:scale-110 group-hover:rotate-90',
+                                'text-gray-500 dark:text-slate-300'
                             )}></i>
-                            <span className='text-sm font-medium transition-colors duration-200'>Add Provider</span>
+                            <span className='text-sm font-medium transition-colors duration-200 text-gray-700 dark:text-slate-200'>Add Provider</span>
                         </div>
                     </DrawerTrigger>
                     <DrawerContent>
@@ -161,7 +162,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                     </DrawerContent>
                 </Drawer>
             </div>
-            <div className='flex-1 overflow-y-auto p-2 space-y-1'>
+            <div className='flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1'>
                 <TooltipProvider>
                     {providers.map((definition, idx) => {
                         const iconKey = definition.iconKey || definition.id
