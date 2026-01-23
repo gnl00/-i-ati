@@ -85,3 +85,6 @@ export type ChatSubmitEventEnvelope<T extends ChatSubmitEventType = ChatSubmitEv
     timestamp: number
     sequence: number
   }
+
+export type ChatSubmitEvent =
+  { [K in ChatSubmitEventType]: ChatSubmitEventEnvelope<K> }[ChatSubmitEventType]

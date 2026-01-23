@@ -15,7 +15,6 @@ import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorks
 import { saveChat } from '@renderer/db/ChatRepository'
 import { v4 as uuidv4 } from 'uuid'
 import {
-  ArrowBigUp,
   BadgePlus,
   CornerDownLeft,
   Package,
@@ -306,7 +305,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                         "active:scale-[0.98]"
                       ]
                 )}
-                onClick={handleWorkspaceSelect}
+                onClick={_ => {handleWorkspaceSelect()}}
               >
                 {/* Animated background gradient on hover */}
                 {isCustomWorkspace && (

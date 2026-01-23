@@ -1,7 +1,14 @@
-import type { ToolExecutionResult } from '../streaming/executor/types'
 import type { SubmissionContext } from '../context'
 import type { EventPublisher } from '../event-publisher'
 import type { ChatSubmitEventMeta } from '../events'
+
+export type ToolExecutionResult = {
+  toolCallId: string
+  ok: boolean
+  result?: unknown
+  error?: Error
+  cost?: number
+}
 
 export interface ToolService {
   execute(

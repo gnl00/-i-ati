@@ -206,7 +206,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
 
     const selectionStart = textarea.selectionStart ?? 0
     const selectionEnd = textarea.selectionEnd ?? 0
-    const valueLength = textarea.value.length
+    // const valueLength = textarea.value.length
 
     if (selectionStart !== selectionEnd) {
       hideCaretElement()

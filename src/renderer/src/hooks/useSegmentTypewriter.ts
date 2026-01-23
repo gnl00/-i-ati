@@ -98,7 +98,6 @@ export const useSegmentTypewriter = (
   // Queue Management Functions
   // 确保 segment 队列是最新的（增量添加新字符）
   const ensureSegmentQueue = useCallback((segmentIndex: number, content: string) => {
-    const consumed = consumedLengthsRef.current.get(segmentIndex) || 0
     const processed = processedLengthRef.current.get(segmentIndex) || 0
 
     // 计算从上次处理后新增的内容
@@ -135,24 +134,6 @@ export const useSegmentTypewriter = (
   const cleanupSegmentQueue = useCallback((segmentIndex: number) => {
     segmentQueuesRef.current.delete(segmentIndex)
     processedLengthRef.current.delete(segmentIndex)
-  }, [])
-
-  // 重置状态
-  const resetState = useCallback(() => {
-    setActiveSegmentIndex(-1)
-    setCurrentSegmentOffset(0)
-    setIsAllComplete(false)
-
-    // 清理所有队列管理 Refs
-    segmentQueuesRef.current.clear()
-    consumedLengthsRef.current.clear()
-    processedLengthRef.current.clear()
-    completedSegmentsRef.current.clear()
-
-    if (animationFrameRef.current !== null) {
-      cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
-    }
   }, [])
 
   // 强制完成打字机效果

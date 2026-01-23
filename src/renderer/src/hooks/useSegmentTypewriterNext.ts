@@ -166,10 +166,8 @@ export const useSegmentTypewriterNext = (
     if (!newRawContent) return
 
     // 使用 splitContent 进行分词
-    const newTokens = splitContent(newRawContent)
-
     const queue = segmentQueuesRef.current.get(segmentKey) || []
-    queue.push(...newTokens)
+    queue.push(...splitContent(newRawContent))
     segmentQueuesRef.current.set(segmentKey, queue)
 
     // 更新已处理的原始字符串长度
@@ -194,8 +192,7 @@ export const useSegmentTypewriterNext = (
 
       const lastLoggedCount = lastLoggedTokenCountRef.current.get(segmentKey) || 0
       if (tokens.length > lastLoggedCount) {
-        const newTokens = tokens.slice(lastLoggedCount)
-        // console.log('[TypewriterTokens]', { segmentIndex, tokens: newTokens })
+        // console.log('[TypewriterTokens]', { segmentIndex, tokens: tokens.slice(lastLoggedCount) })
         lastLoggedTokenCountRef.current.set(segmentKey, tokens.length)
       }
     })

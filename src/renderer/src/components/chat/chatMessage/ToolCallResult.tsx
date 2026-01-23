@@ -10,11 +10,10 @@ import { WebSearchResults } from './WebSearchResults';
 interface ToolCallResultProps {
   toolCall: ToolCallSegment
   index: number
-  isDarkMode: boolean
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc, isDarkMode }) => {
+export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   // 检测是否为 Web Search 结果
@@ -56,7 +55,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
 
   const onCopyClick = (e: React.MouseEvent, content: any) => {
     e.stopPropagation();
-    const text = typeof content === 'string' ? content : jsonContent;
+    const text = typeof content === 'string' ? content : visibleJsonContent;
     navigator.clipboard.writeText(text);
     toast.success('Result Copied');
   }
@@ -212,7 +211,6 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                       <SpeedCodeHighlight
                         code={visibleJsonContent}
                         language="json"
-                        isDarkMode={isDarkMode}
                       /* Passing style via props not supported, relying on SpeedCodeHighlight's internal style. 
                          Ideally would refactor SpeedCodeHighlight to accept style or className properly.
                          For now, the container handles most layout. */

@@ -87,17 +87,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         toast.success('Save configurations success')
     }
 
-    const onMcpServerConfigChange = (e: any) => {
-        try {
-            const config = e.target.value
-            setmsConfig(config)
-            setMcpServerConfig(JSON.parse(config))
-            toast.success('All syntax right.')
-        } catch (error: any) {
-            toast.error(error.message)
-        }
-    }
-
     const preferenceTabs = [
         {
             value: 'provider-list',
@@ -122,7 +111,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     ]
 
     const savedTools = appConfig?.tools || {}
-    const savedCompression = appConfig?.compression || {}
+    const savedCompression = appConfig?.compression
     const savedMcpConfig = appConfig?.mcp || {}
 
     const toolsDirty = maxWebSearchItems !== (savedTools.maxWebSearchItems ?? 3)
@@ -131,10 +120,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         || titleGenerateModel?.accountId !== savedTools.titleGenerateModel?.accountId
         || titleGenerateModel?.modelId !== savedTools.titleGenerateModel?.modelId
 
-    const compressionDirty = compressionEnabled !== (savedCompression.enabled ?? true)
-        || compressionTriggerThreshold !== (savedCompression.triggerThreshold ?? 30)
-        || compressionKeepRecentCount !== (savedCompression.keepRecentCount ?? 20)
-        || compressionCompressCount !== (savedCompression.compressCount ?? 10)
+    const compressionDirty = compressionEnabled !== (savedCompression?.enabled ?? true)
+        || compressionTriggerThreshold !== (savedCompression?.triggerThreshold ?? 30)
+        || compressionKeepRecentCount !== (savedCompression?.keepRecentCount ?? 20)
+        || compressionCompressCount !== (savedCompression?.compressCount ?? 10)
 
     const mcpDirty = JSON.stringify(mcpServerConfig ?? {}) !== JSON.stringify(savedMcpConfig ?? {})
 

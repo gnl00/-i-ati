@@ -140,7 +140,7 @@ function useChatSubmitV2() {
           chatContext.setChatTitle(chatEntity.title)
         }
       }),
-      bus.on('stream.completed', ({ ok }, envelope) => {
+      bus.on('stream.completed', (_, envelope) => {
         if (!markOnce('stream.completed', envelope.submissionId)) {
           return
         }

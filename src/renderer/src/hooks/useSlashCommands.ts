@@ -20,7 +20,7 @@ export interface UseSlashCommandsOptions {
  * Also manages command palette state and keyboard navigation
  */
 export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
-  const { textareaRef, onCommandExecute } = options
+  const { onCommandExecute } = options
   const { setChatId, setChatUuid, setChatTitle } = useChatContext()
   const setMessages = useChatStore(state => state.setMessages)
   const artifacts = useChatStore(state => state.artifacts)

@@ -4,11 +4,9 @@ import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@renderer/components/ui/accordion"
 import { cn } from '@renderer/lib/utils'
 import { ChevronDown, Lightbulb } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useTheme } from '@renderer/components/theme-provider'
 import { useChatStore } from '@renderer/store'
 import { useCommandConfirmationStore } from '@renderer/store/commandConfirmation'
 import { ToolCallResult } from './ToolCallResult'
@@ -211,7 +209,6 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   onCopyClick,
   onTypingChange
 }) => {
-  const { theme } = useTheme()
   const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
 
   // 命令确认状态
@@ -230,8 +227,6 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     isLatest,
     onTypingChange
   })
-
-  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   if (!m || m.role !== 'assistant') return null
 
@@ -322,7 +317,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
           } else if (segment.type === 'reasoning') {
             return <ReasoningSegment key={key} segment={segment} />
           } else if (segment.type === 'toolCall') {
-            return <ToolCallResult key={key} toolCall={segment} index={index} isDarkMode={isDarkMode} />
+            return <ToolCallResult key={key} toolCall={segment} index={index} />
           } else if (segment.type === 'error') {
             return <ErrorMessage key={key} error={segment.error} />
           }

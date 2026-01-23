@@ -292,7 +292,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                       <Switch
                         className='h-6 transition-all duration-200'
                         checked={m.enabled !== false}
-                        onCheckedChange={checked => {
+                        onCheckedChange={_checked => {
                           if (!currentAccount) return
                           toggleModelEnabled(currentAccount.id, m.id)
                         }}

@@ -1,7 +1,6 @@
 import React, { memo, useState } from 'react'
 import { AlertCircle, ChevronDown, ChevronUp, Copy } from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
 
 interface ErrorMessageProps {
