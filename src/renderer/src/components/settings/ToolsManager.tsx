@@ -115,7 +115,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
         <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
             <div className='w-full h-full space-y-2 p-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500'>
                 {/* Title Generation Setting */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md">
                     <div className="p-5 flex items-start gap-4">
                         <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                 </div>
 
                 {/* WebSearch Items Setting */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs p-5 hover:shadow-md transition-all duration-200">
                     <div className="flex items-center justify-between gap-6">
                         <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                     const value = parseInt(e.target.value) || 3
                                     setMaxWebSearchItems(Math.min(Math.max(value, 1), 10))
                                 }}
-                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm transition-all focus:w-20 font-mono font-medium'
+                                className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium'
                             />
                             <span className="text-xs font-medium text-gray-400 pr-2">items</span>
                         </div>
@@ -246,7 +246,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                 </div>
 
                 {/* Memory Setting */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs p-5 hover:shadow-md transition-all duration-200">
                     <div className="flex items-start gap-4">
                         <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
@@ -271,7 +271,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                 </div>
 
                 {/* Message Compression Setting */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md">
                     <div className="p-5 flex items-start gap-4">
                         <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
@@ -319,7 +319,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                                 setCompressionTriggerThreshold(Math.min(Math.max(value, 10), 100))
                                             }}
                                             disabled={!compressionEnabled}
-                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm font-mono font-medium transition-all focus:w-20'
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
                                         />
                                         <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
                                     </div>
@@ -341,7 +341,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                                 setCompressionKeepRecentCount(Math.min(Math.max(value, 5), 50))
                                             }}
                                             disabled={!compressionEnabled}
-                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm font-mono font-medium transition-all focus:w-20'
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
                                         />
                                         <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
                                     </div>
@@ -363,7 +363,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                                 setCompressionCompressCount(Math.min(Math.max(value, 5), 30))
                                             }}
                                             disabled={!compressionEnabled}
-                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm font-mono font-medium transition-all focus:w-20'
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
                                         />
                                         <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
                                     </div>
@@ -374,7 +374,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                 </div>
 
                 {/* Configuration Backup */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md">
                     <div className="p-5">
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
@@ -394,11 +394,11 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                         <div className="p-4 pt-3 flex items-center justify-between gap-4">
                             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Backup & Restore</span>
                             <div className="flex items-center gap-2">
-                                <Button onClick={handleExportConfig} variant="outline" size="sm" className="shadow-sm">
+                                <Button onClick={handleExportConfig} variant="outline" size="sm" className="shadow-xs">
                                     <i className="ri-download-line mr-1.5"></i>
                                     Export Config
                                 </Button>
-                                <Button onClick={handleImportConfig} variant="outline" size="sm" className="shadow-sm">
+                                <Button onClick={handleImportConfig} variant="outline" size="sm" className="shadow-xs">
                                     <i className="ri-upload-line mr-1.5"></i>
                                     Import Config
                                 </Button>

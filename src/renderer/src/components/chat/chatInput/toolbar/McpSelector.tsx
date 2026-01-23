@@ -36,10 +36,10 @@ const McpSelector: React.FC<McpSelectorProps> = ({
         >
           {/* Animated background gradient on hover (active state only) */}
           {selectedMcpServerNames.length > 0 && (
-            <div className="absolute inset-0 bg-gradient-to-r from-amber-100/0 via-amber-100/50 to-orange-100/0 dark:from-amber-900/0 dark:via-amber-900/30 dark:to-orange-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute inset-0 bg-linear-to-r from-amber-100/0 via-amber-100/50 to-orange-100/0 dark:from-amber-900/0 dark:via-amber-900/30 dark:to-orange-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           )}
 
-          <span className="flex flex-grow justify-center overflow-x-hidden relative z-10">
+          <span className="flex grow justify-center overflow-x-hidden relative z-10">
             {selectedMcpServerNames.length === 0 ? (
               <span className="text-slate-400 dark:text-slate-500">MCP Tools</span>
             ) : (

@@ -94,7 +94,7 @@ export const ProviderAdvanceConfigDrawer: React.FC<ProviderAdvanceConfigDrawerPr
             {providerDefinition && (
                 <Badge
                     variant="outline"
-                    className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-sm"
+                    className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-xs"
                 >
                     {providerDefinition && `${providerDefinition.displayName}`}
                 </Badge>

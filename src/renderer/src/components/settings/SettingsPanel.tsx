@@ -154,9 +154,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <AnimatedTabsList
                         tabs={preferenceTabs}
                         value={activeTab}
-                        tabsListClassName="h-10 shadow-sm border border-gray-200/50 dark:border-gray-700/50"
+                        tabsListClassName="h-10 shadow-xs border border-gray-200/50 dark:border-gray-700/50"
                     />
-                    <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-sm">
+                    <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-linear-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-xs">
                         <div className="flex items-center gap-2">
                             <div className="relative flex h-1.5 w-1.5">
                                 {hasUnsavedChanges && (
@@ -176,7 +176,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             size="lg"
                             onClick={saveConfigurationClick}
                             disabled={!hasUnsavedChanges}
-                            className="h-7 px-3 py-4 bg-gray-900 rounded-3xl hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-sm hover:shadow-md active:scale-90 transition-all duration-300 scale-105 font-medium will-change-transform"
+                            className="h-7 px-3 py-4 bg-gray-900 rounded-3xl hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-xs hover:shadow-md active:scale-90 transition-all duration-300 scale-105 font-medium will-change-transform"
                         >
                             <i className="ri-save-line mr-1.5 text-sm"></i>
                             Save
@@ -207,7 +207,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
                 <TabsContent value="mcp-server" className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
                     <div className="w-full h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md">
-                        <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+                        <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
                             <MCPServersManagerContent
                                 mcpServerConfig={mcpServerConfig}
                                 setMcpServerConfig={setMcpServerConfig}

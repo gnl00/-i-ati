@@ -81,8 +81,8 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ r
         </CarouselContent>
         {results.length > 3 && (
           <>
-            <CarouselPrevious className="hidden sm:flex -left-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm border-slate-200 dark:border-slate-800" />
-            <CarouselNext className="hidden sm:flex -right-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm border-slate-200 dark:border-slate-800" />
+            <CarouselPrevious className="hidden sm:flex -left-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs shadow-xs border-slate-200 dark:border-slate-800" />
+            <CarouselNext className="hidden sm:flex -right-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs shadow-xs border-slate-200 dark:border-slate-800" />
           </>
         )}
       </Carousel>
@@ -124,7 +124,7 @@ const WebSearchResultCard: React.FC<WebSearchResultCardProps> = React.memo(({ re
         </div>
 
         <div className="flex items-center gap-1.5 mb-1 opacity-60">
-          <div className="flex-shrink-0 w-3.5 h-3.5 rounded-sm overflow-hidden bg-stone-100 dark:bg-slate-800 flex items-center justify-center border border-stone-200/50 dark:border-slate-700/50">
+          <div className="shrink-0 w-3.5 h-3.5 rounded-sm overflow-hidden bg-stone-100 dark:bg-slate-800 flex items-center justify-center border border-stone-200/50 dark:border-slate-700/50">
             <img
               src={getFaviconUrl(result.link) || ''}
               alt=""
@@ -173,7 +173,7 @@ const WebSearchResultCard: React.FC<WebSearchResultCardProps> = React.memo(({ re
 
       {/* Favicon & Source */}
       <div className="flex items-center gap-1.5 mb-1.5 overflow-hidden">
-        <div className="flex-shrink-0 w-3.5 h-3.5 rounded-sm overflow-hidden bg-slate-100 dark:bg-slate-700 flex items-center justify-center border border-slate-200/50 dark:border-slate-600/50">
+        <div className="shrink-0 w-3.5 h-3.5 rounded-sm overflow-hidden bg-slate-100 dark:bg-slate-700 flex items-center justify-center border border-slate-200/50 dark:border-slate-600/50">
           <img
             src={getFaviconUrl(result.link) || ''}
             alt=""

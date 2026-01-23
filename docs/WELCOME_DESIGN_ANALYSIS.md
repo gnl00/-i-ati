@@ -205,7 +205,7 @@ style={{
 // ✅ 新设计 - 毛玻璃卡片
 <button
   className={cn(
-    "bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm",
+    "bg-white/50 dark:bg-slate-900/50 backdrop-blur-xs",
     "border-slate-200 dark:border-slate-800",
     "hover:shadow-lg hover:shadow-slate-200/50"
   )}

@@ -115,7 +115,7 @@ export const ArtifactsPreviewTab: React.FC = () => {
         {/* State 3: Running - Show iframe preview */}
         {devServer.devServerStatus === 'running' && devServer.devServerPort && (
           <div className="flex-1 flex flex-col p-3 overflow-hidden">
-            <div className="flex-1 flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
+            <div className="flex-1 flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xs">
               {/* Browser Bar */}
               <div className="h-9 flex items-center gap-3 px-3 bg-gray-50 dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 shrink-0">
                 <div className="flex gap-1">
@@ -327,7 +327,7 @@ export const ArtifactsPreviewTab: React.FC = () => {
   if (previewContent) {
     return (
       <div className="flex-1 flex flex-col p-3 overflow-hidden">
-        <div className="flex-1 flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
+        <div className="flex-1 flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xs">
           {/* Minimal Browser Bar */}
           <div className="h-9 flex items-center gap-3 px-3 bg-gray-50 dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 shrink-0">
             <div className="flex gap-1">

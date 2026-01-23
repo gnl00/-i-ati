@@ -166,7 +166,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
               )}>
                 <div className={cn(
                   "absolute inset-0 pointer-events-none",
-                  "bg-gradient-to-b from-white/60 via-transparent to-white/40",
+                  "bg-linear-to-b from-white/60 via-transparent to-white/40",
                   "dark:from-black/40 dark:to-black/60"
                 )} />
 
@@ -177,7 +177,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                 ) : (
                   <>
                     {/* Technical Header */}
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-50/80 dark:bg-zinc-900/80 border-b border-zinc-100 dark:border-zinc-800 backdrop-blur-sm">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-50/80 dark:bg-zinc-900/80 border-b border-zinc-100 dark:border-zinc-800 backdrop-blur-xs">
                       <div className="flex items-center gap-2">
                         <div className="w-1 h-1 bg-zinc-300 dark:bg-zinc-600 rounded-full" />
                         <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-500">

@@ -51,10 +51,10 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         >
           {/* Animated background gradient on hover (selected state only) */}
           {selectedModel && (
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-100/0 via-emerald-100/50 to-teal-100/0 dark:from-emerald-900/0 dark:via-emerald-900/30 dark:to-teal-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute inset-0 bg-linear-to-r from-emerald-100/0 via-emerald-100/50 to-teal-100/0 dark:from-emerald-900/0 dark:via-emerald-900/30 dark:to-teal-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           )}
 
-          <span className="flex flex-grow justify-center overflow-x-hidden relative z-10">
+          <span className="flex grow justify-center overflow-x-hidden relative z-10">
             {selectedModel ? (
               (() => {
                 return selectedModel.model.type === 'vlm' ? (
@@ -101,7 +101,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                 <CommandGroup
                   key={group.account.id}
                   value={group.account.label}
-                  className='scroll-smooth [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
+                  className='scroll-smooth **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground'
                   heading={
                     <div className="flex items-center gap-2 px-2 py-1.5 dark:bg-gray-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-gray-800">
                       <img

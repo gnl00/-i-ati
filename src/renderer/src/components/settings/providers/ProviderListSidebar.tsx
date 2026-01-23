@@ -48,8 +48,8 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
 
     return (
-        <div className='w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-md shadow-sm'>
-            <div className='flex-none bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b dark:border-gray-700 p-2'>
+        <div className='w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-md shadow-xs'>
+            <div className='flex-none bg-linear-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b dark:border-gray-700 p-2'>
                 <Drawer>
                     <DrawerTrigger className={cn(
                         'group w-full p-0 rounded-lg',
@@ -60,9 +60,9 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                         'active:scale-[0.98]',
                         'transition-all duration-200 ease-out',
                         'border border-transparent hover:border-gray-200 dark:hover:border-gray-600',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+                        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
                     )}>
-                        <div className='flex items-center justify-center gap-2 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-750'>
+                        <div className='flex items-center justify-center gap-2 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-linear-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-750'>
                             <i className={cn(
                                 'ri-add-circle-line text-xl transition-all duration-200 ease-out',
                                 'group-hover:scale-110 group-hover:rotate-90'
@@ -175,7 +175,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                     'flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer select-none relative group',
                                     'transition-all duration-200 ease-out',
                                     isActive
-                                        ? 'bg-gradient-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-["" ] after:absolute after:bottom-0.5 after:left-3 after:w-28 after:h-0.5 after:bg-gradient-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15'
+                                        ? 'bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-["" ] after:absolute after:bottom-0.5 after:left-3 after:w-28 after:h-0.5 after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15'
                                         : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                                 )}
                                 onMouseEnter={() => setHoverProviderCardIdx(idx)}

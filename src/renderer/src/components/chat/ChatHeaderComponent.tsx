@@ -22,7 +22,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
   }
 
   return (
-    <div className="header shadow-sm fixed top-0 w-full pb-1 pr-2 pl-3 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black/100 z-10" style={{ userSelect: 'none' }}>
+    <div className="header shadow-xs fixed top-0 w-full pb-1 pr-2 pl-3 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black z-10" style={{ userSelect: 'none' }}>
       {/* macOS Traffic Lights */}
       <div className="flex items-center space-x-3">
         <TrafficLights />

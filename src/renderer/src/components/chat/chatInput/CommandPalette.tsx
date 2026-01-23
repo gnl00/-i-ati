@@ -48,7 +48,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
 
             return (
               <animated.div
-                className="fixed z-[9999]"
+                className="fixed z-9999"
                 style={{
                   top: `${rect.top - 10}px`,
                   left: `${rect.left}px`,

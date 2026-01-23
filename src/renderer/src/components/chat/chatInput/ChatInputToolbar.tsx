@@ -59,11 +59,11 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
     selectedModel
       ? [
           // Selected state - emerald/teal gradient
-          "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40",
+          "bg-linear-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40",
           "text-emerald-700 dark:text-emerald-300",
           "border border-emerald-300/60 dark:border-emerald-700/60",
-          "shadow-sm shadow-emerald-500/10 dark:shadow-emerald-500/20",
-          "hover:shadow hover:shadow-emerald-500/25 dark:hover:shadow-emerald-500/35",
+          "shadow-xs shadow-emerald-500/10 dark:shadow-emerald-500/20",
+          "hover:shadow-sm hover:shadow-emerald-500/25 dark:hover:shadow-emerald-500/35",
           "active:scale-[0.98]"
         ]
       : [
@@ -87,11 +87,11 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
     selectedMcpServerNames.length > 0
       ? [
           // Active state - amber/orange gradient
-          "bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40",
+          "bg-linear-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40",
           "text-amber-700 dark:text-amber-300",
           "border border-amber-300/60 dark:border-amber-700/60",
-          "shadow-sm shadow-amber-500/10 dark:shadow-amber-500/20",
-          "hover:shadow hover:shadow-amber-500/25 dark:hover:shadow-amber-500/35",
+          "shadow-xs shadow-amber-500/10 dark:shadow-amber-500/20",
+          "hover:shadow-sm hover:shadow-amber-500/25 dark:hover:shadow-amber-500/35",
           "active:scale-[0.98]"
         ]
       : [
@@ -147,7 +147,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   return (
     <div
       id="inputSelector"
-      className='rounded-t-2xl w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 flex items-center space-x-2 flex-none h-10 select-none border-b-0 border-t-[1px] border-l-[1px] border-r-[1px] border-blue-gray-200 dark:border-gray-700'
+      className='rounded-t-2xl w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 flex items-center space-x-2 flex-none h-10 select-none border-b-0 border-t border-l border-r border-blue-gray-200 dark:border-gray-700'
     >
       {/* Model Selector */}
       <div id="modelSelector" className="app-undragable bg-transparent">
@@ -175,7 +175,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
       </div>
 
       {/* Config Panel */}
-      <div id="customPanel" className='flex-grow w-full bg-transparent'>
+      <div id="customPanel" className='grow w-full bg-transparent'>
         <div className='flex items-center justify-end gap-2 w-auto'>
           {queueVisible && queuePreview && (
             <div className={cn(

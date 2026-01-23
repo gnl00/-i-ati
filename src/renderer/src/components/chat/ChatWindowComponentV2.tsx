@@ -138,7 +138,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
       {/* 外层垂直分割容器 */}
       <ResizablePanelGroup
         direction="vertical"
-        className="flex-grow mt-12 overflow-hidden"
+        className="grow mt-12 overflow-hidden"
         id="vertical-panel-group"
       >
         {/* ========== 上部面板：包含聊天和 Artifacts ========== */}
@@ -218,7 +218,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
                   id="scrollToBottom"
                   onClick={() => scrollToBottom(true)}
                   className={cn(
-                    "absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border-[1px] z-50",
+                    "absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border z-50",
                     "transition-all duration-300 ease-out hover:scale-110",
                     isButtonFadingOut
                       ? "opacity-0 translate-y-5 scale-75"
@@ -263,7 +263,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
         {/* ========== 垂直分隔符 ========== */}
         <ResizableHandle
           withHandle
-          className="!w-full flex items-center justify-center bg-transparent transition-all duration-200 group before:content-[''] before:absolute before:w-0 before:h-full before:bg-transparent before:hover:bg-primary/10 before:active:bg-primary/20 before:transition-colors before:duration-200 [&>div]:opacity-0 [&>div]:group-hover:opacity-100 [&>div]:transition-opacity [&>div]:duration-200"
+          className="w-full! flex items-center justify-center bg-transparent transition-all duration-200 group before:content-[''] before:absolute before:w-0 before:h-full before:bg-transparent hover:before:bg-primary/10 active:before:bg-primary/20 before:transition-colors before:duration-200 [&>div]:opacity-0 group-hover:[&>div]:opacity-100 [&>div]:transition-opacity [&>div]:duration-200"
         />
 
         {/* ========== 下部面板：ChatInputArea ========== */}

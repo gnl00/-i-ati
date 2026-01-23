@@ -69,7 +69,7 @@ const TextSegment: React.FC<{
 
   const transitionStateClass = animateOnChange
     ? (entered ? "opacity-100 translate-y-0 blur-0" : "opacity-100 translate-y-[2px] blur-[2px]")
-    : (entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-sm")
+    : (entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-xs")
 
   // Fix malformed code blocks before rendering
   const fixedText = fixMalformedCodeBlocks(displayedText)
@@ -81,7 +81,7 @@ const TextSegment: React.FC<{
       skipHtml={false}
       remarkRehypeOptions={{ passThrough: ['link'] }}
       className={cn(
-        "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%]",
+        "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-full",
         "transform-gpu transition-[opacity,transform,filter] duration-250 ease-out will-change-[opacity,transform,filter]",
         "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
         transitionStateClass
@@ -111,10 +111,10 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
         onClick={toggleOpen}
         className={cn(
           'group inline-flex items-center gap-1.5 rounded-lg px-2 py-1',
-          'border-0 ring-0 outline-none',
+          'border-0 ring-0 outline-hidden',
           'transition-all duration-300 ease-out',
           'hover:bg-slate-200/60 dark:hover:bg-slate-700/40',
-          'focus:outline-none focus-visible:outline-none'
+          'focus:outline-hidden focus-visible:outline-hidden'
         )}
       >
         <Lightbulb className={cn(
@@ -256,9 +256,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
               'select-none font-medium text-[11px] tracking-wide',
               'bg-slate-50/80 dark:bg-slate-800/60',
               'border border-slate-200/60 dark:border-slate-700/50',
-              'shadow-sm',
+              'shadow-xs',
               'transition-all duration-300 ease-out',
-              'backdrop-blur-sm',
+              'backdrop-blur-xs',
               showLoadingIndicator && isLatest && 'animate-shine-infinite'
             )}
           >
@@ -309,7 +309,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             }
 
             const proseClassName =
-              "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-[100%]"
+              "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-full"
             return (
               <StreamingMarkdownSwitch
                 key={key}

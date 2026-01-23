@@ -354,7 +354,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       needsUpdateRef.current = false
 
       textarea.removeEventListener('focus', handleFocus)
-      textarea.removeEventListener('blur', handleBlur)
+      textarea.removeEventListener('blur-sm', handleBlur)
       textarea.removeEventListener('input', handleInput)
       textarea.removeEventListener('scroll', handleScroll, { passive: true } as any)
       textarea.removeEventListener('click', handleClick)
@@ -404,7 +404,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       if (resizeTimeout) clearTimeout(resizeTimeout)
       document.removeEventListener('selectionchange', handleSelectionChange)
       window.removeEventListener('resize', handleResize)
-      window.removeEventListener('blur', handleWindowBlur)
+      window.removeEventListener('blur-sm', handleWindowBlur)
       window.removeEventListener('focus', handleWindowFocus)
     }
   }, [updateCaret, hideCaretElement, textareaRef, markMeasurementsDirty])
@@ -447,7 +447,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
           transition: 'transform 0.12s cubic-bezier(0.2, 0, 0, 1), height 0.1s ease, opacity 0.08s ease'
         }}
       >
-        <div className="absolute top-0 bottom-0 -left-[1px] w-[6px] bg-blue-400/20 blur-[2px] rounded-full" />
+        <div className="absolute top-0 bottom-0 -left-px w-[6px] bg-blue-400/20 blur-[2px] rounded-full" />
       </div>
     </div>
   )

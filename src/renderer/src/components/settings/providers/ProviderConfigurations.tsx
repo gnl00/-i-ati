@@ -44,14 +44,14 @@ const ProviderConfigurations = ({
     return (
         <Accordion type="single" collapsible defaultValue="config" className='flex-none'>
             <AccordionItem value="config" className='border-0'>
-                <div className='bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden'>
+                <div className='bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200/50 dark:border-gray-700/50 overflow-hidden'>
                     <AccordionTrigger className={cn(
                         'px-4 py-2.5 hover:no-underline',
-                        'bg-gradient-to-r from-slate-50/80 to-transparent dark:from-slate-800/40 dark:to-transparent',
+                        'bg-linear-to-r from-slate-50/80 to-transparent dark:from-slate-800/40 dark:to-transparent',
                         'border-b border-gray-200/50 dark:border-gray-700/50',
                         'transition-all duration-300',
-                        '[&[data-state=open]]:bg-gradient-to-r [&[data-state=open]]:from-blue-50/50 [&[data-state=open]]:to-transparent',
-                        'dark:[&[data-state=open]]:from-blue-900/20 dark:[&[data-state=open]]:to-transparent'
+                        'data-[state=open]:bg-linear-to-r data-[state=open]:from-blue-50/50 data-[state=open]:to-transparent',
+                        'dark:data-[state=open]:from-blue-900/20 dark:data-[state=open]:to-transparent'
                     , 'group')}>
                         <div className='flex items-center justify-between w-full mr-2'>
                             <span className='text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide'>

@@ -863,7 +863,7 @@ useEffect(() => {
   <div className='w-full h-full overflow-y-auto space-y-4 p-1'>
 
     {/* Memory 功能总开关 */}
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md">
       <div className="p-5 flex items-start gap-4">
         <div className="flex-1 space-y-1">
           <div className="flex items-center gap-2">
@@ -888,7 +888,7 @@ useEffect(() => {
     </div>
 
     {/* 自动保存消息 */}
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs p-5 hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between gap-6">
         <div className="flex-1 space-y-1">
           <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
@@ -908,7 +908,7 @@ useEffect(() => {
     </div>
 
     {/* 上下文检索 */}
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs p-5 hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between gap-6">
         <div className="flex-1 space-y-1">
           <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
@@ -928,7 +928,7 @@ useEffect(() => {
     </div>
 
     {/* 相似度阈值滑块 */}
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs p-5 hover:shadow-md transition-all duration-200">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex-1 space-y-1">
@@ -962,7 +962,7 @@ useEffect(() => {
     </div>
 
     {/* TopK 数量滑块 */}
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs p-5 hover:shadow-md transition-all duration-200">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex-1 space-y-1">
@@ -996,7 +996,7 @@ useEffect(() => {
     </div>
 
     {/* 统计信息 */}
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-all duration-200">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs p-5 hover:shadow-md transition-all duration-200">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
@@ -1007,7 +1007,7 @@ useEffect(() => {
             variant="outline"
             size="sm"
             disabled={isLoadingStats}
-            className="shadow-sm"
+            className="shadow-xs"
           >
             {isLoadingStats ? (
               <>
@@ -1065,7 +1065,7 @@ useEffect(() => {
     </div>
 
     {/* 危险操作区域 */}
-    <div className="bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800 shadow-sm p-5">
+    <div className="bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800 shadow-xs p-5">
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Label className="text-base font-medium text-red-900 dark:text-red-100">
@@ -1094,7 +1094,7 @@ useEffect(() => {
             }}
             variant="destructive"
             size="sm"
-            className="shadow-sm"
+            className="shadow-xs"
           >
             <i className="ri-delete-bin-line mr-1.5"></i>
             Clear All Memories
@@ -1112,7 +1112,7 @@ useEffect(() => {
             }}
             variant="outline"
             size="sm"
-            className="shadow-sm"
+            className="shadow-xs"
           >
             <i className="ri-database-line mr-1.5"></i>
             Optimize Database

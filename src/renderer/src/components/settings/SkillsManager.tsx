@@ -258,7 +258,7 @@ const SkillsManager: React.FC = () => {
     <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
       <div className='w-full h-full space-y-2 p-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500'>
         <Accordion type="single" collapsible defaultValue="folders" className="w-full">
-          <AccordionItem value="folders" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow transition-all duration-200">
+          <AccordionItem value="folders" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs hover:shadow-sm transition-all duration-200">
             <AccordionTrigger className="px-4 py-3 hover:no-underline group">
               <div className="flex items-center justify-between w-full pr-2">
                 <div className="flex items-center gap-2">
@@ -309,7 +309,7 @@ const SkillsManager: React.FC = () => {
                       e.stopPropagation()
                       handleAddFolder()
                     }}
-                    className="h-8 rounded-full px-3 text-xs font-medium shadow-none bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-900 hover:to-gray-800 dark:from-gray-100 dark:to-gray-200 dark:hover:from-white dark:hover:to-gray-100 text-white dark:text-gray-900"
+                    className="h-8 rounded-full px-3 text-xs font-medium shadow-none bg-linear-to-r from-gray-900 to-gray-700 hover:from-gray-900 hover:to-gray-800 dark:from-gray-100 dark:to-gray-200 dark:hover:from-white dark:hover:to-gray-100 text-white dark:text-gray-900"
                   >
                     <i className="ri-folder-add-line mr-1.5"></i>
                     Add Folder
@@ -352,7 +352,7 @@ const SkillsManager: React.FC = () => {
           </AccordionItem>
         </Accordion>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-sm">
           <div className="p-4 flex justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -392,7 +392,7 @@ const SkillsManager: React.FC = () => {
                   focus-visible:border-blue-500 dark:focus-visible:border-blue-400
                   focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]
                   transition-all duration-200 
-                  rounded-xl placeholder:text-muted-foreground/50 shadow-sm"
+                  rounded-xl placeholder:text-muted-foreground/50 shadow-xs"
               />
               {searchQuery && (
                 <button

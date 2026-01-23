@@ -30,10 +30,10 @@ export const CodeWrapper = React.memo(({ children, language, showHeader = true }
     setShowCodeRender(!showCodeRender)
   }
   return (
-    <div className='relative border border-slate-200/60 dark:border-slate-700/50 rounded-lg overflow-hidden shadow-sm bg-white dark:bg-slate-900/50'>
+    <div className='relative border border-slate-200/60 dark:border-slate-700/50 rounded-lg overflow-hidden shadow-xs bg-white dark:bg-slate-900/50'>
       {/* Header with language badge and action buttons */}
       {showHeader && (
-        <div className='flex justify-between items-center bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm px-2 py-0.5 border-b border-slate-200/60 dark:border-slate-700/50'>
+        <div className='flex justify-between items-center bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-xs px-2 py-0.5 border-b border-slate-200/60 dark:border-slate-700/50'>
           <span className='px-2 py-0.5 text-xs font-mono font-semibold text-slate-700 dark:text-slate-200 select-none tracking-wide bg-slate-200/60 dark:bg-slate-700/60 rounded-md'>
             {language}
           </span>
@@ -143,11 +143,11 @@ export const CodeCopyWrapper = React.memo(({ children, code, _language }: { chil
         variant="ghost"
         size="icon"
         className={cn(
-          "absolute top-2 right-2 h-8 w-8 rounded-md backdrop-blur-sm",
+          "absolute top-2 right-2 h-8 w-8 rounded-md backdrop-blur-xs",
           "bg-slate-100/80 dark:bg-slate-800/80",
           "hover:bg-slate-200/90 dark:hover:bg-slate-700/90",
           "border border-slate-200/60 dark:border-slate-700/50",
-          "shadow-sm transition-all duration-200",
+          "shadow-xs transition-all duration-200",
           "opacity-0 group-hover:opacity-100"
         )}
         onClick={copyToClipboard}

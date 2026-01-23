@@ -168,7 +168,7 @@ CSS class name.
 
 ℹ️ Use the data-separator attribute for custom hover and active styles
 
-⚠️ The following properties cannot be overridden: flex-grow, flex-shrink
+⚠️ The following properties cannot be overridden: flex-grow, shrink
 
 id	
 Uniquely identifies the separator within the parent group. Falls back to useId when not provided.
@@ -180,7 +180,7 @@ CSS properties.
 
 ℹ️ Use the data-separator attribute for custom hover and active styles
 
-⚠️ The following properties cannot be overridden: flex-grow, flex-shrink
+⚠️ The following properties cannot be overridden: flex-grow, shrink
 
 elementRef	
 Ref attached to the root HTMLDivElement.

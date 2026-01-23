@@ -16,7 +16,7 @@ const AnimatedToken = memo(({ children }: { children: string }) => {
         "inline-block whitespace-pre-wrap",
         "transition-[opacity,transform,filter] duration-200 ease-out will-change-[opacity,transform,filter]",
         "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
-        entered ? "opacity-100 blur-0" : "opacity-0 blur-sm"
+        entered ? "opacity-100 blur-0" : "opacity-0 blur-xs"
       ].join(' ')}
     >
       {children}
@@ -75,7 +75,7 @@ export const FluidTypewriterText = ({
   const isWhitespaceToken = useCallback((token: string) => /^\s+$/.test(token), [])
 
   return (
-    <span className="break-words">
+    <span className="wrap-break-word">
       {staticText ? <span className="whitespace-pre-wrap">{staticText}</span> : null}
       {animatedTokens.map((token, i) => {
         const tokenIndex = animationStartIndex + i

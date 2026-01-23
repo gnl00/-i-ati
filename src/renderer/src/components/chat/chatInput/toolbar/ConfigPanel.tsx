@@ -98,7 +98,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
               "border border-slate-200/50 dark:border-slate-700/50",
               "group-hover:bg-slate-100 dark:group-hover:bg-slate-700",
               "group-hover:border-slate-300 dark:group-hover:border-slate-600",
-              "group-hover:shadow-sm",
+              "group-hover:shadow-xs",
               "active:scale-95",
               currentAssistant?.icon ? [
                 // When assistant is present, remove left border radius to connect
@@ -111,12 +111,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
               isOpen && [
                 "bg-slate-100 dark:bg-slate-700",
                 "border-slate-300 dark:border-slate-600",
-                "shadow-sm"
+                "shadow-xs"
               ]
             )}
           >
             {/* Animated background on hover */}
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-100/0 via-slate-100/50 to-slate-200/0 dark:from-slate-700/0 dark:via-slate-700/30 dark:to-slate-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute inset-0 bg-linear-to-br from-slate-100/0 via-slate-100/50 to-slate-200/0 dark:from-slate-700/0 dark:via-slate-700/30 dark:to-slate-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
             {/* TokensIcon */}
             <TokensIcon
@@ -146,7 +146,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       >
         <div className="flex flex-col h-[460px]">
           {/* Header with Reset Button */}
-          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-900/80 dark:to-slate-900/50 flex-shrink-0">
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-linear-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-900/80 dark:to-slate-900/50 shrink-0">
             <div className="flex items-center gap-2">
               <span className='text-sm font-semibold text-slate-900 dark:text-slate-100 tracking-tight'>
                 Configuration
@@ -184,7 +184,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-6">
 
             {/* Parameters Group */}
-            <div className="space-y-5 flex-shrink-0">
+            <div className="space-y-5 shrink-0">
               <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   Model Parameters
@@ -274,12 +274,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     "h-9 text-xs font-mono",
                     "bg-slate-50 dark:bg-slate-900/50",
                     "border border-slate-200 dark:border-slate-800",
-                    "outline-none focus:outline-none focus-visible:outline-none",
+                    "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
                     "ring-0 focus:ring-0 focus-visible:ring-0",
                     "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
                     "focus:border-blue-500/50 dark:focus:border-blue-500/50",
                     "hover:border-slate-200 dark:hover:border-slate-800",
-                    "shadow-sm",
+                    "shadow-xs",
                   )}
                 />
               </div>
@@ -287,7 +287,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
             {/* System Prompt Group */}
             <div className="space-y-1 flex-1 flex flex-col pt-1 min-h-0">
-              <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60 flex-shrink-0 mb-2">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60 shrink-0 mb-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   Instructions
                 </span>
@@ -307,13 +307,13 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   "flex-1 text-xs leading-relaxed",
                   "bg-slate-50 dark:bg-slate-900/50",
                   "border border-slate-200 dark:border-slate-800",
-                  "outline-none focus:outline-none focus-visible:outline-none",
+                  "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
                   "ring-0 focus:ring-0 focus-visible:ring-0",
                   "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
                   "focus:border-blue-500/50 dark:focus:border-blue-500/50",
                   "hover:border-slate-200 dark:hover:border-slate-800",
                   "resize-none p-2",
-                  "shadow-sm",
+                  "shadow-xs",
                   "min-h-[100px]"
                 )}
                 onChange={e => onSystemPromptChange(e.target.value)}
