@@ -14,7 +14,7 @@ interface CommandPaletteProps {
   isOpen: boolean
   commands: Command[]  // Already filtered commands
   selectedIndex: number
-  textareaRef: React.RefObject<HTMLTextAreaElement>
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
   onCommandClick: (command: Command) => void
 }
 

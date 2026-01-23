@@ -11,7 +11,7 @@ export interface CustomCaretRef {
 }
 
 interface CustomCaretOverlayProps {
-  textareaRef: React.RefObject<HTMLTextAreaElement>
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
 }
 
 interface TrailNode {
