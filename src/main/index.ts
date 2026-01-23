@@ -1,6 +1,6 @@
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { mcpClient } from '@main/mcp/client'
-import { BrowserWindow, app, globalShortcut } from 'electron'
+import { BrowserWindow, app, globalShortcut, ipcMain } from 'electron'
 import { destroyWindowPool, getWindowPool } from './tools/webTools/BrowserWindowPool'
 import { cleanupDevServers } from './tools/devServer/DevServerProcessor'
 import { initializeMainEmbeddedTools } from './tools'
@@ -9,26 +9,57 @@ import { createWindow } from './main-window'
 import DatabaseService from './services/DatabaseService'
 import MemoryService from './services/memory/MemoryService'
 import { SkillService } from './services/skills/SkillService'
+import { StartupTracer } from './utils/startupTracer'
+import { STARTUP_RENDERER_MARK, STARTUP_RENDERER_READY } from '@shared/constants/startup'
 
 // const reactDevToolsPath = path.join(
 //   os.homedir(),
 //   'Library/Application Support/Google/Chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/6.0.1_0'
 // )
 
+const startupTracer = new StartupTracer()
+startupTracer.mark('boot.start')
+let rendererReadyMarked = false
+let rendererSummaryScheduled = false
+ipcMain.on(STARTUP_RENDERER_READY, () => {
+  if (rendererReadyMarked) return
+  rendererReadyMarked = true
+  startupTracer.mark('renderer.ready')
+  if (!rendererSummaryScheduled) {
+    rendererSummaryScheduled = true
+    setTimeout(() => {
+      startupTracer.reportWithLabel('after-renderer-ready')
+    }, 200)
+  }
+})
+ipcMain.on(STARTUP_RENDERER_MARK, (_event, label: string, offsetMs?: number) => {
+  const safeLabel = typeof label === 'string' ? label : 'renderer.mark'
+  if (typeof offsetMs === 'number' && Number.isFinite(offsetMs)) {
+    console.log(`[Startup] renderer.${safeLabel} +${offsetMs.toFixed(1)}ms`)
+    return
+  }
+  startupTracer.mark(`renderer.${safeLabel}`)
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  startupTracer.mark('app.ready')
   // await session.defaultSession.loadExtension(reactDevToolsPath)
 
   // Initialize database service
   console.log('[App] Initializing database service...')
+  startupTracer.mark('db.init.start')
   await DatabaseService.initialize()
+  startupTracer.mark('db.init.end')
   const appConfig = DatabaseService.initConfig()
 
   // Initialize memory service
   console.log('[App] Initializing memory service...')
+  startupTracer.mark('memory.init.start')
   await MemoryService.initialize()
+  startupTracer.mark('memory.init.end')
 
   // Initialize skills from configured folders (background)
   void SkillService.initializeFromConfig(appConfig)
@@ -48,13 +79,22 @@ app.whenReady().then(async () => {
   })
 
   // setup mainIPC
+  startupTracer.mark('ipc.init.start')
   initializeMainEmbeddedTools()
   ipcSetup()
+  startupTracer.mark('ipc.init.end')
 
   // IPC handlers 必须在窗口创建前注册
   // 渲染进程（renderer）可能在窗口创建后立即尝试调用 IPC 方法。如果 handlers 还没注册，这些调用就会失败。
   console.log('[App] Initializing main window...')
-  createWindow()
+  startupTracer.mark('window.create.start')
+  createWindow((window) => {
+    window.webContents.once('did-finish-load', () => {
+      startupTracer.mark('window.did-finish-load')
+    })
+  })
+  startupTracer.mark('window.create.end')
+
 
   // Initialize window pool for web search (in background)
   console.log('[App#TASK] Initializing window pool...')
