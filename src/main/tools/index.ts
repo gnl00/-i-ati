@@ -15,10 +15,10 @@ import {
   processListAllowedDirectories,
   processCreateDirectory,
   processMoveFile
-} from '@main-tools/fileOperations/main/FileOperationsProcessor'
+} from '@main/tools/fileOperations/FileOperationsProcessor'
 import { processWebFetch, processWebSearch } from '@main/tools/webTools/WebToolsProcessor'
 import { processMemoryRetrieval, processMemorySave } from '@main/tools/memory/MemoryToolsProcessor'
-import { processExecuteCommand } from '@main-tools/command/main/CommandProcessor'
+import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import { processLoadSkill, processUnloadSkill, processReadSkillFile } from '@main/tools/skills/SkillToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
