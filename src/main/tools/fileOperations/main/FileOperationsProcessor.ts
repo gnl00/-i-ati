@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'fs/
 import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
 import { existsSync, statSync, accessSync, constants } from 'fs'
 import { lookup } from 'mime-types'
-import DatabaseService from '../../../services/DatabaseService'
+import DatabaseService from '@main/services/DatabaseService'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,

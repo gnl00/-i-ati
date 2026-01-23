@@ -7,7 +7,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { resolve, isAbsolute, join } from 'path'
 import { app } from 'electron'
-import DatabaseService from '../../../services/DatabaseService'
+import DatabaseService from '@main/services/DatabaseService'
 import type {
   ExecuteCommandArgs,
   ExecuteCommandResponse,

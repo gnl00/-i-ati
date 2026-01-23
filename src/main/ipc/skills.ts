@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { SkillService } from '@main/services/skills/SkillService'
-import { processLoadSkill, processReadSkillFile, processUnloadSkill } from '@main-tools/skills/main/SkillToolsProcessor'
+import { processLoadSkill, processReadSkillFile, processUnloadSkill } from '@main/tools/skills/SkillToolsProcessor'
 import {
   SKILL_LIST_ACTION,
   SKILL_GET_ACTION,

@@ -16,10 +16,10 @@ import {
   processCreateDirectory,
   processMoveFile
 } from '@main-tools/fileOperations/main/FileOperationsProcessor'
-import { processWebFetch, processWebSearch } from '@main-tools/webTools/main/WebToolsProcessor'
-import { processMemoryRetrieval, processMemorySave } from '@main-tools/memory/main/MemoryToolsProcessor'
+import { processWebFetch, processWebSearch } from '@main/tools/webTools/WebToolsProcessor'
+import { processMemoryRetrieval, processMemorySave } from '@main/tools/memory/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main-tools/command/main/CommandProcessor'
-import { processLoadSkill, processUnloadSkill, processReadSkillFile } from '@main-tools/skills/main/SkillToolsProcessor'
+import { processLoadSkill, processUnloadSkill, processReadSkillFile } from '@main/tools/skills/SkillToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),

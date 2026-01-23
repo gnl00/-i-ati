@@ -23,7 +23,7 @@ import {
   processGetDevServerStatus,
   processGetDevServerLogs
 } from '@main-tools/devServer/main/DevServerProcessor'
-import { processMemoryRetrieval, processMemorySave } from '@main-tools/memory/main/MemoryToolsProcessor'
+import { processMemoryRetrieval, processMemorySave } from '@main/tools/memory/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main-tools/command/main/CommandProcessor'
 import EmbeddingServiceInstance from '@main/services/embedding/EmbeddingService'
 import MemoryService from '@main/services/memory/MemoryService'

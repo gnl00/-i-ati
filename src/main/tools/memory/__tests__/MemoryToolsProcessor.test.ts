@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest'
-import { processMemoryRetrieval, processMemorySave } from '../main/MemoryToolsProcessor'
+import { processMemoryRetrieval, processMemorySave } from '../MemoryToolsProcessor'
 import MemoryService from '@main/services/memory/MemoryService'
 
 // Mock MemoryService
