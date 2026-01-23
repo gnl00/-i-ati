@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'electron-vite'
 import tailwindcss from "@tailwindcss/vite"
 import { resolve } from 'path'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 export default defineConfig({
   main: {
@@ -31,6 +32,41 @@ export default defineConfig({
     plugins: [react(), tailwindcss()],
     define: {
       '__APP_VERSION__': JSON.stringify(process.env.npm_package_version),
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            katex: ['katex'],
+            codemirror: [
+              '@codemirror/state',
+              '@codemirror/view',
+              '@codemirror/language',
+              '@codemirror/lang-json',
+              '@uiw/react-codemirror'
+            ],
+            markdown: [
+              'react-markdown',
+              'remark-gfm',
+              'remark-math',
+              'rehype-katex',
+              'rehype-raw'
+            ],
+            motion: ['framer-motion']
+          }
+        },
+        plugins: process.env.ANALYZE
+          ? [
+              visualizer({
+                filename: 'stats/renderer-bundle.html',
+                gzipSize: true,
+                brotliSize: true,
+                open: true,
+                template: 'treemap'
+              })
+            ]
+          : []
+      }
     }
   }
 })
