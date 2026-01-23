@@ -8,6 +8,7 @@ import { markdownCodeComponents } from './markdown-components'
 import { remarkPreserveLineBreaks } from './markdown-plugins'
 import { MessageOperations } from './message-operations'
 import { useEnterTransition } from './use-enter-transition'
+import { loadKatexStyles } from '@renderer/utils/styleLoaders'
 
 export interface UserMessageProps {
   index: number
@@ -26,6 +27,9 @@ const AnimatedMarkdown: React.FC<{
   className?: string
 }> = ({ markdown, className }) => {
   const entered = useEnterTransition('enter')
+  React.useEffect(() => {
+    void loadKatexStyles()
+  }, [])
   React.useEffect(() => {
     const debug = (globalThis as any).__DEBUG_MARKDOWN_LINEBREAKS
     if (!debug) return

@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useMemo } from 'react'
 import { cn } from '@renderer/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
@@ -8,6 +8,7 @@ import remarkMath from 'remark-math'
 import { fixMalformedCodeBlocks, markdownCodeComponents } from './markdown-components'
 import { remarkPreserveLineBreaks } from './markdown-plugins'
 import { StreamingMarkdownLite } from './StreamingMarkdownLite'
+import { loadKatexStyles } from '@renderer/utils/styleLoaders'
 
 export const StreamingMarkdownSwitch: React.FC<{
   text: string
@@ -15,6 +16,10 @@ export const StreamingMarkdownSwitch: React.FC<{
   isTyping: boolean
   className?: string
 }> = memo(({ text, visibleTokens, isTyping, className }) => {
+  useEffect(() => {
+    void loadKatexStyles()
+  }, [])
+
   const fixedFullText = useMemo(() => fixMalformedCodeBlocks(text), [text])
 
   const visibleText = useMemo(() => {
