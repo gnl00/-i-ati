@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'electron-vite'
+import tailwindcss from "@tailwindcss/vite"
 import { resolve } from 'path'
 
 export default defineConfig({
@@ -27,7 +28,7 @@ export default defineConfig({
         '@tools': resolve('src/shared/tools')
       }
     },
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     define: {
       '__APP_VERSION__': JSON.stringify(process.env.npm_package_version),
     }
