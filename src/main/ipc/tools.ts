@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@main/mcp/client'
-import { processWebSearch, processWebFetch } from '@main-tools/webTools/main/WebToolsProcessor'
+import { processWebSearch, processWebFetch } from '@main/tools/webTools/WebToolsProcessor'
 import {
   processReadTextFile,
   processReadMediaFile,
