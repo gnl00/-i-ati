@@ -332,13 +332,14 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     }
 
     const getDateGroup = (timestamp: number) => {
-        const now = Date.now()
-        const diff = now - timestamp
-        const day = 24 * 60 * 60 * 1000
+        const now = new Date()
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+        const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000
+        const startOfWeek = startOfToday - 7 * 24 * 60 * 60 * 1000
 
-        if (diff < day) return 'Today'
-        if (diff < 2 * day) return 'Yesterday'
-        if (diff < 7 * day) return 'This Week'
+        if (timestamp >= startOfToday) return 'Today'
+        if (timestamp >= startOfYesterday) return 'Yesterday'
+        if (timestamp >= startOfWeek) return 'This Week'
         return getDate(timestamp)
     }
 
