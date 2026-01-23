@@ -4,8 +4,12 @@ import { join } from 'path'
 import icon from '../../build/icon.png?asset'
 
 let mainWindow: BrowserWindow
+let onWindowCreatedCallback: ((window: BrowserWindow) => void) | null = null
 
-function createWindow(): void {
+function createWindow(onCreated?: (window: BrowserWindow) => void): void {
+  if (onCreated) {
+    onWindowCreatedCallback = onCreated
+  }
   // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 770,
@@ -62,6 +66,10 @@ function createWindow(): void {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+
+  if (onWindowCreatedCallback) {
+    onWindowCreatedCallback(mainWindow)
   }
 
   // @ts-ignore
