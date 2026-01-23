@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { processUnloadSkill } from '../main/SkillToolsProcessor'
+import { processUnloadSkill } from '../SkillToolsProcessor'
 import DatabaseService from '@main/services/DatabaseService'
 
 vi.mock('@main/services/DatabaseService', () => ({
