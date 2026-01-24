@@ -130,14 +130,14 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
             <Badge
               variant="outline"
               className={cn(
-                'text-[9px] font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-transparent transition-all duration-300 flex items-center gap-1.5',
-                installed ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                'text-[9px] select-none font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-transparent transition-all duration-300 flex items-center gap-1.5',
+                installed ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
               )}
             >
               <span className="relative flex h-1.5 w-1.5">
-                <span className={cn("relative inline-flex rounded-full h-1.5 w-1.5", installed ? 'bg-yellow-500' : 'bg-blue-500')}></span>
+                <span className={cn("relative inline-flex rounded-full h-1.5 w-1.5", installed ? 'bg-green-500' : 'bg-blue-500')}></span>
               </span>
-              Available
+              { installed ? "Running" : "Available"}
             </Badge>
           </div>
 
@@ -277,11 +277,9 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                   onClick={onUninstall}
                   className={cn(
                     "px-3 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wide",
-                    "bg-red-400 dark:bg-red-500",
-                    "text-white dark:text-white",
-                    "border border-red-500/50 dark:border-red-500/50",
-                    "hover:bg-red-500 dark:hover:bg-red-600",
-                    "hover:scale-105",
+                    "text-red-400 dark:text-red-500 bg-transparent hover:text-red-500 hover:dark:text-red-600",
+                    "border border-red-500/50 dark:border-red-500/50 hover:border-red-500",
+                    "hover:scale-105 hover:bg-transparent",
                     "active:scale-95",
                     "transition-all duration-200",
                     "will-change-transform"
