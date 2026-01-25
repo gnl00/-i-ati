@@ -22,11 +22,37 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
     applyRequestOverrides(requestBody, req.requestOverrides)
   }
   if (requestBody.messages) {
+    const normalizeToolCalls = (toolCalls: any[]): any[] => {
+      return toolCalls.map((call) => {
+        if (call?.type === 'function' && call?.function) {
+          return {
+            id: call.id,
+            type: 'function',
+            function: {
+              name: call.function.name,
+              arguments: call.function.arguments ?? ''
+            }
+          }
+        }
+        if (call?.name || call?.args) {
+          return {
+            id: call.id,
+            type: 'function',
+            function: {
+              name: call.name || '',
+              arguments: call.args ?? ''
+            }
+          }
+        }
+        return call
+      })
+    }
+
     requestBody.messages = requestBody.messages.map((m): BaseChatMessage => ({
       role: m.role,
       content: m.content,
       ...(m.name && { name: m.name }),
-      ...(m.toolCalls && { tool_calls: m.toolCalls }),  // 驼峰转下划线
+      ...(m.toolCalls && { tool_calls: normalizeToolCalls(m.toolCalls) }),  // 驼峰转下划线 + toolCalls 规范化
       ...(m.toolCallId && { tool_call_id: m.toolCallId })  // 驼峰转下划线
     }))
   }
