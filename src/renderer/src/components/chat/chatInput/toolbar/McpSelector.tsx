@@ -73,7 +73,7 @@ const McpSelector: React.FC<McpSelectorProps> = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-full p-0 shadow-lg ml-1 rounded-xl overflow-hidden bg-white/10 backdrop-blur-xl dark:bg-gray-900"
+        className="w-full p-0 shadow-lg ml-1 rounded-xl overflow-hidden border-transparent bg-white/10 backdrop-blur-xl dark:bg-gray-900"
         sideOffset={8}
         align="start"
       >
@@ -87,11 +87,11 @@ const McpSelector: React.FC<McpSelectorProps> = ({
                     key={idx}
                     value={mcpName}
                     className={cn(
-                      "pl-4 py-2.5 cursor-pointer",
+                      "pl-4 py-2.5 cursor-pointer rounded-xl",
                       "transition-all duration-200",
                       "aria-selected:bg-amber-50 dark:aria-selected:bg-amber-900/20",
                       "aria-selected:text-amber-700 dark:aria-selected:text-amber-300",
-                      "hover:bg-slate-50 dark:hover:bg-slate-800"
+                      "data-[selected=true]:bg-black/5"
                     )}
                     onSelect={(selectVal) => {
                       onMcpToolSelected(selectVal, mcpCfg)
