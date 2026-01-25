@@ -79,9 +79,11 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
       className='my-3 w-full max-w-full font-sans'
     >
       <div className={cn(
-        "group relative flex flex-col transition-all",
+        "group relative flex flex-col transition-all select-none",
         isOpen ? "gap-2" : "gap-0"
-      )}>
+        )}
+        onClick={toggleOpen}
+      >
         {/* Inline Log Row */}
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit">
           <span className={cn(
@@ -89,7 +91,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
             isError
               ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
               : isRunning
-                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+                ? "bg-amber-100 text-amber-500 dark:bg-amber-900/30 dark:text-amber-200"
                 : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
           )}>
             {isError
@@ -102,7 +104,10 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
           </span>
 
           <div className="flex items-center gap-1.5">
-            <Wrench className="w-3 h-3 text-zinc-400/70 dark:text-zinc-500/70" />
+            <Wrench className={cn(
+              "w-3 h-3 text-zinc-400/70 dark:text-zinc-500/70 transition-all duration-300",
+              isOpen && "scale-110 rotate-6"
+            )} />
             <span className={cn(
               "font-mono text-[11px] font-semibold tracking-tight leading-none",
               isError ? "text-red-700 dark:text-red-300" : "text-slate-500 dark:text-zinc-200"
@@ -112,14 +117,13 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
           </div>
 
           {tc.cost && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-zinc-900/40 border border-zinc-200/70 dark:border-zinc-800/60">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-zinc-900/40 select-none">
               {(tc.cost / 1000).toFixed(3)}s
             </span>
           )}
 
           <button
             type="button"
-            onClick={toggleOpen}
             className={cn(
               "h-6 w-6 inline-flex items-center justify-center rounded-full",
               "text-zinc-500 dark:text-zinc-400",
