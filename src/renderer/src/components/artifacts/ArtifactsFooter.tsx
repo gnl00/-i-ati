@@ -8,7 +8,7 @@ interface ArtifactsFooterProps {
   filesCount: number
   onCopyFile: () => void
   onDownloadFile: () => void
-  onCopyWorkspacePath: () => void
+  onOpenWorkspaceFolder: () => void
   // For Preview Tab
   artifactFilesCount?: number
 }
@@ -19,19 +19,19 @@ export const ArtifactsFooter: React.FC<ArtifactsFooterProps> = ({
   filesCount,
   onCopyFile,
   onDownloadFile,
-  onCopyWorkspacePath,
+  onOpenWorkspaceFolder,
   artifactFilesCount = 0
 }) => {
   return (
     <div className="h-12 flex items-center justify-between px-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50 shrink-0">
       <div className="flex items-center gap-2">
         <div
-          onClick={onCopyWorkspacePath}
+          onClick={onOpenWorkspaceFolder}
           className='select-none cursor-pointer flex items-center gap-2'
         >
           <button
             className="rounded hover:bg-gray-200 dark:hover:bg-gray-700 p-1 transition-colors group"
-            title="Copy workspace path"
+            title="Open workspace folder"
           >
             <FolderOpen className="w-3 h-3 text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
           </button>

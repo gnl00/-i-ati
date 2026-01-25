@@ -12,7 +12,7 @@ import { useState } from 'react'
 import { ArtifactsFilesTab, FilesTabToolbar } from './ArtifactsFilesTab'
 import { ArtifactsFooter } from './ArtifactsFooter'
 import { ArtifactsPreviewTab } from './ArtifactsPreviewTab'
-import { copyWorkspacePath, downloadFile } from './artifactUtils'
+import { downloadFile, openWorkspaceFolder } from './artifactUtils'
 import { useWorkspaceFiles } from './useWorkspaceFiles'
 
 export const ArtifactsPanel: React.FC = () => {
@@ -35,9 +35,9 @@ export const ArtifactsPanel: React.FC = () => {
     downloadFile(files.selectedFileContent, files.selectedFileName)
   }
 
-  const handleCopyWorkspacePath = async () => {
+  const handleOpenWorkspaceFolder = async () => {
     if (!chatUuid) return
-    await copyWorkspacePath(chatUuid, files.workspacePath)
+    await openWorkspaceFolder(chatUuid, files.workspacePath)
   }
 
   // Artifact files for Preview tab (TODO: determine actual source)
@@ -127,7 +127,7 @@ export const ArtifactsPanel: React.FC = () => {
           artifactFilesCount={artifactFilesCount}
           onCopyFile={handleCopyFile}
           onDownloadFile={handleDownloadFile}
-          onCopyWorkspacePath={handleCopyWorkspacePath}
+          onOpenWorkspaceFolder={handleOpenWorkspaceFolder}
         />
       </Tabs>
     </div>

@@ -1,5 +1,6 @@
 import { toast } from 'sonner'
 import { getWorkspacePath } from '@renderer/utils/workspaceUtils'
+import { invokeOpenPath } from '@renderer/invoker/ipcInvoker'
 
 /**
  * 根据文件扩展名获取语言类型
@@ -74,6 +75,20 @@ export async function copyWorkspacePath(chatUuid: string, customWorkspacePath?: 
   const workspacePath = getWorkspacePath(chatUuid, customWorkspacePath)
   await navigator.clipboard.writeText(workspacePath)
   toast.success('Copied', { description: workspacePath, duration: 2000 })
+}
+
+/**
+ * 在系统文件管理器中打开工作区目录
+ */
+export async function openWorkspaceFolder(chatUuid: string, customWorkspacePath?: string): Promise<void> {
+  if (!chatUuid) return
+  const workspacePath = getWorkspacePath(chatUuid, customWorkspacePath)
+  const result = await invokeOpenPath(workspacePath)
+  if (!result.success) {
+    toast.error('Open failed', { description: result.error || result.path || workspacePath, duration: 2000 })
+    return
+  }
+  // toast.success('Opened', { description: result.path || workspacePath, duration: 1500 })
 }
 
 /**
