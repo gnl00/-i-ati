@@ -134,7 +134,7 @@ class RequestMessageBuilder {
    */
   private buildCompressedMessage(summary: CompressedSummaryEntity): ChatMessage {
     return {
-      role: 'system',
+      role: 'user',
       content: `[Previous conversation summary (${summary.messageIds.length} messages compressed)]\n\n${summary.summary}`,
       segments: []
     }
