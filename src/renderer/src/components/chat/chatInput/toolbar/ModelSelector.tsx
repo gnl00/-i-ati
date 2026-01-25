@@ -83,7 +83,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-full shadow-lg p-0 rounded-xl overflow-hidden bg-white/10 backdrop-blur-xl dark:bg-gray-900"
+        className="w-full shadow-lg p-0 rounded-xl overflow-hidden border-transparent bg-white/10 backdrop-blur-xl dark:bg-gray-900"
         sideOffset={8}
         align="start"
       >
@@ -103,7 +103,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                   value={group.account.label}
                   className='scroll-smooth **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground'
                   heading={
-                    <div className="flex items-center gap-2 px-2 py-1.5 dark:bg-gray-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-gray-800">
+                    <div className="flex rounded items-center gap-2 px-2 py-1.5 dark:bg-gray-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-gray-800">
                       <img
                         src={getProviderIcon(group.definition?.iconKey || group.definition?.id || group.account.providerId)}
                         alt={displayName}
@@ -127,11 +127,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                         key={`${group.account.id}/${m.id}`}
                         value={`${group.account.id}/${m.id}`}
                         className={cn(
-                          "pl-4 py-2.5 cursor-pointer",
+                          "pl-4 py-2.5 cursor-pointer rounded-xl",
                           "transition-all duration-200",
-                          "aria-selected:bg-emerald-50 dark:aria-selected:bg-emerald-900/20",
+                          "dark:aria-selected:bg-emerald-900/20",
                           "aria-selected:text-emerald-700 dark:aria-selected:text-emerald-300",
-                          "hover:bg-slate-50 dark:hover:bg-slate-800"
+                          "data-[selected=true]:bg-black/5"
                         )}
                         onSelect={(_) => {
                           onModelSelect({ accountId: group.account.id, modelId: m.id })
