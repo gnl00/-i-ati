@@ -12,7 +12,7 @@ import { useState } from 'react'
 import { ArtifactsFilesTab, FilesTabToolbar } from './ArtifactsFilesTab'
 import { ArtifactsFooter } from './ArtifactsFooter'
 import { ArtifactsPreviewTab } from './ArtifactsPreviewTab'
-import { downloadFile, openWorkspaceFolder } from './artifactUtils'
+import { countFilesInTree, downloadFile, openWorkspaceFolder } from './artifactUtils'
 import { useWorkspaceFiles } from './useWorkspaceFiles'
 
 export const ArtifactsPanel: React.FC = () => {
@@ -40,8 +40,7 @@ export const ArtifactsPanel: React.FC = () => {
     await openWorkspaceFolder(chatUuid, files.workspacePath)
   }
 
-  // Artifact files for Preview tab (TODO: determine actual source)
-  const artifactFilesCount = 0 // Placeholder
+  const artifactFilesCount = countFilesInTree(files.workspaceTree)
 
   const handleClose = () => {
     setArtifactsPanel(false)
@@ -99,7 +98,7 @@ export const ArtifactsPanel: React.FC = () => {
           value="preview"
           className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
         >
-          <ArtifactsPreviewTab />
+          <ArtifactsPreviewTab files={files} />
         </TabsContent>
 
         {/* Files Tab Content */}
