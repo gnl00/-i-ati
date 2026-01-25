@@ -1,9 +1,11 @@
-import { ipcMain, shell, dialog } from 'electron'
+import { ipcMain, shell, dialog, app } from 'electron'
+import path from 'path'
 import {
   CHECK_IS_DIRECTORY,
   GET_WIN_POSITION,
   HTTP_REQUEST,
   IPC_PING,
+  OPEN_PATH,
   OPEN_EXTERNAL,
   PIN_WINDOW,
   SELECT_DIRECTORY,
@@ -24,6 +26,27 @@ export function registerSystemHandlers(): void {
   ipcMain.handle(OPEN_EXTERNAL, (_, url) => {
     // console.log('main received url', url)
     shell.openExternal(url)
+  })
+  ipcMain.handle(OPEN_PATH, async (_, targetPath: string) => {
+    try {
+      if (!targetPath || typeof targetPath !== 'string') {
+        return { success: false, error: 'Invalid path' }
+      }
+      const userDataPath = app.getPath('userData')
+      const normalized = targetPath.startsWith('./')
+        ? targetPath.slice(2)
+        : targetPath
+      const resolvedPath = path.isAbsolute(normalized)
+        ? normalized
+        : path.resolve(userDataPath, normalized)
+      const result = await shell.openPath(resolvedPath)
+      if (result) {
+        return { success: false, error: result, path: resolvedPath }
+      }
+      return { success: true, path: resolvedPath }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
   })
   ipcMain.on(IPC_PING, () => console.log('pong'))
 

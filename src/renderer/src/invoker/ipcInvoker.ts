@@ -6,6 +6,7 @@
 import type { ChatSubmitEvent } from '@renderer/hooks/chatSubmit/event-driven/events'
 import {
   PIN_WINDOW,
+  OPEN_PATH,
   OPEN_EXTERNAL,
   WEB_SEARCH_ACTION,
   WEB_FETCH_ACTION,
@@ -113,6 +114,14 @@ export async function invokeWindowMaximize(): Promise<void> {
 export async function invokeOpenExternal(url: string): Promise<void> {
   const ipc = getElectronIPC()
   return await ipc.invoke(OPEN_EXTERNAL, url)
+}
+
+/**
+ * 在系统文件管理器中打开路径
+ */
+export async function invokeOpenPath(targetPath: string): Promise<{ success: boolean; error?: string; path?: string }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(OPEN_PATH, targetPath)
 }
 
 // ============ MCP Operations ============
