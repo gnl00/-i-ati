@@ -2,28 +2,6 @@ import { CodeWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrap
 import { invokeOpenExternal } from '@renderer/invoker/ipcInvoker'
 import React from 'react'
 
-const COMMON_LANGUAGES = [
-  'bash', 'sh', 'shell', 'zsh', 'fish',
-  'javascript', 'js', 'typescript', 'ts', 'jsx', 'tsx',
-  'python', 'py', 'python3',
-  'java', 'c', 'cpp', 'c\\+\\+', 'c#', 'csharp', 'cs',
-  'go', 'golang', 'rust', 'ruby', 'rb', 'php',
-  'swift', 'kotlin', 'scala', 'dart',
-  'html', 'css', 'scss', 'sass', 'less',
-  'json', 'xml', 'yaml', 'yml', 'toml',
-  'sql', 'mysql', 'postgresql', 'sqlite', 'sqlite3', 'graphql',
-  'markdown', 'md', 'plaintext', 'text', 'txt',
-  'dockerfile', 'docker', 'makefile', 'cmake'
-]
-
-const LANGUAGE_PATTERN = `(${COMMON_LANGUAGES.join('|')})`
-
-// Match: ```language + (optional whitespace) + code on the same line (no newline yet)
-// Examples:
-// - ```bashecho 'test'
-// - ```css .message {
-const CONCATENATED_FENCE_PATTERN = new RegExp(`\`\`\`${LANGUAGE_PATTERN}(?:\\s+)?(?=\\S)([^\\n\\r]+)`, 'gi')
-
 function normalizeLanguage(lang: string) {
   const lower = lang.toLowerCase()
   if (lower === 'c++') return 'cpp'
@@ -45,11 +23,17 @@ export function fixMalformedCodeBlocks(markdown: string): string {
   // Example: "text```\ncode" -> "text\n```\ncode"
   let fixed = markdown.replace(/([^\s\n])```/g, '$1\n```')
 
-  // Second pass: Fix code blocks where language and code are concatenated (with or without space)
-  // Example 1: ```bashecho 'test' -> ```bash\necho 'test'
-  // Example 2: ```css .message { -> ```css\n.message {
-  fixed = fixed.replace(CONCATENATED_FENCE_PATTERN, (_match, language, restOfLine) => {
-    return '```' + normalizeLanguage(language) + '\n' + String(restOfLine).trimStart()
+  // Second pass: Fix fenced code blocks where language and code are on the same line.
+  // Examples:
+  // - ```bashecho 'test' -> ```bash\necho 'test'
+  // - ```css .message { -> ```css\n.message {
+  fixed = fixed.replace(/```([^\n\r]*)/g, (match, info) => {
+    const raw = String(info ?? '').trim()
+    if (!raw) return match
+    const [lang, ...rest] = raw.split(/\s+/)
+    if (!lang) return match
+    if (rest.length === 0) return match
+    return '```' + normalizeLanguage(lang) + '\n' + rest.join(' ')
   })
 
   return fixed
