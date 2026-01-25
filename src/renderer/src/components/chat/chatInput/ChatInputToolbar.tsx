@@ -28,6 +28,7 @@ interface ChatInputToolbarProps {
   // Queue preview
   queuedFirstText?: string
   queuedCount?: number
+  queuePaused?: boolean
 }
 
 const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
@@ -45,7 +46,8 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   onTopPChange,
   onSystemPromptChange,
   queuedFirstText,
-  queuedCount
+  queuedCount,
+  queuePaused
 }) => {
   const [selectModelPopoutState, setSelectModelPopoutState] = React.useState(false)
   const [selectMCPPopoutState, setSelectMCPPopoutState] = React.useState(false)
@@ -186,6 +188,9 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
             )}>
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500/70 dark:bg-amber-400/70" />
               <span className="uppercase tracking-wider text-[9px] text-slate-500 dark:text-slate-400">Queued</span>
+              {queuePaused && (
+                <span className="text-[9px] font-bold text-rose-500 dark:text-rose-400">Paused</span>
+              )}
               <span className="truncate">{queuePreview}</span>
               {queuedCount && queuedCount > 1 && (
                 <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400">+{queuedCount - 1}</span>
