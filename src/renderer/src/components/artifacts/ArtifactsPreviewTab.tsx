@@ -433,6 +433,10 @@ const PreviewShell: React.FC<{
   children: React.ReactNode
 }> = ({ address, statusDot, onReload, onOpenExternal, onRestart, onStop, children }) => {
   const dotColor = statusDot === 'running' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'
+  const badgeText = statusDot === 'running' ? 'LIVE' : 'STATIC'
+  const badgeClass = statusDot === 'running'
+    ? 'bg-emerald-100 text-emerald-700 border-emerald-200/70 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50'
+    : 'bg-gray-100 text-gray-600 border-gray-200/70 dark:bg-gray-900/40 dark:text-gray-300 dark:border-gray-800/60'
 
   return (
     <div className="flex-1 flex flex-col p-3 overflow-hidden">
@@ -447,6 +451,13 @@ const PreviewShell: React.FC<{
             <Globe className="w-2.5 h-2.5 text-green-500" />
             <span className="text-[9px] font-mono truncate select-all text-gray-700 dark:text-gray-300">
               {address}
+            </span>
+            <span className={cn(
+              'ml-1 text-[8px] font-semibold tracking-widest px-1.5 py-[1px] rounded-full border',
+              'uppercase select-none',
+              badgeClass
+            )}>
+              {badgeText}
             </span>
           </div>
           <div className="flex items-center gap-1">
