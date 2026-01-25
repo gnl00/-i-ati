@@ -424,16 +424,25 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   const onTextAreaCompositionStart = useCallback(() => {
     isComposingRef.current = true
+    submitOnCompositionEndRef.current = false
   }, [])
 
-  const onTextAreaCompositionEnd = useCallback(() => {
+  const onTextAreaCompositionEnd = useCallback((event: React.CompositionEvent<HTMLTextAreaElement>) => {
     isComposingRef.current = false
     if (submitOnCompositionEndRef.current) {
       submitOnCompositionEndRef.current = false
-      const currentValue = textareaRef.current?.value ?? inputContent
+      const currentValue = event.currentTarget.value
+      if (!currentValue.trim()) {
+        return
+      }
+      setInputContent(currentValue)
+      if (!selectedModelRef) {
+        toast.error('Please select a model')
+        return
+      }
       onSubmitClick(undefined, currentValue)
     }
-  }, [inputContent, onSubmitClick])
+  }, [onSubmitClick, selectedModelRef])
 
   const onTextAreaPaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
@@ -456,6 +465,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [imageSrcBase64List, setImageSrcBase64List])
 
   const onTextAreaBlur = useCallback(() => {
+    submitOnCompositionEndRef.current = false
     // Delegate blur handling to the hook
     handleCommandBlur()
   }, [handleCommandBlur])
