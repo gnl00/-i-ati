@@ -16,28 +16,134 @@ import {
   StopCircle,
   Terminal
 } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { UseWorkspaceFilesReturn } from './useWorkspaceFiles'
+import { invokeReadTextFile } from '@renderer/tools/fileOperations/renderer/FileOperationsInvoker'
+import { getLanguageFromPath } from './artifactUtils'
+import type { FileTreeNode } from './WorkspaceFileTree'
 
-export const ArtifactsPreviewTab: React.FC = () => {
+type PreviewFile = {
+  path: string
+  content: string
+  language: string
+}
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+export const ArtifactsPreviewTab: React.FC<{
+  files: UseWorkspaceFilesReturn
+}> = ({ files }) => {
   const devServer = useDevServer()
 
-  // TODO: 需要确定 artifact files 的实际数据来源
-  // 目前使用空数组作为占位符
-  const files = useMemo(() => [] as { path: string, content: string, language: string }[], [])
   const artifactTitle = 'Artifact Project'
+
+  const fileNodes = useMemo(() => {
+    const flat: FileTreeNode[] = []
+    const walk = (node: FileTreeNode) => {
+      if (node.type === 'file') {
+        flat.push(node)
+        return
+      }
+      node.children?.forEach(walk)
+    }
+    files.workspaceTree.forEach(walk)
+    return flat
+  }, [files.workspaceTree])
+
+  const [previewFiles, setPreviewFiles] = useState<PreviewFile[]>([])
+
+  const findMainPreviewFile = useMemo(() => {
+    if (fileNodes.length === 0) return undefined
+    const byName = (name: string) => fileNodes.find(f => f.name.toLowerCase() === name)
+    const indexHtml = byName('index.html')
+    if (indexHtml) return indexHtml
+    const firstHtml = fileNodes.find(f => f.name.toLowerCase().endsWith('.html'))
+    if (firstHtml) return firstHtml
+    return fileNodes.find(f => f.name.toLowerCase().endsWith('.svg'))
+  }, [fileNodes])
+
+  useEffect(() => {
+    let isActive = true
+
+    const loadPreviewFiles = async () => {
+      if (!findMainPreviewFile) {
+        setPreviewFiles([])
+        return
+      }
+
+      const mainResult = await invokeReadTextFile({ file_path: findMainPreviewFile.path })
+      if (!mainResult.success || !mainResult.content) {
+        setPreviewFiles([])
+        return
+      }
+
+      const mainFile: PreviewFile = {
+        path: findMainPreviewFile.path,
+        content: mainResult.content,
+        language: getLanguageFromPath(findMainPreviewFile.path)
+      }
+
+      if (mainFile.language !== 'html') {
+        if (isActive) setPreviewFiles([mainFile])
+        return
+      }
+
+      const refFiles: FileTreeNode[] = []
+      const addRef = (ref: string) => {
+        if (!ref || ref.startsWith('http') || ref.startsWith('//') || ref.startsWith('data:')) return
+        const base = ref.split('?')[0].split('#')[0]
+        const baseName = base.split('/').pop() || base
+        const match = fileNodes.find((node) => {
+          const nodeName = node.name.toLowerCase()
+          if (nodeName === baseName.toLowerCase()) return true
+          return node.path.toLowerCase().endsWith(base.toLowerCase())
+        })
+        if (match) refFiles.push(match)
+      }
+
+      const linkMatches = [...mainFile.content.matchAll(/<link[^>]*href=["']([^"']+)["'][^>]*>/gi)]
+      linkMatches.forEach(match => addRef(match[1]))
+
+      const scriptMatches = [...mainFile.content.matchAll(/<script[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi)]
+      scriptMatches.forEach(match => addRef(match[1]))
+
+      const uniqueRefs = Array.from(new Map(refFiles.map(node => [node.path, node])).values())
+
+      const refContents = await Promise.all(
+        uniqueRefs.map(async (node) => {
+          const result = await invokeReadTextFile({ file_path: node.path })
+          if (!result.success || !result.content) return null
+          return {
+            path: node.path,
+            content: result.content,
+            language: getLanguageFromPath(node.path)
+          } as PreviewFile
+        })
+      )
+
+      const allFiles = [mainFile, ...refContents.filter(Boolean) as PreviewFile[]]
+      if (isActive) setPreviewFiles(allFiles)
+    }
+
+    loadPreviewFiles()
+
+    return () => {
+      isActive = false
+    }
+  }, [findMainPreviewFile, fileNodes])
 
   // Find previewable content (prefers index.html or first html/svg file)
   const previewContent = useMemo(() => {
-    if (files.length === 0) return null
+    if (previewFiles.length === 0) return null
 
     // Priority 1: index.html
-    let htmlFile = files.find(f => f.path.toLowerCase() === 'index.html')
+    let htmlFile = previewFiles.find(f => f.path.toLowerCase().endsWith('/index.html') || f.path.toLowerCase() === 'index.html')
 
     // Priority 2: first HTML file
-    if (!htmlFile) htmlFile = files.find(f => f.language === 'html')
+    if (!htmlFile) htmlFile = previewFiles.find(f => f.language === 'html')
 
     // Priority 3: first SVG file
-    if (!htmlFile) htmlFile = files.find(f => f.language === 'svg')
+    if (!htmlFile) htmlFile = previewFiles.find(f => f.language === 'svg')
 
     if (!htmlFile) return null
 
@@ -46,19 +152,21 @@ export const ArtifactsPreviewTab: React.FC = () => {
     }
 
     let processedContent = htmlFile.content
-    files.forEach(f => {
+    previewFiles.forEach(f => {
       if (f.path !== htmlFile?.path) {
+        const fileName = f.path.split('/').pop() || f.path
+        const safeName = escapeRegExp(fileName)
         // Inline CSS
         if (f.language === 'css') {
           processedContent = processedContent.replace(
-            new RegExp(`<link[^>]*href=["']${f.path}["'][^>]*>`, 'gi'),
+            new RegExp(`<link[^>]*href=["'][^"']*${safeName}["'][^>]*>`, 'gi'),
             `<style>${f.content}</style>`
           )
         }
         // Inline JS
         if (f.language === 'javascript') {
           processedContent = processedContent.replace(
-            new RegExp(`<script[^>]*src=["']${f.path}["'][^>]*><\/script>`, 'gi'),
+            new RegExp(`<script[^>]*src=["'][^"']*${safeName}["'][^>]*><\/script>`, 'gi'),
             `<script>${f.content}</script>`
           )
         }
@@ -66,7 +174,7 @@ export const ArtifactsPreviewTab: React.FC = () => {
     })
 
     return processedContent
-  }, [files])
+  }, [previewFiles])
 
   // 如果有 preview.sh，显示 DevServer 预览
   if (devServer.hasPreviewSh) {
