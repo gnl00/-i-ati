@@ -196,6 +196,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       toast.warning('Queue is full (max 5)')
       return
     }
+    if (queuePaused) {
+      toast.message('Queued (paused)', { description: 'Resolve the error to resume sending.' })
+    }
     setQueuedMessages(prev => [...prev, payload])
     setInputContent('')
     setImageSrcBase64List([])
@@ -207,7 +210,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         caretOverlayRef.current?.updateCaret()
       }
     })
-  }, [queuedMessages.length, setImageSrcBase64List])
+  }, [queuedMessages.length, queuePaused, setImageSrcBase64List])
 
   const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent, overrideText?: string) => {
     const rawInput = overrideText ?? inputContent
@@ -530,6 +533,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             onSystemPromptChange={setCurrentSystemPrompt}
             queuedFirstText={queuedMessages[0]?.text}
             queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
+            queuePaused={queuePaused}
           />
 
           <div className="relative flex-1 overflow-hidden">
