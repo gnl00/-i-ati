@@ -128,7 +128,7 @@ export const useSegmentTypewriterNext = (
   // 分词函数（根据粒度选择）
   const splitContent = useCallback((content: string): string[] => {
     if (granularity === 'character') {
-      return content.split('')
+      return Array.from(content)
     }
     return tokenizeText(content)
   }, [granularity])
