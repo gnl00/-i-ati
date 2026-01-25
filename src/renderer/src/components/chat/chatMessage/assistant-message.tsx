@@ -261,7 +261,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             <div className={cn(
               'w-1.5 h-1.5 rounded-full',
               'bg-slate-400 dark:bg-slate-500',
-              'transition-all duration-300',
+              'transition-all duration-1000',
               showLoadingIndicator && isLatest && 'animate-model-badge-dot'
             )} />
 
