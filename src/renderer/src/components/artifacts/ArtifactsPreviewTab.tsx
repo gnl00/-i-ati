@@ -35,7 +35,7 @@ export const ArtifactsPreviewTab: React.FC<{
 }> = ({ files }) => {
   const devServer = useDevServer()
   const devIframeRef = useRef<HTMLIFrameElement | null>(null)
-  const [staticReloadKey, setStaticReloadKey] = useState(0)
+  const staticIframeRef = useRef<HTMLIFrameElement | null>(null)
 
   const artifactTitle = 'Artifact Project'
 
@@ -391,7 +391,11 @@ export const ArtifactsPreviewTab: React.FC<{
       <PreviewShell
         address={`${artifactTitle.toLowerCase().replace(/\s+/g, '-')}.local`}
         statusDot="static"
-        onReload={() => setStaticReloadKey((v) => v + 1)}
+        onReload={() => {
+          if (!staticIframeRef.current) return
+          staticIframeRef.current.srcdoc = ''
+          staticIframeRef.current.srcdoc = previewContent
+        }}
         onOpenExternal={() => {
           const blob = new Blob([previewContent], { type: 'text/html' })
           const url = URL.createObjectURL(blob)
@@ -399,7 +403,7 @@ export const ArtifactsPreviewTab: React.FC<{
         }}
       >
         <iframe
-          key={staticReloadKey}
+          ref={staticIframeRef}
           srcDoc={previewContent}
           title="artifact-preview"
           className="w-full flex-1 bg-white dark:bg-gray-900"
