@@ -105,13 +105,12 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
   return (
     <div className='w-fit my-2'>
       {/* Trigger Button */}
-      <button
+      <div
         onClick={toggleOpen}
         className={cn(
           'group inline-flex items-center gap-1.5 rounded-lg px-2 py-1',
           'border-0 ring-0 outline-hidden',
           'transition-all duration-300 ease-out',
-          'hover:bg-slate-200/60 dark:hover:bg-slate-700/40',
           'focus:outline-hidden focus-visible:outline-hidden'
         )}
       >
@@ -122,19 +121,29 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
           isOpen && 'scale-110 rotate-12'
         )} />
         <span className={cn(
-          'text-[10px] font-semibold uppercase tracking-tight',
+          'text-[10px] font-semibold uppercase tracking-tight select-none',
           'text-slate-500 dark:text-slate-400',
           'transition-colors duration-300 ease-out',
           'group-hover:text-slate-700 dark:group-hover:text-slate-300'
         )}>
           Reasoning
         </span>
-        <ChevronDown className={cn(
-          'w-3 h-3 text-slate-400/80 dark:text-slate-500/70',
-          'transition-all duration-300 [transition-timing-function:cubic-bezier(0.34,1.56,0.64,1)]',
-          isOpen && 'rotate-180 scale-110'
-        )} />
-      </button>
+        <button
+            type="button"
+            className={cn(
+              "h-6 w-6 inline-flex items-center justify-center rounded-full",
+              "text-zinc-500 dark:text-zinc-400",
+              "hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60",
+              "transition-all duration-200"
+            )}
+            aria-label={isOpen ? 'Hide Result' : 'View Result'}
+          >
+            <ChevronDown className={cn(
+              "w-3 h-3 transition-transform duration-300",
+              isOpen && "rotate-180 text-zinc-600 dark:text-zinc-300"
+            )} />
+          </button>
+      </div>
 
       {/* Content with Framer Motion */}
       <AnimatePresence initial={false}>
