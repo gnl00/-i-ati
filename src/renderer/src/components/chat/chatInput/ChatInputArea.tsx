@@ -109,7 +109,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const queueTimerRef = useRef<number | null>(null)
   const queueFlushingRef = useRef(false)
   const isComposingRef = useRef(false)
-  const submitOnCompositionEndRef = useRef(false)
   const editingQueueRef = useRef<{
     text: string
     images: ClipbordImg[]
@@ -374,9 +373,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.nativeEvent.isComposing || isComposingRef.current)) {
-      if (!e.shiftKey) {
-        submitOnCompositionEndRef.current = true
-      }
       return
     }
     if (e.shiftKey && e.key === 'ArrowUp') {
@@ -424,25 +420,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
   const onTextAreaCompositionStart = useCallback(() => {
     isComposingRef.current = true
-    submitOnCompositionEndRef.current = false
   }, [])
 
-  const onTextAreaCompositionEnd = useCallback((event: React.CompositionEvent<HTMLTextAreaElement>) => {
+  const onTextAreaCompositionEnd = useCallback(() => {
     isComposingRef.current = false
-    if (submitOnCompositionEndRef.current) {
-      submitOnCompositionEndRef.current = false
-      const currentValue = event.currentTarget.value
-      if (!currentValue.trim()) {
-        return
-      }
-      setInputContent(currentValue)
-      if (!selectedModelRef) {
-        toast.error('Please select a model')
-        return
-      }
-      onSubmitClick(undefined, currentValue)
-    }
-  }, [onSubmitClick, selectedModelRef])
+  }, [])
 
   const onTextAreaPaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
@@ -465,7 +447,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [imageSrcBase64List, setImageSrcBase64List])
 
   const onTextAreaBlur = useCallback(() => {
-    submitOnCompositionEndRef.current = false
     // Delegate blur handling to the hook
     handleCommandBlur()
   }, [handleCommandBlur])
