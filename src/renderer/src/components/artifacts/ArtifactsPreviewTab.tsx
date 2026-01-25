@@ -16,7 +16,7 @@ import {
   StopCircle,
   Terminal
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { UseWorkspaceFilesReturn } from './useWorkspaceFiles'
 import { invokeReadTextFile } from '@renderer/tools/fileOperations/renderer/FileOperationsInvoker'
 import { getLanguageFromPath } from './artifactUtils'
@@ -34,6 +34,8 @@ export const ArtifactsPreviewTab: React.FC<{
   files: UseWorkspaceFilesReturn
 }> = ({ files }) => {
   const devServer = useDevServer()
+  const devIframeRef = useRef<HTMLIFrameElement | null>(null)
+  const [staticReloadKey, setStaticReloadKey] = useState(0)
 
   const artifactTitle = 'Artifact Project'
 
@@ -222,73 +224,25 @@ export const ArtifactsPreviewTab: React.FC<{
 
         {/* State 3: Running - Show iframe preview */}
         {devServer.devServerStatus === 'running' && devServer.devServerPort && (
-          <div className="flex-1 flex flex-col p-3 overflow-hidden">
-            <div className="flex-1 flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xs">
-              {/* Browser Bar */}
-              <div className="h-9 flex items-center gap-3 px-3 bg-gray-50 dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
-                  <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
-                </div>
-                <div className="flex-1 h-5.5 flex items-center px-2 gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-gray-400">
-                  <Globe className="w-2.5 h-2.5 text-green-500" />
-                  <span className="text-[9px] font-mono truncate select-all text-gray-700 dark:text-gray-300">
-                    localhost:{devServer.devServerPort}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                    onClick={() => {
-                      const iframe = document.querySelector('iframe[title="dev-server-preview"]') as HTMLIFrameElement
-                      if (iframe) iframe.src = iframe.src
-                    }}
-                    title="Reload page"
-                  >
-                    <RotateCw className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                    onClick={() => window.open(`http://localhost:${devServer.devServerPort}`, '_blank')}
-                    title="Open in new window"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-gray-400 hover:text-orange-500"
-                    onClick={devServer.handleRestartDevServer}
-                    title="Restart server"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-gray-400 hover:text-red-500"
-                    onClick={devServer.handleStopDevServer}
-                    title="Stop server"
-                  >
-                    <StopCircle className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-              {/* Dev Server iframe */}
-              <iframe
-                src={`http://localhost:${devServer.devServerPort}`}
-                title="dev-server-preview"
-                className="w-full flex-1 bg-white dark:bg-gray-900"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
-                allow="fullscreen"
-              />
-            </div>
-          </div>
+          <PreviewShell
+            address={`localhost:${devServer.devServerPort}`}
+            statusDot="running"
+            onReload={() => {
+              if (devIframeRef.current) devIframeRef.current.src = devIframeRef.current.src
+            }}
+            onOpenExternal={() => window.open(`http://localhost:${devServer.devServerPort}`, '_blank')}
+            onRestart={devServer.handleRestartDevServer}
+            onStop={devServer.handleStopDevServer}
+          >
+            <iframe
+              ref={devIframeRef}
+              src={`http://localhost:${devServer.devServerPort}`}
+              title="dev-server-preview"
+              className="w-full flex-1 bg-white dark:bg-gray-900"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+              allow="fullscreen"
+            />
+          </PreviewShell>
         )}
 
         {/* State 4: Error - Show error message with retry */}
@@ -434,45 +388,24 @@ export const ArtifactsPreviewTab: React.FC<{
   // 如果有预览内容，显示传统预览
   if (previewContent) {
     return (
-      <div className="flex-1 flex flex-col p-3 overflow-hidden">
-        <div className="flex-1 flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xs">
-          {/* Minimal Browser Bar */}
-          <div className="h-9 flex items-center gap-3 px-3 bg-gray-50 dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 shrink-0">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
-              <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
-              <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
-            </div>
-            <div className="flex-1 h-5.5 flex items-center px-2 gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-gray-400">
-              <Globe className="w-2.5 h-2.5" />
-              <span className="text-[9px] font-mono truncate select-all">{artifactTitle.toLowerCase().replace(/\s+/g, '-')}.local</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500">
-                <RotateCw className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                onClick={() => {
-                  const blob = new Blob([previewContent], { type: 'text/html' })
-                  const url = URL.createObjectURL(blob)
-                  window.open(url, '_blank')
-                }}
-              >
-                <ExternalLink className="w-3 h-3" />
-              </Button>
-            </div>
-          </div>
-          <iframe
-            srcDoc={previewContent}
-            title="artifact-preview"
-            className="w-full flex-1 bg-white"
-            sandbox="allow-scripts allow-same-origin"
-          />
-        </div>
-      </div>
+      <PreviewShell
+        address={`${artifactTitle.toLowerCase().replace(/\s+/g, '-')}.local`}
+        statusDot="static"
+        onReload={() => setStaticReloadKey((v) => v + 1)}
+        onOpenExternal={() => {
+          const blob = new Blob([previewContent], { type: 'text/html' })
+          const url = URL.createObjectURL(blob)
+          window.open(url, '_blank')
+        }}
+      >
+        <iframe
+          key={staticReloadKey}
+          srcDoc={previewContent}
+          title="artifact-preview"
+          className="w-full flex-1 bg-white dark:bg-gray-900"
+          sandbox="allow-scripts allow-same-origin"
+        />
+      </PreviewShell>
     )
   }
 
@@ -483,5 +416,82 @@ export const ArtifactsPreviewTab: React.FC<{
       title="Unable to Preview"
       description="This artifact doesn't seem to contain any previewable HTML or SVG content."
     />
+  )
+}
+
+const PreviewShell: React.FC<{
+  address: string
+  statusDot: 'running' | 'static'
+  onReload: () => void
+  onOpenExternal?: () => void
+  onRestart?: () => void
+  onStop?: () => void
+  children: React.ReactNode
+}> = ({ address, statusDot, onReload, onOpenExternal, onRestart, onStop, children }) => {
+  const dotColor = statusDot === 'running' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'
+
+  return (
+    <div className="flex-1 flex flex-col p-3 overflow-hidden">
+      <div className="flex-1 flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xs">
+        <div className="h-9 flex items-center gap-3 px-3 bg-gray-50 dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 shrink-0">
+          <div className="flex gap-1">
+            <div className={cn("w-2 h-2 rounded-full", dotColor, statusDot === 'running' && 'animate-pulse')} />
+            <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
+            <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
+          </div>
+          <div className="flex-1 h-5.5 flex items-center px-2 gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-gray-400">
+            <Globe className="w-2.5 h-2.5 text-green-500" />
+            <span className="text-[9px] font-mono truncate select-all text-gray-700 dark:text-gray-300">
+              {address}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-gray-400 hover:text-blue-500"
+              onClick={onReload}
+              title="Reload page"
+            >
+              <RotateCw className="w-3 h-3" />
+            </Button>
+            {onOpenExternal && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                onClick={onOpenExternal}
+                title="Open in new window"
+              >
+                <ExternalLink className="w-3 h-3" />
+              </Button>
+            )}
+            {onRestart && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-gray-400 hover:text-orange-500"
+                onClick={onRestart}
+                title="Restart server"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </Button>
+            )}
+            {onStop && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-gray-400 hover:text-red-500"
+                onClick={onStop}
+                title="Stop server"
+              >
+                <StopCircle className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+        {children}
+      </div>
+    </div>
   )
 }
