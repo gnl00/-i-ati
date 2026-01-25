@@ -27,13 +27,16 @@ export function fixMalformedCodeBlocks(markdown: string): string {
   // Examples:
   // - ```bashecho 'test' -> ```bash\necho 'test'
   // - ```css .message { -> ```css\n.message {
-  fixed = fixed.replace(/```([^\n\r]*)/g, (match, info) => {
-    const raw = String(info ?? '').trim()
-    if (!raw) return match
-    const [lang, ...rest] = raw.split(/\s+/)
-    if (!lang) return match
-    if (rest.length === 0) return match
-    return '```' + normalizeLanguage(lang) + '\n' + rest.join(' ')
+  fixed = fixed.replace(/(^|\n)```([^\n\r]*)/g, (match, prefix, info) => {
+    const rawLine = String(info ?? '')
+    const trimmed = rawLine.trim()
+    if (!trimmed) return match
+    const firstTokenMatch = trimmed.match(/^(\S+)([\s\S]*)$/)
+    if (!firstTokenMatch) return match
+    const lang = firstTokenMatch[1]
+    const rest = firstTokenMatch[2] ?? ''
+    if (!rest.trim()) return match
+    return prefix + '```' + normalizeLanguage(lang) + '\n' + rest.replace(/^\s+/, '')
   })
 
   return fixed
