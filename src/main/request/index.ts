@@ -79,8 +79,28 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
     })
 
     if (!fetchResponse.ok) {
-      const resp = await fetchResponse.json()
-      throw new Error(`Error=${JSON.stringify(resp)}, Text=${fetchResponse.statusText}`)
+      const rawText = await fetchResponse.text()
+      let errorJson: any = null
+      try {
+        errorJson = rawText ? JSON.parse(rawText) : null
+      } catch {
+        errorJson = null
+      }
+
+      const status = fetchResponse.status
+      const statusText = fetchResponse.statusText
+      const requestId = errorJson?.request_id || errorJson?.error?.request_id
+      const errorMessage = errorJson?.error?.message || errorJson?.message
+      const detail = errorJson ? JSON.stringify(errorJson) : rawText
+
+      const summary = [
+        `HTTP ${status} ${statusText}`.trim(),
+        requestId ? `request_id=${requestId}` : '',
+        errorMessage ? `message=${errorMessage}` : '',
+        detail ? `body=${detail}` : ''
+      ].filter(Boolean).join(' | ')
+
+      throw new Error(summary)
     }
     const streamEnabled = req.stream ?? true
     if (streamEnabled) {
