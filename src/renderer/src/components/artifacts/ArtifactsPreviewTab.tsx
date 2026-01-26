@@ -29,6 +29,26 @@ type PreviewFile = {
 }
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const normalizeRefPath = (value: string) => {
+  let next = value.trim()
+  if (!next) return ''
+  if (next.startsWith('./')) next = next.slice(2)
+  if (next.startsWith('/')) next = next.slice(1)
+  next = next.replace(/\\/g, '/')
+  while (next.includes('//')) next = next.replace(/\/\//g, '/')
+  const parts = next.split('/')
+  const resolved: string[] = []
+  for (const part of parts) {
+    if (!part || part === '.') continue
+    if (part === '..') {
+      resolved.pop()
+      continue
+    }
+    resolved.push(part)
+  }
+  next = resolved.join('/')
+  return next
+}
 
 export const ArtifactsPreviewTab: React.FC<{
   files: UseWorkspaceFilesReturn
@@ -93,21 +113,30 @@ export const ArtifactsPreviewTab: React.FC<{
       const refFiles: FileTreeNode[] = []
       const addRef = (ref: string) => {
         if (!ref || ref.startsWith('http') || ref.startsWith('//') || ref.startsWith('data:')) return
-        const base = ref.split('?')[0].split('#')[0]
+        const base = normalizeRefPath(ref.split('?')[0].split('#')[0])
         const baseName = base.split('/').pop() || base
         const match = fileNodes.find((node) => {
           const nodeName = node.name.toLowerCase()
           if (nodeName === baseName.toLowerCase()) return true
-          return node.path.toLowerCase().endsWith(base.toLowerCase())
+          const normalizedPath = normalizeRefPath(node.path.toLowerCase())
+          return normalizedPath.endsWith(base.toLowerCase())
         })
         if (match) refFiles.push(match)
       }
 
+      // Collect linked assets referenced by the HTML to enable inline preview.
       const linkMatches = [...mainFile.content.matchAll(/<link[^>]*href=["']([^"']+)["'][^>]*>/gi)]
       linkMatches.forEach(match => addRef(match[1]))
 
+      // Only inline local module scripts; avoid external or non-module scripts.
       const scriptMatches = [...mainFile.content.matchAll(/<script[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi)]
-      scriptMatches.forEach(match => addRef(match[1]))
+      scriptMatches.forEach(match => {
+        const ref = match[1]
+        if (!ref) return
+        if (ref.startsWith('http') || ref.startsWith('//') || ref.startsWith('data:')) return
+        if (!ref.startsWith('./') && !ref.startsWith('../') && !ref.startsWith('/')) return
+        addRef(ref)
+      })
 
       const uniqueRefs = Array.from(new Map(refFiles.map(node => [node.path, node])).values())
 
@@ -160,17 +189,24 @@ export const ArtifactsPreviewTab: React.FC<{
         const safeName = escapeRegExp(fileName)
         // Inline CSS
         if (f.language === 'css') {
-          processedContent = processedContent.replace(
-            new RegExp(`<link[^>]*href=["'][^"']*${safeName}["'][^>]*>`, 'gi'),
-            `<style>${f.content}</style>`
+          const relStylesheet = new RegExp(
+            `<link(?=[^>]*href=["'][^"']*(?:./)?${safeName}["'])(?=[^>]*rel=["']stylesheet["'])[^>]*>`,
+            'gi'
           )
+          const relPreloadStyle = new RegExp(
+            `<link(?=[^>]*href=["'][^"']*(?:./)?${safeName}["'])(?=[^>]*rel=["']preload["'])(?=[^>]*as=["']style["'])[^>]*>`,
+            'gi'
+          )
+          processedContent = processedContent.replace(relStylesheet, `<style>${f.content}</style>`)
+          processedContent = processedContent.replace(relPreloadStyle, `<style>${f.content}</style>`)
         }
         // Inline JS
         if (f.language === 'javascript') {
-          processedContent = processedContent.replace(
-            new RegExp(`<script[^>]*src=["'][^"']*${safeName}["'][^>]*><\/script>`, 'gi'),
-            `<script>${f.content}</script>`
+          const moduleScript = new RegExp(
+            `<script(?=[^>]*src=["'][^"']*(?:./)?${safeName}["'])(?=[^>]*type=["']module["'])[^>]*><\\/script>`,
+            'gi'
           )
+          processedContent = processedContent.replace(moduleScript, `<script type="module">${f.content}</script>`)
         }
       }
     })
