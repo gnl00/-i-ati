@@ -1,11 +1,27 @@
 import { buildSystemPrompt } from '@request/utils'
-import { buildUsageOnlyResponse, buildUsageOnlyStreamResponse, extractUsageFromChunk } from '@request/streaming/usage'
 import { BaseAdapter } from './base'
 
 // OpenAI v1 适配器（兼容 OpenAI API）
 export class OpenAIAdapter extends BaseAdapter {
   providerType: ProviderType = 'openai'
   apiVersion = 'v1'
+
+  protected extractUsage(raw: any): ITokenUsage | undefined {
+    const usage = raw?.usage
+    if (!usage) return undefined
+    if (
+      typeof usage.prompt_tokens !== 'number' ||
+      typeof usage.completion_tokens !== 'number' ||
+      typeof usage.total_tokens !== 'number'
+    ) {
+      return undefined
+    }
+    return {
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+      totalTokens: usage.total_tokens
+    }
+  }
 
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/chat/completions`
@@ -39,11 +55,7 @@ export class OpenAIAdapter extends BaseAdapter {
       content: choice.message?.content || '',
       toolCalls: this.transformToolCalls(choice.message?.tool_calls),
       finishReason: this.mapFinishReason(choice.finish_reason),
-      usage: response.usage ? {
-        promptTokens: response.usage.prompt_tokens,
-        completionTokens: response.usage.completion_tokens,
-        totalTokens: response.usage.total_tokens
-      } : undefined,
+      usage: this.extractUsage(response),
       raw: response
     }
   }
@@ -94,10 +106,18 @@ export class OpenAIAdapter extends BaseAdapter {
 
         try {
           // 处理仅包含 usage 的 chunk（choices 为空）
-          if ((!respObject.choices || respObject.choices.length === 0) && respObject.usage) {
-            const usageOnly = buildUsageOnlyResponse(respObject)
-            if (usageOnly) {
-              yield usageOnly
+          const usageOnly = (!respObject.choices || respObject.choices.length === 0)
+            ? this.extractUsage(respObject)
+            : undefined
+          if (usageOnly) {
+            yield {
+              id: respObject.id || 'chatcmpl-' + Date.now(),
+              model: respObject.model || 'unknown',
+              timestamp: Date.now(),
+              content: '',
+              finishReason: 'stop',
+              usage: usageOnly,
+              raw: respObject
             }
             continue
           }
@@ -123,7 +143,7 @@ export class OpenAIAdapter extends BaseAdapter {
             reasoning: delta.reasoning,
             toolCalls: this.transformToolCalls(delta.tool_calls),
             finishReason: this.mapFinishReason(respObject.choices[0]?.finish_reason),
-            usage: extractUsageFromChunk(respObject),
+            usage: this.extractUsage(respObject),
             raw: respObject
           }
           yield unifiedResponse
@@ -145,7 +165,16 @@ export class OpenAIAdapter extends BaseAdapter {
         const data = JSON.parse(jsonStr)
         const choice = data.choices?.[0]
         if (!choice) {
-          return buildUsageOnlyStreamResponse(data)
+          const usageOnly = this.extractUsage(data)
+          if (usageOnly) {
+            return {
+              id: data.id || 'stream',
+              model: data.model || 'unknown',
+              usage: usageOnly,
+              raw: data
+            }
+          }
+          return null
         }
 
         const delta = choice.delta
@@ -157,7 +186,7 @@ export class OpenAIAdapter extends BaseAdapter {
             toolCalls: this.transformToolCalls(delta?.tool_calls),
             finishReason: this.mapFinishReason(choice.finish_reason)
           },
-          usage: extractUsageFromChunk(data),
+          usage: this.extractUsage(data),
           raw: data
         }
       }

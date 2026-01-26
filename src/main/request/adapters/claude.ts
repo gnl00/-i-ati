@@ -5,6 +5,19 @@ export class ClaudeAdapter extends BaseAdapter {
   providerType: ProviderType = 'claude'
   apiVersion = 'v1'
 
+  protected extractUsage(raw: any): ITokenUsage | undefined {
+    const usage = raw?.usage
+    if (!usage) return undefined
+    if (typeof usage.input_tokens !== 'number' || typeof usage.output_tokens !== 'number') {
+      return undefined
+    }
+    return {
+      promptTokens: usage.input_tokens,
+      completionTokens: usage.output_tokens,
+      totalTokens: usage.input_tokens + usage.output_tokens
+    }
+  }
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/messages`
   }
@@ -52,11 +65,7 @@ export class ClaudeAdapter extends BaseAdapter {
       content,
       toolCalls: this.transformClaudeToolCalls(response.content),
       finishReason: this.mapFinishReason(response.stop_reason),
-      usage: response.usage ? {
-        promptTokens: response.usage.input_tokens,
-        completionTokens: response.usage.output_tokens,
-        totalTokens: response.usage.input_tokens + response.usage.output_tokens
-      } : undefined,
+      usage: this.extractUsage(response),
       raw: response
     }
   }
@@ -187,6 +196,24 @@ export class ClaudeChatAdapter extends BaseAdapter {
   providerType: ProviderType = 'claude'
   apiVersion = 'chat'
 
+  protected extractUsage(raw: any): ITokenUsage | undefined {
+    const usage = raw?.usage
+    if (!usage) return undefined
+    const promptTokens = typeof usage.prompt_tokens === 'number'
+      ? usage.prompt_tokens
+      : usage.input_tokens
+    const completionTokens = typeof usage.completion_tokens === 'number'
+      ? usage.completion_tokens
+      : usage.output_tokens
+    if (typeof promptTokens !== 'number' || typeof completionTokens !== 'number') {
+      return undefined
+    }
+    const totalTokens = typeof usage.total_tokens === 'number'
+      ? usage.total_tokens
+      : promptTokens + completionTokens
+    return { promptTokens, completionTokens, totalTokens }
+  }
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/chat/completions`
   }
@@ -228,12 +255,7 @@ export class ClaudeChatAdapter extends BaseAdapter {
       content: choice.message?.content || '',
       toolCalls: this.transformClaudeToolCalls(choice.message?.tool_calls),
       finishReason: this.mapFinishReason(choice.finish_reason),
-      usage: response.usage ? {
-        promptTokens: response.usage.prompt_tokens || response.usage.input_tokens,
-        completionTokens: response.usage.completion_tokens || response.usage.output_tokens,
-        totalTokens: response.usage.total_tokens ||
-          (response.usage.input_tokens + response.usage.output_tokens)
-      } : undefined,
+      usage: this.extractUsage(response),
       raw: response
     }
   }

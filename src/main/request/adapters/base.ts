@@ -37,6 +37,11 @@ export abstract class BaseAdapter {
   // 可选：自定义 headers
   getHeaders?(req: IUnifiedRequest): Record<string, string>
 
+  // 可选：usage 解析（由子类实现）
+  protected extractUsage(_raw: any): ITokenUsage | undefined {
+    return undefined
+  }
+
   // 工具调用转换的通用方法
   protected transformTools(tools: any[]): any[] {
     if (!tools?.length) return []
