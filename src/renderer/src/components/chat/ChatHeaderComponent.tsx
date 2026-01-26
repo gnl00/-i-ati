@@ -55,9 +55,13 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
 
       {/* Center Title */}
       <div className='app-dragable flex-1 flex justify-center items-center'>
-        <span className='text-gray-700 dark:text-gray-200 font-medium text-sm bg-linear-to-br from-gray-50 to-gray-100/80 dark:from-zinc-900 dark:to-zinc-800/80 px-4 py-1 rounded-2xl truncate max-w-md border border-gray-200/60 dark:border-zinc-700/60 shadow-sm'>
-          {chatTitle}
-        </span>
+        <div className='relative group'>
+          <span className='text-gray-700 dark:text-gray-200 font-semibold text-sm truncate max-w-md px-3 py-1 block'>
+            {chatTitle}
+          </span>
+          {/* Animated gradient underline */}
+          <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-linear-to-r from-transparent via-blue-500/60 to-transparent transform scale-x-75 group-hover:scale-x-100 transition-transform duration-300' />
+        </div>
       </div>
 
       {/* Right Controls */}
