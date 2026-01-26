@@ -4,7 +4,6 @@ import ChatInputArea from "@renderer/components/chat/chatInput/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
 import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageNext2"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
-import { useChatContext } from '@renderer/context/ChatContext'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAssistantStore } from '@renderer/store/assistant'
@@ -56,7 +55,7 @@ const ChatWindowComponentV2: React.FC = forwardRef<HTMLDivElement>(() => {
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const setArtifactsActiveTab = useChatStore(state => state.setArtifactsActiveTab)
 
-  const { chatUuid } = useChatContext()
+  const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)

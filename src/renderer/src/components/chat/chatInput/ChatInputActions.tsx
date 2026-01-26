@@ -10,7 +10,6 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAssistantStore } from '@renderer/store/assistant'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
-import { useChatContext } from '@renderer/context/ChatContext'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { saveChat } from '@renderer/db/ChatRepository'
 import { v4 as uuidv4 } from 'uuid'
@@ -48,17 +47,17 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const messages = useChatStore(state => state.messages)
   const { setCurrentAssistant } = useAssistantStore()
   const {
-    chatId,
-    chatUuid,
+    currentChatId: chatId,
+    currentChatUuid: chatUuid,
     chatList,
     setChatId,
     setChatUuid,
     setChatTitle,
     setChatList,
     updateWorkspacePath
-  } = useChatContext()
+  } = useChatStore()
   const currentWorkspacePath = useMemo(() => {
-    return getChatWorkspacePath({ chatUuid, chatId, chatList })
+    return getChatWorkspacePath({ chatUuid: chatUuid ?? undefined, chatId: chatId ?? undefined, chatList })
   }, [chatUuid, chatId, chatList])
   const isCustomWorkspace = useMemo(() => {
     if (!currentWorkspacePath || !chatUuid) return false
@@ -139,7 +138,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
         // toast.success(`New chat created with workspace: ${selectedPath}`)
       } else {
         // 更新现有 chat 的 workspacePath
-        const currentChat = getChatFromList({ chatId, chatList })
+        const currentChat = getChatFromList({ chatId: chatId ?? undefined, chatList })
         if (currentChat) {
           await updateWorkspacePath(selectedPath)
           // toast.success(`Workspace updated: ${selectedPath}`)

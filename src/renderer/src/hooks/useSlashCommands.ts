@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from 'react'
 import { useChatStore } from '@renderer/store'
-import { useChatContext } from '@renderer/context/ChatContext'
 
 export interface SlashCommand {
   cmd: string
@@ -21,7 +20,9 @@ export interface UseSlashCommandsOptions {
  */
 export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
   const { onCommandExecute } = options
-  const { setChatId, setChatUuid, setChatTitle } = useChatContext()
+  const setChatId = useChatStore(state => state.setChatId)
+  const setChatUuid = useChatStore(state => state.setChatUuid)
+  const setChatTitle = useChatStore(state => state.setChatTitle)
   const setMessages = useChatStore(state => state.setMessages)
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
@@ -39,8 +40,8 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
    * Clears all messages and resets chat state
    */
   const startNewChat = useCallback(() => {
-    setChatId(undefined)
-    setChatUuid(undefined)
+    setChatId(null)
+    setChatUuid(null)
     setChatTitle('NewChat')
     setMessages([])
     toggleArtifacts(false)

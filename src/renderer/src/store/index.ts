@@ -1,6 +1,7 @@
-import { getChatById } from '@renderer/db/ChatRepository'
+import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { getMessagesByChatId, saveMessage, updateMessage, deleteMessage } from '@renderer/db/MessageRepository'
 import { create } from 'zustand'
+import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
 export type ChatState = {
   appVersion: string
@@ -10,6 +11,8 @@ export type ChatState = {
   imageSrcBase64List: ClipbordImg[]
   currentChatId: number | null
   currentChatUuid: string | null
+  chatTitle: string
+  chatList: ChatEntity[]
   // Request state
   fetchState: boolean
   currentReqCtrl: AbortController | undefined
@@ -23,6 +26,7 @@ export type ChatState = {
   artifactsActiveTab: string
   // Typewriter control
   forceCompleteTypewriter: (() => void) | null
+  lastMsgStatus: boolean
   // MCP tools
   availableMcpTools: Map<string, any[]>
   selectedMcpServerNames: string[]
@@ -43,6 +47,13 @@ export type ChatAction = {
   setArtifactsActiveTab: (tab: string) => void
   setImageSrcBase64List: (imgs: ClipbordImg[]) => void
   setForceCompleteTypewriter: (fn: (() => void) | null) => void
+  setLastMsgStatus: (state: boolean) => void
+  setChatTitle: (title: string) => void
+  setChatList: (list: ChatEntity[]) => void
+  updateChatList: (chatEntity: ChatEntity) => void
+  setChatId: (chatId: number | null) => void
+  setChatUuid: (chatUuid: string | null) => void
+  updateWorkspacePath: (workspacePath?: string) => Promise<void>
 
   // MCP tools 管理
   addMcpTools: (serverName: string, tools: any[]) => void
@@ -77,6 +88,8 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   imageSrcBase64List: [],
   currentChatId: null,
   currentChatUuid: null,
+  chatTitle: 'NewChat',
+  chatList: [],
 
   // Request state
   fetchState: false,
@@ -93,6 +106,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
 
   // Typewriter control
   forceCompleteTypewriter: null,
+  lastMsgStatus: false,
 
   // MCP tools
   availableMcpTools: new Map(),
@@ -113,6 +127,33 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setArtifactsActiveTab: (tab) => set({ artifactsActiveTab: tab }),
   setImageSrcBase64List: (imgs) => set({ imageSrcBase64List: imgs }),
   setForceCompleteTypewriter: (fn) => set({ forceCompleteTypewriter: fn }),
+  setLastMsgStatus: (state) => set({ lastMsgStatus: state }),
+  setChatTitle: (title) => set({ chatTitle: title }),
+  setChatList: (list) => set({ chatList: list }),
+  updateChatList: (chatEntity) => {
+    set((state) => ({
+      chatList: state.chatList.map(item => (item.uuid === chatEntity.uuid ? chatEntity : item))
+    }))
+  },
+  setChatId: (chatId) => set({ currentChatId: chatId }),
+  setChatUuid: (chatUuid) => set({ currentChatUuid: chatUuid }),
+  updateWorkspacePath: async (workspacePath) => {
+    const state = get()
+    const chatId = state.currentChatId ?? undefined
+    const chatUuid = state.currentChatUuid ?? undefined
+    if (!chatId || !chatUuid) return
+    const currentChat = getChatFromList({ chatUuid, chatId, chatList: state.chatList })
+    if (!currentChat) return
+
+    const updatedChat: ChatEntity = {
+      ...currentChat,
+      workspacePath,
+      updateTime: Date.now()
+    }
+
+    await updateChat(updatedChat)
+    get().updateChatList(updatedChat)
+  },
 
   // ============ MCP Tools 管理方法 ============
 
@@ -170,6 +211,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     set({
       currentChatId: chat.id,
       currentChatUuid: chat.uuid,
+      chatTitle: chat.title || 'NewChat',
       messages: messages
     })
   },
@@ -317,6 +359,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       set({
         currentChatId: chatId,
         currentChatUuid: chatUuid,
+        chatTitle: get().chatTitle,
         messages: []
       })
     } else {

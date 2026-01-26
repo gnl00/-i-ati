@@ -1,4 +1,3 @@
-import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import toolsDefinitions from '@tools/definitions'
@@ -14,7 +13,6 @@ import {
 } from './event-driven'
 
 function useChatSubmitV2() {
-  const chatContext = useChatContext()
   const chatStore = useChatStore()
   const { accounts, providerDefinitions } = useAppConfigStore()
 
@@ -27,7 +25,7 @@ function useChatSubmitV2() {
     chatStore.setReadStreamState(false)
     chatStore.setFetchState(false)
     chatStore.setShowLoadingIndicator(false)
-    chatContext.setLastMsgStatus(false)
+    chatStore.setLastMsgStatus(false)
   }
 
   const bindEventHandlers = (bus: ChatSubmitEventBus) => {
@@ -105,12 +103,12 @@ function useChatSubmitV2() {
         if (!markOnce('session.ready', envelope.submissionId)) {
           return
         }
-        chatContext.setChatId(chatEntity.id)
-        chatContext.setChatUuid(chatEntity.uuid)
+        chatStore.setChatId(chatEntity.id || null)
+        chatStore.setChatUuid(chatEntity.uuid || null)
         chatStore.setCurrentChat(chatEntity.id || null, chatEntity.uuid || null)
-        chatContext.updateChatList(chatEntity)
+        chatStore.updateChatList(chatEntity)
         if (chatEntity.title) {
-          chatContext.setChatTitle(chatEntity.title)
+          chatStore.setChatTitle(chatEntity.title)
         }
         chatStore.setCurrentReqCtrl(controller)
         chatStore.setReadStreamState(true)
@@ -134,9 +132,9 @@ function useChatSubmitV2() {
         upsertOrAppend(message)
       }),
       bus.on('chat.updated', ({ chatEntity }) => {
-        chatContext.updateChatList(chatEntity)
+        chatStore.updateChatList(chatEntity)
         if (chatEntity.title) {
-          chatContext.setChatTitle(chatEntity.title)
+          chatStore.setChatTitle(chatEntity.title)
         }
       }),
       bus.on('stream.completed', (_, envelope) => {
@@ -151,7 +149,7 @@ function useChatSubmitV2() {
           return
         }
         void clearPreviousErrorMessage()
-        chatContext.setLastMsgStatus(true)
+        chatStore.setLastMsgStatus(true)
         chatStore.setReadStreamState(false)
       }),
       bus.on('submission.failed', async ({ error }, envelope) => {
@@ -252,8 +250,8 @@ function useChatSubmitV2() {
         modelRef: chatStore.selectedModelRef!,
         accounts,
         providerDefinitions,
-        chatId: chatContext.chatId,
-        chatUuid: chatContext.chatUuid
+        chatId: chatStore.currentChatId ?? undefined,
+        chatUuid: chatStore.currentChatUuid ?? undefined
       }, bus)
     } catch (error: any) {
       shouldReset = true

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useChatContext } from '@renderer/context/ChatContext'
+import { useChatStore } from '@renderer/store'
 import { getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { useDevServerStore } from '@renderer/store/devServerStore'
 import { toast } from 'sonner'
@@ -26,7 +26,8 @@ interface UseDevServerReturn {
 }
 
 export function useDevServer(): UseDevServerReturn {
-  const { chatUuid, chatList } = useChatContext()
+  const chatUuid = useChatStore(state => state.currentChatUuid)
+  const chatList = useChatStore(state => state.chatList)
   const {
     setDevServerStatus,
     setDevServerPort,
@@ -43,7 +44,7 @@ export function useDevServer(): UseDevServerReturn {
   const [showErrorLogs, setShowErrorLogs] = useState(false)
 
   const currentWorkspacePath = useMemo(() => {
-    return getChatWorkspacePath({ chatUuid, chatList })
+    return getChatWorkspacePath({ chatUuid: chatUuid ?? undefined, chatList })
   }, [chatUuid, chatList])
 
   // DevServer state from store
