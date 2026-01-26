@@ -311,12 +311,10 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                     </div>
                                     <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
                                         <Input
-                                            min={10}
-                                            max={100}
                                             value={compressionTriggerThreshold}
                                             onChange={(e) => {
                                                 const value = parseInt(e.target.value) || 30
-                                                setCompressionTriggerThreshold(Math.min(Math.max(value, 10), 100))
+                                                setCompressionTriggerThreshold(value)
                                             }}
                                             disabled={!compressionEnabled}
                                             className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
@@ -338,7 +336,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                             value={compressionKeepRecentCount}
                                             onChange={(e) => {
                                                 const value = parseInt(e.target.value) || 20
-                                                setCompressionKeepRecentCount(Math.min(Math.max(value, 5), 50))
+                                                setCompressionKeepRecentCount(value)
                                             }}
                                             disabled={!compressionEnabled}
                                             className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
@@ -360,7 +358,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                             value={compressionCompressCount}
                                             onChange={(e) => {
                                                 const value = parseInt(e.target.value) || 10
-                                                setCompressionCompressCount(Math.min(Math.max(value, 5), 30))
+                                                setCompressionCompressCount(value)
                                             }}
                                             disabled={!compressionEnabled}
                                             className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
