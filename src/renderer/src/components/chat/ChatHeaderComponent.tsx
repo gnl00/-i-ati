@@ -22,18 +22,28 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
   }
 
   return (
-    <div className="header shadow-xs fixed top-0 w-full pb-1 pr-2 pl-3 pt-1 flex items-center justify-between app-dragable bg-gray-50 dark:bg-black z-10" style={{ userSelect: 'none' }}>
+    <div
+      className="header fixed top-0 w-full px-4 py-1.5 flex items-center justify-between app-dragable bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-zinc-800/50 z-10 transition-colors duration-200"
+      style={{ userSelect: 'none' }}
+    >
       {/* macOS Traffic Lights */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center gap-4">
         <TrafficLights />
-        <div className="app-dragable flex space-x-2">
-          <Button className="app-undragable rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" variant="ghost" size="sm" onClick={__ => { setSheetOpenState(true) }}>
-            <ActivityLogIcon className="dark:text-gray-300" />
+        <div className="app-dragable flex gap-1.5">
+          <Button
+            className="app-undragable h-8 w-8 p-0 rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-800/80 transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-zinc-700"
+            variant="ghost"
+            onClick={__ => { setSheetOpenState(true) }}
+          >
+            <ActivityLogIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
           </Button>
           <Popover>
             <PopoverTrigger asChild className="app-undragable">
-              <Button className="rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" variant="ghost" size="sm">
-                <GearIcon className="dark:text-gray-300" />
+              <Button
+                className="h-8 w-8 p-0 rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-800/80 transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-zinc-700"
+                variant="ghost"
+              >
+                <GearIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="ml-1 mt-1 p-0 pt-2 px-2 app-undragable w-auto h-full">
@@ -44,15 +54,25 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
       </div>
 
       {/* Center Title */}
-      <div className='app-dragable flex-1 flex justify-center items-end gap-1'>
-        <span className='text-gray-500 dark:text-gray-300 font-semibold text-sm bg-gray-100 dark:bg-gray-800 p-1 px-2 rounded-xl truncate max-w-md'>{chatTitle}</span>
+      <div className='app-dragable flex-1 flex justify-center items-center'>
+        <span className='text-gray-700 dark:text-gray-200 font-medium text-sm bg-linear-to-br from-gray-50 to-gray-100/80 dark:from-zinc-900 dark:to-zinc-800/80 px-4 py-1 rounded-2xl truncate max-w-md border border-gray-200/60 dark:border-zinc-700/60 shadow-sm'>
+          {chatTitle}
+        </span>
       </div>
 
       {/* Right Controls */}
-      <div className="app-dragable flex justify-end space-x-1">
+      <div className="app-dragable flex justify-end gap-1.5">
         <div className="app-undragable"><ModeToggle /></div>
-        <Button className="app-undragable rounded-xl bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700" size="sm" variant="ghost" onClick={onPinToggleClick}>
-          {pinState ? <DrawingPinFilledIcon className="dark:text-gray-300" /> : <DrawingPinIcon className="dark:text-gray-300" />}
+        <Button
+          className="app-undragable h-8 w-8 p-0 rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-800/80 transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-zinc-700"
+          variant="ghost"
+          onClick={onPinToggleClick}
+        >
+          {pinState ? (
+            <DrawingPinFilledIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          ) : (
+            <DrawingPinIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+          )}
         </Button>
       </div>
     </div>
