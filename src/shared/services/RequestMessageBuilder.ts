@@ -14,6 +14,7 @@ class RequestMessageBuilder {
   private messages: MessageEntity[] = []
   private systemPrompts: string[] = []
   private compressionSummary: CompressedSummaryEntity | null = null
+  private userInstruction: string | null = null
 
   /**
    * 设置原始消息列表
@@ -28,6 +29,15 @@ class RequestMessageBuilder {
    */
   setSystemPrompts(prompts: string[]): this {
     this.systemPrompts = prompts
+    return this
+  }
+
+  /**
+   * 设置用户指令（将作为 user 消息插入）
+   */
+  setUserInstruction(instruction?: string | null): this {
+    const value = instruction?.trim()
+    this.userInstruction = value ? value : null
     return this
   }
 
@@ -243,7 +253,7 @@ class RequestMessageBuilder {
     const systemPrompt = this.systemPrompts.join('\n')
 
     // 插入到最前面
-    return [
+    const result: ChatMessage[] = [
       {
         role: 'system',
         content: systemPrompt,
@@ -251,6 +261,16 @@ class RequestMessageBuilder {
       },
       ...messages
     ]
+
+    if (this.userInstruction) {
+      result.splice(1, 0, {
+        role: 'user',
+        content: `<user_instruction>\n${this.userInstruction}\n</user_instruction>`,
+        segments: []
+      })
+    }
+
+    return result
   }
 
   /**

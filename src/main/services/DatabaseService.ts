@@ -100,6 +100,7 @@ class DatabaseService {
       msg_count: data.msgCount ?? 0,
       model: data.model ?? null,
       workspace_path: data.workspacePath ?? null,
+      user_instruction: data.userInstruction ?? null,
       create_time: data.createTime ?? now,
       update_time: data.updateTime ?? now
     }
@@ -118,6 +119,7 @@ class DatabaseService {
       msgCount: row.msg_count,
       model: row.model ?? undefined,
       workspacePath: row.workspace_path ?? undefined,
+      userInstruction: row.user_instruction ?? undefined,
       createTime: row.create_time,
       updateTime: row.update_time,
       messages: []
@@ -137,6 +139,7 @@ class DatabaseService {
       msgCount: row.msg_count,
       model: row.model ?? undefined,
       workspacePath: row.workspace_path ?? undefined,
+      userInstruction: row.user_instruction ?? undefined,
       createTime: row.create_time,
       updateTime: row.update_time,
       messages: []
@@ -156,6 +159,7 @@ class DatabaseService {
       msgCount: row.msg_count,
       model: row.model ?? undefined,
       workspacePath: row.workspace_path ?? undefined,
+      userInstruction: row.user_instruction ?? undefined,
       createTime: row.create_time,
       updateTime: row.update_time,
       messages: []
@@ -173,6 +177,9 @@ class DatabaseService {
     if (!this.chatRepo) throw new Error('Chat repository not initialized')
     if (!data.id) return
 
+    const existing = this.chatRepo.getChatById(data.id)
+    const userInstruction = data.userInstruction ?? existing?.user_instruction ?? null
+
     const row = {
       id: data.id,
       uuid: data.uuid,
@@ -180,6 +187,7 @@ class DatabaseService {
       msg_count: data.msgCount ?? 0,
       model: data.model ?? null,
       workspace_path: data.workspacePath ?? null,
+      user_instruction: userInstruction,
       create_time: data.createTime ?? Date.now(),
       update_time: data.updateTime ?? Date.now()
     }

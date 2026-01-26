@@ -7,6 +7,7 @@ interface ChatRow {
   msg_count: number
   model: string | null
   workspace_path: string | null
+  user_instruction: string | null
   create_time: number
   update_time: number
 }
@@ -25,8 +26,8 @@ class ChatRepository {
   constructor(db: Database.Database) {
     this.stmts = {
       insertChat: db.prepare(`
-        INSERT INTO chats (uuid, title, model, workspace_path, create_time, update_time)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO chats (uuid, title, model, workspace_path, user_instruction, create_time, update_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `),
       getAllChats: db.prepare(`
         SELECT * FROM chats ORDER BY update_time DESC
@@ -41,7 +42,7 @@ class ChatRepository {
         SELECT workspace_path FROM chats WHERE uuid = ?
       `),
       updateChat: db.prepare(`
-        UPDATE chats SET uuid = ?, title = ?, model = ?, workspace_path = ?, create_time = ?, update_time = ?
+        UPDATE chats SET uuid = ?, title = ?, model = ?, workspace_path = ?, user_instruction = ?, create_time = ?, update_time = ?
         WHERE id = ?
       `),
       deleteChat: db.prepare(`
@@ -56,6 +57,7 @@ class ChatRepository {
       row.title,
       row.model,
       row.workspace_path,
+      row.user_instruction,
       row.create_time,
       row.update_time
     )
@@ -85,6 +87,7 @@ class ChatRepository {
       row.title,
       row.model,
       row.workspace_path,
+      row.user_instruction,
       row.create_time,
       row.update_time,
       row.id

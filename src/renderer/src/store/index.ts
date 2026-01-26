@@ -13,6 +13,7 @@ export type ChatState = {
   currentChatUuid: string | null
   chatTitle: string
   chatList: ChatEntity[]
+  userInstruction: string
   // Request state
   fetchState: boolean
   currentReqCtrl: AbortController | undefined
@@ -53,6 +54,7 @@ export type ChatAction = {
   updateChatList: (chatEntity: ChatEntity) => void
   setChatId: (chatId: number | null) => void
   setChatUuid: (chatUuid: string | null) => void
+  setUserInstruction: (value: string) => void
   updateWorkspacePath: (workspacePath?: string) => Promise<void>
 
   // MCP tools 管理
@@ -90,6 +92,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   currentChatUuid: null,
   chatTitle: 'NewChat',
   chatList: [],
+  userInstruction: '',
 
   // Request state
   fetchState: false,
@@ -132,11 +135,24 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setChatList: (list) => set({ chatList: list }),
   updateChatList: (chatEntity) => {
     set((state) => ({
-      chatList: state.chatList.map(item => (item.uuid === chatEntity.uuid ? chatEntity : item))
+      chatList: state.chatList.map(item => {
+        if (item.uuid !== chatEntity.uuid) return item
+        const merged: ChatEntity = {
+          ...item,
+          ...chatEntity,
+          userInstruction: chatEntity.userInstruction ?? item.userInstruction
+        }
+        return merged
+      }),
+      userInstruction:
+        state.currentChatUuid === chatEntity.uuid
+          ? (chatEntity.userInstruction ?? state.userInstruction)
+          : state.userInstruction
     }))
   },
   setChatId: (chatId) => set({ currentChatId: chatId }),
   setChatUuid: (chatUuid) => set({ currentChatUuid: chatUuid }),
+  setUserInstruction: (value) => set({ userInstruction: value }),
   updateWorkspacePath: async (workspacePath) => {
     const state = get()
     const chatId = state.currentChatId ?? undefined
@@ -356,6 +372,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
    */
   setCurrentChat: (chatId, chatUuid) => {
     const currentChatId = get().currentChatId
+    const chat = chatUuid
+      ? get().chatList.find(item => item.uuid === chatUuid)
+      : get().chatList.find(item => item.id === chatId)
 
     // 如果切换到不同的聊天，清空消息列表
     if (currentChatId !== chatId) {
@@ -363,12 +382,14 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
         currentChatId: chatId,
         currentChatUuid: chatUuid,
         chatTitle: get().chatTitle,
-        messages: []
+        messages: [],
+        userInstruction: chat?.userInstruction ?? ''
       })
     } else {
       set({
         currentChatId: chatId,
-        currentChatUuid: chatUuid
+        currentChatUuid: chatUuid,
+        userInstruction: chat?.userInstruction ?? get().userInstruction
       })
     }
   },
