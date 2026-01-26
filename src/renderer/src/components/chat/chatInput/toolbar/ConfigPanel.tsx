@@ -1,36 +1,36 @@
-import { ResetIcon, TokensIcon } from '@radix-ui/react-icons'
+import { TokensIcon } from '@radix-ui/react-icons'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
-import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
-import { Slider } from "@renderer/components/ui/slider"
 import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
+import { useChatStore } from '@renderer/store'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useAssistantStore } from '@renderer/store/assistant'
 import React, { useState } from 'react'
+import { getChatSkills } from '@renderer/db/ChatSkillRepository'
+import { getCompressedSummariesByChatId } from '@renderer/db/CompressedSummaryRepository'
+import { Wrench, Sparkles, Database, Compass } from 'lucide-react'
 
 interface ConfigPanelProps {
-  chatTemperature: number[]
-  chatTopP: number[]
   currentSystemPrompt: string
-  onTemperatureChange: (val: number[]) => void
-  onTopPChange: (val: number[]) => void
   onSystemPromptChange: (val: string) => void
 }
 
 const ConfigPanel: React.FC<ConfigPanelProps> = ({
-  chatTemperature,
-  chatTopP,
   currentSystemPrompt,
-  onTemperatureChange,
-  onTopPChange,
   onSystemPromptChange
 }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const { currentAssistant, setCurrentAssistant } = useAssistantStore()
+  const messages = useChatStore(state => state.messages)
+  const currentChatId = useChatStore(state => state.currentChatId)
+  const { appConfig } = useAppConfigStore()
+  const { currentAssistant } = useAssistantStore()
   const [displayAssistant, setDisplayAssistant] = useState<Assistant | null>(null)
   const [isExiting, setIsExiting] = useState(false)
+  const [activeSkills, setActiveSkills] = useState<string[]>([])
+  const [compressionCount, setCompressionCount] = useState<number>(0)
 
   // Handle assistant change with exit animation
   React.useEffect(() => {
@@ -50,12 +50,49 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     return undefined
   }, [currentAssistant, displayAssistant])
 
-  const handleResetDefaults = () => {
-    onTemperatureChange([1])
-    onTopPChange([1])
-    onSystemPromptChange('')
-    setCurrentAssistant(null) // Clear assistant selection
-  }
+  React.useEffect(() => {
+    if (!currentChatId) {
+      setActiveSkills([])
+      setCompressionCount(0)
+      return
+    }
+    getChatSkills(currentChatId)
+      .then(setActiveSkills)
+      .catch(() => setActiveSkills([]))
+    getCompressedSummariesByChatId(currentChatId)
+      .then(result => setCompressionCount(result.length))
+      .catch(() => setCompressionCount(0))
+  }, [currentChatId])
+
+  const tokenTotal = React.useMemo(() => {
+    return messages.reduce((sum, msg) => sum + (msg.tokens || 0), 0)
+  }, [messages])
+
+  const toolCallCount = React.useMemo(() => {
+    return messages.reduce((sum, msg) => {
+      const segments = msg.body.segments || []
+      const toolSegments = segments.filter(seg => seg.type === 'toolCall').length
+      return sum + toolSegments
+    }, 0)
+  }, [messages])
+
+  const toolResultCount = React.useMemo(() => {
+    return messages.filter(msg => msg.body.role === 'tool').length
+  }, [messages])
+
+  const memoryCallCount = React.useMemo(() => {
+    return messages.reduce((sum, msg) => {
+      const segments = msg.body.segments || []
+      const memorySegments = segments.filter(seg =>
+        seg.type === 'toolCall' &&
+        (seg.name === 'memory_retrieval' || seg.name === 'memory_save')
+      ).length
+      return sum + memorySegments
+    }, 0)
+  }, [messages])
+
+  const memoryEnabled = appConfig?.tools?.memoryEnabled ?? true
+  const compressionEnabled = appConfig?.compression?.enabled ?? true
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -145,145 +182,77 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         sideOffset={12}
         align="end"
       >
-        <div className="flex flex-col h-[460px]">
-          {/* Header with Reset Button */}
-          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-linear-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-900/80 dark:to-slate-900/50 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className='text-sm font-semibold text-slate-900 dark:text-slate-100 tracking-tight'>
-                Configuration
-              </span>
-              <Badge
-                variant={'outline'}
-                className={cn(
-                  "text-[10px] h-5 px-2 font-medium",
-                  "bg-amber-50/50 dark:bg-amber-500/10",
-                  "border-amber-200 dark:border-amber-500/20",
-                  "text-amber-700 dark:text-amber-400",
-                )}
-              >
-                Session
-              </Badge>
-            </div>
-
-            {/* Reset Button in Header */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-7 w-7 rounded-lg",
-                "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300",
-                "hover:bg-slate-100 dark:hover:bg-slate-800",
-                "transition-all duration-200",
-              )}
-              onClick={handleResetDefaults}
-            >
-              <ResetIcon className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-
+        <div className="flex flex-col h-fit">
           {/* Content Area */}
-          <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-6">
+          <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-6">
 
             {/* Parameters Group */}
-            <div className="space-y-5 shrink-0">
+            <div className="space-y-3 shrink-0">
               <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Model Parameters
+                  Chat Overview
                 </span>
               </div>
 
-              {/* Temperature and Top P */}
-              <div className="grid grid-cols-2 gap-5">
-                {/* Temperature */}
-                <div className="space-y-3 group">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="temperature"
-                      className="text-xs font-medium text-slate-600 dark:text-slate-400"
-                    >
-                      Temperature
-                    </Label>
-                    <span className={cn(
-                      "text-[10px] font-mono tabular-nums",
-                      "px-1.5 py-0.5 rounded",
-                      "bg-slate-100 dark:bg-slate-900",
-                      "text-slate-600 dark:text-slate-400",
-                      "border border-slate-200 dark:border-slate-800"
-                    )}>
-                      {chatTemperature[0].toFixed(1)}
-                    </span>
+              {/* Chat Stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg border border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/40 px-2.5 py-2">
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
+                    <TokensIcon className="w-3 h-3" />
+                    Tokens
                   </div>
-                  <Slider
-                    id="temperature"
-                    value={chatTemperature}
-                    min={0}
-                    max={2}
-                    step={0.1}
-                    onValueChange={onTemperatureChange}
-                    className="[&_.range-thumb]:h-4 [&_.range-thumb]:w-4 [&_.range-thumb]:shadow-md"
-                  />
+                  <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                    {tokenTotal}
+                  </div>
                 </div>
-
-                {/* Top P */}
-                <div className="space-y-3 group">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="topp"
-                      className="text-xs font-medium text-slate-600 dark:text-slate-400"
-                    >
-                      Top P
-                    </Label>
-                    <span className={cn(
-                      "text-[10px] font-mono tabular-nums",
-                      "px-1.5 py-0.5 rounded",
-                      "bg-slate-100 dark:bg-slate-900",
-                      "text-slate-600 dark:text-slate-400",
-                      "border border-slate-200 dark:border-slate-800"
-                    )}>
-                      {chatTopP[0].toFixed(1)}
-                    </span>
+                <div className="rounded-lg border border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/40 px-2.5 py-2">
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
+                    <Wrench className="w-3 h-3" />
+                    Tools
                   </div>
-                  <Slider
-                    id="topp"
-                    value={chatTopP}
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    onValueChange={onTopPChange}
-                    className="[&_.range-thumb]:h-4 [&_.range-thumb]:w-4 [&_.range-thumb]:shadow-md"
-                  />
+                  <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                    {toolCallCount} / {toolResultCount}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/40 px-2.5 py-2">
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
+                    <Sparkles className="w-3 h-3" />
+                    Skills
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                    {activeSkills.length}
+                  </div>
                 </div>
               </div>
 
-              {/* Max Tokens */}
-              <div className="space-y-3 group pt-1">
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="maxCompletionTokens"
-                    className="text-xs font-medium text-slate-600 dark:text-slate-400"
-                  >
-                    Max Tokens
-                  </Label>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-600">
-                    Default
-                  </span>
-                </div>
-                <Input
-                  id="maxCompletionTokens"
-                  defaultValue="4096"
+              {/* Toggles */}
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
                   className={cn(
-                    "h-9 text-xs font-mono",
-                    "bg-slate-50 dark:bg-slate-900/50",
-                    "border border-slate-200 dark:border-slate-800",
-                    "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
-                    "ring-0 focus:ring-0 focus-visible:ring-0",
-                    "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
-                    "focus:border-blue-500/50 dark:focus:border-blue-500/50",
-                    "hover:border-slate-200 dark:hover:border-slate-800",
-                    "shadow-xs",
+                    "text-[10px] h-5 px-2 font-medium",
+                    memoryEnabled
+                      ? "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-200/70 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                      : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
                   )}
-                />
+                >
+                  <Database className="w-3 h-3 mr-1" />
+                  Memory {memoryEnabled ? 'On' : 'Off'} · {memoryCallCount}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] h-5 px-2 font-medium",
+                    compressionEnabled
+                      ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
+                      : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
+                  )}
+                >
+                  <Compass className="w-3 h-3 mr-1" />
+                  Compact {compressionEnabled ? 'On' : 'Off'} · {compressionCount}
+                </Badge>
               </div>
+
             </div>
 
             {/* System Prompt Group */}

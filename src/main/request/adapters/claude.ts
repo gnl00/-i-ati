@@ -24,9 +24,7 @@ export class ClaudeAdapter extends BaseAdapter {
       model: req.model,
       stream: req.stream ?? true,
       messages: messages,
-      ...(req.options?.maxTokens !== undefined ? { max_tokens: req.options.maxTokens } : {}),
-      ...(req.options?.temperature !== undefined ? { temperature: req.options.temperature } : {}),
-      ...(req.options?.topP !== undefined ? { top_p: req.options.topP } : {})
+      ...(req.options?.maxTokens !== undefined ? { max_tokens: req.options.maxTokens } : {})
     }
 
     // Claude API requires system prompts in separate 'system' field
@@ -206,9 +204,7 @@ export class ClaudeChatAdapter extends BaseAdapter {
       model: req.model,
       messages: req.messages,  // Use messages directly - system prompts already included by RequestMessageBuilder
       stream: req.stream ?? true,
-      ...(req.options?.maxTokens !== undefined ? { max_tokens: req.options.maxTokens } : {}),
-      ...(req.options?.temperature !== undefined ? { temperature: req.options.temperature } : {}),
-      ...(req.options?.topP !== undefined ? { top_p: req.options.topP } : {})
+      ...(req.options?.maxTokens !== undefined ? { max_tokens: req.options.maxTokens } : {})
     }
 
     if (req.tools?.length) {
@@ -343,9 +339,7 @@ export class ClaudeLegacyAdapter extends BaseAdapter {
       model: req.model,
       prompt,
       stream: req.stream ?? true,
-      ...(req.options?.maxTokens !== undefined ? { max_tokens_to_sample: req.options.maxTokens } : {}),
-      ...(req.options?.temperature !== undefined ? { temperature: req.options.temperature } : {}),
-      ...(req.options?.topP !== undefined ? { top_p: req.options.topP } : {})
+      ...(req.options?.maxTokens !== undefined ? { max_tokens_to_sample: req.options.maxTokens } : {})
     }
   }
 

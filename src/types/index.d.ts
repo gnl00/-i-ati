@@ -99,9 +99,7 @@ declare interface IUnifiedRequest {
   tools?: any[]
   requestOverrides?: Record<string, any>
   options?: {
-    temperature?: number
     maxTokens?: number
-    topP?: number
   }
 }
 

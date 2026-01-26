@@ -15,12 +15,7 @@ export async function generateTitle(
     model: model.id,
     prompt: '',
     messages: [{ role: 'user', content: generateTitlePrompt(content), segments: [] }],
-    stream: false,
-    options: {
-      temperature: 0.7,
-      maxTokens: 100,
-      topP: 0.7
-    }
+    stream: false
   }
 
   const response = await unifiedChatRequest(titleReq, null, () => {}, () => {})
