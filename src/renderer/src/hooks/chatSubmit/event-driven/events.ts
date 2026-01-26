@@ -53,7 +53,7 @@ export type ChatSubmitEventPayloads = {
   'request.sent': { messageCount: number }
   'stream.started': { stream: boolean }
   'stream.chunk': { contentDelta?: string; reasoningDelta?: string }
-  'stream.completed': { ok: boolean }
+  'stream.completed': { ok: boolean; usage?: ITokenUsage }
   'tool.call.detected': { toolCall: import('../types').ToolCall }
   'tool.call.flushed': { toolCalls: IToolCall[] }
   'tool.call.attached': { toolCallIds: string[]; messageId?: number }

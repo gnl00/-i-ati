@@ -153,6 +153,7 @@ declare interface IUnifiedStreamResponse {
     toolCalls?: IToolCall[]
     finishReason?: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'error'
   }
+  usage?: ITokenUsage
   raw?: any
 }
 

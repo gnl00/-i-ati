@@ -37,6 +37,8 @@ type ActiveSubmission = {
 }
 
 class MainStreamingMessageManager {
+  private lastUsage?: ITokenUsage
+
   constructor(
     private readonly messageEntities: MessageEntity[],
     private readonly request: IUnifiedRequest,
@@ -99,6 +101,14 @@ class MainStreamingMessageManager {
         }
       }
     })
+  }
+
+  setLastUsage(usage: ITokenUsage): void {
+    this.lastUsage = usage
+  }
+
+  getLastUsage(): ITokenUsage | undefined {
+    return this.lastUsage
   }
 
   async addToolCallMessage(toolCalls: IToolCall[], content: string): Promise<void> {
@@ -447,7 +457,10 @@ export class MainChatSubmitService {
       throw error
     } finally {
       messageManager.flushPendingAssistantUpdate()
-      emitter.emit('stream.completed', { ok })
+      emitter.emit('stream.completed', {
+        ok,
+        usage: messageManager.getLastUsage()
+      })
       if (ok) {
         emitter.emit('submission.completed', { assistantMessageId: -1 })
       }

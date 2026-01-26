@@ -1,4 +1,5 @@
 import { buildSystemPrompt } from '@request/utils'
+import { buildUsageOnlyResponse, buildUsageOnlyStreamResponse, extractUsageFromChunk } from '@request/streaming/usage'
 import { BaseAdapter } from './base'
 
 // OpenAI v1 适配器（兼容 OpenAI API）
@@ -92,6 +93,15 @@ export class OpenAIAdapter extends BaseAdapter {
         }
 
         try {
+          // 处理仅包含 usage 的 chunk（choices 为空）
+          if ((!respObject.choices || respObject.choices.length === 0) && respObject.usage) {
+            const usageOnly = buildUsageOnlyResponse(respObject)
+            if (usageOnly) {
+              yield usageOnly
+            }
+            continue
+          }
+
           // 跳过没有 choices 的响应（如内容过滤结果）
           if (!respObject.choices || respObject.choices.length === 0) {
             // console.log('Skipping response without choices:', respObject)
@@ -113,6 +123,7 @@ export class OpenAIAdapter extends BaseAdapter {
             reasoning: delta.reasoning,
             toolCalls: this.transformToolCalls(delta.tool_calls),
             finishReason: this.mapFinishReason(respObject.choices[0]?.finish_reason),
+            usage: extractUsageFromChunk(respObject),
             raw: respObject
           }
           yield unifiedResponse
@@ -133,7 +144,9 @@ export class OpenAIAdapter extends BaseAdapter {
 
         const data = JSON.parse(jsonStr)
         const choice = data.choices?.[0]
-        if (!choice) return null
+        if (!choice) {
+          return buildUsageOnlyStreamResponse(data)
+        }
 
         const delta = choice.delta
         return {
@@ -144,6 +157,7 @@ export class OpenAIAdapter extends BaseAdapter {
             toolCalls: this.transformToolCalls(delta?.tool_calls),
             finishReason: this.mapFinishReason(choice.finish_reason)
           },
+          usage: extractUsageFromChunk(data),
           raw: data
         }
       }

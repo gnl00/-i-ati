@@ -21,6 +21,13 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   if (req.requestOverrides && typeof req.requestOverrides === 'object' && !Array.isArray(req.requestOverrides)) {
     applyRequestOverrides(requestBody, req.requestOverrides)
   }
+  if (requestBody.stream !== false) {
+    if (!requestBody.stream_options || typeof requestBody.stream_options !== 'object') {
+      requestBody.stream_options = { include_usage: true }
+    } else if (requestBody.stream_options.include_usage === undefined) {
+      requestBody.stream_options.include_usage = true
+    }
+  }
   if (requestBody.messages) {
     const normalizeToolCalls = (toolCalls: any[]): any[] => {
       return toolCalls.map((call) => {
