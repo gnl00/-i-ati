@@ -279,6 +279,9 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         chat.title = e.target.value
         updateChat(chat)
         updateChatList(chat)
+        if (chat.id === chatId) {
+            setChatTitle(chat.title)
+        }
     }
     const onMouseOverSheetChat = (chatId) => {
         setSheetChatItemHover(true)
