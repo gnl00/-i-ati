@@ -17,6 +17,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import { getProviderIcon } from '@renderer/utils/providerIcons'
+import { ProviderIconPicker } from './ProviderIconPicker'
 
 interface ProviderListSidebarProps {
     providers: ProviderDefinition[]
@@ -28,11 +29,13 @@ interface ProviderListSidebarProps {
         adapterType: string
         apiUrl: string
         apiKey: string
+        iconKey?: string
         showApiKey: boolean
         onDisplayNameChange: (value: string) => void
         onAdapterTypeChange: (value: string) => void
         onApiUrlChange: (value: string) => void
         onApiKeyChange: (value: string) => void
+        onIconKeyChange: (value?: string) => void
         onToggleShowApiKey: () => void
         onSave: (event: React.MouseEvent) => void
     }
@@ -149,6 +152,10 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                         </button>
                                     </div>
                                 </div>
+                                <ProviderIconPicker
+                                    value={addProvider.iconKey}
+                                    onChange={addProvider.onIconKeyChange}
+                                />
                             </div>
                         </div>
                         <DrawerFooter className="flex-row gap-2 px-4 pb-4">
