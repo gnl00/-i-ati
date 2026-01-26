@@ -113,7 +113,9 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         setChatTitle,
         setChatUuid,
         setChatId,
-        updateChatList
+        updateChatList,
+        setSelectedModelRef,
+        selectedModelRef
     } = useChatStore()
     const { accounts, providerDefinitions } = useAppConfigStore()
     const { assistants, loadAssistants, isLoading: isLoadingAssistants, currentAssistant, setCurrentAssistant } = useAssistantStore()
@@ -273,6 +275,18 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             if (chat.id) {
                 getMessagesByChatId(chat.id).then(messageList => {
                     setMessages(messageList)
+
+                    if (!selectedModelRef) {
+                        const lastWithModelRef = [...messageList]
+                            .reverse()
+                            .find(msg => msg.body.role === 'assistant' && msg.body.modelRef)
+                        if (lastWithModelRef?.body.modelRef) {
+                            setSelectedModelRef({
+                                accountId: lastWithModelRef.body.modelRef.accountId,
+                                modelId: lastWithModelRef.body.modelRef.modelId
+                            })
+                        }
+                    }
                 }).catch(err => {
                     toast({
                         variant: "destructive",

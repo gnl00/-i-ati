@@ -315,6 +315,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
         body: {
           role: 'assistant',
           model: state.selectedModelRef?.modelId || 'unknown',
+          modelRef: state.selectedModelRef
+            ? { accountId: state.selectedModelRef.accountId, modelId: state.selectedModelRef.modelId }
+            : undefined,
           content: '',
           segments: [errorSegment],
           typewriterCompleted: true
