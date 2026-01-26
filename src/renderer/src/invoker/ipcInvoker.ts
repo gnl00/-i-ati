@@ -48,7 +48,6 @@ import {
   DB_PROVIDER_MODEL_SAVE,
   DB_PROVIDER_MODEL_DELETE,
   DB_PROVIDER_MODEL_SET_ENABLED,
-  DB_CHAT_SUBMIT_EVENT_SAVE,
   DB_ASSISTANT_SAVE,
   DB_ASSISTANT_GET_ALL,
   DB_ASSISTANT_GET_BY_ID,
@@ -482,11 +481,6 @@ export async function invokeChatTitleGenerate(data: {
 /**
  * 保存 chat submit 事件轨迹
  */
-export async function invokeDbChatSubmitEventSave(data: ChatSubmitEventTrace): Promise<number> {
-  const ipc = getElectronIPC()
-  return await ipc.invoke(DB_CHAT_SUBMIT_EVENT_SAVE, data)
-}
-
 // ============ Database Operations - Assistant ============
 
 /**

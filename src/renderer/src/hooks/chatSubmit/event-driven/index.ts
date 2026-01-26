@@ -6,7 +6,6 @@ export type {
   ChatSubmitEventPayloads,
   ChatSubmitEventType
 } from './events'
-export { ChatSubmitEventTraceRecorder } from './event-trace-recorder'
 export type { SubmissionContext } from './context'
 export { ChatSubmissionService } from './submission-service'
 export type { ChatSubmissionInput } from './submission-service'

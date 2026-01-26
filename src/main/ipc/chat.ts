@@ -13,7 +13,6 @@ import {
   DB_CHAT_SKILL_ADD,
   DB_CHAT_SKILL_REMOVE,
   DB_CHAT_SKILLS_GET,
-  DB_CHAT_SUBMIT_EVENT_SAVE,
   DB_ASSISTANT_SAVE,
   DB_ASSISTANT_GET_ALL,
   DB_ASSISTANT_GET_BY_ID,
@@ -157,11 +156,6 @@ export function registerChatHandlers(): void {
       emitter?.emit('title.generate.failed', { error: serializeError(error) })
       throw error
     }
-  })
-
-  ipcMain.handle(DB_CHAT_SUBMIT_EVENT_SAVE, async (_event, data: ChatSubmitEventTrace) => {
-    console.log('[Database IPC] Save chat submit event')
-    return DatabaseService.saveChatSubmitEvent(data)
   })
 
   ipcMain.handle(DB_ASSISTANT_SAVE, async (_event, data: Assistant) => {
