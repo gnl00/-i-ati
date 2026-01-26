@@ -26,7 +26,7 @@ interface WebSearchResultsProps {
 // Memoize the component to prevent unnecessary re-renders
 export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ results }) => {
   // Memoize sorted results to avoid re-sorting on every render
-  console.log('results', results);
+  // console.log('results', results);
 
   const sortedResults = useMemo(() => {
     return [...results].sort((a, b) => {
