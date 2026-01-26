@@ -231,6 +231,7 @@ declare interface BaseChatMessage {
 
 declare interface ChatMessage extends BaseChatMessage {
   model?: string
+  modelRef?: { accountId: string; modelId: string }
   typewriterCompleted?: boolean,
   // ==================== Message Segments ====================
   // 使用segments替代原有的content、reasoning、toolCallResults字段

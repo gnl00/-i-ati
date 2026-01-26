@@ -51,6 +51,10 @@ export class DefaultMessageService implements MessageService {
       body: {
         role: 'assistant',
         model: context.meta.model.label,
+        modelRef: {
+          accountId: context.meta.account.id,
+          modelId: context.meta.model.id
+        },
         content: '',
         segments: [],
         typewriterCompleted: false
