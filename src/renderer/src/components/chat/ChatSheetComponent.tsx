@@ -16,7 +16,6 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Textarea } from '@renderer/components/ui/textarea'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
-import { useChatContext } from '@renderer/context/ChatContext'
 import { deleteChat, getAllChat, updateChat } from '@renderer/db/ChatRepository'
 import { updateMessage } from '@renderer/db/MessageRepository'
 import { cn } from '@renderer/lib/utils'
@@ -103,9 +102,20 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
-    const { setMessages, toggleArtifacts, toggleWebSearch } = useChatStore()
+    const {
+        setMessages,
+        toggleArtifacts,
+        toggleWebSearch,
+        currentChatId: chatId,
+        currentChatUuid: chatUuid,
+        chatList,
+        setChatList,
+        setChatTitle,
+        setChatUuid,
+        setChatId,
+        updateChatList
+    } = useChatStore()
     const { accounts, providerDefinitions } = useAppConfigStore()
-    const { chatId, chatUuid, chatList, setChatList, setChatTitle, setChatUuid, setChatId, updateChatList } = useChatContext()
     const { assistants, loadAssistants, isLoading: isLoadingAssistants, currentAssistant, setCurrentAssistant } = useAssistantStore()
 
     // Load assistants on mount
@@ -225,8 +235,8 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         // 批量完成当前 chat 的所有打字机效果
         await completeAllTypewriters()
 
-        setChatId(undefined)
-        setChatUuid(undefined)
+        setChatId(null)
+        setChatUuid(null)
         setChatTitle('NewChat')
         setMessages([])
 
@@ -257,7 +267,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
 
             setChatTitle(chat.title)
             setChatUuid(chat.uuid)
-            setChatId(chat.id)
+            setChatId(chat.id ?? null)
 
             const { getMessagesByChatId } = await import('@renderer/db/MessageRepository')
             if (chat.id) {

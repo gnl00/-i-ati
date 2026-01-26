@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useChatContext } from '@renderer/context/ChatContext'
+import { useChatStore } from '@renderer/store'
 import { getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { invokeDirectoryTree, invokeReadTextFile } from '@renderer/tools/fileOperations/renderer/FileOperationsInvoker'
@@ -19,7 +19,8 @@ export interface UseWorkspaceFilesReturn {
 }
 
 export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
-  const { chatUuid, chatList } = useChatContext()
+  const chatUuid = useChatStore(state => state.currentChatUuid)
+  const chatList = useChatStore(state => state.chatList)
 
   // Workspace file tree state
   const [workspaceTree, setWorkspaceTree] = useState<FileTreeNode[]>([])
@@ -30,7 +31,7 @@ export function useWorkspaceFiles(): UseWorkspaceFilesReturn {
   const [isLoadingFile, setIsLoadingFile] = useState(false)
 
   const currentWorkspacePath = useMemo(() => {
-    return getChatWorkspacePath({ chatUuid, chatList })
+    return getChatWorkspacePath({ chatUuid: chatUuid ?? undefined, chatList })
   }, [chatUuid, chatList])
   const resolvedWorkspacePath = useMemo(() => {
     if (!chatUuid) return undefined

@@ -1,7 +1,6 @@
 import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs'
-import { useChatContext } from '@renderer/context/ChatContext'
 import { useChatStore } from '@renderer/store'
 import {
   FileCode,
@@ -17,7 +16,7 @@ import { useWorkspaceFiles } from './useWorkspaceFiles'
 
 export const ArtifactsPanel: React.FC = () => {
   const { setArtifactsPanel, artifactsActiveTab, setArtifactsActiveTab } = useChatStore()
-  const { chatUuid } = useChatContext()
+  const chatUuid = useChatStore(state => state.currentChatUuid)
   const [searchQuery, setSearchQuery] = useState('')
 
   // Get workspace files state for Files tab and Footer

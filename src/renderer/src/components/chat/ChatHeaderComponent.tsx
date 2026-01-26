@@ -4,7 +4,7 @@ import SettingsPanel from '@renderer/components/settings/SettingsPanel'
 import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
-import { useChatContext } from '@renderer/context/ChatContext'
+import { useChatStore } from '@renderer/store'
 import { invokePinWindow } from '@renderer/invoker/ipcInvoker'
 import { useSheetStore } from '@renderer/store/sheet'
 import React, { useState } from 'react'
@@ -13,7 +13,7 @@ interface ChatHeaderProps { }
 
 const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps) => {
   const [pinState, setPinState] = useState<boolean>(false)
-  const { chatTitle } = useChatContext()
+  const chatTitle = useChatStore(state => state.chatTitle)
   const { setSheetOpenState } = useSheetStore()
 
   const onPinToggleClick = (): void => {

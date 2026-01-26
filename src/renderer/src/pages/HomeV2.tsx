@@ -2,7 +2,6 @@ import ChatWindowsComponent from "@renderer/components/chat/ChatWindowComponentV
 import ChatSheetComponent from "@renderer/components/chat/ChatSheetComponent"
 import ChatSheetHoverComponent from "@renderer/components/chat/ChatSheetHoverComponent"
 import { Toaster } from "@renderer/components/ui/toaster"
-import { ChatProvider } from "@renderer/context/ChatContext"
 import { Toaster as SonnerToaster } from "sonner"
 import { useEffect } from "react"
 import { rendererStartupTracer } from "@renderer/utils/startupTracer"
@@ -19,11 +18,9 @@ export default () => {
                 richColors
                 duration={3000}
             />
-            <ChatProvider>
-                <ChatWindowsComponent />
-                <ChatSheetHoverComponent />
-                <ChatSheetComponent />
-            </ChatProvider>
+            <ChatWindowsComponent />
+            <ChatSheetHoverComponent />
+            <ChatSheetComponent />
         </div>
     )
 }
