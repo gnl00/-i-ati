@@ -186,6 +186,14 @@ export class MainDrivenStreamingService implements StreamingService {
       }
 
       if (event.type === 'stream.completed') {
+        const payload = event.payload as ChatSubmitEventPayloads['stream.completed']
+        const totalTokens = payload?.usage?.totalTokens
+        if (typeof totalTokens === 'number') {
+          this.messageService.updateLastAssistantMessage(context, (message) => ({
+            ...message,
+            tokens: totalTokens
+          }), publisher, metaWithChat)
+        }
         pendingOutcome = pendingOutcome || { ok: true }
       }
     })

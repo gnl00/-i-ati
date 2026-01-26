@@ -67,6 +67,8 @@ export interface StreamingMessageManager {
   updateLastAssistantMessage(updater: (message: MessageEntity) => MessageEntity): void
   getLastAssistantMessage(): MessageEntity
   appendSegmentToLastMessage(segment: MessageSegment): void
+  setLastUsage(usage: ITokenUsage): void
+  getLastUsage(): ITokenUsage | undefined
   addToolCallMessage(toolCalls: IToolCall[], content: string): Promise<void>
   addToolResultMessage(toolMsg: ChatMessage): Promise<void>
   flushPendingAssistantUpdate(): void
@@ -282,6 +284,10 @@ export class StreamingOrchestrator {
         typewriterCompleted: false  // 初始化打字机状态
       }
     }))
+
+    if (resp.usage) {
+      this.config.messageManager.setLastUsage(resp.usage)
+    }
   }
 
   /**
@@ -290,6 +296,10 @@ export class StreamingOrchestrator {
   private handleChunk(chunk: IUnifiedResponse): void {
     // 1. 解析 chunk
     const result = this.config.parser.parse(chunk, this.tools)
+
+    if (chunk.usage) {
+      this.config.messageManager.setLastUsage(chunk.usage)
+    }
 
     // 2. 更新工具调用列表
     this.context.streaming.tools = result.toolCalls
