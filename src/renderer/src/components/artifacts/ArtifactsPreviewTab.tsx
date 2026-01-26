@@ -344,38 +344,19 @@ export const ArtifactsPreviewTab: React.FC<{
                 </div>
 
                 {/* Common Error Hints */}
-                {devServer.devServerError?.includes('code 127') && (
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded p-3 mb-3">
+                {getDevServerHints(devServer.devServerError || undefined).map((hint, idx) => (
+                  <div
+                    key={`${hint.title}-${idx}`}
+                    className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded p-3 mb-3"
+                  >
                     <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">
-                      💡 Common Issue: Command Not Found
+                      {hint.title}
                     </p>
                     <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                      Exit code 127 usually means a command in preview.sh was not found. Check if npm/pnpm/bun is installed and available in PATH.
+                      {hint.description}
                     </p>
                   </div>
-                )}
-
-                {devServer.devServerError?.includes('EADDRINUSE') && (
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded p-3 mb-3">
-                    <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">
-                      💡 Common Issue: Port Already in Use
-                    </p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                      Another process is using the port. Try stopping other dev servers or change the port in your preview.sh script.
-                    </p>
-                  </div>
-                )}
-
-                {devServer.devServerError?.includes('ENOENT') && (
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded p-3 mb-3">
-                    <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">
-                      💡 Common Issue: File or Directory Not Found
-                    </p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                      A file or directory referenced in preview.sh does not exist. Check your script paths.
-                    </p>
-                  </div>
-                )}
+                ))}
 
                 {/* Error Message */}
                 <div className="bg-white dark:bg-gray-900 rounded border border-red-200 dark:border-red-900/50 p-3 mb-3">
@@ -457,6 +438,35 @@ export const ArtifactsPreviewTab: React.FC<{
       description="This artifact doesn't seem to contain any previewable HTML or SVG content."
     />
   )
+}
+
+type DevServerHint = {
+  title: string
+  description: string
+}
+
+const getDevServerHints = (error?: string): DevServerHint[] => {
+  if (!error) return []
+  const hints: DevServerHint[] = []
+  if (error.includes('code 127')) {
+    hints.push({
+      title: '💡 Common Issue: Command Not Found',
+      description: 'Exit code 127 usually means a command in preview.sh was not found. Check if npm/pnpm/bun is installed and available in PATH.'
+    })
+  }
+  if (error.includes('EADDRINUSE')) {
+    hints.push({
+      title: '💡 Common Issue: Port Already in Use',
+      description: 'Another process is using the port. Try stopping other dev servers or change the port in your preview.sh script.'
+    })
+  }
+  if (error.includes('ENOENT')) {
+    hints.push({
+      title: '💡 Common Issue: File or Directory Not Found',
+      description: 'A file or directory referenced in preview.sh does not exist. Check your script paths.'
+    })
+  }
+  return hints
 }
 
 const PreviewShell: React.FC<{
