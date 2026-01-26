@@ -15,9 +15,7 @@ export class OpenAIAdapter extends BaseAdapter {
       model: req.model,
       messages: req.messages,  // Use messages directly - system prompts already included by RequestMessageBuilder
       stream: req.stream ?? true,
-      ...(req.options?.temperature !== undefined ? { temperature: req.options.temperature } : {}),
-      ...(req.options?.maxTokens !== undefined ? { max_tokens: req.options.maxTokens } : {}),
-      ...(req.options?.topP !== undefined ? { top_p: req.options.topP } : {})
+      ...(req.options?.maxTokens !== undefined ? { max_tokens: req.options.maxTokens } : {})
     }
 
     if (req.tools?.length) {
@@ -170,9 +168,7 @@ export class OpenAIV2Adapter extends BaseAdapter {
       model: req.model,
       input: req.messages,
       stream: req.stream ?? true,
-      temperature: req.options?.temperature ?? 1,
-      max_output_tokens: req.options?.maxTokens ?? 4096,
-      top_p: req.options?.topP ?? 1,
+      max_output_tokens: req.options?.maxTokens ?? 4096
     }
 
     if (req.prompt) {

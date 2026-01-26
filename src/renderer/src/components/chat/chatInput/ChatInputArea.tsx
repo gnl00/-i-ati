@@ -83,13 +83,9 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     text: string
     images: ClipbordImg[]
     prompt: string
-    temperature: number
-    topP: number
   }>>([])
   const [queuePaused, setQueuePaused] = useState<boolean>(false)
   const [editingQueue, setEditingQueue] = useState<boolean>(false)
-  const [chatTemperature, setChatTemperature] = useState<number[]>([1])
-  const [chatTopP, setChatTopP] = useState<number[]>([1])
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
@@ -113,8 +109,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     text: string
     images: ClipbordImg[]
     prompt: string
-    temperature: number
-    topP: number
   } | null>(null)
 
   // Callback to handle command execution with textarea cleanup
@@ -172,16 +166,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     text: string
     images: ClipbordImg[]
     prompt: string
-    temperature: number
-    topP: number
   }) => {
     onMessagesUpdate()
     handleChatSubmitCallback(payload.text, payload.images, {
-      prompt: payload.prompt,
-      options: {
-        temperature: payload.temperature,
-        topP: payload.topP
-      }
+      prompt: payload.prompt
     })
   }, [handleChatSubmitCallback, onMessagesUpdate])
 
@@ -189,8 +177,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     text: string
     images: ClipbordImg[]
     prompt: string
-    temperature: number
-    topP: number
   }) => {
     if (queuedMessages.length >= 5) {
       toast.warning('Queue is full (max 5)')
@@ -234,18 +220,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     const payload = {
       text: trimmedInput,
       images: imageSrcBase64List,
-      prompt: currentSystemPrompt,
-      temperature: chatTemperature[0],
-      topP: chatTopP[0]
+      prompt: currentSystemPrompt
     }
 
     if (editingQueue) {
       const editedPayload = {
         text: trimmedInput,
         images: imageSrcBase64List,
-        prompt: editingQueueRef.current?.prompt ?? currentSystemPrompt,
-        temperature: editingQueueRef.current?.temperature ?? chatTemperature[0],
-        topP: editingQueueRef.current?.topP ?? chatTopP[0]
+        prompt: editingQueueRef.current?.prompt ?? currentSystemPrompt
       }
 
       setEditingQueue(false)
@@ -283,8 +265,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     imageSrcBase64List,
     selectedModelRef,
     currentSystemPrompt,
-    chatTemperature,
-    chatTopP,
     readStreamState,
     queuePaused,
     editingQueue,
@@ -525,11 +505,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             mcpServerConfig={mcpServerConfig}
             toggleMcpConnection={toggleMcpConnection}
             isConnectingMcpServer={isConnectingMcpServer}
-            chatTemperature={chatTemperature}
-            chatTopP={chatTopP}
             currentSystemPrompt={currentSystemPrompt}
-            onTemperatureChange={setChatTemperature}
-            onTopPChange={setChatTopP}
             onSystemPromptChange={setCurrentSystemPrompt}
             queuedFirstText={queuedMessages[0]?.text}
             queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
