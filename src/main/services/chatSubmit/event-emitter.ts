@@ -1,5 +1,6 @@
 import { CHAT_SUBMIT_EVENT } from '@shared/constants'
 import { mainWindow } from '@main/main-window'
+import DatabaseService from '@main/services/DatabaseService'
 
 export type ChatSubmitEventEnvelope = {
   type: string
@@ -29,6 +30,21 @@ export class ChatSubmitEventEmitter {
       timestamp: Date.now()
     }
     this.sequence += 1
+
+    try {
+      DatabaseService.saveChatSubmitEvent({
+        submissionId: envelope.submissionId,
+        chatId: envelope.chatId,
+        chatUuid: envelope.chatUuid,
+        sequence: envelope.sequence,
+        type: envelope.type,
+        timestamp: envelope.timestamp,
+        payload: envelope.payload
+      })
+    } catch (error) {
+      // Do not block emission on persistence failures.
+      console.warn('[ChatSubmitEventEmitter] Failed to save trace event', error)
+    }
 
     if (!mainWindow || mainWindow.isDestroyed()) {
       return
