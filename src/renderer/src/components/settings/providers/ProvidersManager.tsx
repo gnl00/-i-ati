@@ -36,6 +36,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
     const [newDefinitionAdapterType, setNewDefinitionAdapterType] = useState<string>('openai')
     const [newProviderApi, setNewProviderApi] = useState<string>('')
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>('')
+    const [newDefinitionIconKey, setNewDefinitionIconKey] = useState<string | undefined>(undefined)
 
     const [showFetchModelsDrawer, setShowFetchModelsDrawer] = useState<boolean>(false)
     const [showNewApiKey, setShowNewApiKey] = useState<boolean>(false)
@@ -123,7 +124,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
             displayName,
             adapterType,
             apiVersion: 'v1',
-            iconKey: providerId,
+            iconKey: newDefinitionIconKey || providerId,
             defaultApiUrl: baseUrl
         }
 
@@ -143,6 +144,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
         setNewDefinitionAdapterType('openai')
         setNewProviderApi('')
         setNewProviderApiKey('')
+        setNewDefinitionIconKey(undefined)
         setShowNewApiKey(false)
 
         toast.success(`Added ${displayName}`)
@@ -237,11 +239,13 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                         adapterType: newDefinitionAdapterType,
                         apiUrl: newProviderApi,
                         apiKey: newProviderApiKey,
+                        iconKey: newDefinitionIconKey,
                         showApiKey: showNewApiKey,
                         onDisplayNameChange: setNewDefinitionDisplayName,
                         onAdapterTypeChange: setNewDefinitionAdapterType,
                         onApiUrlChange: setNewProviderApi,
                         onApiKeyChange: setNewProviderApiKey,
+                        onIconKeyChange: setNewDefinitionIconKey,
                         onToggleShowApiKey: () => setShowNewApiKey(!showNewApiKey),
                         onSave: onAddProviderBtnClick
                     }}
