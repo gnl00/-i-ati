@@ -538,6 +538,7 @@ export class MainChatSubmitService {
 
     const finalMessages = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
+      .setUserInstruction(chat.userInstruction)
       .setMessages(messageEntities)
       .setCompressionSummary(compressionSummary)
       .build()
@@ -631,9 +632,16 @@ export class MainChatSubmitService {
     const skillsPrompt = await this.buildSkillsPrompt(chatId)
 
     const skillSlotToken = '$$skill-slot$$'
-    const composedSystemPrompt = defaultSystemPrompt.includes(skillSlotToken)
-      ? defaultSystemPrompt.replace(skillSlotToken, skillsPrompt)
-      : `${defaultSystemPrompt}${skillsPrompt}`
+    const userInstructionSlotToken = '$$user-instruction-slot$$'
+
+    let composedSystemPrompt = defaultSystemPrompt
+    composedSystemPrompt = composedSystemPrompt.includes(skillSlotToken)
+      ? composedSystemPrompt.replace(skillSlotToken, skillsPrompt)
+      : `${composedSystemPrompt}${skillsPrompt}`
+
+    composedSystemPrompt = composedSystemPrompt.includes(userInstructionSlotToken)
+      ? composedSystemPrompt.replace(userInstructionSlotToken, '')
+      : composedSystemPrompt
 
     if (prompt) {
       return [prompt, composedSystemPrompt]

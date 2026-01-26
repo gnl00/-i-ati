@@ -37,6 +37,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const setSelectedModelRef = useChatStore(state => state.setSelectedModelRef)
+  const setUserInstruction = useChatStore(state => state.setUserInstruction)
 
   const {
     accounts,
@@ -152,11 +153,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const startNewChat = useCallback(() => {
     startNewChatBase()
     setCurrentSystemPrompt('')
+    setUserInstruction('')
     setQueuedMessages([])
     setQueuePaused(false)
     setEditingQueue(false)
     editingQueueRef.current = null
-  }, [startNewChatBase])
+  }, [startNewChatBase, setUserInstruction])
 
   const { onSubmit: handleChatSubmit, cancel: cancelChatSubmit } = useChatSubmit()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
@@ -505,8 +507,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             mcpServerConfig={mcpServerConfig}
             toggleMcpConnection={toggleMcpConnection}
             isConnectingMcpServer={isConnectingMcpServer}
-            currentSystemPrompt={currentSystemPrompt}
-            onSystemPromptChange={setCurrentSystemPrompt}
             queuedFirstText={queuedMessages[0]?.text}
             queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
             queuePaused={queuePaused}

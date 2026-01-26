@@ -2,6 +2,7 @@ import { getChatById, saveChat } from '@renderer/db/ChatRepository'
 import { getMessagesByChatId, getMessagesByChatUuid } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { v4 as uuidv4 } from 'uuid'
+import { useChatStore } from '@renderer/store'
 import type { SubmissionContext } from '../context'
 import type { EventPublisher } from '../event-publisher'
 import type { ChatSubmitEventMeta } from '../events'
@@ -80,6 +81,7 @@ export class DefaultSessionService implements SessionService {
         messages: [],
         model: model.id,
         workspacePath,
+        userInstruction: useChatStore.getState().userInstruction,
         createTime: Date.now(),
         updateTime: Date.now()
       }
@@ -87,6 +89,7 @@ export class DefaultSessionService implements SessionService {
       chatId = await saveChat(chatEntity)
       chatEntity.id = chatId
       chatUuid = currChatUuid
+      useChatStore.getState().setUserInstruction('')
     } else {
       const fetchedChat = await getChatById(chatId!)
       if (!fetchedChat) {

@@ -36,6 +36,7 @@ class AppDatabase {
 
     this.createTables()
     this.ensureChatWorkspacePathColumn()
+    this.ensureChatUserInstructionColumn()
     this.createIndexes()
 
     this.initialized = true
@@ -72,6 +73,7 @@ class AppDatabase {
         msg_count INTEGER NOT NULL DEFAULT 0,
         model TEXT,
         workspace_path TEXT,
+        user_instruction TEXT,
         create_time INTEGER NOT NULL,
         update_time INTEGER NOT NULL
       )
@@ -236,6 +238,18 @@ class AppDatabase {
     if (!hasWorkspacePath) {
       this.db.exec(`ALTER TABLE chats ADD COLUMN workspace_path TEXT`)
       console.log('[Database] Migrated chats table: added workspace_path')
+    }
+  }
+
+  private ensureChatUserInstructionColumn(): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const columns = this.db.prepare(`PRAGMA table_info(chats)`).all() as { name: string }[]
+    const hasUserInstruction = columns.some(column => column.name === 'user_instruction')
+
+    if (!hasUserInstruction) {
+      this.db.exec(`ALTER TABLE chats ADD COLUMN user_instruction TEXT`)
+      console.log('[Database] Migrated chats table: added user_instruction')
     }
   }
 

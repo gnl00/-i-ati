@@ -12,19 +12,18 @@ import React, { useState } from 'react'
 import { getChatSkills } from '@renderer/db/ChatSkillRepository'
 import { getCompressedSummariesByChatId } from '@renderer/db/CompressedSummaryRepository'
 import { Wrench, Sparkles, Database, Compass } from 'lucide-react'
+import { getChatFromList } from '@renderer/utils/chatWorkspace'
+import { updateChat } from '@renderer/db/ChatRepository'
 
-interface ConfigPanelProps {
-  currentSystemPrompt: string
-  onSystemPromptChange: (val: string) => void
-}
-
-const ConfigPanel: React.FC<ConfigPanelProps> = ({
-  currentSystemPrompt,
-  onSystemPromptChange
-}) => {
+const ConfigPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
   const messages = useChatStore(state => state.messages)
   const currentChatId = useChatStore(state => state.currentChatId)
+  const currentChatUuid = useChatStore(state => state.currentChatUuid)
+  const userInstruction = useChatStore(state => state.userInstruction)
+  const setUserInstruction = useChatStore(state => state.setUserInstruction)
+  const chatList = useChatStore(state => state.chatList)
+  const updateChatList = useChatStore(state => state.updateChatList)
   const { appConfig } = useAppConfigStore()
   const { currentAssistant } = useAssistantStore()
   const [displayAssistant, setDisplayAssistant] = useState<Assistant | null>(null)
@@ -64,6 +63,31 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       .catch(() => setCompressionCount(0))
   }, [currentChatId])
 
+  React.useEffect(() => {
+    const chat = getChatFromList({ chatId: currentChatId ?? undefined, chatUuid: currentChatUuid ?? undefined, chatList })
+    if (chat) {
+      setUserInstruction(chat.userInstruction ?? '')
+    }
+  }, [currentChatId, currentChatUuid, chatList])
+
+  const saveUserInstruction = React.useCallback(async () => {
+    if (!currentChatId) return
+    const nextValue = userInstruction.trim()
+    const chat = getChatFromList({ chatId: currentChatId ?? undefined, chatUuid: currentChatUuid ?? undefined, chatList })
+    if (!chat || !chat.id) return
+    const currentValue = (chat.userInstruction ?? '').trim()
+    if (nextValue === currentValue) {
+      return
+    }
+    const updatedChat: ChatEntity = {
+      ...chat,
+      userInstruction: nextValue,
+      updateTime: Date.now()
+    }
+    await updateChat(updatedChat)
+    updateChatList(updatedChat)
+  }, [userInstruction, currentChatId, currentChatUuid, chatList, updateChatList])
+
   const tokenTotal = React.useMemo(() => {
     return messages.reduce((sum, msg) => sum + (msg.tokens || 0), 0)
   }, [messages])
@@ -94,8 +118,15 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const memoryEnabled = appConfig?.tools?.memoryEnabled ?? true
   const compressionEnabled = appConfig?.compression?.enabled ?? true
 
+  const handleOpenChange = React.useCallback((nextOpen: boolean) => {
+    if (!nextOpen) {
+      void saveUserInstruction()
+    }
+    setIsOpen(nextOpen)
+  }, [saveUserInstruction])
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <div className="relative flex items-center group">
           {/* Assistant Icon - Slides in/out with animation */}
@@ -255,7 +286,6 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
             </div>
 
-            {/* System Prompt Group */}
             <div className="space-y-1 flex-1 flex flex-col pt-1 min-h-0">
               <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60 shrink-0 mb-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -264,15 +294,15 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </div>
 
               <Label
-                htmlFor="systemPrompt"
+                htmlFor="instructions"
                 className="sr-only"
               >
-                System Prompt
+                Instructions
               </Label>
               <Textarea
-                id="systemPrompt"
-                value={currentSystemPrompt}
-                placeholder='You are a helpful assistant...'
+                id="instructions"
+                value={userInstruction}
+                placeholder='Highest-priority instructions for this chat...'
                 className={cn(
                   "flex-1 text-xs leading-relaxed",
                   "bg-slate-50 dark:bg-slate-900/50",
@@ -284,9 +314,10 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   "hover:border-slate-200 dark:hover:border-slate-800",
                   "resize-none p-2",
                   "shadow-xs",
-                  "min-h-[100px]"
+                  "min-h-[80px]"
                 )}
-                onChange={e => onSystemPromptChange(e.target.value)}
+                onChange={e => setUserInstruction(e.target.value)}
+                onBlur={saveUserInstruction}
               />
             </div>
           </div>

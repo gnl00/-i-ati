@@ -17,10 +17,6 @@ interface ChatInputToolbarProps {
   toggleMcpConnection: (serverName: string, serverConfig: any) => Promise<any>
   isConnectingMcpServer: (serverName: string) => boolean
 
-  // Config panel props
-  currentSystemPrompt: string
-  onSystemPromptChange: (val: string) => void
-
   // Queue preview
   queuedFirstText?: string
   queuedCount?: number
@@ -35,8 +31,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   mcpServerConfig,
   toggleMcpConnection,
   isConnectingMcpServer,
-  currentSystemPrompt,
-  onSystemPromptChange,
   queuedFirstText,
   queuedCount,
   queuePaused
@@ -190,8 +184,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
             </div>
           )}
           <ConfigPanel
-            currentSystemPrompt={currentSystemPrompt}
-            onSystemPromptChange={onSystemPromptChange}
           />
         </div>
       </div>
