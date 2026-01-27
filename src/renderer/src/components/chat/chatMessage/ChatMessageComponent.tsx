@@ -9,6 +9,7 @@ interface ChatMessageComponentProps {
   message: ChatMessage
   isLatest: boolean
   onTypingChange?: () => void
+  isReducedRender?: boolean
 }
 
 /**
@@ -19,7 +20,8 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
   index,
   message,
   isLatest,
-  onTypingChange
+  onTypingChange,
+  isReducedRender
 }) => {
   const hoverState = useMessageHover()
 
@@ -52,6 +54,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
       onHover={hoverState.onMouseHoverAssistantMsg}
       onCopyClick={onCopyClick}
       onTypingChange={onTypingChange}
+      isReducedRender={isReducedRender}
     />
   )
 })

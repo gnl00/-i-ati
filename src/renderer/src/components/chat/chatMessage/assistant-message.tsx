@@ -45,6 +45,7 @@ export interface AssistantMessageProps {
   onHover: (hovered: boolean) => void
   onCopyClick: (content: string) => void
   onTypingChange?: () => void
+  isReducedRender?: boolean
 }
 
 /**
@@ -216,7 +217,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   isHovered,
   onHover,
   onCopyClick,
-  onTypingChange
+  onTypingChange,
+  isReducedRender
 }) => {
   const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
 
@@ -296,6 +298,18 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             if (hasCode) {
               const visibleText = visibleTokens ? visibleTokens.join('') : undefined
               return <TextSegment key={key} segment={segment} visibleText={visibleText} animateOnChange={false} />
+            }
+
+            if (isReducedRender) {
+              const visibleText = visibleTokens ? visibleTokens.join('') : undefined
+              return (
+                <div
+                  key={key}
+                  className="px-2 text-sm text-blue-gray-600 dark:text-slate-300 font-medium whitespace-pre-wrap wrap-break-word"
+                >
+                  {visibleText ?? segment.content}
+                </div>
+              )
             }
 
             const mode = getStreamingTextRenderMode()

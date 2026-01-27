@@ -30,6 +30,8 @@ export function useChatScroll({
   const isStickToBottomRef = useRef<boolean>(true)
   const isSmoothScrollingRef = useRef<boolean>(false)
   const hasUserScrollIntentRef = useRef<boolean>(false)
+  const isAtBottomRef = useRef<boolean>(true)
+  const lastUserScrollTsRef = useRef<number>(0)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false)
@@ -109,6 +111,7 @@ export function useChatScroll({
 
   const scheduleAutoScroll = useCallback(() => {
     if (!isStickToBottomRef.current || isSmoothScrollingRef.current) return
+    if (Date.now() - lastUserScrollTsRef.current < 300) return
     if (autoScrollRAFRef.current) return
     autoScrollRAFRef.current = requestAnimationFrame(() => {
       autoScrollRAFRef.current = 0
@@ -179,21 +182,29 @@ export function useChatScroll({
       }
       setScrollButtonVisible(true)
     }
+    isAtBottomRef.current = isAtBottom
   }, [resetScrollButton, setScrollButtonVisible])
 
   const onChatListScroll = useCallback((evt: Event) => {
     const target = evt.target as HTMLDivElement
     const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight
-    updateBottomState(distanceFromBottom < 10)
+    if (distanceFromBottom <= 8) {
+      if (!isAtBottomRef.current) updateBottomState(true)
+      return
+    }
+    if (distanceFromBottom >= 24) {
+      hasUserScrollIntentRef.current = true
+      if (isAtBottomRef.current) updateBottomState(false)
+    }
   }, [updateBottomState])
 
   const onUserScrollIntent = useCallback(() => {
     hasUserScrollIntentRef.current = true
+    lastUserScrollTsRef.current = Date.now()
     if (!isSmoothScrollingRef.current) return
     cancelSmoothScroll()
     isStickToBottomRef.current = false
-    setScrollButtonVisible(true)
-  }, [cancelSmoothScroll, setScrollButtonVisible])
+  }, [cancelSmoothScroll])
 
   useEffect(() => {
     const chatListElement = scrollContainerRef.current
@@ -201,9 +212,7 @@ export function useChatScroll({
       chatListElement.addEventListener('wheel', onUserScrollIntent, { passive: true })
       chatListElement.addEventListener('touchstart', onUserScrollIntent, { passive: true })
       chatListElement.addEventListener('pointerdown', onUserScrollIntent)
-      if (!('IntersectionObserver' in window)) {
-        chatListElement.addEventListener('scroll', onChatListScroll)
-      }
+      chatListElement.addEventListener('scroll', onChatListScroll, { passive: true })
     }
 
     return () => {
@@ -232,7 +241,15 @@ export function useChatScroll({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.length === 0) return
-        updateBottomState(entries[0].isIntersecting)
+        const isIntersecting = entries[0].isIntersecting
+        if (isIntersecting) {
+          if (!isAtBottomRef.current) updateBottomState(true)
+          return
+        }
+        const distanceFromBottom = chatListElement.scrollHeight - chatListElement.scrollTop - chatListElement.clientHeight
+        if (distanceFromBottom >= 24 && isAtBottomRef.current) {
+          updateBottomState(false)
+        }
       },
       {
         root: chatListElement,
@@ -279,8 +296,9 @@ export function useChatScroll({
   }, [messageCount, scheduleAutoScroll])
 
   const onTyping = useCallback(() => {
+    if (showScrollToBottom) return
     scheduleAutoScroll()
-  }, [scheduleAutoScroll])
+  }, [scheduleAutoScroll, showScrollToBottom])
 
   useEffect(() => {
     if (showScrollToBottom) return
