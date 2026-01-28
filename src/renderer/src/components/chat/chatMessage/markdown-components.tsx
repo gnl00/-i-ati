@@ -1,6 +1,9 @@
-import { CodeWrapper } from '@renderer/components/markdown/SyntaxHighlighterWrapper'
+import { SpeedCodeHighlight } from '@renderer/components/chat/common/SpeedCodeHighlight'
 import { invokeOpenExternal } from '@renderer/invoker/ipcInvoker'
+import { CopyIcon } from '@radix-ui/react-icons'
 import React from 'react'
+import { toast } from 'sonner'
+import { Button } from '@renderer/components/ui/button'
 
 function normalizeLanguage(lang: string) {
   const lower = lang.toLowerCase()
@@ -72,16 +75,16 @@ export const markdownCodeComponents = {
       // If code content is empty, show a placeholder or fallback
       if (!codeContent.trim()) {
         return (
-          <CodeWrapper
-            children="// Empty code block"
+          <SpeedCodeBlock
+            code="// Empty code block"
             language={normalizeLanguage(language)}
           />
         )
       }
 
       return (
-        <CodeWrapper
-          children={codeContent}
+        <SpeedCodeBlock
+          code={codeContent}
           language={normalizeLanguage(language)}
         />
       )
@@ -92,8 +95,8 @@ export const markdownCodeComponents = {
       const codeContent = textContent.replace(/\n$/, '')
 
       return (
-        <CodeWrapper
-          children={codeContent.trim() ? codeContent : '// Empty code block'}
+        <SpeedCodeBlock
+          code={codeContent.trim() ? codeContent : '// Empty code block'}
           language="plaintext"
         />
       )
@@ -125,3 +128,37 @@ export const markdownCodeComponents = {
     )
   }
 }
+
+const SpeedCodeBlock: React.FC<{ code: string; language: string }> = React.memo(({ code, language }) => {
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(String(code))
+      toast.success('Copied')
+    } catch (err) {
+      toast.error('Copy failed')
+    }
+  }
+
+  return (
+    <div className="not-prose rounded-lg overflow-hidden shadow-xs bg-[#1e1e1e] text-slate-100 border border-slate-200/60 dark:bg-slate-900/60 dark:text-slate-100 dark:border-slate-700/50">
+      <div className="flex justify-between items-center bg-[#141414] dark:bg-[#0f1115] px-2 py-0.5 border-b border-white/5">
+        <span className="px-2 py-0.5 text-xs font-mono font-semibold text-slate-200 select-none tracking-wide bg-white/5 rounded-md">
+          {language}
+        </span>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={copyToClipboard}
+            className="h-7 px-2 hover:bg-white/10 rounded-md transition-all duration-200"
+          >
+            <CopyIcon className="w-3.5 h-3.5 text-slate-300" />
+          </Button>
+        </div>
+      </div>
+      <SpeedCodeHighlight code={code} language={language} />
+    </div>
+  )
+})
+
+SpeedCodeBlock.displayName = 'SpeedCodeBlock'
