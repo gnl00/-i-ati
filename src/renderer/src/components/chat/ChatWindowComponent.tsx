@@ -45,6 +45,9 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
+  const readStreamState = useChatStore(state => state.readStreamState)
+  const updateMessage = useChatStore(state => state.updateMessage)
+  const upsertMessage = useChatStore(state => state.upsertMessage)
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const scrollParentRef = useRef<HTMLDivElement>(null)
@@ -54,9 +57,12 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
   const typingScrollRafRef = useRef<number>(0)
   const userScrollOverrideRef = useRef<boolean>(false)
   const lastScrollTopRef = useRef<number>(0)
+  const forceScrollRafRef = useRef<number>(0)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false)
+
+  const lastMessageIndex = messages.length - 1
 
   // Welcome page state
   const [showWelcome, setShowWelcome] = useState<boolean>(true)
@@ -92,6 +98,49 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
     scrollToBottom(false)
   }, [scrollToBottom])
 
+  const handleScrollToBottomClick = useCallback(() => {
+    const lastMessage = messages[messages.length - 1]
+    const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
+    const lastAssistantMessage =
+      lastAssistantIndex >= 0 ? messages[messages.length - 1 - lastAssistantIndex] : undefined
+    const lastMessageIsAssistant = lastMessage?.body?.role === 'assistant'
+    const isLatest = Boolean(lastMessage && lastMessageIndex === messages.length - 1)
+    const typewriterCompleted = Boolean(lastAssistantMessage?.body?.typewriterCompleted)
+    const segments = lastAssistantMessage?.body?.segments ?? []
+    const hasSegments = Array.isArray(segments) && segments.length > 0
+    const shouldSkipTypewriter =
+      !lastAssistantMessage ||
+      typewriterCompleted ||
+      !isLatest ||
+      !hasSegments
+
+    console.log('[ChatInput] scrollToBottom click checks', {
+      readStreamState,
+      lastMessageIsAssistant,
+      lastAssistantIndex: lastAssistantIndex >= 0 ? messages.length - 1 - lastAssistantIndex : -1,
+      typewriterCompleted,
+      isLatest,
+      hasSegments,
+      segmentsCount: Array.isArray(segments) ? segments.length : 0,
+      shouldSkipTypewriter
+    })
+
+    if (!readStreamState && lastAssistantMessage && !shouldSkipTypewriter) {
+      const updatedMessage: MessageEntity = {
+        ...lastAssistantMessage,
+        body: {
+          ...lastAssistantMessage.body,
+          typewriterCompleted: true
+        }
+      }
+      upsertMessage(updatedMessage)
+      if (updatedMessage.id) {
+        void updateMessage(updatedMessage)
+      }
+    }
+    scrollToBottom(true)
+  }, [messages, readStreamState, scrollToBottom, updateMessage, upsertMessage, lastMessageIndex])
+
   const onTyping = useCallback(() => {
     if (!isAtBottomRef.current) return
     if (!virtuosoRef.current) return
@@ -106,6 +155,33 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
     if (!virtuosoRef.current) return
     virtuosoRef.current.scrollToIndex({ index: messages.length - 1, align: 'end', behavior: 'auto' })
   }, [messages.length])
+
+  useEffect(() => {
+    userScrollOverrideRef.current = false
+    isAtBottomRef.current = true
+    setShowScrollToBottom(false)
+    const index = messages.length - 1
+    if (index < 0) return
+    if (!virtuosoRef.current) return
+    if (forceScrollRafRef.current) {
+      cancelAnimationFrame(forceScrollRafRef.current)
+    }
+    forceScrollRafRef.current = requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({ index, align: 'end', behavior: 'smooth' })
+      forceScrollRafRef.current = window.setTimeout(() => {
+        forceScrollRafRef.current = 0
+        virtuosoRef.current?.scrollToIndex({ index, align: 'end', behavior: 'auto' })
+      }, 50) as unknown as number
+    })
+  }, [chatUuid])
+
+  useEffect(() => {
+    return () => {
+      if (forceScrollRafRef.current) {
+        cancelAnimationFrame(forceScrollRafRef.current)
+      }
+    }
+  }, [])
 
   // Detect first message - trigger exit animation then hide welcome
   useLayoutEffect(() => {
@@ -158,8 +234,6 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
       container.removeEventListener('scroll', onScroll)
     }
   }, [])
-
-  const lastMessageIndex = messages.length - 1
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
@@ -250,7 +324,7 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
               {showScrollToBottom && (
                 <div
                   id="scrollToBottom"
-                  onClick={() => scrollToBottom(true)}
+                  onClick={handleScrollToBottomClick}
                   className={cn(
                     "absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border z-50",
                     "transition-all duration-300 ease-out hover:scale-110",
