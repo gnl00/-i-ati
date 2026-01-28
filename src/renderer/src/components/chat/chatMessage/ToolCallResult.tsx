@@ -82,10 +82,12 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
         "group relative flex flex-col transition-all select-none",
         isOpen ? "gap-2" : "gap-0"
         )}
-        onClick={toggleOpen}
       >
         {/* Inline Log Row */}
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit">
+        <div 
+          className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit"
+          onClick={toggleOpen}
+          >
           <span className={cn(
             "inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none",
             isError
@@ -167,11 +169,6 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                   ? "bg-red-50/20 dark:bg-red-950/20 border-red-100/80 dark:border-red-900/40"
                   : "bg-white/70 dark:bg-black/30 border-zinc-200/70 dark:border-zinc-800/70"
               )}>
-                <div className={cn(
-                  "absolute inset-0 pointer-events-none",
-                  "bg-linear-to-b from-white/60 via-transparent to-white/40",
-                  "dark:from-black/40 dark:to-black/60"
-                )} />
 
                 {isWebSearch && webSearchData ? (
                   <div className="p-3 bg-zinc-50/80 dark:bg-zinc-900/60">
