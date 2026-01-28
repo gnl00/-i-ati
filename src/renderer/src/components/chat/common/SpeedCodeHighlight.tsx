@@ -1,6 +1,7 @@
 import { highlightElement } from '@speed-highlight/core'
 import React, { useEffect, useRef } from 'react'
 import { loadSpeedHighlightTheme } from '@renderer/utils/styleLoaders'
+import { useTheme } from '@renderer/components/theme-provider'
 
 interface SpeedCodeHighlightProps {
   code: string
@@ -22,6 +23,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
   className = ''
 }) => {
   const codeRef = useRef<HTMLDivElement>(null)
+  const { theme } = useTheme()
 
   useEffect(() => {
     const element = codeRef.current
@@ -34,7 +36,10 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
     // This prevents the highlighting from blocking the accordion's expand animation
     const timeoutId = setTimeout(() => {
       try {
-        void loadSpeedHighlightTheme()
+        const isDarkMode =
+          theme === 'dark' ||
+          (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        void loadSpeedHighlightTheme(isDarkMode ? 'dark' : 'atom-dark')
         highlightElement(element, language as any)
       } catch (error) {
         console.warn('Failed to highlight code:', error)
@@ -42,7 +47,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
     }, 50) // Wait for accordion animation to complete (~300ms) + small buffer
 
     return () => clearTimeout(timeoutId)
-  }, [code, language])
+  }, [code, language, theme])
 
   return (
     <div
@@ -51,6 +56,8 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
       style={{
         margin: 0,
         padding: '1rem',
+        paddingTop: '0.5rem',
+        paddingBottom: '0.75rem',
         fontSize: '0.75rem',
         lineHeight: '1.5',
         background: 'transparent',

@@ -1,5 +1,6 @@
 let katexPromise: Promise<void> | null = null
-let speedHighlightPromise: Promise<void> | null = null
+let speedHighlightAtomDarkPromise: Promise<void> | null = null
+let speedHighlightDarkPromise: Promise<void> | null = null
 
 export const loadKatexStyles = (): Promise<void> => {
   if (!katexPromise) {
@@ -8,14 +9,23 @@ export const loadKatexStyles = (): Promise<void> => {
   return katexPromise
 }
 
-export const loadSpeedHighlightTheme = (): Promise<void> => {
-  if (!speedHighlightPromise) {
-    speedHighlightPromise = import('@speed-highlight/core/themes/atom-dark.css').then(() => {})
+export const loadSpeedHighlightTheme = (theme: 'atom-dark' | 'dark'): Promise<void> => {
+  if (theme === 'dark') {
+    if (!speedHighlightDarkPromise) {
+      speedHighlightDarkPromise = import('@speed-highlight/core/themes/dark.css')
+        .then(() => {})
+        .catch(() => loadSpeedHighlightTheme('atom-dark'))
+    }
+    return speedHighlightDarkPromise
   }
-  return speedHighlightPromise
+
+  if (!speedHighlightAtomDarkPromise) {
+    speedHighlightAtomDarkPromise = import('@speed-highlight/core/themes/atom-dark.css').then(() => {})
+  }
+  return speedHighlightAtomDarkPromise
 }
 
 export const preloadRendererStyles = (): void => {
   void loadKatexStyles()
-  void loadSpeedHighlightTheme()
+  void loadSpeedHighlightTheme('atom-dark')
 }
