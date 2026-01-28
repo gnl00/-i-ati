@@ -9,7 +9,8 @@ import { useChatStore } from '@renderer/store'
 import { useAssistantStore } from '@renderer/store/assistant'
 import { ArrowDown } from 'lucide-react'
 import React, { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
+import { Virtuoso } from 'react-virtuoso'
+import { useScrollManagerLite } from '@renderer/hooks/useScrollManagerLite'
 
 const ChatMessageRow: React.FC<{
   messageIndex: number
@@ -50,16 +51,20 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
   const upsertMessage = useChatStore(state => state.upsertMessage)
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
-  const scrollParentRef = useRef<HTMLDivElement>(null)
-  const virtuosoRef = useRef<VirtuosoHandle>(null)
-  const isAtBottomRef = useRef<boolean>(true)
-  const typingScrollRafRef = useRef<number>(0)
-  const userScrollOverrideRef = useRef<boolean>(false)
-  const lastScrollTopRef = useRef<number>(0)
-  const forceScrollRafRef = useRef<number>(0)
-
-  const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
-  const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false)
+  const {
+    scrollParentRef,
+    virtuosoRef,
+    showScrollToBottom,
+    isButtonFadingOut,
+    scrollToBottom,
+    onTyping,
+    onMessagesUpdate,
+    followOutput,
+    onAtBottomStateChange
+  } = useScrollManagerLite({
+    messagesLength: messages.length,
+    chatUuid
+  })
 
   const lastMessageIndex = messages.length - 1
 
@@ -77,25 +82,6 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
     setCurrentAssistant(assistant)
     console.log('[ChatWindow] Selected assistant:', assistant.name)
   }, [setCurrentAssistant])
-
-  const scrollToBottom = useCallback((smooth = false) => {
-    if (!virtuosoRef.current) return
-    setShowScrollToBottom(false)
-    userScrollOverrideRef.current = false
-    if (smooth) {
-      setIsButtonFadingOut(true)
-      setTimeout(() => {
-        virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, align: 'end', behavior: 'smooth' })
-        setIsButtonFadingOut(false)
-      }, 120)
-      return
-    }
-    virtuosoRef.current.scrollToIndex({ index: messages.length - 1, align: 'end', behavior: 'auto' })
-  }, [messages.length])
-
-  const onMessagesUpdate = useCallback(() => {
-    scrollToBottom(false)
-  }, [scrollToBottom])
 
   const handleScrollToBottomClick = useCallback(() => {
     const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
@@ -127,42 +113,7 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
     scrollToBottom(true)
   }, [messages, readStreamState, scrollToBottom, updateMessage, upsertMessage, lastMessageIndex])
 
-  const onTyping = useCallback(() => {
-    if (!isAtBottomRef.current) return
-    if (typingScrollRafRef.current) return
-    typingScrollRafRef.current = requestAnimationFrame(() => {
-      typingScrollRafRef.current = 0
-      scrollToBottom(false)
-    })
-  }, [scrollToBottom])
-  useEffect(() => {
-    if (!isAtBottomRef.current) return
-    scrollToBottom(false)
-  }, [messages.length, scrollToBottom])
-
-  useEffect(() => {
-    userScrollOverrideRef.current = false
-    isAtBottomRef.current = true
-    setShowScrollToBottom(false)
-    const index = messages.length - 1
-    if (index < 0) return
-    if (!virtuosoRef.current) return
-    if (forceScrollRafRef.current) {
-      cancelAnimationFrame(forceScrollRafRef.current)
-    }
-    forceScrollRafRef.current = requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({ index, align: 'end', behavior: 'smooth' })
-      forceScrollRafRef.current = 0
-    })
-  }, [chatUuid])
-
-  useEffect(() => {
-    return () => {
-      if (forceScrollRafRef.current) {
-        cancelAnimationFrame(forceScrollRafRef.current)
-      }
-    }
-  }, [])
+  
 
   // Detect first message - trigger exit animation then hide welcome
   useLayoutEffect(() => {
@@ -187,25 +138,7 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [chatUuid, messages.length])
 
-  useEffect(() => {
-    const container = scrollParentRef.current
-    if (!container) return
-    lastScrollTopRef.current = container.scrollTop
-    const onScroll = () => {
-      const currentTop = container.scrollTop
-      const delta = currentTop - lastScrollTopRef.current
-      lastScrollTopRef.current = currentTop
-      userScrollOverrideRef.current = true
-      if (delta < 0) {
-        isAtBottomRef.current = false
-        setShowScrollToBottom(true)
-      }
-    }
-    container.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      container.removeEventListener('scroll', onScroll)
-    }
-  }, [])
+  
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
@@ -247,23 +180,12 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
                 ref={virtuosoRef}
                 data={messages}
                 className="h-full w-full"
-                followOutput={() => {
-                  if (userScrollOverrideRef.current) return false
-                  if (isAtBottomRef.current) return 'auto'
-                  return false
-                }}
+                followOutput={followOutput}
                 customScrollParent={scrollParentRef.current ?? undefined}
                 overscan={150}
                 increaseViewportBy={{ top: 200, bottom: 400 }}
                 atBottomThreshold={20}
-                atBottomStateChange={(atBottom) => {
-                  isAtBottomRef.current = atBottom
-                  setShowScrollToBottom(!atBottom)
-                  if (atBottom) {
-                    userScrollOverrideRef.current = false
-                    setIsButtonFadingOut(false)
-                  }
-                }}
+                atBottomStateChange={onAtBottomStateChange}
                 itemContent={(index, message) => (
                   <div data-index={index} className="w-full min-h-px">
                     <ChatMessageRow
