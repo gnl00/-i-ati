@@ -51,11 +51,12 @@ const OperationButton: React.FC<OperationButtonProps> = ({
           "hover:scale-110",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30",
           "backdrop-blur-sm",
+          "message-operation-button",
           isPressed && "scale-95! ring-2 ring-blue-500/20"
         )}
         style={{
-          animation: `slideIn 0.3s ease-out ${delay}ms both`
-        }}
+          '--op-delay': `${delay}ms`
+        } as React.CSSProperties}
         aria-label={label}
       >
         <div className={cn(
@@ -101,55 +102,40 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
   const isUser = type === 'user'
 
   return (
-    <>
-      <style>{`
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+    <div
+      id={isUser ? "usr-msg-operation" : "assistant-message-operation"}
+      className={cn(
+        "min-h-6 transition-all duration-300 ease-out",
+        isUser
+          ? "mt-0.5 pr-2 gap-1 flex text-gray-500 dark:text-gray-400"
+          : "mt-0.5 pl-2 gap-1 flex text-gray-500 dark:text-gray-400",
+        isHovered
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-2 pointer-events-none"
+      )}
+    >
+      <OperationButton
+        icon={<CopyIcon className="w-4 h-4" />}
+        onClick={onCopyClick}
+        label="Copy"
+        delay={0}
+      />
 
-      <div
-        id={isUser ? "usr-msg-operation" : "assistant-message-operation"}
-        className={cn(
-          "min-h-6 transition-all duration-300 ease-out",
-          isUser
-            ? "mt-0.5 pr-2 gap-1 flex text-gray-500 dark:text-gray-400"
-            : "mt-0.5 pl-2 gap-1 flex text-gray-500 dark:text-gray-400",
-          isHovered
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-2 pointer-events-none"
-        )}
-      >
+      {!isUser && showRegenerate && onRegenerateClick && (
         <OperationButton
-          icon={<CopyIcon className="w-4 h-4" />}
-          onClick={onCopyClick}
-          label="Copy"
-          delay={0}
+          icon={<ReloadIcon className="w-4 h-4" />}
+          onClick={onRegenerateClick}
+          label="Regenerate"
+          delay={50}
         />
+      )}
 
-        {!isUser && showRegenerate && onRegenerateClick && (
-          <OperationButton
-            icon={<ReloadIcon className="w-4 h-4" />}
-            onClick={onRegenerateClick}
-            label="Regenerate"
-            delay={50}
-          />
-        )}
-
-        <OperationButton
-          icon={<Pencil2Icon className="w-4 h-4" />}
-          onClick={onEditClick}
-          label="Edit"
-          delay={!isUser && showRegenerate ? 100 : 50}
-        />
-      </div>
-    </>
+      <OperationButton
+        icon={<Pencil2Icon className="w-4 h-4" />}
+        onClick={onEditClick}
+        label="Edit"
+        delay={!isUser && showRegenerate ? 100 : 50}
+      />
+    </div>
   )
 }
