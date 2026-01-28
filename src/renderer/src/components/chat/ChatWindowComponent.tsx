@@ -143,18 +143,16 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
 
   const onTyping = useCallback(() => {
     if (!isAtBottomRef.current) return
-    if (!virtuosoRef.current) return
     if (typingScrollRafRef.current) return
     typingScrollRafRef.current = requestAnimationFrame(() => {
       typingScrollRafRef.current = 0
-      virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, align: 'end', behavior: 'auto' })
+      scrollToBottom(false)
     })
-  }, [messages.length])
+  }, [scrollToBottom])
   useEffect(() => {
     if (!isAtBottomRef.current) return
-    if (!virtuosoRef.current) return
-    virtuosoRef.current.scrollToIndex({ index: messages.length - 1, align: 'end', behavior: 'auto' })
-  }, [messages.length])
+    scrollToBottom(false)
+  }, [messages.length, scrollToBottom])
 
   useEffect(() => {
     userScrollOverrideRef.current = false
@@ -168,10 +166,7 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
     }
     forceScrollRafRef.current = requestAnimationFrame(() => {
       virtuosoRef.current?.scrollToIndex({ index, align: 'end', behavior: 'smooth' })
-      forceScrollRafRef.current = window.setTimeout(() => {
-        forceScrollRafRef.current = 0
-        virtuosoRef.current?.scrollToIndex({ index, align: 'end', behavior: 'auto' })
-      }, 50) as unknown as number
+      forceScrollRafRef.current = 0
     })
   }, [chatUuid])
 
