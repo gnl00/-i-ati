@@ -212,6 +212,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                       <SpeedCodeHighlight
                         code={visibleJsonContent}
                         language="json"
+                        themeOverride="github-dim"
                       /* Passing style via props not supported, relying on SpeedCodeHighlight's internal style. 
                          Ideally would refactor SpeedCodeHighlight to accept style or className properly.
                          For now, the container handles most layout. */
