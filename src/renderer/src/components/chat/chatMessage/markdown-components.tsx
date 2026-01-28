@@ -175,6 +175,7 @@ const SpeedCodeBlock: React.FC<{
         language={language}
         themeOverride={themeOverride}
         backgroundColor="#1e1e1e"
+        hideLineNumbers={false}
       />
     </div>
   )

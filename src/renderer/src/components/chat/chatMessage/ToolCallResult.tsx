@@ -1,5 +1,6 @@
 import { SpeedCodeHighlight } from '@renderer/components/chat/common/SpeedCodeHighlight';
 import { Button } from '@renderer/components/ui/button';
+import { Switch } from '@renderer/components/ui/switch';
 import { cn } from '@renderer/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, ChevronDown, Clipboard, Loader2, Wrench, X } from "lucide-react";
@@ -15,21 +16,51 @@ interface ToolCallResultProps {
 // Memoize the component to prevent unnecessary re-renders
 export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
+  const toolResponse = tc.content as {
+    toolName?: string
+    args?: Record<string, unknown> | string
+    result?: any
+    status?: string
+    error?: string
+    raw?: any
+  } | undefined
+
+  const resultPayload = toolResponse?.result ?? toolResponse?.raw
   // 检测是否为 Web Search 结果
-  const isWebSearch = tc.name === 'web_search'
-  const webSearchData = isWebSearch && tc.content?.results ? tc.content : null
+  const isWebSearch = (toolResponse?.toolName ?? tc.name) === 'web_search'
+  const webSearchData = isWebSearch && resultPayload?.results ? resultPayload : null
   const isError = tc.isError;
-  const status = typeof tc.content?.status === 'string' ? tc.content.status : undefined
+  const status = typeof toolResponse?.status === 'string' ? toolResponse.status : undefined
   const isRunning = !isError && status === 'running'
   const [isJsonExpanded, setIsJsonExpanded] = useState(false);
   const jsonLineThreshold = 24;
   const contentCharThreshold = 1500;
 
+  const formatValue = (value: unknown) => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') {
+      return value.length > 200 ? `${value.slice(0, 200)}…` : value
+    }
+    try {
+      const json = JSON.stringify(value)
+      return json.length > 200 ? `${json.slice(0, 200)}…` : json
+    } catch {
+      return String(value)
+    }
+  }
+
+  const paramEntries = useMemo(() => {
+    const args = toolResponse?.args
+    if (!args || typeof args === 'string') return []
+    return Object.entries(args)
+  }, [toolResponse?.args])
+
   // Memoize JSON stringification
   const contentString = useMemo(() => {
-    return typeof tc.content?.content === 'string' ? tc.content.content : ''
-  }, [tc.content])
+    return typeof resultPayload?.content === 'string' ? resultPayload.content : ''
+  }, [resultPayload])
 
   const contentLineCount = useMemo(() => {
     return contentString ? contentString.split('\n').length : 0
@@ -38,14 +69,14 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
   const isContentLong = contentLineCount > jsonLineThreshold || contentString.length > contentCharThreshold
 
   const jsonBaseContent = useMemo(() => {
-    if (!isJsonExpanded && isContentLong && tc.content && typeof tc.content === 'object') {
+    if (!isJsonExpanded && isContentLong && resultPayload && typeof resultPayload === 'object') {
       const preview = contentString
         ? `${contentString.slice(0, contentCharThreshold)}${contentString.length > contentCharThreshold ? '...' : ''}`
         : contentString
-      return JSON.stringify({ ...(tc.content as Record<string, unknown>), content: preview }, null, 2)
+      return JSON.stringify({ ...(resultPayload as Record<string, unknown>), content: preview }, null, 2)
     }
-    return JSON.stringify(tc.content, null, 2)
-  }, [tc.content, isJsonExpanded, isContentLong, contentString])
+    return JSON.stringify(resultPayload ?? toolResponse, null, 2)
+  }, [resultPayload, toolResponse, isJsonExpanded, isContentLong, contentString])
 
   const jsonLines = useMemo(() => jsonBaseContent.split('\n'), [jsonBaseContent])
   const isJsonLong = isContentLong || jsonLines.length > jsonLineThreshold
@@ -66,6 +97,10 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
   }
 
   const toggleOpen = () => setIsOpen(!isOpen);
+  const toggleDetails = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowDetails(prev => !prev)
+  }
 
   return (
     <motion.div
@@ -145,22 +180,21 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
         <AnimatePresence initial={false}>
           {isOpen && (
             <motion.div
-              initial={{ height: 0, opacity: 0, marginTop: 0 }}
-              animate={{ height: "auto", opacity: 1, marginTop: 2 }}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
               transition={{
-                duration: 0.3,
-                ease: "circOut"
+                height: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
+                opacity: { duration: 0.2, ease: "easeOut" }
               }}
               exit={{
                 height: 0,
                 opacity: 0,
-                marginTop: 0,
                 transition: {
-                  duration: 0.2,
-                  ease: "easeInOut"
+                  height: { duration: 0.2, ease: [0.4, 0, 1, 1] },
+                  opacity: { duration: 0.15, ease: "easeIn" }
                 }
               }}
-              className="overflow-hidden"
+              className="overflow-hidden mt-2"
             >
               <div className={cn(
                 "relative rounded-xl overflow-hidden border border-b",
@@ -171,9 +205,22 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
               )}>
 
                 {isWebSearch && webSearchData ? (
-                  <div className="p-3 bg-zinc-50/80 dark:bg-zinc-900/60">
-                    <WebSearchResults results={webSearchData.results} />
-                  </div>
+                  showDetails ? (
+                    <div className="p-3 bg-zinc-50/80 dark:bg-zinc-900/60">
+                      <WebSearchResults results={webSearchData.results} />
+                    </div>
+                  ) : (
+                    <div className="p-3">
+                      <div className="grid grid-cols-[80px_1fr] gap-y-2 text-xs">
+                        <div className="text-zinc-500">Tool</div>
+                        <div className="font-mono text-zinc-700 dark:text-zinc-200">{toolResponse?.toolName ?? tc.name}</div>
+                        <div className="text-zinc-500">Status</div>
+                        <div className="text-zinc-700 dark:text-zinc-200">{status ?? (isError ? 'failed' : 'ok')}</div>
+                        <div className="text-zinc-500">Results</div>
+                        <div className="text-zinc-700 dark:text-zinc-200">{webSearchData.results?.length ?? 0}</div>
+                      </div>
+                    </div>
+                  )
                 ) : (
                   <>
                     {/* Technical Header */}
@@ -183,18 +230,35 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                         <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
                           Output Payload
                         </span>
-                        {isJsonLong && (
-                          <button
-                            type="button"
-                            onClick={toggleJsonExpand}
-                            className="text-[9px] font-semibold text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                        <div
+                          className="flex items-center gap-1.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-[9px] font-semibold text-zinc-400">Summary</span>
+                          <Switch
+                            checked={showDetails}
+                            onCheckedChange={(checked) => setShowDetails(Boolean(checked))}
+                            className="h-3.5 w-6 border border-zinc-200/80 bg-transparent data-[state=checked]:bg-zinc-800/80 data-[state=unchecked]:bg-transparent [&>span]:h-2.5 [&>span]:w-2.5 [&>span]:translate-x-[1px] data-[state=checked]:[&>span]:translate-x-[12px]"
+                          />
+                          <span className="text-[9px] font-semibold text-zinc-500">Detail</span>
+                        </div>
+                        {isJsonLong && showDetails && (
+                          <div
+                            className="flex items-center gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            {isJsonExpanded
-                              ? 'Collapse'
-                              : isContentLong && contentLineCount > 0
-                                ? `Expand content (${contentLineCount})`
-                                : `Expand (${jsonLines.length}) lines`}
-                          </button>
+                            <span className="text-[9px] font-semibold text-zinc-400">Short</span>
+                            <Switch
+                              checked={isJsonExpanded}
+                              onCheckedChange={(checked) => setIsJsonExpanded(Boolean(checked))}
+                              className="h-3.5 w-6 border border-zinc-200/80 bg-transparent data-[state=checked]:bg-zinc-800/80 data-[state=unchecked]:bg-transparent [&>span]:h-2.5 [&>span]:w-2.5 [&>span]:translate-x-[1px] data-[state=checked]:[&>span]:translate-x-[12px]"
+                            />
+                            <span className="text-[9px] font-semibold text-zinc-500">
+                              {isContentLong && contentLineCount > 0
+                                ? `Full (${contentLineCount})`
+                                : `Full (${jsonLines.length})`}
+                            </span>
+                          </div>
                         )}
                       </div>
                       <Button
@@ -207,24 +271,65 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                       </Button>
                     </div>
 
-                    {/* Code Block */}
-                    <div
-                      className="max-h-64 overflow-y-auto custom-scrollbar w-full bg-white dark:bg-[#09090b] overscroll-contain"
-                      onWheel={(e) => e.stopPropagation()}
-                      onTouchMove={(e) => e.stopPropagation()}
-                    >
-                      <SpeedCodeHighlight
-                        code={visibleJsonContent}
-                        language="json"
-                        themeOverride="github-dim"
-                      /* Passing style via props not supported, relying on SpeedCodeHighlight's internal style. 
-                         Ideally would refactor SpeedCodeHighlight to accept style or className properly.
-                         For now, the container handles most layout. */
-                      />
-                    </div>
-                    {isJsonLong && !isJsonExpanded && (
-                      <div className="px-3 py-2 text-[10px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80">
-                        Showing a preview. Use “Expand” to view full content.
+                    {showDetails ? (
+                      <>
+                        {/* Code Block */}
+                        <div className="relative">
+                          <div
+                            className="max-h-64 overflow-y-auto custom-scrollbar w-full bg-white dark:bg-[#09090b] overscroll-contain pb-7"
+                            onWheel={(e) => e.stopPropagation()}
+                            onTouchMove={(e) => e.stopPropagation()}
+                          >
+                            <SpeedCodeHighlight
+                              code={visibleJsonContent}
+                              language="json"
+                              themeOverride="github-dim"
+                            /* Passing style via props not supported, relying on SpeedCodeHighlight's internal style. 
+                               Ideally would refactor SpeedCodeHighlight to accept style or className properly.
+                               For now, the container handles most layout. */
+                            />
+                          </div>
+                          <div
+                            className={cn(
+                              "absolute bottom-0 left-0 right-0 px-3 py-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/90 dark:bg-zinc-900/90 backdrop-blur-xs transition-opacity duration-150",
+                              isJsonLong && !isJsonExpanded
+                                ? "opacity-100"
+                                : "opacity-0 pointer-events-none"
+                            )}
+                          >
+                            Showing a preview. Toggle “Full” to view all content.
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="px-3 py-2.5">
+                        {/* Info Row - Compact */}
+                        <div className="flex items-center gap-4 mb-2.5 pb-2 border-b border-zinc-200/50 dark:border-zinc-700/40">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Tool</span>
+                            <span className="text-[13px] font-mono font-semibold text-zinc-500 dark:text-zinc-100">{toolResponse?.toolName ?? tc.name}</span>
+                          </div>
+                          {typeof tc.cost === 'number' && (
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Duration</span>
+                              <span className="text-[13px] font-mono font-medium text-zinc-600 dark:text-zinc-300">{(tc.cost / 1000).toFixed(3)}s</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Params - Compact List */}
+                        {paramEntries.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {paramEntries.map(([key, value]) => (
+                              <div key={key} className="flex items-start gap-2 py-1">
+                                <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 min-w-[60px]">{key}</span>
+                                <span className="text-[11px] font-mono leading-snug wrap-break-word text-zinc-700 dark:text-zinc-300">{formatValue(value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">No parameters</div>
+                        )}
                       </div>
                     )}
                   </>

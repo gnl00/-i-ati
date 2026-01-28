@@ -32,6 +32,16 @@ export class MainDrivenStreamingService implements StreamingService {
     let pendingOutcome: MainStreamingOutcome | null = null
 
     const toolCallNames = new Map<string, string>()
+    const toolCallArgs = new Map<string, unknown>()
+
+    const parseToolArgs = (args?: string): unknown => {
+      if (!args) return undefined
+      try {
+        return JSON.parse(args)
+      } catch {
+        return args
+      }
+    }
 
     const upsertToolCallSegment = (
       toolCallId: string,
@@ -39,9 +49,15 @@ export class MainDrivenStreamingService implements StreamingService {
       isError: boolean
     ): void => {
       const name = toolCallNames.get(toolCallId) || 'unknown'
-      const content = isError
-        ? { error: payload.error?.message || 'Tool execution failed', status: payload.status }
-        : payload.result ?? { status: payload.status }
+      const args = toolCallArgs.get(toolCallId)
+      const content = {
+        toolName: name,
+        args,
+        result: isError ? undefined : payload.result,
+        status: payload.status,
+        error: isError ? (payload.error?.message || 'Tool execution failed') : undefined,
+        raw: isError ? payload.error : payload.result
+      }
 
       this.messageService.updateLastAssistantMessage(
         context,
@@ -112,6 +128,7 @@ export class MainDrivenStreamingService implements StreamingService {
           toolCalls.forEach((call: IToolCall) => {
             if (call.id) {
               toolCallNames.set(call.id, call.function?.name || 'unknown')
+              toolCallArgs.set(call.id, parseToolArgs(call.function?.arguments))
             }
           })
           const content = extractContentFromSegments(
@@ -143,6 +160,10 @@ export class MainDrivenStreamingService implements StreamingService {
       if (event.type === 'tool.exec.started') {
         const toolCallId = (event.payload as ChatSubmitEventPayloads['tool.exec.started'])?.toolCallId
         if (toolCallId) {
+          const name = (event.payload as ChatSubmitEventPayloads['tool.exec.started'])?.name
+          if (name) {
+            toolCallNames.set(toolCallId, name)
+          }
           upsertToolCallSegment(toolCallId, { status: 'running' }, false)
         }
       }
