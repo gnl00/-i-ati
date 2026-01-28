@@ -487,15 +487,15 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [])
 
   return (
-    <div ref={ref} id='inputArea' className={cn('rounded-md w-full h-full flex flex-col')}>
+    <div ref={ref} id='inputArea' className={cn('rounded-md w-full h-full flex flex-col bg-transparent')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
         <ChatImgGalleryComponent />
       </div>
 
-      <div id="inputArea" className='relative flex flex-col pb-2 px-2 flex-1 overflow-hidden'>
+      <div id="inputAreaContent" className='relative flex flex-col pb-2 px-2 flex-1 overflow-hidden bg-transparent'>
         <div
           className={cn(
-            'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out',
+            'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out bg-transparent',
             readStreamState && 'opacity-80'
           )}
         >
