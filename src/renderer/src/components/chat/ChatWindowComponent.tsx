@@ -32,7 +32,7 @@ const ChatMessageRow: React.FC<{
   )
 })
 
-const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
+const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
   const messages = useChatStore(state => state.messages)
   const lastAssistantIndex = useChatStore(state => {
     for (let i = state.messages.length - 1; i >= 0; i--) {
@@ -99,12 +99,10 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
   }, [scrollToBottom])
 
   const handleScrollToBottomClick = useCallback(() => {
-    const lastMessage = messages[messages.length - 1]
     const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
     const lastAssistantMessage =
       lastAssistantIndex >= 0 ? messages[messages.length - 1 - lastAssistantIndex] : undefined
-    const lastMessageIsAssistant = lastMessage?.body?.role === 'assistant'
-    const isLatest = Boolean(lastMessage && lastMessageIndex === messages.length - 1)
+    const isLatest = Boolean(lastMessageIndex === messages.length - 1)
     const typewriterCompleted = Boolean(lastAssistantMessage?.body?.typewriterCompleted)
     const segments = lastAssistantMessage?.body?.segments ?? []
     const hasSegments = Array.isArray(segments) && segments.length > 0
@@ -113,17 +111,6 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
       typewriterCompleted ||
       !isLatest ||
       !hasSegments
-
-    console.log('[ChatInput] scrollToBottom click checks', {
-      readStreamState,
-      lastMessageIsAssistant,
-      lastAssistantIndex: lastAssistantIndex >= 0 ? messages.length - 1 - lastAssistantIndex : -1,
-      typewriterCompleted,
-      isLatest,
-      hasSegments,
-      segmentsCount: Array.isArray(segments) ? segments.length : 0,
-      shouldSkipTypewriter
-    })
 
     if (!readStreamState && lastAssistantMessage && !shouldSkipTypewriter) {
       const updatedMessage: MessageEntity = {
@@ -382,4 +369,4 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
   )
 })
 
-export default ChatWindowComponentV4
+export default ChatWindowComponent
