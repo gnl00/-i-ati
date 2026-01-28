@@ -163,7 +163,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
               className="overflow-hidden"
             >
               <div className={cn(
-                "relative rounded-xl overflow-hidden border",
+                "relative rounded-xl overflow-hidden border border-b",
                 "shadow-[0_10px_30px_rgba(0,0,0,0.06)]",
                 isError
                   ? "bg-red-50/20 dark:bg-red-950/20 border-red-100/80 dark:border-red-900/40"
@@ -208,7 +208,11 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                     </div>
 
                     {/* Code Block */}
-                    <div className="max-h-64 overflow-y-auto custom-scrollbar w-full bg-white dark:bg-[#09090b]">
+                    <div
+                      className="max-h-64 overflow-y-auto custom-scrollbar w-full bg-white dark:bg-[#09090b] overscroll-contain"
+                      onWheel={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
+                    >
                       <SpeedCodeHighlight
                         code={visibleJsonContent}
                         language="json"
@@ -223,8 +227,6 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                         Showing a preview. Use “Expand” to view full content.
                       </div>
                     )}
-                    {/* Footer Decoration */}
-                    <div className="h-1 w-full bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800" />
                   </>
                 )}
               </div>

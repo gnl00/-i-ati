@@ -52,7 +52,6 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const scrollParentRef = useRef<HTMLDivElement>(null)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
-  const lastUserScrollTsRef = useRef<number>(0)
   const isAtBottomRef = useRef<boolean>(true)
   const typingScrollRafRef = useRef<number>(0)
   const userScrollOverrideRef = useRef<boolean>(false)
@@ -192,27 +191,18 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
     const container = scrollParentRef.current
     if (!container) return
     lastScrollTopRef.current = container.scrollTop
-    const onUserIntent = () => {
-      lastUserScrollTsRef.current = Date.now()
-    }
     const onScroll = () => {
       const currentTop = container.scrollTop
       const delta = currentTop - lastScrollTopRef.current
       lastScrollTopRef.current = currentTop
+      userScrollOverrideRef.current = true
       if (delta < 0) {
-        userScrollOverrideRef.current = true
         isAtBottomRef.current = false
         setShowScrollToBottom(true)
       }
     }
-    container.addEventListener('wheel', onUserIntent, { passive: true })
-    container.addEventListener('touchstart', onUserIntent, { passive: true })
-    container.addEventListener('pointerdown', onUserIntent)
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => {
-      container.removeEventListener('wheel', onUserIntent)
-      container.removeEventListener('touchstart', onUserIntent)
-      container.removeEventListener('pointerdown', onUserIntent)
       container.removeEventListener('scroll', onScroll)
     }
   }, [])
@@ -265,7 +255,7 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
                 customScrollParent={scrollParentRef.current ?? undefined}
                 overscan={150}
                 increaseViewportBy={{ top: 200, bottom: 400 }}
-                atBottomThreshold={15}
+                atBottomThreshold={20}
                 atBottomStateChange={(atBottom) => {
                   isAtBottomRef.current = atBottom
                   setShowScrollToBottom(!atBottom)
