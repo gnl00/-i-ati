@@ -530,7 +530,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
             {!inputContent && (
               <div
                 className={cn(
-                  'absolute inset-0 z-10 pointer-events-none px-2 pt-1.5 pb-2',
+                  'absolute inset-0 z-10 pointer-events-none px-2 pt-0.5 pb-2',
                   'text-gray-400 dark:text-gray-500',
                   'select-none'
                 )}
