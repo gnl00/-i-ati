@@ -80,7 +80,7 @@ const TextSegment: React.FC<{
       remarkRehypeOptions={{ passThrough: ['link'] }}
       className={cn(
         "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-full",
-        "transform-gpu transition-[opacity,transform,filter] duration-250 ease-out will-change-[opacity,transform,filter]",
+        "transform-gpu transition-[opacity,transform,filter] duration-250 ease-out",
         "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
         transitionStateClass
       )}

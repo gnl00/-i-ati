@@ -1,4 +1,4 @@
-import ChatWindowsComponent from "@renderer/components/chat/ChatWindowComponentV2"
+import ChatWindowsComponent from "@renderer/components/chat/ChatWindowComponent"
 import ChatSheetComponent from "@renderer/components/chat/ChatSheetComponent"
 import ChatSheetHoverComponent from "@renderer/components/chat/ChatSheetHoverComponent"
 import { Toaster } from "@renderer/components/ui/toaster"

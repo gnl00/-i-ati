@@ -14,7 +14,7 @@ const AnimatedToken = memo(({ children }: { children: string }) => {
     <span
       className={[
         "inline-block whitespace-pre-wrap",
-        "transition-[opacity,transform,filter] duration-200 ease-out will-change-[opacity,transform,filter]",
+        "transition-[opacity,transform,filter] duration-200 ease-out",
         "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
         entered ? "opacity-100 blur-0" : "opacity-0 blur-xs"
       ].join(' ')}
