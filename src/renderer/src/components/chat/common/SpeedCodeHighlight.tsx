@@ -8,6 +8,7 @@ interface SpeedCodeHighlightProps {
   language?: string
   className?: string
   themeOverride?: 'atom-dark' | 'default' | string
+  backgroundColor?: string
 }
 
 /**
@@ -22,7 +23,8 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
   code,
   language = 'json',
   className = '',
-  themeOverride
+  themeOverride,
+  backgroundColor
 }) => {
   const codeRef = useRef<HTMLDivElement>(null)
   const { theme } = useTheme()
@@ -41,7 +43,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
         const isDarkMode =
           theme === 'dark' ||
           (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        const resolvedTheme = themeOverride ?? (isDarkMode ? 'atom-dark' : 'default')
+        const resolvedTheme = themeOverride ?? (isDarkMode ? 'dark' : 'atom-dark')
         void loadSpeedHighlightTheme(resolvedTheme)
         highlightElement(element, language as any)
       } catch (error) {
@@ -63,7 +65,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
         paddingBottom: '0.75rem',
         fontSize: '0.75rem',
         lineHeight: '1.5',
-        background: 'transparent',
+        background: backgroundColor ?? 'transparent',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
         fontFamily: 'monospace',

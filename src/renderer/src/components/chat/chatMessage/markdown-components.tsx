@@ -4,6 +4,7 @@ import { CopyIcon } from '@radix-ui/react-icons'
 import React from 'react'
 import { toast } from 'sonner'
 import { Button } from '@renderer/components/ui/button'
+import { cn } from '@renderer/lib/utils'
 
 function normalizeLanguage(lang: string) {
   const lower = lang.toLowerCase()
@@ -78,6 +79,7 @@ export const markdownCodeComponents = {
           <SpeedCodeBlock
             code="// Empty code block"
             language={normalizeLanguage(language)}
+            themeOverride="atom-dark"
           />
         )
       }
@@ -86,6 +88,7 @@ export const markdownCodeComponents = {
         <SpeedCodeBlock
           code={codeContent}
           language={normalizeLanguage(language)}
+          themeOverride="atom-dark"
         />
       )
     }
@@ -98,6 +101,7 @@ export const markdownCodeComponents = {
         <SpeedCodeBlock
           code={codeContent.trim() ? codeContent : '// Empty code block'}
           language="plaintext"
+          themeOverride="atom-dark"
         />
       )
     }
@@ -129,7 +133,12 @@ export const markdownCodeComponents = {
   }
 }
 
-const SpeedCodeBlock: React.FC<{ code: string; language: string }> = React.memo(({ code, language }) => {
+const SpeedCodeBlock: React.FC<{
+  code: string
+  language: string
+  themeOverride?: 'atom-dark' | 'default'
+  containerClassName?: string
+}> = React.memo(({ code, language, themeOverride, containerClassName }) => {
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(String(code))
@@ -140,7 +149,12 @@ const SpeedCodeBlock: React.FC<{ code: string; language: string }> = React.memo(
   }
 
   return (
-    <div className="not-prose rounded-lg overflow-hidden shadow-xs bg-[#1e1e1e] text-slate-100 border border-slate-200/60 dark:bg-slate-900/60 dark:text-slate-100 dark:border-slate-700/50">
+    <div
+      className={cn(
+        "not-prose rounded-lg overflow-hidden shadow-xs bg-[#1e1e1e] text-slate-100 border border-slate-200/60 dark:bg-[#0f1115] dark:text-slate-100 dark:border-slate-700/50",
+        containerClassName
+      )}
+    >
       <div className="flex justify-between items-center bg-[#141414] dark:bg-[#0f1115] px-2 py-0.5 border-b border-white/5">
         <span className="px-2 py-0.5 text-xs font-mono font-semibold text-slate-200 select-none tracking-wide bg-white/5 rounded-md">
           {language}
@@ -156,7 +170,12 @@ const SpeedCodeBlock: React.FC<{ code: string; language: string }> = React.memo(
           </Button>
         </div>
       </div>
-      <SpeedCodeHighlight code={code} language={language} />
+      <SpeedCodeHighlight
+        code={code}
+        language={language}
+        themeOverride={themeOverride}
+        backgroundColor="#1e1e1e"
+      />
     </div>
   )
 })
