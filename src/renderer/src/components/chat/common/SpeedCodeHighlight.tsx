@@ -7,6 +7,7 @@ interface SpeedCodeHighlightProps {
   code: string
   language?: string
   className?: string
+  themeOverride?: 'atom-dark' | 'default' | string
 }
 
 /**
@@ -20,7 +21,8 @@ interface SpeedCodeHighlightProps {
 export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(({
   code,
   language = 'json',
-  className = ''
+  className = '',
+  themeOverride
 }) => {
   const codeRef = useRef<HTMLDivElement>(null)
   const { theme } = useTheme()
@@ -39,7 +41,8 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
         const isDarkMode =
           theme === 'dark' ||
           (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        void loadSpeedHighlightTheme(isDarkMode ? 'dark' : 'atom-dark')
+        const resolvedTheme = themeOverride ?? (isDarkMode ? 'atom-dark' : 'default')
+        void loadSpeedHighlightTheme(resolvedTheme)
         highlightElement(element, language as any)
       } catch (error) {
         console.warn('Failed to highlight code:', error)
@@ -47,7 +50,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
     }, 50) // Wait for accordion animation to complete (~300ms) + small buffer
 
     return () => clearTimeout(timeoutId)
-  }, [code, language, theme])
+  }, [code, language, theme, themeOverride])
 
   return (
     <div
