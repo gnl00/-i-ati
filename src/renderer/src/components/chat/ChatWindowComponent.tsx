@@ -276,7 +276,7 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
                   return false
                 }}
                 customScrollParent={scrollParentRef.current ?? undefined}
-                overscan={300}
+                overscan={150}
                 increaseViewportBy={{ top: 200, bottom: 400 }}
                 atBottomThreshold={15}
                 atBottomStateChange={(atBottom) => {
@@ -337,8 +337,7 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
             {artifactsPanelOpen && (
               <>
                 <ResizableHandle
-                  withHandle
-                  className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 mt-2 mb-2"
+                  className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 mt-2 mb-2 [&>div]:hidden [&::before]:hidden"
                 />
                 <ResizablePanel
                   defaultSize={40}
@@ -363,7 +362,7 @@ const ChatWindowComponentV4: React.FC = forwardRef<HTMLDivElement>(() => {
           </ResizablePanelGroup>
         </ResizablePanel>
 
-        <ResizableHandle withHandle className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200" />
+        <ResizableHandle className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden" />
 
         <ResizablePanel
           id="input-panel"
