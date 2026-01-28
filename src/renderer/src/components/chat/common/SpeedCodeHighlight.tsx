@@ -9,6 +9,7 @@ interface SpeedCodeHighlightProps {
   className?: string
   themeOverride?: 'atom-dark' | 'default' | string
   backgroundColor?: string
+  hideLineNumbers?: boolean
 }
 
 /**
@@ -24,7 +25,8 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
   language = 'json',
   className = '',
   themeOverride,
-  backgroundColor
+  backgroundColor,
+  hideLineNumbers = true
 }) => {
   const codeRef = useRef<HTMLDivElement>(null)
   const { theme } = useTheme()
@@ -36,23 +38,26 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
     // Set the text content first (show plain text immediately)
     element.textContent = code
 
-    // Delay syntax highlighting to allow accordion animation to complete smoothly
-    // This prevents the highlighting from blocking the accordion's expand animation
+    // Delay syntax highlighting to allow accordion animation to complete smoothly.
+    // Note: when code changes (e.g. short/full toggle), this creates a brief
+    // plain-text -> highlighted flash after the timeout, which can feel like jitter.
     const timeoutId = setTimeout(() => {
       try {
         const isDarkMode =
           theme === 'dark' ||
           (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        const resolvedTheme = themeOverride ?? (isDarkMode ? 'dark' : 'atom-dark')
+        const resolvedTheme = themeOverride === 'atom-dark' || themeOverride === 'dark'
+          ? themeOverride
+          : (isDarkMode ? 'dark' : 'atom-dark')
         void loadSpeedHighlightTheme(resolvedTheme)
-        highlightElement(element, language as any)
+        highlightElement(element, language as any, { hideLineNumbers })
       } catch (error) {
         console.warn('Failed to highlight code:', error)
       }
-    }, 50) // Wait for accordion animation to complete (~300ms) + small buffer
+    }, 30) // Wait for accordion animation to complete (~300ms) + small buffer
 
     return () => clearTimeout(timeoutId)
-  }, [code, language, theme, themeOverride])
+  }, [code, language, theme, themeOverride, hideLineNumbers])
 
   return (
     <div
