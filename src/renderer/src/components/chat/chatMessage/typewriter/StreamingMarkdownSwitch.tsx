@@ -5,9 +5,9 @@ import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import { fixMalformedCodeBlocks, markdownCodeComponents } from './markdown-components'
-import { remarkPreserveLineBreaks } from './markdown-plugins'
-import { StreamingMarkdownLite } from './StreamingMarkdownLite'
+import { fixMalformedCodeBlocks, markdownCodeComponents } from '../markdown/markdown-components'
+import { remarkPreserveLineBreaks } from '../markdown/markdown-plugins'
+import { StreamingMarkdownLite } from '../typewriter/StreamingMarkdownLite'
 import { loadKatexStyles } from '@renderer/utils/styleLoaders'
 
 export const StreamingMarkdownSwitch: React.FC<{

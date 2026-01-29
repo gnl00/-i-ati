@@ -4,10 +4,10 @@ import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { cn } from '@renderer/lib/utils'
-import { markdownCodeComponents } from './markdown-components'
-import { remarkPreserveLineBreaks } from './markdown-plugins'
+import { markdownCodeComponents } from './markdown/markdown-components'
+import { remarkPreserveLineBreaks } from './markdown/markdown-plugins'
 import { MessageOperations } from './message-operations'
-import { useEnterTransition } from './use-enter-transition'
+import { useEnterTransition } from './typewriter/use-enter-transition'
 import { loadKatexStyles } from '@renderer/utils/styleLoaders'
 
 export interface UserMessageProps {
