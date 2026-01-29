@@ -50,7 +50,7 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
           ? themeOverride
           : (isDarkMode ? 'dark' : 'atom-dark')
         void loadSpeedHighlightTheme(resolvedTheme)
-        highlightElement(element, language as any, { hideLineNumbers })
+        highlightElement(element, language as any, undefined, { hideLineNumbers })
       } catch (error) {
         console.warn('Failed to highlight code:', error)
       }
