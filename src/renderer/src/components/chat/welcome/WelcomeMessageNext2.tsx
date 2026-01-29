@@ -79,7 +79,7 @@ const PremiumAvatar: React.FC<AvatarProps> = ({ initials, name, className }) => 
 
       {/* Gradient background with subtle grid pattern */}
       <div className={cn(
-        "relative w-12 h-12 rounded-xl bg-gradient-to-br transition-all duration-500",
+        "relative w-12 h-12 rounded-xl bg-linear-to-br transition-all duration-500",
         "flex items-center justify-center",
         "border border-white/10 dark:border-white/5",
         "group-hover/avatar:scale-105 group-hover/avatar:rotate-2 group-hover/avatar:shadow-lg",
@@ -88,7 +88,7 @@ const PremiumAvatar: React.FC<AvatarProps> = ({ initials, name, className }) => 
         gradient.to
       )}>
         {/* Minimal pattern overlay - barely visible */}
-        <div className="absolute inset-0 opacity-[3%]">
+        <div className="absolute inset-0 opacity-3">
           <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="grid-pattern" width="8" height="8" patternUnits="userSpaceOnUse">
