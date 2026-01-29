@@ -1,21 +1,10 @@
 import { CheckIcon, Cross2Icon, DoubleArrowRightIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { Button } from '@renderer/components/ui/button'
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@renderer/components/ui/command"
-import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@renderer/components/ui/drawer'
 import { Input } from '@renderer/components/ui/input'
-import { Label } from '@renderer/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@renderer/components/ui/sheet'
-import { Textarea } from '@renderer/components/ui/textarea'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
+import { AddAssistantDrawer } from '@renderer/components/chat/AddAssistantDrawer'
 import { deleteChat, getAllChat, updateChat } from '@renderer/db/ChatRepository'
 import { updateMessage } from '@renderer/db/MessageRepository'
 import { cn } from '@renderer/lib/utils'
@@ -24,7 +13,7 @@ import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useSheetStore } from '@renderer/store/sheet'
 import { useAssistantStore } from '@renderer/store/assistant'
 import { switchWorkspace } from '@renderer/utils/workspaceUtils'
-import { BadgePlus, ChevronsUpDown, } from 'lucide-react'
+import { BadgePlus } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
@@ -451,124 +440,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                                     ))}
 
                                 {/* Add 按钮 */}
-                                <div
-                                    className={cn(
-                                        "flex flex-col items-center justify-center p-3 h-24 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-300 cursor-pointer group",
-                                        isCarouselExpanded
-                                            ? "opacity-100 translate-y-0"
-                                            : "opacity-0 -translate-y-2 pointer-events-none"
-                                    )}
-                                >
-                                    <Drawer>
-                                        <DrawerTrigger asChild>
-                                            <div className="flex flex-col items-center justify-center w-full h-full">
-                                                <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:scale-110 transition-transform duration-300">
-                                                    <BadgePlus className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
-                                                </div>
-                                                <p className="text-[10px] font-medium text-gray-400 mt-2 uppercase tracking-wide group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">Create</p>
-                                            </div>
-                                        </DrawerTrigger>
-                                        <DrawerContent className="max-h-[85vh] border-t border-slate-200 dark:border-slate-800">
-                                            <DrawerHeader className="space-y-2 pb-6">
-                                                <DrawerTitle className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-                                                    Create Assistant
-                                                </DrawerTitle>
-                                                <DrawerDescription className="text-sm text-slate-600 dark:text-slate-400">
-                                                    Customize your AI assistant with a name, model, and system prompt.
-                                                </DrawerDescription>
-                                            </DrawerHeader>
-                                            <div className='px-6 pb-4 space-y-5 overflow-y-auto'>
-                                                {/* Name Input */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="assistant-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                                        Name <span className="text-red-500">*</span>
-                                                    </Label>
-                                                    <Input
-                                                        id="assistant-name"
-                                                        placeholder='e.g., Code Helper, Writing Assistant'
-                                                        className="h-10 border-slate-200 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-700 focus-visible:outline-hidden focus-visible:ring-0 focus-visible:border-slate-200 dark:focus-visible:border-slate-700"
-                                                    />
-                                                </div>
-                                                {/* Model Selector */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="assistant-model" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                                        Model <span className="text-red-500">*</span>
-                                                    </Label>
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                                id="assistant-model"
-                                                                variant="outline"
-                                                                role="combobox"
-                                                                className="w-full h-10 justify-between border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-                                                            >
-                                                                <span className="text-slate-500 dark:text-slate-400">Select a model...</span>
-                                                                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                                                            </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-full p-0" align="start">
-                                                            <Command>
-                                                                <CommandInput placeholder="Search models..." className="h-9" />
-                                                                <CommandList className='overflow-scroll'>
-                                                                    <CommandEmpty>No model found.</CommandEmpty>
-                                                                    {
-                                                                        modelGroups.map(group => (
-                                                                            <CommandGroup key={group.account.id}>
-                                                                                <p className='text-sm text-gray-400 select-none'>
-                                                                                    {group.definition?.displayName || group.account.label}
-                                                                                </p>
-                                                                                {
-                                                                                    group.models.map(model => (
-                                                                                        <CommandItem
-                                                                                            key={`${group.account.id}/${model.id}`}
-                                                                                            value={`${group.account.id}/${model.id}`}
-                                                                                        >
-                                                                                            {model.label}
-                                                                                        </CommandItem>
-                                                                                    ))
-                                                                                }
-                                                                            </CommandGroup>
-                                                                        ))
-                                                                    }
-                                                                </CommandList>
-                                                            </Command>
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                </div>
-                                                {/* System Prompt */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="assistant-prompt" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                                        System Prompt <span className="text-red-500">*</span>
-                                                    </Label>
-                                                    <Textarea
-                                                        id="assistant-prompt"
-                                                        placeholder="You are a helpful assistant that..."
-                                                        className="min-h-[120px] resize-none border-slate-200 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-700 focus-visible:outline-hidden focus-visible:ring-0 focus-visible:border-slate-200 dark:focus-visible:border-slate-700"
-                                                    />
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                        Define how your assistant should behave and respond.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            {/* Footer */}
-                                            <DrawerFooter className="flex-row gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800">
-                                                <DrawerClose asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        className="flex-1 h-10 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                                                    >
-                                                        Cancel
-                                                    </Button>
-                                                </DrawerClose>
-                                                <Button
-                                                    className="flex-1 h-10 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900 transition-all"
-                                                >
-                                                    Create Assistant
-                                                </Button>
-                                            </DrawerFooter>
-                                        </DrawerContent>
-                                    </Drawer>
-                                </div>
+                                <AddAssistantDrawer isExpanded={isCarouselExpanded} modelGroups={modelGroups} />
                             </div>
                             )}
                         </div>
