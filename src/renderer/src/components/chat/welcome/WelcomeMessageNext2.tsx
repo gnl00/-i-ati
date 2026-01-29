@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { useAssistantStore } from '@renderer/store/assistant'
+import { useChatStore } from '@renderer/store'
 import './WelcomeMessage.css'
+import { ArrowRight, Check } from 'lucide-react'
 
 // ============================================================================
 // Constants
@@ -100,7 +102,7 @@ const PremiumAvatar: React.FC<AvatarProps> = ({ initials, name, className }) => 
         </div>
 
         {/* Shimmer effect on hover */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover/avatar:translate-x-full transition-transform duration-1000 ease-in-out" />
+        <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover/avatar:translate-x-full transition-transform duration-1000 ease-in-out" />
 
         {/* Initials text */}
         <span className={cn(
@@ -126,7 +128,6 @@ const PremiumAvatar: React.FC<AvatarProps> = ({ initials, name, className }) => 
 // ============================================================================
 interface WelcomeMessageProps {
   className?: string
-  onAssistantClick?: (assistant: Assistant) => void
   isExiting?: boolean
 }
 
@@ -135,11 +136,11 @@ interface WelcomeMessageProps {
 // ============================================================================
 const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
   className,
-  onAssistantClick,
   isExiting = false
 }) => {
   // Store
-  const { assistants, loadAssistants, isLoading } = useAssistantStore()
+  const { assistants, loadAssistants, isLoading, currentAssistant, setCurrentAssistant } = useAssistantStore()
+  const setUserInstruction = useChatStore(state => state.setUserInstruction)
 
   // Text State
   const [typedText, setTypedText] = useState('')
@@ -169,7 +170,13 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
   }, [fullText, isExiting])
 
   const handleAssistantClick = (assistant: Assistant) => {
-    onAssistantClick?.(assistant)
+    if (currentAssistant?.id === assistant.id) {
+      setCurrentAssistant(null)
+      setUserInstruction('')
+      return
+    }
+    setCurrentAssistant(assistant)
+    setUserInstruction(assistant.systemPrompt ?? '')
   }
 
   // Render
@@ -210,12 +217,16 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {assistants.map((assistant) => {
                   const initials = getInitials(assistant.name)
+                  const isSelected = currentAssistant?.id === assistant.id
 
                   return (
                     <button
                       key={assistant.id}
                       onClick={() => handleAssistantClick(assistant)}
-                      className="group/card text-left p-6 rounded-2xl border border-border/80 bg-card/50 backdrop-blur-sm hover:bg-accent/40 hover:border-border transition-all duration-300 ease-out hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+                      className={cn(
+                        "group/card text-left p-6 rounded-2xl border border-border/80 bg-card/50 backdrop-blur-sm transition-all duration-300 ease-out cursor-pointer",
+                        "hover:bg-accent/40 hover:border-border hover:shadow hover:-translate-y-1"
+                      )}
                       aria-label={`Select ${assistant.name}: ${assistant.description || 'No description'}`}
                     >
                       <div className="flex items-start gap-4">
@@ -230,19 +241,27 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
                           </p>
                         </div>
 
-                        <svg
-                          className="w-5 h-5 text-muted-foreground group-hover/card:text-foreground opacity-0 group-hover/card:opacity-100 transition-all duration-300 ease-out transform -translate-x-2 group-hover/card:translate-x-0 flex-shrink-0 mt-0.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
+                        <div className="relative shrink-0 mt-0.5 h-5 w-5">
+                          {!isSelected && (
+                            <ArrowRight
+                              className={cn(
+                                "absolute inset-0 h-5 w-5 text-muted-foreground group-hover/card:text-foreground",
+                                "transition-all duration-300 ease-out",
+                                "opacity-0 -translate-x-2 group-hover/card:opacity-100 group-hover/card:translate-x-0"
+                              )}
+                            />
+                          )}
+                          {isSelected && (
+                            <Check
+                              className={cn(
+                                "absolute inset-0 h-5 w-5 text-emerald-500",
+                                "transition-all duration-300 ease-out",
+                                "opacity-0 scale-75",
+                                "opacity-100 scale-100"
+                              )}
+                            />
+                          )}
+                        </div>
                       </div>
                     </button>
                   )

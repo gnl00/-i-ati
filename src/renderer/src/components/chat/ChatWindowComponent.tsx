@@ -73,16 +73,6 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
   const [isWelcomeExiting, setIsWelcomeExiting] = useState<boolean>(false)
   const hasShownWelcomeRef = useRef<boolean>(false)
 
-  // 从 Assistant Store 获取 setCurrentAssistant
-  const { setCurrentAssistant } = useAssistantStore()
-
-  // 处理 Assistant 卡片点击
-  const handleAssistantClick = useCallback((assistant: Assistant) => {
-    // 设置当前选中的 Assistant
-    setCurrentAssistant(assistant)
-    console.log('[ChatWindow] Selected assistant:', assistant.name)
-  }, [setCurrentAssistant])
-
   const handleScrollToBottomClick = useCallback(() => {
     const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
     const lastAssistantMessage =
@@ -207,10 +197,7 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
                     isWelcomeExiting && "welcome-overlay-exit"
                   )}
                 >
-                  <WelcomeMessage
-                    onAssistantClick={handleAssistantClick}
-                    isExiting={isWelcomeExiting}
-                  />
+                  <WelcomeMessage isExiting={isWelcomeExiting} />
                 </div>
               )}
 
