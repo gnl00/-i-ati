@@ -32,6 +32,9 @@ export function useScrollManagerLite({
   const userScrollOverrideRef = useRef<boolean>(false)
   const lastScrollTopRef = useRef<number>(0)
   const forceScrollRafRef = useRef<number>(0)
+  const scrollRafRef = useRef<number>(0)
+  const lastUserScrollTsRef = useRef<number>(0)
+  const showScrollToBottomRef = useRef<boolean>(false)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false)
@@ -65,8 +68,21 @@ export function useScrollManagerLite({
   }, [scrollToBottom])
 
   useEffect(() => {
-    if (!isAtBottomRef.current) return
-    scrollToBottom(false)
+    showScrollToBottomRef.current = showScrollToBottom
+  }, [showScrollToBottom])
+
+  useEffect(() => {
+    const container = scrollParentRef.current
+    if (!container) return
+    if (isAtBottomRef.current) {
+      scrollToBottom(false)
+      return
+    }
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight
+    if (distanceFromBottom > 40 && !showScrollToBottomRef.current) {
+      setShowScrollToBottom(true)
+    }
   }, [messagesLength, scrollToBottom])
 
   useEffect(() => {
@@ -83,12 +99,19 @@ export function useScrollManagerLite({
       virtuosoRef.current?.scrollToIndex({ index, align: 'end', behavior: 'smooth' })
       forceScrollRafRef.current = 0
     })
-  }, [chatUuid, messagesLength])
+  }, [chatUuid])
 
   useEffect(() => {
     return () => {
       if (forceScrollRafRef.current) {
         cancelAnimationFrame(forceScrollRafRef.current)
+      }
+      if (typingScrollRafRef.current) {
+        cancelAnimationFrame(typingScrollRafRef.current)
+      }
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = 0
       }
     }
   }, [])
@@ -97,18 +120,44 @@ export function useScrollManagerLite({
     const container = scrollParentRef.current
     if (!container) return
     lastScrollTopRef.current = container.scrollTop
-    const onScroll = () => {
-      const currentTop = container.scrollTop
-      const delta = currentTop - lastScrollTopRef.current
-      lastScrollTopRef.current = currentTop
-      userScrollOverrideRef.current = true
-      if (delta < 0) {
-        isAtBottomRef.current = false
-        setShowScrollToBottom(true)
-      }
+    const onUserIntent = () => {
+      lastUserScrollTsRef.current = Date.now()
     }
+    const onScroll = () => {
+      if (scrollRafRef.current) return
+      scrollRafRef.current = requestAnimationFrame(() => {
+        scrollRafRef.current = 0
+        const currentTop = container.scrollTop
+        const delta = currentTop - lastScrollTopRef.current
+        lastScrollTopRef.current = currentTop
+        const timeSinceUserIntent = Date.now() - lastUserScrollTsRef.current
+        if (timeSinceUserIntent < 200) {
+          userScrollOverrideRef.current = true
+        }
+        const distanceFromBottom =
+          container.scrollHeight - container.scrollTop - container.clientHeight
+        if (delta < 0) {
+          isAtBottomRef.current = false
+          if (distanceFromBottom > 40 && !showScrollToBottomRef.current) {
+            setShowScrollToBottom(true)
+          }
+        } else if (delta > 0) {
+          if (distanceFromBottom < 12 && showScrollToBottomRef.current) {
+            setShowScrollToBottom(false)
+          }
+        }
+      })
+    }
+    container.addEventListener('wheel', onUserIntent, { passive: true })
+    container.addEventListener('pointerdown', onUserIntent)
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => {
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = 0
+      }
+      container.removeEventListener('wheel', onUserIntent)
+      container.removeEventListener('pointerdown', onUserIntent)
       container.removeEventListener('scroll', onScroll)
     }
   }, [])
@@ -121,10 +170,12 @@ export function useScrollManagerLite({
 
   const onAtBottomStateChange = useCallback((atBottom: boolean) => {
     isAtBottomRef.current = atBottom
-    setShowScrollToBottom(!atBottom)
     if (atBottom) {
       userScrollOverrideRef.current = false
       setIsButtonFadingOut(false)
+      if (showScrollToBottomRef.current) {
+        setShowScrollToBottom(false)
+      }
     }
   }, [])
 
