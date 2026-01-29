@@ -184,7 +184,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
       <div className="relative z-10 w-full max-w-3xl px-8">
         <div className="flex flex-col items-center justify-center space-y-12">
           <div className="text-center space-y-6 animate-fade-in">
-            <h1 className="text-5xl md:text-6xl font-light text-foreground tracking-tight">
+            <h1 className="text-4xl font-mono font-light text-foreground tracking-tight">
               <span className="inline-block min-h-[1.2em]">
                 {typedText}
                 <span className="animate-pulse">|</span>
@@ -222,7 +222,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
                         <PremiumAvatar initials={initials} name={assistant.name} />
 
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-foreground mb-1 truncate text-base group-hover/card:text-primary transition-colors duration-300">
+                          <h3 className="font-medium tracking-wide text-foreground mb-1 truncate text-base group-hover/card:text-primary transition-colors duration-300">
                             {assistant.name}
                           </h3>
                           <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
