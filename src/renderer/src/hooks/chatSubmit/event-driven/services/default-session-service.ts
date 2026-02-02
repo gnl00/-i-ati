@@ -1,5 +1,4 @@
 import { getChatById, saveChat } from '@renderer/db/ChatRepository'
-import { getMessagesByChatId, getMessagesByChatUuid } from '@renderer/db/MessageRepository'
 import { createWorkspace, getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { v4 as uuidv4 } from 'uuid'
 import { useChatStore } from '@renderer/store'
@@ -103,10 +102,11 @@ export class DefaultSessionService implements SessionService {
     const metaWithChat = { ...meta, chatId, chatUuid }
 
     let existingMessages: MessageEntity[] = []
+    const store = useChatStore.getState()
     if (chatId) {
-      existingMessages = await getMessagesByChatId(chatId)
+      existingMessages = await store.fetchMessagesByChatId(chatId)
     } else if (chatUuid) {
-      existingMessages = await getMessagesByChatUuid(chatUuid)
+      existingMessages = await store.fetchMessagesByChatUuid(chatUuid)
     }
 
     const userMessageBody = buildUserMessage(model, chatInput.textCtx, chatInput.mediaCtx)

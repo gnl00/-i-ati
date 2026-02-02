@@ -1,5 +1,5 @@
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
-import { getMessagesByChatId, saveMessage, updateMessage, deleteMessage } from '@renderer/db/MessageRepository'
+import { messagePersistence } from '@renderer/services/messages/MessagePersistenceService'
 import { create } from 'zustand'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
@@ -68,6 +68,10 @@ export type ChatAction = {
 
   // 数据操作方法（通过 IPC 与 SQLite 同步）
   loadChat: (chatId: number) => Promise<void>
+  loadMessagesByChatId: (chatId: number) => Promise<MessageEntity[]>
+  loadMessagesByChatUuid: (chatUuid: string) => Promise<MessageEntity[]>
+  fetchMessagesByChatId: (chatId: number) => Promise<MessageEntity[]>
+  fetchMessagesByChatUuid: (chatUuid: string) => Promise<MessageEntity[]>
   addMessage: (message: MessageEntity) => Promise<number>
   updateMessage: (message: MessageEntity) => Promise<void>
   deleteMessage: (messageId: number) => Promise<void>
@@ -221,7 +225,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     }
 
     // 2. 从 SQLite 加载消息
-    const messages = await getMessagesByChatId(chatId)
+    const messages = await messagePersistence.getMessagesByChatId(chatId)
 
     // 3. 更新 Zustand state（触发 UI 更新）
     set({
@@ -240,7 +244,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     const state = get()
 
     // 1. 通过 IPC 保存到 SQLite
-    const msgId = await saveMessage({
+    const msgId = await messagePersistence.saveMessage({
       ...message,
       chatId: state.currentChatId || undefined,
       chatUuid: state.currentChatUuid || undefined
@@ -258,6 +262,40 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   },
 
   /**
+   * 加载指定 chatId 的消息并更新 Zustand
+   * 数据流：SQLite → IPC → Zustand → UI
+   */
+  loadMessagesByChatId: async (chatId) => {
+    const messages = await messagePersistence.getMessagesByChatId(chatId)
+    set({ messages })
+    return messages
+  },
+
+  /**
+   * 加载指定 chatUuid 的消息并更新 Zustand
+   * 数据流：SQLite → IPC → Zustand → UI
+   */
+  loadMessagesByChatUuid: async (chatUuid) => {
+    const messages = await messagePersistence.getMessagesByChatUuid(chatUuid)
+    set({ messages })
+    return messages
+  },
+
+  /**
+   * 仅获取指定 chatId 的消息（不更新 Zustand）
+   */
+  fetchMessagesByChatId: async (chatId) => {
+    return await messagePersistence.getMessagesByChatId(chatId)
+  },
+
+  /**
+   * 仅获取指定 chatUuid 的消息（不更新 Zustand）
+   */
+  fetchMessagesByChatUuid: async (chatUuid) => {
+    return await messagePersistence.getMessagesByChatUuid(chatUuid)
+  },
+
+  /**
    * 更新已存在的消息
    * 数据流：UI → Zustand action → IPC → SQLite → 更新 Zustand → UI
    */
@@ -268,7 +306,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     }
 
     // 1. 通过 IPC 更新 SQLite
-    await updateMessage(message)
+    await messagePersistence.updateMessage(message)
 
     // 2. 更新 Zustand state
     set((prevState) => ({
@@ -282,7 +320,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
    */
   deleteMessage: async (messageId) => {
     // 1. 通过 IPC 从 SQLite 删除
-    await deleteMessage(messageId)
+    await messagePersistence.deleteMessage(messageId)
 
     // 2. 更新 Zustand state
     set((prevState) => ({
