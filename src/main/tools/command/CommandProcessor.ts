@@ -3,9 +3,10 @@
  * 处理命令执行的主进程逻辑
  */
 
-import { exec } from 'child_process'
+import { exec, execFile } from 'child_process'
 import { promisify } from 'util'
 import { resolve, isAbsolute, join } from 'path'
+import { existsSync, mkdirSync } from 'fs'
 import { app } from 'electron'
 import DatabaseService from '@main/services/DatabaseService'
 import type {
@@ -15,6 +16,7 @@ import type {
 } from '@tools/command/index.d'
 
 const execAsync = promisify(exec)
+const execFileAsync = promisify(execFile)
 
 // ============================================
 // Constants
@@ -57,7 +59,6 @@ const DANGEROUS_PATTERNS = [
 
   // 设备文件操作
   { pattern: />\s*\/dev\/(sd|hd|nvme)/i, reason: 'Writing to disk device' },
-  { pattern: />\s*\/dev\/null/i, reason: 'Redirecting to /dev/null' },
 
   // 权限相关
   { pattern: /chmod\s+-R\s+777/i, reason: 'Setting world-writable permissions recursively' },
@@ -84,7 +85,8 @@ const WARNING_PATTERNS = [
   { pattern: /git\s+push\s+.*--force/i, reason: 'Force push to git repository' },
   { pattern: /npm\s+publish/i, reason: 'Publishing to npm registry' },
   { pattern: /curl.*\|\s*bash/i, reason: 'Executing downloaded script' },
-  { pattern: /wget.*\|\s*sh/i, reason: 'Executing downloaded script' }
+  { pattern: /wget.*\|\s*sh/i, reason: 'Executing downloaded script' },
+  { pattern: />\s*\/dev\/null/i, reason: 'Redirecting to /dev/null' }
 ]
 
 // ============================================
@@ -152,6 +154,75 @@ class CommandExecutor {
     return resolve(workspaceBasePath, cwd)
   }
 
+  private resolveShellCandidates(): string[] {
+    if (process.platform === 'win32') {
+      return [process.env.COMSPEC, 'cmd.exe'].filter((value): value is string => Boolean(value))
+    }
+
+    return [
+      process.env.SHELL,
+      '/bin/zsh',
+      '/bin/bash',
+      '/bin/sh',
+      '/usr/bin/zsh',
+      '/usr/bin/bash',
+      '/usr/bin/sh'
+    ].filter((value): value is string => Boolean(value))
+  }
+
+  private async execWithShells(
+    command: string,
+    options: {
+      cwd: string
+      timeout: number
+      env: Record<string, string>
+      maxBuffer: number
+    }
+  ) {
+    const shells = this.resolveShellCandidates()
+    if (shells.length === 0) {
+      return execAsync(command, options)
+    }
+
+    let lastError: any
+    for (const shell of shells) {
+      try {
+        console.log(`[CommandExecutor] Using shell: ${shell}`)
+        return await execAsync(command, { ...options, shell })
+      } catch (error: any) {
+        lastError = error
+        const code = typeof error?.code === 'string' ? error.code : undefined
+        const message = typeof error?.message === 'string' ? error.message : ''
+        if (code === 'ENOENT' || message.includes('ENOENT')) {
+          console.warn(`[CommandExecutor] Shell not found, retrying: ${shell}`)
+          continue
+        }
+        throw error
+      }
+    }
+
+    throw lastError
+  }
+
+  private isSimpleCommand(command: string): boolean {
+    return /^[\w./-]+(\s+[\w./-]+)*$/.test(command.trim())
+  }
+
+  private resolveExecutable(bin: string, env: Record<string, string>): string | null {
+    if (isAbsolute(bin)) {
+      return bin
+    }
+    const pathValue = env.PATH || process.env.PATH || ''
+    const parts = pathValue.split(':').filter(Boolean)
+    for (const part of parts) {
+      const candidate = join(part, bin)
+      if (candidate && existsSync(candidate)) {
+        return candidate
+      }
+    }
+    return null
+  }
+
   /**
    * 执行命令
    */
@@ -187,6 +258,14 @@ class CommandExecutor {
       }
       const workingDir = this.resolveWorkingDirectory(cwd, workspaceBasePath)
       console.log(`[CommandExecutor] Resolved working directory: ${workingDir}`)
+      if (!existsSync(workingDir)) {
+        try {
+          mkdirSync(workingDir, { recursive: true })
+          console.log(`[CommandExecutor] Created working directory: ${workingDir}`)
+        } catch (error) {
+          console.warn(`[CommandExecutor] Failed to create working directory: ${workingDir}`, error)
+        }
+      }
 
       // 4. 准备环境变量
       const execEnv = {
@@ -197,12 +276,36 @@ class CommandExecutor {
 
       // 5. 执行命令
       const startTime = Date.now()
-      const { stdout, stderr } = await execAsync(command, {
-        cwd: workingDir,
-        timeout,
-        env: execEnv,
-        maxBuffer: MAX_BUFFER
-      })
+      let stdout = ''
+      let stderr = ''
+      if (this.isSimpleCommand(command)) {
+        const tokens = command.trim().split(/\s+/)
+        const bin = tokens[0]
+        const args = tokens.slice(1)
+        const resolvedBin = this.resolveExecutable(bin, execEnv)
+        const execFileTarget = resolvedBin || bin
+        try {
+          const result = await execFileAsync(execFileTarget, args, {
+            cwd: workingDir,
+            timeout,
+            env: execEnv,
+            maxBuffer: MAX_BUFFER
+          })
+          stdout = result.stdout ?? ''
+          stderr = result.stderr ?? ''
+        } catch (error) {
+          throw error
+        }
+      } else {
+        const result = await this.execWithShells(command, {
+          cwd: workingDir,
+          timeout,
+          env: execEnv,
+          maxBuffer: MAX_BUFFER
+        })
+        stdout = result.stdout ?? ''
+        stderr = result.stderr ?? ''
+      }
 
       const executionTime = Date.now() - startTime
 
