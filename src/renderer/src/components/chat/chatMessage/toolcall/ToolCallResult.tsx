@@ -2,7 +2,8 @@ import { SpeedCodeHighlight } from '@renderer/components/chat/common/SpeedCodeHi
 import { Button } from '@renderer/components/ui/button';
 import { Switch } from '@renderer/components/ui/switch';
 import { cn } from '@renderer/lib/utils';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
 import { Check, ChevronDown, Clipboard, Loader2, Wrench, X } from "lucide-react";
 import React, { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -15,7 +16,7 @@ interface ToolCallResultProps {
 
 // Memoize the component to prevent unnecessary re-renders
 export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [openItem, setOpenItem] = useState<string>('');
   const [showDetails, setShowDetails] = useState(false);
 
   const toolResponse = tc.content as {
@@ -96,7 +97,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
     setIsJsonExpanded(prev => !prev);
   }
 
-  const toggleOpen = () => setIsOpen(!isOpen);
+  const isOpen = openItem === 'tool-result';
   const toggleDetails = (e: React.MouseEvent) => {
     e.stopPropagation()
     setShowDetails(prev => !prev)
@@ -113,86 +114,68 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
       }}
       className='my-3 w-full max-w-full font-sans'
     >
-      <div className={cn(
-        "group relative flex flex-col transition-all select-none",
-        isOpen ? "gap-2" : "gap-0"
-        )}
+      <Accordion
+        type="single"
+        collapsible
+        value={openItem}
+        onValueChange={setOpenItem}
+        className="group relative flex flex-col transition-all select-none"
       >
-        {/* Inline Log Row */}
-        <div 
-          className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit"
-          onClick={toggleOpen}
-          >
-          <span className={cn(
-            "inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none",
-            isError
-              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-              : isRunning
-                ? "bg-amber-100 text-amber-500 dark:bg-amber-900/30 dark:text-amber-200"
-                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-          )}>
-            {isError
-              ? <X className="w-2.5 h-2.5" />
-              : isRunning
-                ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                : <Check className="w-2.5 h-2.5" />
-            }
-            {isError ? 'ERR' : isRunning ? 'RUNNING' : 'OK'}
-          </span>
-
-          <div className="flex items-center gap-1.5">
-            <Wrench className={cn(
-              "w-3 h-3 text-zinc-400/70 dark:text-zinc-500/70 transition-all duration-300",
-              isOpen && "scale-110 rotate-6"
-            )} />
-            <span className={cn(
-              "font-mono text-[11px] font-semibold tracking-tight leading-none",
-              isError ? "text-red-700 dark:text-red-300" : "text-slate-500 dark:text-zinc-200"
+        <AccordionItem value="tool-result" className="border-0">
+          <AccordionTrigger className="hover:no-underline py-0">
+            <div className={cn(
+              "flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit"
             )}>
-              {tc.name}
-            </span>
-          </div>
-
-          {tc.cost && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-zinc-900/40 select-none">
-              {(tc.cost / 1000).toFixed(3)}s
-            </span>
-          )}
-
-          <button
-            type="button"
-            className={cn(
-              "h-6 w-6 inline-flex items-center justify-center rounded-full",
-              "text-zinc-500 dark:text-zinc-400",
-              "hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60",
-              "transition-all duration-200"
-            )}
-            aria-label={isOpen ? 'Hide Result' : 'View Result'}
-          >
-            <ChevronDown className={cn(
-              "w-3 h-3 transition-transform duration-300",
-              isOpen && "rotate-180 text-zinc-600 dark:text-zinc-300"
-            )} />
-          </button>
-        </div>
-
-        {/* Data Log Content */}
-        <AnimatePresence initial={false}>
-          {isOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              transition={{
-                height: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
-                opacity: { duration: 0.2, ease: "easeOut" }
-              }}
-              exit={{
-                height: 0,
-                opacity: 0,
-                transition: {
-                  height: { duration: 0.2, ease: [0.4, 0, 1, 1] },
-                  opacity: { duration: 0.15, ease: "easeIn" }
+              <span className={cn(
+                "inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none",
+                isError
+                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                  : isRunning
+                    ? "bg-amber-100 text-amber-500 dark:bg-amber-900/30 dark:text-amber-200"
+                    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+              )}>
+                {isError
+                  ? <X className="w-2.5 h-2.5" />
+                  : isRunning
+                    ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    : <Check className="w-2.5 h-2.5" />
                 }
+                {isError ? 'ERR' : isRunning ? 'RUNNING' : 'OK'}
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <Wrench className={cn(
+                  "w-3 h-3 text-zinc-400/70 dark:text-zinc-500/70 transition-all duration-300",
+                  isOpen && "scale-110 rotate-6"
+                )} />
+                <span className={cn(
+                  "font-mono text-[11px] font-semibold tracking-tight leading-none",
+                  isError ? "text-red-700 dark:text-red-300" : "text-slate-500 dark:text-zinc-200"
+                )}>
+                  {tc.name}
+                </span>
+              </div>
+
+              {tc.cost && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-zinc-900/40 select-none">
+                  {(tc.cost / 1000).toFixed(3)}s
+                </span>
+              )}
+
+              <ChevronDown className={cn(
+                "w-3 h-3 transition-transform duration-300 text-zinc-500 dark:text-zinc-400",
+                isOpen && "rotate-180 text-zinc-600 dark:text-zinc-300"
+              )} />
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-0 pb-0">
+
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.2,
+                ease: "easeOut"
               }}
               className="overflow-hidden mt-2"
             >
@@ -201,19 +184,19 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                 "shadow-[0_10px_30px_rgba(0,0,0,0.06)]",
                 isError
                   ? "bg-red-50/20 dark:bg-red-950/20 border-red-100/80 dark:border-red-900/40"
-                  : "bg-white/70 dark:bg-black/30 border-zinc-200/70 dark:border-zinc-800/70"
+                  : "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800/70"
               )}>
 
                 {isWebSearch && webSearchData ? (
-                  <div className="p-3 bg-zinc-50/80 dark:bg-zinc-900/60">
+                  <div className="p-3 bg-slate-100/80 dark:bg-slate-900/70">
                     <WebSearchResults results={webSearchData.results} />
                   </div>
                 ) : (
                   <>
                     {/* Technical Header */}
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-50/80 dark:bg-zinc-900/80 border-b border-zinc-100 dark:border-zinc-800 backdrop-blur-xs">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200/70 dark:border-slate-800 backdrop-blur-xs">
                       <div className="flex items-center gap-2">
-                        <div className="w-1 h-1 bg-zinc-300 dark:bg-zinc-600 rounded-full" />
+                        <div className="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full" />
                         <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
                           Output Payload
                         </span>
@@ -251,10 +234,10 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-5 w-5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-sm transition-all"
+                        className="h-5 w-5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-sm transition-all"
                         onClick={(e) => onCopyClick(e, tc.content)}
                       >
-                        <Clipboard className="w-2.5 h-2.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300" />
+                        <Clipboard className="w-2.5 h-2.5 text-zinc-400 hover:text-slate-700 dark:hover:text-slate-300" />
                       </Button>
                     </div>
 
@@ -278,7 +261,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                           </div>
                           <div
                             className={cn(
-                              "absolute bottom-0 left-0 right-0 px-3 py-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/90 dark:bg-zinc-900/90 backdrop-blur-xs transition-opacity duration-150",
+                              "absolute bottom-0 left-0 right-0 px-3 py-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 border-t border-slate-200/70 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-xs transition-opacity duration-150",
                               isJsonLong && !isJsonExpanded
                                 ? "opacity-100"
                                 : "opacity-0 pointer-events-none"
@@ -323,9 +306,9 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                 )}
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </motion.div>
   );
 });
