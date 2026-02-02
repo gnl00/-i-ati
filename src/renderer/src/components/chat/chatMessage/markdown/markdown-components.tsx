@@ -10,6 +10,8 @@ function normalizeLanguage(lang: string) {
   const lower = lang.toLowerCase()
   if (lower === 'c++') return 'cpp'
   if (lower === 'c#') return 'csharp'
+  if (lower === 'typescript') return 'ts'
+  if (lower === 'javascript') return 'js'
   return lower
 }
 
