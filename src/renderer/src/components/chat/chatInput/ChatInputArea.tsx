@@ -184,9 +184,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       toast.warning('Queue is full (max 5)')
       return
     }
-    if (queuePaused) {
-      toast.message('Queued (paused)', { description: 'Resolve the error to resume sending.' })
-    }
     setQueuedMessages(prev => [...prev, payload])
     setInputContent('')
     setImageSrcBase64List([])
