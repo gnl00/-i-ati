@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { cn } from '@renderer/lib/utils'
 import { ChevronDown, Lightbulb } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
 import { useChatStore } from '@renderer/store'
 import { useCommandConfirmationStore } from '@renderer/store/commandConfirmation'
 import { ToolCallResult } from './toolcall/ToolCallResult'
@@ -97,110 +97,78 @@ const TextSegment: React.FC<{
 const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment }) => {
   // Fix malformed code blocks in reasoning content
   const fixedContent = fixMalformedCodeBlocks(segment.content)
-  const entered = useEnterTransition('enter')
-  const [isOpen, setIsOpen] = React.useState(false)
-
-  const toggleOpen = () => setIsOpen(!isOpen)
+  const [openItem, setOpenItem] = React.useState<string>('')
+  const isOpen = openItem === 'reasoning'
 
   return (
-    <div className='w-fit my-2'>
-      {/* Trigger Button */}
-      <div
-        onClick={toggleOpen}
-        className={cn(
-          'group inline-flex items-center gap-1.5 rounded-lg px-2 py-1',
-          'border-0 ring-0 outline-hidden',
-          'transition-all duration-300 ease-out',
-          'focus:outline-hidden focus-visible:outline-hidden'
-        )}
-      >
-        <Lightbulb className={cn(
-          'w-3 h-3 text-slate-400 dark:text-slate-500',
-          'transition-all duration-300 ease-out',
-          'group-hover:text-slate-500 dark:group-hover:text-slate-300',
-          isOpen && 'scale-110 rotate-12'
-        )} />
-        <span className={cn(
-          'text-[10px] font-semibold uppercase tracking-tight select-none',
-          'text-slate-500 dark:text-slate-400',
-          'transition-colors duration-300 ease-out',
-          'group-hover:text-slate-700 dark:group-hover:text-slate-300'
-        )}>
-          Reasoning
-        </span>
-        <button
-            type="button"
+    <div className="w-full my-2">
+      <Accordion type="single" collapsible value={openItem} onValueChange={setOpenItem}>
+        <AccordionItem value="reasoning" className="border-0">
+          <AccordionTrigger
             className={cn(
-              "h-6 w-6 inline-flex items-center justify-center rounded-full",
-              "text-zinc-500 dark:text-zinc-400",
-              "hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60",
-              "transition-all duration-200"
+              'group inline-flex items-center justify-start gap-1.5 rounded-lg px-2 py-1',
+              'border-0 ring-0 outline-hidden',
+              'transition-all duration-300 ease-out',
+              'focus:outline-hidden focus-visible:outline-hidden',
+              'hover:no-underline',
+              'py-0'
             )}
-            aria-label={isOpen ? 'Hide Result' : 'View Result'}
           >
+            <span className="inline-flex">
+              <Lightbulb className={cn(
+                'w-3 h-3 text-slate-400 dark:text-slate-500',
+                'transition-all duration-300 ease-out',
+                'group-hover:text-slate-500 dark:group-hover:text-slate-300',
+                isOpen && 'scale-110 rotate-12'
+              )} />
+            </span>
+            <span className={cn(
+              'text-[10px] font-semibold uppercase tracking-tight select-none',
+              'text-slate-500 dark:text-slate-400',
+              'transition-colors duration-300 ease-out',
+              'group-hover:text-slate-700 dark:group-hover:text-slate-300'
+            )}>
+              Reasoning
+            </span>
             <ChevronDown className={cn(
-              "w-3 h-3 transition-transform duration-300",
-              isOpen && "rotate-180 text-zinc-600 dark:text-zinc-300"
+              "w-3 h-3 transition-transform duration-300 text-zinc-500 dark:text-zinc-400"
             )} />
-          </button>
-      </div>
-
-      {/* Content with Framer Motion */}
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0, marginTop: 0 }}
-            animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-            exit={{
-              height: 0,
-              opacity: 0,
-              marginTop: 0,
-              transition: { duration: 0.25, ease: "easeInOut" }
-            }}
-            transition={{
-              duration: 0.3,
-              ease: "circOut" // smooth easing without bounce
-            }}
-            className="overflow-hidden"
-          >
+          </AccordionTrigger>
+          <AccordionContent className="pt-0 pb-0">
             <div className={cn(
-            'ml-3 pl-3 mt-1',
-            'bg-transparent',
-            'border-l-2 border-dashed',
-            'border-slate-300/60 dark:border-slate-600/50',
-            'relative',
-            'transition-colors duration-300 ease-out'
-          )}>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
-              skipHtml={false}
-              className={cn(
-                "prose prose-sm max-w-none",
-                "prose-slate dark:prose-invert",
-                // 统一设置文本颜色和大小
-                "text-[13px] text-slate-500 dark:text-slate-400 italic",
-                // 段落间距
-                "prose-p:my-1.5 prose-p:leading-relaxed",
-                // 代码块样式（覆盖斜体）
-                "prose-code:text-slate-600 dark:prose-code:text-slate-400",
-                "prose-code:bg-slate-200/50 dark:prose-code:bg-slate-800/50",
-                "prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[10px] prose-code:not-italic",
-                // 分隔线
-                "prose-hr:border-slate-200 dark:prose-hr:border-slate-700 prose-hr:my-2",
-                // 粗体（覆盖斜体）
-                "prose-strong:text-slate-600 dark:prose-strong:text-slate-300 prose-strong:font-semibold prose-strong:not-italic",
-                // 动画
-                "transition-[opacity,transform] duration-400 ease-out",
-                "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0",
-                entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
-              )}
-            >
-              {fixedContent}
-            </ReactMarkdown>
-          </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              'ml-3 pl-3 mt-1',
+              'bg-transparent',
+              'border-l-2 border-dashed',
+              'border-slate-300/60 dark:border-slate-600/50',
+              'relative',
+              'transition-colors duration-300 ease-out'
+            )}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
+                skipHtml={false}
+                className={cn(
+                  "prose prose-sm max-w-none",
+                  "prose-slate dark:prose-invert",
+                  // 统一设置文本颜色和大小
+                  "text-[13px] text-slate-500 dark:text-slate-400 italic",
+                  // 段落间距
+                  "prose-p:my-1.5 prose-p:leading-relaxed",
+                  // 代码块样式（覆盖斜体）
+                  "prose-code:text-slate-600 dark:prose-code:text-slate-400",
+                  "prose-code:bg-slate-200/50 dark:prose-code:bg-slate-800/50",
+                  "prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[10px] prose-code:not-italic",
+                  // 分隔线
+                  "prose-hr:border-slate-200 dark:prose-hr:border-slate-700 prose-hr:my-2",
+                  // 粗体（覆盖斜体）
+                  "prose-strong:text-slate-600 dark:prose-strong:text-slate-300 prose-strong:font-semibold prose-strong:not-italic",
+                )}
+              >
+                {fixedContent}
+              </ReactMarkdown>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   )
 })
