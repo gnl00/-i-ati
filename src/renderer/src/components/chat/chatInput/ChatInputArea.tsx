@@ -389,16 +389,18 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault()
       const target = e.currentTarget
-      const start = target.selectionStart ?? inputContent.length
-      const end = target.selectionEnd ?? inputContent.length
-      const nextValue = `${inputContent.slice(0, start)}\n${inputContent.slice(end)}`
+      const currentValue = target.value
+      const start = target.selectionStart ?? currentValue.length
+      const end = target.selectionEnd ?? currentValue.length
+      const nextValue = `${currentValue.slice(0, start)}\n${currentValue.slice(end)}`
       setInputContent(nextValue)
       handleCommandInputChange(nextValue)
       requestAnimationFrame(() => {
         const nextPos = start + 1
         target.selectionStart = nextPos
         target.selectionEnd = nextPos
-        caretOverlayRef.current?.updateCaret()
+        target.scrollTop = target.scrollHeight
+        caretOverlayRef.current?.updateCaret(true)
       })
     }
   }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef, queuedMessages.length, editingQueue, startEditQueuedMessage])
