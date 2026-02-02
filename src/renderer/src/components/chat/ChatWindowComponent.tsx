@@ -206,7 +206,7 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
                   id="scrollToBottom"
                   onClick={handleScrollToBottomClick}
                   className={cn(
-                    "absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border z-50",
+                    "absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border z-50",
                     "transition-all duration-300 ease-out hover:scale-110",
                     isButtonFadingOut
                       ? "opacity-0 translate-y-5 scale-75"
