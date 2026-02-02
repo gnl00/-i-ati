@@ -17,6 +17,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import {
   Code,
+  Clipboard,
   Globe,
   Loader2,
   Search,
@@ -186,6 +187,25 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
     } catch (error) { }
   }
 
+  const handleAddFromClipboard = async (): Promise<void> => {
+    try {
+      const text = await navigator.clipboard.readText()
+      const parsed = JSON.parse(text)
+      const servers = parsed?.mcpServers
+      if (!servers || typeof servers !== 'object') {
+        toast.error('Clipboard JSON must include "mcpServers" object')
+        return
+      }
+      setMcpServerConfig({
+        ...mcpServerConfig,
+        mcpServers: { ...(mcpServerConfig.mcpServers || {}), ...servers }
+      })
+      toast.success('MCP servers imported from clipboard')
+    } catch (error: any) {
+      toast.error(`Failed to import from clipboard: ${error.message}`)
+    }
+  }
+
   const filteredServers = useMemo(() => {
     if (!searchQuery.trim()) return registryServers
     const query = searchQuery.toLowerCase()
@@ -230,26 +250,37 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           />
 
           {activeTab === 'local' && (
-            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-linear-to-r from-gray-100/90 to-gray-50/90 dark:from-gray-800/70 dark:to-gray-900/50 border border-gray-200/70 dark:border-gray-700/50 shadow-xs backdrop-blur-md transition-all duration-300">
-              <Code className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-              <Label
-                htmlFor="edit-mode"
-                className={cn(
-                  "text-[10px] uppercase tracking-wider font-bold transition-all duration-200 cursor-pointer select-none",
-                  editMode === 'json'
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-500 dark:text-gray-500"
-                )}
+            <div className="flex items-center gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddFromClipboard}
+                className="h-8 px-2.5 rounded-lg bg-transparent border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100/60 dark:hover:bg-gray-800/60"
               >
-                JSON Mode
-              </Label>
-              <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
-              <Switch
-                id="edit-mode"
-                checked={editMode === 'json'}
-                onCheckedChange={(checked) => setEditMode(checked ? 'json' : 'visual')}
-                className="scale-90 data-[state=checked]:bg-blue-600 dark:data-[state=checked]:bg-blue-500"
-              />
+                <Clipboard className="h-3.5 w-3.5 mr-1.5 text-gray-500 dark:text-gray-400" />
+                Clipboard
+              </Button>
+              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-linear-to-r from-gray-100/90 to-gray-50/90 dark:from-gray-800/70 dark:to-gray-900/50 border border-gray-200/70 dark:border-gray-700/50 shadow-xs backdrop-blur-md transition-all duration-300">
+                <Code className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                <Label
+                  htmlFor="edit-mode"
+                  className={cn(
+                    "text-[10px] uppercase tracking-wider font-bold transition-all duration-200 cursor-pointer select-none",
+                    editMode === 'json'
+                      ? "text-blue-600 dark:text-blue-400"
+                      : "text-gray-500 dark:text-gray-500"
+                  )}
+                >
+                  JSON Mode
+                </Label>
+                <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
+                <Switch
+                  id="edit-mode"
+                  checked={editMode === 'json'}
+                  onCheckedChange={(checked) => setEditMode(checked ? 'json' : 'visual')}
+                  className="scale-90 data-[state=checked]:bg-blue-600 dark:data-[state=checked]:bg-blue-500"
+                />
+              </div>
             </div>
           )}
         </div>
