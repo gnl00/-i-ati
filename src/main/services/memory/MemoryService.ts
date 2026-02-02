@@ -26,6 +26,17 @@ interface MemoryEntry {
   metadata?: Record<string, any> // 额外元数据
 }
 
+interface MemoryListEntry {
+  id: string
+  chatId: number
+  messageId: number
+  role: 'user' | 'assistant' | 'system'
+  context_origin: string
+  context_en: string
+  timestamp: number
+  metadata?: Record<string, any>
+}
+
 /**
  * 搜索结果接口
  */
@@ -77,6 +88,7 @@ class MemoryService {
     insert?: Database.Statement
     getById?: Database.Statement
     getByChatId?: Database.Statement
+    getAll?: Database.Statement
     deleteById?: Database.Statement
     deleteByChatId?: Database.Statement
     count?: Database.Statement
@@ -209,6 +221,10 @@ class MemoryService {
       SELECT * FROM memories WHERE chat_id = ? ORDER BY timestamp ASC
     `)
 
+    this.stmts.getAll = this.db.prepare(`
+      SELECT * FROM memories ORDER BY timestamp DESC
+    `)
+
     this.stmts.deleteById = this.db.prepare(`
       DELETE FROM memories WHERE id = ?
     `)
@@ -258,6 +274,19 @@ class MemoryService {
       context_origin: row.context_origin,
       context_en: row.context_en,
       embedding,
+      timestamp: row.timestamp,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+    }
+  }
+
+  private rowToListEntry(row: MemoryRow): MemoryListEntry {
+    return {
+      id: row.id,
+      chatId: row.chat_id,
+      messageId: row.message_id,
+      role: row.role as 'user' | 'assistant' | 'system',
+      context_origin: row.context_origin,
+      context_en: row.context_en,
       timestamp: row.timestamp,
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
     }
@@ -501,6 +530,21 @@ class MemoryService {
       return rows.map(row => this.rowToEntry(row))
     } catch (error) {
       console.error('[MemoryService] Failed to get chat memories:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取所有记忆（不包含 embedding）
+   */
+  public async getAllMemories(): Promise<MemoryListEntry[]> {
+    await this.initialize()
+
+    try {
+      const rows = this.stmts.getAll!.all() as MemoryRow[]
+      return rows.map(row => this.rowToListEntry(row))
+    } catch (error) {
+      console.error('[MemoryService] Failed to get all memories:', error)
       throw error
     }
   }
