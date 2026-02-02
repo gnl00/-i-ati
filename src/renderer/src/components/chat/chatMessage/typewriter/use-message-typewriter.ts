@@ -1,6 +1,5 @@
 import { useChatStore } from '@renderer/store'
 import { useSegmentTypewriterNext } from '@renderer/hooks/useSegmentTypewriterNext'
-import { updateMessage } from '@renderer/db/MessageRepository'
 import { useCallback, useEffect, useRef } from 'react'
 
 export interface UseMessageTypewriterProps {
@@ -33,6 +32,7 @@ export function useMessageTypewriter(
   const { index, message: m, isLatest, onTypingChange } = props
   const readStreamState = useChatStore(state => state.readStreamState)
   const upsertMessage = useChatStore(state => state.upsertMessage)
+  const updateMessage = useChatStore(state => state.updateMessage)
   const setForceCompleteTypewriter = useChatStore(state => state.setForceCompleteTypewriter)
 
   const segments = m.segments || []
@@ -93,12 +93,7 @@ export function useMessageTypewriter(
           upsertMessage(updatedMessage)
 
           // 2. 持久化到数据库（异步，不阻塞 UI）
-          updateMessage({
-            id: updatedMessage.id,
-            chatId: updatedMessage.chatId,
-            chatUuid: updatedMessage.chatUuid,
-            body: updatedMessage.body
-          }).catch(err => {
+          updateMessage(updatedMessage).catch(err => {
             console.error('[useMessageTypewriter] Failed to persist typewriterCompleted:', err)
           })
         }

@@ -1,5 +1,5 @@
 import { updateChat } from '@renderer/db/ChatRepository'
-import { saveMessage, updateMessage } from '@renderer/db/MessageRepository'
+import { messagePersistence, type MessagePersistence } from '@renderer/services/messages/MessagePersistenceService'
 import { logger } from '../../logger'
 import { extractContentFromSegments } from '../streaming/segment-utils'
 import type { SubmissionContext } from '../context'
@@ -12,6 +12,10 @@ const syncChatMessages = (context: SubmissionContext): void => {
 }
 
 export class DefaultMessageService implements MessageService {
+  constructor(
+    private readonly persistence: MessagePersistence = messagePersistence
+  ) {}
+
   async createUserMessage(
     context: SubmissionContext,
     publisher: EventPublisher,
@@ -23,7 +27,7 @@ export class DefaultMessageService implements MessageService {
       chatUuid: context.session.chatEntity.uuid
     }
 
-    const msgId = await saveMessage(userMessageEntity)
+    const msgId = await this.persistence.saveMessage(userMessageEntity)
     userMessageEntity.id = msgId
 
     context.session.userMessageEntity = userMessageEntity
@@ -63,7 +67,7 @@ export class DefaultMessageService implements MessageService {
       chatUuid: context.session.chatEntity.uuid
     }
 
-    const msgId = await saveMessage(assistantMessage)
+    const msgId = await this.persistence.saveMessage(assistantMessage)
     assistantMessage.id = msgId
 
     context.session.messageEntities.push(assistantMessage)
@@ -190,7 +194,7 @@ export class DefaultMessageService implements MessageService {
 
     let saved = false
     try {
-      const msgId = await saveMessage(toolResultEntity)
+      const msgId = await this.persistence.saveMessage(toolResultEntity)
       toolResultEntity.id = msgId
       const chatMessages = context.session.chatEntity.messages || []
       context.session.chatEntity.messages = [...chatMessages, msgId]
@@ -239,7 +243,7 @@ export class DefaultMessageService implements MessageService {
       }
 
       if (message.id && message.id > 0) {
-        await updateMessage(message)
+        await this.persistence.updateMessage(message)
         await publisher.emit('message.updated', { message }, {
           ...meta,
           chatId: context.session.currChatId,
@@ -259,7 +263,7 @@ export class DefaultMessageService implements MessageService {
 
       let saved = false
       try {
-        const msgId = await saveMessage(message)
+        const msgId = await this.persistence.saveMessage(message)
         message.id = msgId
         const chatMessages = context.session.chatEntity.messages || []
         context.session.chatEntity.messages = [...chatMessages, msgId]

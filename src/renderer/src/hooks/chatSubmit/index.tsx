@@ -19,6 +19,7 @@ function useChatSubmitV2() {
   const activeSubmissionRef = useRef<ChatSubmissionService | null>(null)
   const activeBusRef = useRef<ChatSubmitEventBus | null>(null)
   const lastErrorMessageRef = useRef<{ id: number; chatUuid: string | null } | null>(null)
+  const clearedErrorMessageIdsRef = useRef<Set<number>>(new Set())
 
   const resetUiState = () => {
     chatStore.setCurrentReqCtrl(undefined)
@@ -43,6 +44,9 @@ function useChatSubmitV2() {
       const state = useChatStore.getState()
       const messages = state.messages
       const messageId = message.id
+      if (messageId && clearedErrorMessageIdsRef.current.has(messageId)) {
+        return
+      }
       let nextMessages = messages
       if (messageId) {
         const index = messages.findIndex((item) => item.id === messageId)
@@ -85,6 +89,7 @@ function useChatSubmitV2() {
 
       if (!hasNonErrorSegments && !hasContent) {
         await state.deleteMessage(errorInfo.id)
+        clearedErrorMessageIdsRef.current.add(errorInfo.id)
       } else {
         const updated: MessageEntity = {
           ...message,
@@ -144,11 +149,11 @@ function useChatSubmitV2() {
         chatStore.setFetchState(false)
         chatStore.setShowLoadingIndicator(false)
       }),
-      bus.on('submission.completed', (_, envelope) => {
+      bus.on('submission.completed', async (_, envelope) => {
         if (!markOnce('submission.completed', envelope.submissionId)) {
           return
         }
-        void clearPreviousErrorMessage()
+        await clearPreviousErrorMessage()
         chatStore.setLastMsgStatus(true)
         chatStore.setReadStreamState(false)
       }),

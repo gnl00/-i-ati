@@ -6,7 +6,6 @@ import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
 import { AddAssistantDrawer } from '@renderer/components/chat/AddAssistantDrawer'
 import { deleteChat, getAllChat, updateChat } from '@renderer/db/ChatRepository'
-import { updateMessage } from '@renderer/db/MessageRepository'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
@@ -92,7 +91,10 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
 const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
     const {
-        setMessages,
+        clearMessages,
+        upsertMessage,
+        updateMessage,
+        loadMessagesByChatId,
         toggleArtifacts,
         toggleWebSearch,
         currentChatId: chatId,
@@ -102,6 +104,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         setChatTitle,
         setChatUuid,
         setChatId,
+        setCurrentChat,
         updateChatList,
         setSelectedModelRef,
         selectedModelRef
@@ -149,15 +152,13 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             }
             return msg
         })
-        setMessages(completedMessages)
+        completedMessages.forEach(msg => upsertMessage(msg))
 
         // 批量更新数据库（异步，不阻塞 UI）
         Promise.all(
             messagesToUpdate.map(msg =>
                 updateMessage({
-                    id: msg.id!,
-                    chatId: msg.chatId,
-                    chatUuid: msg.chatUuid,
+                    ...msg,
                     body: {
                         ...msg.body,
                         typewriterCompleted: true
@@ -229,7 +230,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         setChatId(null)
         setChatUuid(null)
         setChatTitle('NewChat')
-        setMessages([])
+        clearMessages()
 
         // 切换到默认 workspace (tmp)
         const workspaceResult = await switchWorkspace()
@@ -256,14 +257,11 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 console.warn(`[Workspace] Failed to switch workspace for chat ${chat.uuid}:`, workspaceResult.error)
             }
 
+            setCurrentChat(chat.id ?? null, chat.uuid)
             setChatTitle(chat.title)
-            setChatUuid(chat.uuid)
-            setChatId(chat.id ?? null)
 
-            const { getMessagesByChatId } = await import('@renderer/db/MessageRepository')
             if (chat.id) {
-                getMessagesByChatId(chat.id).then(messageList => {
-                    setMessages(messageList)
+                loadMessagesByChatId(chat.id).then(messageList => {
 
                     if (!selectedModelRef) {
                         const lastWithModelRef = [...messageList]
@@ -284,7 +282,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                     })
                 })
             } else {
-                setMessages([])
+                clearMessages()
             }
         }
     }

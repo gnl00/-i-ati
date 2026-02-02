@@ -23,7 +23,7 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
   const setChatId = useChatStore(state => state.setChatId)
   const setChatUuid = useChatStore(state => state.setChatUuid)
   const setChatTitle = useChatStore(state => state.setChatTitle)
-  const setMessages = useChatStore(state => state.setMessages)
+  const clearMessages = useChatStore(state => state.clearMessages)
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
@@ -43,10 +43,10 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
     setChatId(null)
     setChatUuid(null)
     setChatTitle('NewChat')
-    setMessages([])
+    clearMessages()
     toggleArtifacts(false)
     toggleWebSearch(false)
-  }, [setChatId, setChatUuid, setChatTitle, setMessages, toggleArtifacts, toggleWebSearch])
+  }, [setChatId, setChatUuid, setChatTitle, clearMessages, toggleArtifacts, toggleWebSearch])
 
   /**
    * Available slash commands
