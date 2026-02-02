@@ -12,6 +12,7 @@ function normalizeLanguage(lang: string) {
   if (lower === 'c#') return 'csharp'
   if (lower === 'typescript') return 'ts'
   if (lower === 'javascript') return 'js'
+  if (lower === 'python') return 'py'
   return lower
 }
 
