@@ -205,22 +205,9 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
               )}>
 
                 {isWebSearch && webSearchData ? (
-                  showDetails ? (
-                    <div className="p-3 bg-zinc-50/80 dark:bg-zinc-900/60">
-                      <WebSearchResults results={webSearchData.results} />
-                    </div>
-                  ) : (
-                    <div className="p-3">
-                      <div className="grid grid-cols-[80px_1fr] gap-y-2 text-xs">
-                        <div className="text-zinc-500">Tool</div>
-                        <div className="font-mono text-zinc-700 dark:text-zinc-200">{toolResponse?.toolName ?? tc.name}</div>
-                        <div className="text-zinc-500">Status</div>
-                        <div className="text-zinc-700 dark:text-zinc-200">{status ?? (isError ? 'failed' : 'ok')}</div>
-                        <div className="text-zinc-500">Results</div>
-                        <div className="text-zinc-700 dark:text-zinc-200">{webSearchData.results?.length ?? 0}</div>
-                      </div>
-                    </div>
-                  )
+                  <div className="p-3 bg-zinc-50/80 dark:bg-zinc-900/60">
+                    <WebSearchResults results={webSearchData.results} />
+                  </div>
                 ) : (
                   <>
                     {/* Technical Header */}
