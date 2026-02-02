@@ -92,16 +92,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
     toast.success('Result Copied');
   }
 
-  const toggleJsonExpand = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsJsonExpanded(prev => !prev);
-  }
-
   const isOpen = openItem === 'tool-result';
-  const toggleDetails = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setShowDetails(prev => !prev)
-  }
 
   return (
     <motion.div
