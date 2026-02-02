@@ -66,7 +66,7 @@ const VLMContentRenderer: React.FC<{ content: VLMContent[] }> = ({ content }) =>
           <AnimatedMarkdown
             key={idx}
             markdown={vlmContent.text ?? ''}
-            className="prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full dark:text-white"
+            className="prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full dark:text-white prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300"
           />
         )
       }
@@ -120,7 +120,7 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
         ) : (
           <AnimatedMarkdown
             markdown={m.content}
-            className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-full")}
+            className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300")}
           />
         )}
       </div>
