@@ -36,6 +36,7 @@ export function useScrollManagerLite({
   const lastUserScrollTsRef = useRef<number>(0)
   const showScrollToBottomRef = useRef<boolean>(false)
   const suppressNextFollowOutputRef = useRef<boolean>(false)
+  const suppressNextMessagesUpdateRef = useRef<boolean>(false)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false)
@@ -56,6 +57,10 @@ export function useScrollManagerLite({
   }, [messagesLength])
 
   const onMessagesUpdate = useCallback(() => {
+    if (suppressNextMessagesUpdateRef.current) {
+      suppressNextMessagesUpdateRef.current = false
+      return
+    }
     suppressNextFollowOutputRef.current = true
     scrollToBottom(false)
   }, [scrollToBottom])
@@ -90,20 +95,21 @@ export function useScrollManagerLite({
   }, [messagesLength, scrollToBottom])
 
   useEffect(() => {
+    if (!chatUuid || messagesLength <= 0) return
     userScrollOverrideRef.current = false
     isAtBottomRef.current = true
     setShowScrollToBottom(false)
+    suppressNextMessagesUpdateRef.current = true
     const index = messagesLength - 1
-    if (index < 0) return
     if (!virtuosoRef.current) return
     if (forceScrollRafRef.current) {
       cancelAnimationFrame(forceScrollRafRef.current)
     }
     forceScrollRafRef.current = requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({ index, align: 'end', behavior: 'smooth' })
+      virtuosoRef.current?.scrollToIndex({ index, align: 'end', behavior: 'auto' })
       forceScrollRafRef.current = 0
     })
-  }, [chatUuid])
+  }, [chatUuid, messagesLength])
 
   useEffect(() => {
     return () => {
