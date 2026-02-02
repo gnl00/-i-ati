@@ -6,7 +6,6 @@ import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageNext
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
-import { useAssistantStore } from '@renderer/store/assistant'
 import { ArrowDown } from 'lucide-react'
 import React, { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'

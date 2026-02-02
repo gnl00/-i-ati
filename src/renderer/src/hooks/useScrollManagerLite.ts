@@ -10,8 +10,8 @@ interface UseScrollManagerLiteProps {
 }
 
 interface UseScrollManagerLiteReturn {
-  scrollParentRef: RefObject<HTMLDivElement>
-  virtuosoRef: RefObject<VirtuosoHandle>
+  scrollParentRef: RefObject<HTMLDivElement | null>
+  virtuosoRef: RefObject<VirtuosoHandle | null>
   showScrollToBottom: boolean
   isButtonFadingOut: boolean
   scrollToBottom: (smooth?: boolean) => void
@@ -35,6 +35,7 @@ export function useScrollManagerLite({
   const scrollRafRef = useRef<number>(0)
   const lastUserScrollTsRef = useRef<number>(0)
   const showScrollToBottomRef = useRef<boolean>(false)
+  const suppressNextFollowOutputRef = useRef<boolean>(false)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false)
@@ -55,6 +56,7 @@ export function useScrollManagerLite({
   }, [messagesLength])
 
   const onMessagesUpdate = useCallback(() => {
+    suppressNextFollowOutputRef.current = true
     scrollToBottom(false)
   }, [scrollToBottom])
 
@@ -76,6 +78,7 @@ export function useScrollManagerLite({
     if (!container) return
     if (isAtBottomRef.current) {
       scrollToBottom(false)
+      suppressNextFollowOutputRef.current = false
       return
     }
     const distanceFromBottom =
@@ -83,6 +86,7 @@ export function useScrollManagerLite({
     if (distanceFromBottom > 40 && !showScrollToBottomRef.current) {
       setShowScrollToBottom(true)
     }
+    suppressNextFollowOutputRef.current = false
   }, [messagesLength, scrollToBottom])
 
   useEffect(() => {
@@ -163,6 +167,7 @@ export function useScrollManagerLite({
   }, [])
 
   const followOutput = useCallback((): FollowOutputValue => {
+    if (suppressNextFollowOutputRef.current) return false
     if (userScrollOverrideRef.current) return false
     if (isAtBottomRef.current) return 'auto'
     return false
