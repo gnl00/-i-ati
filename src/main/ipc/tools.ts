@@ -52,6 +52,7 @@ import {
   MEMORY_ADD_BATCH,
   MEMORY_SEARCH,
   MEMORY_GET_CHAT,
+  MEMORY_GET_ALL,
   MEMORY_DELETE,
   MEMORY_DELETE_CHAT,
   MEMORY_GET_STATS,
@@ -191,6 +192,10 @@ export function registerToolHandlers(): void {
   ipcMain.handle(MEMORY_GET_CHAT, async (_event, args) => {
     console.log('[Memory IPC] Get chat')
     return await MemoryService.getChatMemories(args.chatId ?? args)
+  })
+  ipcMain.handle(MEMORY_GET_ALL, async () => {
+    console.log('[Memory IPC] Get all')
+    return await MemoryService.getAllMemories()
   })
   ipcMain.handle(MEMORY_DELETE, async (_event, args) => {
     console.log('[Memory IPC] Delete')

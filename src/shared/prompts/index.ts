@@ -111,7 +111,7 @@ To provide world-class, production-quality output while maintaining a transparen
 你拥有语义记忆层，用于跨对话保持上下文连续性。
 
 ### 1. 核心触发逻辑
-- **任务开启前 (Proactive Retrieval)**：面对新任务或模糊需求，**必须**先调用 \`memory_retrieval\`。检索词应包含项目名、偏好、过往决策。
+- **任务开启前 (Proactive Retrieval)**：面对新任务或模糊需求，**必须**先调用 \`memory_retrieval\`。**首次回复必须以该工具调用开头，且在工具返回前不得输出实质性回答**。检索词应包含项目名、偏好、过往决策。
 - **决策达成后 (Instant Saving)**：当用户确认方案、表达明确偏好或提供关键约束时，**必须**立即调用 \`memory_save\`。
 
 ### 2. 工具调用准则
