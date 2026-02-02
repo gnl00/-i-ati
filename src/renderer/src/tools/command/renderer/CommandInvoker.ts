@@ -83,9 +83,10 @@ async function showCommandConfirmationDialog(params: {
   const { command, risk_level, risk_reason } = params
 
   // 使用 store 请求用户确认
+  const normalizedRiskLevel = risk_level === 'warning' ? 'risky' : risk_level
   const confirmed = await useCommandConfirmationStore.getState().requestConfirmation({
     command,
-    risk_level: risk_level as 'risky' | 'dangerous',
+    risk_level: normalizedRiskLevel as 'risky' | 'dangerous',
     risk_reason
   })
 
