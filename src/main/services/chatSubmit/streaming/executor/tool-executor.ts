@@ -13,6 +13,7 @@ import { toolCall as mcpToolCall } from '@main/mcp/client'
 import { v4 as uuidv4 } from 'uuid'
 import { normalizeToolArgs } from '../../utils'
 import type { ToolCallProps } from '../../types'
+import { assessCommandRisk } from '@main/tools/command/CommandProcessor'
 import type {
   IToolExecutor,
   ToolExecutorConfig,
@@ -39,6 +40,7 @@ export class ToolExecutor implements IToolExecutor {
   private readonly onProgress?: (progress: ToolExecutionProgress) => void
   private readonly signal?: AbortSignal
   private readonly chatUuid?: string
+  private readonly requestConfirmation?: ToolExecutorConfig['requestConfirmation']
 
   constructor(config: ToolExecutorConfig = {}) {
     this.config = {
@@ -47,6 +49,7 @@ export class ToolExecutor implements IToolExecutor {
     this.onProgress = config.onProgress
     this.signal = config.signal
     this.chatUuid = config.chatUuid
+    this.requestConfirmation = config.requestConfirmation
   }
 
   /**
@@ -103,12 +106,17 @@ export class ToolExecutor implements IToolExecutor {
     const toolIndex = call.index ?? 0
     const startTime = Date.now()
 
-    // 报告开始
-    this.reportProgress({
-      id: toolId,
-      name: toolName,
-      phase: 'started'
-    })
+    const requiresPlanReview = toolName === 'plan_create' && Boolean(this.requestConfirmation)
+    const requiresCommandReview = toolName === 'execute_command' && Boolean(this.requestConfirmation)
+
+    if (!requiresPlanReview && !requiresCommandReview) {
+      // 报告开始
+      this.reportProgress({
+        id: toolId,
+        name: toolName,
+        phase: 'started'
+      })
+    }
 
     try {
       // 执行前检查中止
@@ -116,8 +124,74 @@ export class ToolExecutor implements IToolExecutor {
         return this.createAbortedResult(call)
       }
 
+      let runtimeArgs = this.normalizeArgs(call)
+      if (requiresPlanReview && this.requestConfirmation) {
+        const decision = await this.requestConfirmation({
+          toolCallId: toolId,
+          name: toolName,
+          args: runtimeArgs
+        })
+        if (!decision.approved) {
+          const result = this.createAbortedResultWithReason(call, decision.reason)
+          this.reportProgress({
+            id: toolId,
+            name: toolName,
+            phase: 'completed',
+            result
+          })
+          return result
+        }
+        if (decision.args) {
+          runtimeArgs = this.applyRuntimeContext(normalizeToolArgs(decision.args))
+        }
+      }
+
+      if (requiresCommandReview && this.requestConfirmation) {
+        const command = typeof runtimeArgs?.command === 'string' ? runtimeArgs.command : ''
+        const risk = assessCommandRisk(command)
+        if (risk.level === 'dangerous' || risk.level === 'warning') {
+          const decision = await this.requestConfirmation({
+            toolCallId: toolId,
+            name: toolName,
+            args: runtimeArgs,
+            ui: {
+              command,
+              riskLevel: risk.level === 'warning' ? 'risky' : 'dangerous',
+              reason: risk.reason
+            }
+          })
+          if (!decision.approved) {
+            const result = this.createAbortedResultWithReason(call, decision.reason)
+            this.reportProgress({
+              id: toolId,
+              name: toolName,
+              phase: 'completed',
+              result
+            })
+            return result
+          }
+          runtimeArgs = {
+            ...runtimeArgs,
+            confirmed: true
+          }
+        } else {
+          runtimeArgs = {
+            ...runtimeArgs,
+            confirmed: true
+          }
+        }
+      }
+
+      if (requiresPlanReview || requiresCommandReview) {
+        this.reportProgress({
+          id: toolId,
+          name: toolName,
+          phase: 'started'
+        })
+      }
+
       // 直接执行工具
-      const content = await this.executeTool(call)
+      const content = await this.executeTool(call, runtimeArgs)
 
       const result: ToolExecutionResult = {
         id: toolId,
@@ -156,30 +230,31 @@ export class ToolExecutor implements IToolExecutor {
   /**
    * 执行实际的工具（embedded 或 MCP）
    */
-  private async executeTool(call: ToolCallProps): Promise<any> {
+  private async executeTool(call: ToolCallProps, runtimeArgs?: any): Promise<any> {
     const toolName = call.function
 
     // 检查是否是 embedded 工具
     if (embeddedToolsRegistry.isRegistered(toolName)) {
-      const args = typeof call.args === 'string'
-        ? JSON.parse(call.args)
-        : call.args
-      const normalizedArgs = normalizeToolArgs(args)
-      const runtimeArgs = this.applyRuntimeContext(normalizedArgs)
+      const safeArgs = runtimeArgs ?? this.normalizeArgs(call)
       const handler = embeddedToolsRegistry.getHandler(toolName)
       if (!handler) {
         throw new Error(`Tool "${toolName}" is not registered`)
       }
-      return await handler(runtimeArgs)
+      return await handler(safeArgs)
     }
 
     // 否则是 MCP 工具
     const callId = call.id || `call_${uuidv4()}`
-    const rawArgs = typeof call.args === 'string'
+    const safeArgs = runtimeArgs ?? this.normalizeArgs(call)
+    return await mcpToolCall(callId, toolName, safeArgs as { [x: string]: unknown })
+  }
+
+  private normalizeArgs(call: ToolCallProps): any {
+    const args = typeof call.args === 'string'
       ? JSON.parse(call.args)
       : call.args
-    const safeArgs = (rawArgs && typeof rawArgs === 'object') ? rawArgs : {}
-    return await mcpToolCall(callId, toolName, safeArgs as { [x: string]: unknown })
+    const normalizedArgs = normalizeToolArgs(args)
+    return this.applyRuntimeContext(normalizedArgs)
   }
 
   /**
@@ -246,6 +321,20 @@ export class ToolExecutor implements IToolExecutor {
       cost: 0,
       status: 'aborted',
       error
+    }
+  }
+
+  private createAbortedResultWithReason(call: ToolCallProps, reason?: string): ToolExecutionResult {
+    return {
+      id: call.id || `call_${uuidv4()}`,
+      index: call.index ?? 0,
+      name: call.function,
+      content: {
+        success: false,
+        reason: reason || 'user abort'
+      },
+      cost: 0,
+      status: 'aborted'
     }
   }
 

@@ -18,7 +18,7 @@ import { AbortError } from '../errors'
 import type { ToolCall } from '../types'
 import { formatWebSearchForLLM } from '../utils'
 import { ToolExecutor } from './executor'
-import type { ToolExecutionProgress, ToolExecutionResult } from './executor/types'
+import type { ToolExecutionProgress, ToolExecutionResult, ToolExecutorConfig } from './executor/types'
 import type { ChunkParser } from './parser'
 import { SegmentBuilder } from './parser'
 import type { ParseResult } from './parser/types'
@@ -94,6 +94,8 @@ export interface StreamingOrchestratorConfig {
   callbacks?: StreamingOrchestratorCallbacks
   /** 事件回调（可选） */
   events?: StreamingOrchestratorEvents
+  /** 工具执行确认回调（可选） */
+  toolConfirmationHandler?: ToolExecutorConfig['requestConfirmation']
 }
 
 /**
@@ -507,6 +509,7 @@ export class StreamingOrchestrator {
       maxConcurrency: 3,
       signal: this.signal,
       chatUuid: this.context.session.chatEntity?.uuid,
+      requestConfirmation: this.config.toolConfirmationHandler,
       onProgress: (progress: ToolExecutionProgress) => {
         if (progress.phase === 'started') {
           console.log(`[Tool] Starting: ${progress.name}`)

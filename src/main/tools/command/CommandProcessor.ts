@@ -90,6 +90,30 @@ const WARNING_PATTERNS = [
 ]
 
 // ============================================
+// Risk Assessment (shared)
+// ============================================
+
+export function assessCommandRisk(command: string): { level: RiskLevel; reason?: string } {
+  // 检查危险命令
+  for (const { pattern, reason } of DANGEROUS_PATTERNS) {
+    if (pattern.test(command)) {
+      console.log(`[CommandExecutor] Dangerous command detected: ${reason}`)
+      return { level: 'dangerous', reason }
+    }
+  }
+
+  // 检查警告级别命令
+  for (const { pattern, reason } of WARNING_PATTERNS) {
+    if (pattern.test(command)) {
+      console.log(`[CommandExecutor] Warning command detected: ${reason}`)
+      return { level: 'warning', reason }
+    }
+  }
+
+  return { level: 'safe' }
+}
+
+// ============================================
 // CommandExecutor Class
 // ============================================
 
@@ -108,23 +132,7 @@ class CommandExecutor {
    * 评估命令风险等级
    */
   private assessRisk(command: string): { level: RiskLevel; reason?: string } {
-    // 检查危险命令
-    for (const { pattern, reason } of DANGEROUS_PATTERNS) {
-      if (pattern.test(command)) {
-        console.log(`[CommandExecutor] Dangerous command detected: ${reason}`)
-        return { level: 'dangerous', reason }
-      }
-    }
-
-    // 检查警告级别命令
-    for (const { pattern, reason } of WARNING_PATTERNS) {
-      if (pattern.test(command)) {
-        console.log(`[CommandExecutor] Warning command detected: ${reason}`)
-        return { level: 'warning', reason }
-      }
-    }
-
-    return { level: 'safe' }
+    return assessCommandRisk(command)
   }
 
   /**

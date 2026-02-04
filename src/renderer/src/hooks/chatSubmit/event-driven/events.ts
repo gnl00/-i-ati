@@ -17,6 +17,7 @@ export type ChatSubmitEventType =
   | 'tool.call.flushed'
   | 'tool.call.attached'
   | 'tool.exec.started'
+  | 'tool.exec.requires_confirmation'
   | 'tool.exec.completed'
   | 'tool.exec.failed'
   | 'tool.result.attached'
@@ -58,6 +59,17 @@ export type ChatSubmitEventPayloads = {
   'tool.call.flushed': { toolCalls: IToolCall[] }
   'tool.call.attached': { toolCallIds: string[]; messageId?: number }
   'tool.exec.started': { toolCallId: string; name: string }
+  'tool.exec.requires_confirmation': {
+    toolCallId: string
+    name: string
+    args?: unknown
+    ui?: {
+      title?: string
+      riskLevel?: 'risky' | 'dangerous'
+      reason?: string
+      command?: string
+    }
+  }
   'tool.exec.completed': { toolCallId: string; result: any; cost: number }
   'tool.exec.failed': { toolCallId: string; error: Error }
   'tool.result.attached': { toolCallId: string; message: MessageEntity }

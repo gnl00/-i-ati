@@ -4,6 +4,7 @@
  */
 
 import type { ChatSubmitEvent } from '@renderer/hooks/chatSubmit/event-driven/events'
+import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import {
   PIN_WINDOW,
   OPEN_PATH,
@@ -53,8 +54,17 @@ import {
   DB_ASSISTANT_GET_BY_ID,
   DB_ASSISTANT_UPDATE,
   DB_ASSISTANT_DELETE,
+  DB_TASK_PLAN_SAVE,
+  DB_TASK_PLAN_UPDATE,
+  DB_TASK_PLAN_GET_BY_ID,
+  DB_TASK_PLAN_GET_BY_CHAT_UUID,
+  DB_TASK_PLAN_DELETE,
+  DB_TASK_PLAN_UPDATE_STATUS,
+  DB_TASK_PLAN_STEP_UPSERT,
+  DB_TASK_PLAN_STEP_UPDATE_STATUS,
   CHAT_SUBMIT_SUBMIT,
   CHAT_SUBMIT_CANCEL,
+  CHAT_SUBMIT_TOOL_CONFIRM,
   CHAT_SUBMIT_EVENT,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE,
@@ -438,6 +448,16 @@ export async function invokeChatSubmitCancel(data: { submissionId: string; reaso
   return await ipc.invoke(CHAT_SUBMIT_CANCEL, data)
 }
 
+export async function invokeChatSubmitToolConfirm(data: {
+  toolCallId: string
+  approved: boolean
+  reason?: string
+  args?: unknown
+}): Promise<{ ok: boolean }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(CHAT_SUBMIT_TOOL_CONFIRM, data)
+}
+
 export function subscribeChatSubmitEvents(
   handler: (event: ChatSubmitEvent) => void
 ): () => void {
@@ -521,6 +541,60 @@ export async function invokeDbAssistantUpdate(data: Assistant): Promise<void> {
 export async function invokeDbAssistantDelete(id: string): Promise<boolean> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_ASSISTANT_DELETE, id)
+}
+
+// ============ Database Operations - Task Planner ============
+
+export async function invokeDbTaskPlanSave(plan: Plan): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_TASK_PLAN_SAVE, plan)
+}
+
+export async function invokeDbTaskPlanUpdate(plan: Plan): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_TASK_PLAN_UPDATE, plan)
+}
+
+export async function invokeDbTaskPlanUpdateStatus(data: {
+  id: string
+  status: PlanStatus
+  currentStepId?: string
+  failureReason?: string
+}): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_TASK_PLAN_UPDATE_STATUS, data)
+}
+
+export async function invokeDbTaskPlanGetById(id: string): Promise<Plan | undefined> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_TASK_PLAN_GET_BY_ID, id)
+}
+
+export async function invokeDbTaskPlanGetByChatUuid(chatUuid: string): Promise<Plan[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_TASK_PLAN_GET_BY_CHAT_UUID, chatUuid)
+}
+
+export async function invokeDbTaskPlanDelete(id: string): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_TASK_PLAN_DELETE, id)
+}
+
+export async function invokeDbTaskPlanStepUpsert(planId: string, step: PlanStep): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_TASK_PLAN_STEP_UPSERT, { planId, step })
+}
+
+export async function invokeDbTaskPlanStepUpdateStatus(
+  planId: string,
+  stepId: string,
+  status: PlanStep['status'],
+  output?: unknown,
+  error?: string,
+  notes?: string
+): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_TASK_PLAN_STEP_UPDATE_STATUS, { planId, stepId, status, output, error, notes })
 }
 
 // ============ CompressedSummary Operations ============

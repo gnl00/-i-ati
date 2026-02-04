@@ -5,6 +5,7 @@ import { registerProviderHandlers } from '@main/ipc/providers'
 import { registerSkillHandlers } from '@main/ipc/skills'
 import { registerSystemHandlers } from '@main/ipc/system'
 import { registerToolHandlers } from '@main/ipc/tools'
+import { registerTaskPlanHandlers } from '@main/ipc/task-planner'
 
 function mainIPCSetup() {
   registerSystemHandlers()
@@ -14,6 +15,7 @@ function mainIPCSetup() {
   registerProviderHandlers()
   registerMessageHandlers()
   registerChatHandlers()
+  registerTaskPlanHandlers()
 }
 
 export {

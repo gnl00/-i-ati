@@ -120,6 +120,16 @@ export const DB_ASSISTANT_GET_BY_ID = 'db:assistant:get-by-id'
 export const DB_ASSISTANT_UPDATE = 'db:assistant:update'
 export const DB_ASSISTANT_DELETE = 'db:assistant:delete'
 
+// Database Operations - Task Planner
+export const DB_TASK_PLAN_SAVE = 'db:task-plan:save'
+export const DB_TASK_PLAN_UPDATE = 'db:task-plan:update'
+export const DB_TASK_PLAN_GET_BY_ID = 'db:task-plan:get-by-id'
+export const DB_TASK_PLAN_GET_BY_CHAT_UUID = 'db:task-plan:get-by-chat-uuid'
+export const DB_TASK_PLAN_DELETE = 'db:task-plan:delete'
+export const DB_TASK_PLAN_UPDATE_STATUS = 'db:task-plan:update-status'
+export const DB_TASK_PLAN_STEP_UPSERT = 'db:task-plan-step:upsert'
+export const DB_TASK_PLAN_STEP_UPDATE_STATUS = 'db:task-plan-step:update-status'
+
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
 
@@ -127,5 +137,6 @@ export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
 export const CHAT_SUBMIT_SUBMIT = 'chat-submit:submit'
 export const CHAT_SUBMIT_CANCEL = 'chat-submit:cancel'
 export const CHAT_SUBMIT_EVENT = 'chat-submit:event'
+export const CHAT_SUBMIT_TOOL_CONFIRM = 'chat-submit:tool-confirm'
 export const CHAT_COMPRESSION_EXECUTE = 'chat-compression:execute'
 export const CHAT_TITLE_GENERATE = 'chat-title:generate'

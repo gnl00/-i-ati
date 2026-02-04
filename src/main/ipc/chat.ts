@@ -20,9 +20,11 @@ import {
   DB_ASSISTANT_DELETE,
   CHAT_SUBMIT_SUBMIT,
   CHAT_SUBMIT_CANCEL,
+  CHAT_SUBMIT_TOOL_CONFIRM,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE
 } from '@shared/constants'
+import { toolConfirmationManager } from '@main/services/chatSubmit/tool-confirmation'
 
 const chatSubmitService = new MainChatSubmitService()
 
@@ -84,6 +86,15 @@ export function registerChatHandlers(): void {
     console.log(`[ChatSubmit IPC] Cancel: ${data.submissionId}`)
     chatSubmitService.cancel(data.submissionId, data.reason)
     return { cancelled: true }
+  })
+
+  ipcMain.handle(CHAT_SUBMIT_TOOL_CONFIRM, async (_event, data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }) => {
+    toolConfirmationManager.resolve(data.toolCallId, {
+      approved: data.approved,
+      reason: data.reason,
+      args: data.args
+    })
+    return { ok: true }
   })
 
   ipcMain.handle(CHAT_COMPRESSION_EXECUTE, async (_event, data: CompressionJob & { submissionId?: string }) => {

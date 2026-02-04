@@ -199,6 +199,39 @@ class AppDatabase {
       )
     `)
 
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS task_plans (
+        id TEXT PRIMARY KEY,
+        chat_uuid TEXT,
+        goal TEXT NOT NULL,
+        context TEXT,
+        constraints TEXT,
+        status TEXT NOT NULL,
+        current_step_id TEXT,
+        failure_reason TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS task_plan_steps (
+        id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        status TEXT NOT NULL,
+        depends_on TEXT,
+        tool TEXT,
+        input TEXT,
+        output TEXT,
+        error TEXT,
+        notes TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (plan_id) REFERENCES task_plans(id) ON DELETE CASCADE
+      )
+    `)
+
     console.log('[Database] Tables created')
   }
 
@@ -224,6 +257,9 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chat_skills_skill_name ON chat_skills(skill_name);
       CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider_id ON provider_accounts(provider_id);
       CREATE INDEX IF NOT EXISTS idx_provider_models_account_id ON provider_models(account_id);
+      CREATE INDEX IF NOT EXISTS idx_task_plans_chat_uuid ON task_plans(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_task_plans_status ON task_plans(status);
+      CREATE INDEX IF NOT EXISTS idx_task_plan_steps_plan_id ON task_plan_steps(plan_id);
     `)
 
     console.log('[Database] Indexes created')
