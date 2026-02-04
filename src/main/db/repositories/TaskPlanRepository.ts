@@ -29,7 +29,6 @@ interface TaskPlanStepRow {
 }
 
 class TaskPlanRepository {
-  private db: Database.Database
   private stmts: {
     insertPlan: Database.Statement
     updatePlan: Database.Statement
@@ -47,7 +46,6 @@ class TaskPlanRepository {
   }
 
   constructor(db: Database.Database) {
-    this.db = db
     this.stmts = {
       insertPlan: db.prepare(`
         INSERT INTO task_plans (
