@@ -20,6 +20,15 @@ import { processWebFetch, processWebSearch } from '@main/tools/webTools/WebTools
 import { processMemoryRetrieval, processMemorySave } from '@main/tools/memory/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import { processLoadSkill, processUnloadSkill, processReadSkillFile } from '@main/tools/skills/SkillToolsProcessor'
+import {
+  processPlanCreate,
+  processPlanDelete,
+  processPlanGetByChatUuid,
+  processPlanGetById,
+  processPlanStepUpsert,
+  processPlanUpdate,
+  processPlanUpdateStatus
+} from '@main/tools/taskPlanner/TaskPlannerProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
@@ -45,7 +54,14 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   execute_command: processExecuteCommand,
   load_skill: processLoadSkill,
   unload_skill: processUnloadSkill,
-  read_skill_file: processReadSkillFile
+  read_skill_file: processReadSkillFile,
+  plan_create: processPlanCreate,
+  plan_update: processPlanUpdate,
+  plan_update_status: processPlanUpdateStatus,
+  plan_get_by_id: processPlanGetById,
+  plan_get_by_chat_uuid: processPlanGetByChatUuid,
+  plan_delete: processPlanDelete,
+  plan_step_upsert: processPlanStepUpsert
 }
 
 export function initializeMainEmbeddedTools(): void {

@@ -32,9 +32,10 @@ const OperationButton: React.FC<OperationButtonProps> = ({
     onClick?.()
 
     // Remove focus after click to prevent persistent focus ring
+    const target = e.currentTarget
     setTimeout(() => {
       setIsPressed(false)
-      e.currentTarget.blur()
+      target?.blur()
     }, 300)
   }
 

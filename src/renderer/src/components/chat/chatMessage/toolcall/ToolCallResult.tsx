@@ -15,7 +15,7 @@ interface ToolCallResultProps {
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc }) => {
+export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc, index }) => {
   const [openItem, setOpenItem] = useState<string>('');
   const [showDetails, setShowDetails] = useState(false);
 
@@ -32,6 +32,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
   // 检测是否为 Web Search 结果
   const isWebSearch = (toolResponse?.toolName ?? tc.name) === 'web_search'
   const webSearchData = isWebSearch && resultPayload?.results ? resultPayload : null
+  const toolName = toolResponse?.toolName ?? tc.name
   const isError = tc.isError;
   const status = typeof toolResponse?.status === 'string' ? toolResponse.status : undefined
   const isRunning = !isError && status === 'running'
@@ -58,6 +59,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
     return Object.entries(args)
   }, [toolResponse?.args])
 
+
   // Memoize JSON stringification
   const contentString = useMemo(() => {
     return typeof resultPayload?.content === 'string' ? resultPayload.content : ''
@@ -66,6 +68,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
   const contentLineCount = useMemo(() => {
     return contentString ? contentString.split('\n').length : 0
   }, [contentString])
+
 
   const isContentLong = contentLineCount > jsonLineThreshold || contentString.length > contentCharThreshold
 
@@ -110,7 +113,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
         collapsible
         value={openItem}
         onValueChange={setOpenItem}
-        className="group relative flex flex-col transition-all select-none"
+        className="group relative flex flex-col transition-all"
       >
         <AccordionItem value="tool-result" className="border-0">
           <AccordionTrigger className="hover:no-underline py-0">
@@ -140,18 +143,23 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                   isOpen && "scale-110 rotate-6"
                 )} />
                 <span className={cn(
-                  "font-mono text-[11px] font-semibold tracking-tight leading-none",
-                  isError ? "text-red-700 dark:text-red-300" : "text-slate-500 dark:text-zinc-200"
+                  "text-[11px] font-semibold tracking-tight leading-none uppercase",
+                  isError ? "text-red-700 dark:text-red-300" : "text-slate-500 dark:text-slate-400"
                 )}>
                   {tc.name}
                 </span>
               </div>
 
-              {tc.cost && (
+              {tc.cost ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-zinc-900/40 select-none">
                   {(tc.cost / 1000).toFixed(3)}s
                 </span>
-              )}
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-zinc-900/40 select-none">
+                  0.000s
+                </span>
+              )
+            }
 
               <ChevronDown className={cn(
                 "w-3 h-3 transition-transform duration-300 text-zinc-500 dark:text-zinc-400",
@@ -199,7 +207,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                           <Switch
                             checked={showDetails}
                             onCheckedChange={(checked) => setShowDetails(Boolean(checked))}
-                            className="h-3.5 w-6 border border-zinc-200/80 bg-transparent data-[state=checked]:bg-zinc-800/80 data-[state=unchecked]:bg-transparent [&>span]:h-2.5 [&>span]:w-2.5 [&>span]:translate-x-[1px] data-[state=checked]:[&>span]:translate-x-[12px]"
+                            className="h-3.5 w-6 border border-zinc-200/80 bg-transparent dark:bg-gray-500 data-[state=checked]:bg-zinc-800/80 data-[state=unchecked]:bg-transparent [&>span]:h-2.5 [&>span]:w-2.5 [&>span]:translate-x-px data-[state=checked]:[&>span]:translate-x-[12px]"
                           />
                           <span className="text-[9px] font-semibold text-zinc-500">Detail</span>
                         </div>

@@ -8,7 +8,7 @@ import { cn } from '@renderer/lib/utils'
 import { ChevronDown, Lightbulb } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
 import { useChatStore } from '@renderer/store'
-import { useCommandConfirmationStore } from '@renderer/store/commandConfirmation'
+import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 import { ToolCallResult } from './toolcall/ToolCallResult'
 import { useMessageTypewriter } from './typewriter/use-message-typewriter'
 import { markdownCodeComponents, fixMalformedCodeBlocks } from './markdown/markdown-components'
@@ -124,7 +124,7 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
               )} />
             </span>
             <span className={cn(
-              'text-[10px] font-semibold uppercase tracking-tight select-none',
+              'text-[10px] font-semibold uppercase select-none',
               'text-slate-500 dark:text-slate-400',
               'transition-colors duration-300 ease-out',
               'group-hover:text-slate-700 dark:group-hover:text-slate-300'
@@ -189,10 +189,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 }) => {
   const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
 
-  // 命令确认状态
-  const pendingRequest = useCommandConfirmationStore(state => state.pendingRequest)
-  const confirm = useCommandConfirmationStore(state => state.confirm)
-  const cancel = useCommandConfirmationStore(state => state.cancel)
+  const pendingToolConfirm = useToolConfirmationStore(state => state.pendingRequest)
+  const confirm = useToolConfirmationStore(state => state.confirm)
+  const cancel = useToolConfirmationStore(state => state.cancel)
 
   const {
     segments,
@@ -303,11 +302,15 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         })}
 
         {/* Command Confirmation */}
-        {isLatest && pendingRequest && (
+        {isLatest && pendingToolConfirm?.name === 'execute_command' && pendingToolConfirm.ui && (
           <CommandConfirmation
-            request={pendingRequest}
+            request={{
+              command: pendingToolConfirm.ui.command || '',
+              risk_level: pendingToolConfirm.ui.riskLevel || 'risky',
+              risk_reason: pendingToolConfirm.ui.reason || 'Requires confirmation'
+            }}
             onConfirm={confirm}
-            onCancel={cancel}
+            onCancel={() => cancel('user abort')}
           />
         )}
       </div>

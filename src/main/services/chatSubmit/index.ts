@@ -1,4 +1,5 @@
 import { ChatSubmitEventEmitter } from './event-emitter'
+import { toolConfirmationManager } from './tool-confirmation'
 import { ChunkParser } from './streaming/parser'
 import { StreamingOrchestrator } from './streaming/orchestrator'
 import type {
@@ -323,11 +324,21 @@ export class MainChatSubmitService {
       return
     }
 
+    const chat = this.resolveChatEntity(input.chatId, input.chatUuid)
+    if (input.chatId && chat.id && input.chatId !== chat.id) {
+      console.warn('[ChatSubmit] input.chatId mismatch resolved chat.id', {
+        inputChatId: input.chatId,
+        resolvedChatId: chat.id,
+        inputChatUuid: input.chatUuid,
+        resolvedChatUuid: chat.uuid
+      })
+    }
+
     const controller = new AbortController()
     const emitter = new ChatSubmitEventEmitter({
       submissionId: input.submissionId,
-      chatId: input.chatId,
-      chatUuid: input.chatUuid
+      chatId: chat.id,
+      chatUuid: chat.uuid
     })
 
     this.active.set(input.submissionId, { controller, emitter })
@@ -349,7 +360,7 @@ export class MainChatSubmitService {
         tools: []
       },
       session: {
-        chatEntity: input.chatUuid ? { uuid: input.chatUuid } as ChatEntity : undefined
+        chatEntity: chat
       },
       control: {
         signal: controller.signal
@@ -366,14 +377,15 @@ export class MainChatSubmitService {
       messageEntities,
       request,
       emitter,
-      input.chatId,
-      input.chatUuid
+      chat.id,
+      chat.uuid
     )
 
     const toolExecutor = new ToolExecutor({
       maxConcurrency: 3,
       signal: controller.signal,
-      chatUuid: input.chatUuid,
+      chatUuid: chat.uuid,
+      requestConfirmation: (request) => toolConfirmationManager.request(emitter, request),
       onProgress: (progress: ToolExecutionProgress) => {
         if (progress.phase === 'started') {
           emitter.emit('tool.exec.started', {
@@ -405,6 +417,7 @@ export class MainChatSubmitService {
       parser,
       messageManager,
       signal: controller.signal,
+      toolConfirmationHandler: (request) => toolConfirmationManager.request(emitter, request),
       callbacks: {
         onPhaseChange: () => {}
       },

@@ -7,9 +7,13 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { ArrowDown } from 'lucide-react'
-import React, { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import { useScrollManagerLite } from '@renderer/hooks/useScrollManagerLite'
+import { TaskPlanCard } from './task/TaskPlanCard'
+import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
+import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
 
 const ChatMessageRow: React.FC<{
   messageIndex: number
@@ -32,7 +36,7 @@ const ChatMessageRow: React.FC<{
   )
 })
 
-const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
+const ChatWindowComponent: React.FC = () => {
   const messages = useChatStore(state => state.messages)
   const lastAssistantIndex = useChatStore(state => {
     for (let i = state.messages.length - 1; i >= 0; i--) {
@@ -71,6 +75,11 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
   const [showWelcome, setShowWelcome] = useState<boolean>(true)
   const [isWelcomeExiting, setIsWelcomeExiting] = useState<boolean>(false)
   const hasShownWelcomeRef = useRef<boolean>(false)
+  const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
+  useToolConfirmations(chatUuid)
+  const displayPlans = pendingPlanReview
+    ? [pendingPlanReview.plan, ...activePlans]
+    : activePlans
 
   const handleScrollToBottomClick = useCallback(() => {
     const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
@@ -127,8 +136,6 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
     }
   }, [chatUuid, messages.length])
 
-  
-
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
       <ChatHeaderComponent />
@@ -165,6 +172,42 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
                 className="flex-1 app-undragable overflow-scroll px-2 contain-layout contain-paint overscroll-contain"
                 style={{ overflowAnchor: 'none' }}
               >
+              <AnimatePresence initial={false}>
+                {displayPlans.length > 0 && (
+                  <motion.div
+                    className="sticky top-0 z-30 -mx-2 px-2 pt-1 pb-1 bg-chat-light/95 dark:bg-chat-dark/95 backdrop-blur-sm overflow-hidden"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  >
+                    <div className="space-y-2">
+                      {displayPlans.map((plan, index) => {
+                        const isPendingReview = pendingPlanReview?.plan.id === plan.id
+                        return (
+                        <motion.div
+                          key={plan.id}
+                          initial={{ opacity: 0, y: -30 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.3,
+                            ease: [0.25, 0.46, 0.45, 0.94],
+                            delay: index * 0.05
+                          }}
+                        >
+                          <TaskPlanCard
+                            plan={plan}
+                            onPlanUpdated={refreshPlans}
+                            onApprove={isPendingReview ? approvePlanReview : undefined}
+                            onAbort={isPendingReview ? abortPlanReview : undefined}
+                          />
+                        </motion.div>
+                        )
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <Virtuoso
                 ref={virtuosoRef}
                 data={messages}
@@ -265,6 +308,6 @@ const ChatWindowComponent: React.FC = forwardRef<HTMLDivElement>(() => {
       </ResizablePanelGroup>
     </div>
   )
-})
+}
 
 export default ChatWindowComponent

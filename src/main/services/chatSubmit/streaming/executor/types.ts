@@ -52,6 +52,12 @@ export interface ToolExecutorConfig {
   signal?: AbortSignal
   /** 当前聊天 UUID（用于工具执行上下文） */
   chatUuid?: string
+  /** 工具执行前确认回调（可用于计划审核） */
+  requestConfirmation?: (request: {
+    toolCallId: string
+    name: string
+    args?: unknown
+  }) => Promise<{ approved: boolean; reason?: string; args?: unknown }>
 }
 
 /**
