@@ -57,6 +57,12 @@ export interface ToolExecutorConfig {
     toolCallId: string
     name: string
     args?: unknown
+    ui?: {
+      title?: string
+      riskLevel?: 'risky' | 'dangerous'
+      reason?: string
+      command?: string
+    }
   }) => Promise<{ approved: boolean; reason?: string; args?: unknown }>
 }
 

@@ -232,6 +232,26 @@ class AppDatabase {
       )
     `)
 
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_tasks (
+        id TEXT PRIMARY KEY,
+        chat_uuid TEXT NOT NULL,
+        plan_id TEXT,
+        goal TEXT NOT NULL,
+        run_at INTEGER NOT NULL,
+        timezone TEXT,
+        status TEXT NOT NULL,
+        payload TEXT,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        max_attempts INTEGER NOT NULL DEFAULT 3,
+        last_error TEXT,
+        result_message_id INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (plan_id) REFERENCES task_plans(id) ON DELETE SET NULL
+      )
+    `)
+
     console.log('[Database] Tables created')
   }
 
@@ -260,6 +280,10 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_task_plans_chat_uuid ON task_plans(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_task_plans_status ON task_plans(status);
       CREATE INDEX IF NOT EXISTS idx_task_plan_steps_plan_id ON task_plan_steps(plan_id);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_chat_uuid ON scheduled_tasks(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status_run_at ON scheduled_tasks(status, run_at);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_run_at ON scheduled_tasks(run_at);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_plan_id ON scheduled_tasks(plan_id);
     `)
 
     console.log('[Database] Indexes created')

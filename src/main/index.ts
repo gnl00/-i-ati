@@ -9,6 +9,7 @@ import { createWindow } from './main-window'
 import DatabaseService from './services/DatabaseService'
 import MemoryService from './services/memory/MemoryService'
 import { SkillService } from './services/skills/SkillService'
+import { schedulerService } from './services/scheduler/SchedulerService'
 import { StartupTracer } from './utils/startupTracer'
 import { STARTUP_RENDERER_MARK, STARTUP_RENDERER_READY } from '@shared/constants/startup'
 
@@ -84,6 +85,8 @@ app.whenReady().then(async () => {
   ipcSetup()
   startupTracer.mark('ipc.init.end')
 
+  schedulerService.start()
+
   // IPC handlers 必须在窗口创建前注册
   // 渲染进程（renderer）可能在窗口创建后立即尝试调用 IPC 方法。如果 handlers 还没注册，这些调用就会失败。
   console.log('[App] Initializing main window...')
@@ -126,6 +129,7 @@ app.on('window-all-closed', () => {
   destroyWindowPool()
   // Clean up development servers
   cleanupDevServers()
+  schedulerService.stop()
 })
 
 // In this file you can include the rest of your app"s specific main process
