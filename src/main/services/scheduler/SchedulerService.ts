@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/services/DatabaseService'
 import { MainChatSubmitService } from '@main/services/chatSubmit'
+import { ChatSubmitEventEmitter } from '@main/services/chatSubmit/event-emitter'
 import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
 
 type ScheduledTaskPayload = {
@@ -8,7 +9,7 @@ type ScheduledTaskPayload = {
   modelRef?: ModelRef
 }
 
-class SchedulerService {
+export class SchedulerService {
   private timer: NodeJS.Timeout | null = null
   private isTicking = false
   private readonly chatSubmitService = new MainChatSubmitService()
@@ -55,6 +56,12 @@ class SchedulerService {
         throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
       }
 
+      const emitter = new ChatSubmitEventEmitter({
+        submissionId: `schedule:${task.id}`,
+        chatId: chat.id,
+        chatUuid: chat.uuid
+      })
+
       const payload = this.parsePayload(task.payload)
       const modelRef = payload.modelRef ?? this.resolveModelRef(chat.model)
       if (!modelRef) {
@@ -64,7 +71,24 @@ class SchedulerService {
       const prompt = payload.prompt?.trim() || task.goal
       const submissionId = uuidv4()
 
-      await this.chatSubmitService.submit({
+      const userMessageId = DatabaseService.saveMessage({
+        chatId: chat.id,
+        chatUuid: chat.uuid,
+        body: {
+          role: 'user',
+          content: prompt,
+          segments: [
+            {
+              type: 'text',
+              content: prompt,
+              timestamp: Date.now()
+            }
+          ],
+          source: 'schedule'
+        }
+      })
+
+      const submitResult = await this.chatSubmitService.submit({
         submissionId,
         chatId: chat.id,
         chatUuid: chat.uuid,
@@ -73,15 +97,37 @@ class SchedulerService {
           textCtx: prompt,
           mediaCtx: [],
           stream: true
-        }
+        },
+        persistMessages: true
       })
 
-      const messageId = this.getLatestAssistantMessageId(chat.uuid)
-      DatabaseService.updateScheduledTaskStatus(task.id, 'completed', nextAttempt, undefined, messageId)
+      const assistantMessageId = submitResult.assistantMessageId
+      DatabaseService.updateScheduledTaskStatus(
+        task.id,
+        'completed',
+        nextAttempt,
+        undefined,
+        assistantMessageId
+      )
+
+      const userMessage = DatabaseService.getMessageById(userMessageId)
+      if (userMessage) {
+        emitter.emit('message.created', { message: userMessage })
+      }
+      if (assistantMessageId) {
+        const assistantMessage = DatabaseService.getMessageById(assistantMessageId)
+        if (assistantMessage) {
+          emitter.emit('message.created', { message: assistantMessage })
+        }
+      }
+
+      emitter.emit('schedule.updated', { task: DatabaseService.getScheduledTaskById(task.id) ?? task })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      const status = nextAttempt >= (task.max_attempts || 3) ? 'failed' : 'pending'
+      const maxAttempts = task.max_attempts ?? 0
+      const status = maxAttempts === 0 || nextAttempt >= maxAttempts ? 'failed' : 'pending'
       DatabaseService.updateScheduledTaskStatus(task.id, status, nextAttempt, message, undefined)
+      this.emitScheduleUpdated(task.id)
       console.error('[Scheduler] Task failed:', { taskId: task.id, error: message })
     }
   }
@@ -118,14 +164,16 @@ class SchedulerService {
     return { accountId: account.id, modelId: model.id }
   }
 
-  private getLatestAssistantMessageId(chatUuid: string): number | undefined {
-    const messages = DatabaseService.getMessagesByChatUuid(chatUuid)
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].body.role === 'assistant' && messages[i].id) {
-        return messages[i].id
-      }
-    }
-    return undefined
+  private emitScheduleUpdated(taskId: string): void {
+    const task = DatabaseService.getScheduledTaskById(taskId)
+    if (!task) return
+    const chat = DatabaseService.getChatByUuid(task.chat_uuid)
+    const emitter = new ChatSubmitEventEmitter({
+      submissionId: `schedule:${task.id}`,
+      chatId: chat?.id,
+      chatUuid: task.chat_uuid
+    })
+    emitter.emit('schedule.updated', { task })
   }
 }
 

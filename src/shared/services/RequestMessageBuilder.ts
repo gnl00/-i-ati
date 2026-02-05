@@ -150,6 +150,7 @@ class RequestMessageBuilder {
     }
   }
 
+
   /**
    * 步骤 2: 过滤无效消息
    */

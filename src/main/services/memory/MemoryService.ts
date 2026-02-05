@@ -86,6 +86,7 @@ class MemoryService {
   // 预编译语句缓存
   private stmts: {
     insert?: Database.Statement
+    update?: Database.Statement
     getById?: Database.Statement
     getByChatId?: Database.Statement
     getAll?: Database.Statement
@@ -211,6 +212,11 @@ class MemoryService {
     this.stmts.insert = this.db.prepare(`
       INSERT INTO memories (id, chat_id, message_id, role, context_origin, context_en, timestamp, metadata)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    this.stmts.update = this.db.prepare(`
+      UPDATE memories
+      SET role = ?, context_origin = ?, context_en = ?, timestamp = ?, metadata = ?
+      WHERE id = ?
     `)
 
     this.stmts.getById = this.db.prepare(`
@@ -560,6 +566,84 @@ class MemoryService {
       return row ? this.rowToEntry(row) : null
     } catch (error) {
       console.error('[MemoryService] Failed to get memory:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 更新记忆条目（根据 id）
+   */
+  public async updateMemory(
+    id: string,
+    updates: {
+      context_origin?: string
+      context_en?: string
+      metadata?: Record<string, any> | null
+      role?: 'user' | 'assistant' | 'system'
+      timestamp?: number
+    }
+  ): Promise<MemoryEntry | null> {
+    await this.initialize()
+
+    try {
+      const existing = await this.getMemoryById(id)
+      if (!existing) return null
+
+      const nextContextOrigin = updates.context_origin ?? existing.context_origin
+      const nextContextEn = updates.context_en ?? existing.context_en
+      const nextRole = updates.role ?? existing.role
+      const nextTimestamp = updates.timestamp ?? existing.timestamp
+      const nextMetadata = updates.metadata === undefined ? existing.metadata : updates.metadata
+
+      let nextEmbedding = existing.embedding
+      const needsEmbedding = updates.context_en !== undefined && updates.context_en !== existing.context_en
+      if (needsEmbedding) {
+        const { embedding } = await EmbeddingServiceInstance.generateEmbedding(nextContextEn)
+        nextEmbedding = embedding
+      }
+
+      const updateTransaction = this.db!.transaction(() => {
+        this.stmts.update!.run(
+          nextRole,
+          nextContextOrigin,
+          nextContextEn,
+          nextTimestamp,
+          nextMetadata ? JSON.stringify(nextMetadata) : null,
+          id
+        )
+
+        if (needsEmbedding) {
+          const vecStmt = this.db!.prepare(`
+            UPDATE vec_memories SET embedding = ? WHERE memory_id = ?
+          `)
+          const embeddingVector = new Float32Array(nextEmbedding)
+          const embeddingBuffer = Buffer.from(
+            embeddingVector.buffer,
+            embeddingVector.byteOffset,
+            embeddingVector.byteLength
+          )
+          const result = vecStmt.run(embeddingBuffer, id)
+          if (result.changes === 0) {
+            this.db!.prepare(`
+              INSERT INTO vec_memories(memory_id, embedding) VALUES (?, ?)
+            `).run(id, embeddingBuffer)
+          }
+        }
+      })
+
+      updateTransaction()
+
+      return {
+        ...existing,
+        context_origin: nextContextOrigin,
+        context_en: nextContextEn,
+        role: nextRole,
+        timestamp: nextTimestamp,
+        metadata: nextMetadata ?? undefined,
+        embedding: nextEmbedding
+      }
+    } catch (error) {
+      console.error('[MemoryService] Failed to update memory:', error)
       throw error
     }
   }

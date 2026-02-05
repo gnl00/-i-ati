@@ -36,7 +36,7 @@ export class OpenAIAdapter extends BaseAdapter {
     }
 
     if (req.tools?.length) {
-      requestBody.tools = this.transformTools(req.tools)
+      requestBody.tools = this.transformToolDefinitions(req.tools)
     }
 
     return requestBody
@@ -222,7 +222,7 @@ export class OpenAIV2Adapter extends BaseAdapter {
     }
 
     if (req.tools?.length) {
-      requestBody.tools = this.transformTools(req.tools)
+      requestBody.tools = this.transformToolDefinitions(req.tools)
     }
 
     return requestBody

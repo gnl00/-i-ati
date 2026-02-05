@@ -129,6 +129,7 @@ export const DB_TASK_PLAN_DELETE = 'db:task-plan:delete'
 export const DB_TASK_PLAN_UPDATE_STATUS = 'db:task-plan:update-status'
 export const DB_TASK_PLAN_STEP_UPSERT = 'db:task-plan-step:upsert'
 export const DB_TASK_PLAN_STEP_UPDATE_STATUS = 'db:task-plan-step:update-status'
+export const DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID = 'db:scheduled-tasks:get-by-chat-uuid'
 
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'

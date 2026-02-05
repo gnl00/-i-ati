@@ -68,6 +68,7 @@ import {
   CHAT_SUBMIT_EVENT,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE,
+  DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID,
   CHECK_IS_DIRECTORY,
   SELECT_DIRECTORY
 } from '@shared/constants/index'
@@ -458,13 +459,30 @@ export async function invokeChatSubmitToolConfirm(data: {
   return await ipc.invoke(CHAT_SUBMIT_TOOL_CONFIRM, data)
 }
 
+type ChatSubmitEventHandler = (event: ChatSubmitEvent) => void
+const chatSubmitHandlers = new Set<ChatSubmitEventHandler>()
+let chatSubmitListener: ((event: any, data: any) => void) | null = null
+
 export function subscribeChatSubmitEvents(
-  handler: (event: ChatSubmitEvent) => void
+  handler: ChatSubmitEventHandler
 ): () => void {
   const ipc = getElectronIPC()
-  const listener = (_event: any, data: any) => handler(data)
-  ipc.on(CHAT_SUBMIT_EVENT, listener)
-  return () => ipc.removeListener(CHAT_SUBMIT_EVENT, listener)
+  chatSubmitHandlers.add(handler)
+
+  if (!chatSubmitListener) {
+    chatSubmitListener = (_event: any, data: any) => {
+      chatSubmitHandlers.forEach(cb => cb(data))
+    }
+    ipc.on(CHAT_SUBMIT_EVENT, chatSubmitListener)
+  }
+
+  return () => {
+    chatSubmitHandlers.delete(handler)
+    if (chatSubmitHandlers.size === 0 && chatSubmitListener) {
+      ipc.removeListener(CHAT_SUBMIT_EVENT, chatSubmitListener)
+      chatSubmitListener = null
+    }
+  }
 }
 
 // ============ Compression (Main-driven) ============
@@ -494,6 +512,11 @@ export async function invokeChatTitleGenerate(data: {
 }): Promise<{ title: string }> {
   const ipc = getElectronIPC()
   return await ipc.invoke(CHAT_TITLE_GENERATE, data)
+}
+
+export async function invokeDbScheduledTasksByChatUuid(chatUuid: string): Promise<import('@shared/tools/schedule').ScheduleTask[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, chatUuid)
 }
 
 // ============ Database Operations - Chat Submit Event Trace ============

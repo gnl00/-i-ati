@@ -43,7 +43,7 @@ export abstract class BaseAdapter {
   }
 
   // 工具调用转换的通用方法
-  protected transformTools(tools: any[]): any[] {
+  protected transformToolDefinitions(tools: any[]): any[] {
     if (!tools?.length) return []
 
     return tools.map(tool => {

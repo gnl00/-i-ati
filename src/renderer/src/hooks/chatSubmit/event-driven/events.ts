@@ -29,6 +29,7 @@ export type ChatSubmitEventType =
   | 'compression.started'
   | 'compression.completed'
   | 'compression.failed'
+  | 'schedule.updated'
 
 type SerializedError = {
   name: string
@@ -81,6 +82,7 @@ export type ChatSubmitEventPayloads = {
   'compression.started': { messageCount: number }
   'compression.completed': { result: CompressionResult }
   'compression.failed': { error: SerializedError; result?: CompressionResult }
+  'schedule.updated': { task: import('@shared/tools/schedule').ScheduleTask }
 }
 
 export type ChatSubmitEventMeta = {

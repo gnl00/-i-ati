@@ -233,6 +233,7 @@ declare interface ChatMessage extends BaseChatMessage {
   model?: string
   modelRef?: { accountId: string; modelId: string }
   typewriterCompleted?: boolean,
+  source?: string // message source, e.g. 'schedule'
   // ==================== Message Segments ====================
   // 使用segments替代原有的content、reasoning、toolCallResults字段
   segments: MessageSegment[]  // 强制字段，所有消息必须有segments

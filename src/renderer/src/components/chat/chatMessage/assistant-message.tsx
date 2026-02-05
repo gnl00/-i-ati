@@ -207,9 +207,19 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
   if (!m || m.role !== 'assistant') return null
 
+  const hasContent = typeof m.content === 'string'
+    ? m.content.trim().length > 0
+    : Array.isArray(m.content) && m.content.length > 0
+  const hasSegments = Array.isArray(segments) && segments.length > 0
+  const hasToolCalls = Array.isArray(m.toolCalls) && m.toolCalls.length > 0
+
+  if (!hasContent && !hasSegments && hasToolCalls) {
+    return null
+  }
+
   return (
     <div
-      id='assistant-message'
+      id={'assistant-message-' + index}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
       className={cn(

@@ -28,8 +28,13 @@ type MainChatSubmitInput = {
     stream?: boolean
   }
   modelRef: ModelRef
+  persistMessages?: boolean
   chatId?: number
   chatUuid?: string
+}
+
+type MainChatSubmitResult = {
+  assistantMessageId?: number
 }
 
 type ActiveSubmission = {
@@ -45,7 +50,8 @@ class MainStreamingMessageManager {
     private readonly request: IUnifiedRequest,
     private readonly emitter: ChatSubmitEventEmitter,
     private readonly chatId?: number,
-    private readonly chatUuid?: string
+    private readonly chatUuid?: string,
+    private readonly allowEarlyPersist?: boolean
   ) {}
 
   rebuildRequestMessages(): void {
@@ -122,6 +128,9 @@ class MainStreamingMessageManager {
         toolCalls
       }
     }))
+    if (this.allowEarlyPersist) {
+      this.ensureAssistantPersisted()
+    }
 
     this.emitter.emit('tool.call.attached', {
       toolCallIds: toolCalls.map(call => call.id).filter(Boolean),
@@ -186,6 +195,24 @@ class MainStreamingMessageManager {
         typewriterCompleted: false
       }
     })
+  }
+
+  private ensureAssistantPersisted(): void {
+    const last = this.messageEntities[this.messageEntities.length - 1]
+    if (!last || last.body.role !== 'assistant') return
+    if (last.id) return
+    if (!this.chatId && !this.chatUuid) return
+
+    try {
+      const msgId = DatabaseService.saveMessage({
+        body: last.body,
+        chatId: this.chatId,
+        chatUuid: this.chatUuid
+      })
+      last.id = msgId
+    } catch {
+      // ignore persistence errors; final persist will retry
+    }
   }
 }
 
@@ -319,9 +346,9 @@ const normalizeToolCallOrdering = (messages: ChatMessage[]): ChatMessage[] => {
 export class MainChatSubmitService {
   private active = new Map<string, ActiveSubmission>()
 
-  async submit(input: MainChatSubmitInput): Promise<void> {
+  async submit(input: MainChatSubmitInput): Promise<MainChatSubmitResult> {
     if (this.active.has(input.submissionId)) {
-      return
+      return {}
     }
 
     const chat = this.resolveChatEntity(input.chatId, input.chatUuid)
@@ -378,7 +405,8 @@ export class MainChatSubmitService {
       request,
       emitter,
       chat.id,
-      chat.uuid
+      chat.uuid,
+      Boolean(input.persistMessages)
     )
 
     const toolExecutor = new ToolExecutor({
@@ -458,9 +486,16 @@ export class MainChatSubmitService {
     emitter.emit('stream.started', { stream: request.stream !== false })
 
     let ok = false
+    let assistantMessageId: number | undefined
     try {
       await orchestrator.execute()
       ok = true
+      if (input.persistMessages) {
+        const persisted = this.persistAssistantMessage(messageManager.getLastAssistantMessage(), chat.id, chat.uuid)
+        assistantMessageId = persisted
+      } else {
+        assistantMessageId = this.getLatestAssistantMessageId(chat.uuid)
+      }
     } catch (error: any) {
       if (error instanceof AbortError || error?.name === 'AbortError') {
         emitter.emit('submission.aborted', { reason: 'cancelled' })
@@ -475,10 +510,12 @@ export class MainChatSubmitService {
         usage: messageManager.getLastUsage()
       })
       if (ok) {
-        emitter.emit('submission.completed', { assistantMessageId: -1 })
+        emitter.emit('submission.completed', { assistantMessageId: assistantMessageId ?? -1 })
       }
       this.active.delete(input.submissionId)
     }
+
+    return { assistantMessageId }
   }
 
   cancel(submissionId: string, _reason?: string): void {
@@ -515,6 +552,41 @@ export class MainChatSubmitService {
     })
   }
 
+  private getLatestAssistantMessageId(chatUuid: string): number | undefined {
+    const messages = DatabaseService.getMessagesByChatUuid(chatUuid)
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].body.role === 'assistant' && messages[i].id) {
+        return messages[i].id
+      }
+    }
+    return undefined
+  }
+
+  private persistAssistantMessage(message: MessageEntity, chatId?: number, chatUuid?: string): number | undefined {
+    if (!chatId && !chatUuid) return undefined
+    const body = {
+      ...message.body,
+      typewriterCompleted: true,
+      source: message.body.source ?? 'schedule'
+    }
+    const entity: MessageEntity = {
+      ...message,
+      body,
+      chatId,
+      chatUuid
+    }
+    try {
+      if (entity.id) {
+        DatabaseService.updateMessage(entity)
+        return entity.id
+      }
+      return DatabaseService.saveMessage(entity)
+    } catch (error) {
+      console.warn('[ChatSubmit] Failed to persist assistant message:', error)
+      return undefined
+    }
+  }
+
   private async buildRequest(input: MainChatSubmitInput): Promise<IUnifiedRequest> {
     const config = DatabaseService.getConfig()
     if (!config) {
@@ -548,6 +620,7 @@ export class MainChatSubmitService {
 
     const compressionSummary = this.resolveCompressionSummary(config, chatId)
     const messageEntities = this.resolveMessageEntities(chat)
+
 
     const finalMessages = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
