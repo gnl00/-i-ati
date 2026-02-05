@@ -14,6 +14,7 @@ import { useScrollManagerLite } from '@renderer/hooks/useScrollManagerLite'
 import { TaskPlanCard } from './task/TaskPlanCard'
 import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
 import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
+import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotifications'
 
 const ChatMessageRow: React.FC<{
   messageIndex: number
@@ -77,6 +78,7 @@ const ChatWindowComponent: React.FC = () => {
   const hasShownWelcomeRef = useRef<boolean>(false)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
   useToolConfirmations(chatUuid)
+  useScheduleNotifications(chatUuid)
   const displayPlans = pendingPlanReview
     ? [pendingPlanReview.plan, ...activePlans]
     : activePlans

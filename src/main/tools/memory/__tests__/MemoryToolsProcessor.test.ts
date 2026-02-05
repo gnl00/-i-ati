@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest'
-import { processMemoryRetrieval, processMemorySave } from '../MemoryToolsProcessor'
+import { processMemoryRetrieval, processMemorySave, processMemoryUpdate } from '../MemoryToolsProcessor'
 import MemoryService from '@main/services/memory/MemoryService'
 
 // Mock MemoryService
@@ -53,6 +53,16 @@ vi.mock('@main/services/memory/MemoryService', () => {
           .sort((a, b) => b.similarity - a.similarity)
           .slice(0, topK)
           .map((r, i) => ({ ...r, rank: i + 1 }))
+      }),
+      updateMemory: vi.fn(async (id, updates) => {
+        const existing = mockMemories.get(id)
+        if (!existing) return null
+        const next = {
+          ...existing,
+          ...updates
+        }
+        mockMemories.set(id, next)
+        return next
       }),
       deleteMemory: vi.fn(async (id) => {
         const deleted = mockMemories.delete(id)
@@ -288,6 +298,45 @@ describe('MemoryToolsProcessor', () => {
         'chat',
         expect.objectContaining({ chatId: testChatId })
       )
+    })
+  })
+
+  describe('processMemoryUpdate', () => {
+    it('应该成功更新记忆内容', async () => {
+      const saveArgs = {
+        context_origin: 'User prefers TypeScript',
+        context_en: 'User prefers TypeScript',
+        chatId: testChatId
+      }
+
+      const saveResponse = await processMemorySave(saveArgs)
+      expect(saveResponse.success).toBe(true)
+      if (saveResponse.memoryId) {
+        savedMemoryIds.push(saveResponse.memoryId)
+      }
+
+      const updateArgs = {
+        id: saveResponse.memoryId as string,
+        context_origin: 'User prefers TypeScript and React',
+        context_en: 'User prefers TypeScript and React',
+        metadata: { category: 'preference' }
+      }
+
+      const updateResponse = await processMemoryUpdate(updateArgs)
+
+      expect(updateResponse.success).toBe(true)
+      expect(updateResponse.memoryId).toBe(updateArgs.id)
+      expect(MemoryService.updateMemory).toHaveBeenCalledTimes(1)
+    })
+
+    it('应该在记忆不存在时返回失败', async () => {
+      const updateResponse = await processMemoryUpdate({
+        id: 'missing_memory_id',
+        context_origin: 'Updated'
+      })
+
+      expect(updateResponse.success).toBe(false)
+      expect(updateResponse.message).toBe('Memory not found.')
     })
   })
 })

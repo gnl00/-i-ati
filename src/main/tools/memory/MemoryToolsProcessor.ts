@@ -1,5 +1,5 @@
 import MemoryService from '@main/services/memory/MemoryService'
-import type { MemoryRetrievalResponse, MemorySaveResponse } from '@tools/memory/index.d'
+import type { MemoryRetrievalResponse, MemorySaveResponse, MemoryUpdateResponse } from '@tools/memory/index.d'
 
 interface MemoryRetrievalArgs {
   query: string
@@ -17,6 +17,15 @@ interface MemorySaveArgs {
     importance?: 'low' | 'medium' | 'high'
     tags?: string[]
   }
+}
+
+interface MemoryUpdateArgs {
+  id: string
+  context_origin?: string
+  context_en?: string
+  metadata?: Record<string, any> | null
+  role?: 'user' | 'assistant' | 'system'
+  timestamp?: number
 }
 
 /**
@@ -46,6 +55,7 @@ export async function processMemoryRetrieval(
 
     // 格式化记忆结果
     const memories = results.map(result => ({
+      id: result.entry.id,
       context_origin: result.entry.context_origin,
       context_en: result.entry.context_en,
       role: result.entry.role,
@@ -110,6 +120,48 @@ export async function processMemorySave(
     return {
       success: false,
       message: `Failed to save memory: ${message}`
+    }
+  }
+}
+
+/**
+ * 处理 memory_update 工具调用
+ * 根据 id 更新已保存的记忆
+ */
+export async function processMemoryUpdate(
+  args: MemoryUpdateArgs
+): Promise<MemoryUpdateResponse> {
+  try {
+    console.log('[MemoryTools] Updating memory:', args.id)
+
+    const updated = await MemoryService.updateMemory(args.id, {
+      context_origin: args.context_origin,
+      context_en: args.context_en,
+      metadata: args.metadata,
+      role: args.role,
+      timestamp: args.timestamp
+    })
+
+    if (!updated) {
+      return {
+        success: false,
+        message: 'Memory not found.'
+      }
+    }
+
+    console.log(`[MemoryTools] Memory updated successfully: ${updated.id}`)
+
+    return {
+      success: true,
+      memoryId: updated.id,
+      message: 'Memory updated successfully.'
+    }
+  } catch (error) {
+    console.error('[MemoryTools] Failed to update memory:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      success: false,
+      message: `Failed to update memory: ${message}`
     }
   }
 }

@@ -76,5 +76,44 @@ export default [
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "memory_update",
+      "description": "Update an existing memory item by id. Use when you need to correct, refine, or remove fields in a saved memory. If you update context_en, a new embedding will be generated.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The memory id to update (from memory_retrieval results)."
+          },
+          "context_origin": {
+            "type": "string",
+            "description": "Updated content in original language."
+          },
+          "context_en": {
+            "type": "string",
+            "description": "Updated English translation for embedding."
+          },
+          "role": {
+            "type": "string",
+            "enum": ["user", "assistant", "system"],
+            "description": "Optional updated role for the memory."
+          },
+          "timestamp": {
+            "type": "number",
+            "description": "Optional updated timestamp (ms)."
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional updated metadata; pass null to clear."
+          }
+        },
+        "required": ["id"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
   }
 ]

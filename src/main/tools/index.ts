@@ -17,7 +17,7 @@ import {
   processMoveFile
 } from '@main/tools/fileOperations/FileOperationsProcessor'
 import { processWebFetch, processWebSearch } from '@main/tools/webTools/WebToolsProcessor'
-import { processMemoryRetrieval, processMemorySave } from '@main/tools/memory/MemoryToolsProcessor'
+import { processMemoryRetrieval, processMemorySave, processMemoryUpdate } from '@main/tools/memory/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import { processLoadSkill, processUnloadSkill, processReadSkillFile } from '@main/tools/skills/SkillToolsProcessor'
 import {
@@ -29,6 +29,12 @@ import {
   processPlanUpdate,
   processPlanUpdateStatus
 } from '@main/tools/taskPlanner/TaskPlannerProcessor'
+import {
+  processScheduleCancel,
+  processScheduleCreate,
+  processScheduleList,
+  processScheduleUpdate
+} from '@main/tools/schedule/ScheduleToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
@@ -51,6 +57,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   move_file: processMoveFile,
   memory_retrieval: processMemoryRetrieval,
   memory_save: processMemorySave,
+  memory_update: processMemoryUpdate,
   execute_command: processExecuteCommand,
   load_skill: processLoadSkill,
   unload_skill: processUnloadSkill,
@@ -61,7 +68,11 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   plan_get_by_id: processPlanGetById,
   plan_get_by_chat_uuid: processPlanGetByChatUuid,
   plan_delete: processPlanDelete,
-  plan_step_upsert: processPlanStepUpsert
+  plan_step_upsert: processPlanStepUpsert,
+  schedule_create: processScheduleCreate,
+  schedule_list: processScheduleList,
+  schedule_cancel: processScheduleCancel,
+  schedule_update: processScheduleUpdate
 }
 
 export function initializeMainEmbeddedTools(): void {

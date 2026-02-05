@@ -11,6 +11,7 @@ import memoryTools from './memory_tools'
 import commandTools from './command_tools'
 import skillsTools from './skills_tools'
 import planTools from './plan_tools'
+import scheduleTools from './schedule_tools'
 
 /**
  * 合并所有工具定义
@@ -23,7 +24,8 @@ export const tools = [
   ...memoryTools,
   ...commandTools,
   ...skillsTools,
-  ...planTools
+  ...planTools,
+  ...scheduleTools
 ]
 
 /**

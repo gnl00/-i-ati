@@ -3,6 +3,7 @@
  */
 
 export interface MemoryItem {
+  id: string
   context_origin: string
   context_en: string
   role: 'user' | 'assistant' | 'system'
@@ -19,6 +20,12 @@ export interface MemoryRetrievalResponse {
 }
 
 export interface MemorySaveResponse {
+  success: boolean
+  memoryId?: string
+  message: string
+}
+
+export interface MemoryUpdateResponse {
   success: boolean
   memoryId?: string
   message: string
