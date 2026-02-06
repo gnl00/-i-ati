@@ -25,6 +25,16 @@ vi.mock('@main/services/DatabaseService', () => ({
       model: 'model-1'
     })),
     saveMessage: vi.fn(() => 123),
+    getMessageById: vi.fn((id: number) => ({
+      id,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'scheduled response',
+        source: 'schedule'
+      }
+    })),
     getConfig: vi.fn(() => ({
       accounts: [
         {
@@ -55,8 +65,8 @@ vi.mock('@main/services/DatabaseService', () => ({
   }
 }))
 
-vi.mock('@main/services/chatSubmit/event-emitter', () => ({
-  ChatSubmitEventEmitter: class {
+vi.mock('@main/services/scheduler/event-emitter', () => ({
+  ScheduleEventEmitter: class {
     emit = vi.fn()
   }
 }))

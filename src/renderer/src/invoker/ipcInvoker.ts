@@ -66,6 +66,7 @@ import {
   CHAT_SUBMIT_CANCEL,
   CHAT_SUBMIT_TOOL_CONFIRM,
   CHAT_SUBMIT_EVENT,
+  SCHEDULE_EVENT,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE,
   DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID,
@@ -481,6 +482,50 @@ export function subscribeChatSubmitEvents(
     if (chatSubmitHandlers.size === 0 && chatSubmitListener) {
       ipc.removeListener(CHAT_SUBMIT_EVENT, chatSubmitListener)
       chatSubmitListener = null
+    }
+  }
+}
+
+export type ScheduleEventType = 'schedule.updated' | 'message.created' | 'message.updated'
+export type ScheduleEventPayloads = {
+  'schedule.updated': { task: import('@shared/tools/schedule').ScheduleTask }
+  'message.created': { message: MessageEntity }
+  'message.updated': { message: MessageEntity }
+}
+export type ScheduleEventEnvelope<T extends ScheduleEventType = ScheduleEventType> = {
+  type: T
+  payload: ScheduleEventPayloads[T]
+  chatId?: number
+  chatUuid?: string
+  sequence: number
+  timestamp: number
+}
+
+export type ScheduleEvent =
+  { [K in ScheduleEventType]: ScheduleEventEnvelope<K> }[ScheduleEventType]
+
+type ScheduleEventHandler = (event: ScheduleEvent) => void
+const scheduleHandlers = new Set<ScheduleEventHandler>()
+let scheduleListener: ((event: any, data: any) => void) | null = null
+
+export function subscribeScheduleEvents(
+  handler: ScheduleEventHandler
+): () => void {
+  const ipc = getElectronIPC()
+  scheduleHandlers.add(handler)
+
+  if (!scheduleListener) {
+    scheduleListener = (_event: any, data: any) => {
+      scheduleHandlers.forEach(cb => cb(data))
+    }
+    ipc.on(SCHEDULE_EVENT, scheduleListener)
+  }
+
+  return () => {
+    scheduleHandlers.delete(handler)
+    if (scheduleHandlers.size === 0 && scheduleListener) {
+      ipc.removeListener(SCHEDULE_EVENT, scheduleListener)
+      scheduleListener = null
     }
   }
 }

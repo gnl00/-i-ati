@@ -27,7 +27,7 @@ type PlanGetByIdArgs = {
   id: string
 }
 
-type PlanGetByChatUuidArgs = {
+type PlanGetCurrentChatArgs = {
   chat_uuid?: string
 }
 
@@ -152,11 +152,11 @@ export async function processPlanGetById(args: PlanGetByIdArgs) {
   }
 }
 
-export async function processPlanGetByChatUuid(args: PlanGetByChatUuidArgs) {
+export async function processPlanGetCurrentChat(args: PlanGetCurrentChatArgs = {}) {
   try {
     const chatUuid = args.chat_uuid
     if (!chatUuid) {
-      return { success: false, message: 'chatUuid is required' }
+      return { success: false, message: 'chat_uuid is required' }
     }
     const plans = DatabaseService.getTaskPlansByChatUuid(chatUuid)
     return { success: true, plans }

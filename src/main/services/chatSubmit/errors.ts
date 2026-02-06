@@ -5,6 +5,15 @@ export class AbortError extends Error {
   }
 }
 
+export class DuplicateSubmissionIdError extends Error {
+  code = 'DUPLICATE_SUBMISSION_ID'
+
+  constructor(submissionId: string) {
+    super(`DUPLICATE_SUBMISSION_ID: ${submissionId}`)
+    this.name = 'DuplicateSubmissionIdError'
+  }
+}
+
 export class ParserError extends Error {
   constructor(message: string, _context?: any) {
     super(message)

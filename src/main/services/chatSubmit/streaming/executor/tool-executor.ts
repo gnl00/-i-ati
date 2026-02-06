@@ -142,7 +142,7 @@ export class ToolExecutor implements IToolExecutor {
           return result
         }
         if (decision.args) {
-          runtimeArgs = this.applyRuntimeContext(normalizeToolArgs(decision.args))
+          runtimeArgs = this.applyRuntimeContext(normalizeToolArgs(decision.args), toolName)
         }
       }
 
@@ -254,15 +254,20 @@ export class ToolExecutor implements IToolExecutor {
       ? JSON.parse(call.args)
       : call.args
     const normalizedArgs = normalizeToolArgs(args)
-    return this.applyRuntimeContext(normalizedArgs)
+    return this.applyRuntimeContext(normalizedArgs, call.function)
   }
 
   /**
    * 将运行时上下文注入工具参数
    */
-  private applyRuntimeContext(args: any): any {
+  private applyRuntimeContext(args: any, toolName?: string): any {
     if (!args || typeof args !== 'object') {
       return args
+    }
+
+    if (this.chatUuid && (toolName?.startsWith('schedule_') || toolName?.startsWith('plan_'))) {
+      // chat_uuid is system context; always override for schedule/plan tools.
+      return { ...args, chat_uuid: this.chatUuid }
     }
 
     if (this.chatUuid && !args.chat_uuid) {

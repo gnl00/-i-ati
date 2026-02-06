@@ -333,11 +333,24 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
    * 用于流式更新场景，避免频繁的 IPC 调用
    */
   upsertMessage: (message) => {
-    set((prevState) => ({
-      messages: message.id
-        ? prevState.messages.map((m) => (m.id === message.id ? message : m))
-        : [...prevState.messages, message]
-    }))
+    set((prevState) => {
+      if (!message.id) {
+        return {
+          messages: [...prevState.messages, message]
+        }
+      }
+
+      const index = prevState.messages.findIndex((m) => m.id === message.id)
+      if (index >= 0) {
+        return {
+          messages: prevState.messages.map((m) => (m.id === message.id ? message : m))
+        }
+      }
+
+      return {
+        messages: [...prevState.messages, message]
+      }
+    })
   },
 
   /**

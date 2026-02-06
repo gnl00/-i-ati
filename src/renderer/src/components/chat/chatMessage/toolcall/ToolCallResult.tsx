@@ -15,7 +15,7 @@ interface ToolCallResultProps {
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc, index }) => {
+export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolCall: tc }) => {
   const [openItem, setOpenItem] = useState<string>('');
   const [showDetails, setShowDetails] = useState(false);
 
@@ -32,7 +32,6 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
   // 检测是否为 Web Search 结果
   const isWebSearch = (toolResponse?.toolName ?? tc.name) === 'web_search'
   const webSearchData = isWebSearch && resultPayload?.results ? resultPayload : null
-  const toolName = toolResponse?.toolName ?? tc.name
   const isError = tc.isError;
   const status = typeof toolResponse?.status === 'string' ? toolResponse.status : undefined
   const isRunning = !isError && status === 'running'

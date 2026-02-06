@@ -3,7 +3,6 @@ import { toast } from 'sonner'
 import { UserMessage } from './user-message'
 import { AssistantMessage } from './assistant-message'
 import { useMessageHover } from './use-message-hover'
-import { cn } from '@renderer/lib/utils'
 
 interface ChatMessageComponentProps {
   index: number

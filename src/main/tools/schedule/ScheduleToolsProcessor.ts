@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/services/DatabaseService'
-import { ChatSubmitEventEmitter } from '@main/services/chatSubmit/event-emitter'
+import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 
 const MIN_DELAY_MS = 30_000
 
@@ -68,8 +68,7 @@ function emitScheduleUpdated(taskId: string): void {
   const task = DatabaseService.getScheduledTaskById(taskId)
   if (!task) return
   const chat = DatabaseService.getChatByUuid(task.chat_uuid)
-  const emitter = new ChatSubmitEventEmitter({
-    submissionId: `schedule:${task.id}`,
+  const emitter = new ScheduleEventEmitter({
     chatId: chat?.id,
     chatUuid: task.chat_uuid
   })

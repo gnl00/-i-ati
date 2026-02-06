@@ -23,9 +23,10 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@main': path.resolve(__dirname, './src/main'),
-      '@renderer': path.resolve(__dirname, './src/renderer'),
+      '@renderer': path.resolve(__dirname, './src/renderer/src'),
       '@preload': path.resolve(__dirname, './src/preload'),
-      '@tools': path.resolve(__dirname, './tools'),
+      '@shared': path.resolve(__dirname, './src/shared'),
+      '@tools': path.resolve(__dirname, './src/shared/tools'),
     },
   },
 })

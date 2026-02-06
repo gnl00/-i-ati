@@ -23,7 +23,7 @@ import { processLoadSkill, processUnloadSkill, processReadSkillFile } from '@mai
 import {
   processPlanCreate,
   processPlanDelete,
-  processPlanGetByChatUuid,
+  processPlanGetCurrentChat,
   processPlanGetById,
   processPlanStepUpsert,
   processPlanUpdate,
@@ -66,7 +66,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   plan_update: processPlanUpdate,
   plan_update_status: processPlanUpdateStatus,
   plan_get_by_id: processPlanGetById,
-  plan_get_by_chat_uuid: processPlanGetByChatUuid,
+  plan_get_current_chat: processPlanGetCurrentChat,
   plan_delete: processPlanDelete,
   plan_step_upsert: processPlanStepUpsert,
   schedule_create: processScheduleCreate,

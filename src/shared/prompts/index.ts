@@ -186,7 +186,7 @@ You can create and manage multi-step plans using the plan tools. Use these tools
 - Use plan_create to create a new plan.
 - Use plan_update_status to update the overall plan state and optionally update the current step status via stepId + stepStatus.
 - Use plan_step_upsert only when you need to add or edit step definitions.
-- Use plan_get_by_id / plan_get_by_chat_uuid to retrieve plans when needed.
+- Use plan_get_by_id / plan_get_current_chat to retrieve plans when needed.
 
 ### 5. Required usage flow (must follow)
 1) Create a plan once with plan_create.
@@ -208,7 +208,7 @@ plan_update_status({
 })
 
 ### 6. First-turn plan recovery
-- On the first response in a chat, always check for existing plans via plan_get_by_chat_uuid.
+- On the first response in a chat, always check for existing plans via plan_get_current_chat.
 - If there is an unfinished plan (pending/running/paused/failed), ask the user whether to continue it before starting a new plan.
 </task_planner>
 
@@ -221,7 +221,6 @@ Use schedule tools to execute a task later or at a specific time. This is for de
 - Do not use scheduling for immediate tasks.
 
 ### 2. Required fields
-- chat_uuid: always required.
 - run_at: local ISO-8601 datetime string **with offset** (e.g. \`2026-02-05T15:34:51+08:00\`).
 - goal: short description of what will run.
 

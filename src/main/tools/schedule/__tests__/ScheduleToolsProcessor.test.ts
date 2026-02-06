@@ -41,8 +41,8 @@ vi.mock('@main/services/DatabaseService', () => ({
   }
 }))
 
-vi.mock('@main/services/chatSubmit/event-emitter', () => ({
-  ChatSubmitEventEmitter: class {
+vi.mock('@main/services/scheduler/event-emitter', () => ({
+  ScheduleEventEmitter: class {
     emit = vi.fn()
   }
 }))

@@ -5,6 +5,8 @@ import { extractContentFromSegments } from '../streaming/segment-utils'
 import type { SubmissionContext } from '../context'
 import type { EventPublisher } from '../event-publisher'
 import type { ChatSubmitEvent, ChatSubmitEventMeta, ChatSubmitEventPayloads } from '../events'
+import { isLifecycleEventType, isStreamEventType, isToolEventType } from '../chat-submit-event-router'
+import { SubmissionEventService } from '../submission-event-service'
 import type { MessageService } from './message-service'
 import type { StreamingService } from './streaming-service'
 
@@ -14,9 +16,13 @@ type MainStreamingOutcome = {
   aborted?: boolean
 }
 
+type PendingDeltaBuffer = {
+  content: string[]
+  reasoning: string[]
+}
+
 export class MainDrivenStreamingService implements StreamingService {
-  private static activeSubscriptions = new Map<string, () => void>()
-  private static lastChunkSequence = new Map<string, number>()
+  private static readonly submissionEventService = new SubmissionEventService()
 
   constructor(private readonly messageService: MessageService) {}
 
@@ -33,6 +39,8 @@ export class MainDrivenStreamingService implements StreamingService {
     }
 
     let pendingOutcome: MainStreamingOutcome | null = null
+    const pendingDeltaBuffer: PendingDeltaBuffer = { content: [], reasoning: [] }
+    let pendingFlushTimer: ReturnType<typeof setTimeout> | null = null
 
     const toolCallNames = new Map<string, string>()
     const toolCallArgs = new Map<string, unknown>()
@@ -44,6 +52,45 @@ export class MainDrivenStreamingService implements StreamingService {
       } catch {
         return args
       }
+    }
+
+    const flushPendingDelta = (): void => {
+      if (pendingFlushTimer) {
+        clearTimeout(pendingFlushTimer)
+        pendingFlushTimer = null
+      }
+      if (pendingDeltaBuffer.content.length === 0 && pendingDeltaBuffer.reasoning.length === 0) {
+        return
+      }
+      this.applyBufferedDeltaToAssistant(
+        context,
+        pendingDeltaBuffer,
+        publisher,
+        metaWithChat
+      )
+      pendingDeltaBuffer.content = []
+      pendingDeltaBuffer.reasoning = []
+    }
+
+    const scheduleDeltaFlush = (): void => {
+      if (pendingFlushTimer) {
+        return
+      }
+      pendingFlushTimer = setTimeout(() => {
+        pendingFlushTimer = null
+        flushPendingDelta()
+      }, 16)
+    }
+
+    const enqueueDelta = (payload: { contentDelta?: string; reasoningDelta?: string }): void => {
+      const { contentDelta, reasoningDelta } = payload || {}
+      if (reasoningDelta) {
+        pendingDeltaBuffer.reasoning.push(reasoningDelta)
+      }
+      if (contentDelta) {
+        pendingDeltaBuffer.content.push(contentDelta)
+      }
+      scheduleDeltaFlush()
     }
 
     const upsertToolCallSegment = (
@@ -107,71 +154,78 @@ export class MainDrivenStreamingService implements StreamingService {
       )
     }
 
-    const existingUnsub = MainDrivenStreamingService.activeSubscriptions.get(submissionId)
-    if (existingUnsub) {
-      existingUnsub()
-      MainDrivenStreamingService.activeSubscriptions.delete(submissionId)
+    const handleLifecycleEvent = (event: ChatSubmitEvent): void => {
+      void publisher.emit(event.type as any, event.payload as any, metaWithChat)
+
+      if (event.type === 'submission.failed') {
+        flushPendingDelta()
+        const payload = event.payload as ChatSubmitEventPayloads['submission.failed']
+        const error = this.normalizeError(payload?.error)
+        pendingOutcome = { ok: false, error }
+      }
+
+      if (event.type === 'submission.aborted') {
+        flushPendingDelta()
+        pendingOutcome = { ok: false, aborted: true }
+      }
+
+      if (event.type === 'stream.completed') {
+        flushPendingDelta()
+        const payload = event.payload as ChatSubmitEventPayloads['stream.completed']
+        const totalTokens = payload?.usage?.totalTokens
+        if (typeof totalTokens === 'number') {
+          this.messageService.updateLastAssistantMessage(context, (message) => ({
+            ...message,
+            tokens: totalTokens
+          }), publisher, metaWithChat)
+        }
+        pendingOutcome = pendingOutcome || { ok: true }
+      }
     }
 
-    const unsubscribe = subscribeChatSubmitEvents((event: ChatSubmitEvent) => {
-      if (event.submissionId !== submissionId) {
+    const handleStreamEvent = (event: ChatSubmitEvent): void => {
+      if (event.type !== 'stream.chunk') {
         return
       }
-      if (event.type === 'stream.chunk') {
-        const lastSeq = MainDrivenStreamingService.lastChunkSequence.get(submissionId) ?? 0
-        if (event.sequence <= lastSeq) {
-          return
-        }
-        MainDrivenStreamingService.lastChunkSequence.set(submissionId, event.sequence)
+      enqueueDelta(event.payload as ChatSubmitEventPayloads['stream.chunk'])
+    }
+
+    const handleToolEvent = (event: ChatSubmitEvent): void => {
+      if (event.type === 'tool.call.attached') {
+        return
       }
 
-      switch (event.type) {
-        case 'stream.started':
-        case 'stream.completed':
-        case 'tool.call.detected':
-        case 'tool.exec.started':
-        case 'tool.exec.completed':
-        case 'tool.exec.failed':
-        case 'submission.aborted':
-        case 'submission.failed': {
-          void publisher.emit(event.type as any, event.payload as any, metaWithChat)
-          break
-        }
-        case 'tool.call.flushed': {
-          const payload = event.payload as ChatSubmitEventPayloads['tool.call.flushed']
-          void publisher.emit('tool.call.flushed', payload, metaWithChat)
-          const toolCalls = payload?.toolCalls || []
-          toolCalls.forEach((call: IToolCall) => {
-            if (call.id) {
-              toolCallNames.set(call.id, call.function?.name || 'unknown')
-              toolCallArgs.set(call.id, parseToolArgs(call.function?.arguments))
-            }
-          })
-          const content = extractContentFromSegments(
-            this.getLastAssistantMessage(context).body.segments
-          )
-          void this.messageService.addToolCallMessage(context, toolCalls, content, publisher, metaWithChat)
-          break
-        }
-        case 'tool.result.attached': {
-          const payload = event.payload as ChatSubmitEventPayloads['tool.result.attached']
-          const toolMessage = payload?.message as MessageEntity | undefined
-          if (toolMessage) {
-            this.attachToolResultMessage(context, toolMessage)
-            void publisher.emit('tool.result.attached', {
-              toolCallId: toolMessage.body.toolCallId || '',
-              message: toolMessage
-            }, metaWithChat)
+      if (event.type === 'tool.call.flushed') {
+        const payload = event.payload as ChatSubmitEventPayloads['tool.call.flushed']
+        void publisher.emit('tool.call.flushed', payload, metaWithChat)
+        const toolCalls = payload?.toolCalls || []
+        toolCalls.forEach((call: IToolCall) => {
+          if (call.id) {
+            toolCallNames.set(call.id, call.function?.name || 'unknown')
+            toolCallArgs.set(call.id, parseToolArgs(call.function?.arguments))
           }
-          break
-        }
-        case 'tool.call.attached': {
-          break
-        }
-        default: {
-          void publisher.emit(event.type as any, event.payload as any, metaWithChat)
-        }
+        })
+        const content = extractContentFromSegments(
+          this.getLastAssistantMessage(context).body.segments
+        )
+        void this.messageService.addToolCallMessage(context, toolCalls, content, publisher, metaWithChat)
+        return
       }
+
+      if (event.type === 'tool.result.attached') {
+        const payload = event.payload as ChatSubmitEventPayloads['tool.result.attached']
+        const toolMessage = payload?.message as MessageEntity | undefined
+        if (toolMessage) {
+          this.attachToolResultMessage(context, toolMessage)
+          void publisher.emit('tool.result.attached', {
+            toolCallId: toolMessage.body.toolCallId || '',
+            message: toolMessage
+          }, metaWithChat)
+        }
+        return
+      }
+
+      void publisher.emit(event.type as any, event.payload as any, metaWithChat)
 
       if (event.type === 'tool.exec.started') {
         const toolCallId = (event.payload as ChatSubmitEventPayloads['tool.exec.started'])?.toolCallId
@@ -207,34 +261,34 @@ export class MainDrivenStreamingService implements StreamingService {
           }, true)
         }
       }
+    }
 
-      if (event.type === 'stream.chunk') {
-        this.applyDeltaToAssistant(context, event.payload as ChatSubmitEventPayloads['stream.chunk'], publisher, metaWithChat)
+    const unsubscribe = subscribeChatSubmitEvents((event: ChatSubmitEvent) => {
+      if (event.submissionId !== submissionId) {
+        return
+      }
+      if (!MainDrivenStreamingService.submissionEventService.shouldProcessEvent(event)) {
+        return
       }
 
-      if (event.type === 'submission.failed') {
-        const payload = event.payload as ChatSubmitEventPayloads['submission.failed']
-        const error = this.normalizeError(payload?.error)
-        pendingOutcome = { ok: false, error }
+      if (isToolEventType(event.type)) {
+        handleToolEvent(event)
+        return
       }
 
-      if (event.type === 'submission.aborted') {
-        pendingOutcome = { ok: false, aborted: true }
+      if (isStreamEventType(event.type)) {
+        handleStreamEvent(event)
+        return
       }
 
-      if (event.type === 'stream.completed') {
-        const payload = event.payload as ChatSubmitEventPayloads['stream.completed']
-        const totalTokens = payload?.usage?.totalTokens
-        if (typeof totalTokens === 'number') {
-          this.messageService.updateLastAssistantMessage(context, (message) => ({
-            ...message,
-            tokens: totalTokens
-          }), publisher, metaWithChat)
-        }
-        pendingOutcome = pendingOutcome || { ok: true }
+      if (isLifecycleEventType(event.type)) {
+        handleLifecycleEvent(event)
+        return
       }
+
+      void publisher.emit(event.type as any, event.payload as any, metaWithChat)
     })
-    MainDrivenStreamingService.activeSubscriptions.set(submissionId, unsubscribe)
+    MainDrivenStreamingService.submissionEventService.replaceActiveSubscription(submissionId, unsubscribe)
 
     const abortListener = () => {
       void invokeChatSubmitCancel({ submissionId, reason: 'abort' })
@@ -271,22 +325,22 @@ export class MainDrivenStreamingService implements StreamingService {
 
       return context
     } finally {
+      flushPendingDelta()
       context.control.signal.removeEventListener('abort', abortListener)
       unsubscribe()
-      if (MainDrivenStreamingService.activeSubscriptions.get(submissionId) === unsubscribe) {
-        MainDrivenStreamingService.activeSubscriptions.delete(submissionId)
-      }
-      MainDrivenStreamingService.lastChunkSequence.delete(submissionId)
+      MainDrivenStreamingService.submissionEventService.clearActiveSubscription(submissionId, unsubscribe)
+      MainDrivenStreamingService.submissionEventService.clearSubmission(submissionId)
     }
   }
 
-  private applyDeltaToAssistant(
+  private applyBufferedDeltaToAssistant(
     context: SubmissionContext,
-    payload: { contentDelta?: string; reasoningDelta?: string },
+    pendingBuffer: PendingDeltaBuffer,
     publisher: EventPublisher,
     meta: ChatSubmitEventMeta
   ): void {
-    const { contentDelta, reasoningDelta } = payload || {}
+    const reasoningDelta = pendingBuffer.reasoning.join('')
+    const contentDelta = pendingBuffer.content.join('')
     if (!contentDelta && !reasoningDelta) {
       return
     }

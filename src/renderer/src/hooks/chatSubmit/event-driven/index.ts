@@ -7,6 +7,7 @@ export type {
   ChatSubmitEventType
 } from './events'
 export type { SubmissionContext } from './context'
+export { SubmissionEventService } from './submission-event-service'
 export { ChatSubmissionService } from './submission-service'
 export type { ChatSubmissionInput } from './submission-service'
 export type {

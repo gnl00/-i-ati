@@ -1,4 +1,4 @@
-import { CHAT_SUBMIT_EVENT } from '@shared/constants'
+import { CHAT_SUBMIT_EVENT } from '@shared/constants/index'
 import { mainWindow } from '@main/main-window'
 import DatabaseService from '@main/services/DatabaseService'
 
