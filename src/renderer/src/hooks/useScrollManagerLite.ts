@@ -7,6 +7,7 @@ type FollowOutputValue = false | 'auto'
 interface UseScrollManagerLiteProps {
   messagesLength: number
   chatUuid?: string
+  isStreaming: boolean
 }
 
 interface UseScrollManagerLiteReturn {
@@ -21,85 +22,91 @@ interface UseScrollManagerLiteReturn {
   onAtBottomStateChange: (atBottom: boolean) => void
 }
 
+type AutoScrollReason = 'typing' | 'messages' | 'messagesLength'
+
 export function useScrollManagerLite({
   messagesLength,
-  chatUuid
+  chatUuid,
+  isStreaming
 }: UseScrollManagerLiteProps): UseScrollManagerLiteReturn {
   const scrollParentRef = useRef<HTMLDivElement>(null)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const isAtBottomRef = useRef<boolean>(true)
-  const typingScrollRafRef = useRef<number>(0)
+  const autoScrollRafRef = useRef<number>(0)
   const userScrollOverrideRef = useRef<boolean>(false)
-  const lastScrollTopRef = useRef<number>(0)
   const forceScrollRafRef = useRef<number>(0)
-  const scrollRafRef = useRef<number>(0)
-  const lastUserScrollTsRef = useRef<number>(0)
   const showScrollToBottomRef = useRef<boolean>(false)
-  const suppressNextFollowOutputRef = useRef<boolean>(false)
-  const suppressNextMessagesUpdateRef = useRef<boolean>(false)
+  const smoothScrollTimeoutRef = useRef<number>(0)
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false)
 
+  const lockAutoScrollByUserIntent = useCallback(() => {
+    userScrollOverrideRef.current = true
+    if (!showScrollToBottomRef.current) {
+      setShowScrollToBottom(true)
+    }
+  }, [])
+
   const scrollToBottom = useCallback((smooth = false) => {
     if (!virtuosoRef.current) return
+    if (smoothScrollTimeoutRef.current) {
+      clearTimeout(smoothScrollTimeoutRef.current)
+      smoothScrollTimeoutRef.current = 0
+    }
     setShowScrollToBottom(false)
     userScrollOverrideRef.current = false
     if (smooth) {
       setIsButtonFadingOut(true)
-      setTimeout(() => {
+      smoothScrollTimeoutRef.current = window.setTimeout(() => {
         virtuosoRef.current?.scrollToIndex({ index: messagesLength - 1, align: 'end', behavior: 'smooth' })
         setIsButtonFadingOut(false)
+        smoothScrollTimeoutRef.current = 0
       }, 120)
       return
     }
     virtuosoRef.current.scrollToIndex({ index: messagesLength - 1, align: 'end', behavior: 'auto' })
   }, [messagesLength])
 
-  const onMessagesUpdate = useCallback(() => {
-    if (suppressNextMessagesUpdateRef.current) {
-      suppressNextMessagesUpdateRef.current = false
-      return
-    }
-    suppressNextFollowOutputRef.current = true
-    scrollToBottom(false)
-  }, [scrollToBottom])
-
-  const onTyping = useCallback(() => {
-    if (!isAtBottomRef.current) return
-    if (typingScrollRafRef.current) return
-    typingScrollRafRef.current = requestAnimationFrame(() => {
-      typingScrollRafRef.current = 0
+  const requestAutoScroll = useCallback((reason: AutoScrollReason) => {
+    if (!virtuosoRef.current) return
+    if (userScrollOverrideRef.current) return
+    if (reason !== 'messages' && !isAtBottomRef.current) return
+    if (autoScrollRafRef.current) return
+    autoScrollRafRef.current = requestAnimationFrame(() => {
+      autoScrollRafRef.current = 0
       scrollToBottom(false)
     })
   }, [scrollToBottom])
+
+  const onMessagesUpdate = useCallback(() => {
+    requestAutoScroll('messages')
+  }, [requestAutoScroll])
+
+  const onTyping = useCallback(() => {
+    requestAutoScroll('typing')
+  }, [requestAutoScroll])
 
   useEffect(() => {
     showScrollToBottomRef.current = showScrollToBottom
   }, [showScrollToBottom])
 
   useEffect(() => {
-    const container = scrollParentRef.current
-    if (!container) return
     if (isAtBottomRef.current) {
-      scrollToBottom(false)
-      suppressNextFollowOutputRef.current = false
-      return
+      requestAutoScroll('messagesLength')
     }
-    const distanceFromBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight
-    if (distanceFromBottom > 40 && !showScrollToBottomRef.current) {
-      setShowScrollToBottom(true)
-    }
-    suppressNextFollowOutputRef.current = false
-  }, [messagesLength, scrollToBottom])
+  }, [messagesLength, requestAutoScroll])
 
   useEffect(() => {
     if (!chatUuid || messagesLength <= 0) return
+    if (smoothScrollTimeoutRef.current) {
+      clearTimeout(smoothScrollTimeoutRef.current)
+      smoothScrollTimeoutRef.current = 0
+      setIsButtonFadingOut(false)
+    }
     userScrollOverrideRef.current = false
     isAtBottomRef.current = true
     setShowScrollToBottom(false)
-    suppressNextMessagesUpdateRef.current = true
     const index = messagesLength - 1
     if (!virtuosoRef.current) return
     if (forceScrollRafRef.current) {
@@ -112,72 +119,43 @@ export function useScrollManagerLite({
   }, [chatUuid, messagesLength])
 
   useEffect(() => {
+    const container = scrollParentRef.current
+    if (!container) return
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY < 0) {
+        lockAutoScrollByUserIntent()
+      }
+    }
+
+    container.addEventListener('wheel', onWheel, { passive: true })
+    return () => {
+      container.removeEventListener('wheel', onWheel)
+    }
+  }, [lockAutoScrollByUserIntent])
+
+  useEffect(() => {
     return () => {
       if (forceScrollRafRef.current) {
         cancelAnimationFrame(forceScrollRafRef.current)
       }
-      if (typingScrollRafRef.current) {
-        cancelAnimationFrame(typingScrollRafRef.current)
+      if (autoScrollRafRef.current) {
+        cancelAnimationFrame(autoScrollRafRef.current)
+        autoScrollRafRef.current = 0
       }
-      if (scrollRafRef.current) {
-        cancelAnimationFrame(scrollRafRef.current)
-        scrollRafRef.current = 0
+      if (smoothScrollTimeoutRef.current) {
+        clearTimeout(smoothScrollTimeoutRef.current)
+        smoothScrollTimeoutRef.current = 0
       }
-    }
-  }, [])
-
-  useEffect(() => {
-    const container = scrollParentRef.current
-    if (!container) return
-    lastScrollTopRef.current = container.scrollTop
-    const onUserIntent = () => {
-      lastUserScrollTsRef.current = Date.now()
-    }
-    const onScroll = () => {
-      if (scrollRafRef.current) return
-      scrollRafRef.current = requestAnimationFrame(() => {
-        scrollRafRef.current = 0
-        const currentTop = container.scrollTop
-        const delta = currentTop - lastScrollTopRef.current
-        lastScrollTopRef.current = currentTop
-        const timeSinceUserIntent = Date.now() - lastUserScrollTsRef.current
-        if (timeSinceUserIntent < 200) {
-          userScrollOverrideRef.current = true
-        }
-        const distanceFromBottom =
-          container.scrollHeight - container.scrollTop - container.clientHeight
-        if (delta < 0) {
-          isAtBottomRef.current = false
-          if (distanceFromBottom > 40 && !showScrollToBottomRef.current) {
-            setShowScrollToBottom(true)
-          }
-        } else if (delta > 0) {
-          if (distanceFromBottom < 12 && showScrollToBottomRef.current) {
-            setShowScrollToBottom(false)
-          }
-        }
-      })
-    }
-    container.addEventListener('wheel', onUserIntent, { passive: true })
-    container.addEventListener('pointerdown', onUserIntent)
-    container.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      if (scrollRafRef.current) {
-        cancelAnimationFrame(scrollRafRef.current)
-        scrollRafRef.current = 0
-      }
-      container.removeEventListener('wheel', onUserIntent)
-      container.removeEventListener('pointerdown', onUserIntent)
-      container.removeEventListener('scroll', onScroll)
     }
   }, [])
 
   const followOutput = useCallback((): FollowOutputValue => {
-    if (suppressNextFollowOutputRef.current) return false
+    if (!isStreaming) return false
     if (userScrollOverrideRef.current) return false
     if (isAtBottomRef.current) return 'auto'
     return false
-  }, [])
+  }, [isStreaming])
 
   const onAtBottomStateChange = useCallback((atBottom: boolean) => {
     isAtBottomRef.current = atBottom
@@ -187,8 +165,11 @@ export function useScrollManagerLite({
       if (showScrollToBottomRef.current) {
         setShowScrollToBottom(false)
       }
+      return
     }
-  }, [])
+
+    lockAutoScrollByUserIntent()
+  }, [lockAutoScrollByUserIntent])
 
   return {
     scrollParentRef,
