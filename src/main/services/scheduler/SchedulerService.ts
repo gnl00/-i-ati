@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/services/DatabaseService'
 import { MainChatSubmitService } from '@main/services/chatSubmit'
-import { ChatSubmitEventEmitter } from '@main/services/chatSubmit/event-emitter'
+import { ScheduleEventEmitter } from './event-emitter'
 import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
 
 type ScheduledTaskPayload = {
@@ -56,8 +56,7 @@ export class SchedulerService {
         throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
       }
 
-      const emitter = new ChatSubmitEventEmitter({
-        submissionId: `schedule:${task.id}`,
+      const emitter = new ScheduleEventEmitter({
         chatId: chat.id,
         chatUuid: chat.uuid
       })
@@ -168,8 +167,7 @@ export class SchedulerService {
     const task = DatabaseService.getScheduledTaskById(taskId)
     if (!task) return
     const chat = DatabaseService.getChatByUuid(task.chat_uuid)
-    const emitter = new ChatSubmitEventEmitter({
-      submissionId: `schedule:${task.id}`,
+    const emitter = new ScheduleEventEmitter({
       chatId: chat?.id,
       chatUuid: task.chat_uuid
     })

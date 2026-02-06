@@ -11,10 +11,6 @@ export default [
             "type": "string",
             "description": "The goal to accomplish."
           },
-          "chat_uuid": {
-            "type": "string",
-            "description": "Chat UUID to associate with the plan (runtime-injected)."
-          },
           "context": {
             "type": "object",
             "description": "Relevant context information."
@@ -128,14 +124,12 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "plan_get_by_chat_uuid",
-      "description": "Get plans by chat UUID.",
+      "name": "plan_get_current_chat",
+      "description": "Get plans for the current chat context.",
       "parameters": {
         "type": "object",
-        "properties": {
-          "chat_uuid": { "type": "string" }
-        },
-        "required": ["chat_uuid"],
+        "properties": {},
+        "required": [],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }

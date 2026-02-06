@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
-import { invokeDbScheduledTasksByChatUuid, subscribeChatSubmitEvents } from '@renderer/invoker/ipcInvoker'
+import { invokeDbScheduledTasksByChatUuid, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
 import { useChatStore } from '@renderer/store'
 import { useScheduledTasksStore } from '@renderer/store/scheduledTasks'
 import { toast } from 'sonner'
-import type { ChatSubmitEvent } from '@renderer/hooks/chatSubmit/event-driven/events'
+import type { ScheduleEvent } from '@renderer/invoker/ipcInvoker'
 
 export function useScheduleNotifications(chatUuid?: string | null): void {
   const upsertTask = useScheduledTasksStore(state => state.upsertTask)
@@ -21,8 +21,16 @@ export function useScheduleNotifications(chatUuid?: string | null): void {
         })
     }
 
-    const unsubscribe = subscribeChatSubmitEvents((event: ChatSubmitEvent) => {
-      if (event.type === 'message.created' || event.type === 'message.updated') {
+    const unsubscribe = subscribeScheduleEvents((event: ScheduleEvent) => {
+      if (event.type === 'message.created') {
+        const message = event.payload?.message
+        if (!message || message.body?.source !== 'schedule') return
+        if (chatUuid && message.chatUuid === chatUuid) {
+          upsertMessage(message)
+        }
+        return
+      }
+      if (event.type === 'message.updated') {
         const message = event.payload?.message
         if (!message || message.body?.source !== 'schedule') return
         if (chatUuid && message.chatUuid === chatUuid) {
@@ -50,5 +58,5 @@ export function useScheduleNotifications(chatUuid?: string | null): void {
     return () => {
       unsubscribe()
     }
-  }, [chatUuid, upsertTask, setTasksForChat])
+  }, [chatUuid, upsertMessage, upsertTask, setTasksForChat])
 }

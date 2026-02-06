@@ -9,7 +9,7 @@ import type {
 import { ToolExecutor } from './streaming/executor'
 import type { ToolExecutionProgress } from './streaming/executor/types'
 import type { ToolCall } from './types'
-import { AbortError } from './errors'
+import { AbortError, DuplicateSubmissionIdError } from './errors'
 import DatabaseService from '../DatabaseService'
 import { systemPrompt as systemPromptBuilder } from '@shared/prompts'
 import { buildSkillsPrompt } from '@shared/services/skills/SkillPromptBuilder'
@@ -348,7 +348,7 @@ export class MainChatSubmitService {
 
   async submit(input: MainChatSubmitInput): Promise<MainChatSubmitResult> {
     if (this.active.has(input.submissionId)) {
-      return {}
+      throw new DuplicateSubmissionIdError(input.submissionId)
     }
 
     const chat = this.resolveChatEntity(input.chatId, input.chatUuid)
