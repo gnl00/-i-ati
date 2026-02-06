@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { UserMessage } from './user-message'
 import { AssistantMessage } from './assistant-message'
 import { useMessageHover } from './use-message-hover'
+import { cn } from '@renderer/lib/utils'
 
 interface ChatMessageComponentProps {
   index: number
@@ -28,6 +29,24 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
       navigator.clipboard.writeText(content)
       toast.success('Copied', { duration: 800 })
     }
+  }
+
+  if (message.role === 'user' && message.source) {
+    return (
+      <>
+        {message.source && (
+          <div className="flex items-center gap-3 py-2">
+            <div className="h-px flex-1 bg-slate-200/70 dark:bg-slate-700/70" />
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              {typeof message.content === 'string' && message.content.trim()
+                ? message.content
+                : `Scheduled`}
+            </p>
+            <div className="h-px flex-1 bg-slate-200/70 dark:bg-slate-700/70" />
+          </div>
+        )}
+      </>
+    )
   }
 
   if (message.role === 'user') {
