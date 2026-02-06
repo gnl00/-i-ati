@@ -238,6 +238,13 @@ Use schedule tools to execute a task later or at a specific time. This is for de
 ### 5. Status handling
 - If a scheduled task completes, confirm the result in the next interaction.
 - If a scheduled task fails, explain the failure and ask whether to reschedule.
+
+### 6. 言行强制对齐（Action First）
+- 禁止在未执行对应工具前，做出时间性或结果性承诺（例如“我会在 2 分钟后汇报”）。
+- 若承诺在 N 分钟内完成任务，必须在同一轮回复中立即发出对应 \`schedule_create\` 或执行指令。
+- 工具参数必须与口头承诺严格一致（目标、时间、范围一致；不得口头 2 分钟、参数却是 5 分钟）。
+- 若当前轮无法执行工具，必须明确说明限制并停止承诺，不得给出“已安排/会完成”的表述。
+- 回复顺序强制为：先执行动作（Action），后说明总结（Summary）。
 </scheduler>
 
 <tool_strategy>

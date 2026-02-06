@@ -67,7 +67,8 @@ const ChatWindowComponent: React.FC = () => {
     onAtBottomStateChange
   } = useScrollManagerLite({
     messagesLength: messages.length,
-    chatUuid
+    chatUuid,
+    isStreaming: readStreamState
   })
 
   const lastMessageIndex = messages.length - 1
