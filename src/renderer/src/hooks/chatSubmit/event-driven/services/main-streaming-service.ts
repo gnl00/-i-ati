@@ -15,6 +15,9 @@ type MainStreamingOutcome = {
 }
 
 export class MainDrivenStreamingService implements StreamingService {
+  private static activeSubscriptions = new Map<string, () => void>()
+  private static lastChunkSequence = new Map<string, number>()
+
   constructor(private readonly messageService: MessageService) {}
 
   async run(
@@ -104,9 +107,22 @@ export class MainDrivenStreamingService implements StreamingService {
       )
     }
 
+    const existingUnsub = MainDrivenStreamingService.activeSubscriptions.get(submissionId)
+    if (existingUnsub) {
+      existingUnsub()
+      MainDrivenStreamingService.activeSubscriptions.delete(submissionId)
+    }
+
     const unsubscribe = subscribeChatSubmitEvents((event: ChatSubmitEvent) => {
       if (event.submissionId !== submissionId) {
         return
+      }
+      if (event.type === 'stream.chunk') {
+        const lastSeq = MainDrivenStreamingService.lastChunkSequence.get(submissionId) ?? 0
+        if (event.sequence <= lastSeq) {
+          return
+        }
+        MainDrivenStreamingService.lastChunkSequence.set(submissionId, event.sequence)
       }
 
       switch (event.type) {
@@ -218,6 +234,7 @@ export class MainDrivenStreamingService implements StreamingService {
         pendingOutcome = pendingOutcome || { ok: true }
       }
     })
+    MainDrivenStreamingService.activeSubscriptions.set(submissionId, unsubscribe)
 
     const abortListener = () => {
       void invokeChatSubmitCancel({ submissionId, reason: 'abort' })
@@ -256,6 +273,10 @@ export class MainDrivenStreamingService implements StreamingService {
     } finally {
       context.control.signal.removeEventListener('abort', abortListener)
       unsubscribe()
+      if (MainDrivenStreamingService.activeSubscriptions.get(submissionId) === unsubscribe) {
+        MainDrivenStreamingService.activeSubscriptions.delete(submissionId)
+      }
+      MainDrivenStreamingService.lastChunkSequence.delete(submissionId)
     }
   }
 
