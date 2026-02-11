@@ -254,7 +254,7 @@ const processWebSearch = async ({
     console.log(`[WINDOW ACQUIRE] Search window acquired in ${windowCreateTime}ms`)
 
     const searchSite = 'www.bing.com'
-    const queryStr = trimmedQuery.replaceAll(' ', '+')
+    const queryStr = encodeURIComponent(trimmedQuery)
     const searchUrl = `https://${searchSite}/search?q=${queryStr}`
 
     // Load search page
