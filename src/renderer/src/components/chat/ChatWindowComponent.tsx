@@ -63,12 +63,10 @@ const ChatWindowComponent: React.FC = () => {
     scrollToBottom,
     onTyping,
     onMessagesUpdate,
-    followOutput,
     onAtBottomStateChange
   } = useScrollManagerLite({
     messagesLength: messages.length,
-    chatUuid,
-    isStreaming: readStreamState
+    chatUuid
   })
 
   const lastMessageIndex = messages.length - 1
@@ -215,7 +213,6 @@ const ChatWindowComponent: React.FC = () => {
                 ref={virtuosoRef}
                 data={messages}
                 className="h-full w-full"
-                followOutput={followOutput}
                 customScrollParent={scrollParentRef.current ?? undefined}
                 overscan={150}
                 increaseViewportBy={{ top: 200, bottom: 400 }}
