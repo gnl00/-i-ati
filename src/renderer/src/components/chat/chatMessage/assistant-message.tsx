@@ -9,6 +9,7 @@ import { ChevronDown, Lightbulb } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
 import { useChatStore } from '@renderer/store'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
+import useChatSubmit from '@renderer/hooks/useChatSubmit'
 import { ToolCallResult } from './toolcall/ToolCallResult'
 import { useMessageTypewriter } from './typewriter/use-message-typewriter'
 import { markdownCodeComponents, fixMalformedCodeBlocks } from './markdown/markdown-components'
@@ -18,6 +19,7 @@ import { CommandConfirmation } from './CommandConfirmation'
 import { useEnterTransition } from './typewriter/use-enter-transition'
 import { StreamingMarkdownSwitch } from './typewriter/StreamingMarkdownSwitch'
 import { remarkPreserveLineBreaks } from './markdown/markdown-plugins'
+import { toast } from 'sonner'
 
 function getStreamingTextRenderMode(): 'markdown' | 'switch' {
   return (globalThis as any).__STREAMING_TEXT_RENDER_MODE ?? 'switch'
@@ -45,6 +47,36 @@ export interface AssistantMessageProps {
   onHover: (hovered: boolean) => void
   onCopyClick: (content: string) => void
   onTypingChange?: () => void
+}
+
+const extractRegeneratePayload = (
+  message: ChatMessage
+): { text: string; images: ClipbordImg[] } | null => {
+  if (typeof message.content === 'string') {
+    const text = message.content.trim()
+    return text ? { text, images: [] } : null
+  }
+
+  if (!Array.isArray(message.content)) {
+    return null
+  }
+
+  const textParts: string[] = []
+  const images: ClipbordImg[] = []
+  for (const item of message.content) {
+    if (item.type === 'text' && item.text) {
+      textParts.push(item.text)
+    }
+    if (item.type === 'image_url' && item.image_url?.url) {
+      images.push(item.image_url.url)
+    }
+  }
+
+  const text = textParts.join('\n').trim()
+  if (!text && images.length === 0) {
+    return null
+  }
+  return { text, images }
 }
 
 /**
@@ -188,6 +220,10 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   onTypingChange
 }) => {
   const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
+  const messages = useChatStore(state => state.messages)
+  const selectedModelRef = useChatStore(state => state.selectedModelRef)
+  const readStreamState = useChatStore(state => state.readStreamState)
+  const { onSubmit: handleChatSubmit } = useChatSubmit()
 
   const pendingToolConfirm = useToolConfirmationStore(state => state.pendingRequest)
   const confirm = useToolConfirmationStore(state => state.confirm)
@@ -215,6 +251,35 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
   if (!hasContent && !hasSegments && hasToolCalls) {
     return null
+  }
+
+  const handleRegenerate = () => {
+    if (readStreamState) {
+      toast.warning('Please wait for current response to finish')
+      return
+    }
+    if (!selectedModelRef) {
+      toast.warning('Please select a model')
+      return
+    }
+
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find(item => item.body.role === 'user' && !item.body.source)
+      ?.body
+
+    if (!lastUserMessage) {
+      toast.warning('No user message available to regenerate')
+      return
+    }
+
+    const payload = extractRegeneratePayload(lastUserMessage)
+    if (!payload) {
+      toast.warning('Last user message has no valid content to regenerate')
+      return
+    }
+
+    void handleChatSubmit(payload.text, payload.images, {})
   }
 
   return (
@@ -331,10 +396,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         isHovered={isHovered}
         showRegenerate={isLatest}
         onCopyClick={() => onCopyClick(m.content as string)}
-        onRegenerateClick={() => {
-          // TODO: 实现重新生成功能
-          console.log('Regenerate message:', index)
-        }}
+        onRegenerateClick={handleRegenerate}
         onEditClick={() => {
           // TODO: 实现编辑助手消息功能
           console.log('Edit assistant message:', index)
