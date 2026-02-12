@@ -72,7 +72,7 @@ pnpm build:mac
 - [X] artifacts supports(~~THANKS CLAUDECODE :P~~)
 - [X] default model for chat
 - [X] add provider
-- [ ] chat config topK/topP/maxToken(very soon~)
+- [X] ~chat config topK/topP/maxToken(very soon)~
 - [X] web search & web_fetch
 - [X] mcp(yes it is here~)
 - [X] [mcp-registry](https://registry.modelcontextprotocol.io/)
@@ -83,6 +83,7 @@ pnpm build:mac
 - [X] command panel
 - [ ] llm arena
 - [X] skills
+- [ ] ask user questions?
 
 ## Reference
 
