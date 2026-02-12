@@ -31,11 +31,9 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
       icon: ShieldAlert,
       title: 'Dangerous Command',
       gradient: 'from-red-500/10 via-red-500/5 to-transparent',
-      borderGlow: 'shadow-xs',
       iconBg: 'bg-red-500/10 dark:bg-red-500/20',
       iconColor: 'text-red-600 dark:text-red-400',
       titleColor: 'text-red-900 dark:text-red-100',
-      borderColor: 'border-red-400 dark:border-red-600'
     }
   }
 
@@ -80,10 +78,8 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
     >
       {/* 主容器 */}
       <div className={cn(
-        'relative overflow-hidden rounded-xl border-2 backdrop-blur-xs',
+        'relative overflow-hidden rounded-xl shadow-sm backdrop-blur-xs',
         'bg-white/80 dark:bg-gray-900/80',
-        config.borderColor,
-        config.borderGlow
       )}>
         {/* 背景 */}
         <div className={cn(
@@ -92,20 +88,20 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
         )} />
 
         {/* 内容区域 */}
-        <div className="relative p-3">
+        <div className="relative p-2">
           {/* 头部：图标 + 标题 */}
           <div className="flex items-start gap-3 mb-2.5">
             {/* 图标 */}
             <div className={cn(
-              'flex items-center justify-center w-9 h-9 rounded-lg shrink-0',
+              'flex items-center justify-center w-6 h-6 rounded-lg shrink-0',
               config.iconBg
             )}>
-              <Icon className={cn('w-5 h-5', config.iconColor)} />
+              <Icon className={cn('w-4 h-4', config.iconColor)} />
             </div>
 
             {/* 标题 */}
             <div className="flex-1 min-w-0">
-              <h3 className={cn('text-sm font-semibold', config.titleColor)}>
+              <h3 className={cn('text-sm font-medium', config.titleColor)}>
                 {config.title}
               </h3>
             </div>
@@ -115,7 +111,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
           <div className="mb-3">
             <div className={cn(
               'rounded-md overflow-hidden',
-              'bg-gray-900/5 dark:bg-gray-950/50',
+              'bg-gray-600/5 dark:bg-gray-750/50',
               'border border-gray-200 dark:border-gray-800'
             )}>
               {/* 命令内容 */}
@@ -133,34 +129,34 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
           </div>
 
           {/* 操作按钮区域 */}
-          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-2.5">
+          <div className="flex flex-col-reverse justify-end sm:flex-row gap-2 sm:gap-2.5">
             {/* Cancel 按钮 */}
             <Button
               variant="ghost"
               size="sm"
               onClick={onCancel}
               className={cn(
-                'flex-1 sm:flex-initial sm:min-w-[100px] rounded-3xl',
-                'text-gray-700 dark:text-gray-300',
-                'hover:bg-gray-100 dark:hover:bg-gray-800'
+                'flex-1 sm:flex-initial sm:min-w-[100px] rounded-xl transition-colors',
+                'text-gray-300 dark:text-gray-300',
+                'hover:bg-gray-100 hover:text-blue-500 dark:hover:bg-gray-800 dark:hover:text-blue-400'
               )}
             >
               Cancel
             </Button>
 
-            {/* Execute Anyway 按钮 */}
+            {/* Execute 按钮 */}
             <Button
               variant={request.risk_level === 'dangerous' ? 'destructive' : 'default'}
               size="sm"
               onClick={onConfirm}
               className={cn(
-                'flex-1 sm:flex-initial sm:min-w-[120px] font-medium rounded-3xl',
+                'flex-1 sm:flex-initial sm:min-w-[120px] font-medium rounded-xl transition-colors',
                 request.risk_level === 'dangerous'
                   ? 'bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700'
-                  : 'text-orange-600 bg-orange-50 border-orange-400 border hover:bg-orange-100 hover:border-orange-500 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-600 dark:hover:bg-orange-900/50 dark:hover:border-orange-500'
+                  : 'text-orange-600 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400 dark:hover:bg-orange-900/50'
               )}
             >
-              Execute Anyway
+              Execute
             </Button>
           </div>
         </div>

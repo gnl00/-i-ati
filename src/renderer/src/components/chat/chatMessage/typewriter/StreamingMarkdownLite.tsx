@@ -144,7 +144,7 @@ export const StreamingMarkdownLite: React.FC<{
   className?: string
   animate?: boolean
   animationWindow?: number
-}> = memo(({ text, className, animate = true, animationWindow = 12 }) => {
+}> = memo(({ text, className, animate = true, animationWindow = 16 }) => {
   const blocks = useMemo(() => parseBlocks(text), [text])
   const proseBoxClassName = cn("flow-root", className)
 
