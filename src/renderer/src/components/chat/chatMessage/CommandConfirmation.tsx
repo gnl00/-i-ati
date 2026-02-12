@@ -78,7 +78,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
     >
       {/* 主容器 */}
       <div className={cn(
-        'relative overflow-hidden rounded-xl shadow-sm backdrop-blur-xs',
+        'relative overflow-hidden rounded-xl shadow-xs backdrop-blur-xs',
         'bg-white/80 dark:bg-gray-900/80',
       )}>
         {/* 背景 */}
