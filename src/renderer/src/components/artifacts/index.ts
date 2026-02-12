@@ -1,4 +1,5 @@
 export { ArtifactsPanel } from './ArtifactsPanel'
+export { FloatingArtifactsToggle } from './FloatingArtifactsToggle'
 export { ArtifactsPreviewTab } from './ArtifactsPreviewTab'
 export { ArtifactsFilesTab, FilesTabToolbar } from './ArtifactsFilesTab'
 export { ArtifactsEmptyState } from './ArtifactsEmptyState'

@@ -1,4 +1,4 @@
-import { ArtifactsPanel } from '@renderer/components/artifacts'
+import { ArtifactsPanel, FloatingArtifactsToggle } from '@renderer/components/artifacts'
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea from "@renderer/components/chat/chatInput/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
@@ -306,6 +306,8 @@ const ChatWindowComponent: React.FC = () => {
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      <FloatingArtifactsToggle />
     </div>
   )
 }
