@@ -289,20 +289,20 @@ const ConfigPanel: React.FC = () => {
             <div className="space-y-1 flex-1 flex flex-col pt-1 min-h-0">
               <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60 shrink-0 mb-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Instructions
+                  Prompt
                 </span>
               </div>
 
               <Label
-                htmlFor="instructions"
+                htmlFor="customPrompt"
                 className="sr-only"
               >
-                Instructions
+                Custom Prompt
               </Label>
               <Textarea
-                id="instructions"
+                id="customPrompt"
                 value={userInstruction}
-                placeholder='Highest-priority instructions for this chat...'
+                placeholder='Input your custom prompt here...'
                 className={cn(
                   "flex-1 text-xs leading-relaxed",
                   "bg-slate-50 dark:bg-slate-900/50",
