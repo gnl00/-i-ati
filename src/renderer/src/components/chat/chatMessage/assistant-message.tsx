@@ -228,6 +228,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const pendingToolConfirm = useToolConfirmationStore(state => state.pendingRequest)
   const confirm = useToolConfirmationStore(state => state.confirm)
   const cancel = useToolConfirmationStore(state => state.cancel)
+  const isCommandConfirmPending = isLatest && pendingToolConfirm?.name === 'execute_command'
 
   const {
     segments,
@@ -249,9 +250,15 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const hasSegments = Array.isArray(segments) && segments.length > 0
   const hasToolCalls = Array.isArray(m.toolCalls) && m.toolCalls.length > 0
 
-  if (!hasContent && !hasSegments && hasToolCalls) {
+  // Keep rendering the container when command confirmation is pending,
+  // even if this assistant message currently only carries tool calls.
+  if (!hasContent && !hasSegments && hasToolCalls && !isCommandConfirmPending) {
     return null
   }
+
+  const pendingCommand =
+    pendingToolConfirm?.ui?.command ||
+    ((pendingToolConfirm?.args as { command?: string } | undefined)?.command ?? '')
 
   const handleRegenerate = () => {
     if (readStreamState) {
@@ -377,12 +384,12 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         })}
 
         {/* Command Confirmation */}
-        {isLatest && pendingToolConfirm?.name === 'execute_command' && pendingToolConfirm.ui && (
+        {isCommandConfirmPending && (
           <CommandConfirmation
             request={{
-              command: pendingToolConfirm.ui.command || '',
-              risk_level: pendingToolConfirm.ui.riskLevel || 'risky',
-              risk_reason: pendingToolConfirm.ui.reason || 'Requires confirmation'
+              command: pendingCommand,
+              risk_level: pendingToolConfirm?.ui?.riskLevel || 'risky',
+              risk_reason: pendingToolConfirm?.ui?.reason || 'Requires confirmation'
             }}
             onConfirm={confirm}
             onCancel={() => cancel('user abort')}
