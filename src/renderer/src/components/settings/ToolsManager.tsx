@@ -8,16 +8,13 @@ import { Switch } from "@renderer/components/ui/switch"
 import { cn } from '@renderer/lib/utils'
 import { exportConfigAsJSON, getConfig, importConfigFromJSON } from '@renderer/db/ConfigRepository'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { Check, ChevronsUpDown, Trash2 } from "lucide-react"
-import React, { useEffect, useState } from 'react'
+import { Check, ChevronsUpDown } from "lucide-react"
+import React, { useState } from 'react'
 import { toast } from 'sonner'
-import { MEMORY_DELETE, MEMORY_GET_ALL } from '@shared/constants'
 
 interface ToolsManagerProps {
     maxWebSearchItems: number
     setMaxWebSearchItems: (value: number) => void
-    memoryEnabled: boolean
-    setMemoryEnabled: (value: boolean) => void
     compressionEnabled: boolean
     setCompressionEnabled: (value: boolean) => void
     compressionTriggerThreshold: number
@@ -28,22 +25,9 @@ interface ToolsManagerProps {
     setCompressionCompressCount: (value: number) => void
 }
 
-interface MemoryListEntry {
-    id: string
-    chatId: number
-    messageId: number
-    role: 'user' | 'assistant' | 'system'
-    context_origin: string
-    context_en: string
-    timestamp: number
-    metadata?: Record<string, any>
-}
-
 const ToolsManager: React.FC<ToolsManagerProps> = ({
     maxWebSearchItems,
     setMaxWebSearchItems,
-    memoryEnabled,
-    setMemoryEnabled,
     compressionEnabled,
     setCompressionEnabled,
     compressionTriggerThreshold,
@@ -65,8 +49,6 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     } = useAppConfigStore()
 
     const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
-    const [memoryItems, setMemoryItems] = useState<MemoryListEntry[]>([])
-    const [isMemoryLoading, setIsMemoryLoading] = useState(false)
     const modelOptions = React.useMemo(() => {
         return accounts.flatMap(account =>
             account.models
@@ -81,34 +63,6 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     const selectedTitleModel = React.useMemo(() => {
         return resolveModelRef(titleGenerateModel)
     }, [resolveModelRef, titleGenerateModel, accounts, providerDefinitions])
-
-    const loadMemories = async () => {
-        setIsMemoryLoading(true)
-        try {
-            const items = await window.electron.ipcRenderer.invoke(MEMORY_GET_ALL)
-            setMemoryItems(Array.isArray(items) ? items : [])
-        } catch (error) {
-            console.error('[ToolsManager] Failed to load memories:', error)
-            toast.error('Failed to load memories')
-        } finally {
-            setIsMemoryLoading(false)
-        }
-    }
-
-    const handleDeleteMemory = async (id: string) => {
-        try {
-            await window.electron.ipcRenderer.invoke(MEMORY_DELETE, id)
-            setMemoryItems(prev => prev.filter(item => item.id !== id))
-            toast.success('Memory deleted')
-        } catch (error) {
-            console.error('[ToolsManager] Failed to delete memory:', error)
-            toast.error('Failed to delete memory')
-        }
-    }
-
-    useEffect(() => {
-        void loadMemories()
-    }, [])
 
     const handleExportConfig = async () => {
         try {
@@ -283,79 +237,6 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                 className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium'
                             />
                             <span className="text-xs font-medium text-gray-400 pr-2">items</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Memory Setting */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md">
-                    <div className="p-5 flex items-start gap-4">
-                        <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="toggle-memory" className="text-base font-medium text-gray-900 dark:text-gray-100">
-                                    Long-term Memory
-                                </Label>
-                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                                    MEMORY
-                                </Badge>
-                            </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                                Enable semantic memory storage and retrieval using vector embeddings. The system can remember important information across conversations.
-                            </p>
-                        </div>
-                        <Switch
-                            checked={memoryEnabled}
-                            onCheckedChange={setMemoryEnabled}
-                            id="toggle-memory"
-                            className="data-[state=checked]:bg-green-600 mt-1"
-                        />
-                    </div>
-                    <div className="border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/50">
-                        <div className="p-4 flex items-center justify-between gap-4">
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Stored Memories
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={loadMemories}
-                                className="h-8"
-                                disabled={isMemoryLoading}
-                            >
-                                Refresh
-                            </Button>
-                        </div>
-                        <div className="max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
-                            {memoryItems.length === 0 ? (
-                                <div className="px-4 pb-4 text-sm text-gray-500 dark:text-gray-400">
-                                    {isMemoryLoading ? 'Loading memories...' : 'No memories stored.'}
-                                </div>
-                            ) : (
-                                memoryItems.map(item => (
-                                    <div key={item.id} className="px-4 py-3 flex items-start gap-3">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 mb-1">
-                                                <span className="uppercase">{item.role}</span>
-                                                <span>•</span>
-                                                <span>Chat {item.chatId}</span>
-                                                <span>•</span>
-                                                <span>{new Date(item.timestamp).toLocaleString()}</span>
-                                            </div>
-                                            <p className="text-xs text-gray-800 dark:text-gray-200 line-clamp-2">
-                                                {item.context_origin}
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-gray-400 hover:text-red-500"
-                                            onClick={() => handleDeleteMemory(item.id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ))
-                            )}
                         </div>
                     </div>
                 </div>

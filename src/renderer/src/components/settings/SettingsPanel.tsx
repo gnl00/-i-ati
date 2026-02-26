@@ -6,9 +6,10 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { Plug, Server, Sparkles, Wrench } from "lucide-react"
+import { Brain, Plug, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
+import MemoryManager from './MemoryManager'
 import { MCPServersManagerContent } from './MCPServersManager'
 import ProvidersManager from './providers/ProvidersManager'
 import ToolsManager from './ToolsManager'
@@ -99,6 +100,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             icon: <Wrench className="w-3 h-3" />
         },
         {
+            value: 'memory',
+            label: 'Memory',
+            icon: <Brain className="w-3 h-3" />
+        },
+        {
             value: 'mcp-server',
             label: 'MCP Server',
             icon: <Plug className="w-3 h-3" />
@@ -131,12 +137,40 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
     return (
         <div className="grid gap-4">
-            <div className="space-y-2 select-none">
-                <h4 className="font-medium leading-none space-x-2 text-gray-900 dark:text-gray-100">
-                    <span>@i</span>
-                    <Badge variant="secondary" className='bg-slate-100 dark:bg-slate-800 text-gray-800 dark:text-gray-200'>{appVersion}</Badge>
-                </h4>
-                <p className="text-sm text-muted-foreground dark:text-gray-400">Customize @i to fit your workflow</p>
+            <div className="flex items-start justify-between gap-4">
+                <div id="title" className="space-y-2 select-none">
+                    <h4 className="font-medium leading-none space-x-2 text-gray-900 dark:text-gray-100">
+                        <span>@i</span>
+                        <Badge variant="secondary" className='bg-slate-100 dark:bg-slate-800 text-gray-800 dark:text-gray-200'>{appVersion}</Badge>
+                    </h4>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">Customize @i to fit your workflow</p>
+                </div>
+                <div id="changes-indicator" className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-linear-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-xs">
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex h-1.5 w-1.5">
+                            {hasUnsavedChanges && (
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            )}
+                            <span className={hasUnsavedChanges
+                                ? "relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"
+                                : "relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"
+                            }></span>
+                        </div>
+                        <span className='text-xs font-medium text-gray-600 dark:text-gray-300 select-none'>
+                            {hasUnsavedChanges ? 'Unsaved changes' : 'All saved'}
+                        </span>
+                    </div>
+                    <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
+                    <Button
+                        size="lg"
+                        onClick={saveConfigurationClick}
+                        disabled={!hasUnsavedChanges}
+                        className="h-7 px-3 py-4 bg-gray-900 rounded-3xl hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-xs hover:shadow-md active:scale-90 transition-all duration-300 scale-105 font-medium will-change-transform"
+                    >
+                        <i className="ri-save-line mr-1.5 text-sm"></i>
+                        Save
+                    </Button>
+                </div>
             </div>
             <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list">
                 <div className="flex items-center justify-between mb-2">
@@ -145,32 +179,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         value={activeTab}
                         tabsListClassName="h-10 shadow-xs border border-gray-200/50 dark:border-gray-700/50"
                     />
-                    <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-linear-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-xs">
-                        <div className="flex items-center gap-2">
-                            <div className="relative flex h-1.5 w-1.5">
-                                {hasUnsavedChanges && (
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                )}
-                                <span className={hasUnsavedChanges
-                                    ? "relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"
-                                    : "relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"
-                                }></span>
-                            </div>
-                            <span className='text-xs font-medium text-gray-600 dark:text-gray-300 select-none'>
-                                {hasUnsavedChanges ? 'Unsaved changes' : 'All saved'}
-                            </span>
-                        </div>
-                        <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
-                        <Button
-                            size="lg"
-                            onClick={saveConfigurationClick}
-                            disabled={!hasUnsavedChanges}
-                            className="h-7 px-3 py-4 bg-gray-900 rounded-3xl hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-xs hover:shadow-md active:scale-90 transition-all duration-300 scale-105 font-medium will-change-transform"
-                        >
-                            <i className="ri-save-line mr-1.5 text-sm"></i>
-                            Save
-                        </Button>
-                    </div>
                 </div>
 
                 <TabsContent value="provider-list">
@@ -181,8 +189,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <ToolsManager
                         maxWebSearchItems={maxWebSearchItems}
                         setMaxWebSearchItems={setMaxWebSearchItems}
-                        memoryEnabled={memoryEnabled}
-                        setMemoryEnabled={setMemoryEnabled}
                         compressionEnabled={compressionEnabled}
                         setCompressionEnabled={setCompressionEnabled}
                         compressionTriggerThreshold={compressionTriggerThreshold}
@@ -191,6 +197,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         setCompressionKeepRecentCount={setCompressionKeepRecentCount}
                         compressionCompressCount={compressionCompressCount}
                         setCompressionCompressCount={setCompressionCompressCount}
+                    />
+                </TabsContent>
+
+                <TabsContent value="memory">
+                    <MemoryManager
+                        memoryEnabled={memoryEnabled}
+                        setMemoryEnabled={setMemoryEnabled}
                     />
                 </TabsContent>
 
