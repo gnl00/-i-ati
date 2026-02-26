@@ -1,9 +1,10 @@
 import { ipcMain } from 'electron'
 import { SkillService } from '@main/services/skills/SkillService'
-import { processLoadSkill, processReadSkillFile, processUnloadSkill } from '@main/tools/skills/SkillToolsProcessor'
+import { processImportSkills, processInstallSkill, processLoadSkill, processReadSkillFile, processUnloadSkill } from '@main/tools/skills/SkillToolsProcessor'
 import {
   SKILL_LIST_ACTION,
   SKILL_GET_ACTION,
+  SKILL_INSTALL_ACTION,
   SKILL_LOAD_ACTION,
   SKILL_UNLOAD_ACTION,
   SKILL_IMPORT_ACTION,
@@ -26,6 +27,11 @@ export function registerSkillHandlers(): void {
     return await processReadSkillFile(args)
   })
 
+  ipcMain.handle(SKILL_INSTALL_ACTION, async (_event, args) => {
+    console.log('[Skill IPC] Install skill')
+    return await processInstallSkill(args)
+  })
+
   ipcMain.handle(SKILL_LOAD_ACTION, async (_event, args) => {
     console.log('[Skill IPC] Load skill')
     return await processLoadSkill(args)
@@ -36,8 +42,8 @@ export function registerSkillHandlers(): void {
     return await processUnloadSkill(args)
   })
 
-  ipcMain.handle(SKILL_IMPORT_ACTION, async (_event, { folderPath }) => {
+  ipcMain.handle(SKILL_IMPORT_ACTION, async (_event, args) => {
     console.log('[Skill IPC] Import skills from folder')
-    return await SkillService.importSkillsFromFolder(folderPath)
+    return await processImportSkills(args)
   })
 }

@@ -6,10 +6,19 @@ import DatabaseService from '@main/services/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
 
 interface LoadSkillArgs {
+  name: string
+  chat_uuid?: string
+}
+
+interface InstallSkillArgs {
   source: string
   name?: string
   allowOverwrite?: boolean
-  activate?: boolean
+  chat_uuid?: string
+}
+
+interface ImportSkillsArgs {
+  folderPath: string
   chat_uuid?: string
 }
 
@@ -27,11 +36,26 @@ interface ReadSkillFileArgs {
   chat_uuid?: string
 }
 
-interface LoadSkillResponse {
+interface InstallSkillResponse {
   success: boolean
   name?: string
   skill?: SkillMetadata
-  activated?: boolean
+  message?: string
+}
+
+interface LoadSkillResponse {
+  success: boolean
+  name?: string
+  loaded?: boolean
+  message?: string
+}
+
+interface ImportSkillsResponse {
+  success: boolean
+  installed?: SkillMetadata[]
+  renamed?: Array<{ from: string; to: string }>
+  skipped?: Array<{ path: string; reason: string }>
+  failed?: Array<{ path: string; error: string }>
   message?: string
 }
 
@@ -68,10 +92,6 @@ const resolveSourcePath = (source: string, chatUuid?: string): string => {
   return path.join(app.getPath('userData'), source)
 }
 
-const isPotentialSkillName = (value: string): boolean => {
-  return SKILL_NAME_REGEX.test(value) && !value.includes('/') && !value.includes('\\')
-}
-
 const resolveInstalledSkillPath = (name: string): string => {
   return path.join(app.getPath('userData'), SKILLS_DIR, name, 'SKILL.md')
 }
@@ -95,30 +115,46 @@ const resolveSkillFilePath = (name: string, relativePath: string): string => {
 
 export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillResponse> {
   try {
-    if (args?.source && isPotentialSkillName(args.source)) {
-      const installedSkillFile = resolveInstalledSkillPath(args.source)
-      if (existsSync(installedSkillFile)) {
-        const allSkills = await SkillService.listSkills()
-        const skill = allSkills.find(item => item.name === args.source)
-        if (!skill) {
-          throw new Error(`Installed skill "${args.source}" is invalid or missing metadata`)
-        }
-        let activated = false
-        if (args.activate !== false && args.chat_uuid) {
-          const chat = DatabaseService.getChatByUuid(args.chat_uuid)
-          if (chat?.id) {
-            DatabaseService.addChatSkill(chat.id, skill.name)
-            activated = true
-          }
-        }
-        return {
-          success: true,
-          name: skill.name,
-          skill,
-          activated,
-          message: activated ? 'Skill activated.' : 'Skill loaded.'
-        }
-      }
+    if (!args?.name) {
+      return { success: false, loaded: false, message: 'name is required' }
+    }
+    if (!args.chat_uuid) {
+      return { success: false, loaded: false, message: 'chat_uuid is required' }
+    }
+
+    const installedSkillFile = resolveInstalledSkillPath(args.name)
+    if (!existsSync(installedSkillFile)) {
+      return { success: false, loaded: false, message: `Skill "${args.name}" is not installed` }
+    }
+
+    const chat = DatabaseService.getChatByUuid(args.chat_uuid)
+    if (!chat?.id) {
+      return { success: false, loaded: false, message: 'Chat not found' }
+    }
+
+    DatabaseService.addChatSkill(chat.id, args.name)
+
+    return {
+      success: true,
+      name: args.name,
+      loaded: true,
+      message: 'Skill loaded.'
+    }
+  } catch (error) {
+    console.error('[SkillTools] Failed to load skill:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      success: false,
+      loaded: false,
+      message: `Failed to load skill: ${message}`
+    }
+  }
+}
+
+export async function processInstallSkill(args: InstallSkillArgs): Promise<InstallSkillResponse> {
+  try {
+    if (!args?.source) {
+      return { success: false, message: 'source is required' }
     }
 
     const skill = await SkillService.loadSkill({
@@ -127,29 +163,45 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       allowOverwrite: args.allowOverwrite
     })
 
-    let activated = false
-    if (args.activate !== false && args.chat_uuid) {
-      const chat = DatabaseService.getChatByUuid(args.chat_uuid)
-      if (chat?.id) {
-        DatabaseService.addChatSkill(chat.id, skill.name)
-        activated = true
-      }
-    }
-
     return {
       success: true,
       name: skill.name,
       skill,
-      activated,
-      message: activated ? 'Skill loaded and activated.' : 'Skill loaded.'
+      message: 'Skill installed.'
     }
   } catch (error) {
-    console.error('[SkillTools] Failed to load skill:', error)
+    console.error('[SkillTools] Failed to install skill:', error)
     const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
-      activated: false,
-      message: `Failed to load skill: ${message}`
+      message: `Failed to install skill: ${message}`
+    }
+  }
+}
+
+export async function processImportSkills(args: ImportSkillsArgs): Promise<ImportSkillsResponse> {
+  try {
+    if (!args?.folderPath) {
+      return { success: false, message: 'folderPath is required' }
+    }
+
+    const summary = await SkillService.importSkillsFromFolder(
+      resolveSourcePath(args.folderPath, args.chat_uuid)
+    )
+    return {
+      success: true,
+      installed: summary.installed,
+      renamed: summary.renamed,
+      skipped: summary.skipped,
+      failed: summary.failed,
+      message: 'Skills imported.'
+    }
+  } catch (error) {
+    console.error('[SkillTools] Failed to import skills:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      success: false,
+      message: `Failed to import skills: ${message}`
     }
   }
 }

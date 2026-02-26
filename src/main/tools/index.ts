@@ -19,7 +19,13 @@ import {
 import { processWebFetch, processWebSearch } from '@main/tools/webTools/WebToolsProcessor'
 import { processMemoryRetrieval, processMemorySave, processMemoryUpdate } from '@main/tools/memory/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
-import { processLoadSkill, processUnloadSkill, processReadSkillFile } from '@main/tools/skills/SkillToolsProcessor'
+import {
+  processInstallSkill,
+  processImportSkills,
+  processLoadSkill,
+  processReadSkillFile,
+  processUnloadSkill
+} from '@main/tools/skills/SkillToolsProcessor'
 import {
   processPlanCreate,
   processPlanDelete,
@@ -59,7 +65,9 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   memory_save: processMemorySave,
   memory_update: processMemoryUpdate,
   execute_command: processExecuteCommand,
+  install_skill: processInstallSkill,
   load_skill: processLoadSkill,
+  import_skills: processImportSkills,
   unload_skill: processUnloadSkill,
   read_skill_file: processReadSkillFile,
   plan_create: processPlanCreate,
