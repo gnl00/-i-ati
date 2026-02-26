@@ -1,3 +1,7 @@
+import { app } from 'electron'
+import path from 'path'
+import * as fs from 'fs/promises'
+import { existsSync } from 'fs'
 import MemoryService from '@main/services/memory/MemoryService'
 import type { MemoryRetrievalResponse, MemorySaveResponse, MemoryUpdateResponse } from '@tools/memory/index.d'
 
@@ -26,6 +30,61 @@ interface MemoryUpdateArgs {
   metadata?: Record<string, any> | null
   role?: 'user' | 'assistant' | 'system'
   timestamp?: number
+}
+
+interface WorkingMemoryGetArgs {
+  chat_uuid?: string
+}
+
+interface WorkingMemorySetArgs {
+  content: string
+  chat_uuid?: string
+}
+
+const WORKING_MEMORY_ROOT = 'memories'
+const WORKING_MEMORY_FILE = 'current.md'
+const WORKING_MEMORY_TEMPLATE = `# Working Memory
+
+## Current Goal
+
+## Decisions
+
+## In Progress
+
+## Open Questions
+
+## Temporary Constraints
+
+## Last Updated
+`
+
+const resolveWorkingMemoryFilePath = (chatUuid: string): string => {
+  return path.join(app.getPath('userData'), WORKING_MEMORY_ROOT, chatUuid, 'working', WORKING_MEMORY_FILE)
+}
+
+const normalizeWorkingMemoryContent = (content: string): string => {
+  return content
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => line.trimEnd())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+const readWorkingMemoryFile = async (filePath: string): Promise<string> => {
+  if (!existsSync(filePath)) {
+    return ''
+  }
+  return await fs.readFile(filePath, 'utf-8')
+}
+
+const atomicWriteTextFile = async (filePath: string, content: string): Promise<void> => {
+  const dir = path.dirname(filePath)
+  await fs.mkdir(dir, { recursive: true })
+  const tmpFilePath = `${filePath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  await fs.writeFile(tmpFilePath, content, 'utf-8')
+  await fs.rename(tmpFilePath, filePath)
 }
 
 /**
@@ -162,6 +221,117 @@ export async function processMemoryUpdate(
     return {
       success: false,
       message: `Failed to update memory: ${message}`
+    }
+  }
+}
+
+export async function processWorkingMemoryGet(
+  args: WorkingMemoryGetArgs
+): Promise<{
+  success: boolean
+  chat_uuid?: string
+  content: string
+  exists: boolean
+  file_path?: string
+  message: string
+}> {
+  try {
+    if (!args.chat_uuid) {
+      return {
+        success: false,
+        content: '',
+        exists: false,
+        message: 'chat_uuid is required'
+      }
+    }
+
+    const filePath = resolveWorkingMemoryFilePath(args.chat_uuid)
+    const exists = existsSync(filePath)
+    const rawContent = exists ? await readWorkingMemoryFile(filePath) : WORKING_MEMORY_TEMPLATE
+
+    return {
+      success: true,
+      chat_uuid: args.chat_uuid,
+      content: rawContent,
+      exists,
+      file_path: filePath,
+      message: exists ? 'Working memory loaded.' : 'Working memory not found. Returned template.'
+    }
+  } catch (error) {
+    console.error('[MemoryTools] Failed to get working memory:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      success: false,
+      content: '',
+      exists: false,
+      message: `Failed to get working memory: ${message}`
+    }
+  }
+}
+
+export async function processWorkingMemorySet(
+  args: WorkingMemorySetArgs
+): Promise<{
+  success: boolean
+  chat_uuid?: string
+  updated: boolean
+  skipped: boolean
+  file_path?: string
+  message: string
+}> {
+  try {
+    if (!args.chat_uuid) {
+      return {
+        success: false,
+        updated: false,
+        skipped: false,
+        message: 'chat_uuid is required'
+      }
+    }
+    if (typeof args.content !== 'string') {
+      return {
+        success: false,
+        updated: false,
+        skipped: false,
+        message: 'content is required'
+      }
+    }
+
+    const filePath = resolveWorkingMemoryFilePath(args.chat_uuid)
+    const previousRaw = await readWorkingMemoryFile(filePath)
+    const previousNormalized = normalizeWorkingMemoryContent(previousRaw)
+    const nextNormalized = normalizeWorkingMemoryContent(args.content)
+
+    if (previousNormalized === nextNormalized) {
+      return {
+        success: true,
+        chat_uuid: args.chat_uuid,
+        updated: false,
+        skipped: true,
+        file_path: filePath,
+        message: 'Working memory unchanged. Skipped write.'
+      }
+    }
+
+    const contentToWrite = args.content.replace(/\r\n/g, '\n').trimEnd()
+    await atomicWriteTextFile(filePath, `${contentToWrite}\n`)
+
+    return {
+      success: true,
+      chat_uuid: args.chat_uuid,
+      updated: true,
+      skipped: false,
+      file_path: filePath,
+      message: 'Working memory updated.'
+    }
+  } catch (error) {
+    console.error('[MemoryTools] Failed to set working memory:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      success: false,
+      updated: false,
+      skipped: false,
+      message: `Failed to set working memory: ${message}`
     }
   }
 }
