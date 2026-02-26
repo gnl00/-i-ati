@@ -17,7 +17,13 @@ import {
   processMoveFile
 } from '@main/tools/fileOperations/FileOperationsProcessor'
 import { processWebFetch, processWebSearch } from '@main/tools/webTools/WebToolsProcessor'
-import { processMemoryRetrieval, processMemorySave, processMemoryUpdate } from '@main/tools/memory/MemoryToolsProcessor'
+import {
+  processMemoryRetrieval,
+  processMemorySave,
+  processMemoryUpdate,
+  processWorkingMemoryGet,
+  processWorkingMemorySet
+} from '@main/tools/memory/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import {
   processInstallSkill,
@@ -64,6 +70,8 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   memory_retrieval: processMemoryRetrieval,
   memory_save: processMemorySave,
   memory_update: processMemoryUpdate,
+  working_memory_get: processWorkingMemoryGet,
+  working_memory_set: processWorkingMemorySet,
   execute_command: processExecuteCommand,
   install_skill: processInstallSkill,
   load_skill: processLoadSkill,

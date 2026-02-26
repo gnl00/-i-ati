@@ -2,6 +2,37 @@ export default [
   {
     "type": "function",
     "function": {
+      "name": "working_memory_get",
+      "description": "Get the current working memory markdown for this chat. Use this for short-term, high-frequency context such as current goal, decisions, in-progress items, open questions, and temporary constraints.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "working_memory_set",
+      "description": "Set (replace) the current working memory markdown for this chat. Write concise, structured markdown and keep sections up to date as the conversation progresses.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Complete markdown content to store as current working memory."
+          }
+        },
+        "required": ["content"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "memory_retrieval",
       "description": "Retrieve relevant context from long-term memory based on semantic similarity. Use this tool to search for relevant historical conversations, facts, or context that may help answer the current query. IMPORTANT: The query parameter MUST be in ENGLISH for accurate vector similarity search. Translate your search query to English before calling this tool.",
       "parameters": {

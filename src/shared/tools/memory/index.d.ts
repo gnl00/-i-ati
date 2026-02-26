@@ -30,3 +30,21 @@ export interface MemoryUpdateResponse {
   memoryId?: string
   message: string
 }
+
+export interface WorkingMemoryGetResponse {
+  success: boolean
+  chat_uuid?: string
+  content: string
+  exists: boolean
+  file_path?: string
+  message: string
+}
+
+export interface WorkingMemorySetResponse {
+  success: boolean
+  chat_uuid?: string
+  updated: boolean
+  skipped: boolean
+  file_path?: string
+  message: string
+}
