@@ -4,13 +4,14 @@ import { Button } from '@renderer/components/ui/button'
 import { Label } from '@renderer/components/ui/label'
 import { Switch } from '@renderer/components/ui/switch'
 import { listInstalledSkills } from '@renderer/services/skills/SkillService'
-import { addChatSkill, getChatSkills, removeChatSkill } from '@renderer/db/ChatSkillRepository'
+import { getChatSkills } from '@renderer/db/ChatSkillRepository'
 import { useChatStore } from '@renderer/store'
-import { invokeSelectDirectory, invokeSkillImportFolder } from '@renderer/invoker/ipcInvoker'
+import { invokeImportSkills, invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
 import { Input } from '../ui/input'
 import { Search, X, ChevronDown } from 'lucide-react'
+import { invokeLoadSkill, invokeUnloadSkill } from '@renderer/tools/skills/renderer/SkillToolsInvoker'
 import {
   Accordion,
   AccordionContent,
@@ -143,7 +144,7 @@ const SkillsManager: React.FC = () => {
   const scanFolder = async (folder: string): Promise<void> => {
     setFolderPending(folder, true)
     try {
-      const result = await invokeSkillImportFolder(folder)
+      const result = await invokeImportSkills(folder)
       const summary = summarizeImport(result)
       if (result.failed.length > 0) {
         toast.error(summary)
@@ -185,7 +186,7 @@ const SkillsManager: React.FC = () => {
     setPendingFolders(new Set(folders))
     try {
       const results = await Promise.allSettled(
-        folders.map(folder => invokeSkillImportFolder(folder))
+        folders.map(folder => invokeImportSkills(folder))
       )
 
       let installedCount = 0
@@ -231,7 +232,7 @@ const SkillsManager: React.FC = () => {
   }
 
   const toggleSkillActive = async (name: string, nextActive: boolean): Promise<void> => {
-    if (!currentChatId) {
+    if (!currentChatId || !currentChatUuid) {
       toast.error('Open a chat to activate skills')
       return
     }
@@ -239,16 +240,22 @@ const SkillsManager: React.FC = () => {
     setSkillPending(name, true)
     try {
       if (nextActive) {
-        await addChatSkill(currentChatId, name)
+        const result = await invokeLoadSkill({ name, chat_uuid: currentChatUuid })
+        if (!result.success) {
+          throw new Error(result.message || `Failed to load skill: ${name}`)
+        }
         toast.success(`Activated ${name}`)
       } else {
-        await removeChatSkill(currentChatId, name)
+        const result = await invokeUnloadSkill({ name, chat_uuid: currentChatUuid })
+        if (!result.success) {
+          throw new Error(result.message || `Failed to unload skill: ${name}`)
+        }
         toast.success(`Deactivated ${name}`)
       }
       await refreshActiveSkills()
-    } catch (error) {
+    } catch (error: any) {
       console.error('[SkillsManager] Failed to toggle skill:', error)
-      toast.error('Failed to update skill status')
+      toast.error(error?.message || 'Failed to update skill status')
     } finally {
       setSkillPending(name, false)
     }

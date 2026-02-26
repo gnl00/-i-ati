@@ -200,7 +200,7 @@ export async function invokeSkillGetContent(name: string): Promise<string> {
 /**
  * 扫描目录并导入技能
  */
-export async function invokeSkillImportFolder(folderPath: string): Promise<{
+export async function invokeImportSkills(folderPath: string): Promise<{
   installed: SkillMetadata[]
   renamed: Array<{ from: string; to: string }>
   skipped: Array<{ path: string; reason: string }>
