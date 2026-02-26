@@ -26,6 +26,30 @@ const DEFAULT_TIMEOUT = 30000 // 30 seconds
 const MAX_BUFFER = 10 * 1024 * 1024 // 10MB
 const DEFAULT_WORKSPACE_NAME = 'tmp'
 
+function normalizeWorkspaceBaseDir(workspacePath: string, chatUuid?: string): string {
+  const userDataPath = app.getPath('userData')
+  const fallbackDir = join(userDataPath, 'workspaces', chatUuid || DEFAULT_WORKSPACE_NAME)
+
+  if (!workspacePath) {
+    return fallbackDir
+  }
+
+  if (isAbsolute(workspacePath)) {
+    return resolve(workspacePath)
+  }
+
+  const normalized = workspacePath.replace(/\\/g, '/')
+  const clean = normalized.startsWith('./') ? normalized.slice(2) : normalized
+
+  if (clean.startsWith('workspaces/')) {
+    return resolve(join(userDataPath, clean))
+  }
+
+  // Defensive fallback: prevent relative workspace paths from binding to process.cwd()
+  console.warn(`[CommandExecutor] Relative workspace path detected, rebasing to userData: ${workspacePath}`)
+  return resolve(join(userDataPath, clean))
+}
+
 function resolveWorkspaceBaseDir(chatUuid?: string): string {
   const userDataPath = app.getPath('userData')
 
@@ -36,7 +60,7 @@ function resolveWorkspaceBaseDir(chatUuid?: string): string {
   try {
     const workspacePath = DatabaseService.getWorkspacePathByUuid(chatUuid)
     if (workspacePath) {
-      return workspacePath
+      return normalizeWorkspaceBaseDir(workspacePath, chatUuid)
     }
   } catch (error) {
     console.error('[CommandExecutor] Failed to resolve workspace path from DB:', error)
@@ -124,8 +148,8 @@ class CommandExecutor {
    * 设置 workspace 基础路径
    */
   setWorkspaceBasePath(path: string): void {
-    this.workspaceBasePath = path
-    console.log(`[CommandExecutor] Workspace base path set to: ${path}`)
+    this.workspaceBasePath = normalizeWorkspaceBaseDir(path)
+    console.log(`[CommandExecutor] Workspace base path set to: ${this.workspaceBasePath}`)
   }
 
   /**
