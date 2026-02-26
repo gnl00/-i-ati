@@ -46,6 +46,30 @@ import type {
 
 const DEFAULT_WORKSPACE_NAME = 'tmp'
 
+function normalizeWorkspaceBaseDir(workspacePath: string, chatUuid?: string): string {
+  const userDataPath = app.getPath('userData')
+  const fallbackDir = join(userDataPath, 'workspaces', chatUuid || DEFAULT_WORKSPACE_NAME)
+
+  if (!workspacePath) {
+    return fallbackDir
+  }
+
+  if (isAbsolute(workspacePath)) {
+    return resolve(workspacePath)
+  }
+
+  const normalized = workspacePath.replace(/\\/g, '/')
+  const clean = normalized.startsWith('./') ? normalized.slice(2) : normalized
+
+  if (clean.startsWith('workspaces/')) {
+    return resolve(join(userDataPath, clean))
+  }
+
+  // Defensive fallback: prevent relative workspace paths from binding to process.cwd()
+  console.warn(`[FileOps] Relative workspace path detected, rebasing to userData: ${workspacePath}`)
+  return resolve(join(userDataPath, clean))
+}
+
 function resolveWorkspaceBaseDir(chatUuid?: string): string {
   const userDataPath = app.getPath('userData')
 
@@ -56,7 +80,7 @@ function resolveWorkspaceBaseDir(chatUuid?: string): string {
   try {
     const workspacePath = DatabaseService.getWorkspacePathByUuid(chatUuid)
     if (workspacePath) {
-      return workspacePath
+      return normalizeWorkspaceBaseDir(workspacePath, chatUuid)
     }
   } catch (error) {
     console.error('[FileOps] Failed to resolve workspace path from DB:', error)
