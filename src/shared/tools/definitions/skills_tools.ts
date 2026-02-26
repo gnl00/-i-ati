@@ -2,8 +2,8 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "load_skill",
-      "description": "Load and install a skill from a URL or local path (supports SKILL.md or zip/tar archives), and optionally activate it for the current chat.",
+      "name": "install_skill",
+      "description": "Install a skill from a URL or local path (supports SKILL.md, skill directory, zip/tar archives).",
       "parameters": {
         "type": "object",
         "properties": {
@@ -19,14 +19,45 @@ export default [
             "type": "boolean",
             "description": "Overwrite an existing installed skill with the same name.",
             "default": false
-          },
-          "activate": {
-            "type": "boolean",
-            "description": "Activate the skill for the current chat after loading.",
-            "default": true
           }
         },
         "required": ["source"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "load_skill",
+      "description": "Load an already installed skill into the current chat context.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Installed skill name to load."
+          }
+        },
+        "required": ["name"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "import_skills",
+      "description": "Import all skills found in a folder recursively. Handles conflicts by renaming when needed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "folderPath": {
+            "type": "string",
+            "description": "Folder path to scan recursively for SKILL.md based skills."
+          }
+        },
+        "required": ["folderPath"],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
