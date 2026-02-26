@@ -527,11 +527,24 @@ export class MainChatSubmitService {
     this.active.delete(submissionId)
   }
 
-  private serializeError(error: any): { name: string; message: string; stack?: string } {
-    return {
+  private serializeError(
+    error: any,
+    depth: number = 0
+  ): { name: string; message: string; stack?: string; code?: string; cause?: any } {
+    const serialized = {
       name: error?.name || 'Error',
       message: error?.message || 'Unknown error',
-      stack: error?.stack
+      stack: error?.stack as string | undefined,
+      code: typeof error?.code === 'string' ? error.code : undefined
+    }
+
+    if (depth >= 3 || !error?.cause) {
+      return serialized
+    }
+
+    return {
+      ...serialized,
+      cause: this.serializeError(error.cause, depth + 1)
     }
   }
 

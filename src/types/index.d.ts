@@ -311,6 +311,12 @@ declare interface ErrorSegment {
     message: string
     stack?: string
     code?: string
+    cause?: {
+      name?: string
+      message?: string
+      stack?: string
+      code?: string
+    }
     timestamp: number
   }
 }

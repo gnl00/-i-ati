@@ -366,6 +366,19 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       .reverse()
       .find(msg => msg.body.role === 'assistant')
 
+    const normalizeErrorCause = (value: unknown):
+      { name?: string; message?: string; stack?: string; code?: string } | undefined => {
+      if (!value || typeof value !== 'object') return undefined
+      const source = value as Record<string, unknown>
+      const cause: { name?: string; message?: string; stack?: string; code?: string } = {}
+      if (typeof source.name === 'string') cause.name = source.name
+      if (typeof source.message === 'string') cause.message = source.message
+      if (typeof source.stack === 'string') cause.stack = source.stack
+      if (typeof source.code === 'string') cause.code = source.code
+      if (!cause.name && !cause.message && !cause.stack && !cause.code) return undefined
+      return cause
+    }
+
     const errorSegment: ErrorSegment = {
       type: 'error',
       error: {
@@ -373,6 +386,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
         message: error.message || 'Unknown error',
         stack: error.stack,
         code: (error as any).code,
+        cause: normalizeErrorCause((error as any).cause),
         timestamp: Date.now()
       }
     }
