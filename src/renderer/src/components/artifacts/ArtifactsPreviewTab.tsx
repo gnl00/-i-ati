@@ -11,7 +11,6 @@ import {
   Loader2,
   Monitor,
   Play,
-  RefreshCw,
   RotateCw,
   StopCircle,
   Terminal
@@ -271,7 +270,6 @@ export const ArtifactsPreviewTab: React.FC<{
               if (devIframeRef.current) devIframeRef.current.src = devIframeRef.current.src
             }}
             onOpenExternal={() => window.open(`http://localhost:${devServer.devServerPort}`, '_blank')}
-            onRestart={devServer.handleRestartDevServer}
             onStop={devServer.handleStopDevServer}
           >
             <iframe
@@ -438,14 +436,13 @@ const PreviewShell: React.FC<{
   statusDot: 'running' | 'static'
   onReload: () => void
   onOpenExternal?: () => void
-  onRestart?: () => void
   onStop?: () => void
   children: React.ReactNode
-}> = ({ address, statusDot, onReload, onOpenExternal, onRestart, onStop, children }) => {
+}> = ({ address, statusDot, onReload, onOpenExternal, onStop, children }) => {
   const dotColor = statusDot === 'running' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'
   const badgeText = statusDot === 'running' ? 'LIVE' : 'STATIC'
   const badgeClass = statusDot === 'running'
-    ? 'bg-emerald-100 text-emerald-700 border-emerald-200/70 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50'
+    ? 'bg-emerald-100 py-0 text-emerald-700 border-emerald-200/70 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50'
     : 'bg-gray-100 text-gray-600 border-gray-200/70 dark:bg-gray-900/40 dark:text-gray-300 dark:border-gray-800/60'
 
   return (
@@ -491,7 +488,7 @@ const PreviewShell: React.FC<{
                 <ExternalLink className="w-3 h-3" />
               </Button>
             )}
-            {onRestart && (
+            {/* {onRestart && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -501,12 +498,12 @@ const PreviewShell: React.FC<{
               >
                 <RefreshCw className="w-3 h-3" />
               </Button>
-            )}
+            )} */}
             {onStop && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-gray-400 hover:text-red-500"
+                className="h-6 w-6 text-red-300 hover:text-red-500"
                 onClick={onStop}
                 title="Stop server"
               >
