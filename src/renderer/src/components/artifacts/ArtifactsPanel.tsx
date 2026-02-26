@@ -11,7 +11,7 @@ import { useState } from 'react'
 import { ArtifactsFilesTab, FilesTabToolbar } from './ArtifactsFilesTab'
 import { ArtifactsFooter } from './ArtifactsFooter'
 import { ArtifactsPreviewTab } from './ArtifactsPreviewTab'
-import { countFilesInTree, downloadFile, openWorkspaceFolder } from './artifactUtils'
+import { openWorkspaceFolder } from './artifactUtils'
 import { useWorkspaceFiles } from './useWorkspaceFiles'
 
 export const ArtifactsPanel: React.FC = () => {
@@ -22,24 +22,10 @@ export const ArtifactsPanel: React.FC = () => {
   // Get workspace files state for Files tab and Footer
   const files = useWorkspaceFiles()
 
-  // Handlers for Footer actions
-  const handleCopyFile = async () => {
-    if (!files.selectedFileContent) return
-    // TODO: Implement copy functionality
-    console.log('Copy file:', files.selectedFileName)
-  }
-
-  const handleDownloadFile = () => {
-    if (!files.selectedFileContent || !files.selectedFileName) return
-    downloadFile(files.selectedFileContent, files.selectedFileName)
-  }
-
   const handleOpenWorkspaceFolder = async () => {
     if (!chatUuid) return
     await openWorkspaceFolder(chatUuid, files.workspacePath)
   }
-
-  const artifactFilesCount = countFilesInTree(files.workspaceTree)
 
   const handleClose = () => {
     setArtifactsPanel(false)
@@ -95,6 +81,7 @@ export const ArtifactsPanel: React.FC = () => {
         {/* Preview Tab Content */}
         <TabsContent
           value="preview"
+          forceMount
           className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
         >
           <ArtifactsPreviewTab files={files} />
@@ -119,12 +106,7 @@ export const ArtifactsPanel: React.FC = () => {
 
         {/* Action Footer */}
         <ArtifactsFooter
-          activeTab={artifactsActiveTab as 'preview' | 'files'}
-          selectedFileContent={files.selectedFileContent}
           filesCount={filesCount}
-          artifactFilesCount={artifactFilesCount}
-          onCopyFile={handleCopyFile}
-          onDownloadFile={handleDownloadFile}
           onOpenWorkspaceFolder={handleOpenWorkspaceFolder}
         />
       </Tabs>

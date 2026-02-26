@@ -3,11 +3,10 @@ import { Input } from '@renderer/components/ui/input'
 import { WorkspaceFileTree } from './WorkspaceFileTree'
 import { ArtifactsEmptyState } from './ArtifactsEmptyState'
 import type { UseWorkspaceFilesReturn } from './useWorkspaceFiles'
-import { copyFileToClipboard, downloadFile, getLanguageFromPath } from './artifactUtils'
+import { copyFileToClipboard, getLanguageFromPath } from './artifactUtils'
 import { cn } from '@renderer/lib/utils'
 import {
   Copy,
-  Download,
   FileCode,
   RefreshCw,
   Search
@@ -54,19 +53,25 @@ export const ArtifactsFilesTab: React.FC<{
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 text-gray-500 hover:text-white"
+                className={cn(
+                  "h-6 w-6 rounded-md",
+                  "text-gray-500 border border-transparent bg-transparent",
+                  "transition-all duration-200 ease-out",
+                  "hover:text-white hover:bg-white/10 hover:border-white/20 hover:-translate-y-px",
+                  "active:translate-y-0 active:scale-[0.97]"
+                )}
                 onClick={() => copyFileToClipboard(files.selectedFileContent || '', files.selectedFileName || '')}
               >
                 <Copy className="w-3 h-3" />
               </Button>
-              <Button
+              {/* <Button
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6 text-gray-500 hover:text-white"
                 onClick={() => downloadFile(files.selectedFileContent || '', files.selectedFileName || '')}
               >
                 <Download className="w-3 h-3" />
-              </Button>
+              </Button> */}
             </div>
           </div>
           <div className="flex-1 overflow-auto selection:bg-blue-500/30">
