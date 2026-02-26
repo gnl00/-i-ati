@@ -9,6 +9,12 @@ interface ErrorMessageProps {
     message: string
     stack?: string
     code?: string
+    cause?: {
+      name?: string
+      message?: string
+      stack?: string
+      code?: string
+    }
     timestamp: number
   }
 }
@@ -19,9 +25,21 @@ interface ErrorMessageProps {
  */
 export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const displayError = (error.cause && error.cause.message)
+    ? {
+        name: error.cause.name || error.name,
+        message: error.cause.message,
+        stack: error.cause.stack || error.stack,
+        code: error.cause.code || error.code
+      }
+    : error
 
   const handleCopyError = () => {
-    const errorText = `Error: ${error.name}\nMessage: ${error.message}\n${error.code ? `Code: ${error.code}\n` : ''}${error.stack ? `\nStack:\n${error.stack}` : ''}`
+    const wrapper =
+      error.cause && error.cause.message
+        ? `\nWrapped By: ${error.name}: ${error.message}\n`
+        : ''
+    const errorText = `Error: ${displayError.name}\nMessage: ${displayError.message}\n${displayError.code ? `Code: ${displayError.code}\n` : ''}${wrapper}${displayError.stack ? `\nStack:\n${displayError.stack}` : ''}`
     navigator.clipboard.writeText(errorText)
     toast.success('Error details copied', { duration: 800 })
   }
@@ -38,12 +56,17 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
         <div className="flex-1 min-w-0">
           {error.name && (
             <div className="text-xs font-semibold text-red-700 dark:text-red-300 mb-1">
-              {error.name}
+              {displayError.name}
             </div>
           )}
           <p className="text-sm text-red-600 dark:text-red-300 wrap-break-word">
-            {error.message}
+            {displayError.message}
           </p>
+          {error.cause?.message && (
+            <p className="mt-1 text-xs text-red-500 dark:text-red-400 wrap-break-word">
+              Wrapped by: {error.name}: {error.message}
+            </p>
+          )}
         </div>
       </div>
 
@@ -59,7 +82,7 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
           Copy Error
         </Button>
 
-        {(error.name || error.code || error.stack) && (
+        {(displayError.name || displayError.code || displayError.stack || error.name || error.message) && (
           <Button
             variant="ghost"
             size="sm"
@@ -84,13 +107,13 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
       {/* Expanded Details */}
       {isExpanded && (
         <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-900/50 space-y-2">
-          {error.name && (
+          {displayError.name && (
             <div>
               <span className="text-xs font-semibold text-red-700 dark:text-red-300">
                 Error Type:
               </span>
               <code className="ml-2 text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded">
-                {error.name}
+                {displayError.name}
               </code>
             </div>
           )}
@@ -102,23 +125,23 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
               {formatTimestamp(error.timestamp)}
             </span>
           </div>
-          {error.code && (
+          {displayError.code && (
             <div>
               <span className="text-xs font-semibold text-red-700 dark:text-red-300">
                 Error Code:
               </span>
               <code className="ml-2 text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded">
-                {error.code}
+                {displayError.code}
               </code>
             </div>
           )}
-          {error.stack && (
+          {displayError.stack && (
             <div>
               <span className="text-xs font-semibold text-red-700 dark:text-red-300 block mb-1">
                 Stack Trace:
               </span>
               <pre className="text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 p-2 rounded overflow-x-auto whitespace-pre-wrap wrap-break-word">
-                {error.stack}
+                {displayError.stack}
               </pre>
             </div>
           )}

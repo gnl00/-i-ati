@@ -28,11 +28,24 @@ import { toolConfirmationManager } from '@main/services/chatSubmit/tool-confirma
 
 const chatSubmitService = new MainChatSubmitService()
 
-function serializeError(error: any): { name: string; message: string; stack?: string } {
-  return {
+function serializeError(
+  error: any,
+  depth: number = 0
+): { name: string; message: string; stack?: string; code?: string; cause?: any } {
+  const serialized = {
     name: error?.name || 'Error',
     message: error?.message || 'Unknown error',
-    stack: error?.stack
+    stack: error?.stack as string | undefined,
+    code: typeof error?.code === 'string' ? error.code : undefined
+  }
+
+  if (depth >= 3 || !error?.cause) {
+    return serialized
+  }
+
+  return {
+    ...serialized,
+    cause: serializeError(error.cause, depth + 1)
   }
 }
 
