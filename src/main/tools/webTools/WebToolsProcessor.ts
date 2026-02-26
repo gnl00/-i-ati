@@ -25,6 +25,85 @@ interface BingSearchItem {
 }
 
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
+const directHttpExtensions = new Set([
+  '.md',
+  '.markdown',
+  '.txt',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.csv',
+  '.xml',
+  '.log'
+])
+
+function getFallbackTitleFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const pathname = parsed.pathname || ''
+    const filename = pathname.split('/').pop() || ''
+    return decodeURIComponent(filename) || parsed.hostname
+  } catch {
+    return ''
+  }
+}
+
+function shouldPreferDirectHttpFetch(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    const pathname = parsed.pathname.toLowerCase()
+    const lastDotIndex = pathname.lastIndexOf('.')
+    const ext = lastDotIndex >= 0 ? pathname.slice(lastDotIndex) : ''
+
+    if (directHttpExtensions.has(ext)) return true
+    if (parsed.hostname === 'raw.githubusercontent.com') return true
+    if (parsed.searchParams.get('raw') === '1') return true
+    return false
+  } catch {
+    return false
+  }
+}
+
+async function fetchPageContentViaHttp(
+  fallbackUrl: string,
+  mode: CleanMode
+): Promise<{ pageTitle: string; finalUrl: string; extractedText: string }> {
+  const response = await fetch(fallbackUrl, {
+    redirect: 'follow',
+    headers: {
+      'User-Agent': userAgent,
+      'Accept': 'text/html, text/plain, text/markdown, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8'
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch page: HTTP ${response.status}`)
+  }
+
+  const finalUrl = response.url || fallbackUrl
+  const contentType = (response.headers.get('content-type') || '').toLowerCase()
+  const bodyText = await response.text()
+  const fallbackTitle = getFallbackTitleFromUrl(finalUrl)
+
+  if (contentType.includes('html') || bodyText.includes('<html') || bodyText.includes('<body')) {
+    const $ = cheerio.load(bodyText)
+    const pageTitle = $('title').first().text().trim() || fallbackTitle
+    const cleanedHtml = extractContentWithCheerio(bodyText)
+    const markdown = convertHtmlToMarkdown(cleanedHtml, mode)
+    return {
+      pageTitle,
+      finalUrl,
+      extractedText: mode === 'full' ? postCleanFull(markdown) : postCleanLite(markdown)
+    }
+  }
+
+  return {
+    pageTitle: fallbackTitle,
+    finalUrl,
+    extractedText: mode === 'full' ? postCleanFull(bodyText) : postCleanLite(bodyText)
+  }
+}
 
 /**
  * 创建并配置 Turndown 实例
@@ -195,29 +274,38 @@ async function fetchPageContent(
   await contentWindow.loadURL(url, { userAgent })
   clearTimeout(timeoutId)
 
-  // 只提取必要的原始数据：HTML、URL、标题
-  // 直接使用 document.body，让 Cheerio 负责所有过滤工作
-  const pageData = await contentWindow.webContents.executeJavaScript(`
-    ({
-      html: document.body ? document.body.outerHTML : '',
-      finalUrl: window.location.href,
-      title: document.title || ''
+  try {
+    // 只提取必要的原始数据：HTML、URL、标题
+    // 直接使用 document.body，让 Cheerio 负责所有过滤工作
+    const pageData = await contentWindow.webContents.executeJavaScript(`
+      ({
+        html: document.body ? document.body.outerHTML : '',
+        finalUrl: window.location.href,
+        title: document.title || ''
+      })
+    `)
+
+    // 使用 Cheerio 在 Node.js 端处理 HTML
+    const cleanedHtml = extractContentWithCheerio(pageData.html)
+
+    // 将 HTML 转换为 Markdown
+    const markdown = convertHtmlToMarkdown(cleanedHtml, mode)
+
+    // 使用 postClean 进行最终清理
+    const extractedText = mode === 'full' ? postCleanFull(markdown) : postCleanLite(markdown)
+
+    return {
+      pageTitle: pageData.title,
+      finalUrl: pageData.finalUrl,
+      extractedText
+    }
+  } catch (error: any) {
+    const currentUrl = contentWindow.webContents.getURL() || url
+    console.warn('[WebFetch] executeJavaScript failed, fallback to HTTP fetch:', {
+      url: currentUrl,
+      message: error?.message || String(error)
     })
-  `)
-
-  // 使用 Cheerio 在 Node.js 端处理 HTML
-  const cleanedHtml = extractContentWithCheerio(pageData.html)
-
-  // 将 HTML 转换为 Markdown
-  const markdown = convertHtmlToMarkdown(cleanedHtml, mode)
-
-  // 使用 postClean 进行最终清理
-  const extractedText = mode === 'full' ? postCleanFull(markdown) : postCleanLite(markdown)
-
-  return {
-    pageTitle: pageData.title,
-    finalUrl: pageData.finalUrl,
-    extractedText
+    return await fetchPageContentViaHttp(currentUrl, mode)
   }
 }
 
@@ -429,16 +517,34 @@ const processWebFetch = async ({ url, cleanMode }: WebFetchProcessArgs): Promise
     console.log(`[WEB FETCH START] URL: "${url}"`)
     console.log(`[WEB FETCH START] Timestamp: ${new Date().toISOString()}`)
 
-    const windowCreateStart = Date.now()
-    contentWindow = await windowPool.acquireContentWindow()
-    const windowCreateTime = Date.now() - windowCreateStart
-    console.log(`[WINDOW ACQUIRE] Content window acquired in ${windowCreateTime}ms`)
-
-    const fetchStart = Date.now()
     const mode = cleanMode === 'full' ? 'full' : 'lite'
-    const { pageTitle, finalUrl, extractedText } = await fetchPageContent(url, contentWindow, mode)
-    const fetchTime = Date.now() - fetchStart
-    console.log(`[PAGE FETCH] Page fetched in ${fetchTime}ms`)
+    let pageTitle = ''
+    let finalUrl = url
+    let extractedText = ''
+
+    if (shouldPreferDirectHttpFetch(url)) {
+      console.log('[WEB FETCH MODE] Direct HTTP fetch path')
+      const fetchStart = Date.now()
+      const direct = await fetchPageContentViaHttp(url, mode)
+      pageTitle = direct.pageTitle
+      finalUrl = direct.finalUrl
+      extractedText = direct.extractedText
+      const fetchTime = Date.now() - fetchStart
+      console.log(`[PAGE FETCH] Direct fetch completed in ${fetchTime}ms`)
+    } else {
+      const windowCreateStart = Date.now()
+      contentWindow = await windowPool.acquireContentWindow()
+      const windowCreateTime = Date.now() - windowCreateStart
+      console.log(`[WINDOW ACQUIRE] Content window acquired in ${windowCreateTime}ms`)
+
+      const fetchStart = Date.now()
+      const fetched = await fetchPageContent(url, contentWindow, mode)
+      pageTitle = fetched.pageTitle
+      finalUrl = fetched.finalUrl
+      extractedText = fetched.extractedText
+      const fetchTime = Date.now() - fetchStart
+      console.log(`[PAGE FETCH] Page fetched in ${fetchTime}ms`)
+    }
 
     const cleanedContent = extractedText
 
