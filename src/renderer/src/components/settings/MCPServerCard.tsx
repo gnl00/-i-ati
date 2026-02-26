@@ -131,11 +131,13 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
               variant="outline"
               className={cn(
                 'text-[9px] select-none font-bold px-2 py-0.5 h-5 uppercase tracking-wider rounded-md border-transparent transition-all duration-300 flex items-center gap-1.5',
-                installed ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                installed
+                  ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+                  : 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20'
               )}
             >
               <span className="relative flex h-1.5 w-1.5">
-                <span className={cn("relative inline-flex rounded-full h-1.5 w-1.5", installed ? 'bg-green-500' : 'bg-blue-500')}></span>
+                <span className={cn("relative inline-flex rounded-full h-1.5 w-1.5", installed ? 'bg-green-500' : 'bg-amber-500')}></span>
               </span>
               { installed ? "Running" : "Available"}
             </Badge>
@@ -181,15 +183,13 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                   size="xs"
                   onClick={onInstall}
                   className={cn(
-                    "px-3 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wide",
-                    "bg-slate-700 dark:bg-slate-600",
-                    "text-white dark:text-white",
-                    "border border-slate-600/50 dark:border-slate-500/50",
-                    "hover:bg-slate-800 dark:hover:bg-slate-500",
-                    "hover:scale-105",
-                    "active:scale-95",
-                    "transition-all duration-200",
-                    "will-change-transform"
+                    "h-8 rounded-full px-3 text-xs font-medium",
+                    "text-blue-700 dark:text-blue-300",
+                    "bg-blue-50/80 dark:bg-blue-900/20",
+                    "border border-blue-200/80 dark:border-blue-800/60",
+                    "hover:bg-blue-100 dark:hover:bg-blue-900/35",
+                    "hover:border-blue-300 dark:hover:border-blue-700/70",
+                    "shadow-none transition-colors duration-200"
                   )}
                 >
                   Install
@@ -276,13 +276,13 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                   size="xs"
                   onClick={onUninstall}
                   className={cn(
-                    "px-3 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wide",
-                    "text-red-400 dark:text-red-500 bg-transparent hover:text-red-500 hover:dark:text-red-600",
-                    "border border-red-500/50 dark:border-red-500/50 hover:border-red-500",
-                    "hover:scale-105 hover:bg-transparent",
-                    "active:scale-95",
-                    "transition-all duration-200",
-                    "will-change-transform"
+                    "h-8 rounded-full px-3 text-xs font-medium",
+                    "text-rose-600 dark:text-rose-300",
+                    "bg-rose-50/80 dark:bg-rose-900/20",
+                    "border border-rose-200/80 dark:border-rose-800/60",
+                    "hover:bg-rose-100 dark:hover:bg-rose-900/35",
+                    "hover:border-rose-300 dark:hover:border-rose-700/70",
+                    "shadow-none transition-colors duration-200"
                   )}
                 >
                   Uninstall
@@ -321,16 +321,13 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                   size="xs"
                   onClick={onUninstall}
                   className={cn(
-                    "px-3 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wide",
-                    "bg-red-600 dark:bg-red-600",
-                    "text-white dark:text-white",
-                    "border border-red-500/50 dark:border-red-500/50",
-                    "shadow-xs",
-                    "hover:bg-red-700 dark:hover:bg-red-500",
-                    "hover:scale-105",
-                    "active:scale-95",
-                    "transition-all duration-200",
-                    "will-change-transform"
+                    "h-8 rounded-full px-3 text-xs font-medium",
+                    "text-rose-600 dark:text-rose-300",
+                    "bg-rose-50/80 dark:bg-rose-900/20",
+                    "border border-rose-200/80 dark:border-rose-800/60",
+                    "hover:bg-rose-100 dark:hover:bg-rose-900/35",
+                    "hover:border-rose-300 dark:hover:border-rose-700/70",
+                    "shadow-none transition-colors duration-200"
                   )}
                 >
                   Uninstall
