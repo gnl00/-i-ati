@@ -84,6 +84,10 @@ export const ArtifactsPreviewTab: React.FC<{
     return fileNodes.find(f => f.name.toLowerCase().endsWith('.svg'))
   }, [fileNodes])
 
+  const hasPackageJson = useMemo(() => {
+    return fileNodes.some(node => node.name.toLowerCase() === 'package.json')
+  }, [fileNodes])
+
   useEffect(() => {
     let isActive = true
 
@@ -214,12 +218,12 @@ export const ArtifactsPreviewTab: React.FC<{
     return processedContent
   }, [previewFiles])
 
-  // 如果有 preview.sh，显示 DevServer 预览
-  if (devServer.hasPreviewSh) {
+  // 如果存在 package.json，按动态项目展示 DevServer 预览
+  if (hasPackageJson) {
     return (
       <>
         {/* State 1: Idle - Show ready message */}
-        {devServer.devServerStatus === 'idle' && (
+        {(devServer.devServerStatus === 'idle' || devServer.devServerStatus === 'stopped') && (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="flex flex-col items-center gap-6 max-w-md">
               <button
@@ -283,110 +287,99 @@ export const ArtifactsPreviewTab: React.FC<{
 
         {/* State 4: Error - Show error message with retry */}
         {devServer.devServerStatus === 'error' && (
-          <div className="flex-1 flex flex-col pt-4 px-8 pb-8 overflow-auto">
-            <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full">
-              {/* Single row: Icon - Title - Button */}
-              <div className="flex items-center gap-4">
-                {/* Left: Error Icon */}
-                <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center shrink-0">
-                  <Terminal className="w-5 h-5 text-red-500" />
+          <div className="flex-1 overflow-auto p-4 md:p-6">
+            <div className="mx-auto w-full max-w-6xl">
+              <div
+                className={cn(
+                  "rounded-[1.75rem] border border-red-200/80 bg-white/85 p-4 shadow-xs backdrop-blur-xl",
+                  "dark:border-red-900/60 dark:bg-zinc-950/70"
+                )}
+              >
+                <div className="mb-4 flex flex-col gap-3 border-b border-red-100/80 pb-4 dark:border-red-900/50">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-200/70 bg-red-50/90 text-red-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                      <Terminal className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-red-500/90 dark:text-red-300/90">
+                        Dev Server Failure
+                      </p>
+                      <h3 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 wrap-break-word">
+                        Unable to Start Preview Process
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="flex w-full flex-wrap items-center gap-2">
+                    <Button
+                      onClick={devServer.handleStartDevServer}
+                      size="sm"
+                      className="rounded-full bg-red-400 px-4 text-white hover:bg-red-700 active:scale-[0.98] dark:bg-red-600 dark:hover:bg-red-700 whitespace-nowrap"
+                    >
+                      <RotateCw className="mr-1.5 h-3.5 w-3.5" />
+                      Retry Start
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const errorInfo = [
+                          'Development Server Error',
+                          '='.repeat(50),
+                          '',
+                          'Error Message:',
+                          devServer.devServerError || 'Unknown error',
+                          '',
+                          'Server Logs:',
+                          ...devServer.devServerLogs,
+                          '',
+                          `Port: ${devServer.devServerPort ?? 'N/A'}`,
+                          `Timestamp: ${new Date().toISOString()}`
+                        ].join('\n')
+                        navigator.clipboard.writeText(errorInfo)
+                      }}
+                      className="rounded-full border-zinc-300 text-zinc-700 hover:bg-zinc-100 active:scale-[0.98] dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800 whitespace-nowrap"
+                    >
+                      <Copy className="mr-1.5 h-3.5 w-3.5" />
+                      Copy Details
+                    </Button>
+                  </div>
                 </div>
 
-                {/* Middle: Title */}
-                <h3 className="text-lg font-bold text-red-600 dark:text-red-400 flex-1">
-                  Failed to Start
-                </h3>
-
-                {/* Right: Retry Button */}
-                <Button
-                  onClick={devServer.handleStartDevServer}
-                  variant="outline"
-                  size="default"
-                  className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-950/20 transition-all shrink-0"
-                >
-                  <RotateCw className="w-4 h-4 mr-2" />
-                  Retry Start Server
-                </Button>
-              </div>
-
-              {/* Error Details Card */}
-              <div className="w-full bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-4">
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
-                    <h4 className="text-sm font-semibold text-red-700 dark:text-red-300">Error Details</h4>
+                <section className="rounded-2xl border border-red-200/80 bg-red-50/55 p-4 dark:border-red-900/50 dark:bg-red-950/25">
+                  <div className="mb-2 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-300" />
+                    <h4 className="text-sm font-semibold text-red-700 dark:text-red-300">Error Message</h4>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const errorInfo = [
-                        'Development Server Error',
-                        '='.repeat(50),
-                        '',
-                        'Error Message:',
-                        devServer.devServerError || 'Unknown error',
-                        '',
-                        'Server Logs:',
-                        ...devServer.devServerLogs,
-                        '',
-                        `Workspace: ${devServer.devServerPort}`,
-                        `Timestamp: ${new Date().toISOString()}`
-                      ].join('\n')
-
-                      navigator.clipboard.writeText(errorInfo)
-                    }}
-                    className="h-7 text-xs border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 hover:border-gray-400 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200 dark:hover:border-gray-500 transition-all"
-                  >
-                    <Copy className="w-3 h-3 mr-1" />
-                    Copy Error
-                  </Button>
-                </div>
-
-                {/* Common Error Hints */}
-                {getDevServerHints(devServer.devServerError || undefined).map((hint, idx) => (
-                  <div
-                    key={`${hint.title}-${idx}`}
-                    className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded p-3 mb-3"
-                  >
-                    <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">
-                      {hint.title}
-                    </p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                      {hint.description}
-                    </p>
-                  </div>
-                ))}
-
-                {/* Error Message */}
-                <div className="bg-white dark:bg-gray-900 rounded border border-red-200 dark:border-red-900/50 p-3 mb-3">
-                  <p className="text-xs font-mono text-red-600 dark:text-red-400 whitespace-pre-wrap break-all">
+                  <pre className="max-h-56 overflow-auto rounded-xl border border-red-200/70 bg-white/85 p-3 text-xs leading-relaxed text-red-700 dark:border-red-900/60 dark:bg-zinc-950/65 dark:text-red-200">
                     {devServer.devServerError || 'No error message available'}
-                  </p>
-                </div>
+                  </pre>
+                </section>
 
-                {/* Server Error Logs */}
                 {devServer.devServerLogs.length > 0 && (
-                  <div>
-                    <div
-                      className="flex items-center gap-2 mb-2 cursor-pointer select-none hover:opacity-70 transition-opacity"
+                  <div className="mt-4 rounded-2xl border border-zinc-200/80 bg-zinc-50/70 p-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+                    <button
+                      className="flex w-full items-center justify-between text-left"
                       onClick={() => devServer.setShowErrorLogs(!devServer.showErrorLogs)}
                     >
-                      <ChevronRight
-                        className={cn(
-                          "w-4 h-4 text-gray-600 dark:text-gray-400 transition-transform duration-200",
-                          devServer.showErrorLogs && "rotate-90"
-                        )}
-                      />
-                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        Server Logs ({devServer.devServerLogs.length} lines)
+                      <div className="flex items-center gap-2">
+                        <ChevronRight
+                          className={cn(
+                            "h-4 w-4 text-zinc-500 transition-transform duration-200 dark:text-zinc-400",
+                            devServer.showErrorLogs && "rotate-90"
+                          )}
+                        />
+                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+                          Server Logs
+                        </span>
+                      </div>
+                      <span className="rounded-full border border-zinc-300 px-2 py-0.5 text-[11px] text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
+                        {devServer.devServerLogs.length}
                       </span>
-                    </div>
-
+                    </button>
                     {devServer.showErrorLogs && (
-                      <div className="max-h-64 overflow-y-auto bg-gray-950 dark:bg-black text-gray-300 p-3 rounded border border-gray-800 font-mono text-xs">
+                      <div className="mt-3 max-h-72 overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 p-3 font-mono text-xs leading-relaxed text-zinc-200">
                         {devServer.devServerLogs.map((log, index) => (
-                          <div key={index} className="whitespace-pre-wrap break-all leading-relaxed">
+                          <div key={index} className="whitespace-pre-wrap break-all">
                             {log}
                           </div>
                         ))}
@@ -440,35 +433,6 @@ export const ArtifactsPreviewTab: React.FC<{
   )
 }
 
-type DevServerHint = {
-  title: string
-  description: string
-}
-
-const getDevServerHints = (error?: string): DevServerHint[] => {
-  if (!error) return []
-  const hints: DevServerHint[] = []
-  if (error.includes('code 127')) {
-    hints.push({
-      title: '💡 Common Issue: Command Not Found',
-      description: 'Exit code 127 usually means a command in preview.sh was not found. Check if npm/pnpm/bun is installed and available in PATH.'
-    })
-  }
-  if (error.includes('EADDRINUSE')) {
-    hints.push({
-      title: '💡 Common Issue: Port Already in Use',
-      description: 'Another process is using the port. Try stopping other dev servers or change the port in your preview.sh script.'
-    })
-  }
-  if (error.includes('ENOENT')) {
-    hints.push({
-      title: '💡 Common Issue: File or Directory Not Found',
-      description: 'A file or directory referenced in preview.sh does not exist. Check your script paths.'
-    })
-  }
-  return hints
-}
-
 const PreviewShell: React.FC<{
   address: string
   statusDot: 'running' | 'static'
@@ -499,7 +463,7 @@ const PreviewShell: React.FC<{
               {address}
             </span>
             <span className={cn(
-              'ml-1 text-[8px] font-semibold tracking-widest px-1.5 py-[1px] rounded-full border',
+              'ml-1 text-[8px] font-semibold tracking-widest px-1.5 py-px rounded-full border',
               'uppercase select-none',
               badgeClass
             )}>

@@ -4,8 +4,8 @@
  */
 
 import { spawn, ChildProcess } from 'child_process'
-import { existsSync } from 'fs'
-import { join } from 'path'
+import { existsSync, readdirSync, readFileSync, type Dirent } from 'fs'
+import { isAbsolute, join, resolve } from 'path'
 import { app } from 'electron'
 import type {
   CheckPreviewShArgs,
@@ -27,6 +27,7 @@ import type {
 
 const MAX_LOGS = 50
 const GRACEFUL_SHUTDOWN_TIMEOUT = 5000 // 5 seconds
+const DEFAULT_WORKSPACE_NAME = 'tmp'
 
 // Port detection patterns - only match actual server URLs
 const PORT_PATTERNS = [
@@ -52,12 +53,35 @@ const ERROR_PATTERNS = [
 class DevServerProcessManager {
   private processes = new Map<string, DevServerProcess>()
 
+  private normalizeWorkspacePath(workspacePath: string, chatUuid?: string): string {
+    const userDataPath = app.getPath('userData')
+    const fallbackDir = join(userDataPath, 'workspaces', chatUuid || DEFAULT_WORKSPACE_NAME)
+
+    if (!workspacePath) {
+      return fallbackDir
+    }
+
+    if (isAbsolute(workspacePath)) {
+      return resolve(workspacePath)
+    }
+
+    const normalized = workspacePath.replace(/\\/g, '/')
+    const clean = normalized.startsWith('./') ? normalized.slice(2) : normalized
+
+    if (clean.startsWith('workspaces/')) {
+      return resolve(join(userDataPath, clean))
+    }
+
+    console.warn(`[DevServer] Relative workspace path detected, rebasing to userData: ${workspacePath}`)
+    return resolve(join(userDataPath, clean))
+  }
+
   /**
    * Get workspace path for a chatUuid
    */
   private getWorkspacePath(chatUuid: string, customWorkspacePath?: string): string {
     if (customWorkspacePath) {
-      return customWorkspacePath
+      return this.normalizeWorkspacePath(customWorkspacePath, chatUuid)
     }
     const userDataPath = app.getPath('userData')
     return join(userDataPath, 'workspaces', chatUuid)
@@ -120,6 +144,58 @@ class DevServerProcessManager {
     }
   }
 
+  private findNodeProjectDir(workspacePath: string, maxDepth: number = 3): string | null {
+    const rootPackage = join(workspacePath, 'package.json')
+    if (existsSync(rootPackage)) {
+      return workspacePath
+    }
+
+    let bestPath: string | null = null
+    let bestDepth = Number.POSITIVE_INFINITY
+    const ignoredDirs = new Set(['node_modules', '.git', 'dist', 'build', 'out'])
+
+    const walk = (dirPath: string, depth: number): void => {
+      if (depth > maxDepth) return
+
+      let entries: Dirent<string>[]
+      try {
+        entries = readdirSync(dirPath, { withFileTypes: true }) as Dirent<string>[]
+      } catch {
+        return
+      }
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue
+        const entryName = String(entry.name)
+        if (ignoredDirs.has(entryName)) continue
+
+        const childPath = join(dirPath, entryName)
+        const packagePath = join(childPath, 'package.json')
+        if (existsSync(packagePath)) {
+          if (depth < bestDepth) {
+            bestPath = childPath
+            bestDepth = depth
+          }
+        }
+
+        walk(childPath, depth + 1)
+      }
+    }
+
+    walk(workspacePath, 1)
+    return bestPath
+  }
+
+  private hasDevScript(projectDir: string): boolean {
+    try {
+      const raw = readFileSync(join(projectDir, 'package.json'), 'utf-8')
+      const pkg = JSON.parse(raw) as { scripts?: Record<string, unknown> }
+      return typeof pkg?.scripts?.dev === 'string'
+    } catch {
+      return false
+    }
+  }
+
   /**
    * Start development server for a workspace
    */
@@ -153,27 +229,52 @@ class DevServerProcessManager {
         this.processes.delete(chatUuid)
       }
 
-      // Check if preview.sh exists
-      const previewShPath = this.getPreviewShPath(chatUuid, customWorkspacePath)
-      if (!existsSync(previewShPath)) {
-        return {
-          success: false,
-          error: 'preview.sh not found in workspace'
-        }
-      }
-
-      // Get workspace path
+      // Resolve workspace path
       const workspacePath = this.getWorkspacePath(chatUuid, customWorkspacePath)
 
+      // Check startup strategy
+      const previewShPath = this.getPreviewShPath(chatUuid, customWorkspacePath)
+      const hasPreviewSh = existsSync(previewShPath)
+      let startCwd = workspacePath
+      let startCommand: string[] = [previewShPath]
+      let startMode: 'preview.sh' | 'node-dev' = 'preview.sh'
+
+      if (!hasPreviewSh) {
+        const nodeProjectDir = this.findNodeProjectDir(workspacePath)
+        if (!nodeProjectDir) {
+          return {
+            success: false,
+            error: 'preview.sh not found in workspace and no Node project (package.json) was detected'
+          }
+        }
+
+        if (!this.hasDevScript(nodeProjectDir)) {
+          return {
+            success: false,
+            error: `preview.sh not found and "scripts.dev" is missing in ${nodeProjectDir}/package.json`
+          }
+        }
+
+        startMode = 'node-dev'
+        startCwd = nodeProjectDir
+        startCommand = ['-lc', 'npm install && npm run dev']
+      }
+
       console.log(`[DevServer] Starting server for workspace: ${chatUuid}`)
-      console.log(`[DevServer] Script path: ${previewShPath}`)
-      console.log(`[DevServer] Working directory: ${workspacePath}`)
+      if (startMode === 'preview.sh') {
+        console.log(`[DevServer] Startup mode: preview.sh`)
+        console.log(`[DevServer] Script path: ${previewShPath}`)
+      } else {
+        console.log(`[DevServer] Startup mode: node-dev`)
+        console.log(`[DevServer] Command: npm install && npm run dev`)
+      }
+      console.log(`[DevServer] Working directory: ${startCwd}`)
 
       // Spawn the process
       // Note: Do NOT use shell: true here, as it causes issues with paths containing spaces
       // Use detached: true on Unix to create a new process group, making it easier to kill all children
-      const childProcess: ChildProcess = spawn('bash', [previewShPath], {
-        cwd: workspacePath,
+      const childProcess: ChildProcess = spawn('bash', startCommand, {
+        cwd: startCwd,
         env: {
           ...process.env,
           FORCE_COLOR: '0', // Disable color codes in output
