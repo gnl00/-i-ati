@@ -1,5 +1,5 @@
 import React from 'react'
-import { BadgePlus, ChevronsUpDown } from 'lucide-react'
+import { BadgePlus, Check, ChevronsUpDown } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Command,
@@ -28,6 +28,7 @@ import { getProviderIcon } from '@renderer/utils/providerIcons'
 
 interface AddAssistantCardProps {
   isExpanded: boolean
+  variant?: 'card' | 'compact'
   modelGroups: Array<{
     account: ProviderAccount
     definition?: ProviderDefinition
@@ -35,35 +36,68 @@ interface AddAssistantCardProps {
   }>
 }
 
-export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded, modelGroups }) => {
+export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded, variant = 'card', modelGroups }) => {
+  const [modelOpen, setModelOpen] = React.useState(false)
+  const [selectedModel, setSelectedModel] = React.useState<{
+    accountId: string
+    modelId: string
+    label: string
+  } | null>(null)
+  const drawerContentRef = React.useRef<HTMLDivElement | null>(null)
+
   return (
-    <div
-      className={cn(
-        "group/card relative flex flex-col items-center justify-center p-4 h-24 rounded-xl border transition-all duration-300 ease-out",
-        "border-dashed border-border/60 hover:border-border/80",
-        "bg-transparent hover:bg-accent/30",
-        isExpanded ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
-      )}
-    >
+    <div>
       <Drawer>
         <DrawerTrigger asChild>
-          <div className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
-            <div className="relative">
-              {/* Subtle glow effect */}
-              <div className="absolute inset-0 rounded-full bg-primary/5 scale-0 group-hover/card:scale-125 transition-transform duration-500 ease-out" />
+          {variant === 'compact' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-7 rounded-md px-2.5 text-[11px] font-medium",
+                "border-slate-200/70 dark:border-slate-700/70",
+                "bg-white/70 dark:bg-slate-900/50",
+                "hover:bg-linear-to-r hover:from-emerald-50/90 hover:to-cyan-50/80",
+                "dark:hover:from-emerald-900/25 dark:hover:to-cyan-900/20",
+                "hover:border-emerald-300/90 dark:hover:border-emerald-600/70",
+                "hover:text-emerald-700 dark:hover:text-emerald-300",
+                "hover:shadow-[0_10px_24px_-16px_rgba(16,185,129,0.6)] hover:-translate-y-0.5",
+                "active:translate-y-0 active:scale-[0.98]",
+                "transition-all duration-200",
+                !isExpanded && "opacity-0 pointer-events-none"
+              )}
+            >
+              <BadgePlus className="w-3.5 h-3.5 mr-1.5" />
+              Add Assistant
+            </Button>
+          ) : (
+            <div
+              className={cn(
+                "group/card relative flex flex-col items-center justify-center p-4 h-24 rounded-xl border transition-all duration-300 ease-out",
+                "border-dashed border-border/60 hover:border-border/80",
+                "bg-transparent hover:bg-accent/30",
+                isExpanded ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
+              )}
+            >
+              <div className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-primary/5 scale-0 group-hover/card:scale-125 transition-transform duration-500 ease-out" />
+                  <div className="relative p-2.5 rounded-full bg-muted/50 group-hover/card:bg-muted transition-all duration-300 ease-out">
+                    <BadgePlus className="w-[18px] h-[18px] text-muted-foreground/70 group-hover/card:text-foreground transition-colors duration-300" />
+                  </div>
+                </div>
 
-              {/* Icon container */}
-              <div className="relative p-2.5 rounded-full bg-muted/50 group-hover/card:bg-muted transition-all duration-300 ease-out">
-                <BadgePlus className="w-[18px] h-[18px] text-muted-foreground/70 group-hover/card:text-foreground transition-colors duration-300" />
+                <p className="text-[11px] font-medium text-muted-foreground/80 mt-2.5 uppercase tracking-wider group-hover/card:text-foreground transition-colors duration-300">
+                  Create
+                </p>
               </div>
             </div>
-
-            <p className="text-[11px] font-medium text-muted-foreground/80 mt-2.5 uppercase tracking-wider group-hover/card:text-foreground transition-colors duration-300">
-              Create
-            </p>
-          </div>
+          )}
         </DrawerTrigger>
-        <DrawerContent className="max-h-[85vh] border-t border-border/50 bg-background/95 backdrop-blur-xl">
+        <DrawerContent
+          ref={drawerContentRef}
+          className="max-h-[85vh] border-t border-border/50 bg-background/95 backdrop-blur-xl"
+        >
           {/* Decorative top line */}
           <div className="w-12 h-1 bg-muted/40 rounded-full mx-auto mt-3 mb-0" />
 
@@ -88,7 +122,17 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded
                     <Input
                       id="assistant-name"
                       placeholder="e.g., Code Helper"
-                      className="h-10 rounded-lg border-border/60 bg-background/50 hover:border-border focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/60 transition-all duration-200"
+                      className={cn(
+                        "h-10 rounded-lg",
+                        "bg-slate-50 dark:bg-slate-900/50",
+                        "border border-slate-200 dark:border-slate-800",
+                        "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
+                        "ring-0 focus:ring-0 focus-visible:ring-0",
+                        "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
+                        "focus:border-blue-500/50 dark:focus:border-blue-500/50",
+                        "hover:border-slate-200 dark:hover:border-slate-800",
+                        "shadow-xs transition-all duration-200"
+                      )}
                     />
                   </div>
 
@@ -98,19 +142,33 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded
                     </Label>
 
                     {/* MODEL SELECTOR - UNCHANGED */}
-                    <Popover>
+                    <Popover open={modelOpen} onOpenChange={setModelOpen}>
                       <PopoverTrigger asChild>
                         <Button
                           id="assistant-model"
                           variant="outline"
                           role="combobox"
-                          className="w-full h-10 justify-between border-border/60 bg-background/50 hover:bg-accent/50 transition-all group rounded-lg"
+                          className={cn(
+                            "w-full h-10 justify-between group rounded-lg",
+                            "bg-slate-50 dark:bg-slate-900/50",
+                            "border border-slate-200 dark:border-slate-800",
+                            "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
+                            "ring-0 focus:ring-0 focus-visible:ring-0",
+                            "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
+                            "focus:border-blue-500/50 dark:focus:border-blue-500/50",
+                            "hover:bg-slate-50 dark:hover:bg-slate-900/50",
+                            "hover:border-slate-200 dark:hover:border-slate-800",
+                            "shadow-xs transition-all duration-200"
+                          )}
                         >
-                          <span className="text-muted-foreground">Select a model...</span>
+                          <span className={cn("truncate", selectedModel ? "text-foreground" : "text-muted-foreground")}>
+                            {selectedModel?.label ?? 'Select a model...'}
+                          </span>
                           <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 transition-all duration-300 group-hover:opacity-100" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent
+                        portalContainer={drawerContentRef.current}
                         className="w-full shadow-lg p-0 rounded-xl overflow-hidden border-transparent bg-white/10 backdrop-blur-xl dark:bg-gray-900"
                         sideOffset={8}
                         align="start"
@@ -142,6 +200,14 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded
                                     <CommandItem
                                       key={`${group.account.id}/${model.id}`}
                                       value={`${group.account.id}/${model.id}`}
+                                      onSelect={() => {
+                                        setSelectedModel({
+                                          accountId: group.account.id,
+                                          modelId: model.id,
+                                          label: model.label
+                                        })
+                                        setModelOpen(false)
+                                      }}
                                       className={cn(
                                         "pl-4 py-2.5 cursor-pointer rounded-xl",
                                         "transition-all duration-200",
@@ -151,6 +217,9 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded
                                       )}
                                     >
                                       <span className="truncate">{model.label}</span>
+                                      {selectedModel?.accountId === group.account.id && selectedModel?.modelId === model.id && (
+                                        <Check className="ml-auto h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                      )}
                                     </CommandItem>
                                   ))}
                                 </div>
@@ -171,7 +240,17 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded
                   <Input
                     id="assistant-description"
                     placeholder="e.g., Helps with debugging and refactoring"
-                    className="h-10 rounded-lg border-border/60 bg-background/50 hover:border-border focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/60 transition-all duration-200"
+                    className={cn(
+                      "h-10 rounded-lg",
+                      "bg-slate-50 dark:bg-slate-900/50",
+                      "border border-slate-200 dark:border-slate-800",
+                      "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
+                      "ring-0 focus:ring-0 focus-visible:ring-0",
+                      "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
+                      "focus:border-blue-500/50 dark:focus:border-blue-500/50",
+                      "hover:border-slate-200 dark:hover:border-slate-800",
+                      "shadow-xs transition-all duration-200"
+                    )}
                   />
                 </div>
 
@@ -184,7 +263,17 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded
                   <Textarea
                     id="assistant-prompt"
                     placeholder="You are a helpful assistant that..."
-                    className="min-h-[140px] resize-none border-border/60 bg-background/50 hover:border-border focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/60 transition-all duration-200"
+                    className={cn(
+                      "min-h-[140px] resize-none",
+                      "bg-slate-50 dark:bg-slate-900/50",
+                      "border border-slate-200 dark:border-slate-800",
+                      "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
+                      "ring-0 focus:ring-0 focus-visible:ring-0",
+                      "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
+                      "focus:border-blue-500/50 dark:focus:border-blue-500/50",
+                      "hover:border-slate-200 dark:hover:border-slate-800",
+                      "shadow-xs transition-all duration-200"
+                    )}
                   />
                 </div>
               </div>
