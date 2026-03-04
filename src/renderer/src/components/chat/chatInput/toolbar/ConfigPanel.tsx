@@ -1,4 +1,5 @@
 import { TokensIcon } from '@radix-ui/react-icons'
+import AssistantCardsSection from '@renderer/components/chat/chatInput/toolbar/AssistantCardsSection'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
 import { Label } from '@renderer/components/ui/label'
@@ -216,6 +217,7 @@ const ConfigPanel: React.FC = () => {
         <div className="flex flex-col h-fit">
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-6">
+            <AssistantCardsSection panelOpen={isOpen} />
 
             {/* Parameters Group */}
             <div className="space-y-3 shrink-0">
