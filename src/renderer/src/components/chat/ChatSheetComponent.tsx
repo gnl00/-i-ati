@@ -1,92 +1,19 @@
-import { CheckIcon, Cross2Icon, DoubleArrowRightIcon, Pencil2Icon } from '@radix-ui/react-icons'
+import ChatScheduleBoard from '@renderer/components/chat/schedule/ChatScheduleBoard'
+import ChatTitleList from '@renderer/components/chat/title/ChatTitleList'
 import { Button } from '@renderer/components/ui/button'
-import { Input } from '@renderer/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@renderer/components/ui/sheet'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
-import { AddAssistantDrawer } from '@renderer/components/chat/AddAssistantDrawer'
-import { deleteChat, getAllChat, updateChat } from '@renderer/db/ChatRepository'
-import { cn } from '@renderer/lib/utils'
+import { getAllChat } from '@renderer/db/ChatRepository'
+import { invokeDbScheduledTasksByChatUuid, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
 import { useChatStore } from '@renderer/store'
-import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useSheetStore } from '@renderer/store/sheet'
-import { useAssistantStore } from '@renderer/store/assistant'
 import { switchWorkspace } from '@renderer/utils/workspaceUtils'
 import { BadgePlus } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
-import { toast as sonnerToast } from 'sonner'
+import React, { useCallback, useEffect, useState } from 'react'
+import type { ScheduleTask } from '@shared/tools/schedule'
 
 interface ChatSheetProps { }
-
-// Assistant Card 组件
-interface AssistantCardProps {
-    assistant?: Assistant
-    currentAssistantId?: string
-    label?: string
-    icon?: string
-    gradientType?: string
-    gradientColors?: { from: string; via: string; to: string }
-    className?: string
-    onClick?: () => void
-}
-
-const AssistantCard: React.FC<AssistantCardProps> = ({
-    assistant,
-    currentAssistantId,
-    label,
-    icon,
-    gradientType = 'bg-linear-to-br',
-    gradientColors,
-    className,
-    onClick
-}) => {
-    const displayLabel = assistant?.name || label || 'Assistant'
-    const displayIcon = assistant?.icon || icon
-    return (
-        <div
-            onClick={onClick}
-            className={cn(
-                "group relative flex flex-col justify-between p-3 h-24 rounded-xl shadow-xs transition-all duration-300 cursor-pointer overflow-hidden ring-1 ring-black/5 dark:ring-white/10",
-                "hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02]",
-                currentAssistantId === assistant?.id && "scale-[1.05] -translate-y-1",
-                gradientColors && [
-                    gradientType,
-                    gradientColors.from,
-                    gradientColors.via,
-                    gradientColors.to,
-                ],
-                className
-            )}
-        >
-            {/* Decorative Background - Icon or First Character */}
-            <div className="absolute -right-2 -top-4 opacity-10 text-7xl font-black text-black dark:text-white transform -rotate-12 transition-transform duration-500 group-hover:rotate-0 group-hover:scale-110 pointer-events-none select-none">
-                {displayIcon || displayLabel.charAt(0)}
-            </div>
-
-            {/* Top Area - Status Indicator */}
-            <div className="w-full flex justify-end">
-                {/* Status dot with enhanced animation for selected state */}
-                <div className={cn(
-                    "rounded-full transition-all duration-300 ease-out",
-                    "w-1.5 h-1.5 bg-white/40 group-hover:bg-white/80 group-hover:scale-110"
-                )} />
-            </div>
-
-            {/* Label Area */}
-            <div className="relative z-10">
-                <p className="text-[10px] font-medium text-white/70 uppercase tracking-wider mb-0.5 transform translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-                    {displayIcon || displayLabel.charAt(0)}
-                </p>
-                <span className="text-sm font-semibold text-white leading-tight drop-shadow-xs tracking-tight">
-                    {displayLabel}
-                </span>
-            </div>
-
-            {/* Glass Shine Effect */}
-            <div className="absolute inset-0 bg-linear-to-t from-black/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        </div>
-    )
-}
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
@@ -99,23 +26,14 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         toggleWebSearch,
         currentChatId: chatId,
         currentChatUuid: chatUuid,
-        chatList,
         setChatList,
         setChatTitle,
         setChatUuid,
         setChatId,
         setCurrentChat,
-        updateChatList,
         setSelectedModelRef,
         selectedModelRef
     } = useChatStore()
-    const { accounts, providerDefinitions } = useAppConfigStore()
-    const { assistants, loadAssistants, isLoading: isLoadingAssistants, currentAssistant, setCurrentAssistant } = useAssistantStore()
-
-    // Load assistants on mount
-    useEffect(() => {
-        loadAssistants()
-    }, [])
 
     /**
      * 批量完成当前 chat 的所有消息的打字机效果
@@ -170,37 +88,30 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         })
     }
 
-    // Handle assistant click
-    const handleAssistantClick = (assistant: Assistant) => {
-        setCurrentAssistant(assistant)
-        setSheetOpenState(false)
-    }
+    const [scheduledTasks, setScheduledTasks] = useState<ScheduleTask[]>([])
+    const [scheduleLoading, setScheduleLoading] = useState(false)
+    const [scheduleLoadError, setScheduleLoadError] = useState('')
 
-    const bgGradientTypes = useMemo(() => ['bg-linear-to-t', 'bg-linear-to-tr', 'bg-linear-to-r', 'bg-linear-to-br', 'bg-linear-to-b', 'bg-linear-to-bl', 'bg-linear-to-l', 'bg-linear-to-tl'], [])
-    const bgGradientColors = useMemo(() => [
-        { from: 'from-[#FFD26F]', via: 'via-[#3687FF]', to: 'to-[#3677FF]' },
-        { from: 'from-[#43CBFF]', via: 'via-[#9708CC]', to: 'to-[#9708CC]' },
-        { from: 'from-[#4158D0]', via: 'via-[#C850C0]', to: 'to-[#FFCC70]' },
-        { from: 'from-[#FFFFFF]', via: 'via-[#6284FF]', to: 'to-[#FF0000]' },
-        { from: 'from-[#00DBDE]', via: 'via-[#6284FF]', to: 'to-[#FC00FF]' },
-    ], [])
-    const modelGroups = useMemo(() => {
-        const groups = new Map<string, { account: ProviderAccount; definition?: ProviderDefinition; models: AccountModel[] }>()
-        accounts.forEach(account => {
-            const definition = providerDefinitions.find(def => def.id === account.providerId)
-            const enabledModels = account.models.filter(model => model.enabled !== false)
-            if (enabledModels.length === 0) {
-                return
-            }
-            groups.set(account.id, { account, definition, models: enabledModels })
-        })
-        return Array.from(groups.values())
-    }, [accounts, providerDefinitions])
-    const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
-    const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
-    const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
-    const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
-    const [isCarouselExpanded, setIsCarouselExpanded] = useState(false)
+    const loadScheduledTasks = useCallback(async (targetChatUuid?: string | null) => {
+        if (!targetChatUuid) {
+            setScheduledTasks([])
+            setScheduleLoadError('')
+            return
+        }
+        setScheduleLoading(true)
+        try {
+            const tasks = await invokeDbScheduledTasksByChatUuid(targetChatUuid)
+            const sortedTasks = [...tasks].sort((a, b) => a.run_at - b.run_at)
+            setScheduledTasks(sortedTasks)
+            setScheduleLoadError('')
+        } catch (error) {
+            console.error('[ChatSheet] Failed to load scheduled tasks:', error)
+            setScheduledTasks([])
+            setScheduleLoadError('Failed to load schedule tasks')
+        } finally {
+            setScheduleLoading(false)
+        }
+    }, [])
 
     useEffect(() => {
         if (sheetOpenState) {
@@ -212,8 +123,31 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 })
             }
             refreshChatList()
+            loadScheduledTasks(chatUuid)
         }
-    }, [sheetOpenState])
+    }, [chatUuid, loadScheduledTasks, sheetOpenState])
+
+    useEffect(() => {
+        const unsubscribe = subscribeScheduleEvents(event => {
+            if (event.type !== 'schedule.updated') {
+                return
+            }
+            const task = event.payload?.task
+            if (!task || task.chat_uuid !== chatUuid) {
+                return
+            }
+            setScheduledTasks(prev => {
+                const index = prev.findIndex(item => item.id === task.id)
+                const next = index >= 0
+                    ? [...prev.slice(0, index), task, ...prev.slice(index + 1)]
+                    : [task, ...prev]
+                return next.sort((a, b) => a.run_at - b.run_at)
+            })
+        })
+        return () => {
+            unsubscribe()
+        }
+    }, [chatUuid])
 
     const onNewChatClick = (_) => {
         setSheetOpenState(false)
@@ -286,95 +220,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             }
         }
     }
-    const onChatItemTitleChange = (e, chat: ChatEntity) => {
-        chat.title = e.target.value
-        updateChat(chat)
-        updateChatList(chat)
-        if (chat.id === chatId) {
-            setChatTitle(chat.title)
-        }
-    }
-    const onMouseOverSheetChat = (chatId) => {
-        setSheetChatItemHover(true)
-        setSheetChatItemHoverChatId(chatId)
-    }
-    const onMouseLeaveSheetChat = () => {
-        setSheetChatItemHover(false)
-        setSheetChatItemHoverChatId(-1)
-    }
-    const onSheetChatItemDeleteUndo = (chat: ChatEntity) => {
-        setChatList([...chatList])
-        updateChat(chat)
-    }
 
-    const onSheetChatItemDeleteClick = (e, chat: ChatEntity) => {
-        e.stopPropagation()
-        setChatList(chatList.filter(item => item.id !== chat.id))
-        deleteChat(chat.id!)
-        if (chat.id === chatId) {
-            startNewChat()
-        }
-        sonnerToast.warning('Chat deleted', {
-            action: {
-                label: 'Undo',
-                onClick: () => onSheetChatItemDeleteUndo(chat)
-            },
-        })
-    }
-
-    const onSheetChatItemEditConformClick = (e, _: ChatEntity) => {
-        e.stopPropagation()
-        setShowChatItemEditConform(false)
-        setChatItemEditId(undefined)
-    }
-
-    const onSheetChatItemEditClick = (e, chat: ChatEntity) => {
-        e.stopPropagation()
-        setShowChatItemEditConform(true)
-        if (chatItemEditId) {
-            setChatItemEditId(undefined)
-        } else {
-            setChatItemEditId(chat.id)
-        }
-    }
-    const getDate = (timestampe: number) => {
-        const date = new Date(timestampe)
-        const yyyy = date.getFullYear()
-        const mm = String(date.getMonth() + 1).padStart(2, '0')
-        const dd = String(date.getDate()).padStart(2, '0')
-        return `${yyyy}-${mm}-${dd}`
-    }
-
-    const getDateGroup = (timestamp: number) => {
-        const now = new Date()
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-        const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000
-        const startOfWeek = startOfToday - 7 * 24 * 60 * 60 * 1000
-
-        if (timestamp >= startOfToday) return 'Today'
-        if (timestamp >= startOfYesterday) return 'Yesterday'
-        if (timestamp >= startOfWeek) return 'This Week'
-        return getDate(timestamp)
-    }
-
-    // 排序后的聊天列表
-    const sortedChatList = useMemo(() => {
-        return [...chatList].sort((a, b) => b.updateTime - a.updateTime)
-    }, [chatList])
-
-    // 按日期分组的聊天列表
-    const groupedChatList = useMemo(() => {
-        const groups: { [key: string]: ChatEntity[] } = {}
-        sortedChatList.forEach(item => {
-            if (item.id === -1) return
-            const group = getDateGroup(item.updateTime)
-            if (!groups[group]) {
-                groups[group] = []
-            }
-            groups[group].push(item)
-        })
-        return groups
-    }, [sortedChatList])
     return (
         <Sheet open={sheetOpenState} onOpenChange={() => { setSheetOpenState(!sheetOpenState) }}>
             <SheetContent side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0 select-none flex flex-col h-full">
@@ -393,56 +239,11 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
 
                 {/* 主内容区 - 占据剩余空间 */}
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-                    {/* Carousel 区域 - 可折叠 */}
-                    <div className="shrink-0 px-4 pt-2 border rounded-xl">
-                        <div className="flex items-center justify-between mb-2" onClick={() => setIsCarouselExpanded(!isCarouselExpanded)}>
-                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Assistants</h3>
-                            <button
-                                className="p-1 rounded-md text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
-                            >
-                                <DoubleArrowRightIcon className={cn("w-4 h-4 transition-transform duration-300", isCarouselExpanded ? 'rotate-90' : '')} />
-                            </button>
-                        </div>
-
-                        <div className={cn(
-                            "overflow-hidden transition-all duration-300 ease-out",
-                            isCarouselExpanded ? "max-h-[240px]" : "max-h-[110px]"
-                        )}>
-                            {isLoadingAssistants ? (
-                                <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
-                                    Loading assistants...
-                                </div>
-                            ) : assistants.length === 0 ? (
-                                <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
-                                    No assistants available
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-4 gap-2 pb-2 pt-2">
-                                    {assistants.map((assistant, index) => (
-                                        <AssistantCard
-                                            key={assistant.id}
-                                            assistant={assistant}
-                                            currentAssistantId={currentAssistant?.id}
-                                            gradientType={bgGradientTypes[index % bgGradientTypes.length]}
-                                            gradientColors={bgGradientColors[index % bgGradientColors.length]}
-                                            onClick={() => handleAssistantClick(assistant)}
-                                            className={cn(
-                                                index >= 4 && (
-                                                    isCarouselExpanded
-                                                        ? "opacity-100 translate-y-0"
-                                                        : "opacity-0 -translate-y-2 pointer-events-none"
-                                                ),
-                                                "transition-all duration-300"
-                                            )}
-                                        />
-                                    ))}
-
-                                {/* Add 按钮 */}
-                                <AddAssistantDrawer isExpanded={isCarouselExpanded} modelGroups={modelGroups} />
-                            </div>
-                            )}
-                        </div>
-                    </div>
+                    <ChatScheduleBoard
+                        scheduledTasks={scheduledTasks}
+                        scheduleLoading={scheduleLoading}
+                        scheduleLoadError={scheduleLoadError}
+                    />
 
                     {/* 聊天列表区域 - 占据剩余空间 */}
                     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
@@ -458,162 +259,12 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                             </Button>
                         </div>
 
-                        {/* 聊天历史列表 */}
+                        {/* 聊天标题列表 */}
                         <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth">
-                            {Object.keys(groupedChatList).length > 0 ? (
-                                <div>
-                                    {Object.entries(groupedChatList).map(([groupName, items]) => (
-                                        <div key={groupName} className="mb-2">
-                                            {/* 日期分组标题 - sticky */}
-                                            <div className="sticky top-0 bg-background/98 backdrop-blur-md z-10 pt-3 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700 shadow-xs">
-                                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
-                                                    {groupName}
-                                                </h4>
-                                            </div>
-
-                                            {/* 该分组下的聊天项 */}
-                                            <div className="space-y-0.5 px-1">
-                                                {items.map((item) => {
-                                                    const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
-                                                    const isActive = item.id === chatId
-
-                                                    return (
-                                                        <div
-                                                            key={item.id}
-                                                            id="chat-item"
-                                                            onMouseOver={() => onMouseOverSheetChat(item.id as number)}
-                                                            onMouseLeave={onMouseLeaveSheetChat}
-                                                            onClick={(event) => onChatClick(event, item)}
-                                                            className={cn(
-                                                                "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer",
-                                                                "transition-all duration-200 ease-out",
-                                                                isActive
-                                                                    ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-[''] after:absolute after:bottom-0.5 after:left-3 after:w-48 after:h-0.5 after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15"
-                                                                    : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-xs hover:scale-[1.01]"
-                                                            )}
-                                                        >
-                                                            {/* 聊天标题 */}
-                                                            <div className="flex-1 min-w-0">
-                                                                {showChatItemEditConform && chatItemEditId === item.id ? (
-                                                                    <Input
-                                                                        className="h-7 text-sm border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent px-0"
-                                                                        onClick={e => e.stopPropagation()}
-                                                                        onChange={e => onChatItemTitleChange(e, item)}
-                                                                        value={item.title}
-                                                                        autoFocus
-                                                                    />
-                                                                ) : (
-                                                                    <span className={cn(
-                                                                        "text-sm font-medium text-gray-700 dark:text-gray-300 line-clamp-1 transition-colors duration-200",
-                                                                        isHovered && "text-gray-900 dark:text-gray-100"
-                                                                    )}>
-                                                                        {item.title}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* 消息数量 / 操作按钮 */}
-                                                            <div className="shrink-0 flex items-center gap-1 h-7 relative w-16">
-                                                                {/* 消息数量标签 */}
-                                                                <span
-                                                                    className={cn(
-                                                                        "absolute inset-0 flex items-center justify-center px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full transition-all duration-200 ease-out",
-                                                                        isHovered
-                                                                            ? "opacity-0 scale-75 translate-x-2 pointer-events-none"
-                                                                            : "opacity-100 scale-100 translate-x-0"
-                                                                    )}
-                                                                >
-                                                                    {item.msgCount ?? 0}
-                                                                </span>
-
-                                                                {/* 操作按钮组 */}
-                                                                <div
-                                                                    className={cn(
-                                                                        "absolute inset-0 flex items-center gap-1 transition-all duration-200 ease-out",
-                                                                        isHovered
-                                                                            ? "opacity-100 scale-100 translate-x-0"
-                                                                            : "opacity-0 scale-75 -translate-x-2 pointer-events-none"
-                                                                    )}
-                                                                >
-                                                                    {showChatItemEditConform && chatItemEditId === item.id ? (
-                                                                        <button
-                                                                            onClick={e => onSheetChatItemEditConformClick(e, item)}
-                                                                            className={cn(
-                                                                                "relative p-1.5 rounded-xl",
-                                                                                "bg-emerald-50/80 dark:bg-emerald-950/40",
-                                                                                "text-emerald-600 dark:text-emerald-400",
-                                                                                "border border-emerald-200/50 dark:border-emerald-800/50",
-                                                                                "shadow-inner",
-                                                                                "transition-all duration-300 ease-out",
-                                                                                "hover:scale-110",
-                                                                                "hover:bg-emerald-100 dark:hover:bg-emerald-900/50",
-                                                                                "hover:shadow-lg hover:shadow-emerald-500/10",
-                                                                                "hover:-translate-y-0.5",
-                                                                                "active:scale-95 active:shadow-inner active:translate-y-0"
-                                                                            )}
-                                                                        >
-                                                                            <CheckIcon className="w-3.5 h-3.5" />
-                                                                        </button>
-                                                                    ) : (
-                                                                        <button
-                                                                            onClick={e => onSheetChatItemEditClick(e, item)}
-                                                                            className={cn(
-                                                                                "relative p-1.5 rounded-xl",
-                                                                                "bg-slate-100/80 dark:bg-slate-800/60",
-                                                                                "text-slate-600 dark:text-slate-400",
-                                                                                "border border-slate-200/50 dark:border-slate-700/50",
-                                                                                "shadow-inner",
-                                                                                "transition-all duration-300 ease-out",
-                                                                                "hover:scale-110",
-                                                                                "hover:bg-slate-200 dark:hover:bg-slate-700",
-                                                                                "hover:shadow-lg hover:shadow-slate-500/10",
-                                                                                "hover:-translate-y-0.5",
-                                                                                "active:scale-95 active:shadow-inner active:translate-y-0"
-                                                                            )}
-                                                                        >
-                                                                            <Pencil2Icon className="w-3.5 h-3.5" />
-                                                                        </button>
-                                                                    )}
-                                                                    <button
-                                                                        onClick={e => onSheetChatItemDeleteClick(e, item)}
-                                                                        className={cn(
-                                                                            "relative p-1.5 rounded-xl",
-                                                                            "bg-rose-50/80 dark:bg-rose-950/40",
-                                                                            "text-rose-600 dark:text-rose-400",
-                                                                            "border border-rose-200/50 dark:border-rose-800/50",
-                                                                            "shadow-inner",
-                                                                            "transition-all duration-300 ease-out",
-                                                                            "hover:scale-110 hover:rotate-90",
-                                                                            "hover:bg-rose-100 dark:hover:bg-rose-900/50",
-                                                                            "hover:shadow-lg hover:shadow-rose-500/10",
-                                                                            "hover:-translate-y-0.5",
-                                                                            "active:scale-95 active:shadow-inner active:translate-y-0 active:rotate-90"
-                                                                        )}
-                                                                    >
-                                                                        <Cross2Icon className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    {/* 底部提示 */}
-                                    <div className="py-4 text-center">
-                                        <span className="text-xs text-gray-400 dark:text-gray-600">No more chats</span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-center justify-center h-full">
-                                    <div className="text-center text-gray-400 dark:text-gray-600">
-                                        <p className="text-sm">No chats yet</p>
-                                        <p className="text-xs mt-1">Start a new conversation</p>
-                                    </div>
-                                </div>
-                            )}
+                            <ChatTitleList
+                                onChatClick={onChatClick}
+                                onDeletedCurrentChat={startNewChat}
+                            />
                         </div>
                     </div>
                 </div>
