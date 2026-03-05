@@ -32,7 +32,6 @@ const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] =
 - 提供多种解决方案时说明优缺点
 - 使用具体示例说明概念`,
     sortIndex: 0,
-    isPinned: false,
     isBuiltIn: true,
     isDefault: false
   },
@@ -58,7 +57,6 @@ const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] =
 - 根据目标受众调整语言风格
 - 保持内容的原创性和真实性`,
     sortIndex: 1,
-    isPinned: false,
     isBuiltIn: true,
     isDefault: false
   },
@@ -84,7 +82,6 @@ const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] =
 - 保持专业术语的一致性
 - 必要时提供多种翻译选项和说明`,
     sortIndex: 2,
-    isPinned: false,
     isBuiltIn: true,
     isDefault: false
   },
@@ -110,7 +107,6 @@ const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] =
 - 提供具体的例子和应用场景
 - 鼓励主动思考和实践`,
     sortIndex: 3,
-    isPinned: false,
     isBuiltIn: true,
     isDefault: false
   }
