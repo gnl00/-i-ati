@@ -6,6 +6,15 @@ import {
   deleteAssistant
 } from '@renderer/db/AssistantRepository'
 
+const sortAssistants = (assistants: Assistant[]): Assistant[] =>
+  [...assistants].sort((a, b) => {
+    const pinnedDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned))
+    if (pinnedDiff !== 0) return pinnedDiff
+    const indexDiff = (a.sortIndex ?? 0) - (b.sortIndex ?? 0)
+    if (indexDiff !== 0) return indexDiff
+    return (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
+  })
+
 interface AssistantStore {
   // 状态
   assistants: Assistant[]
@@ -31,7 +40,7 @@ export const useAssistantStore = create<AssistantStore>((set, get) => ({
     set({ isLoading: true })
     try {
       const assistants = await getAllAssistants()
-      set({ assistants, isLoading: false })
+      set({ assistants: sortAssistants(assistants), isLoading: false })
     } catch (error) {
       console.error('[AssistantStore] Failed to load assistants:', error)
       set({ isLoading: false })
@@ -48,7 +57,7 @@ export const useAssistantStore = create<AssistantStore>((set, get) => ({
     try {
       const id = await saveAssistant(assistant)
       const newAssistant = { ...assistant, id }
-      set({ assistants: [...get().assistants, newAssistant] })
+      set({ assistants: sortAssistants([...get().assistants, newAssistant]) })
       return id
     } catch (error) {
       console.error('[AssistantStore] Failed to add assistant:', error)
@@ -61,9 +70,10 @@ export const useAssistantStore = create<AssistantStore>((set, get) => ({
     try {
       await updateAssistant(assistant)
       set({
-        assistants: get().assistants.map(a =>
+        assistants: sortAssistants(get().assistants.map(a =>
           a.id === assistant.id ? assistant : a
-        )
+        )),
+        currentAssistant: get().currentAssistant?.id === assistant.id ? assistant : get().currentAssistant
       })
     } catch (error) {
       console.error('[AssistantStore] Failed to update assistant:', error)

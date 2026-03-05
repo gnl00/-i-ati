@@ -3,11 +3,12 @@ import type Database from 'better-sqlite3'
 interface AssistantRow {
   id: string
   name: string
-  icon: string | null
   description: string | null
   model_account_id: string
   model_model_id: string
   system_prompt: string
+  sort_index: number
+  is_pinned: number
   created_at: number
   updated_at: number
   is_built_in: number
@@ -28,20 +29,20 @@ class AssistantRepository {
     this.stmts = {
       insertAssistant: db.prepare(`
         INSERT INTO assistants (
-          id, name, icon, description, model_account_id, model_model_id,
-          system_prompt, created_at, updated_at, is_built_in, is_default
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, name, description, model_account_id, model_model_id,
+          system_prompt, sort_index, is_pinned, created_at, updated_at, is_built_in, is_default
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
       getAllAssistants: db.prepare(`
-        SELECT * FROM assistants ORDER BY updated_at DESC
+        SELECT * FROM assistants ORDER BY is_pinned DESC, sort_index ASC, updated_at DESC
       `),
       getAssistantById: db.prepare(`
         SELECT * FROM assistants WHERE id = ?
       `),
       updateAssistant: db.prepare(`
         UPDATE assistants SET
-          name = ?, icon = ?, description = ?, model_account_id = ?, model_model_id = ?,
-          system_prompt = ?, updated_at = ?, is_built_in = ?, is_default = ?
+          name = ?, description = ?, model_account_id = ?, model_model_id = ?,
+          system_prompt = ?, sort_index = ?, is_pinned = ?, updated_at = ?, is_built_in = ?, is_default = ?
         WHERE id = ?
       `),
       deleteAssistant: db.prepare(`
@@ -55,11 +56,12 @@ class AssistantRepository {
     this.stmts.insertAssistant.run(
       row.id,
       row.name,
-      row.icon,
       row.description,
       row.model_account_id,
       row.model_model_id,
       row.system_prompt,
+      row.sort_index,
+      row.is_pinned,
       row.created_at,
       row.updated_at,
       row.is_built_in,
@@ -78,11 +80,12 @@ class AssistantRepository {
   update(row: AssistantRow): void {
     this.stmts.updateAssistant.run(
       row.name,
-      row.icon,
       row.description,
       row.model_account_id,
       row.model_model_id,
       row.system_prompt,
+      row.sort_index,
+      row.is_pinned,
       row.updated_at,
       row.is_built_in,
       row.is_default,

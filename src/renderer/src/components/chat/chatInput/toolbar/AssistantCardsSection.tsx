@@ -198,7 +198,18 @@ const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen
       </div>
 
       <div className="flex items-center justify-between">
-        <AddAssistantDrawer isExpanded={true} variant="compact" modelGroups={modelGroups} />
+        <div className="flex items-center gap-1.5">
+          <AddAssistantDrawer isExpanded={true} variant="compact" modelGroups={modelGroups} />
+          {currentAssistant && (
+            <AddAssistantDrawer
+              isExpanded={true}
+              variant="compact"
+              mode="edit"
+              assistantToEdit={currentAssistant}
+              modelGroups={modelGroups}
+            />
+          )}
+        </div>
         <div className="flex items-center gap-1 select-none">
           <Button
             variant="ghost"

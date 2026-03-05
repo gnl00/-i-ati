@@ -13,11 +13,12 @@ export class AssistantDataService {
     assistantRepo.insert({
       id: assistant.id,
       name: assistant.name,
-      icon: assistant.icon || null,
       description: assistant.description || null,
       model_account_id: assistant.modelRef.accountId,
       model_model_id: assistant.modelRef.modelId,
       system_prompt: assistant.systemPrompt,
+      sort_index: assistant.sortIndex ?? 0,
+      is_pinned: assistant.isPinned ? 1 : 0,
       created_at: assistant.createdAt,
       updated_at: assistant.updatedAt,
       is_built_in: assistant.isBuiltIn ? 1 : 0,
@@ -49,11 +50,12 @@ export class AssistantDataService {
     assistantRepo.update({
       id: assistant.id,
       name: assistant.name,
-      icon: assistant.icon || null,
       description: assistant.description || null,
       model_account_id: assistant.modelRef.accountId,
       model_model_id: assistant.modelRef.modelId,
       system_prompt: assistant.systemPrompt,
+      sort_index: assistant.sortIndex ?? 0,
+      is_pinned: assistant.isPinned ? 1 : 0,
       created_at: assistant.createdAt ?? Date.now(),
       updated_at: assistant.updatedAt,
       is_built_in: assistant.isBuiltIn ? 1 : 0,
@@ -72,13 +74,14 @@ export class AssistantDataService {
     return {
       id: row.id,
       name: row.name,
-      icon: row.icon || undefined,
       description: row.description || undefined,
       modelRef: {
         accountId: row.model_account_id,
         modelId: row.model_model_id
       },
       systemPrompt: row.system_prompt,
+      sortIndex: row.sort_index ?? 0,
+      isPinned: row.is_pinned === 1,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       isBuiltIn: row.is_built_in === 1,

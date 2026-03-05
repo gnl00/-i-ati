@@ -156,7 +156,7 @@ const ConfigPanel: React.FC = () => {
             </div>
           )}
 
-          {/* Token Button - Connects seamlessly with assistant icon */}
+          {/* Token Button - Connects seamlessly with assistant label */}
           <Button
             variant="outline"
             size="icon"
@@ -170,7 +170,7 @@ const ConfigPanel: React.FC = () => {
               "group-hover:border-slate-300 dark:group-hover:border-slate-600",
               "group-hover:shadow-xs",
               "active:scale-95",
-              currentAssistant?.icon ? [
+              currentAssistant ? [
                 // When assistant is present, remove left border radius to connect
                 "rounded-r-xl rounded-l-none",
                 "border-l-0"
