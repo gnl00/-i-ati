@@ -329,7 +329,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
 
           {/* Assistant Cards */}
           <div className="w-full animate-slide-up">
-            {isLoading ? (
+            {isLoading && assistants.length === 0 ? (
               <div className="text-center text-muted-foreground">
                 Loading assistants...
               </div>

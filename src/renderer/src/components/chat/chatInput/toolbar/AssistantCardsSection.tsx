@@ -22,10 +22,10 @@ const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen
   const [canScrollNext, setCanScrollNext] = useState(false)
 
   useEffect(() => {
-    if (panelOpen) {
+    if (panelOpen && assistants.length === 0) {
       void loadAssistants()
     }
-  }, [panelOpen, loadAssistants])
+  }, [panelOpen, assistants.length, loadAssistants])
 
   const modelGroups = useMemo(() => {
     const groups = new Map<string, { account: ProviderAccount; definition?: ProviderDefinition; models: AccountModel[] }>()
