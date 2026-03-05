@@ -131,7 +131,7 @@ const ConfigPanel: React.FC = () => {
       <PopoverTrigger asChild>
         <div className="relative flex items-center group">
           {/* Assistant Icon - Slides in/out with animation */}
-          {displayAssistant?.icon && (
+          {displayAssistant && (
             <div
               key={displayAssistant.id}
               className={cn(
@@ -151,7 +151,7 @@ const ConfigPanel: React.FC = () => {
               )}
             >
               <span className="text-xs leading-none text-gray-500 hover:text-gray-700 font-medium transition-all">
-                {displayAssistant.icon + ' ' + displayAssistant.name}
+                {displayAssistant.name}
               </span>
             </div>
           )}
@@ -223,12 +223,12 @@ const ConfigPanel: React.FC = () => {
             <div className="space-y-3 shrink-0">
               <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Chat Overview
+                  Overview
                 </span>
               </div>
 
               {/* Chat Stats */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2 select-none">
                 <div className="rounded-lg border border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/40 px-2.5 py-2">
                   <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
                     <TokensIcon className="w-3 h-3" />
@@ -263,7 +263,7 @@ const ConfigPanel: React.FC = () => {
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-[10px] h-5 px-2 font-medium",
+                    "text-[10px] h-5 px-2 font-medium select-none",
                     memoryEnabled
                       ? "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-200/70 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
                       : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
@@ -275,7 +275,7 @@ const ConfigPanel: React.FC = () => {
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-[10px] h-5 px-2 font-medium",
+                    "text-[10px] h-5 px-2 font-medium select-none",
                     compressionEnabled
                       ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
                       : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
