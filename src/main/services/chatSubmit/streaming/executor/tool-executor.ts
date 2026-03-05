@@ -251,10 +251,18 @@ export class ToolExecutor implements IToolExecutor {
 
   private normalizeArgs(call: ToolCallProps): any {
     const args = typeof call.args === 'string'
-      ? JSON.parse(call.args)
+      ? this.parseArgsString(call.args)
       : call.args
     const normalizedArgs = normalizeToolArgs(args)
     return this.applyRuntimeContext(normalizedArgs, call.function)
+  }
+
+  private parseArgsString(rawArgs: string): any {
+    const trimmed = rawArgs.trim()
+    if (!trimmed) {
+      return {}
+    }
+    return JSON.parse(trimmed)
   }
 
   /**

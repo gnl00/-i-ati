@@ -59,4 +59,21 @@ describe('ToolExecutor runtime context', () => {
     const callArgs = handlerMock.mock.calls[0][0]
     expect(callArgs.chat_uuid).toBe('chat-runtime')
   })
+
+  it('treats empty args string as empty object', async () => {
+    handlerMock.mockClear()
+    const executor = new ToolExecutor({
+      chatUuid: 'chat-runtime'
+    })
+
+    await executor.execute([{
+      id: 'call-3',
+      function: 'plan_get_current_chat',
+      args: ''
+    } as any])
+
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    const callArgs = handlerMock.mock.calls[0][0]
+    expect(callArgs.chat_uuid).toBe('chat-runtime')
+  })
 })
