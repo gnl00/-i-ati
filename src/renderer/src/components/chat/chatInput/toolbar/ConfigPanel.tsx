@@ -227,6 +227,34 @@ const ConfigPanel: React.FC = () => {
                 </span>
               </div>
 
+              {/* Tools Status */}
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] h-5 px-2 font-medium select-none",
+                    memoryEnabled
+                      ? "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-200/70 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                      : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
+                  )}
+                >
+                  <Database className="w-3 h-3 mr-1" />
+                  Memory {memoryEnabled ? 'On' : 'Off'} · {memoryCallCount}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] h-5 px-2 font-medium select-none",
+                    compressionEnabled
+                      ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
+                      : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
+                  )}
+                >
+                  <Compass className="w-3 h-3 mr-1" />
+                  Compact {compressionEnabled ? 'On' : 'Off'} · {compressionCount}
+                </Badge>
+              </div>
+
               {/* Chat Stats */}
               <div className="grid grid-cols-3 gap-2 select-none">
                 <div className="rounded-lg border border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/40 px-2.5 py-2">
@@ -256,34 +284,6 @@ const ConfigPanel: React.FC = () => {
                     {activeSkills.length}
                   </div>
                 </div>
-              </div>
-
-              {/* Toggles */}
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[10px] h-5 px-2 font-medium select-none",
-                    memoryEnabled
-                      ? "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-200/70 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                      : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
-                  )}
-                >
-                  <Database className="w-3 h-3 mr-1" />
-                  Memory {memoryEnabled ? 'On' : 'Off'} · {memoryCallCount}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[10px] h-5 px-2 font-medium select-none",
-                    compressionEnabled
-                      ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
-                      : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
-                  )}
-                >
-                  <Compass className="w-3 h-3 mr-1" />
-                  Compact {compressionEnabled ? 'On' : 'Off'} · {compressionCount}
-                </Badge>
               </div>
 
             </div>
