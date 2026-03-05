@@ -1,9 +1,9 @@
-import { AddAssistantDrawer } from '@renderer/components/chat/AddAssistantDrawer'
+import { AddAssistantDrawer } from '@renderer/components/chat/chatInput/toolbar/AddAssistantDrawer'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useAssistantStore } from '@renderer/store/assistant'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 interface AssistantCardsSectionProps {
   panelOpen: boolean
@@ -12,7 +12,14 @@ interface AssistantCardsSectionProps {
 const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen }) => {
   const { accounts, providerDefinitions } = useAppConfigStore()
   const { assistants, currentAssistant, setCurrentAssistant, loadAssistants } = useAssistantStore()
-  const [assistantPage, setAssistantPage] = useState(0)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+  const isDraggingRef = useRef(false)
+  const dragStartXRef = useRef(0)
+  const dragStartScrollLeftRef = useRef(0)
+  const hasMovedRef = useRef(false)
+  const pauseUntilRef = useRef(0)
+  const [canScrollPrev, setCanScrollPrev] = useState(false)
+  const [canScrollNext, setCanScrollNext] = useState(false)
 
   useEffect(() => {
     if (panelOpen) {
@@ -33,29 +40,102 @@ const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen
     return Array.from(groups.values())
   }, [accounts, providerDefinitions])
 
-  const assistantsPerPage = 4
-  const assistantTotalPages = Math.ceil(assistants.length / assistantsPerPage)
+  const currentAssistants = assistants
 
-  useEffect(() => {
-    if (assistantTotalPages === 0) {
-      setAssistantPage(0)
-      return
-    }
-    setAssistantPage(prev => Math.min(prev, assistantTotalPages - 1))
-  }, [assistantTotalPages])
+  const markUserInteraction = () => {
+    pauseUntilRef.current = Date.now() + 2500
+  }
 
-  const currentAssistants = useMemo(() => {
-    const start = assistantPage * assistantsPerPage
-    return assistants.slice(start, start + assistantsPerPage)
-  }, [assistantPage, assistants])
+  const updateScrollButtons = () => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const maxScrollLeft = Math.max(container.scrollWidth - container.clientWidth, 0)
+    setCanScrollPrev(container.scrollLeft > 2)
+    setCanScrollNext(container.scrollLeft < maxScrollLeft - 2)
+  }
 
   const goPrevAssistants = () => {
-    setAssistantPage(prev => Math.max(prev - 1, 0))
+    const container = scrollContainerRef.current
+    if (!container) return
+    markUserInteraction()
+    container.scrollBy({ left: -160, behavior: 'smooth' })
   }
 
   const goNextAssistants = () => {
-    setAssistantPage(prev => Math.min(prev + 1, Math.max(assistantTotalPages - 1, 0)))
+    const container = scrollContainerRef.current
+    if (!container) return
+    markUserInteraction()
+    container.scrollBy({ left: 160, behavior: 'smooth' })
   }
+
+  const onDragStart = (clientX: number) => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    isDraggingRef.current = true
+    hasMovedRef.current = false
+    dragStartXRef.current = clientX
+    dragStartScrollLeftRef.current = container.scrollLeft
+    markUserInteraction()
+  }
+
+  const onDragMove = (clientX: number) => {
+    if (!isDraggingRef.current) return
+    const container = scrollContainerRef.current
+    if (!container) return
+    const deltaX = clientX - dragStartXRef.current
+    if (Math.abs(deltaX) > 3) {
+      hasMovedRef.current = true
+    }
+    container.scrollLeft = dragStartScrollLeftRef.current - deltaX
+  }
+
+  const onDragEnd = () => {
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
+    markUserInteraction()
+  }
+
+  useEffect(() => {
+    updateScrollButtons()
+  }, [assistants.length])
+
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const onScroll = () => updateScrollButtons()
+    const onResize = () => updateScrollButtons()
+
+    container.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      container.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
+  useEffect(() => {
+    let rafId = 0
+
+    const loop = () => {
+      const container = scrollContainerRef.current
+      if (container && !isDraggingRef.current && Date.now() >= pauseUntilRef.current) {
+        const maxScrollLeft = container.scrollWidth - container.clientWidth
+        if (maxScrollLeft > 1) {
+          container.scrollLeft += 0.35
+          if (container.scrollLeft >= maxScrollLeft) {
+            container.scrollLeft = 0
+          }
+        }
+      }
+      rafId = requestAnimationFrame(loop)
+    }
+
+    rafId = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(rafId)
+  }, [])
 
   return (
     <div className="space-y-3 shrink-0">
@@ -65,64 +145,92 @@ const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen
         </span>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div
+        ref={scrollContainerRef}
+        className="flex flex-nowrap gap-2 overflow-x-auto pb-1 select-none cursor-grab active:cursor-grabbing [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        onMouseDown={e => onDragStart(e.clientX)}
+        onMouseMove={e => {
+          onDragMove(e.clientX)
+          if (isDraggingRef.current) {
+            e.preventDefault()
+          }
+        }}
+        onMouseUp={onDragEnd}
+        onMouseLeave={onDragEnd}
+        onTouchStart={e => onDragStart(e.touches[0]?.clientX ?? 0)}
+        onTouchMove={e => onDragMove(e.touches[0]?.clientX ?? 0)}
+        onTouchEnd={onDragEnd}
+        onWheel={markUserInteraction}
+      >
         {currentAssistants.map(assistant => {
           const isActive = currentAssistant?.id === assistant.id
           return (
             <button
               key={assistant.id}
-              onClick={() => setCurrentAssistant(isActive ? null : assistant)}
+              onClick={e => {
+                if (hasMovedRef.current) {
+                  e.preventDefault()
+                  return
+                }
+                setCurrentAssistant(isActive ? null : assistant)
+              }}
               className={cn(
-                "relative rounded-lg border px-2 py-2 text-left transition-all duration-200 overflow-hidden",
+                "flex-none w-fit rounded-full border px-3 py-1.5 text-center transition-all duration-200",
                 "bg-white/70 dark:bg-slate-900/40",
                 "hover:border-emerald-300/80 dark:hover:border-emerald-600/60",
-                "hover:bg-linear-to-br hover:from-emerald-50/90 hover:via-teal-50/80 hover:to-cyan-50/70",
-                "dark:hover:from-emerald-900/20 dark:hover:via-teal-900/15 dark:hover:to-cyan-900/15",
-                "hover:shadow-[0_10px_24px_-16px_rgba(16,185,129,0.55)] hover:-translate-y-0.5",
+                "hover:bg-emerald-50/85 dark:hover:bg-emerald-900/20",
+                "hover:shadow-[0_8px_20px_-14px_rgba(16,185,129,0.55)]",
                 "active:scale-[0.98] active:translate-y-0",
                 isActive
-                  ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/70 dark:bg-emerald-900/20 shadow-xs"
+                  ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/80 dark:bg-emerald-900/25 shadow-xs"
                   : "border-slate-200/70 dark:border-slate-800/80"
               )}
             >
-              <div className="text-base leading-none">{assistant.icon || '◦'}</div>
-              <div className="mt-1 text-[11px] font-medium text-slate-700 dark:text-slate-200 line-clamp-1">
+              <div className="text-[11px] font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
                 {assistant.name}
               </div>
             </button>
           )
         })}
-
-        {currentAssistants.length < assistantsPerPage &&
-          Array.from({ length: assistantsPerPage - currentAssistants.length }).map((_, index) => (
-            <div
-              key={`assistant-placeholder-${index}`}
-              className="rounded-lg border border-dashed border-slate-200/70 dark:border-slate-800/80 bg-transparent min-h-[68px]"
-            />
-          ))}
       </div>
 
       <div className="flex items-center justify-between">
         <AddAssistantDrawer isExpanded={true} variant="compact" modelGroups={modelGroups} />
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 select-none">
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-1.5 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30"
+            className={cn(
+              "h-6 px-1.5 rounded-md border border-transparent",
+              "text-slate-500 dark:text-slate-400",
+              "hover:text-slate-700 dark:hover:text-slate-200",
+              "hover:bg-slate-100/80 dark:hover:bg-slate-800/70",
+              "hover:border-slate-200/80 dark:hover:border-slate-700/80",
+              "hover:shadow-xs hover:scale-105 active:scale-95",
+              "transition-all duration-200 disabled:opacity-30"
+            )}
             onClick={goPrevAssistants}
-            disabled={assistantPage === 0}
+            disabled={!canScrollPrev}
           >
             {'<'}
           </Button>
           <span className="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums min-w-[40px] text-center">
-            {assistantTotalPages === 0 ? '0/0' : `${assistantPage + 1}/${assistantTotalPages}`}
+            {`${assistants.length}`}
           </span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-1.5 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30"
+            className={cn(
+              "h-6 px-1.5 rounded-md border border-transparent",
+              "text-slate-500 dark:text-slate-400",
+              "hover:text-slate-700 dark:hover:text-slate-200",
+              "hover:bg-slate-100/80 dark:hover:bg-slate-800/70",
+              "hover:border-slate-200/80 dark:hover:border-slate-700/80",
+              "hover:shadow-xs hover:scale-105 active:scale-95",
+              "transition-all duration-200 disabled:opacity-30"
+            )}
             onClick={goNextAssistants}
-            disabled={assistantPage >= assistantTotalPages - 1}
+            disabled={!canScrollNext}
           >
             {'>'}
           </Button>

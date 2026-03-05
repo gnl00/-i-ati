@@ -54,20 +54,18 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({ isExpanded
               variant="outline"
               size="sm"
               className={cn(
-                "h-7 rounded-md px-2.5 text-[11px] font-medium",
-                "border-slate-200/70 dark:border-slate-700/70",
-                "bg-white/70 dark:bg-slate-900/50",
-                "hover:bg-linear-to-r hover:from-emerald-50/90 hover:to-cyan-50/80",
-                "dark:hover:from-emerald-900/25 dark:hover:to-cyan-900/20",
-                "hover:border-emerald-300/90 dark:hover:border-emerald-600/70",
-                "hover:text-emerald-700 dark:hover:text-emerald-300",
-                "hover:shadow-[0_10px_24px_-16px_rgba(16,185,129,0.6)] hover:-translate-y-0.5",
-                "active:translate-y-0 active:scale-[0.98]",
+                "group/add h-7 rounded-full px-2.5 text-[11px] font-medium",
+                "border border-dashed border-slate-300/80 dark:border-slate-700/80",
+                "bg-slate-50/75 dark:bg-slate-900/50 text-slate-600 dark:text-slate-300",
+                "hover:bg-sky-50/90 dark:hover:bg-sky-950/30",
+                "hover:border-sky-300/90 dark:hover:border-sky-600/70",
+                "hover:text-sky-700 dark:hover:text-sky-300",
+                "active:scale-[0.98]",
                 "transition-all duration-200",
                 !isExpanded && "opacity-0 pointer-events-none"
               )}
             >
-              <BadgePlus className="w-3.5 h-3.5 mr-1.5" />
+              <BadgePlus className="w-3.5 h-3.5 mr-1.5 transition-transform duration-200 group-hover/add:rotate-90" />
               Add Assistant
             </Button>
           ) : (
