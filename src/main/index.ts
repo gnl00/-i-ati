@@ -12,6 +12,7 @@ import { SkillService } from './services/skills/SkillService'
 import { schedulerService } from './services/scheduler/SchedulerService'
 import { StartupTracer } from './utils/startupTracer'
 import { STARTUP_RENDERER_MARK, STARTUP_RENDERER_READY } from '@shared/constants/startup'
+import appIcon from '../../build/icon.png?asset'
 
 // const reactDevToolsPath = path.join(
 //   os.homedir(),
@@ -47,6 +48,9 @@ ipcMain.on(STARTUP_RENDERER_MARK, (_event, label: string, offsetMs?: number) => 
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   startupTracer.mark('app.ready')
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(appIcon)
+  }
   // await session.defaultSession.loadExtension(reactDevToolsPath)
 
   // Initialize database service
