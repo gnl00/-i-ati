@@ -34,6 +34,14 @@ describe('WorkingMemoryToolsProcessor', () => {
     expect(res.content).toContain('## Current Goal')
   })
 
+  it('returns template content when chat_uuid is missing', async () => {
+    const res = await processWorkingMemoryGet({})
+    expect(res.success).toBe(false)
+    expect(res.exists).toBe(false)
+    expect(res.content).toContain('# Working Memory')
+    expect(res.message).toContain('chat_uuid is required')
+  })
+
   it('writes and reads working memory markdown', async () => {
     const content = [
       '# Working Memory',
@@ -76,5 +84,31 @@ describe('WorkingMemoryToolsProcessor', () => {
     expect(res.updated).toBe(false)
     expect(res.skipped).toBe(true)
     expect(res.message).toContain('unchanged')
+  })
+
+  it('writes template when content is empty', async () => {
+    const res = await processWorkingMemorySet({
+      chat_uuid: chatUuid,
+      content: '   \n\n  '
+    })
+
+    expect(res.success).toBe(true)
+    expect(res.updated).toBe(true)
+    expect(res.skipped).toBe(false)
+
+    const getRes = await processWorkingMemoryGet({ chat_uuid: chatUuid })
+    expect(getRes.success).toBe(true)
+    expect(getRes.content).toContain('# Working Memory')
+    expect(getRes.content).toContain('## Current Goal')
+  })
+
+  it('returns validation message when content type is invalid', async () => {
+    const res = await processWorkingMemorySet({
+      chat_uuid: chatUuid,
+      content: 123 as any
+    })
+
+    expect(res.success).toBe(false)
+    expect(res.message).toContain('must be a string')
   })
 })

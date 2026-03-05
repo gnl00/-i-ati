@@ -239,9 +239,9 @@ export async function processWorkingMemoryGet(
     if (!args.chat_uuid) {
       return {
         success: false,
-        content: '',
+        content: WORKING_MEMORY_TEMPLATE,
         exists: false,
-        message: 'chat_uuid is required'
+        message: 'chat_uuid is required. Returned template content.'
       }
     }
 
@@ -262,7 +262,7 @@ export async function processWorkingMemoryGet(
     const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
-      content: '',
+      content: WORKING_MEMORY_TEMPLATE,
       exists: false,
       message: `Failed to get working memory: ${message}`
     }
@@ -285,7 +285,7 @@ export async function processWorkingMemorySet(
         success: false,
         updated: false,
         skipped: false,
-        message: 'chat_uuid is required'
+        message: 'chat_uuid is required. Nothing written.'
       }
     }
     if (typeof args.content !== 'string') {
@@ -293,14 +293,15 @@ export async function processWorkingMemorySet(
         success: false,
         updated: false,
         skipped: false,
-        message: 'content is required'
+        message: 'content is required and must be a string.'
       }
     }
 
     const filePath = resolveWorkingMemoryFilePath(args.chat_uuid)
     const previousRaw = await readWorkingMemoryFile(filePath)
     const previousNormalized = normalizeWorkingMemoryContent(previousRaw)
-    const nextNormalized = normalizeWorkingMemoryContent(args.content)
+    const normalizedInput = normalizeWorkingMemoryContent(args.content)
+    const nextNormalized = normalizedInput || normalizeWorkingMemoryContent(WORKING_MEMORY_TEMPLATE)
 
     if (previousNormalized === nextNormalized) {
       return {
@@ -313,7 +314,7 @@ export async function processWorkingMemorySet(
       }
     }
 
-    const contentToWrite = args.content.replace(/\r\n/g, '\n').trimEnd()
+    const contentToWrite = nextNormalized.replace(/\r\n/g, '\n').trimEnd()
     await atomicWriteTextFile(filePath, `${contentToWrite}\n`)
 
     return {
