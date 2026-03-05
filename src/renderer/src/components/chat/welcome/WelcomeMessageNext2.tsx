@@ -12,6 +12,31 @@ const CONFIG = {
   TYPEWRITER_SPEED: 60,
 } as const
 
+type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
+
+const TIME_OF_DAY_LINES: Record<TimeOfDay, string[]> = {
+  morning: [
+    "What are you building this morning?",
+    "Let's start with your top priority.",
+    "Ready to make progress?"
+  ],
+  afternoon: [
+    "Let's keep the momentum going.",
+    "What should we tackle next?",
+    "Want to move one task across the line?"
+  ],
+  evening: [
+    "Let's wrap up with a focused win.",
+    "Need help finishing today's work?",
+    "Want a clean handoff for tomorrow?"
+  ],
+  night: [
+    "Late session. Let's keep it simple.",
+    "Need a quick push before you sign off?",
+    "Want to finish one more thing tonight?"
+  ]
+}
+
 // ============================================================================
 // Avatar Color System - Premium Gradient Schemes
 // ============================================================================
@@ -57,6 +82,19 @@ const getAvatarGradient = (name: string): AvatarGradient => {
   }
   const index = Math.abs(hash) % AVATAR_GRADIENTS.length
   return AVATAR_GRADIENTS[index]
+}
+
+const getTimeOfDay = (hour: number): TimeOfDay => {
+  if (hour >= 5 && hour <= 11) return 'morning'
+  if (hour >= 12 && hour <= 17) return 'afternoon'
+  if (hour >= 18 && hour <= 21) return 'evening'
+  return 'night'
+}
+
+const getStoredUserName = (): string => {
+  if (typeof window === 'undefined') return 'there'
+  const savedName = window.localStorage.getItem('username')?.trim()
+  return savedName || ''
 }
 
 // ============================================================================
@@ -144,22 +182,54 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
 
   // Text State
   const [typedText, setTypedText] = useState('')
-  const fullText = "How can I help you today?"
+  const [subtitleText, setSubtitleText] = useState("What are you working on today?")
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('morning')
+  const [username, setUsername] = useState('')
+  const [usernameDraft, setUsernameDraft] = useState('')
+  const [isEditingUserName, setIsEditingUserName] = useState(false)
 
   // Load assistants on mount
   useEffect(() => {
     loadAssistants()
   }, [])
 
+  useEffect(() => {
+    const saved = getStoredUserName()
+    setUsername(saved)
+    setUsernameDraft(saved)
+  }, [])
+
+  useEffect(() => {
+    const now = new Date()
+    const nextTimeOfDay = getTimeOfDay(now.getHours())
+    const lines = TIME_OF_DAY_LINES[nextTimeOfDay]
+    const randomLine = lines[Math.floor(Math.random() * lines.length)] ?? lines[0]
+
+    setTimeOfDay(nextTimeOfDay)
+    setSubtitleText(randomLine)
+  }, [username])
+
+  useEffect(() => {
+    if (currentAssistant) {
+      setSubtitleText(`${currentAssistant.name} is ready when you are.`)
+      return
+    }
+    const timeOfDay = getTimeOfDay(new Date().getHours())
+    const lines = TIME_OF_DAY_LINES[timeOfDay]
+    const randomLine = lines[Math.floor(Math.random() * lines.length)] ?? lines[0]
+    setSubtitleText(randomLine)
+  }, [currentAssistant])
+
   // Typewriter Effect
   useEffect(() => {
     if (isExiting) {
       return
     }
+    const suffixText = `, Good ${timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)}.`
     let i = 0
     const typeInterval = setInterval(() => {
-      if (i <= fullText.length) {
-        setTypedText(fullText.slice(0, i))
+      if (i <= suffixText.length) {
+        setTypedText(suffixText.slice(0, i))
         i++
       } else {
         clearInterval(typeInterval)
@@ -167,7 +237,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
     }, CONFIG.TYPEWRITER_SPEED)
 
     return () => clearInterval(typeInterval)
-  }, [fullText, isExiting])
+  }, [timeOfDay, isExiting])
 
   const handleAssistantClick = (assistant: Assistant) => {
     if (currentAssistant?.id === assistant.id) {
@@ -177,6 +247,19 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
     }
     setCurrentAssistant(assistant)
     setUserInstruction(assistant.systemPrompt ?? '')
+  }
+
+  const saveUserName = () => {
+    const next = usernameDraft.trim()
+    setUsername(next)
+    if (typeof window !== 'undefined') {
+      if (next) {
+        window.localStorage.setItem('username', next)
+      } else {
+        window.localStorage.removeItem('username')
+      }
+    }
+    setIsEditingUserName(false)
   }
 
   // Render
@@ -193,6 +276,47 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
           <div className="text-center space-y-6 animate-fade-in">
             <h1 className="text-4xl font-mono font-light text-foreground tracking-tight">
               <span className="inline-block min-h-[1.2em]">
+                Hi{' '}
+                {isEditingUserName ? (
+                  <input
+                    autoFocus
+                    value={usernameDraft}
+                    onChange={e => setUsernameDraft(e.target.value)}
+                    onBlur={saveUserName}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        saveUserName()
+                      }
+                      if (e.key === 'Escape') {
+                        setUsernameDraft(username)
+                        setIsEditingUserName(false)
+                      }
+                    }}
+                    placeholder="username"
+                    className={cn(
+                      "inline-block h-9 w-[96px] border-b border-dashed px-1 text-center align-middle text-xl",
+                      "border-slate-300/90 dark:border-slate-600/90",
+                      "bg-transparent",
+                      "text-slate-700 dark:text-slate-200",
+                      "outline-hidden focus:border-sky-400 dark:focus:border-sky-500"
+                    )}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setIsEditingUserName(true)}
+                    className={cn(
+                      "group relative inline-flex items-center rounded-md px-1.5 -mx-1.5 transition-all duration-200 align-middle",
+                      username
+                        ? "text-slate-800 dark:text-slate-100 hover:text-sky-600 dark:hover:text-sky-300"
+                        : "text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-300"
+                    )}
+                  >
+                    {username || 'there'}
+                    <span className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap text-[10px] text-slate-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      click to edit
+                    </span>
+                  </button>
+                )}
                 {typedText}
                 <span className="animate-pulse">|</span>
               </span>
@@ -200,7 +324,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
           </div>
 
           <p className="text-center text-lg text-muted-foreground font-light max-w-xl animate-fade-in-delayed">
-            Ask me a question or share what you're working on.
+            {subtitleText}
           </p>
 
           {/* Assistant Cards */}
