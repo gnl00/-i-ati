@@ -177,16 +177,19 @@ const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen
               className={cn(
                 "flex-none w-fit rounded-full border px-3 py-1.5 text-center transition-all duration-200",
                 "bg-white/70 dark:bg-slate-900/40",
-                "hover:border-emerald-300/80 dark:hover:border-emerald-600/60",
-                "hover:bg-emerald-50/85 dark:hover:bg-emerald-900/20",
-                "hover:shadow-[0_8px_20px_-14px_rgba(16,185,129,0.55)]",
+                "hover:border-sky-300/80 dark:hover:border-sky-600/60",
+                "hover:bg-sky-50/85 dark:hover:bg-sky-900/20",
+                "hover:shadow-[0_8px_20px_-14px_rgba(14,165,233,0.5)]",
                 "active:scale-[0.98] active:translate-y-0",
                 isActive
-                  ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/80 dark:bg-emerald-900/25 shadow-xs"
+                  ? "border-sky-300 dark:border-sky-700 bg-sky-50/85 dark:bg-sky-900/25 shadow-[0_8px_20px_-14px_rgba(14,165,233,0.45)]"
                   : "border-slate-200/70 dark:border-slate-800/80"
               )}
             >
-              <div className="text-[11px] font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
+              <div className={cn(
+                "text-[11px] font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap",
+                isActive ? "text-sky-700/90" : ""
+              )}>
                 {assistant.name}
               </div>
             </button>
