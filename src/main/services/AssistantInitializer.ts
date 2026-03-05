@@ -12,7 +12,6 @@ import DatabaseService from './DatabaseService'
 const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
     name: 'CodeHelper',
-    icon: '💻',
     description: 'Helps you write, debug, and optimize code, providing best practice advice.',
     modelRef: {
       accountId: '__placeholder__',
@@ -32,12 +31,13 @@ const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] =
 - 考虑边界情况和错误处理
 - 提供多种解决方案时说明优缺点
 - 使用具体示例说明概念`,
+    sortIndex: 0,
+    isPinned: false,
     isBuiltIn: true,
     isDefault: false
   },
   {
     name: 'WritingAssistant',
-    icon: '✍️',
     description: 'Assists you in writing articles, documents, and various types of text content.',
     modelRef: {
       accountId: '__placeholder__',
@@ -57,12 +57,13 @@ const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] =
 - 注重文章结构和层次
 - 根据目标受众调整语言风格
 - 保持内容的原创性和真实性`,
+    sortIndex: 1,
+    isPinned: false,
     isBuiltIn: true,
     isDefault: false
   },
   {
     name: 'Translator',
-    icon: '🌐',
     description: 'Provides accurate and authentic multilingual translation services.',
     modelRef: {
       accountId: '__placeholder__',
@@ -82,12 +83,13 @@ const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] =
 - 注重目标语言的表达习惯
 - 保持专业术语的一致性
 - 必要时提供多种翻译选项和说明`,
+    sortIndex: 2,
+    isPinned: false,
     isBuiltIn: true,
     isDefault: false
   },
   {
     name: 'Instructor',
-    icon: '📚',
     description: 'Helps you learn new knowledge and explains complex concepts.',
     modelRef: {
       accountId: '__placeholder__',
@@ -107,6 +109,8 @@ const BUILT_IN_ASSISTANTS: Omit<Assistant, 'id' | 'createdAt' | 'updatedAt'>[] =
 - 使用通俗易懂的语言
 - 提供具体的例子和应用场景
 - 鼓励主动思考和实践`,
+    sortIndex: 3,
+    isPinned: false,
     isBuiltIn: true,
     isDefault: false
   }

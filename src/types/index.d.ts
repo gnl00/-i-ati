@@ -409,7 +409,6 @@ declare interface CompressionStrategy {
 declare interface Assistant {
   id: string                    // 唯一标识
   name: string                  // 助手名称
-  icon?: string                 // 助手图标（emoji 或图标名称）
   description?: string          // 助手描述
 
   // 模型配置
@@ -417,6 +416,10 @@ declare interface Assistant {
 
   // 系统提示词
   systemPrompt: string          // 系统提示词（定义助手行为和对话风格）
+
+  // 排序与置顶
+  sortIndex?: number            // 排序权重（升序）
+  isPinned?: boolean            // 是否置顶
 
   // 元数据
   createdAt: number             // 创建时间
