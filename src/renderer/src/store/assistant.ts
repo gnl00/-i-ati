@@ -8,8 +8,6 @@ import {
 
 const sortAssistants = (assistants: Assistant[]): Assistant[] =>
   [...assistants].sort((a, b) => {
-    const pinnedDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned))
-    if (pinnedDiff !== 0) return pinnedDiff
     const indexDiff = (a.sortIndex ?? 0) - (b.sortIndex ?? 0)
     if (indexDiff !== 0) return indexDiff
     return (b.updatedAt ?? 0) - (a.updatedAt ?? 0)

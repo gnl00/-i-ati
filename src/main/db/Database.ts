@@ -190,7 +190,6 @@ class AppDatabase {
         model_model_id TEXT NOT NULL,
         system_prompt TEXT NOT NULL,
         sort_index INTEGER NOT NULL DEFAULT 0,
-        is_pinned INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         is_built_in INTEGER DEFAULT 0,
@@ -272,7 +271,7 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chat_submit_events_timestamp ON chat_submit_events(timestamp);
       CREATE INDEX IF NOT EXISTS idx_assistants_is_built_in ON assistants(is_built_in);
       CREATE INDEX IF NOT EXISTS idx_assistants_is_default ON assistants(is_default);
-      CREATE INDEX IF NOT EXISTS idx_assistants_order ON assistants(is_pinned DESC, sort_index ASC, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_assistants_order ON assistants(sort_index ASC, updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_chat_skills_chat_id ON chat_skills(chat_id);
       CREATE INDEX IF NOT EXISTS idx_chat_skills_skill_name ON chat_skills(skill_name);
       CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider_id ON provider_accounts(provider_id);

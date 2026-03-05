@@ -419,7 +419,6 @@ declare interface Assistant {
 
   // 排序与置顶
   sortIndex?: number            // 排序权重（升序）
-  isPinned?: boolean            // 是否置顶
 
   // 元数据
   createdAt: number             // 创建时间

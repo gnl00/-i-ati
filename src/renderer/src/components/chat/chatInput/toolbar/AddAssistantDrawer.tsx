@@ -22,7 +22,6 @@ import {
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
-import { Switch } from '@renderer/components/ui/switch'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
 import { useAssistantStore } from '@renderer/store/assistant'
@@ -58,7 +57,6 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
   const [assistantName, setAssistantName] = React.useState('')
   const [assistantDescription, setAssistantDescription] = React.useState('')
   const [assistantPrompt, setAssistantPrompt] = React.useState('')
-  const [isPinned, setIsPinned] = React.useState(false)
   const [sortIndex, setSortIndex] = React.useState(0)
   const [submitError, setSubmitError] = React.useState('')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -82,7 +80,6 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
         setAssistantName(assistantToEdit.name)
         setAssistantDescription(assistantToEdit.description ?? '')
         setAssistantPrompt(assistantToEdit.systemPrompt ?? '')
-        setIsPinned(Boolean(assistantToEdit.isPinned))
         setSortIndex(assistantToEdit.sortIndex ?? 0)
 
         const matchedGroup = modelGroups.find(group => group.account.id === assistantToEdit.modelRef.accountId)
@@ -104,7 +101,6 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
     setAssistantDescription('')
     setAssistantPrompt('')
     setSelectedModel(null)
-    setIsPinned(false)
     setSubmitError('')
   }, [])
 
@@ -145,7 +141,6 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
           },
           systemPrompt: assistantPrompt.trim(),
           sortIndex: safeSortIndex,
-          isPinned,
           updatedAt: now
         }
         await updateAssistantById(updatedAssistant)
@@ -157,13 +152,12 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
           modelRef: {
             accountId: selectedModel.accountId,
             modelId: selectedModel.modelId
-          },
-          systemPrompt: assistantPrompt.trim(),
-          sortIndex: safeSortIndex,
-          isPinned,
-          createdAt: now,
-          updatedAt: now,
-          isBuiltIn: false,
+            },
+            systemPrompt: assistantPrompt.trim(),
+            sortIndex: safeSortIndex,
+            createdAt: now,
+            updatedAt: now,
+            isBuiltIn: false,
           isDefault: false
         }
         await addAssistant(assistant)
@@ -175,7 +169,7 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
     } finally {
       setIsSubmitting(false)
     }
-  }, [assistantName, selectedModel, assistantPrompt, sortIndex, isPinned, assistantDescription, mode, assistantToEdit, addAssistant, updateAssistantById, resetForm])
+  }, [assistantName, selectedModel, assistantPrompt, sortIndex, assistantDescription, mode, assistantToEdit, addAssistant, updateAssistantById, resetForm])
 
   return (
     <div>
@@ -263,7 +257,7 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
             <div className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200/70 dark:border-slate-800/80 bg-white/85 dark:bg-slate-950/45 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.35)] backdrop-blur-sm p-3 md:p-4 space-y-4">
               <div className="grid gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2.5">
+                  <div className="space-y-2.5 md:col-span-2">
                     <Label htmlFor="assistant-name" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
                       Name <span className="text-red-500 ml-0.5">*</span>
                     </Label>
@@ -369,6 +363,26 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
                       </PopoverContent>
                     </Popover>
                   </div>
+
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="assistant-sort-index" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
+                        Sort Index
+                      </Label>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                        Smaller value appears earlier
+                      </p>
+                    </div>
+                    <Input
+                      id="assistant-sort-index"
+                      className={fieldClass}
+                      value={String(sortIndex)}
+                      onChange={e => {
+                        const nextValue = Number.parseInt(e.target.value, 10)
+                        setSortIndex(Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0)
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2.5">
@@ -382,39 +396,6 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
                     value={assistantDescription}
                     onChange={e => setAssistantDescription(e.target.value)}
                   />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2.5">
-                    <Label htmlFor="assistant-sort-index" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
-                      Sort Index
-                    </Label>
-                    <Input
-                      id="assistant-sort-index"
-                      type="number"
-                      min={0}
-                      className={fieldClass}
-                      value={String(sortIndex)}
-                      onChange={e => {
-                        const nextValue = Number.parseInt(e.target.value, 10)
-                        setSortIndex(Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0)
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <Label htmlFor="assistant-pin-switch" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
-                      Pin to Top
-                    </Label>
-                    <div className="h-10 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/60 px-3 flex items-center justify-between">
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Pinned assistants appear first</span>
-                      <Switch
-                        id="assistant-pin-switch"
-                        checked={isPinned}
-                        onCheckedChange={setIsPinned}
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 <div className="space-y-2.5">

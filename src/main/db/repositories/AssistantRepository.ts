@@ -8,7 +8,6 @@ interface AssistantRow {
   model_model_id: string
   system_prompt: string
   sort_index: number
-  is_pinned: number
   created_at: number
   updated_at: number
   is_built_in: number
@@ -30,11 +29,11 @@ class AssistantRepository {
       insertAssistant: db.prepare(`
         INSERT INTO assistants (
           id, name, description, model_account_id, model_model_id,
-          system_prompt, sort_index, is_pinned, created_at, updated_at, is_built_in, is_default
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          system_prompt, sort_index, created_at, updated_at, is_built_in, is_default
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
       getAllAssistants: db.prepare(`
-        SELECT * FROM assistants ORDER BY is_pinned DESC, sort_index ASC, updated_at DESC
+        SELECT * FROM assistants ORDER BY sort_index ASC, updated_at DESC
       `),
       getAssistantById: db.prepare(`
         SELECT * FROM assistants WHERE id = ?
@@ -42,7 +41,7 @@ class AssistantRepository {
       updateAssistant: db.prepare(`
         UPDATE assistants SET
           name = ?, description = ?, model_account_id = ?, model_model_id = ?,
-          system_prompt = ?, sort_index = ?, is_pinned = ?, updated_at = ?, is_built_in = ?, is_default = ?
+          system_prompt = ?, sort_index = ?, updated_at = ?, is_built_in = ?, is_default = ?
         WHERE id = ?
       `),
       deleteAssistant: db.prepare(`
@@ -61,7 +60,6 @@ class AssistantRepository {
       row.model_model_id,
       row.system_prompt,
       row.sort_index,
-      row.is_pinned,
       row.created_at,
       row.updated_at,
       row.is_built_in,
@@ -85,7 +83,6 @@ class AssistantRepository {
       row.model_model_id,
       row.system_prompt,
       row.sort_index,
-      row.is_pinned,
       row.updated_at,
       row.is_built_in,
       row.is_default,
