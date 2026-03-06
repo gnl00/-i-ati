@@ -161,7 +161,7 @@ const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment 
               'transition-colors duration-300 ease-out',
               'group-hover:text-slate-700 dark:group-hover:text-slate-300'
             )}>
-              Reasoning
+              Thinking
             </span>
             <ChevronDown className={cn(
               "w-3 h-3 transition-transform duration-300 text-zinc-500 dark:text-zinc-400"

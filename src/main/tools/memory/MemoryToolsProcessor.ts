@@ -288,12 +288,20 @@ export async function processWorkingMemorySet(
         message: 'chat_uuid is required. Nothing written.'
       }
     }
+    if (!Object.prototype.hasOwnProperty.call(args, 'content')) {
+      return {
+        success: false,
+        updated: false,
+        skipped: false,
+        message: 'missing required param: content'
+      }
+    }
     if (typeof args.content !== 'string') {
       return {
         success: false,
         updated: false,
         skipped: false,
-        message: 'content is required and must be a string.'
+        message: 'invalid param type: content (expected string)'
       }
     }
 
