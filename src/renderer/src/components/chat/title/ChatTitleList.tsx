@@ -3,7 +3,7 @@ import { Input } from '@renderer/components/ui/input'
 import { deleteChat, updateChat } from '@renderer/db/ChatRepository'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
 interface ChatTitleListProps {
@@ -42,23 +42,104 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
   const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
   const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
+  const listRootRef = useRef<HTMLDivElement | null>(null)
+  const groupHeaderRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [activeGroupName, setActiveGroupName] = useState('')
 
   const sortedChatList = useMemo(() => {
     return [...chatList].sort((a, b) => b.updateTime - a.updateTime)
   }, [chatList])
 
   const groupedChatList = useMemo(() => {
-    const groups: { [key: string]: ChatEntity[] } = {}
+    const groups = new Map<string, ChatEntity[]>()
     sortedChatList.forEach(item => {
       if (item.id === -1) return
       const group = getDateGroup(item.updateTime)
-      if (!groups[group]) {
-        groups[group] = []
+      if (!groups.has(group)) {
+        groups.set(group, [])
       }
-      groups[group].push(item)
+      groups.get(group)!.push(item)
     })
-    return groups
+    return Array.from(groups.entries())
   }, [sortedChatList])
+
+  useEffect(() => {
+    setActiveGroupName(groupedChatList[0]?.[0] ?? '')
+  }, [groupedChatList])
+
+  useEffect(() => {
+    const root = listRootRef.current
+    if (!root || groupedChatList.length === 0) {
+      return
+    }
+
+    const findScrollParent = (element: HTMLElement): HTMLElement | Window => {
+      let parent = element.parentElement
+      while (parent) {
+        const style = window.getComputedStyle(parent)
+        if (/(auto|scroll|overlay)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight) {
+          return parent
+        }
+        parent = parent.parentElement
+      }
+      return window
+    }
+
+    const scrollParent = findScrollParent(root)
+    let rafId: number | null = null
+
+    const updateActiveGroup = () => {
+      rafId = null
+      const threshold = 48
+      let nextGroup = groupedChatList[0][0]
+
+      if (scrollParent === window) {
+        groupedChatList.forEach(([groupName]) => {
+          const headerEl = groupHeaderRefs.current[groupName]
+          if (!headerEl) return
+          if (headerEl.getBoundingClientRect().top <= threshold) {
+            nextGroup = groupName
+          }
+        })
+      } else {
+        const parentTop = (scrollParent as HTMLElement).getBoundingClientRect().top
+        groupedChatList.forEach(([groupName]) => {
+          const headerEl = groupHeaderRefs.current[groupName]
+          if (!headerEl) return
+          if (headerEl.getBoundingClientRect().top - parentTop <= threshold) {
+            nextGroup = groupName
+          }
+        })
+      }
+
+      setActiveGroupName(prev => (prev === nextGroup ? prev : nextGroup))
+    }
+
+    const onScroll = () => {
+      if (rafId !== null) return
+      rafId = window.requestAnimationFrame(updateActiveGroup)
+    }
+
+    updateActiveGroup()
+    if (scrollParent === window) {
+      window.addEventListener('scroll', onScroll, { passive: true })
+    } else {
+      ; (scrollParent as HTMLElement).addEventListener('scroll', onScroll, { passive: true })
+    }
+    window.addEventListener('resize', onScroll)
+
+    return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+      }
+      if (scrollParent === window) {
+        window.removeEventListener('scroll', onScroll)
+      } else {
+        ; (scrollParent as HTMLElement).removeEventListener('scroll', onScroll)
+      }
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [groupedChatList])
 
   const onChatItemTitleChange = (event: React.ChangeEvent<HTMLInputElement>, chat: ChatEntity) => {
     chat.title = event.target.value
@@ -115,7 +196,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     }
   }
 
-  if (Object.keys(groupedChatList).length === 0) {
+  if (groupedChatList.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-gray-400 dark:text-gray-600">
@@ -127,10 +208,29 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   }
 
   return (
-    <div>
-      {Object.entries(groupedChatList).map(([groupName, items]) => (
+    <div ref={listRootRef}>
+      <div className="sticky top-0 bg-background/98 backdrop-blur-md z-20 pt-3 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700 shadow-xs">
+        <h4
+          key={activeGroupName}
+          className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-150"
+        >
+          {activeGroupName}
+        </h4>
+      </div>
+
+      {groupedChatList.map(([groupName, items]) => (
         <div key={groupName} className="mb-2">
-          <div className="sticky top-0 bg-background/98 backdrop-blur-md z-10 pt-3 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700 shadow-xs">
+          <div
+            ref={node => {
+              groupHeaderRefs.current[groupName] = node
+            }}
+            className={cn(
+              'px-3 transition-all duration-150',
+              activeGroupName === groupName
+                ? 'h-0 overflow-hidden pt-0 pb-0 mb-0'
+                : 'pt-1 pb-2 mb-1'
+            )}
+          >
             <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
               {groupName}
             </h4>
