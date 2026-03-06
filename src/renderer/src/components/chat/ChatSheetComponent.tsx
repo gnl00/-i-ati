@@ -10,7 +10,7 @@ import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
 import { switchWorkspace } from '@renderer/utils/workspaceUtils'
 import { BadgePlus } from 'lucide-react'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { ScheduleTask } from '@shared/tools/schedule'
 
 interface ChatSheetProps { }
@@ -91,25 +91,48 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const [scheduledTasks, setScheduledTasks] = useState<ScheduleTask[]>([])
     const [scheduleLoading, setScheduleLoading] = useState(false)
     const [scheduleLoadError, setScheduleLoadError] = useState('')
+    const scheduleCacheRef = useRef<Map<string, ScheduleTask[]>>(new Map())
+    const scheduleLoadedRef = useRef<Set<string>>(new Set())
 
-    const loadScheduledTasks = useCallback(async (targetChatUuid?: string | null) => {
+    const loadScheduledTasks = useCallback(async (
+        targetChatUuid?: string | null,
+        options?: { silent?: boolean; force?: boolean }
+    ) => {
         if (!targetChatUuid) {
             setScheduledTasks([])
             setScheduleLoadError('')
+            setScheduleLoading(false)
             return
         }
-        setScheduleLoading(true)
+
+        const silent = options?.silent ?? false
+        const force = options?.force ?? false
+        const alreadyLoaded = scheduleLoadedRef.current.has(targetChatUuid)
+        if (!force && alreadyLoaded) {
+            return
+        }
+
+        if (!silent) {
+            setScheduleLoading(true)
+        }
         try {
             const tasks = await invokeDbScheduledTasksByChatUuid(targetChatUuid)
             const sortedTasks = [...tasks].sort((a, b) => a.run_at - b.run_at)
+            scheduleCacheRef.current.set(targetChatUuid, sortedTasks)
+            scheduleLoadedRef.current.add(targetChatUuid)
             setScheduledTasks(sortedTasks)
             setScheduleLoadError('')
         } catch (error) {
             console.error('[ChatSheet] Failed to load scheduled tasks:', error)
-            setScheduledTasks([])
+            scheduleLoadedRef.current.delete(targetChatUuid)
+            if (!silent) {
+                setScheduledTasks([])
+            }
             setScheduleLoadError('Failed to load schedule tasks')
         } finally {
-            setScheduleLoading(false)
+            if (!silent) {
+                setScheduleLoading(false)
+            }
         }
     }, [])
 
@@ -123,8 +146,30 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 })
             }
             refreshChatList()
-            loadScheduledTasks(chatUuid)
         }
+    }, [sheetOpenState, setChatList])
+
+    useEffect(() => {
+        if (!sheetOpenState) {
+            return
+        }
+
+        if (!chatUuid) {
+            setScheduledTasks([])
+            setScheduleLoadError('')
+            setScheduleLoading(false)
+            return
+        }
+
+        const cachedTasks = scheduleCacheRef.current.get(chatUuid)
+        if (cachedTasks) {
+            setScheduledTasks(cachedTasks)
+            setScheduleLoadError('')
+            setScheduleLoading(false)
+        }
+
+        const shouldSilentLoad = Boolean(cachedTasks)
+        loadScheduledTasks(chatUuid, { silent: shouldSilentLoad })
     }, [chatUuid, loadScheduledTasks, sheetOpenState])
 
     useEffect(() => {
@@ -141,7 +186,10 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 const next = index >= 0
                     ? [...prev.slice(0, index), task, ...prev.slice(index + 1)]
                     : [task, ...prev]
-                return next.sort((a, b) => a.run_at - b.run_at)
+                const sorted = next.sort((a, b) => a.run_at - b.run_at)
+                scheduleCacheRef.current.set(task.chat_uuid, sorted)
+                scheduleLoadedRef.current.add(task.chat_uuid)
+                return sorted
             })
         })
         return () => {
