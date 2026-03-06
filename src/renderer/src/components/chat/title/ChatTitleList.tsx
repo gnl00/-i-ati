@@ -62,10 +62,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     })
     return Array.from(groups.entries())
   }, [sortedChatList])
-
-  useEffect(() => {
-    setActiveGroupName(groupedChatList[0]?.[0] ?? '')
-  }, [groupedChatList])
+  const effectiveActiveGroup = activeGroupName || groupedChatList[0]?.[0] || ''
 
   useEffect(() => {
     const root = listRootRef.current
@@ -211,10 +208,10 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     <div ref={listRootRef}>
       <div className="sticky top-0 bg-background/98 backdrop-blur-md z-20 pt-3 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700 shadow-xs">
         <h4
-          key={activeGroupName}
+          key={effectiveActiveGroup}
           className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-150"
         >
-          {activeGroupName}
+          {effectiveActiveGroup}
         </h4>
       </div>
 
@@ -225,8 +222,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
               groupHeaderRefs.current[groupName] = node
             }}
             className={cn(
-              'px-3 transition-all duration-150',
-              activeGroupName === groupName
+              'px-3',
+              effectiveActiveGroup === groupName
                 ? 'h-0 overflow-hidden pt-0 pb-0 mb-0'
                 : 'pt-1 pb-2 mb-1'
             )}
