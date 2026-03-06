@@ -12,58 +12,18 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
     adapter = adapterManager.getAdapter(req.providerType ?? 'openai', req.apiVersion ?? 'v1')
   }
   const headers = adapter.buildHeaders(req)
-  const customHeaders = adapter.getHeaders?.(req)
-  if (customHeaders) {
-    Object.assign(headers, customHeaders)
-  }
 
   const requestBody = adapter.transformRequest(req)
   if (req.requestOverrides && typeof req.requestOverrides === 'object' && !Array.isArray(req.requestOverrides)) {
     applyRequestOverrides(requestBody, req.requestOverrides)
   }
-  if (requestBody.stream !== false) {
+  if (requestBody.stream !== false && adapter.supportsStreamOptionsUsage()) {
     if (!requestBody.stream_options || typeof requestBody.stream_options !== 'object') {
       requestBody.stream_options = { include_usage: true }
     } else if (requestBody.stream_options.include_usage === undefined) {
       requestBody.stream_options.include_usage = true
     }
   }
-  if (requestBody.messages) {
-    const normalizeToolCalls = (toolCalls: any[]): any[] => {
-      return toolCalls.map((call) => {
-        if (call?.type === 'function' && call?.function) {
-          return {
-            id: call.id,
-            type: 'function',
-            function: {
-              name: call.function.name,
-              arguments: call.function.arguments ?? ''
-            }
-          }
-        }
-        if (call?.name || call?.args) {
-          return {
-            id: call.id,
-            type: 'function',
-            function: {
-              name: call.name || '',
-              arguments: call.args ?? ''
-            }
-          }
-        }
-        return call
-      })
-    }
-
-    requestBody.messages = requestBody.messages.map((m): BaseChatMessage => ({
-      role: m.role,
-      content: m.content,
-      ...(m.name && { name: m.name }),
-      ...(m.toolCalls && { tool_calls: normalizeToolCalls(m.toolCalls) }),  // 驼峰转下划线 + toolCalls 规范化
-      ...(m.toolCallId && { tool_call_id: m.toolCallId })  // 驼峰转下划线
-    }))
-  }
-
   beforeFetch()
   try {
     // Use adapter to construct complete endpoint URL

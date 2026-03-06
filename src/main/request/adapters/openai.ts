@@ -1,10 +1,55 @@
-import { buildSystemPrompt } from '@request/utils'
 import { BaseAdapter } from './base'
+
+const normalizeOpenAIToolCalls = (toolCalls: any[] | undefined): any[] | undefined => {
+  if (!toolCalls || toolCalls.length === 0) return undefined
+  return toolCalls.map(call => {
+    if (call?.type === 'function' && call?.function) {
+      return {
+        id: call.id,
+        type: 'function',
+        function: {
+          name: call.function.name,
+          arguments: call.function.arguments ?? ''
+        }
+      }
+    }
+    if (call?.name || call?.args) {
+      return {
+        id: call.id,
+        type: 'function',
+        function: {
+          name: call.name || '',
+          arguments: call.args ?? ''
+        }
+      }
+    }
+    return call
+  })
+}
+
+const mapOpenAIMessageFields = (message: ChatMessage): BaseChatMessage => ({
+  role: message.role,
+  content: message.content,
+  ...(message.name && { name: message.name }),
+  ...(message.toolCalls && { tool_calls: normalizeOpenAIToolCalls(message.toolCalls) }),
+  ...(message.toolCallId && { tool_call_id: message.toolCallId })
+})
 
 // OpenAI v1 适配器（兼容 OpenAI API）
 export class OpenAIAdapter extends BaseAdapter {
   providerType: ProviderType = 'openai'
   apiVersion = 'v1'
+
+  buildHeaders(req: IUnifiedRequest): Record<string, string> {
+    return {
+      'content-type': 'application/json',
+      'authorization': `Bearer ${req.apiKey}`
+    }
+  }
+
+  supportsStreamOptionsUsage(): boolean {
+    return true
+  }
 
   protected extractUsage(raw: any): ITokenUsage | undefined {
     const usage = raw?.usage
@@ -30,7 +75,7 @@ export class OpenAIAdapter extends BaseAdapter {
   transformRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
-      messages: req.messages,  // Use messages directly - system prompts already included by RequestMessageBuilder
+      messages: req.messages.map(mapOpenAIMessageFields),
       stream: req.stream ?? true,
       ...(req.options?.maxTokens !== undefined ? { max_tokens: req.options.maxTokens } : {})
     }
@@ -197,129 +242,21 @@ export class OpenAIAdapter extends BaseAdapter {
   }
 }
 
-// OpenAI v2 适配器（通用响应格式）
-export class OpenAIV2Adapter extends BaseAdapter {
-  providerType: ProviderType = 'openai'
-  apiVersion = 'v2'
-
-  getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/response`
-  }
-
-  transformRequest(req: IUnifiedRequest): any {
-    const requestBody: any = {
-      model: req.model,
-      input: req.messages,
-      stream: req.stream ?? true,
-      max_output_tokens: req.options?.maxTokens ?? 4096
-    }
-
-    if (req.prompt) {
-      requestBody.input = [
-        buildSystemPrompt(req.prompt),
-        ...requestBody.messages
-      ]
-    }
-
-    if (req.tools?.length) {
-      requestBody.tools = this.transformToolDefinitions(req.tools)
-    }
-
-    return requestBody
-  }
-
-  transformNotStreamResponse(response: any): IUnifiedResponse {
-    // OpenAI v2 使用不同的响应格式
-    return {
-      id: response.response_id || 'unknown',
-      model: response.model || 'unknown',
-      timestamp: response.timestamp ? response.timestamp * 1000 : Date.now(),
-      content: response.text || response.content || '',
-      toolCalls: this.transformToolCalls(response.tool_calls),
-      finishReason: this.mapFinishReason(response.finish_reason || response.stop_reason),
-      usage: response.usage ? {
-        promptTokens: response.usage.prompt_tokens || response.usage.input_tokens,
-        completionTokens: response.usage.completion_tokens || response.usage.output_tokens,
-        totalTokens: response.usage.total_tokens ||
-          (response.usage.input_tokens + response.usage.output_tokens)
-      } : undefined,
-      raw: response
-    }
-  }
-
-  async *transformStreamResponse(streamReader: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
-    if (!streamReader || typeof streamReader.read !== 'function') {
-      console.error('Invalid streamReader provided:', streamReader);
-      return;
-    }
-
-    let buffer = '' // 用于存储不完整的数据
-
-    while (true) {
-      const { done, value } = await streamReader.read()
-      if (done) {
-        break
-      }
-
-      // 将新数据追加到缓冲区
-      buffer += value
-
-      // 按行分割，但保留最后一个可能不完整的行
-      const lines = buffer.split("\n")
-      // 最后一行可能不完整，保留在缓冲区中
-      buffer = lines.pop() || ''
-
-      for (let line of lines) {
-        line = line.trim()
-        if (!line) continue
-
-        const streamResponse = this.parseStreamChunk(line)
-        if (streamResponse) {
-          const unifiedResponse: IUnifiedResponse = {
-            id: streamResponse.id,
-            model: streamResponse.model,
-            timestamp: Date.now(),
-            content: streamResponse.delta?.content || '',
-            toolCalls: streamResponse.delta?.toolCalls,
-            finishReason: streamResponse.delta?.finishReason || 'stop',
-            raw: streamResponse.raw
-          }
-          yield unifiedResponse
-        }
-      }
-    }
-  }
-
-  parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
-    try {
-      if (chunk.startsWith('data: ')) {
-        const jsonStr = chunk.slice(6).trim()
-        if (jsonStr === '[DONE]') return null
-
-        const data = JSON.parse(jsonStr)
-
-        return {
-          id: data.response_id || 'stream',
-          model: data.model || 'unknown',
-          delta: {
-            content: data.text || data.delta?.content,
-            toolCalls: this.transformToolCalls(data.tool_calls || data.delta?.tool_calls),
-            finishReason: this.mapFinishReason(data.finish_reason || data.stop_reason)
-          },
-          raw: data
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to parse OpenAI v2 stream chunk:', error)
-    }
-    return null
-  }
-}
-
 // OpenAI Image1
 export class OpenAIImage1Adapter extends BaseAdapter {
   providerType: ProviderType = 'openai'
   apiVersion = 'gpt-image-1'
+
+  buildHeaders(req: IUnifiedRequest): Record<string, string> {
+    return {
+      'content-type': 'application/json',
+      'authorization': `Bearer ${req.apiKey}`
+    }
+  }
+
+  supportsStreamOptionsUsage(): boolean {
+    return false
+  }
 
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/images/generations`
@@ -334,81 +271,6 @@ export class OpenAIImage1Adapter extends BaseAdapter {
       })[req.messages.length - 1].content,
       size: "1024x1024",
       n: 1
-    }
-
-    return requestBody
-  }
-
-  transformStreamResponse(_: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
-    throw new Error('Method not supports.')
-  }
-
-  transformNotStreamResponse(response: any): IUnifiedResponse {
-    console.log('response', response);
-
-    const data = response.data
-    if (!data) {
-      throw new Error('Invalid OpenAI response: no data')
-    }
-
-    return {
-      id: response.id || 'unknown',
-      model: response.model || 'unknown',
-      timestamp: response.created ? response.created * 1000 : Date.now(),
-      content: response.data,
-      finishReason: "stop",
-      raw: response
-    }
-  }
-
-  parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
-    try {
-      if (chunk.startsWith('data: ')) {
-        const jsonStr = chunk.slice(6).trim()
-        if (jsonStr === '[DONE]') {
-          return null
-        }
-
-        const data = JSON.parse(jsonStr)
-        const choice = data.choices?.[0]
-        if (!choice) return null
-
-        const delta = choice.delta
-        return {
-          id: data.id || 'stream',
-          model: data.model || 'unknown',
-          delta: {
-            content: delta?.content,
-            toolCalls: this.transformToolCalls(delta?.tool_calls),
-            finishReason: this.mapFinishReason(choice.finish_reason)
-          },
-          raw: data
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to parse OpenAI stream chunk:', error)
-    }
-    return null
-  }
-}
-
-// OpenAI Image1
-export class GoogleOpenAIImageCompatibleAdapter extends BaseAdapter {
-  providerType: ProviderType = 'google-openai-compatible'
-  apiVersion = 'image'
-
-  getEndpoint(baseUrl: string): string {
-    return `${baseUrl}/chat/completions`
-  }
-
-  transformRequest(req: IUnifiedRequest): any {
-    const requestBody: any = {
-      model: req.model,
-      messages: req.messages.map(m => {
-        const { model, ...msg } = m
-        return msg
-      })[req.messages.length - 1],
-      stream: true,
     }
 
     return requestBody
