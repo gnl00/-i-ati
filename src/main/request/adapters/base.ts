@@ -3,21 +3,7 @@ export abstract class BaseAdapter {
   abstract providerType: ProviderType
   abstract apiVersion: string
 
-  buildHeaders(req: IUnifiedRequest): any {
-    const headers: Record<string, string> = {
-      'content-type': 'application/json'
-    }
-    if (req.providerType === 'openai') {
-      headers['authorization'] = `Bearer ${req.apiKey}`
-    } else if (req.providerType === 'claude') {
-      headers['x-api-key'] = req.apiKey
-    } else if (req.providerType === 'azure-openai') {
-      headers['api-key'] = req.apiKey
-    } else {
-      headers['authorization'] = `Bearer ${req.apiKey}`
-    }
-    return headers
-  }
+  abstract buildHeaders(req: IUnifiedRequest): Record<string, string>
 
   // 转换请求格式
   abstract transformRequest(req: IUnifiedRequest): any
@@ -34,8 +20,8 @@ export abstract class BaseAdapter {
   // 解析流式响应的单个块
   abstract parseStreamChunk(chunk: string): IUnifiedStreamResponse | null
 
-  // 可选：自定义 headers
-  getHeaders?(req: IUnifiedRequest): Record<string, string>
+  // 是否支持 OpenAI 风格 stream_options.include_usage
+  abstract supportsStreamOptionsUsage(): boolean
 
   // 可选：usage 解析（由子类实现）
   protected extractUsage(_raw: any): ITokenUsage | undefined {
