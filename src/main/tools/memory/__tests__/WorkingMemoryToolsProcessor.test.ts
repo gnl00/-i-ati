@@ -109,6 +109,15 @@ describe('WorkingMemoryToolsProcessor', () => {
     })
 
     expect(res.success).toBe(false)
-    expect(res.message).toContain('must be a string')
+    expect(res.message).toContain('invalid param type: content')
+  })
+
+  it('returns missing required param error when content is absent', async () => {
+    const res = await processWorkingMemorySet({
+      chat_uuid: chatUuid
+    } as any)
+
+    expect(res.success).toBe(false)
+    expect(res.message).toBe('missing required param: content')
   })
 })

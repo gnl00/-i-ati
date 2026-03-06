@@ -32,8 +32,8 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
     console.log(`[Request] baseUrl: ${req.baseUrl}`)
     console.log(`[Request] adapter: ${adapter.providerType}/${adapter.apiVersion}`)
     console.log(`[Request] endpoint: ${endpoint}`)
-    const {messages, tools, ...rest} = requestBody
-    console.log(`[Request] payloads: ${JSON.stringify(rest)}`)
+    // const {messages, tools, ...rest} = requestBody
+    // console.log(`[Request] payloads: ${JSON.stringify(rest)}`)
     // console.log(`[Request] messages: ${JSON.stringify(messages)}`)
 
     const fetchResponse = await fetch(endpoint, {
