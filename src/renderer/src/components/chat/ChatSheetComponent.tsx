@@ -1,4 +1,4 @@
-import ChatScheduleBoard from '@renderer/components/chat/schedule/ChatScheduleBoard'
+import ChatScheduleBoard from '@renderer/components/chat/chatSchedule/ChatScheduleBoard'
 import ChatTitleList from '@renderer/components/chat/title/ChatTitleList'
 import { Button } from '@renderer/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@renderer/components/ui/sheet'
