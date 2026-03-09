@@ -53,6 +53,7 @@ export class DefaultMessageService implements MessageService {
   ): Promise<MessageEntity> {
     const assistantMessage: MessageEntity = {
       body: {
+        createdAt: Date.now(),
         role: 'assistant',
         model: context.meta.model.label,
         modelRef: {
@@ -187,7 +188,10 @@ export class DefaultMessageService implements MessageService {
     }
 
     const toolResultEntity: MessageEntity = {
-      body: toolMsg,
+      body: {
+        ...toolMsg,
+        createdAt: toolMsg.createdAt ?? Date.now()
+      },
       chatId: context.session.currChatId,
       chatUuid: context.session.chatEntity.uuid
     }
