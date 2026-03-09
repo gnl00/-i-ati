@@ -127,6 +127,7 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
 
       <MessageOperations
         type="user"
+        message={m}
         isHovered={isHovered}
         onCopyClick={onCopy}
         onEditClick={() => {

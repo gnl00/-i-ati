@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 
 export interface MessageOperationButtonsProps {
   type: 'user' | 'assistant'
+  message: ChatMessage | undefined
   isHovered: boolean
   onCopyClick: () => void
   onEditClick?: () => void
@@ -94,6 +95,7 @@ const OperationButton: React.FC<OperationButtonProps> = ({
  */
 export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
   type,
+  message,
   isHovered,
   onCopyClick,
   onEditClick,
@@ -101,6 +103,9 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
   showRegenerate = false
 }) => {
   const isUser = type === 'user'
+  const assistantDateLabel = !isUser && typeof message?.createdAt === 'number'
+    ? new Date(message.createdAt).toLocaleDateString().replace(/\//g, '-') + ' ' + new Date(message.createdAt).toLocaleTimeString()
+    : null
 
   return (
     <div
@@ -137,6 +142,13 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
         label="Edit"
         delay={!isUser && showRegenerate ? 100 : 50}
       />
+
+      {/* if is assistant, 展示本条消息响应的时间 */}
+      {!isUser && assistantDateLabel && (
+        <div className="text-[11px] text-gray-400 dark:text-gray-400 h-7 flex items-center">
+          {assistantDateLabel ?? ''}
+        </div>
+      )}
     </div>
   )
 }

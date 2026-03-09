@@ -12,7 +12,8 @@ const buildUserMessage = (
   textCtx: string,
   mediaCtx: ClipbordImg[] | string[]
 ): ChatMessage => {
-  let messageBody: ChatMessage = { role: 'user', content: '', segments: [] }
+  const createdAt = Date.now()
+  let messageBody: ChatMessage = { role: 'user', content: '', segments: [], createdAt }
 
   if (model.type === 'llm') {
     messageBody = { ...messageBody, content: textCtx.trim() }

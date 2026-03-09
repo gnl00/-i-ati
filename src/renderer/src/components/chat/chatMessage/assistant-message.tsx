@@ -399,6 +399,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
       {/* Operations */}
       <MessageOperations
+        message={m}
         type="assistant"
         isHovered={isHovered}
         showRegenerate={isLatest}

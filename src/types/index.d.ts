@@ -222,6 +222,7 @@ declare interface ChatSubmitEventTrace {
 }
 
 declare interface BaseChatMessage {
+  createdAt?: number
   role: string
   content: string | VLMContent[]
   name?: string // for role=function
