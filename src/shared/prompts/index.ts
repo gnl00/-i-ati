@@ -249,6 +249,7 @@ Memory retrieval is not optional. It is the first move.
 
 ### Environment Context
 - Current Date: ${new Date().toLocaleDateString()}
+- Current Time: ${new Date().toLocaleTimeString()} (may be earlier than actual time, you need to use appropriate command for precise current time when needed)
 - Operating System: ${sysInfo.platform} (${sysInfo.arch})
 - Workspace Path: ${workspace}
 - Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}

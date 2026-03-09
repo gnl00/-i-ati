@@ -17,7 +17,7 @@ import { invokeCheckIsDirectory } from '@renderer/invoker/ipcInvoker'
 import { ArrowBigUp, CornerDownLeft } from 'lucide-react'
 
 interface ChatInputAreaProps {
-  onMessagesUpdate: () => void
+  onMessagesUpdate?: () => void
 }
 
 const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
@@ -169,7 +169,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     images: ClipbordImg[]
     prompt: string
   }) => {
-    onMessagesUpdate()
+    onMessagesUpdate?.()
     handleChatSubmitCallback(payload.text, payload.images, {
       prompt: payload.prompt
     })
