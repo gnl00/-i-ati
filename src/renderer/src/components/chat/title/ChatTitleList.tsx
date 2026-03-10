@@ -45,6 +45,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   const listRootRef = useRef<HTMLDivElement | null>(null)
   const groupHeaderRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [activeGroupName, setActiveGroupName] = useState('')
+  const lastActiveGroupRef = useRef<string>('')
 
   const sortedChatList = useMemo(() => {
     return [...chatList].sort((a, b) => b.updateTime - a.updateTime)
@@ -87,14 +88,18 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
 
     const updateActiveGroup = () => {
       rafId = null
-      const threshold = 48
+      const thresholdEnter = 48
+      const thresholdLeave = 36
       let nextGroup = groupedChatList[0][0]
+      const currentGroup = lastActiveGroupRef.current
 
       if (scrollParent === window) {
         groupedChatList.forEach(([groupName]) => {
           const headerEl = groupHeaderRefs.current[groupName]
           if (!headerEl) return
-          if (headerEl.getBoundingClientRect().top <= threshold) {
+          const top = headerEl.getBoundingClientRect().top
+          const threshold = currentGroup && currentGroup !== groupName ? thresholdEnter : thresholdLeave
+          if (top <= threshold) {
             nextGroup = groupName
           }
         })
@@ -103,12 +108,15 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
         groupedChatList.forEach(([groupName]) => {
           const headerEl = groupHeaderRefs.current[groupName]
           if (!headerEl) return
-          if (headerEl.getBoundingClientRect().top - parentTop <= threshold) {
+          const top = headerEl.getBoundingClientRect().top - parentTop
+          const threshold = currentGroup && currentGroup !== groupName ? thresholdEnter : thresholdLeave
+          if (top <= threshold) {
             nextGroup = groupName
           }
         })
       }
 
+      lastActiveGroupRef.current = nextGroup
       setActiveGroupName(prev => (prev === nextGroup ? prev : nextGroup))
     }
 
@@ -208,8 +216,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     <div ref={listRootRef}>
       <div className="sticky top-0 bg-background/98 backdrop-blur-md z-20 pt-3 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700 shadow-xs">
         <h4
-          key={effectiveActiveGroup}
-          className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-150"
+          className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 transition-opacity duration-150"
         >
           {effectiveActiveGroup}
         </h4>
@@ -224,7 +231,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
             className={cn(
               'px-3',
               effectiveActiveGroup === groupName
-                ? 'h-0 overflow-hidden pt-0 pb-0 mb-0'
+                ? 'h-0 overflow-hidden pt-0 pb-0 mb-0 opacity-0 pointer-events-none'
                 : 'pt-1 pb-2 mb-1'
             )}
           >
