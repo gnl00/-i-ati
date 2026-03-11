@@ -258,7 +258,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                 className="h-8 px-2.5 rounded-lg bg-transparent border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100/60 dark:hover:bg-gray-800/60"
               >
                 <Clipboard className="h-3.5 w-3.5 mr-1.5 text-gray-500 dark:text-gray-400" />
-                Clipboard
+                From Clipboard
               </Button>
               <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-linear-to-r from-gray-100/90 to-gray-50/90 dark:from-gray-800/70 dark:to-gray-900/50 border border-gray-200/70 dark:border-gray-700/50 shadow-xs backdrop-blur-md transition-all duration-300">
                 <Code className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
