@@ -56,6 +56,7 @@ export interface LocalServerConfig {
   type?: 'sse' | 'streamableHttp'
   url?: string
   description?: string
+  version?: string
   command?: string
   args?: string[]
   env?: string[]
