@@ -1,6 +1,5 @@
 import React from 'react'
 import { Badge } from '@renderer/components/ui/badge'
-import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { Check, Code, ExternalLink } from 'lucide-react'
 
@@ -187,49 +186,34 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
         <div className="flex items-center gap-1 shrink-0">
           {mode === 'registry' ? (
             installed ? (
-              <div className="flex cursor-default select-none items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100/80 dark:bg-gray-800/50 border border-gray-200/60 dark:border-gray-700/60">
-                <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Installed</span>
+              <div className="flex cursor-default select-none items-center gap-1 px-2 py-1 rounded-md bg-gray-100/70 dark:bg-gray-800/50">
+                <Check className="h-3 w-3 text-gray-400 dark:text-gray-500" />
+                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">Added</span>
               </div>
             ) : (
-              <Button
-                size="xs"
+              <button
                 onClick={onInstall}
-                className={cn(
-                  "h-7 rounded-full px-3 text-[11px] font-medium shadow-none active:scale-[0.97] transition-all duration-200",
-                  "text-blue-700 dark:text-blue-300",
-                  "bg-blue-50/80 dark:bg-blue-900/20",
-                  "border border-blue-200/80 dark:border-blue-800/60",
-                  "hover:bg-blue-100 dark:hover:bg-blue-900/35"
-                )}
+                className="h-7 px-3 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-200 shadow-sm shadow-gray-900/10"
               >
                 Install
-              </Button>
+              </button>
             )
           ) : (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={onCopyConfig}
-                className="h-7 w-7 p-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
+                className="h-7 w-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-150"
                 title="Copy Configuration"
               >
                 <Code className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                size="xs"
+              </button>
+              <button
                 onClick={onUninstall}
-                className={cn(
-                  "h-7 rounded-full px-3 text-[11px] font-medium shadow-none active:scale-[0.97] transition-all duration-200",
-                  "text-rose-600 dark:text-rose-300",
-                  "bg-rose-50/80 dark:bg-rose-900/20",
-                  "border border-rose-200/80 dark:border-rose-800/60",
-                  "hover:bg-rose-100 dark:hover:bg-rose-900/35"
-                )}
+                className="h-7 px-2.5 flex items-center gap-1 rounded-md text-[11px] font-medium text-gray-400 dark:text-gray-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 group-hover:text-red-300 dark:group-hover:text-red-400 active:scale-[0.97] transition-all duration-150"
               >
-                Uninstall
-              </Button>
+                <i className="ri-delete-bin-line text-[12px]" />
+                Remove
+              </button>
             </>
           )}
         </div>
