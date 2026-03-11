@@ -6,7 +6,7 @@ import { Switch } from '@renderer/components/ui/switch'
 import { listInstalledSkills } from '@renderer/services/skills/SkillService'
 import { getChatSkills } from '@renderer/db/ChatSkillRepository'
 import { useChatStore } from '@renderer/store'
-import { invokeImportSkills, invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
+import { invokeCheckIsDirectory, invokeImportSkills, invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
 import { Input } from '../ui/input'
@@ -127,6 +127,22 @@ const SkillsManager: React.FC = () => {
     })
   }
 
+  type ImportSkillsResult = {
+    installed: SkillMetadata[]
+    renamed: Array<{ from: string; to: string }>
+    skipped: Array<{ path: string; reason: string }>
+    failed: Array<{ path: string; error: string }>
+  }
+
+  const normalizeImportResult = (value: any): ImportSkillsResult => {
+    return {
+      installed: Array.isArray(value?.installed) ? value.installed : [],
+      renamed: Array.isArray(value?.renamed) ? value.renamed : [],
+      skipped: Array.isArray(value?.skipped) ? value.skipped : [],
+      failed: Array.isArray(value?.failed) ? value.failed : []
+    }
+  }
+
   const summarizeImport = (result: {
     installed: SkillMetadata[]
     renamed: Array<{ from: string; to: string }>
@@ -185,23 +201,61 @@ const SkillsManager: React.FC = () => {
 
     setPendingFolders(new Set(folders))
     try {
+      const directoryChecks = await Promise.allSettled(
+        folders.map(folder => invokeCheckIsDirectory(folder))
+      )
+      const validFolders: string[] = []
+      const invalidFolders: string[] = []
+
+      directoryChecks.forEach((checkResult, index) => {
+        const folder = folders[index]
+        if (checkResult.status !== 'fulfilled') {
+          invalidFolders.push(folder)
+          return
+        }
+
+        const payload = checkResult.value
+        if (payload.success && payload.isDirectory) {
+          validFolders.push(folder)
+        } else {
+          invalidFolders.push(folder)
+        }
+      })
+
+      if (invalidFolders.length > 0) {
+        const nextFolders = folders.filter(folder => !invalidFolders.includes(folder))
+        updateFolders(nextFolders)
+        const removedPathsText = invalidFolders.map(path => `• ${path}`).join('\n')
+        toast.error(`Removed invalid skill folder path(s):\n${removedPathsText}`)
+      }
+
+      if (validFolders.length === 0) {
+        toast.error('No valid skill folders found. Invalid paths were removed.')
+        if (invalidFolders.length > 0) {
+          console.warn('[SkillsManager] Invalid folders skipped:', invalidFolders)
+        }
+        return
+      }
+
       const results = await Promise.allSettled(
-        folders.map(folder => invokeImportSkills(folder))
+        validFolders.map(folder => invokeImportSkills(folder))
       )
 
       let installedCount = 0
       let renamedCount = 0
-      let failedCount = 0
+      let failedCount = invalidFolders.length
       const failedFolders: string[] = []
 
       results.forEach((result, index) => {
+        const folder = validFolders[index]
         if (result.status === 'fulfilled') {
-          installedCount += result.value.installed.length
-          renamedCount += result.value.renamed.length
-          failedCount += result.value.failed.length
+          const normalized = normalizeImportResult(result.value)
+          installedCount += normalized.installed.length
+          renamedCount += normalized.renamed.length
+          failedCount += normalized.failed.length
         } else {
           failedCount += 1
-          failedFolders.push(folders[index])
+          failedFolders.push(folder)
         }
       })
 
@@ -212,9 +266,16 @@ const SkillsManager: React.FC = () => {
       const summary = parts.length > 0 ? parts.join(', ') : 'No skills found'
 
       if (failedCount > 0) {
-        toast.error(`Rescan complete: ${summary}`)
+        const invalidNotice = invalidFolders.length > 0
+          ? ` (${invalidFolders.length} invalid folder path${invalidFolders.length > 1 ? 's' : ''} skipped)`
+          : ''
+        toast.error(`Rescan complete: ${summary}${invalidNotice}`)
       } else {
         toast.success(`Rescan complete: ${summary}`)
+      }
+
+      if (invalidFolders.length > 0) {
+        console.warn('[SkillsManager] Invalid folders skipped:', invalidFolders)
       }
 
       if (failedFolders.length > 0) {
@@ -383,7 +444,7 @@ const SkillsManager: React.FC = () => {
                 className="h-8 rounded-full px-3 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-gray-800/70 disabled:opacity-60"
               >
                 <i className="ri-refresh-line mr-1.5"></i>
-                Refresh
+                Reload Installed
               </Button>
             </div>
           </div>
