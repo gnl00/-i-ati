@@ -10,10 +10,10 @@ import { Brain, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
 import MemoryManager from './MemoryManager'
-import { MCPServersManagerContent } from './MCPServersManager'
+import { MCPServersManagerContent } from './mcps/MCPServersManager'
 import ProvidersManager from './providers/ProvidersManager'
 import ToolsManager from './ToolsManager'
-import SkillsManager from './SkillsManager'
+import SkillsManager from './skills/SkillsManager'
 import PluginsManager from './PluginsManager'
 
 interface PreferenceProps { }
