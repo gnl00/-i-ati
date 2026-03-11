@@ -57,10 +57,20 @@ declare interface IAppConfig {
   skills?: {
     folders?: string[]
   }
+  plugins?: {
+    items?: AppPluginConfig[]
+  }
   compression?: CompressionConfig
   mcp?: { mcpServers?: {} }
   version?: number
   configForUpdate?: IAppConfig
+}
+
+declare interface AppPluginConfig {
+  id: string
+  name: string
+  description?: string
+  enabled?: boolean
 }
 
 declare type AppConfigType = Omit<IAppConfig, 'configUpdate'>

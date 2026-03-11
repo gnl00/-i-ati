@@ -83,6 +83,22 @@ export class ConfigDataService {
       tools: {
         maxWebSearchItems: 3
       },
+      plugins: {
+        items: [
+          {
+            id: 'openai-compatible-adapter',
+            name: 'OpenAICompatibleAdapter',
+            description: 'Built-in plugin for OpenAI-compatible adapter integration.',
+            enabled: true
+          },
+          {
+            id: 'claude-compatible-adapter',
+            name: 'ClaudeCompatibleAdapter',
+            description: 'Built-in plugin for Claude-compatible adapter integration.',
+            enabled: true
+          }
+        ]
+      },
       configForUpdate: {
         version: 2.0
       }

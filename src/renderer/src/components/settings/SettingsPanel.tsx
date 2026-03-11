@@ -6,7 +6,7 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { Brain, Plug, Server, Sparkles, Wrench } from "lucide-react"
+import { Brain, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
 import MemoryManager from './MemoryManager'
@@ -14,8 +14,24 @@ import { MCPServersManagerContent } from './MCPServersManager'
 import ProvidersManager from './providers/ProvidersManager'
 import ToolsManager from './ToolsManager'
 import SkillsManager from './SkillsManager'
+import PluginsManager from './PluginsManager'
 
 interface PreferenceProps { }
+
+const DEFAULT_PLUGINS: AppPluginConfig[] = [
+    {
+        id: 'openai-compatible-adapter',
+        name: 'OpenAICompatibleAdapter',
+        description: 'Built-in plugin for OpenAI-compatible adapter integration.',
+        enabled: true
+    },
+    {
+        id: 'claude-compatible-adapter',
+        name: 'ClaudeCompatibleAdapter',
+        description: 'Built-in plugin for Claude-compatible adapter integration.',
+        enabled: true
+    }
+]
 
 const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const { appVersion } = useChatStore()
@@ -37,6 +53,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [maxWebSearchItems, setMaxWebSearchItems] = useState<number>(appConfig?.tools?.maxWebSearchItems || 3)
     const [msConfig, setmsConfig] = useState<string>(JSON.stringify(mcpServerConfig, null, 2))
     const [activeTab, setActiveTab] = useState<string>('provider-list')
+    const [plugins, setPlugins] = useState<AppPluginConfig[]>(appConfig?.plugins?.items || DEFAULT_PLUGINS)
 
     // Compression state
     const [compressionEnabled, setCompressionEnabled] = useState<boolean>(appConfig?.compression?.enabled ?? true)
@@ -58,6 +75,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             setCompressionKeepRecentCount(appConfig.compression.keepRecentCount || 20)
             setCompressionCompressCount(appConfig.compression.compressCount || 10)
         }
+        setPlugins(appConfig?.plugins?.items || DEFAULT_PLUGINS)
     }, [appConfig])
 
     const saveConfigurationClick = (): void => {
@@ -81,6 +99,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             },
             mcp: {
                 ...JSON.parse(msConfig)
+            },
+            plugins: {
+                items: plugins
             }
         }
 
@@ -113,6 +134,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             value: 'skills',
             label: 'Skills',
             icon: <Sparkles className="w-3 h-3" />
+        },
+        {
+            value: 'plugins',
+            label: 'Plugins',
+            icon: <Puzzle className="w-3 h-3" />
         }
     ]
 
@@ -132,8 +158,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         || compressionCompressCount !== (savedCompression?.compressCount ?? 10)
 
     const mcpDirty = JSON.stringify(mcpServerConfig ?? {}) !== JSON.stringify(savedMcpConfig ?? {})
+    const pluginsDirty = JSON.stringify(plugins) !== JSON.stringify(appConfig?.plugins?.items ?? DEFAULT_PLUGINS)
 
-    const hasUnsavedChanges = providersRevision > 0 || toolsDirty || compressionDirty || mcpDirty
+    const hasUnsavedChanges = providersRevision > 0 || toolsDirty || compressionDirty || mcpDirty || pluginsDirty
 
     return (
         <div className="grid gap-4">
@@ -220,6 +247,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
                 <TabsContent value="skills">
                     <SkillsManager />
+                </TabsContent>
+
+                <TabsContent value="plugins">
+                    <PluginsManager
+                        plugins={plugins}
+                        setPlugins={setPlugins}
+                    />
                 </TabsContent>
             </Tabs>
         </div>
