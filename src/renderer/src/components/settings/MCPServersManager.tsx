@@ -152,13 +152,13 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
     if (item.server.remotes?.[0]) {
       const remote = item.server.remotes[0]
-      config = { type: remote.type === 'sse' ? 'sse' : 'streamableHttp', url: remote.url, description: item.server.description }
+      config = { type: remote.type === 'sse' ? 'sse' : 'streamableHttp', url: remote.url, description: item.server.description, version: item.server.version }
     } else if (item.server.packages?.[0]) {
       const pkg = item.server.packages[0]
       if (pkg.registryType === 'npm') {
-        config = { command: 'npx', args: ['-y', pkg.identifier], description: item.server.description }
+        config = { command: 'npx', args: ['-y', pkg.identifier], description: item.server.description, version: item.server.version }
       } else if (pkg.registryType === 'oci') {
-        config = { command: 'docker', args: ['run', '-i', pkg.identifier], description: item.server.description }
+        config = { command: 'docker', args: ['run', '-i', pkg.identifier], description: item.server.description, version: item.server.version }
       }
     } else {
       config = {}
@@ -428,6 +428,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                         searchResults.find((item) => item.server.name === name)?.server.description ||
                         serversCache?.servers.find((item) => item.server.name === name)?.server.description
                       const fallbackVersion =
+                        config.version ||
                         registryServers.find((item) => item.server.name === name)?.server.version ||
                         searchResults.find((item) => item.server.name === name)?.server.version ||
                         serversCache?.servers.find((item) => item.server.name === name)?.server.version
