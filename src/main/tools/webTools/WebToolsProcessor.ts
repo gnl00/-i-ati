@@ -65,6 +65,32 @@ function shouldPreferDirectHttpFetch(url: string): boolean {
   }
 }
 
+function withTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+  onTimeout?: () => void
+): Promise<T> {
+  let timer: NodeJS.Timeout | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => {
+      try {
+        onTimeout?.()
+      } catch (err) {
+        console.warn('[WebTools] onTimeout hook failed:', err)
+      }
+      reject(new Error(timeoutMessage))
+    }, timeoutMs)
+  })
+
+  return Promise.race([task, timeoutPromise]).finally(() => {
+    if (timer) {
+      clearTimeout(timer)
+    }
+  })
+}
+
 async function fetchPageContentViaHttp(
   fallbackUrl: string,
   mode: CleanMode
@@ -264,15 +290,24 @@ async function fetchPageContent(
   finalUrl: string
   extractedText: string
 }> {
-  // 设置加载超时
-  const timeoutId = setTimeout(() => {
-    if (contentWindow && !contentWindow.isDestroyed()) {
-      contentWindow.webContents.stop()
-    }
-  }, 15000)
-
-  await contentWindow.loadURL(url, { userAgent })
-  clearTimeout(timeoutId)
+  try {
+    await withTimeout(
+      contentWindow.loadURL(url, { userAgent }),
+      15000,
+      `Timeout loading page: ${url}`,
+      () => {
+        if (contentWindow && !contentWindow.isDestroyed()) {
+          contentWindow.webContents.stop()
+        }
+      }
+    )
+  } catch (error: any) {
+    console.warn('[WebFetch] loadURL failed, fallback to HTTP fetch:', {
+      url,
+      message: error?.message || String(error)
+    })
+    return await fetchPageContentViaHttp(url, mode)
+  }
 
   try {
     // 只提取必要的原始数据：HTML、URL、标题
@@ -379,6 +414,31 @@ const processWebSearch = async ({
             continue
           }
 
+          // Bing result links are often redirect wrappers (bing.com/ck/a?...&u=...).
+          // Decode them to the original URL to reduce redirect failures and SSL handshake noise.
+          const decodeBingRedirect = (href) => {
+            try {
+              const parsed = new URL(href)
+              const isBingRedirect = parsed.hostname.includes('bing.com') && parsed.pathname.startsWith('/ck/a')
+              if (!isBingRedirect) return href
+
+              const encoded = parsed.searchParams.get('u')
+              if (!encoded) return href
+
+              const normalized = encoded.startsWith('a1') ? encoded.slice(2) : encoded
+              const base64 = normalized.replace(/-/g, '+').replace(/_/g, '/')
+              const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+              const decoded = atob(padded)
+
+              if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
+                return decoded
+              }
+              return href
+            } catch {
+              return href
+            }
+          }
+
           // 提取标题（来自搜索结果）
           const title = linkElement.textContent?.trim() || 'Untitled'
 
@@ -387,7 +447,7 @@ const processWebSearch = async ({
           const snippet = snippetElement?.textContent?.trim() || ''
 
           results.push({
-            link: linkElement.href,
+            link: decodeBingRedirect(linkElement.href),
             title: title,
             snippet: snippet
           })
@@ -450,7 +510,16 @@ const processWebSearch = async ({
           console.log(`[SCRAPE ${index + 1}] Content window #${index + 1} acquired in ${contentWindowTime}ms`)
 
           const contentLoadStart = Date.now()
-          const { pageTitle, finalUrl, extractedText } = await fetchPageContent(item.link, contentWindow, 'lite')
+          const { pageTitle, finalUrl, extractedText } = await withTimeout(
+            fetchPageContent(item.link, contentWindow, 'lite'),
+            22000,
+            `Timeout scraping page: ${item.link}`,
+            () => {
+              if (contentWindow && !contentWindow.isDestroyed()) {
+                contentWindow.webContents.stop()
+              }
+            }
+          )
           const contentLoadTime = Date.now() - contentLoadStart
           console.log(`[SCRAPE ${index + 1}] Page loaded in ${contentLoadTime}ms - ${item.link}`)
 
