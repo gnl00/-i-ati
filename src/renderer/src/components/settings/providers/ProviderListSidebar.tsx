@@ -75,53 +75,58 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                         </div>
                     </DrawerTrigger>
                     <DrawerContent>
-                        <DrawerHeader>
-                            <DrawerTitle>Add Provider</DrawerTitle>
+                        <DrawerHeader className="px-4 pt-4 pb-2">
+                            <DrawerTitle className="text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">Add Provider</DrawerTitle>
                         </DrawerHeader>
-                        <div id='add-new-provider-drawer' className="px-4 pb-4 app-undragable">
-                            <div className="flex flex-col gap-4">
-                                <div className="flex flex-col items-start gap-2">
-                                    <Label htmlFor="provider-name" className="text-sm font-medium">Display Name</Label>
+                        <div id='add-new-provider-drawer' className="px-4 pb-3 app-undragable">
+                            <div className="grid grid-cols-2 gap-x-2.5 gap-y-2">
+                                {/* Name + Adapter — same row */}
+                                <div className="space-y-1">
+                                    <Label htmlFor="provider-name" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Name</Label>
                                     <Input
                                         id="provider-name"
                                         placeholder="OpenAI"
-                                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
+                                        className="h-8 text-[12.5px] w-full bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150"
                                         value={addProvider.displayName}
                                         onChange={event => addProvider.onDisplayNameChange(event.target.value)}
                                     />
                                 </div>
-                                <div className="flex flex-col items-start gap-2">
-                                    <Label htmlFor="adapterType" className="text-sm font-medium">Adapter</Label>
+                                <div className="space-y-1">
+                                    <Label htmlFor="adapterType" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Adapter</Label>
                                     <Select value={addProvider.adapterType} onValueChange={addProvider.onAdapterTypeChange}>
-                                        <SelectTrigger id="adapterType" className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10">
+                                        <SelectTrigger id="adapterType" className="h-8 text-[12.5px] w-full bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150">
                                             <SelectValue placeholder="Select adapter" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-white/20 rounded-lg shadow-xs backdrop-blur-3xl font-medium">
                                             <SelectGroup>
-                                                <SelectItem value="openai">OpenAI Compatible</SelectItem>
-                                                <SelectItem value="claude">Claude Compatible</SelectItem>
+                                                <SelectItem value="openai" className="text-[11px] tracking-tight">OpenAI Compatible</SelectItem>
+                                                <SelectItem value="claude" className="text-[11px] tracking-tight">Claude Compatible</SelectItem>
                                             </SelectGroup>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="flex flex-col items-start gap-2">
-                                    <Label htmlFor="apiUrl" className="text-sm font-medium">API Base URL</Label>
+
+                                {/* API Base URL — full width */}
+                                <div className="col-span-2 space-y-1">
+                                    <Label htmlFor="apiUrl" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">API Base URL</Label>
                                     <Input
                                         id="apiUrl"
                                         placeholder="https://api.openai.com"
-                                        className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10"
+                                        className="h-8 text-[12.5px] w-full bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150"
                                         value={addProvider.apiUrl}
                                         onChange={event => addProvider.onApiUrlChange(event.target.value)}
                                     />
                                 </div>
-                                <div className="flex flex-col items-start gap-2">
-                                    <Label htmlFor="apiKey" className="text-sm font-medium">API Key</Label>
+
+                                {/* API Key — full width */}
+                                <div className="col-span-2 space-y-1">
+                                    <Label htmlFor="apiKey" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">API Key</Label>
                                     <div className="relative w-full">
                                         <Input
                                             id="apiKey"
                                             type={addProvider.showApiKey ? 'text' : 'password'}
                                             placeholder="sk-********"
-                                            className="focus-visible:ring-transparent focus-visible:ring-offset-0 w-full h-10 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                                            className="h-8 text-[12.5px] w-full pr-9 bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150"
                                             value={addProvider.apiKey}
                                             onChange={event => addProvider.onApiKeyChange(event.target.value)}
                                         />
@@ -129,11 +134,11 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                             type="button"
                                             onClick={addProvider.onToggleShowApiKey}
                                             className={cn(
-                                                'absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center p-1 rounded-md',
+                                                'absolute right-2 top-1/2 -translate-y-1/2',
+                                                'flex items-center justify-center p-1 rounded',
                                                 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300',
-                                                'hover:bg-gray-100 dark:hover:bg-gray-600/50',
-                                                'transition-all duration-200',
-                                                'active:scale-90 hover:scale-110'
+                                                'hover:bg-gray-100 dark:hover:bg-gray-700/50',
+                                                'transition-colors duration-150'
                                             )}
                                             tabIndex={-1}
                                         >
@@ -141,21 +146,25 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                                 'transition-all duration-300 ease-in-out',
                                                 addProvider.showApiKey ? 'opacity-100 scale-100' : 'opacity-0 scale-75 absolute'
                                             )}>
-                                                <EyeOff className="w-4 h-4" />
+                                                <EyeOff className="w-3.5 h-3.5" />
                                             </span>
                                             <span className={cn(
                                                 'transition-all duration-300 ease-in-out',
                                                 !addProvider.showApiKey ? 'opacity-100 scale-100' : 'opacity-0 scale-75 absolute'
                                             )}>
-                                                <Eye className="w-4 h-4" />
+                                                <Eye className="w-3.5 h-3.5" />
                                             </span>
                                         </button>
                                     </div>
                                 </div>
-                                <ProviderIconPicker
-                                    value={addProvider.iconKey}
-                                    onChange={addProvider.onIconKeyChange}
-                                />
+
+                                {/* Icon picker — full width */}
+                                <div className="col-span-2">
+                                    <ProviderIconPicker
+                                        value={addProvider.iconKey}
+                                        onChange={addProvider.onIconKeyChange}
+                                    />
+                                </div>
                             </div>
                         </div>
                         <DrawerFooter className="flex-row gap-2 px-4 pb-4">
