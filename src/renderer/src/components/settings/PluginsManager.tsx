@@ -50,7 +50,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({ plugins, setPlugins }) 
               </div>
               <Button
                 size="xs"
-                className="h-7 rounded-full px-3 text-[11px] font-medium shadow-none bg-linear-to-r from-gray-900 to-gray-700 hover:from-gray-900 hover:to-gray-800 dark:from-gray-100 dark:to-gray-200 dark:hover:from-white dark:hover:to-gray-100 text-white dark:text-gray-900 transition-all duration-200 active:scale-[0.97]"
+                className="h-7 rounded-md px-3 text-[11px] font-medium shadow-none bg-linear-to-r from-gray-900 to-gray-700 hover:from-gray-900 hover:to-gray-800 dark:from-gray-100 dark:to-gray-200 dark:hover:from-white dark:hover:to-gray-100 text-white dark:text-gray-900 transition-all duration-200 active:scale-[0.97]"
               >
                 <i className="ri-upload-2-line mr-1.5 text-[11px]"></i>
                 Load Plugin
