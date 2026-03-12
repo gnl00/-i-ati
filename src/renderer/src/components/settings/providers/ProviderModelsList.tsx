@@ -307,7 +307,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
           </TooltipProvider>
         ) : (
           <div className='flex flex-col items-center justify-center gap-1.5 py-10 text-gray-400 dark:text-gray-500'>
-            {currentAccount?.models.length === 0 ? (
+            {!currentAccount || currentAccount.models.length === 0 ? (
               <>
                 <i className="ri-inbox-line text-[28px] opacity-40"></i>
                 <p className='text-[12.5px] font-medium text-gray-500 dark:text-gray-400'>No models yet</p>
