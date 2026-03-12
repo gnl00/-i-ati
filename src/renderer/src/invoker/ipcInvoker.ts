@@ -14,6 +14,7 @@ import {
   SKILL_LIST_ACTION,
   SKILL_GET_ACTION,
   SKILL_IMPORT_ACTION,
+  SKILL_DELETE_ACTION,
   WIN_CLOSE,
   WIN_MINIMIZE,
   WIN_MAXIMIZE,
@@ -208,6 +209,11 @@ export async function invokeImportSkills(folderPath: string): Promise<{
 }> {
   const ipc = getElectronIPC()
   return await ipc.invoke(SKILL_IMPORT_ACTION, { folderPath })
+}
+
+export async function invokeDeleteSkill(name: string): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(SKILL_DELETE_ACTION, { name })
 }
 
 // ============ File Operations ============
