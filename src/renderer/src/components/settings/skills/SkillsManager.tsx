@@ -219,7 +219,7 @@ const SkillsManager: React.FC = () => {
                 <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
                   Skills
                 </Label>
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
+                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-500 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
                   {skills.length} installed
                 </Badge>
                 {activeCount > 0 && (
