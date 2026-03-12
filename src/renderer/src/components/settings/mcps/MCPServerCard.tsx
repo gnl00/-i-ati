@@ -28,12 +28,12 @@ export interface MCPServerCardProps {
 }
 
 const getConnectionBadgeClass = (connectionType?: string): string => {
-  if (!connectionType) return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-  if (connectionType === 'sse') return "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300"
-  if (connectionType === 'npm') return "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300"
-  if (connectionType === 'STDIO') return "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
-  if (connectionType === 'streamableHttp') return "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"
-  return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+  if (!connectionType) return "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+  if (connectionType === 'sse') return "bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/40"
+  if (connectionType === 'npm') return "bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
+  if (connectionType === 'STDIO') return "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40"
+  if (connectionType === 'streamableHttp') return "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-300 dark:hover:bg-green-900/40"
+  return "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
 }
 
 const MCPServerCard: React.FC<MCPServerCardProps> = ({
@@ -142,7 +142,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
           {connectionType && (
             <Badge
               className={cn(
-                'text-[9.5px] font-medium px-1.5 py-0.5 h-[18px] border-none rounded-md cursor-default uppercase shrink-0',
+                'text-[9.5px] font-medium px-1.5 py-0.5 h-[18px] border-none rounded-md cursor-default uppercase shrink-0 transition-colors duration-150',
                 getConnectionBadgeClass(connectionType)
               )}
             >
