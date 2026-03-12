@@ -1,17 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { Input } from '@renderer/components/ui/input'
-import { Button } from '@renderer/components/ui/button'
 import { Badge } from '@renderer/components/ui/badge'
-import { Switch } from '@renderer/components/ui/switch'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@renderer/components/ui/table'
 import {
   Select,
   SelectContent,
@@ -26,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
-import { Search, Trash } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
 
@@ -38,6 +28,11 @@ type ProviderModelsListProps = {
   isFetchDisabled: boolean
   ensureAccountForProvider: (providerId: string) => ProviderAccount
 }
+
+// fr units: allocated after container width is known → never overflows
+const GRID_COLS = '28fr 35fr 13fr 13fr 11fr'
+
+const thClass = 'px-4 py-2 text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center'
 
 export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
   selectedProviderId,
@@ -91,255 +86,244 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
   }
 
   return (
-    <div className='flex-1 flex justify-between flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200/50 dark:border-gray-700/50'>
-      <div className='flex justify-between items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'>
-        <h3 className='text-sm font-medium flex items-center text-gray-700 dark:text-gray-300'>Models</h3>
+    <div className='flex-1 min-h-0 flex flex-col overflow-hidden'>
+
+      {/* ── Toolbar ─────────────────────────────────────────── */}
+      <div className='flex justify-between items-center gap-3 px-4 py-2.5 border-b border-gray-200/70 dark:border-gray-700/60 bg-gray-50/40 dark:bg-gray-900/20 shrink-0'>
+        <h3 className='text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100 shrink-0'>Models</h3>
         <div className='flex-1 flex items-center'>
-          <div className='relative w-full max-w-[260px]'>
-            <Search className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400' />
+          <div className='relative w-full max-w-[240px]'>
+            <Search className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500' />
             <Input
               value={modelSearchQuery}
               onChange={e => setModelSearchQuery(e.target.value)}
               placeholder="Search models..."
               className={cn(
-                'h-8 pl-8 pr-3 text-xs font-medium',
+                'h-7 pl-8 pr-3 text-[12px]',
                 'bg-white/80 dark:bg-gray-800/60',
-                'border border-gray-200/70 dark:border-gray-700/70',
-                'rounded-xl',
+                'border border-gray-200 dark:border-gray-700',
+                'rounded-lg',
                 'text-gray-700 dark:text-gray-200',
-                'placeholder:text-gray-400',
-                'focus-visible:ring-0 focus-visible:ring-offset-0',
-                'focus-visible:border-gray-300 dark:focus-visible:border-gray-600'
+                'placeholder:text-gray-400 dark:placeholder:text-gray-500',
+                'focus-visible:ring-transparent focus-visible:ring-offset-0',
               )}
             />
           </div>
         </div>
-        <Button
-          size="xs"
-          variant="ghost"
-          className={cn(
-            'group relative rounded-xl text-[11px] font-semibold tracking-tight',
-            'px-3 py-2 h-auto',
-            'text-slate-600 dark:text-slate-400',
-            'bg-white dark:bg-slate-900',
-            'dark:hover:bg-slate-800',
-            'hover:text-slate-900 dark:hover:text-slate-100',
-            'active:scale-95',
-            'transition-all duration-200',
-            'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-slate-900',
-            'disabled:hover:border-slate-300 dark:disabled:hover:border-slate-700',
-            'disabled:hover:shadow-xs disabled:hover:text-slate-600 dark:disabled:hover:text-slate-400'
-          )}
+        <button
           onClick={onOpenFetchModels}
           disabled={isFetchDisabled}
+          className='h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10 disabled:opacity-40 disabled:pointer-events-none shrink-0'
         >
-          <i className={cn(
-            "ri-download-cloud-line mr-1.5 text-sm",
-            "transition-all duration-300",
-          )}></i>
+          <i className="ri-download-cloud-line text-[12px]"></i>
           Fetch Models
-        </Button>
+        </button>
       </div>
-      <div className='flex-1 overflow-y-auto scroll-smooth [&>div]:overflow-visible!'>
-        <TooltipProvider>
-          <Table id="provider-models-table" className='relative'>
-            <TableHeader className='sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xs border-b border-gray-200 dark:border-gray-700'>
-              <TableRow className='border-none hover:bg-transparent'>
-                <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Name</TableHead>
-                <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>Model ID</TableHead>
-                <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Type</TableHead>
-                <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Status</TableHead>
-                <TableHead className='px-4 py-3 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-center'>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {/* Add New Model Row */}
-              <TableRow className='border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/70 transition-colors duration-200'>
-                <TableCell className='px-3 py-3 w-[40%]'>
-                  <div className="relative">
-                    <Input
-                      className={cn(
-                        'h-9 text-sm font-medium',
-                        'border-0 border-b-2 border-slate-300 dark:border-slate-600',
-                        'rounded-none px-2',
-                        'bg-transparent dark:bg-transparent',
-                        'text-slate-700 dark:text-slate-200',
-                        'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-                        'outline-hidden focus:outline-hidden focus-visible:outline-hidden',
-                        'focus-visible:ring-0 focus-visible:ring-offset-0',
-                        'focus-visible:border-b-blue-500 dark:focus-visible:border-b-blue-400',
-                        'transition-all duration-200',
-                        'shadow-none focus-visible:shadow-none'
-                      )}
-                      value={nextAddModelLabel}
-                      onChange={e => setNextAddModelLabel(e.target.value)}
-                      placeholder="ModelName"
-                    />
-                  </div>
-                </TableCell>
-                <TableCell className='px-3 py-3 w-[40%]'>
-                  <div className="relative">
-                    <Input
-                      className={cn(
-                        'h-9 text-sm font-medium',
-                        'border-0 border-b-2 border-slate-300 dark:border-slate-600',
-                        'rounded-none px-2',
-                        'bg-transparent dark:bg-transparent',
-                        'text-slate-700 dark:text-slate-200',
-                        'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-                        'outline-hidden focus:outline-hidden focus-visible:outline-hidden',
-                        'focus-visible:ring-0 focus-visible:ring-offset-0',
-                        'focus-visible:border-b-blue-500 dark:focus-visible:border-b-blue-400',
-                        'transition-all duration-200',
-                        'shadow-none focus-visible:shadow-none'
-                      )}
-                      value={nextAddModelValue}
-                      onChange={e => setNextAddModelValue(e.target.value)}
-                      placeholder="ModelID"
-                    />
-                  </div>
-                </TableCell>
-                <TableCell colSpan={2} className='px-4 py-3'>
-                  <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
-                    <SelectTrigger className={cn(
-                      'h-9 text-sm font-medium',
-                      'border-0 border-b-2 border-slate-300 dark:border-slate-600',
-                      'rounded-none px-2',
-                      'bg-transparent dark:bg-transparent',
-                      'text-slate-700 dark:text-slate-200',
-                      'outline-hidden focus:outline-hidden focus-visible:outline-hidden',
-                      'focus:ring-0 focus:ring-offset-0',
-                      'focus:border-b-blue-500 dark:focus:border-b-blue-400',
-                      'transition-all duration-200',
-                      'shadow-none'
-                    )}>
-                      <SelectValue placeholder="Type" className="placeholder:text-slate-400 dark:placeholder:text-slate-500" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white/20 rounded-2xl shadow-xs backdrop-blur-lg text-gray-400 dark:text-gray-300 font-medium tracking-wider">
-                      <SelectGroup defaultValue={'llm'}>
-                        <SelectItem value="llm" className="rounded-lg">LLM</SelectItem>
-                        <SelectItem value="vlm" className="rounded-lg">VLM</SelectItem>
-                        <SelectItem value="t2i" className="rounded-lg">T2I</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell className='px-4 py-3 text-center'>
-                  <Button
-                    onClick={handleAddModel}
-                    size={'sm'}
-                    variant={'default'}
-                    className='h-7 px-3 rounded-3xl text-xs transition-transform duration-200 hover:scale-105 active:scale-95'
+
+      {/* ── Column headers ───────────────────────────────────── */}
+      <div
+        className='grid shrink-0 bg-gray-50/40 dark:bg-gray-900/20 border-b border-gray-200 dark:border-gray-700'
+        style={{ gridTemplateColumns: GRID_COLS }}
+      >
+        <div className={thClass}>Name</div>
+        <div className={thClass}>Model ID</div>
+        <div className={cn(thClass, 'justify-center')}>Type</div>
+        <div className={cn(thClass, 'justify-center')}>Status</div>
+        <div className={cn(thClass, 'justify-center')}>Action</div>
+      </div>
+
+      {/* ── Add row ──────────────────────────────────────────── */}
+      <div
+        className='grid shrink-0 border-b border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/70 transition-colors duration-150'
+        style={{ gridTemplateColumns: GRID_COLS }}
+      >
+        <div className='px-3 py-2'>
+          <Input
+            className={cn(
+              'h-8 text-[12.5px]',
+              'border-0 border-b border-gray-300 dark:border-gray-600',
+              'rounded-none px-2',
+              'bg-transparent',
+              'text-gray-700 dark:text-gray-200',
+              'placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 dark:placeholder:text-gray-500',
+              'focus-visible:ring-0 focus-visible:ring-offset-0',
+              'focus-visible:border-b-gray-500 dark:focus-visible:border-b-gray-400',
+              'transition-colors duration-150 shadow-none'
+            )}
+            value={nextAddModelLabel}
+            onChange={e => setNextAddModelLabel(e.target.value)}
+            placeholder="Model Name"
+          />
+        </div>
+        <div className='px-3 py-2'>
+          <Input
+            className={cn(
+              'h-8 text-[12.5px]',
+              'border-0 border-b border-gray-300 dark:border-gray-600',
+              'rounded-none px-2',
+              'bg-transparent',
+              'text-gray-700 dark:text-gray-200',
+              'placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 dark:placeholder:text-gray-500',
+              'focus-visible:ring-0 focus-visible:ring-offset-0',
+              'focus-visible:border-b-gray-500 dark:focus-visible:border-b-gray-400',
+              'transition-colors duration-150 shadow-none'
+            )}
+            value={nextAddModelValue}
+            onChange={e => setNextAddModelValue(e.target.value)}
+            placeholder="Model ID"
+          />
+        </div>
+        {/* Type + Status columns merged */}
+        <div className='px-4 py-2' style={{ gridColumn: 'span 2' }}>
+          <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
+            <SelectTrigger
+              className={cn(
+                'h-8 text-[12.5px]',
+                'border-0 border-b border-gray-300 dark:border-gray-600',
+                'rounded-none px-2',
+                'bg-transparent',
+                'text-gray-700 dark:text-gray-200',
+                'focus:ring-0 focus:ring-offset-0',
+                'focus:border-b-gray-500 dark:focus:border-b-gray-400',
+                'transition-colors duration-150 shadow-none'
+              )}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent className="bg-white/20 rounded-lg shadow-xs backdrop-blur-lg font-medium">
+              <SelectGroup>
+                <SelectItem value="llm" className='text-[11px] tracking-tight'>LLM</SelectItem>
+                <SelectItem value="vlm" className='text-[11px] tracking-tight'>VLM</SelectItem>
+                <SelectItem value="t2i" className='text-[11px] tracking-tight'>T2I</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className='px-4 py-2 flex items-center justify-center'>
+          <button
+            onClick={handleAddModel}
+            className='h-7 px-2.5 flex items-center gap-1 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10'
+          >
+            <i className="ri-add-line text-[12px]"></i>
+            Add
+          </button>
+        </div>
+      </div>
+
+      {/* ── Scrollable model rows ─────────────────────────────── */}
+      <div className='flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'>
+        {filteredModels.length > 0 ? (
+          <TooltipProvider>
+            {filteredModels.map((m, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  'grid border-b border-gray-100 dark:border-gray-700/60',
+                  'hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors duration-150',
+                  'animate-in fade-in slide-in-from-bottom-1'
+                )}
+                style={{
+                  gridTemplateColumns: GRID_COLS,
+                  animationDelay: `${idx * 40}ms`,
+                  animationFillMode: 'both'
+                }}
+              >
+                <div className='px-4 py-2.5 min-w-0'>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p
+                        className='truncate text-[12.5px] font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-150'
+                        onClick={_ => onModelTableCellClick(m.label)}
+                      >
+                        {m.label}
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{m.label}</p></TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className='px-4 py-2.5 min-w-0'>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p
+                        className='truncate text-[12px] text-gray-500 dark:text-gray-400 font-mono cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-150'
+                        onClick={_ => onModelTableCellClick(m.id)}
+                      >
+                        {m.id}
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{m.id}</p></TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className='px-4 py-2.5 flex items-center justify-center'>
+                  <Badge variant="secondary" className='text-[9.5px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-0'>
+                    {m.type}
+                  </Badge>
+                </div>
+                <div className='px-4 py-2.5 flex items-center justify-center'>
+                  <button
+                    role="switch"
+                    aria-checked={m.enabled !== false}
+                    onClick={() => {
+                      if (!currentAccount) return
+                      toggleModelEnabled(currentAccount.id, m.id)
+                    }}
+                    className={cn(
+                      'relative inline-flex h-[18px] w-[30px] shrink-0 cursor-pointer rounded-full',
+                      'transition-colors duration-200 ease-in-out',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-1',
+                      m.enabled !== false
+                        ? 'bg-gray-800 dark:bg-gray-200'
+                        : 'bg-gray-200 dark:bg-gray-700'
+                    )}
                   >
-                    <i className="ri-add-circle-line mr-1 text-sm"></i>
-                    Add
-                  </Button>
-                </TableCell>
-              </TableRow>
-              {/* Model List */}
-              {filteredModels.map((m, idx) => (
-                <TableRow
-                  key={idx}
-                  style={{
-                    animationDelay: `${idx * 40}ms`,
-                    animationFillMode: 'both'
-                  }}
-                  className={cn(
-                    'border-b border-gray-200/60 dark:border-gray-700/60 transition-all duration-200 ease-out group/row',
-                    'hover:bg-gray-50 dark:hover:bg-gray-700/40',
-                    'hover:border-gray-300 dark:hover:border-gray-600',
-                    'animate-in fade-in slide-in-from-bottom-1',
-                    idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/30 dark:bg-gray-800/40'
-                  )}
-                >
-                  <TableCell className='px-4 py-3 text-left max-w-0'>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <p
-                          className='truncate text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-150'
-                          onClick={_ => onModelTableCellClick(m.label)}
-                        >
-                          {m.label}
-                        </p>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{m.label}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell className='px-4 py-3 text-left max-w-0'>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <p
-                          className='truncate text-[13px] text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-150'
-                          onClick={_ => onModelTableCellClick(m.id)}
-                        >
-                          {m.id}
-                        </p>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{m.id}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell className='px-4 py-3 text-center'>
-                    <Badge variant="secondary" className='text-[10px] font-medium uppercase px-2 py-0.5'>
-                      {m.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className='px-4 py-3 text-center'>
-                    <div className='inline-flex items-center justify-center'>
-                      <Switch
-                        className='h-6 transition-all duration-200'
-                        checked={m.enabled !== false}
-                        onCheckedChange={_checked => {
-                          if (!currentAccount) return
-                          toggleModelEnabled(currentAccount.id, m.id)
-                        }}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className='px-4 py-3 text-center'>
-                    <button
-                      onClick={_ => {
-                        if (!currentAccount) return
-                        removeModel(currentAccount.id, m.id)
-                      }}
-                      className='inline-flex items-center justify-center p-1.5 rounded-md text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-110 active:scale-90 group/del'
-                      title="Delete model"
-                    >
-                      <Trash className='w-4 h-4 group-hover/del:animate-[wiggle_0.3s_ease-in-out]' />
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {/* Empty State */}
-              {currentAccount?.models.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className='px-4 py-12 text-center'>
-                    <div className='flex flex-col items-center justify-center text-gray-400 dark:text-gray-500'>
-                      <i className="ri-inbox-line text-4xl mb-2 opacity-40"></i>
-                      <p className='text-sm'>No models yet</p>
-                      <p className='text-xs mt-1'>Add a model using the form above</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-              {currentAccount?.models.length !== 0 && filteredModels.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className='px-4 py-12 text-center'>
-                    <div className='flex flex-col items-center justify-center text-gray-400 dark:text-gray-500'>
-                      <i className="ri-search-line text-3xl mb-2 opacity-40"></i>
-                      <p className='text-sm'>No models match your search</p>
-                      <p className='text-xs mt-1'>Try a different keyword</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TooltipProvider>
+                    <span
+                      className={cn(
+                        'pointer-events-none inline-block h-[14px] w-[14px] rounded-full shadow-sm',
+                        'transition-transform duration-200 ease-in-out',
+                        'mt-[2px]',
+                        m.enabled !== false
+                          ? 'translate-x-[14px] bg-white dark:bg-gray-900'
+                          : 'translate-x-[2px] bg-white dark:bg-gray-400'
+                      )}
+                    />
+                  </button>
+                </div>
+                <div className='px-4 py-2.5 flex items-center justify-center'>
+                  <button
+                    onClick={() => {
+                      if (!currentAccount) return
+                      removeModel(currentAccount.id, m.id)
+                    }}
+                    className='inline-flex items-center justify-center p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors duration-150'
+                    title="Remove model"
+                  >
+                    <i className="ri-delete-bin-line text-[13px]" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </TooltipProvider>
+        ) : (
+          <div className='flex flex-col items-center justify-center gap-1.5 py-10 text-gray-400 dark:text-gray-500'>
+            {currentAccount?.models.length === 0 ? (
+              <>
+                <i className="ri-inbox-line text-[28px] opacity-40"></i>
+                <p className='text-[12.5px] font-medium text-gray-500 dark:text-gray-400'>No models yet</p>
+                <p className='text-[11.5px]'>Add a model using the form above</p>
+              </>
+            ) : (
+              <>
+                <i className="ri-search-line text-[24px] opacity-40"></i>
+                <p className='text-[12.5px] font-medium text-gray-500 dark:text-gray-400'>No models match</p>
+                <p className='text-[11.5px]'>Try a different keyword</p>
+              </>
+            )}
+          </div>
+        )}
       </div>
+
     </div>
   )
 }

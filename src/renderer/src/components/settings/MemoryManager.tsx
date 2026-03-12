@@ -162,7 +162,8 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
                       <button
                         onClick={() => setConfirmingDeleteId(item.id)}
                         aria-label="Delete memory"
-                        className="absolute inset-0 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                        tabIndex={confirmingDeleteId === item.id ? -1 : 0}
+                        className="absolute inset-0 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20"
                         style={{
                           transition: 'opacity 140ms ease, transform 140ms ease, background-color 120ms ease, color 120ms ease',
                           ...(confirmingDeleteId === item.id && {
@@ -187,6 +188,7 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
                       >
                         <button
                           onClick={() => setConfirmingDeleteId(null)}
+                          tabIndex={confirmingDeleteId === item.id ? 0 : -1}
                           className="h-[22px] px-2 text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded-l-md border border-gray-200 dark:border-gray-700 border-r-0"
                           style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
                         >
@@ -194,6 +196,7 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
                         </button>
                         <button
                           onClick={() => handleDeleteMemory(item.id)}
+                          tabIndex={confirmingDeleteId === item.id ? 0 : -1}
                           className="h-[22px] px-2 text-[11px] font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-r-md border border-gray-200 dark:border-gray-700"
                           style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
                         >

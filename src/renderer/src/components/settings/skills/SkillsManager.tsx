@@ -5,11 +5,9 @@ import { useChatStore } from '@renderer/store'
 import { invokeCheckIsDirectory, invokeImportSkills, invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
-import { invokeLoadSkill, invokeUnloadSkill } from '@renderer/tools/skills/renderer/SkillToolsInvoker'
 import { invokeDeleteSkill } from '@renderer/invoker/ipcInvoker'
 import { Badge } from '@renderer/components/ui/badge'
 import { Label } from '@renderer/components/ui/label'
-import { Switch } from '@renderer/components/ui/switch'
 import { Input } from '@renderer/components/ui/input'
 import { Search, X } from 'lucide-react'
 
@@ -39,18 +37,16 @@ const summarizeImport = (result: ImportSkillsResult): string => {
 }
 
 const SkillsManager: React.FC = () => {
-  const { currentChatId, currentChatUuid } = useChatStore()
+  const { currentChatId } = useChatStore()
   const { appConfig, setAppConfig } = useAppConfigStore()
   const [skills, setSkills] = useState<SkillMetadata[]>([])
   const [activeSkills, setActiveSkills] = useState<string[]>([])
   const [folders, setFolders] = useState<string[]>([])
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [pendingSkills, setPendingSkills] = useState<Set<string>>(new Set())
   const [pendingFolders, setPendingFolders] = useState<Set<string>>(new Set())
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
 
-  const hasActiveChat = Boolean(currentChatId && currentChatUuid)
   const activeCount = activeSkills.length
 
   const sortedSkills = useMemo(() => {
@@ -100,14 +96,6 @@ const SkillsManager: React.FC = () => {
   useEffect(() => {
     setFolders(appConfig.skills?.folders || [])
   }, [appConfig.skills?.folders])
-
-  const setSkillPending = (name: string, pending: boolean) => {
-    setPendingSkills(prev => {
-      const next = new Set(prev)
-      pending ? next.add(name) : next.delete(name)
-      return next
-    })
-  }
 
   const updateFolders = (nextFolders: string[]) => {
     setFolders(nextFolders)
@@ -203,31 +191,6 @@ const SkillsManager: React.FC = () => {
       toast.error(error.message || 'Failed to rescan folders')
     } finally {
       setPendingFolders(new Set())
-    }
-  }
-
-  const toggleSkillActive = async (name: string, nextActive: boolean): Promise<void> => {
-    // requires chat_uuid to look up the chat record and write to the chat_skills table
-    // (chat_id, skill_name, load_order, loaded_at). Without a chat_uuid there is no target
-    // chat to bind the skill to, so the IPC call would fail with "chat_uuid is required".
-    if (!currentChatId || !currentChatUuid) { toast.error('Open a chat to activate skills'); return }
-    setSkillPending(name, true)
-    try {
-      if (nextActive) {
-        const result = await invokeLoadSkill({ name, chat_uuid: currentChatUuid })
-        if (!result.success) throw new Error(result.message || `Failed to load skill: ${name}`)
-        toast.success(`Activated ${name}`)
-      } else {
-        const result = await invokeUnloadSkill({ name, chat_uuid: currentChatUuid })
-        if (!result.success) throw new Error(result.message || `Failed to unload skill: ${name}`)
-        toast.success(`Deactivated ${name}`)
-      }
-      await refreshActiveSkills()
-    } catch (error: any) {
-      console.error('[SkillsManager] Failed to toggle skill:', error)
-      toast.error(error?.message || 'Failed to update skill status')
-    } finally {
-      setSkillPending(name, false)
     }
   }
 
@@ -400,7 +363,6 @@ const SkillsManager: React.FC = () => {
 
               {filteredSkills.map(skill => {
                 const isActive = activeSkills.includes(skill.name)
-                const isPending = pendingSkills.has(skill.name)
                 return (
                   <div
                     key={skill.name}
@@ -457,7 +419,8 @@ const SkillsManager: React.FC = () => {
                       <button
                         onClick={() => setConfirmingDeleteId(skill.name)}
                         aria-label="Remove skill"
-                        className="absolute inset-0 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                        tabIndex={confirmingDeleteId === skill.name ? -1 : 0}
+                        className="absolute inset-0 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20"
                         style={{
                           transition: 'opacity 140ms ease, transform 140ms ease, background-color 120ms ease, color 120ms ease',
                           ...(confirmingDeleteId === skill.name && {
@@ -482,6 +445,7 @@ const SkillsManager: React.FC = () => {
                       >
                         <button
                           onClick={() => setConfirmingDeleteId(null)}
+                          tabIndex={confirmingDeleteId === skill.name ? 0 : -1}
                           className="h-[22px] px-2 text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded-l-md border border-gray-200 dark:border-gray-700 border-r-0"
                           style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
                         >
@@ -489,6 +453,7 @@ const SkillsManager: React.FC = () => {
                         </button>
                         <button
                           onClick={() => handleDeleteSkill(skill.name)}
+                          tabIndex={confirmingDeleteId === skill.name ? 0 : -1}
                           className="h-[22px] px-2 text-[11px] font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-r-md border border-gray-200 dark:border-gray-700"
                           style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
                         >
