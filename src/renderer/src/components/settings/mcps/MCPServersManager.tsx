@@ -235,6 +235,8 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   return (
     <div className="flex flex-col h-full bg-gray-50/50 dark:bg-neutral-950/30">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col overflow-hidden">
+
+        {/* ── Tab bar + toolbar ─────────────────────────────────── */}
         <div className="flex items-center justify-between mx-4 mt-4 mb-0">
           <AnimatedTabsList
             tabs={[
@@ -250,82 +252,88 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           />
 
           {activeTab === 'local' && (
-            <div className="flex items-center gap-2.5">
-              <Button
-                variant="outline"
-                size="sm"
+            <div className="flex items-center gap-3">
+              <button
                 onClick={handleAddFromClipboard}
-                className="h-8 px-2.5 rounded-lg bg-transparent border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100/60 dark:hover:bg-gray-800/60"
+                className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-150"
               >
-                <Clipboard className="h-3.5 w-3.5 mr-1.5 text-gray-500 dark:text-gray-400" />
+                <Clipboard className="h-3 w-3" />
                 From Clipboard
-              </Button>
-              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-linear-to-r from-gray-100/90 to-gray-50/90 dark:from-gray-800/70 dark:to-gray-900/50 border border-gray-200/70 dark:border-gray-700/50 shadow-xs backdrop-blur-md transition-all duration-300">
-                <Code className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+              </button>
+              <div className="flex items-center gap-2">
+                <Code className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
                 <Label
                   htmlFor="edit-mode"
                   className={cn(
-                    "text-[10px] uppercase tracking-wider font-bold transition-all duration-200 cursor-pointer select-none",
+                    "text-[11px] font-medium transition-colors duration-150 cursor-pointer select-none",
                     editMode === 'json'
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-gray-500 dark:text-gray-500"
+                      ? "text-gray-700 dark:text-gray-200"
+                      : "text-gray-400 dark:text-gray-500"
                   )}
                 >
-                  JSON Mode
+                  JSON
                 </Label>
-                <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
                 <Switch
                   id="edit-mode"
                   checked={editMode === 'json'}
                   onCheckedChange={(checked) => setEditMode(checked ? 'json' : 'visual')}
-                  className="scale-90 data-[state=checked]:bg-blue-600 dark:data-[state=checked]:bg-blue-500"
+                  className="scale-90 data-[state=checked]:bg-gray-700 dark:data-[state=checked]:bg-gray-300"
                 />
               </div>
             </div>
           )}
+
+          {activeTab === 'registry' && (
+            <div className="relative flex-1 max-w-[280px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+              <Input
+                placeholder="Search registry… Enter"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                className="pl-8 h-8 text-[12px] bg-white dark:bg-gray-900/40 border-gray-200 dark:border-gray-700/60 dark:text-gray-200
+                  placeholder:text-gray-400/60 dark:placeholder:text-gray-600 shadow-none rounded-lg
+                  focus-visible:ring-0 focus-visible:ring-offset-0
+                  focus-visible:border-emerald-400 dark:focus-visible:border-emerald-600
+                  transition-all duration-200"
+                disabled={isFetching}
+              />
+              {isSearching && (
+                <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+              )}
+            </div>
+          )}
         </div>
 
+        {/* ── Registry tab ─────────────────────────────────────── */}
         <TabsContent value="registry" className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300">
-          <div className="relative py-4 flex-none group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70 group-focus-within:text-foreground transition-colors" />
-            <Input
-              placeholder="Discover servers in the registry..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-              className="pl-9 h-10 text-sm bg-white/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50 dark:text-gray-200 placeholder:text-muted-foreground/50 shadow-xs rounded-xl
-              focus-visible:ring-0 focus-visible:ring-offset-0
-              focus-visible:border-blue-500 dark:focus-visible:border-blue-400
-              focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]
-              transition-all duration-200
-              "
-              disabled={isFetching}
-            />
-            {isSearching && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-            )}
-          </div>
-
-          <div className="flex-1 overflow-y-auto -mx-4 px-4 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto -mx-4 px-4 pt-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
             {(isFetching && registryServers.length === 0) || isSearching ? (
-              <div className="flex flex-col items-center justify-center h-64">
-                <div className="relative h-10 w-10 flex items-center justify-center">
-                  <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-800 border-t-gray-900 dark:border-t-gray-100 animate-spin" />
-                  <Globe className="h-4 w-4 text-gray-900 dark:text-gray-100" />
+              <div className="flex flex-col items-center justify-center h-64 gap-3">
+                <div className="relative h-9 w-9 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-800 border-t-gray-600 dark:border-t-gray-400 animate-spin" />
+                  <Globe className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-muted-foreground mt-4 animate-pulse">
-                  {isSearching ? 'Scouring the registry...' : 'Connecting to Registry...'}
+                <p className="text-[12px] font-medium text-gray-400 dark:text-gray-500">
+                  {isSearching ? 'Searching registry…' : 'Connecting to registry…'}
                 </p>
               </div>
             ) : filteredServers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground bg-white/50 dark:bg-gray-900/20 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800 mx-1">
-                <Search className="h-12 w-12 mb-4 opacity-20" />
-                <p className="text-sm font-medium">No results matched your search</p>
-                {searchQuery && (
-                  <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')} className="mt-4 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full px-4">
-                    Reset search
-                  </Button>
-                )}
+              <div className="flex flex-col items-center justify-center h-64 gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                  <Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                </div>
+                <div className="space-y-0.5 text-center">
+                  <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No results matched your search</p>
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="text-[11.5px] text-gray-400 dark:text-gray-500 underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    >
+                      Clear search
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-3 pb-6">
@@ -352,16 +360,15 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                 })}
 
                 {!searchQuery && hasMore && (
-                  <div className="flex justify-center pt-4">
-                    <Button
-                      variant="outline"
+                  <div className="flex justify-center pt-4 pb-2">
+                    <button
                       onClick={loadMore}
                       disabled={isFetching}
-                      className="gap-2 px-8 py-5 rounded-2xl font-bold border-gray-200 dark:border-gray-800 hover:bg-white dark:hover:bg-gray-900 text-foreground hover:shadow-md transition-all shadow-xs"
+                      className="h-8 px-5 flex items-center gap-2 rounded-lg text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/60 border border-gray-200 dark:border-gray-700/60 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
                     >
-                      {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-                      {isFetching ? 'Fetching more...' : 'Load Complete Registry'}
-                    </Button>
+                      {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                      {isFetching ? 'Loading…' : 'Load more'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -369,95 +376,79 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           </div>
         </TabsContent>
 
+        {/* ── Local / Installed tab ─────────────────────────────── */}
         <TabsContent value="local" className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 pb-4 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300">
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-transparent mt-4">
             {editMode === 'visual' ? (
               <div className="overflow-hidden h-full flex flex-col">
                 {Object.keys(mcpServerConfig.mcpServers || {}).length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground pb-12 relative">
-                    {/* Decorative background elements */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-50">
-                      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-gray-200/5 dark:bg-gray-700/5 rounded-full blur-3xl" />
-                      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-gray-200/5 dark:bg-gray-700/5 rounded-full blur-3xl" />
+                  <div className="flex flex-col items-center justify-center h-full gap-2.5 pb-10">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xs">
+                      <Server className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                     </div>
-
-                    <div className="relative z-10 flex flex-col items-center">
-                      {/* Animated icon container */}
-                      <div className="relative mb-6 group">
-                        <div className="absolute inset-0 bg-linear-to-br from-gray-200/20 to-gray-300/20 dark:from-gray-700/20 dark:to-gray-800/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500" />
-                        <div className="relative h-20 w-20 rounded-2xl bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-lg group-hover:scale-105 transition-transform duration-300 will-change-transform">
-                          <Server className="h-9 w-9 text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors duration-300" />
-                        </div>
-                      </div>
-
-                      <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
-                        No Servers Installed
-                      </h3>
-                      <p className="text-sm text-muted-foreground text-center mb-6 max-w-[280px] leading-relaxed">
-                        Your workspace is ready. Install servers from the registry or configure them manually.
+                    <div className="space-y-1 text-center">
+                      <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 tracking-tight">No servers installed</p>
+                      <p className="text-[12px] text-gray-400 dark:text-gray-500 max-w-[260px] leading-relaxed">
+                        Browse the registry or paste a JSON config to get started.
                       </p>
-
-                      <div className="flex items-center gap-3">
-                        <Button
-                          onClick={() => setActiveTab('registry')}
-                          size="sm"
-                          className="h-9 px-5 text-xs font-semibold bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 shadow-xs rounded-lg transition-all duration-200"
-                        >
-                          Browse Registry
-                        </Button>
-                        <Button
-                          onClick={() => setEditMode('json')}
-                          size="sm"
-                          variant="outline"
-                          className="h-9 px-5 text-xs font-semibold border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
-                        >
-                          Add Manually
-                        </Button>
-                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <button
+                        onClick={() => setActiveTab('registry')}
+                        className="h-8 px-4 rounded-md text-[12px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10"
+                      >
+                        Browse Registry
+                      </button>
+                      <button
+                        onClick={() => setEditMode('json')}
+                        className="h-8 px-4 rounded-md text-[12px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-150"
+                      >
+                        Add Manually
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 overflow-auto custom-scrollbar -mx-4 px-4">
-                  <div className="grid grid-cols-1 gap-3 pb-6">
-                    {Object.entries(mcpServerConfig.mcpServers || {}).map(([name, config], index) => {
-                      const serverType = config.type || (config.command ? 'STDIO' : 'GENERIC')
-                      const configDisplay = config.url || (config.command && `${config.command} ${config.args?.join(' ') || ''}`)
-                      const fallbackDescription =
-                        config.description ||
-                        registryServers.find((item) => item.server.name === name)?.server.description ||
-                        searchResults.find((item) => item.server.name === name)?.server.description ||
-                        serversCache?.servers.find((item) => item.server.name === name)?.server.description
-                      const fallbackVersion =
-                        config.version ||
-                        registryServers.find((item) => item.server.name === name)?.server.version ||
-                        searchResults.find((item) => item.server.name === name)?.server.version ||
-                        serversCache?.servers.find((item) => item.server.name === name)?.server.version
+                  <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent -mx-4 px-4">
+                    <div className="grid grid-cols-1 gap-3 pb-6">
+                      {Object.entries(mcpServerConfig.mcpServers || {}).map(([name, config], index) => {
+                        const serverType = config.type || (config.command ? 'STDIO' : 'GENERIC')
+                        const configDisplay = config.url || (config.command && `${config.command} ${config.args?.join(' ') || ''}`)
+                        const fallbackDescription =
+                          config.description ||
+                          registryServers.find((item) => item.server.name === name)?.server.description ||
+                          searchResults.find((item) => item.server.name === name)?.server.description ||
+                          serversCache?.servers.find((item) => item.server.name === name)?.server.description
+                        const fallbackVersion =
+                          config.version ||
+                          registryServers.find((item) => item.server.name === name)?.server.version ||
+                          searchResults.find((item) => item.server.name === name)?.server.version ||
+                          serversCache?.servers.find((item) => item.server.name === name)?.server.version
 
-                      return (
-                        <MCPServerCard
-                          key={name}
-                          mode="installed"
-                          name={name}
-                          description={fallbackDescription}
-                          version={fallbackVersion}
-                          connectionType={serverType}
-                          configDisplay={configDisplay || undefined}
-                          onCopyConfig={() => {
-                            navigator.clipboard.writeText(JSON.stringify(config, null, 2))
-                            toast.success('Configuration copied to clipboard')
-                          }}
-                          onUninstall={() => handleUninstallServer(name)}
-                          animationDelay={index * 50}
-                        />
-                      )
-                    })}
+                        return (
+                          <MCPServerCard
+                            key={name}
+                            mode="installed"
+                            name={name}
+                            description={fallbackDescription}
+                            version={fallbackVersion}
+                            connectionType={serverType}
+                            configDisplay={configDisplay || undefined}
+                            onCopyConfig={() => {
+                              navigator.clipboard.writeText(JSON.stringify(config, null, 2))
+                              toast.success('Configuration copied to clipboard')
+                            }}
+                            onUninstall={() => handleUninstallServer(name)}
+                            animationDelay={index * 50}
+                          />
+                        )
+                      })}
                     </div>
                   </div>
                 )}
               </div>
             ) : (
               <div className="h-full overflow-hidden flex flex-col gap-3">
-                <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-xs bg-white dark:bg-gray-900/60 backdrop-blur-xs relative">
+                <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-xs bg-white dark:bg-gray-900/60 relative">
                   <CodeMirror
                     value={configJson}
                     height="100%"
@@ -497,21 +488,12 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                   />
                 </div>
 
-                <div className="shrink-0 flex items-center justify-between px-3 py-2.5 rounded-xl bg-linear-to-r from-gray-100/80 to-gray-50/80 dark:from-gray-800/60 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/40 backdrop-blur-xs">
+                <div className="shrink-0 flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/40">
                   <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-gray-900 dark:bg-gray-100 flex items-center justify-center shadow-xs">
-                      <Code className="h-3.5 w-3.5 text-white dark:text-black" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">JSON Edit Mode</span>
-                      <span className="text-[9px] font-medium text-muted-foreground/70">Direct configuration mode</span>
-                    </div>
+                    <Code className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">JSON Edit Mode</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-700/30">
-                      <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Auto-Saved</span>
-                    </div>
-                  </div>
+                  <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Auto-saved</span>
                 </div>
               </div>
             )}
@@ -547,7 +529,7 @@ const MCPServersManager: React.FC<MCPServersManagerProps> = ({
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-              <Code className="h-4 w-4" />
+              <i className="ri-close-line text-[18px] text-gray-500 dark:text-gray-400" />
             </Button>
           </div>
         </DrawerHeader>
@@ -559,24 +541,14 @@ const MCPServersManager: React.FC<MCPServersManagerProps> = ({
           />
         </div>
 
-        <DrawerFooter className="border-t border-gray-100 dark:border-gray-900 px-6 py-4 bg-gray-50/50 dark:bg-transparent">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-4 text-[11px] font-bold text-muted-foreground/60 tracking-tight">
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                REGISTRY STATUS: ONLINE
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-gray-400" />
-                V2.1 INTERFACE
-              </div>
-            </div>
+        <DrawerFooter className="border-t border-gray-100 dark:border-gray-900 px-6 py-3 bg-gray-50/50 dark:bg-transparent">
+          <div className="flex justify-end w-full">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg px-6 font-medium border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all h-9 text-xs"
+              className="rounded-lg px-5 font-medium border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all h-8 text-[12px]"
             >
-              Close Manager
+              Close
             </Button>
           </div>
         </DrawerFooter>
