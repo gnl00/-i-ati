@@ -8,7 +8,8 @@ import {
   SKILL_LOAD_ACTION,
   SKILL_UNLOAD_ACTION,
   SKILL_IMPORT_ACTION,
-  SKILL_READ_FILE_ACTION
+  SKILL_READ_FILE_ACTION,
+  SKILL_DELETE_ACTION
 } from '@shared/constants'
 
 export function registerSkillHandlers(): void {
@@ -45,5 +46,10 @@ export function registerSkillHandlers(): void {
   ipcMain.handle(SKILL_IMPORT_ACTION, async (_event, args) => {
     console.log('[Skill IPC] Import skills from folder')
     return await processImportSkills(args)
+  })
+
+  ipcMain.handle(SKILL_DELETE_ACTION, async (_event, { name }) => {
+    console.log(`[Skill IPC] Delete skill: ${name}`)
+    await SkillService.deleteSkill(name)
   })
 }

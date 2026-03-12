@@ -621,6 +621,17 @@ class SkillService {
     return await fs.readFile(skillFile, 'utf-8')
   }
 
+  static async deleteSkill(name: string): Promise<void> {
+    validateSkillName(name)
+    const root = await ensureSkillsDir()
+    const skillDir = path.join(root, name)
+    if (!(await skillDirExists(skillDir))) {
+      throw new Error(`Skill "${name}" not found`)
+    }
+    await fs.rm(skillDir, { recursive: true, force: true })
+    markSkillCacheDirty()
+  }
+
   static async loadSkill(args: LoadSkillArgs): Promise<SkillMetadata> {
     if (!args?.source) {
       throw new Error('source is required')
