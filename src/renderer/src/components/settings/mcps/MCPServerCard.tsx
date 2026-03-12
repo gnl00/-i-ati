@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Badge } from '@renderer/components/ui/badge'
 import { cn } from '@renderer/lib/utils'
 import { Check, ExternalLink } from 'lucide-react'
@@ -52,6 +52,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
   onCopyConfig,
   animationDelay
 }) => {
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
   const displayName = (title || name).substring((title || name).indexOf('/') + 1)
   const isInstalled = mode === 'installed' || installed
 
@@ -187,7 +188,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
               </button>
             )
           ) : (
-            <>
+          <>
               <button
                 onClick={onCopyConfig}
                 className="h-7 px-2.5 flex items-center gap-1 rounded-md text-[11px] font-medium text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-150"
@@ -196,14 +197,51 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                 <i className="ri-braces-line text-[12px]" />
                 Copy
               </button>
-              <button
-                onClick={onUninstall}
-                className="h-7 px-2.5 flex items-center gap-1 rounded-md text-[11px] font-medium text-gray-400 dark:text-gray-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all duration-150"
-                title="Remove server"
-              >
-                <i className="ri-delete-bin-line text-[12px]" />
-                Remove
-              </button>
+
+              {/* Remove / No·Yes 原地切换容器 */}
+              <div className="relative" style={{ width: 76, height: 28 }}>
+                {/* Remove 状态 */}
+                <button
+                  onClick={() => setConfirmingRemove(true)}
+                  title="Remove server"
+                  className="absolute inset-0 flex items-center justify-center gap-1 rounded-md text-[11px] font-medium text-gray-400 dark:text-gray-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  style={{
+                    transition: 'opacity 140ms ease, transform 140ms ease, background-color 120ms ease, color 120ms ease',
+                    opacity: confirmingRemove ? 0 : 1,
+                    transform: confirmingRemove ? 'scale(0.75)' : 'scale(1)',
+                    pointerEvents: confirmingRemove ? 'none' : 'auto',
+                  }}
+                >
+                  <i className="ri-delete-bin-line text-[12px]" />
+                  Remove
+                </button>
+
+                {/* No | Yes 状态 */}
+                <div
+                  className="absolute inset-0 flex items-center justify-center"
+                  style={{
+                    transition: 'opacity 160ms ease 30ms, transform 160ms ease 30ms',
+                    opacity: confirmingRemove ? 1 : 0,
+                    transform: confirmingRemove ? 'scale(1)' : 'scale(0.75)',
+                    pointerEvents: confirmingRemove ? 'auto' : 'none',
+                  }}
+                >
+                  <button
+                    onClick={() => setConfirmingRemove(false)}
+                    className="h-[22px] px-2 text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded-l-md border border-gray-200 dark:border-gray-700 border-r-0"
+                    style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
+                  >
+                    No
+                  </button>
+                  <button
+                    onClick={onUninstall}
+                    className="h-[22px] px-2 text-[11px] font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-r-md border border-gray-200 dark:border-gray-700"
+                    style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
+                  >
+                    Yes
+                  </button>
+                </div>
+              </div>
             </>
           )}
         </div>
