@@ -1,7 +1,7 @@
 import React from 'react'
 import { Badge } from '@renderer/components/ui/badge'
 import { cn } from '@renderer/lib/utils'
-import { Check, Code, ExternalLink } from 'lucide-react'
+import { Check, ExternalLink } from 'lucide-react'
 
 type RepositoryInfo = {
   url?: string
@@ -205,7 +205,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                 className="h-7 w-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-150"
                 title="Copy Configuration"
               >
-                <Code className="h-3.5 w-3.5" />
+                <i className="ri-braces-line text-[13px]" />
               </button>
               <button
                 onClick={onUninstall}
