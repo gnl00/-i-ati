@@ -160,31 +160,57 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
                         {item.context_origin}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 pt-0.5 shrink-0">
-                      {confirmingDeleteId === item.id ? (
-                        <>
+                    <div className="relative flex items-center justify-end pt-0.5 shrink-0" style={{ minWidth: 90 }}>
+                      {/* 删除图标 —— 始终在 DOM 中，确认时淡出缩小 */}
+                      <button
+                        onClick={() => setConfirmingDeleteId(item.id)}
+                        aria-label="Delete memory"
+                        className="absolute right-0 h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                        style={{
+                          transition: 'opacity 160ms ease, transform 160ms ease, background-color 120ms ease, color 120ms ease',
+                          ...(confirmingDeleteId === item.id && {
+                            opacity: 0,
+                            transform: 'scale(0.4) rotate(-15deg)',
+                            pointerEvents: 'none',
+                          }),
+                        }}
+                      >
+                        <i className="ri-delete-bin-line text-[13px]" />
+                      </button>
+
+                      {/* Cancel / Delete —— 始终在 DOM 中，未确认时淡出偏移 */}
+                      <div className="flex items-center gap-1">
+                        {/* Cancel：先出现 */}
+                        <div style={{
+                          transition: 'opacity 180ms ease, transform 180ms ease',
+                          opacity: confirmingDeleteId === item.id ? 1 : 0,
+                          transform: confirmingDeleteId === item.id ? 'translateX(0) scale(1)' : 'translateX(6px) scale(0.92)',
+                          pointerEvents: confirmingDeleteId === item.id ? 'auto' : 'none',
+                        }}>
                           <button
                             onClick={() => setConfirmingDeleteId(null)}
-                            className="h-6 px-2 rounded text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-150"
+                            className="h-6 px-2 rounded text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                            style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
                           >
                             Cancel
                           </button>
+                        </div>
+                        {/* Delete：延迟 40ms，错落感 */}
+                        <div style={{
+                          transition: 'opacity 180ms ease 40ms, transform 180ms ease 40ms',
+                          opacity: confirmingDeleteId === item.id ? 1 : 0,
+                          transform: confirmingDeleteId === item.id ? 'translateX(0) scale(1)' : 'translateX(8px) scale(0.92)',
+                          pointerEvents: confirmingDeleteId === item.id ? 'auto' : 'none',
+                        }}>
                           <button
                             onClick={() => handleDeleteMemory(item.id)}
-                            className="h-6 px-2 rounded text-[11px] font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all duration-150"
+                            className="h-6 px-2 rounded text-[11px] font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                            style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
                           >
                             Delete
                           </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmingDeleteId(item.id)}
-                          className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all duration-150"
-                          aria-label="Delete memory"
-                        >
-                          <i className="ri-delete-bin-line text-[13px]" />
-                        </button>
-                      )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )

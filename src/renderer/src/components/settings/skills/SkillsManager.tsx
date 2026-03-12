@@ -445,7 +445,7 @@ const SkillsManager: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 pt-0.5 shrink-0">
+                    <div className="relative flex items-center justify-end pt-0.5 shrink-0" style={{ minWidth: 90 }}>
                       {/* Switch temporarily disabled — skill activation requires an open chat (chat_uuid binding) */}
                       {/* <Switch
                         checked={isActive}
@@ -453,30 +453,56 @@ const SkillsManager: React.FC = () => {
                         disabled={isPending}
                         className="data-[state=checked]:bg-emerald-600 scale-90 origin-center disabled:opacity-40"
                       /> */}
-                      {confirmingDeleteId === skill.name ? (
-                        <>
+                      {/* 删除图标 —— 始终在 DOM 中，确认时淡出缩小 */}
+                      <button
+                        onClick={() => setConfirmingDeleteId(skill.name)}
+                        aria-label="Remove skill"
+                        className="absolute right-0 h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                        style={{
+                          transition: 'opacity 160ms ease, transform 160ms ease, background-color 120ms ease, color 120ms ease',
+                          ...(confirmingDeleteId === skill.name && {
+                            opacity: 0,
+                            transform: 'scale(0.4) rotate(-15deg)',
+                            pointerEvents: 'none',
+                          }),
+                        }}
+                      >
+                        <i className="ri-delete-bin-line text-[13px]" />
+                      </button>
+
+                      {/* Cancel / Remove —— 始终在 DOM 中，未确认时淡出偏移 */}
+                      <div className="flex items-center gap-1">
+                        {/* Cancel：先出现 */}
+                        <div style={{
+                          transition: 'opacity 180ms ease, transform 180ms ease',
+                          opacity: confirmingDeleteId === skill.name ? 1 : 0,
+                          transform: confirmingDeleteId === skill.name ? 'translateX(0) scale(1)' : 'translateX(6px) scale(0.92)',
+                          pointerEvents: confirmingDeleteId === skill.name ? 'auto' : 'none',
+                        }}>
                           <button
                             onClick={() => setConfirmingDeleteId(null)}
-                            className="h-6 px-2 rounded text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-150"
+                            className="h-6 px-2 rounded text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                            style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
                           >
                             Cancel
                           </button>
+                        </div>
+                        {/* Remove：延迟 40ms，错落感 */}
+                        <div style={{
+                          transition: 'opacity 180ms ease 40ms, transform 180ms ease 40ms',
+                          opacity: confirmingDeleteId === skill.name ? 1 : 0,
+                          transform: confirmingDeleteId === skill.name ? 'translateX(0) scale(1)' : 'translateX(8px) scale(0.92)',
+                          pointerEvents: confirmingDeleteId === skill.name ? 'auto' : 'none',
+                        }}>
                           <button
                             onClick={() => handleDeleteSkill(skill.name)}
-                            className="h-6 px-2 rounded text-[11px] font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all duration-150"
+                            className="h-6 px-2 rounded text-[11px] font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                            style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
                           >
                             Remove
                           </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmingDeleteId(skill.name)}
-                          className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all duration-150"
-                          aria-label="Remove skill"
-                        >
-                          <i className="ri-delete-bin-line text-[13px]" />
-                        </button>
-                      )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )
