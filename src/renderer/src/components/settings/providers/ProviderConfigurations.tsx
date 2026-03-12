@@ -25,7 +25,8 @@ const fieldClassName = cn(
     'h-8 text-[12.5px]',
     'bg-white dark:bg-gray-800/60',
     'border-gray-200 dark:border-gray-700',
-    'focus-visible:ring-transparent focus-visible:ring-offset-0',
+    'focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0',
+    'focus-visible:border-gray-400 dark:focus-visible:border-gray-500',
     'transition-colors duration-150'
 )
 
@@ -109,7 +110,7 @@ const ProviderConfigurations = ({
                         <SelectTrigger
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => event.stopPropagation()}
-                            className={cn(fieldClassName, 'w-full')}
+                            className={cn(fieldClassName, 'w-full', 'focus:ring-2 focus:ring-gray-300/80 dark:focus:ring-gray-600/80 focus:ring-offset-0 focus:border-gray-400 dark:focus:border-gray-500')}
                         >
                             <SelectValue placeholder="Select adapter" />
                         </SelectTrigger>

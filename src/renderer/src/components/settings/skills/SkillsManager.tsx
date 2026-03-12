@@ -299,8 +299,8 @@ const SkillsManager: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 pr-8 h-8 text-[12px] bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700/60 dark:text-gray-200
-                  focus-visible:ring-0 focus-visible:ring-offset-0
-                  focus-visible:border-emerald-400 dark:focus-visible:border-emerald-600
+                  focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0
+                  focus-visible:border-gray-400 dark:focus-visible:border-gray-500
                   transition-all duration-200 rounded-lg placeholder:text-gray-400/60 dark:placeholder:text-gray-600 shadow-none"
               />
               {searchQuery && (

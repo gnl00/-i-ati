@@ -105,7 +105,8 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                 'rounded-lg',
                 'text-gray-700 dark:text-gray-200',
                 'placeholder:text-gray-400 dark:placeholder:text-gray-500',
-                'focus-visible:ring-transparent focus-visible:ring-offset-0',
+                'focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0',
+                'focus-visible:border-gray-400 dark:focus-visible:border-gray-500',
               )}
             />
           </div>
