@@ -1,5 +1,4 @@
 import { Badge } from '@renderer/components/ui/badge'
-import { Button } from "@renderer/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@renderer/components/ui/command'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'

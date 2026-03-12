@@ -251,13 +251,13 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                     }}
                 />
                 {/* Provider Details */}
-                <div id="providerDetails" className='w-3/4 flex flex-col h-full gap-3 px-2 pt-2'>
+                <div id="providerDetails" className='w-3/4 flex flex-col h-full px-0.5 pt-0.5'>
                     {!selectedDefinition ? (
                         <div className='flex-1 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400'>
                             No providers available.
                         </div>
                     ) : (
-                        <>
+                        <div className='flex-1 min-h-0 overflow-hidden rounded-lg border border-gray-200/70 dark:border-gray-700/70 shadow-[0_14px_30px_-18px_rgba(15,23,42,0.22)] flex flex-col'>
                             <ProviderConfigurations
                                 providerDefinition={selectedDefinition}
                                 account={currentAccount}
@@ -269,7 +269,6 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                     onAccountDeleteClick(undefined as any, currentAccount)
                                 }}
                             />
-                            {/* Models List */}
                             <ProviderModelsList
                                 selectedProviderId={selectedProviderId}
                                 currentAccount={currentAccount}
@@ -278,7 +277,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                                 isFetchDisabled={!currentAccount?.apiKey}
                                 ensureAccountForProvider={ensureAccountForProvider}
                             />
-                        </>
+                        </div>
                     )}
                 </div>
             </div>
