@@ -85,11 +85,8 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
                 <Label htmlFor="toggle-memory" className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
                   Long-term Memory
                 </Label>
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                  MEMORY
-                </Badge>
                 {memoryItems.length > 0 && (
-                  <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
+                  <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-indigo-600 border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800">
                     {memoryItems.length} stored
                   </Badge>
                 )}
@@ -102,7 +99,7 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
               checked={memoryEnabled}
               onCheckedChange={setMemoryEnabled}
               id="toggle-memory"
-              className="data-[state=checked]:bg-emerald-600 mt-0.5 shrink-0"
+              className="data-[state=checked]:bg-indigo-600 mt-0.5 shrink-0"
             />
           </div>
 

@@ -109,20 +109,20 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
 
     return (
         <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
-            <div className='w-full h-full space-y-2 p-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500'>
+            <div className='w-full h-full space-y-2 p-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'>
                 {/* Title Generation Setting */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md">
-                    <div className="p-5 flex items-start gap-4">
-                        <div className="flex-1 space-y-1">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
+                    <div className="px-4 py-4 flex items-start gap-4">
+                        <div className="flex-1 space-y-1.5">
                             <div className="flex items-center gap-2">
-                                <Label htmlFor="toggle-title-generation" className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                <Label htmlFor="toggle-title-generation" className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
                                     Title Generation
                                 </Label>
                                 <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                                    AI
+                                    TITLE
                                 </Badge>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
                                 Automatically analyze conversation context and generate concise, meaningful titles using AI models.
                             </p>
                         </div>
@@ -130,7 +130,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                             checked={titleGenerateEnabled}
                             onCheckedChange={setTitleGenerateEnabled}
                             id="toggle-title-generation"
-                            className="data-[state=checked]:bg-blue-600 mt-1"
+                            className="data-[state=checked]:bg-blue-500 mt-0.5 shrink-0"
                         />
                     </div>
                     {/* Model Selection Area */}
@@ -139,28 +139,27 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                         titleGenerateEnabled ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                     )}>
                         <div className="overflow-hidden">
-                            <div className="p-4 pt-3 flex items-center justify-between gap-4">
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Target Model</span>
+                            <div className="px-4 py-2.5 flex items-center justify-between gap-4">
+                                <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Target Model</span>
                                 <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
                                     <PopoverTrigger disabled={!titleGenerateEnabled} asChild>
-                                        <Button
-                                            variant="outline"
+                                        <button
                                             role="combobox"
                                             aria-expanded={selectTitleModelPopoutState}
-                                            className="w-fit justify-between bg-white dark:bg-gray-800 h-9 text-sm"
+                                            className="h-8 px-3 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-[12px] hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 min-w-[180px] justify-between"
                                         >
                                             <div className="flex items-center gap-2 truncate">
-                                                <span className="truncate font-medium">
-                                                    {selectedTitleModel ? selectedTitleModel.model.label : "Select model..."}
+                                                <span className="truncate font-medium text-gray-700 dark:text-gray-200">
+                                                    {selectedTitleModel ? selectedTitleModel.model.label : "Select model…"}
                                                 </span>
                                                 {selectedTitleModel && (
-                                                    <span className="text-xs text-gray-400">
+                                                    <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
                                                         {selectedTitleModel.definition?.displayName || selectedTitleModel.account.label}
                                                     </span>
                                                 )}
                                             </div>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
+                                            <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 text-gray-400 opacity-70" />
+                                        </button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-fit p-0 rounded-xl bg-white/50 backdrop-blur-lg" align="end">
                                         <Command className='rounded-3xl bg-transparent'>
@@ -210,18 +209,18 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                 </div>
 
                 {/* WebSearch Items Setting */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs p-5 hover:shadow-md transition-all duration-200">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs px-4 py-4">
                     <div className="flex items-center justify-between gap-6">
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 space-y-1.5">
                             <div className="flex items-center gap-2">
-                                <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
                                     Web Search Limit
                                 </Label>
                                 <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800">
                                     WEB
                                 </Badge>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
                                 Max number of search results to process (1-10). Higher values provide more context but increase token usage and latency.
                             </p>
                         </div>
@@ -242,19 +241,19 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                 </div>
 
                 {/* Message Compression Setting */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md">
-                    <div className="p-5 flex items-start gap-4">
-                        <div className="flex-1 space-y-1">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
+                    <div className="px-4 py-4 flex items-start gap-4">
+                        <div className="flex-1 space-y-1.5">
                             <div className="flex items-center gap-2">
                                 {/* onClick={(e) => e.preventDefault()} to prevent the switch from being toggled when clicking the label */}
-                                <Label htmlFor="toggle-compression" className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                <Label htmlFor="toggle-compression" className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
                                     Message Compression
                                 </Label>
                                 <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-cyan-600 border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-800">
                                     TOKEN
                                 </Badge>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
                                 Automatically compress older messages to save tokens when sending to LLM. UI always displays full original messages.
                             </p>
                         </div>
@@ -262,7 +261,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                             checked={compressionEnabled}
                             onCheckedChange={setCompressionEnabled}
                             id="toggle-compression"
-                            className="data-[state=checked]:bg-cyan-600 mt-1"
+                            className="data-[state=checked]:bg-emerald-600 mt-0.5 shrink-0"
                         />
                     </div>
                     {/* Compression Configuration Area */}
@@ -271,37 +270,41 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                         compressionEnabled ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                     )}>
                         <div className="overflow-hidden">
-                            <div className="p-4 pt-3 space-y-4">
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Compression Parameters</span>
+                            <div className="px-4 pt-2.5 pb-1">
+                                <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Compression Parameters</span>
+                            </div>
+                            <div className="px-4">
 
                                 {/* Trigger Threshold */}
-                                <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-100 dark:border-gray-800/60">
                                     <div className="flex-1">
-                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Trigger Threshold</Label>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Compress when message count exceeds this value</p>
+                                        <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Trigger Threshold</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Compress when message count exceeds this value</p>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
                                         <Input
+                                            type="number"
                                             value={compressionTriggerThreshold}
                                             onChange={(e) => {
                                                 const value = parseInt(e.target.value) || 30
                                                 setCompressionTriggerThreshold(value)
                                             }}
                                             disabled={!compressionEnabled}
-                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
                                         />
                                         <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
                                     </div>
                                 </div>
 
                                 {/* Keep Recent Count */}
-                                <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-100 dark:border-gray-800/60">
                                     <div className="flex-1">
-                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Keep Recent Count</Label>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Number of recent messages to keep uncompressed</p>
+                                        <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Keep Recent Count</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Number of recent messages to keep uncompressed</p>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
                                         <Input
+                                            type="number"
                                             min={5}
                                             max={50}
                                             value={compressionKeepRecentCount}
@@ -310,20 +313,21 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                                 setCompressionKeepRecentCount(value)
                                             }}
                                             disabled={!compressionEnabled}
-                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
                                         />
                                         <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
                                     </div>
                                 </div>
 
                                 {/* Compress Count */}
-                                <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center justify-between gap-4 py-2.5">
                                     <div className="flex-1">
-                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Compress Count</Label>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Number of oldest messages to compress each time</p>
+                                        <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Compress Count</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Number of oldest messages to compress each time</p>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
                                         <Input
+                                            type="number"
                                             min={5}
                                             max={30}
                                             value={compressionCompressCount}
@@ -332,45 +336,46 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                                 setCompressionCompressCount(value)
                                             }}
                                             disabled={!compressionEnabled}
-                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium transition-all focus:w-20'
+                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
                                         />
                                         <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
                                     </div>
                                 </div>
+
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Configuration Backup */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md">
-                    <div className="p-5">
-                        <div className="space-y-1">
+                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
+                    <div className="px-4 py-4">
+                        <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
-                                <Label className="text-base font-medium text-gray-900 dark:text-gray-100">
+                                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
                                     Configuration Backup
                                 </Label>
                                 <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800">
                                     Data
                                 </Badge>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
                                 Export your configuration to a JSON file for backup or transfer to another device. You can also import a previously saved configuration.
                             </p>
                         </div>
                     </div>
-                    <div className="bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50">
-                        <div className="p-4 pt-3 flex items-center justify-between gap-4">
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Backup & Restore</span>
+                    <div className="bg-gray-50/40 dark:bg-gray-900/20 border-t border-gray-100 dark:border-gray-700/50">
+                        <div className="px-4 py-2.5 flex items-center justify-between gap-4">
+                            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Backup & Restore</span>
                             <div className="flex items-center gap-2">
-                                <Button onClick={handleExportConfig} variant="outline" size="sm" className="shadow-xs">
-                                    <i className="ri-download-line mr-1.5"></i>
-                                    Export Config
-                                </Button>
-                                <Button onClick={handleImportConfig} variant="outline" size="sm" className="shadow-xs">
-                                    <i className="ri-upload-line mr-1.5"></i>
-                                    Import Config
-                                </Button>
+                                <button onClick={handleExportConfig} className="h-7 px-3 flex items-center gap-1.5 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10">
+                                    <i className="ri-download-line text-[12px]" />
+                                    Export
+                                </button>
+                                <button onClick={handleImportConfig} className="h-7 px-3 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:scale-[0.97] transition-all duration-150">
+                                    <i className="ri-upload-line text-[12px]" />
+                                    Import
+                                </button>
                             </div>
                         </div>
                     </div>
