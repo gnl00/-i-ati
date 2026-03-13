@@ -47,6 +47,7 @@ import {
   processScheduleList,
   processScheduleUpdate
 } from '@main/tools/schedule/ScheduleToolsProcessor'
+import { processPreDecisionMemoCreate } from '@main/tools/decision/PreDecisionMemoProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
@@ -88,7 +89,8 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   schedule_create: processScheduleCreate,
   schedule_list: processScheduleList,
   schedule_cancel: processScheduleCancel,
-  schedule_update: processScheduleUpdate
+  schedule_update: processScheduleUpdate,
+  pre_decision_memo_create: processPreDecisionMemoCreate
 }
 
 export function initializeMainEmbeddedTools(): void {
