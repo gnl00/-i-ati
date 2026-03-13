@@ -8,6 +8,7 @@ interface UseScrollManagerTopProps {
   messagesLength: number
   chatUuid?: string
   onUserScrollUpIntentRef?: RefObject<(() => void) | null>
+  onBeforeAutoTopScroll?: () => void
 }
 
 interface UseScrollManagerTopReturn {
@@ -24,11 +25,26 @@ interface UseScrollManagerTopReturn {
   onRangeChanged: (range: { startIndex: number; endIndex: number }) => void
 }
 
+export function shouldAutoScrollTopOnMessageGrowth(
+  messages: MessageEntity[],
+  previousLength: number,
+  nextLength: number
+): boolean {
+  if (nextLength <= previousLength) {
+    return false
+  }
+
+  return messages
+    .slice(previousLength, nextLength)
+    .some(message => message.body.role === 'user')
+}
+
 export function useScrollManagerTop({
   messages,
   messagesLength,
   chatUuid,
-  onUserScrollUpIntentRef
+  onUserScrollUpIntentRef,
+  onBeforeAutoTopScroll
 }: UseScrollManagerTopProps): UseScrollManagerTopReturn {
   const scrollParentRef = useRef<HTMLDivElement>(null)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
@@ -113,9 +129,23 @@ export function useScrollManagerTop({
   useEffect(() => {
     const previousLength = prevMessagesLengthRef.current
     const hasNewMessage = messagesLength > previousLength
+    const shouldAutoScroll = shouldAutoScrollTopOnMessageGrowth(messages, previousLength, messagesLength)
     prevMessagesLengthRef.current = messagesLength
 
     if (!hasNewMessage || messagesLength <= 0) {
+      return
+    }
+
+    // Chat switch loads historical messages asynchronously. That hydration should
+    // not be treated as a fresh user send or auto-top trigger.
+    if (pendingChatInitScrollRef.current) {
+      pendingChatInitScrollRef.current = false
+      if (!shouldAutoScroll) {
+        return
+      }
+    }
+
+    if (!shouldAutoScroll) {
       return
     }
 
@@ -124,14 +154,12 @@ export function useScrollManagerTop({
     }
 
     forceScrollRafRef.current = requestAnimationFrame(() => {
-      if (pendingChatInitScrollRef.current) {
-        pendingChatInitScrollRef.current = false
-      }
+      onBeforeAutoTopScroll?.()
       const targetIndex = resolveAnchorIndex(messages, 'latestUserForAutoTop')
       scrollToIndex(targetIndex, false)
       forceScrollRafRef.current = 0
     })
-  }, [messages, messagesLength, scrollToIndex])
+  }, [messages, messagesLength, onBeforeAutoTopScroll, scrollToIndex])
 
   useEffect(() => {
     if (lastChatUuidRef.current === chatUuid) {

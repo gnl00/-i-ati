@@ -8,6 +8,7 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { ArrowDown } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { flushSync } from 'react-dom'
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Virtuoso, type StateSnapshot } from 'react-virtuoso'
 import { useScrollManagerTop } from '@renderer/hooks/useScrollManagerTop'
@@ -36,6 +37,18 @@ const ChatMessageRow: React.FC<{
   )
 })
 
+function getAssistantTextSignature(message?: MessageEntity): string {
+  if (!message || message.body.role !== 'assistant') {
+    return ''
+  }
+
+  const segments = message.body.segments ?? []
+  return segments
+    .filter(segment => segment.type === 'text')
+    .map(segment => segment.content ?? '')
+    .join('\n')
+}
+
 const ChatWindowComponentNext: React.FC = () => {
   const messages = useChatStore(state => state.messages)
   const lastAssistantIndex = useChatStore(state => {
@@ -53,6 +66,7 @@ const ChatWindowComponentNext: React.FC = () => {
   const updateMessage = useChatStore(state => state.updateMessage)
   const upsertMessage = useChatStore(state => state.upsertMessage)
   const onUserScrollUpIntentRef = useRef<(() => void) | null>(null)
+  const beforeAutoTopScrollRef = useRef<() => void>(() => undefined)
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const {
@@ -66,7 +80,8 @@ const ChatWindowComponentNext: React.FC = () => {
     messages,
     messagesLength: messages.length,
     chatUuid,
-    onUserScrollUpIntentRef
+    onUserScrollUpIntentRef,
+    onBeforeAutoTopScroll: () => beforeAutoTopScrollRef.current()
   })
 
   const lastMessageIndex = messages.length - 1
@@ -80,6 +95,9 @@ const ChatWindowComponentNext: React.FC = () => {
   const spacerDisabledAtLengthRef = useRef<number>(0)
   const prevReadStreamStateRef = useRef<boolean>(readStreamState)
   const spacerHeightRef = useRef<number>(0)
+  const lastChatUuidRef = useRef<string | undefined>(chatUuid)
+  const prevMessagesLengthRef = useRef<number>(messages.length)
+  const skipNextSpacerMeasurementRef = useRef<boolean>(false)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
   useToolConfirmations(chatUuid)
   useScheduleNotifications(chatUuid)
@@ -88,6 +106,23 @@ const ChatWindowComponentNext: React.FC = () => {
     : activePlans
 
   const latestMessageIndex = resolveAnchorIndex(messages, 'latestMessage')
+  const latestAssistantMessage = lastAssistantIndex >= 0 ? messages[lastAssistantIndex] : undefined
+  const latestAssistantTextSignature = getAssistantTextSignature(latestAssistantMessage)
+
+  useEffect(() => {
+    beforeAutoTopScrollRef.current = () => {
+      const container = scrollParentRef.current
+      if (!container) return
+
+      flushSync(() => {
+        const preliminarySpacerHeight = container.clientHeight
+        spacerHeightRef.current = preliminarySpacerHeight
+        spacerDisabledAtLengthRef.current = 0
+        setDisableTailSpacer(false)
+        setBottomSpacerHeight(preliminarySpacerHeight)
+      })
+    }
+  }, [scrollParentRef])
 
   const readVirtuosoState = useCallback((): StateSnapshot | null => {
     let snapshot: StateSnapshot | null = null
@@ -199,6 +234,36 @@ const ChatWindowComponentNext: React.FC = () => {
     }
   }, [messages.length, showWelcome])
 
+  useLayoutEffect(() => {
+    if (lastChatUuidRef.current === chatUuid) {
+      return
+    }
+
+    lastChatUuidRef.current = chatUuid
+    prevMessagesLengthRef.current = messages.length
+    skipNextSpacerMeasurementRef.current = true
+    spacerHeightRef.current = 0
+    setBottomSpacerHeight(0)
+    setDisableTailSpacer(false)
+  }, [chatUuid, messages.length])
+
+  useLayoutEffect(() => {
+    const previousLength = prevMessagesLengthRef.current
+    const hasHydratedHistory =
+      skipNextSpacerMeasurementRef.current &&
+      previousLength === 0 &&
+      messages.length > previousLength
+
+    prevMessagesLengthRef.current = messages.length
+
+    if (!hasHydratedHistory) {
+      return
+    }
+
+    spacerHeightRef.current = 0
+    setBottomSpacerHeight(0)
+  }, [messages.length])
+
   // Reset welcome page on chat switch
   useEffect(() => {
     if (messages.length === 0) {
@@ -219,22 +284,34 @@ const ChatWindowComponentNext: React.FC = () => {
     const wasStreaming = prevReadStreamStateRef.current
     prevReadStreamStateRef.current = readStreamState
     if (!wasStreaming || readStreamState) return
+    if (skipNextSpacerMeasurementRef.current) return
 
     const container = scrollParentRef.current
     if (!container) return
-    const latestMetrics = getLatestMetrics()
-    if (!latestMetrics) return
 
-    const viewportHeight = container.clientHeight
-    if (latestMetrics.height >= viewportHeight) {
-      spacerDisabledAtLengthRef.current = messages.length
-      setDisableTailSpacer(true)
-      setBottomSpacerHeight(0)
-      return
+    const finalizeSpacer = () => {
+      const actualVirtuosoHeight = container.scrollHeight - spacerHeightRef.current
+      const nextHeight = Math.max(
+        0,
+        Math.floor(container.scrollTop + container.clientHeight - actualVirtuosoHeight)
+      )
+
+      spacerHeightRef.current = nextHeight
+      setBottomSpacerHeight(nextHeight)
+
+      if (nextHeight <= 0) {
+        spacerDisabledAtLengthRef.current = messages.length
+        setDisableTailSpacer(true)
+        return
+      }
+
+      setDisableTailSpacer(false)
     }
 
-    setDisableTailSpacer(false)
-    setBottomSpacerHeight(Math.max(0, Math.floor(viewportHeight - latestMetrics.height)))
+    const rafId = requestAnimationFrame(finalizeSpacer)
+    return () => {
+      cancelAnimationFrame(rafId)
+    }
   }, [getLatestMetrics, messages.length, readStreamState, scrollParentRef])
 
   useEffect(() => {
@@ -246,6 +323,17 @@ const ChatWindowComponentNext: React.FC = () => {
     if (!container) return
 
     const measureSpacer = () => {
+      if (skipNextSpacerMeasurementRef.current) {
+        if (messages.length === 0) {
+          return
+        }
+        skipNextSpacerMeasurementRef.current = false
+        if (spacerHeightRef.current !== 0) {
+          spacerHeightRef.current = 0
+          setBottomSpacerHeight(0)
+        }
+        return
+      }
       if (disableTailSpacer) {
         if (spacerHeightRef.current !== 0) {
           spacerHeightRef.current = 0
@@ -257,9 +345,14 @@ const ChatWindowComponentNext: React.FC = () => {
       if (!latestMetrics) {
         return
       }
-      const viewportHeight = container.clientHeight
-      // Minimal tail space: exactly enough to place latest row at top.
-      const nextHeight = Math.max(0, Math.floor(viewportHeight - latestMetrics.height))
+      const actualVirtuosoHeight = container.scrollHeight - spacerHeightRef.current
+      // Keep the current top anchor stable while assistant content grows.
+      // If spacer shrinks faster than content grows, the browser clamps scrollTop
+      // to the new maxScrollTop and pushes the latest user message out of view.
+      const nextHeight = Math.max(
+        0,
+        Math.floor(container.scrollTop + container.clientHeight - actualVirtuosoHeight)
+      )
       if (nextHeight !== spacerHeightRef.current) {
         spacerHeightRef.current = nextHeight
         setBottomSpacerHeight(nextHeight)
@@ -283,30 +376,21 @@ const ChatWindowComponentNext: React.FC = () => {
     const containerObserver = new ResizeObserver(onContainerResize)
     containerObserver.observe(container)
 
-    // Stream 阶段文本高度变化频繁，使用 rAF + 时间门限做轻量轮询。
-    let streamRafId = 0
-    let lastStreamMeasureAt = 0
-    const streamTick = (ts: number) => {
-      if (ts - lastStreamMeasureAt >= 160) {
-        lastStreamMeasureAt = ts
-        scheduleUpdate()
-      }
-      streamRafId = requestAnimationFrame(streamTick)
-    }
-    if (readStreamState) {
-      streamRafId = requestAnimationFrame(streamTick)
-    }
-
     return () => {
       if (rafId) {
         cancelAnimationFrame(rafId)
       }
       containerObserver.disconnect()
-      if (streamRafId) {
-        cancelAnimationFrame(streamRafId)
-      }
     }
-  }, [artifactsPanelOpen, disableTailSpacer, getLatestMetrics, latestMessageIndex, readStreamState, scrollParentRef])
+  }, [
+    artifactsPanelOpen,
+    disableTailSpacer,
+    getLatestMetrics,
+    latestAssistantTextSignature,
+    latestMessageIndex,
+    readStreamState,
+    scrollParentRef
+  ])
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
