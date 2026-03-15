@@ -105,7 +105,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
         stiffness: 400,
         damping: 30
       }}
-      className='my-3 w-full max-w-full font-sans'
+      className='w-full max-w-full py-3 font-sans flow-root'
     >
       <Accordion
         type="single"
@@ -175,7 +175,7 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
                 duration: 0.2,
                 ease: "easeOut"
               }}
-              className="overflow-hidden mt-2"
+              className="overflow-hidden pt-2"
             >
               <div className={cn(
                 "relative rounded-xl overflow-hidden border border-b",
