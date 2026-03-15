@@ -70,9 +70,8 @@ import {
 
 export function registerToolHandlers(): void {
   ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param, fetchCounts, snippetsOnly }) => {
-    const counts = fetchCounts ?? 3
-    console.log(`[WebSearch IPC] Using fetchCounts: ${counts}`)
-    return processWebSearch({ fetchCounts: counts, param, snippetsOnly })
+    console.log(`[WebSearch IPC] Using fetchCounts: ${fetchCounts ?? 'config/default'}`)
+    return processWebSearch({ fetchCounts, param, snippetsOnly })
   })
 
   ipcMain.handle(WEB_FETCH_ACTION, (_event, args) => {
