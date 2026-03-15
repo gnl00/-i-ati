@@ -324,6 +324,23 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [chatUuid, messages.length])
 
   useEffect(() => {
+    if (spacerMeasureRafRef.current) {
+      cancelAnimationFrame(spacerMeasureRafRef.current)
+      spacerMeasureRafRef.current = 0
+    }
+    if (topAnchorLockRafRef.current) {
+      cancelAnimationFrame(topAnchorLockRafRef.current)
+      topAnchorLockRafRef.current = 0
+    }
+
+    spacerDisabledAtLengthRef.current = 0
+    disableTailSpacerRef.current = false
+    spacerHeightRef.current = 0
+    setDisableTailSpacer(false)
+    setBottomSpacerHeight(0)
+  }, [chatUuid])
+
+  useEffect(() => {
     if (!disableTailSpacer) return
     if (messages.length > spacerDisabledAtLengthRef.current) {
       disableTailSpacerRef.current = false
