@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio'
 import TurndownService from 'turndown'
 import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@tools/webTools/index.d'
 import { getWindowPool } from './BrowserWindowPool'
+import DatabaseService from '@main/services/DatabaseService'
 
 interface WebSearchProcessArgs {
   fetchCounts?: number
@@ -89,6 +90,23 @@ function withTimeout<T>(
       clearTimeout(timer)
     }
   })
+}
+
+function resolveConfiguredFetchCounts(fetchCounts?: number): number {
+  if (typeof fetchCounts === 'number' && fetchCounts > 0) {
+    return fetchCounts
+  }
+
+  try {
+    const configured = DatabaseService.getConfig()?.tools?.maxWebSearchItems
+    if (typeof configured === 'number' && configured > 0) {
+      return configured
+    }
+  } catch (error) {
+    console.warn('[WebSearch] Failed to read maxWebSearchItems from config:', error)
+  }
+
+  return 3
 }
 
 async function fetchPageContentViaHttp(
@@ -364,7 +382,7 @@ const processWebSearch = async ({
       return { success: false, results: [], error: 'query is required' }
     }
     const resolvedQuery = trimmedQuery
-    const resolvedFetchCounts = typeof fetchCounts === 'number' && fetchCounts > 0 ? fetchCounts : 3
+    const resolvedFetchCounts = resolveConfiguredFetchCounts(fetchCounts)
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.log(`[SEARCH START] Query: "${trimmedQuery}", Count: ${resolvedFetchCounts}, SnippetsOnly: ${Boolean(snippetsOnly)}`)
