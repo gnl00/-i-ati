@@ -8,7 +8,7 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { ArrowDown } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso, type StateSnapshot } from 'react-virtuoso'
 import { useScrollManagerTop } from '@renderer/hooks/useScrollManagerTop'
 import { resolveAnchorIndex } from './scroll-anchor'
@@ -22,7 +22,8 @@ const ChatMessageRow: React.FC<{
   message: MessageEntity
   lastAssistantIndex: number
   lastMessageIndex: number
-}> = memo(({ messageIndex, message, lastAssistantIndex, lastMessageIndex }) => {
+  onTypingChange?: () => void
+}> = memo(({ messageIndex, message, lastAssistantIndex, lastMessageIndex, onTypingChange }) => {
   const isLatest = message.body.role === 'assistant'
     ? messageIndex === lastAssistantIndex
     : messageIndex === lastMessageIndex
@@ -32,6 +33,7 @@ const ChatMessageRow: React.FC<{
       message={message.body}
       index={messageIndex}
       isLatest={isLatest}
+      onTypingChange={onTypingChange}
     />
   )
 })
@@ -78,8 +80,10 @@ const ChatWindowComponentNext: React.FC = () => {
   const [disableTailSpacer, setDisableTailSpacer] = useState<boolean>(false)
   const hasShownWelcomeRef = useRef<boolean>(false)
   const spacerDisabledAtLengthRef = useRef<number>(0)
-  const prevReadStreamStateRef = useRef<boolean>(readStreamState)
+  const disableTailSpacerRef = useRef<boolean>(false)
   const spacerHeightRef = useRef<number>(0)
+  const spacerMeasureRafRef = useRef<number>(0)
+  const topAnchorLockRafRef = useRef<number>(0)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
   useToolConfirmations(chatUuid)
   useScheduleNotifications(chatUuid)
@@ -87,7 +91,46 @@ const ChatWindowComponentNext: React.FC = () => {
     ? [pendingPlanReview.plan, ...activePlans]
     : activePlans
 
+  const autoTopAnchorIndex = resolveAnchorIndex(messages, 'latestUserForAutoTop')
   const latestMessageIndex = resolveAnchorIndex(messages, 'latestMessage')
+  const latestAssistantTextSignature = useMemo(() => {
+    if (lastAssistantIndex < 0) return ''
+    const latestAssistant = messages[lastAssistantIndex]
+    const segments = latestAssistant?.body?.segments ?? []
+
+    return segments
+      .filter((segment): segment is TextSegment => segment.type === 'text')
+      .map((segment) => `${segment.timestamp}:${segment.content.length}`)
+      .join('|')
+  }, [lastAssistantIndex, messages])
+  const latestAssistantNonTextSignature = useMemo(() => {
+    if (lastAssistantIndex < 0) return ''
+    const latestAssistant = messages[lastAssistantIndex]
+    const segments = latestAssistant?.body?.segments ?? []
+
+    return segments
+      .map((segment) => {
+        switch (segment.type) {
+          case 'text':
+            return ''
+          case 'toolCall': {
+            const status = typeof segment.content?.status === 'string' ? segment.content.status : ''
+            const resultShape = segment.isError
+              ? `err:${String(segment.content?.error || '')}`
+              : `ok:${segment.content?.result ? '1' : '0'}:${segment.content?.raw ? '1' : '0'}`
+            return `tool:${segment.toolCallId || segment.name}:${status}:${resultShape}:${segment.timestamp}`
+          }
+          case 'reasoning':
+            return `reasoning:${segment.timestamp}:${segment.content.length}`
+          case 'error':
+            return `error:${segment.error.timestamp}:${segment.error.message}`
+          default:
+            return ''
+        }
+      })
+      .filter(Boolean)
+      .join('|')
+  }, [lastAssistantIndex, messages])
 
   const readVirtuosoState = useCallback((): StateSnapshot | null => {
     let snapshot: StateSnapshot | null = null
@@ -97,8 +140,8 @@ const ChatWindowComponentNext: React.FC = () => {
     return snapshot
   }, [virtuosoRef])
 
-  const getLatestMetrics = useCallback((): { top: number; height: number; bottom: number } | null => {
-    if (latestMessageIndex < 0) return null
+  const getIndexMetrics = useCallback((targetIndex: number): { top: number; height: number; bottom: number } | null => {
+    if (targetIndex < 0) return null
     const snapshot = readVirtuosoState()
     if (!snapshot || !Array.isArray(snapshot.ranges) || snapshot.ranges.length === 0) {
       return null
@@ -111,21 +154,89 @@ const ChatWindowComponentNext: React.FC = () => {
     for (const range of ranges) {
       const rangeStart = range.startIndex
       const rangeEnd = range.endIndex
-      if (rangeEnd < latestMessageIndex) {
+      if (rangeEnd < targetIndex) {
         top += (rangeEnd - rangeStart + 1) * range.size
         continue
       }
-      if (rangeStart > latestMessageIndex) {
+      if (rangeStart > targetIndex) {
         break
       }
-      top += Math.max(0, latestMessageIndex - rangeStart) * range.size
+      top += Math.max(0, targetIndex - rangeStart) * range.size
       height = range.size
       break
     }
 
     if (height <= 0) return null
     return { top, height, bottom: top + height }
-  }, [latestMessageIndex, readVirtuosoState])
+  }, [readVirtuosoState])
+
+  const getLatestMessageMetrics = useCallback(() => {
+    return getIndexMetrics(latestMessageIndex)
+  }, [getIndexMetrics, latestMessageIndex])
+
+  const getAutoTopTailMetrics = useCallback((): {
+    anchorTop: number
+    anchorHeight: number
+    latestBottom: number
+    tailHeight: number
+  } | null => {
+    const anchorMetrics = getIndexMetrics(autoTopAnchorIndex)
+    const latestMetrics = getIndexMetrics(latestMessageIndex)
+
+    if (!anchorMetrics || !latestMetrics) {
+      return null
+    }
+
+    return {
+      anchorTop: anchorMetrics.top,
+      anchorHeight: anchorMetrics.height,
+      latestBottom: latestMetrics.bottom,
+      tailHeight: Math.max(anchorMetrics.height, latestMetrics.bottom - anchorMetrics.top)
+    }
+  }, [autoTopAnchorIndex, getIndexMetrics, latestMessageIndex])
+
+  const measureSpacer = useCallback(() => {
+    const container = scrollParentRef.current
+    if (!container) return
+
+    if (disableTailSpacerRef.current) {
+      if (spacerHeightRef.current !== 0) {
+        spacerHeightRef.current = 0
+        setBottomSpacerHeight(0)
+      }
+      return
+    }
+
+    const tailMetrics = getAutoTopTailMetrics()
+    if (!tailMetrics) return
+
+    const viewportHeight = container.clientHeight
+    const nextHeight = Math.max(0, Math.floor(viewportHeight - tailMetrics.tailHeight))
+    if (nextHeight !== spacerHeightRef.current) {
+      spacerHeightRef.current = nextHeight
+      setBottomSpacerHeight(nextHeight)
+    }
+  }, [getAutoTopTailMetrics, scrollParentRef])
+
+  const requestSpacerMeasurement = useCallback(() => {
+    if (spacerMeasureRafRef.current) return
+
+    spacerMeasureRafRef.current = requestAnimationFrame(() => {
+      spacerMeasureRafRef.current = 0
+      measureSpacer()
+    })
+  }, [measureSpacer])
+
+  const requestTopAnchorLock = useCallback(() => {
+    if (!readStreamState) return
+    if (autoTopAnchorIndex < 0) return
+    if (topAnchorLockRafRef.current) return
+
+    topAnchorLockRafRef.current = requestAnimationFrame(() => {
+      topAnchorLockRafRef.current = 0
+      scrollToMessageIndex(autoTopAnchorIndex, false, 'start')
+    })
+  }, [autoTopAnchorIndex, readStreamState, scrollToMessageIndex])
 
   useEffect(() => {
     onUserScrollUpIntentRef.current = () => {
@@ -133,7 +244,7 @@ const ChatWindowComponentNext: React.FC = () => {
       if (!container) return
       if (readStreamState) return
 
-      const latestMetrics = getLatestMetrics()
+      const latestMetrics = getLatestMessageMetrics()
       if (!latestMetrics) return
       const viewportBottom = container.scrollTop + container.clientHeight
       // Only when the viewport has fully moved past the tail spacer
@@ -141,6 +252,8 @@ const ChatWindowComponentNext: React.FC = () => {
       if (viewportBottom > latestMetrics.bottom + 1) return
 
       spacerDisabledAtLengthRef.current = messages.length
+      disableTailSpacerRef.current = true
+      spacerHeightRef.current = 0
       setDisableTailSpacer(true)
       setBottomSpacerHeight(0)
     }
@@ -148,7 +261,7 @@ const ChatWindowComponentNext: React.FC = () => {
     return () => {
       onUserScrollUpIntentRef.current = null
     }
-  }, [getLatestMetrics, messages.length, readStreamState, scrollParentRef])
+  }, [getLatestMessageMetrics, messages.length, readStreamState, scrollParentRef])
 
   const handleJumpToLatestClick = useCallback(() => {
     const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
@@ -178,6 +291,8 @@ const ChatWindowComponentNext: React.FC = () => {
       }
     }
     spacerDisabledAtLengthRef.current = messages.length
+    disableTailSpacerRef.current = true
+    spacerHeightRef.current = 0
     setDisableTailSpacer(true)
     // Button targets the latest message (confirmed behavior).
     scrollToMessageIndex(latestMessageIndex, true, 'end')
@@ -211,102 +326,68 @@ const ChatWindowComponentNext: React.FC = () => {
   useEffect(() => {
     if (!disableTailSpacer) return
     if (messages.length > spacerDisabledAtLengthRef.current) {
+      disableTailSpacerRef.current = false
       setDisableTailSpacer(false)
     }
   }, [disableTailSpacer, messages.length])
 
   useEffect(() => {
-    const wasStreaming = prevReadStreamStateRef.current
-    prevReadStreamStateRef.current = readStreamState
-    if (!wasStreaming || readStreamState) return
-
-    const container = scrollParentRef.current
-    if (!container) return
-    const latestMetrics = getLatestMetrics()
-    if (!latestMetrics) return
-
-    const viewportHeight = container.clientHeight
-    if (latestMetrics.height >= viewportHeight) {
-      spacerDisabledAtLengthRef.current = messages.length
-      setDisableTailSpacer(true)
-      setBottomSpacerHeight(0)
-      return
-    }
-
-    setDisableTailSpacer(false)
-    setBottomSpacerHeight(Math.max(0, Math.floor(viewportHeight - latestMetrics.height)))
-  }, [getLatestMetrics, messages.length, readStreamState, scrollParentRef])
+    disableTailSpacerRef.current = disableTailSpacer
+  }, [disableTailSpacer])
 
   useEffect(() => {
     spacerHeightRef.current = bottomSpacerHeight
   }, [bottomSpacerHeight])
 
+  useLayoutEffect(() => {
+    requestSpacerMeasurement()
+  }, [autoTopAnchorIndex, latestMessageIndex, messages.length, requestSpacerMeasurement])
+
+  useEffect(() => {
+    requestSpacerMeasurement()
+  }, [latestAssistantTextSignature, requestSpacerMeasurement])
+
+  useEffect(() => {
+    if (readStreamState) return
+    requestSpacerMeasurement()
+  }, [readStreamState, requestSpacerMeasurement])
+
+  useEffect(() => {
+    if (!readStreamState) return
+    requestTopAnchorLock()
+  }, [latestAssistantNonTextSignature, readStreamState, requestTopAnchorLock])
+
   useEffect(() => {
     const container = scrollParentRef.current
     if (!container) return
 
-    const measureSpacer = () => {
-      if (disableTailSpacer) {
-        if (spacerHeightRef.current !== 0) {
-          spacerHeightRef.current = 0
-          setBottomSpacerHeight(0)
-        }
-        return
-      }
-      const latestMetrics = getLatestMetrics()
-      if (!latestMetrics) {
-        return
-      }
-      const viewportHeight = container.clientHeight
-      // Minimal tail space: exactly enough to place latest row at top.
-      const nextHeight = Math.max(0, Math.floor(viewportHeight - latestMetrics.height))
-      if (nextHeight !== spacerHeightRef.current) {
-        spacerHeightRef.current = nextHeight
-        setBottomSpacerHeight(nextHeight)
-      }
-    }
-
-    let rafId = 0
-    const scheduleUpdate = () => {
-      if (rafId) return
-      rafId = requestAnimationFrame(() => {
-        rafId = 0
-        measureSpacer()
-      })
-    }
-
-    scheduleUpdate()
-    const onContainerResize = () => {
-      scheduleUpdate()
-    }
-
-    const containerObserver = new ResizeObserver(onContainerResize)
+    requestSpacerMeasurement()
+    const containerObserver = new ResizeObserver(() => {
+      requestSpacerMeasurement()
+    })
     containerObserver.observe(container)
 
-    // Stream 阶段文本高度变化频繁，使用 rAF + 时间门限做轻量轮询。
-    let streamRafId = 0
-    let lastStreamMeasureAt = 0
-    const streamTick = (ts: number) => {
-      if (ts - lastStreamMeasureAt >= 160) {
-        lastStreamMeasureAt = ts
-        scheduleUpdate()
-      }
-      streamRafId = requestAnimationFrame(streamTick)
-    }
-    if (readStreamState) {
-      streamRafId = requestAnimationFrame(streamTick)
-    }
-
     return () => {
-      if (rafId) {
-        cancelAnimationFrame(rafId)
-      }
       containerObserver.disconnect()
-      if (streamRafId) {
-        cancelAnimationFrame(streamRafId)
+    }
+  }, [artifactsPanelOpen, requestSpacerMeasurement, scrollParentRef])
+
+  useEffect(() => {
+    return () => {
+      if (spacerMeasureRafRef.current) {
+        cancelAnimationFrame(spacerMeasureRafRef.current)
+        spacerMeasureRafRef.current = 0
+      }
+      if (topAnchorLockRafRef.current) {
+        cancelAnimationFrame(topAnchorLockRafRef.current)
+        topAnchorLockRafRef.current = 0
       }
     }
-  }, [artifactsPanelOpen, disableTailSpacer, getLatestMetrics, latestMessageIndex, readStreamState, scrollParentRef])
+  }, [])
+
+  const handleLatestAssistantTyping = useCallback(() => {
+    requestSpacerMeasurement()
+  }, [requestSpacerMeasurement])
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
@@ -385,6 +466,9 @@ const ChatWindowComponentNext: React.FC = () => {
                 data={messages}
                 className="h-full w-full"
                 customScrollParent={scrollParentRef.current ?? undefined}
+                totalListHeightChanged={() => {
+                  requestTopAnchorLock()
+                }}
                 components={{
                   Footer: () => <div style={{ height: bottomSpacerHeight }} />
                 }}
@@ -398,6 +482,7 @@ const ChatWindowComponentNext: React.FC = () => {
                       message={message}
                       lastAssistantIndex={lastAssistantIndex}
                       lastMessageIndex={lastMessageIndex}
+                      onTypingChange={handleLatestAssistantTyping}
                     />
                   </div>
                 )}

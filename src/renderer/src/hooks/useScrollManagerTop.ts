@@ -38,6 +38,7 @@ export function useScrollManagerTop({
   const lastChatUuidRef = useRef<string | undefined>(chatUuid)
   const pendingChatInitScrollRef = useRef<boolean>(false)
   const forceScrollRafRef = useRef<number>(0)
+  const settleScrollRafRef = useRef<number>(0)
   const smoothScrollTimeoutRef = useRef<number>(0)
   const prevScrollTopRef = useRef<number>(0)
 
@@ -122,6 +123,10 @@ export function useScrollManagerTop({
     if (forceScrollRafRef.current) {
       cancelAnimationFrame(forceScrollRafRef.current)
     }
+    if (settleScrollRafRef.current) {
+      cancelAnimationFrame(settleScrollRafRef.current)
+      settleScrollRafRef.current = 0
+    }
 
     forceScrollRafRef.current = requestAnimationFrame(() => {
       if (pendingChatInitScrollRef.current) {
@@ -129,6 +134,10 @@ export function useScrollManagerTop({
       }
       const targetIndex = resolveAnchorIndex(messages, 'latestUserForAutoTop')
       scrollToIndex(targetIndex, false)
+      settleScrollRafRef.current = requestAnimationFrame(() => {
+        scrollToIndex(targetIndex, false)
+        settleScrollRafRef.current = 0
+      })
       forceScrollRafRef.current = 0
     })
   }, [messages, messagesLength, scrollToIndex])
@@ -146,6 +155,10 @@ export function useScrollManagerTop({
     return () => {
       if (forceScrollRafRef.current) {
         cancelAnimationFrame(forceScrollRafRef.current)
+      }
+      if (settleScrollRafRef.current) {
+        cancelAnimationFrame(settleScrollRafRef.current)
+        settleScrollRafRef.current = 0
       }
       if (smoothScrollTimeoutRef.current) {
         clearTimeout(smoothScrollTimeoutRef.current)
