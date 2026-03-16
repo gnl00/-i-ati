@@ -6,6 +6,7 @@
 
 import { AppDatabase } from '../db/Database'
 import { ConfigRepository } from '../db/repositories/ConfigRepository'
+import { McpServerRepository } from '../db/repositories/McpServerRepository'
 import { ProviderRepository } from '../db/repositories/ProviderRepository'
 import { ChatRepository } from '../db/repositories/ChatRepository'
 import { ChatSkillRepository } from '../db/repositories/ChatSkillRepository'
@@ -21,6 +22,7 @@ import { ScheduledTaskDataService } from './database/ScheduledTaskDataService'
 import { ChatDataService } from './database/ChatDataService'
 import { MessageDataService } from './database/MessageDataService'
 import { ConfigDataService } from './database/ConfigDataService'
+import { McpServerDataService } from './database/McpServerDataService'
 import { CompressedSummaryDataService } from './database/CompressedSummaryDataService'
 import { ChatRunEventDataService } from './database/ChatRunEventDataService'
 import { AssistantDataService } from './database/AssistantDataService'
@@ -36,6 +38,7 @@ class DatabaseService {
   private isInitialized: boolean = false
 
   private configRepo?: ConfigRepository
+  private mcpServerRepo?: McpServerRepository
   private providerRepo?: ProviderRepository
   private chatRepo?: ChatRepository
   private chatSkillRepo?: ChatSkillRepository
@@ -50,6 +53,7 @@ class DatabaseService {
   private planDataService?: TaskPlanDataService
   private scheduledTaskDataService?: ScheduledTaskDataService
   private configDataService?: ConfigDataService
+  private mcpServerDataService?: McpServerDataService
   private compressedSummaryDataService?: CompressedSummaryDataService
   private chatRunEventDataService?: ChatRunEventDataService
   private assistantDataService?: AssistantDataService
@@ -81,6 +85,7 @@ class DatabaseService {
 
       this.db = this.dbCore.initialize()
       this.configRepo = new ConfigRepository(this.db)
+      this.mcpServerRepo = new McpServerRepository(this.db)
       this.providerRepo = new ProviderRepository(this.db)
       this.chatRepo = new ChatRepository(this.db)
       this.chatSkillRepo = new ChatSkillRepository(this.db)
@@ -112,6 +117,12 @@ class DatabaseService {
         getDb: () => this.db,
         getConfigRepo: () => this.configRepo,
         getProviderRepo: () => this.providerRepo
+      })
+      this.mcpServerDataService = new McpServerDataService({
+        hasDb: () => Boolean(this.db),
+        getDb: () => this.db,
+        getMcpServerRepo: () => this.mcpServerRepo,
+        getConfigRepo: () => this.configRepo
       })
       this.compressedSummaryDataService = new CompressedSummaryDataService({
         hasDb: () => Boolean(this.db),
@@ -344,6 +355,9 @@ class DatabaseService {
 
   public saveConfig(config: IAppConfig): void {
     if (!this.configDataService) throw new Error('Config data service not initialized')
+    if (config.mcp && this.mcpServerDataService) {
+      this.mcpServerDataService.saveMcpServerConfig(config.mcp)
+    }
     this.configDataService.saveConfig(config)
   }
 
@@ -360,6 +374,16 @@ class DatabaseService {
   public initConfig(): IAppConfig {
     if (!this.configDataService) throw new Error('Config data service not initialized')
     return this.configDataService.initConfig()
+  }
+
+  public getMcpServerConfig(): McpServerConfig {
+    if (!this.mcpServerDataService) throw new Error('MCP server data service not initialized')
+    return this.mcpServerDataService.getMcpServerConfig()
+  }
+
+  public saveMcpServerConfig(config: McpServerConfig): void {
+    if (!this.mcpServerDataService) throw new Error('MCP server data service not initialized')
+    this.mcpServerDataService.saveMcpServerConfig(config)
   }
 
   public getProviderDefinitions(): ProviderDefinition[] {
@@ -422,6 +446,7 @@ class DatabaseService {
       this.dbCore.close()
       this.db = null
       this.configRepo = undefined
+      this.mcpServerRepo = undefined
       this.providerRepo = undefined
       this.chatRepo = undefined
       this.chatSkillRepo = undefined
@@ -436,6 +461,7 @@ class DatabaseService {
       this.planDataService = undefined
       this.scheduledTaskDataService = undefined
       this.configDataService = undefined
+      this.mcpServerDataService = undefined
       this.compressedSummaryDataService = undefined
       this.chatRunEventDataService = undefined
       this.assistantDataService = undefined

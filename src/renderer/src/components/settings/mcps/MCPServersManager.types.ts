@@ -51,21 +51,10 @@ export interface CachedServers {
   timestamp: number
 }
 
-// Local configuration types
-export interface LocalServerConfig {
-  type?: 'sse' | 'streamableHttp'
-  url?: string
-  description?: string
-  version?: string
-  command?: string
-  args?: string[]
-  env?: string[]
-}
-
 // Component Props
 export interface MCPServersManagerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  mcpServerConfig: { mcpServers?: Record<string, LocalServerConfig> }
-  setMcpServerConfig: (config: any) => void
+  mcpServerConfig: McpServerConfig
+  setMcpServerConfig: (config: McpServerConfig) => void
 }

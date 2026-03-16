@@ -48,10 +48,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setMemoryEnabled,
         mcpServerConfig,
         setMcpServerConfig,
+        savedMcpServerConfig,
+        saveMcpServerConfig,
     } = useAppConfigStore()
 
     const [maxWebSearchItems, setMaxWebSearchItems] = useState<number>(appConfig?.tools?.maxWebSearchItems || 3)
-    const [msConfig, setmsConfig] = useState<string>(JSON.stringify(mcpServerConfig, null, 2))
     const [activeTab, setActiveTab] = useState<string>('provider-list')
     const [plugins, setPlugins] = useState<AppPluginConfig[]>(appConfig?.plugins?.items || DEFAULT_PLUGINS)
 
@@ -60,10 +61,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [compressionTriggerThreshold, setCompressionTriggerThreshold] = useState<number>(appConfig?.compression?.triggerThreshold || 30)
     const [compressionKeepRecentCount, setCompressionKeepRecentCount] = useState<number>(appConfig?.compression?.keepRecentCount || 20)
     const [compressionCompressCount, setCompressionCompressCount] = useState<number>(appConfig?.compression?.compressCount || 10)
-
-    useEffect(() => {
-        setmsConfig(JSON.stringify(mcpServerConfig, null, 2))
-    }, [mcpServerConfig])
 
     useEffect(() => {
         if (appConfig?.tools?.maxWebSearchItems !== undefined) {
@@ -78,7 +75,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setPlugins(appConfig?.plugins?.items || DEFAULT_PLUGINS)
     }, [appConfig])
 
-    const saveConfigurationClick = (): void => {
+    const saveConfigurationClick = async (): Promise<void> => {
         const updatedAppConfig = {
             ...appConfig,
             accounts: accounts,
@@ -97,15 +94,15 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 compressCount: compressionCompressCount,
                 autoCompress: true
             },
-            mcp: {
-                ...JSON.parse(msConfig)
-            },
             plugins: {
                 items: plugins
             }
         }
 
-        setAppConfig(updatedAppConfig)
+        await Promise.all([
+            setAppConfig(updatedAppConfig),
+            saveMcpServerConfig(mcpServerConfig)
+        ])
         toast.success('Save configurations success')
     }
 
@@ -144,7 +141,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
     const savedTools = appConfig?.tools || {}
     const savedCompression = appConfig?.compression
-    const savedMcpConfig = appConfig?.mcp || {}
+    const savedMcpConfig = savedMcpServerConfig || { mcpServers: {} }
 
     const toolsDirty = maxWebSearchItems !== (savedTools.maxWebSearchItems ?? 3)
         || titleGenerateEnabled !== (savedTools.titleGenerateEnabled ?? true)

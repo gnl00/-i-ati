@@ -166,12 +166,14 @@ type AppConfigState = {
   titleGenerateModel: ModelRef | undefined
   titleGenerateEnabled: boolean
   memoryEnabled: boolean
-  mcpServerConfig: { mcpServers?: {} }
+  mcpServerConfig: McpServerConfig
+  savedMcpServerConfig: McpServerConfig
   compression: CompressionConfig | undefined
 }
 
 type AppConfigAction = {
   _setAppConfig: (config: IAppConfig) => void
+  _setLoadedMcpServerConfig: (config: McpServerConfig) => void
   setAppConfig: (config: IAppConfig) => Promise<void>
   getAppConfig: () => IAppConfig
 
@@ -198,7 +200,8 @@ type AppConfigAction = {
   setTitleGenerateModel: (modelRef: ModelRef | undefined) => void
   setTitleGenerateEnabled: (state: boolean) => void
   setMemoryEnabled: (state: boolean) => void
-  setMcpServerConfig: (config: any) => void
+  setMcpServerConfig: (config: McpServerConfig) => void
+  saveMcpServerConfig: (config: McpServerConfig) => Promise<void>
 }
 
 export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, get) => ({
@@ -213,7 +216,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   titleGenerateModel: defaultConfig.tools?.titleGenerateModel || undefined,
   titleGenerateEnabled: defaultConfig.tools?.titleGenerateEnabled ?? true,
   memoryEnabled: defaultConfig.tools?.memoryEnabled ?? true,
-  mcpServerConfig: { ...defaultConfig.mcp },
+  mcpServerConfig: { mcpServers: {} },
+  savedMcpServerConfig: { mcpServers: {} },
 
   // State - Compression settings
   compression: defaultConfig.compression,
@@ -237,8 +241,17 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
-      mcpServerConfig: { ...config.mcp },
       compression: config.compression
+    })
+  },
+
+  _setLoadedMcpServerConfig: (config: McpServerConfig) => {
+    const nextConfig = config?.mcpServers && typeof config.mcpServers === 'object'
+      ? config
+      : { mcpServers: {} }
+    set({
+      mcpServerConfig: nextConfig,
+      savedMcpServerConfig: nextConfig
     })
   },
 
@@ -267,7 +280,6 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       titleGenerateModel: nextConfig.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: nextConfig.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: nextConfig.tools?.memoryEnabled ?? true,
-      mcpServerConfig: { ...nextConfig.mcp },
       compression: nextConfig.compression
     })
   },
@@ -523,7 +535,18 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   setTitleGenerateModel: (modelRef) => set({ titleGenerateModel: modelRef }),
   setTitleGenerateEnabled: (state) => set({ titleGenerateEnabled: state }),
   setMemoryEnabled: (state) => set({ memoryEnabled: state }),
-  setMcpServerConfig: (config: any) => set({ mcpServerConfig: config })
+  setMcpServerConfig: (config) => set({ mcpServerConfig: config }),
+  saveMcpServerConfig: async (config) => {
+    const { saveMcpServerConfig } = await import('../db/McpServerRepository')
+    const nextConfig = config?.mcpServers && typeof config.mcpServers === 'object'
+      ? config
+      : { mcpServers: {} }
+    await saveMcpServerConfig(nextConfig)
+    set({
+      mcpServerConfig: nextConfig,
+      savedMcpServerConfig: nextConfig
+    })
+  }
 }))
 
 // Async initialization function
@@ -533,10 +556,18 @@ export const initializeAppConfig = async (): Promise<void> => {
 
   configInitPromise = (async () => {
     try {
-      const { initConfig } = await import('../db/ConfigRepository')
-      const loadedConfig = await initConfig()
+      const [{ initConfig }, { getMcpServerConfig }] = await Promise.all([
+        import('../db/ConfigRepository'),
+        import('../db/McpServerRepository')
+      ])
+      const [loadedConfig, loadedMcpServerConfig] = await Promise.all([
+        initConfig(),
+        getMcpServerConfig()
+      ])
       console.log('[appConfig] Config loaded from SQLite, account count:', loadedConfig.accounts?.length || 0)
-      useAppConfigStore.getState()._setAppConfig(loadedConfig)
+      const store = useAppConfigStore.getState()
+      store._setAppConfig(loadedConfig)
+      store._setLoadedMcpServerConfig(loadedMcpServerConfig)
       configInitialized = true
       console.log('[@i] App config initialized from SQLite')
     } catch (error) {

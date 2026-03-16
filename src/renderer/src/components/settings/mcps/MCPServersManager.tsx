@@ -13,6 +13,8 @@ import { Label } from '@renderer/components/ui/label'
 import { Switch } from '@renderer/components/ui/switch'
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs'
 import { cn } from '@renderer/lib/utils'
+import { useMcpConnection } from '@renderer/hooks/useMcpConnection'
+import { useMcpRuntimeStore } from '@renderer/store/mcpRuntime'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import {
@@ -27,7 +29,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import type {
   CachedServers,
-  LocalServerConfig,
   MCPServersManagerProps,
   RegistryResponse,
   RegistryServerItem
@@ -39,8 +40,8 @@ const API_BASE_URL = 'https://registry.modelcontextprotocol.io/v0.1/servers'
 
 // Content props (without drawer-specific props)
 export interface MCPServersManagerContentProps {
-  mcpServerConfig: { mcpServers?: Record<string, LocalServerConfig> }
-  setMcpServerConfig: (config: any) => void
+  mcpServerConfig: McpServerConfig
+  setMcpServerConfig: (config: McpServerConfig) => void
 }
 
 // Extracted core component that can be used standalone or in a drawer
@@ -60,6 +61,11 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   const [editMode, setEditMode] = useState<'visual' | 'json'>('visual')
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<RegistryServerItem[]>([])
+  const selectedServerNames = useMcpRuntimeStore(state => state.selectedServerNames)
+  const connectingServerNames = useMcpRuntimeStore(state => state.connectingServerNames)
+  const availableMcpTools = useMcpRuntimeStore(state => state.availableMcpTools)
+  const lastErrorByServer = useMcpRuntimeStore(state => state.lastErrorByServer)
+  const { hydrateFromRuntime } = useMcpConnection()
 
   // Sync JSON from config
   useEffect(() => {
@@ -148,7 +154,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
   const handleInstallServer = (item: RegistryServerItem): void => {
     const serverName = item.server.name
-    let config: LocalServerConfig = {}
+    let config: LocalMcpServerConfig = {}
 
     if (item.server.remotes?.[0]) {
       const remote = item.server.remotes[0]
@@ -226,11 +232,28 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   }, [searchQuery])
 
   useEffect(() => {
+    void hydrateFromRuntime()
+  }, [hydrateFromRuntime])
+
+  useEffect(() => {
     if (activeTab === 'registry') {
       if (isCacheValid() && serversCache) setRegistryServers(serversCache.servers)
       else if (registryServers.length === 0) fetchServers()
     }
   }, [activeTab])
+
+  const getRuntimeStatus = (serverName: string): 'connected' | 'connecting' | 'error' | 'idle' => {
+    if (connectingServerNames.includes(serverName)) {
+      return 'connecting'
+    }
+    if (selectedServerNames.includes(serverName)) {
+      return 'connected'
+    }
+    if (lastErrorByServer[serverName]) {
+      return 'error'
+    }
+    return 'idle'
+  }
 
   return (
     <div className="flex flex-col h-full bg-gray-50/50 dark:bg-neutral-950/30">
@@ -353,6 +376,9 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                       connectionType={connectionType}
                       repository={item.server.repository}
                       installed={installed}
+                      runtimeStatus={installed ? getRuntimeStatus(item.server.name) : 'idle'}
+                      runtimeError={lastErrorByServer[item.server.name]}
+                      toolCount={availableMcpTools.get(item.server.name)?.length}
                       onInstall={() => handleInstallServer(item)}
                       animationDelay={idx * 50}
                     />
@@ -433,6 +459,9 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                             version={fallbackVersion}
                             connectionType={serverType}
                             configDisplay={configDisplay || undefined}
+                            runtimeStatus={getRuntimeStatus(name)}
+                            runtimeError={lastErrorByServer[name]}
+                            toolCount={availableMcpTools.get(name)?.length}
                             onCopyConfig={() => {
                               navigator.clipboard.writeText(JSON.stringify(config, null, 2))
                               toast.success('Configuration copied to clipboard')

@@ -1,4 +1,5 @@
 import { useChatStore } from '@renderer/store'
+import { useMcpRuntimeStore } from '@renderer/store/mcpRuntime'
 import { v4 as uuidv4 } from 'uuid'
 import { useRef } from 'react'
 import { invokeChatRunCancel, invokeChatRunStart, subscribeChatRunEvents } from '@renderer/invoker/ipcInvoker'
@@ -171,7 +172,7 @@ function useChatSubmitV2() {
       return match?.function ?? match
     }
 
-    state.getAllMcpTools().forEach(tool => {
+    useMcpRuntimeStore.getState().getAllTools().forEach(tool => {
       const normalized = normalizeToolDef(tool)
       const name = normalized?.name
       if (name) {

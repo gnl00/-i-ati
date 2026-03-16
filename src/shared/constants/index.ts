@@ -31,6 +31,7 @@ export const WIN_MAXIMIZE = 'win-maximize'
 export const MCP_CONNECT = 'mcp-connect'
 export const MCP_DISCONNECT = 'mcp-disconnect'
 export const MCP_TOOL_CALL = 'mcp-tool-call'
+export const MCP_STATUS = 'mcp-status'
 
 // File Operations Actions
 export const FILE_READ_ACTION = 'file-read-action'
@@ -100,6 +101,8 @@ export const DB_MESSAGE_DELETE = 'db:message:delete'
 export const DB_CONFIG_GET = 'db:config:get'
 export const DB_CONFIG_SAVE = 'db:config:save'
 export const DB_CONFIG_INIT = 'db:config:init'
+export const DB_MCP_SERVERS_GET = 'db:mcp-servers:get'
+export const DB_MCP_SERVERS_SAVE = 'db:mcp-servers:save'
 
 export const DB_PROVIDER_DEFINITIONS_GET_ALL = 'db:provider-definitions:get-all'
 export const DB_PROVIDER_DEFINITION_SAVE = 'db:provider-definition:save'

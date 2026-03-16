@@ -30,11 +30,12 @@ export class ConfigDataService {
     if (!row) return undefined
 
     const config = JSON.parse(row.value) as IAppConfig
+    const { mcp: _legacyMcp, ...baseConfig } = config
     const providerDefinitions = this.providerDataService.getProviderDefinitions()
     const accounts = this.providerDataService.getProviderAccounts()
 
     return {
-      ...config,
+      ...baseConfig,
       providerDefinitions,
       accounts
     }
@@ -54,7 +55,7 @@ export class ConfigDataService {
       this.providerDataService.saveProviderAccountsToDb(config.accounts ?? [])
     }
 
-    const { providerDefinitions: _defs, accounts: _accounts, ...baseConfig } = config
+    const { providerDefinitions: _defs, accounts: _accounts, mcp: _mcp, ...baseConfig } = config
     this.requireConfigRepo().saveConfig(
       JSON.stringify(baseConfig),
       baseConfig.version ?? null

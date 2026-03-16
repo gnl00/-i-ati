@@ -22,6 +22,7 @@ import {
   MCP_CONNECT,
   MCP_DISCONNECT,
   MCP_TOOL_CALL,
+  MCP_STATUS,
   FILE_CREATE_DIR_ACTION,
   DB_CHAT_SAVE,
   DB_CHAT_GET_ALL,
@@ -42,6 +43,8 @@ import {
   DB_CONFIG_GET,
   DB_CONFIG_SAVE,
   DB_CONFIG_INIT,
+  DB_MCP_SERVERS_GET,
+  DB_MCP_SERVERS_SAVE,
   DB_PROVIDER_DEFINITIONS_GET_ALL,
   DB_PROVIDER_DEFINITION_SAVE,
   DB_PROVIDER_DEFINITION_DELETE,
@@ -161,6 +164,11 @@ export async function invokeMcpDisconnect(serverInfo: { name: string }): Promise
 export async function invokeMcpToolCall(toolCallInfo: any): Promise<any> {
   const ipc = getElectronIPC()
   return await ipc.invoke(MCP_TOOL_CALL, toolCallInfo)
+}
+
+export async function invokeMcpStatus(): Promise<McpRuntimeSnapshot> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(MCP_STATUS)
 }
 
 // ============ Web Search Operations ============
@@ -383,6 +391,16 @@ export async function invokeDbConfigSave(config: IAppConfig): Promise<void> {
 export async function invokeDbConfigInit(): Promise<IAppConfig> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CONFIG_INIT)
+}
+
+export async function invokeDbMcpServersGet(): Promise<McpServerConfig> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MCP_SERVERS_GET)
+}
+
+export async function invokeDbMcpServersSave(config: McpServerConfig): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MCP_SERVERS_SAVE, config)
 }
 
 // ============ Database Operations - Providers ============

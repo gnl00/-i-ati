@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { close as mcpClose, connect as mcpConnect, toolCall as mcpToolCall } from '@main/mcp/client'
+import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { processWebSearch, processWebFetch } from '@main/tools/webTools/WebToolsProcessor'
 import {
   processReadTextFile,
@@ -63,6 +63,7 @@ import {
   MCP_CONNECT,
   MCP_DISCONNECT,
   MCP_TOOL_CALL,
+  MCP_STATUS,
   EMBEDDING_GENERATE,
   EMBEDDING_GENERATE_BATCH,
   EMBEDDING_GET_MODEL_INFO
@@ -169,11 +170,14 @@ export function registerToolHandlers(): void {
 
   ipcMain.handle(MCP_CONNECT, async (_, mcpProps) => {
     console.log('[MCP IPC] Connect')
-    return mcpConnect(mcpProps)
+    return mcpRuntimeService.connectServer(mcpProps)
   })
-  ipcMain.handle(MCP_DISCONNECT, (_, { name }) => mcpClose(name))
+  ipcMain.handle(MCP_DISCONNECT, (_, { name }) => mcpRuntimeService.disconnectServer(name))
   ipcMain.handle(MCP_TOOL_CALL, (_, { callId, tool, args }) => {
-    return mcpToolCall(callId, tool, args)
+    return mcpRuntimeService.callTool(callId, tool, args)
+  })
+  ipcMain.handle(MCP_STATUS, () => {
+    return mcpRuntimeService.getRuntimeSnapshot()
   })
 
   ipcMain.handle(MEMORY_ADD, async (_event, args) => {
