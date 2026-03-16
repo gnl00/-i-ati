@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/services/DatabaseService'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
+import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 
 const MIN_DELAY_MS = 30_000
 
@@ -72,7 +73,7 @@ function emitScheduleUpdated(taskId: string): void {
     chatId: chat?.id,
     chatUuid: task.chat_uuid
   })
-  emitter.emit('schedule.updated', { task })
+  emitter.emit(SCHEDULE_EVENTS.UPDATED, { task })
 }
 
 export async function processScheduleCreate(args: ScheduleCreateArgs) {

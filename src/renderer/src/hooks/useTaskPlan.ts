@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { invokeChatSubmitToolConfirm, subscribeChatSubmitEvents } from '@renderer/invoker/ipcInvoker'
+import { invokeChatRunToolConfirm, subscribeChatRunEvents } from '@renderer/invoker/ipcInvoker'
 import { taskPlannerService } from '@renderer/services/taskPlanner/TaskPlannerService'
 import type { Plan } from '@shared/task-planner/schemas'
 
@@ -42,7 +42,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
 
   const approvePlanReview = useCallback(async () => {
     if (!pendingPlanReview) return
-    await invokeChatSubmitToolConfirm({
+    await invokeChatRunToolConfirm({
       toolCallId: pendingPlanReview.toolCallId,
       approved: true
     })
@@ -52,7 +52,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
 
   const abortPlanReview = useCallback(async (reason?: string) => {
     if (!pendingPlanReview) return
-    await invokeChatSubmitToolConfirm({
+    await invokeChatRunToolConfirm({
       toolCallId: pendingPlanReview.toolCallId,
       approved: false,
       reason
@@ -61,7 +61,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
   }, [pendingPlanReview])
 
   useEffect(() => {
-    const unsubscribe = subscribeChatSubmitEvents((event) => {
+    const unsubscribe = subscribeChatRunEvents((event) => {
       if (chatUuid && event.chatUuid && event.chatUuid !== chatUuid) {
         return
       }
@@ -100,7 +100,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
           setPendingPlanReview(null)
         }
         const toolName = toolCallNameMapRef.current.get(toolCallId)
-        const result = event.type === 'tool.exec.completed' ? event.payload.result : undefined
+        const result = event.type === 'tool.exec.completed' ? (event.payload.result as any) : undefined
         const hasPlanResult = Boolean(result && (result.plan || result.plans))
         if (!hasPlanResult && (!toolName || !toolName.startsWith('plan_'))) {
           return

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { invokeChatSubmitToolConfirm } from '@renderer/invoker/ipcInvoker'
+import { invokeChatRunToolConfirm } from '@renderer/invoker/ipcInvoker'
 
 export type ToolConfirmationRequest = {
   toolCallId: string
@@ -33,7 +33,7 @@ export const useToolConfirmationStore = create<
   confirm: async () => {
     const { pendingRequest } = get()
     if (!pendingRequest) return
-    await invokeChatSubmitToolConfirm({
+    await invokeChatRunToolConfirm({
       toolCallId: pendingRequest.toolCallId,
       approved: true
     })
@@ -42,7 +42,7 @@ export const useToolConfirmationStore = create<
   cancel: async (reason) => {
     const { pendingRequest } = get()
     if (!pendingRequest) return
-    await invokeChatSubmitToolConfirm({
+    await invokeChatRunToolConfirm({
       toolCallId: pendingRequest.toolCallId,
       approved: false,
       reason

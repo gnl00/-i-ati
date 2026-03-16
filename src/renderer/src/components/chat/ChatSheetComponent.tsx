@@ -9,6 +9,7 @@ import { invokeDbScheduledTasksByChatUuid, subscribeScheduleEvents } from '@rend
 import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
 import { switchWorkspace } from '@renderer/utils/workspaceUtils'
+import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { BadgePlus } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { ScheduleTask } from '@shared/tools/schedule'
@@ -174,7 +175,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
 
     useEffect(() => {
         const unsubscribe = subscribeScheduleEvents(event => {
-            if (event.type !== 'schedule.updated') {
+            if (event.type !== SCHEDULE_EVENTS.UPDATED) {
                 return
             }
             const task = event.payload?.task

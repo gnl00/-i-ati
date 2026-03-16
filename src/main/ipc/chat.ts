@@ -1,9 +1,14 @@
 import { ipcMain } from 'electron'
 import DatabaseService from '@main/services/DatabaseService'
-import { compressionService, type CompressionJob } from '@main/services/CompressionService'
-import { generateTitle } from '@main/services/TitleService'
-import { ChatSubmitEventEmitter } from '@main/services/chatSubmit/event-emitter'
-import { MainChatSubmitService, type MainChatSubmitInput } from '@main/services/chatSubmit'
+import {
+  ChatRunService,
+  type MainChatRunInput,
+  type ToolConfirmationDecision
+} from '@main/services/chatRun'
+import type {
+  ChatCompressionExecuteInput,
+  ChatTitleGenerateInput
+} from '@main/services/chatOperations'
 import {
   DB_CHAT_SAVE,
   DB_CHAT_GET_ALL,
@@ -18,36 +23,14 @@ import {
   DB_ASSISTANT_GET_BY_ID,
   DB_ASSISTANT_UPDATE,
   DB_ASSISTANT_DELETE,
-  CHAT_SUBMIT_SUBMIT,
-  CHAT_SUBMIT_CANCEL,
-  CHAT_SUBMIT_TOOL_CONFIRM,
+  CHAT_RUN_START,
+  CHAT_RUN_CANCEL,
+  CHAT_RUN_TOOL_CONFIRM,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE
 } from '@shared/constants'
-import { toolConfirmationManager } from '@main/services/chatSubmit/tool-confirmation'
 
-const chatSubmitService = new MainChatSubmitService()
-
-function serializeError(
-  error: any,
-  depth: number = 0
-): { name: string; message: string; stack?: string; code?: string; cause?: any } {
-  const serialized = {
-    name: error?.name || 'Error',
-    message: error?.message || 'Unknown error',
-    stack: error?.stack as string | undefined,
-    code: typeof error?.code === 'string' ? error.code : undefined
-  }
-
-  if (depth >= 3 || !error?.cause) {
-    return serialized
-  }
-
-  return {
-    ...serialized,
-    cause: serializeError(error.cause, depth + 1)
-  }
-}
+const chatRunService = new ChatRunService()
 
 export function registerChatHandlers(): void {
   ipcMain.handle(DB_CHAT_SAVE, async (_event, data) => {
@@ -90,96 +73,35 @@ export function registerChatHandlers(): void {
     return DatabaseService.getChatSkills(chatId)
   })
 
-  ipcMain.handle(CHAT_SUBMIT_SUBMIT, async (_event, data: MainChatSubmitInput) => {
+  ipcMain.handle(CHAT_RUN_START, async (_event, data: MainChatRunInput) => {
     console.log(`[ChatSubmit IPC] Submit: ${data.submissionId}`)
-    return chatSubmitService.submit(data)
+    return chatRunService.start(data)
   })
 
-  ipcMain.handle(CHAT_SUBMIT_CANCEL, async (_event, data: { submissionId: string; reason?: string }) => {
+  ipcMain.handle(CHAT_RUN_CANCEL, async (_event, data: { submissionId: string; reason?: string }) => {
     console.log(`[ChatSubmit IPC] Cancel: ${data.submissionId}`)
-    chatSubmitService.cancel(data.submissionId, data.reason)
+    chatRunService.cancel(data.submissionId)
     return { cancelled: true }
   })
 
-  ipcMain.handle(CHAT_SUBMIT_TOOL_CONFIRM, async (_event, data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }) => {
-    toolConfirmationManager.resolve(data.toolCallId, {
+  ipcMain.handle(CHAT_RUN_TOOL_CONFIRM, async (_event, data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }) => {
+    const decision: ToolConfirmationDecision = {
       approved: data.approved,
       reason: data.reason,
       args: data.args
-    })
+    }
+    chatRunService.resolveToolConfirmation(data.toolCallId, decision)
     return { ok: true }
   })
 
-  ipcMain.handle(CHAT_COMPRESSION_EXECUTE, async (_event, data: CompressionJob & { submissionId?: string }) => {
+  ipcMain.handle(CHAT_COMPRESSION_EXECUTE, async (_event, data: ChatCompressionExecuteInput) => {
     console.log('[Compression IPC] Execute')
-    const emitter = data.submissionId ? new ChatSubmitEventEmitter({
-      submissionId: data.submissionId,
-      chatId: data.chatId,
-      chatUuid: data.chatUuid
-    }) : null
-
-    emitter?.emit('compression.started', {
-      chatId: data.chatId,
-      chatUuid: data.chatUuid,
-      messageCount: data.messages?.length || 0
-    })
-
-    try {
-      const result = await compressionService.execute(data)
-      if (result.success) {
-        emitter?.emit('compression.completed', { result })
-      } else {
-        emitter?.emit('compression.failed', {
-          error: {
-            name: 'CompressionError',
-            message: result.error || 'Compression failed'
-          },
-          result
-        })
-      }
-      return result
-    } catch (error) {
-      emitter?.emit('compression.failed', { error: serializeError(error) })
-      throw error
-    }
+    return await chatRunService.executeCompression(data)
   })
 
-  ipcMain.handle(CHAT_TITLE_GENERATE, async (_event, data: {
-    submissionId?: string
-    chatId?: number
-    chatUuid?: string
-    content: string
-    model: AccountModel
-    account: ProviderAccount
-    providerDefinition: ProviderDefinition
-  }) => {
+  ipcMain.handle(CHAT_TITLE_GENERATE, async (_event, data: ChatTitleGenerateInput) => {
     console.log('[Title IPC] Generate title')
-    const emitter = data.submissionId
-      ? new ChatSubmitEventEmitter({
-          submissionId: data.submissionId,
-          chatId: data.chatId,
-          chatUuid: data.chatUuid
-        })
-      : null
-
-    emitter?.emit('title.generate.started', {
-      model: data.model,
-      contentLength: data.content?.length || 0
-    })
-
-    try {
-      const title = await generateTitle(
-        data.content,
-        data.model,
-        data.account,
-        data.providerDefinition
-      )
-      emitter?.emit('title.generate.completed', { title })
-      return { title }
-    } catch (error) {
-      emitter?.emit('title.generate.failed', { error: serializeError(error) })
-      throw error
-    }
+    return await chatRunService.generateTitle(data)
   })
 
   ipcMain.handle(DB_ASSISTANT_SAVE, async (_event, data: Assistant) => {

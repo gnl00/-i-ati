@@ -219,7 +219,7 @@ declare interface MessageEntity {
   tokens?: number
 }
 
-declare interface ChatSubmitEventTrace {
+declare interface ChatRunEventTrace {
   id?: number
   submissionId: string
   chatId?: number

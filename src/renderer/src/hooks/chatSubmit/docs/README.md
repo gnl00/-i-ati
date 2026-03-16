@@ -1,41 +1,32 @@
-# Chat Submit (Event-Bus)
+# Chat Submit
 
-Chat submission now runs entirely through an event-bus pipeline. The hook subscribes to events and updates UI state; services emit events and handle business logic only.
+Chat submit now uses a main-driven run architecture. Renderer sends one submit command, then only consumes `chat-run:event` and projects those events into store state.
 
 ## Flow Summary
 ```
-submission.started
-  -> session.ready
+run.accepted
+  -> run.state.changed(preparing)
+  -> chat.ready
   -> messages.loaded
   -> message.created (user)
   -> message.created (assistant placeholder)
-  -> request.built
-  -> stream.started
-     -> stream.chunk (0..n)
-     -> tool.call.detected / tool.call.flushed / tool.call.attached
-     -> tool.exec.started / completed / failed
-     -> tool.result.attached / tool.result.persisted
-  -> stream.completed
+  -> run.state.changed(streaming / executing_tools / finalizing)
+  -> message.updated (0..n)
+  -> tool.call.detected / tool.exec.started / tool.exec.completed / tool.exec.failed
+  -> tool.result.attached
   -> chat.updated
-  -> submission.completed
+  -> run.completed | run.failed | run.aborted
+  -> title.generate.* / compression.*
 ```
 
 ## Key Files
-- Event bus + contracts:
-  - `src/renderer/src/hooks/chatSubmit/event-driven/bus.ts`
-  - `src/renderer/src/hooks/chatSubmit/event-driven/events.ts`
-- Orchestrator:
-  - `src/renderer/src/hooks/chatSubmit/event-driven/submission-service.ts`
-- Services:
-  - `src/renderer/src/hooks/chatSubmit/event-driven/services/*.ts`
-- UI wiring:
+- Main runtime:
+  - `src/main/services/chatRun/index.ts`
+  - `src/main/services/agentCore/execution/AgentStepLoop.ts`
+- Shared protocol:
+  - `src/shared/chatRun/events.ts`
+- Renderer hook:
   - `src/renderer/src/hooks/chatSubmit/index.tsx`
 
 ## Further Reading
 - `docs/chat-submit-event-bus.md`
-
-## Event Trace
-Key lifecycle events are persisted (excluding `stream.chunk`) for debugging.
-
-## Main-driven Mode
-Main-process streaming is always enabled. The renderer consumes `chat-submit:event` and only updates UI.
