@@ -1,5 +1,5 @@
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { mcpClient } from '@main/mcp/client'
+import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { BrowserWindow, app, globalShortcut, ipcMain } from 'electron'
 import { destroyWindowPool, getWindowPool } from './tools/webTools/BrowserWindowPool'
 import { cleanupDevServers } from './tools/devServer/DevServerProcessor'
@@ -126,9 +126,7 @@ app.on('window-all-closed', () => {
     app.quit()
   }
   globalShortcut.unregisterAll()
-  if (mcpClient) {
-    mcpClient.removeAllServers()
-  }
+  mcpRuntimeService.disconnectAll()
   // Clean up window pool
   destroyWindowPool()
   // Clean up development servers

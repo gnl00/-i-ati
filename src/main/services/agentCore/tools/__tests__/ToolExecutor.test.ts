@@ -12,8 +12,10 @@ vi.mock('@tools/registry', () => ({
   }
 }))
 
-vi.mock('@main/mcp/client', () => ({
-  toolCall: vi.fn()
+vi.mock('@main/services/mcpRuntime', () => ({
+  mcpRuntimeService: {
+    callTool: vi.fn()
+  }
 }))
 
 vi.mock('@main/tools/command/CommandProcessor', () => ({

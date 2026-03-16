@@ -9,7 +9,7 @@
  * - 支持 embedded 和 MCP 两种工具类型
  */
 
-import { toolCall as mcpToolCall } from '@main/mcp/client'
+import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { v4 as uuidv4 } from 'uuid'
 import { normalizeToolArgs } from '../../utils'
 import type { ToolCallProps } from '@main/services/agentCore/types'
@@ -246,7 +246,7 @@ export class ToolExecutor implements IToolExecutor {
     // 否则是 MCP 工具
     const callId = call.id || `call_${uuidv4()}`
     const safeArgs = runtimeArgs ?? this.normalizeArgs(call)
-    return await mcpToolCall(callId, toolName, safeArgs as { [x: string]: unknown })
+    return await mcpRuntimeService.callTool(callId, toolName, safeArgs as { [x: string]: unknown })
   }
 
   private normalizeArgs(call: ToolCallProps): any {

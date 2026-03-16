@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Badge } from '@renderer/components/ui/badge'
 import { cn } from '@renderer/lib/utils'
-import { Check, ExternalLink } from 'lucide-react'
+import { AlertCircle, Check, ExternalLink, Loader2, Plug } from 'lucide-react'
 
 type RepositoryInfo = {
   url?: string
@@ -25,6 +25,9 @@ export interface MCPServerCardProps {
   onUninstall?: () => void
   onCopyConfig?: () => void
   animationDelay?: number
+  runtimeStatus?: 'connected' | 'connecting' | 'error' | 'idle'
+  runtimeError?: string
+  toolCount?: number
 }
 
 const getConnectionBadgeClass = (connectionType?: string): string => {
@@ -50,7 +53,10 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
   onInstall,
   onUninstall,
   onCopyConfig,
-  animationDelay
+  animationDelay,
+  runtimeStatus = 'idle',
+  runtimeError,
+  toolCount
 }) => {
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const displayName = (title || name).substring((title || name).indexOf('/') + 1)
@@ -120,6 +126,24 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                   added
                 </span>
               )}
+              {isInstalled && runtimeStatus === 'connected' && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 select-none">
+                  <Plug className="h-2.5 w-2.5" />
+                  connected
+                </span>
+              )}
+              {isInstalled && runtimeStatus === 'connecting' && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-medium text-amber-600 dark:text-amber-400 select-none">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  connecting
+                </span>
+              )}
+              {isInstalled && runtimeStatus === 'error' && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-medium text-rose-600 dark:text-rose-400 select-none">
+                  <AlertCircle className="h-2.5 w-2.5" />
+                  failed
+                </span>
+              )}
             </div>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono tracking-tight truncate">
               @{name}
@@ -131,6 +155,11 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
         {description && (
           <p className="text-[11.5px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
             {description}
+          </p>
+        )}
+        {runtimeStatus === 'error' && runtimeError && (
+          <p className="text-[10.5px] text-rose-600 dark:text-rose-400 line-clamp-2 leading-relaxed">
+            {runtimeError}
           </p>
         )}
       </div>
@@ -168,6 +197,11 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
             >
               {configDisplay}
             </code>
+          )}
+          {typeof toolCount === 'number' && runtimeStatus === 'connected' && (
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
+              {toolCount} tools
+            </span>
           )}
         </div>
 

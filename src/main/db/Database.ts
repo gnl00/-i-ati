@@ -108,6 +108,15 @@ class AppDatabase {
     `)
 
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_servers (
+        name TEXT PRIMARY KEY,
+        config_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `)
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS provider_definitions (
         id TEXT PRIMARY KEY,
         display_name TEXT NOT NULL,
@@ -261,6 +270,7 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chats_update_time ON chats(update_time DESC);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_uuid ON messages(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_mcp_servers_updated_at ON mcp_servers(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_id ON compressed_summaries(chat_id);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_uuid ON compressed_summaries(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_status_chat ON compressed_summaries(status, chat_id);

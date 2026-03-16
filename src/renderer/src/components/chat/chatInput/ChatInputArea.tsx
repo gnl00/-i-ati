@@ -73,8 +73,18 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const {
     selectedServers: selectedMcpServerNames,
     toggle: toggleMcpConnection,
-    isConnecting: isConnectingMcpServer
+    isConnecting: isConnectingMcpServer,
+    syncWithConfig: syncMcpRuntimeWithConfig,
+    hydrateFromRuntime: hydrateMcpRuntime
   } = useMcpConnection()
+
+  useEffect(() => {
+    void hydrateMcpRuntime()
+  }, [hydrateMcpRuntime])
+
+  useEffect(() => {
+    void syncMcpRuntimeWithConfig(mcpServerConfig)
+  }, [mcpServerConfig, syncMcpRuntimeWithConfig])
 
   // Get currentAssistant from assistant store
   const { currentAssistant } = useAssistantStore()

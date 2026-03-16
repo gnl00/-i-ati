@@ -45,6 +45,20 @@ declare interface ModelRef {
   modelId: string
 }
 
+declare interface LocalMcpServerConfig {
+  type?: 'sse' | 'streamableHttp'
+  url?: string
+  description?: string
+  version?: string
+  command?: string
+  args?: string[]
+  env?: string[]
+}
+
+declare interface McpServerConfig {
+  mcpServers?: Record<string, LocalMcpServerConfig>
+}
+
 declare interface IAppConfig {
   providerDefinitions?: ProviderDefinition[]
   accounts?: ProviderAccount[]
@@ -61,7 +75,7 @@ declare interface IAppConfig {
     items?: AppPluginConfig[]
   }
   compression?: CompressionConfig
-  mcp?: { mcpServers?: {} }
+  mcp?: McpServerConfig
   version?: number
   configForUpdate?: IAppConfig
 }
@@ -185,6 +199,17 @@ declare interface MCPTool {
     description?: string
     parameters?: Record<string, unknown>
   }
+}
+
+declare interface McpRuntimeServerStatus {
+  name: string
+  connected: boolean
+  tools: MCPTool[]
+  lastError?: string
+}
+
+declare interface McpRuntimeSnapshot {
+  servers: McpRuntimeServerStatus[]
 }
 
 declare interface SkillMetadata {
