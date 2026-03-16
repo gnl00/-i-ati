@@ -254,10 +254,9 @@ const cancel = useCommandConfirmationStore(state => state.cancel)
 
 ## 相关文档
 
-- `docs/message-compression-flow.md` - 消息构建流程
-- `docs/message-builder-design.md` - MessageBuilder 设计
+- `docs/chat/message-compression-flow.md` - 消息构建流程
+- `docs/chat/message-builder-design.md` - MessageBuilder 设计
 - `src/main/tools/command/README.md` - 命令工具文档
-
 
 
 
