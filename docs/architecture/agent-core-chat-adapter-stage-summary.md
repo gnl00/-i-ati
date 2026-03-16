@@ -1,5 +1,8 @@
 # Agent Core / Chat Adapter Stage Summary
 
+> 这份文档记录的是 `agentCore + hostAdapters/chat` 拆分过程中的阶段性总结，部分路径描述对应当时状态。
+> 当前结构请优先参考 [chat-runtime-architecture-current.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-runtime-architecture-current.md)。
+
 ## 背景
 
 这一阶段的目标，不再是单纯把 `chatSubmit` 改名为 `chatRun`，而是继续把运行时拆成更清晰的三层：

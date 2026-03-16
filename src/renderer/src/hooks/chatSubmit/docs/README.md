@@ -29,4 +29,4 @@ run.accepted
   - `src/renderer/src/hooks/chatSubmit/index.tsx`
 
 ## Further Reading
-- `docs/chat-submit-event-bus.md`
+- `docs/architecture/chat-submit-event-bus.md`

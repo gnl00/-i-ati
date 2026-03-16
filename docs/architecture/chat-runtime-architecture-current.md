@@ -31,14 +31,17 @@ src/main/services/
   agentCore/
     contracts/
     execution/
+      parser/
     mapping/
-    run/
+    run-kernel/
     tools/
     types/
     index.ts
 
   hostAdapters/
     chat/
+      config/
+      execution/
       mapping/
       persistence/
       preparation/
@@ -47,18 +50,15 @@ src/main/services/
       index.ts
 
   chatRun/
+    infrastructure/
     runtime/
-      assistant-step/
-    preparation/
-      request/
-    finalize/
-    config/
     index.ts
-    event-emitter.ts
-    tool-confirmation.ts
     errors.ts
     logger.ts
     types.ts
+    utils.ts
+    streaming/
+      executor/
 
   chatPostRun/
     PostRunJobService.ts
@@ -92,16 +92,25 @@ src/main/services/
 - [execution/AgentStepLoop.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/AgentStepLoop.ts)
   - 单次 step loop
   - `request -> response -> tool -> next cycle`
+- [execution/AgentStepRuntimeFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/AgentStepRuntimeFactory.ts)
+  - 组装 `AgentStepLoop` 所需的 runtime pieces
+- [execution/parser/](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/parser)
+  - chunk parser
+  - tool call parser
+  - think tag parser
+  - segment content helpers
 - [tools/ToolExecutor.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/tools/ToolExecutor.ts)
   - 并发工具执行
   - runtime context 注入
   - confirmation / progress / abort
+- [run-kernel/AgentRunKernel.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/run-kernel/AgentRunKernel.ts)
+  - run 级 kernel
+  - 负责 step 执行结果与终态收敛
 
 当前 `agentCore` 还没有完全独立：
 
-- parser 仍暂存在 `chatRun/streaming/parser`
 - run manager / run instance 仍暂存在 `chatRun/runtime`
-- errors / logger / tool confirmation 仍在 `chatRun`
+- shell 级 errors / logger / tool confirmation 仍在 `chatRun`
 
 所以现在已经有了真实 core，但还没有完全去 chatRun 化。
 
@@ -113,26 +122,35 @@ src/main/services/
 
 - [ChatAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/ChatAgentAdapter.ts)
   - chat run 的总适配入口
-  - 负责 `prepareRun / finalizeRun`
+  - 负责 `prepareRun / createStepRuntimeContext / finalizeRun`
+- [config/](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/config)
+  - `AppConfigStore`
+  - `ChatModelContextResolver`
+- [execution/](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution)
+  - `AssistantStepFactory`
+  - `AssistantStepMessageManager`
+  - `AssistantStepEventMapper`
 - [mapping/ChatEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/mapping/ChatEventMapper.ts)
   - chat-facing event mapping
+- [mapping/ChatStepRuntimeContextMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/mapping/ChatStepRuntimeContextMapper.ts)
+  - 将 chat 上下文收窄成 step runtime 所需最小上下文
 - [persistence/ChatSessionStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/persistence/ChatSessionStore.ts)
   - chat load/create/history load
   - chat finalize/title update
 - [persistence/ChatStepStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/persistence/ChatStepStore.ts)
   - user message / assistant placeholder / tool result / finalize assistant
 - [preparation/index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/preparation/index.ts)
-  - 当前先作为 chat preparation 边界入口
+  - chat preparation pipeline
 - [finalize/index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/finalize/index.ts)
-  - 当前先作为 chat finalize 边界入口
+  - chat finalize boundary
 
 当前 `hostAdapters/chat` 的状态是：
 
-- mapping / persistence 已经物理迁入
-- preparation / finalize 已经建立 host-side 入口
-- 底层实现当前仍暂时复用 `chatRun/preparation` 与 `chatRun/finalize`
+- config / mapping / persistence / preparation / finalize 已全部物理迁入
+- step 运行期的 chat-side wiring 也已迁入 `hostAdapters/chat/execution`
+- 当前已经是一个真实的 chat host adapter，而不只是目录边界
 
-也就是说，边界已经立起来了，但底层实现还没有全部搬完。
+也就是说，chat-specific 的主体实现已经基本收进 `hostAdapters/chat`。
 
 ## chatRun
 
@@ -144,30 +162,35 @@ src/main/services/
   - facade
   - 对外暴露 `start / runBlocking / cancel / resolveToolConfirmation`
 - [runtime/RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunManager.ts)
-  - active run registry
+  - shell runtime manager
   - `accepted / runBlocking / cancel`
 - [runtime/AgentRun.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/AgentRun.ts)
-  - 单次 run 生命周期协调器
-  - 当前通过 `ChatAgentAdapter` 获取 chat-specific prepare/finalize 能力
-- [execution/AssistantStepFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepFactory.ts)
-  - 负责把 chat-side message manager、event mapper 装配到 `agentCore/execution`
-- [execution/AssistantStepMessageManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepMessageManager.ts)
-  - 当前 step 中的 message state
-  - 已开始产出 `StepArtifact`
-- [execution/AssistantStepEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepEventMapper.ts)
-  - step 运行期事件映射到 chat run events
+  - shell 层 run 生命周期协调器
+  - 通过 `ChatAgentAdapter` 获取 chat-specific prepare/finalize 能力
+  - 通过 `AgentRunKernel` 执行 run kernel
+- [runtime/RunLifecycleEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunLifecycleEventMapper.ts)
+  - run 生命周期事件发射
+- [runtime/RunTerminalHandler.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunTerminalHandler.ts)
+  - kernel 终态到 shell `RunResult` 的收敛
+- [runtime/RunRegistry.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunRegistry.ts)
+  - active run registry
+- [runtime/ChatRunRuntimeFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/ChatRunRuntimeFactory.ts)
+  - shell composition root
+- [infrastructure/event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/infrastructure/event-emitter.ts)
+  - chat run event emitter factory
+- [infrastructure/tool-confirmation.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/infrastructure/tool-confirmation.ts)
+  - tool confirmation manager
 
-### 仍留在 chatRun 的 chat-specific 内容
+### 仍留在 chatRun 的非 core 内容
 
-- [preparation/](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/preparation)
-  - 底层实现仍在这里
-- [finalize/RunFinalizeService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/finalize/RunFinalizeService.ts)
-  - 底层实现仍在这里
-- [config/](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/config)
-  - `AppConfigStore`
-  - `ChatModelContextResolver`
+- shell runtime orchestration
+- emitter / confirmation infrastructure
+- 一组仍待清理的 legacy 辅助文件：
+  - [streaming/executor/](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/streaming/executor)
+  - [logger.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/logger.ts)
+  - [errors.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/errors.ts)
 
-所以 `chatRun` 当前是“正在去 chat adapter 化”的中间态。
+所以 `chatRun` 当前更像 shell 层，而不是 chat adapter 本体。
 
 ## chatPostRun
 
@@ -203,24 +226,28 @@ src/main/services/
 
 ```text
 ChatRunService
-  -> RunManager
-    -> AgentRun
-      -> ChatAgentAdapter.prepareRun()
-        -> ChatPreparationPipeline
-      -> AgentStepLoop
-      -> ChatAgentAdapter.finalizeRun()
-        -> ChatFinalizeService
-      -> PostRunJobService
+  -> ChatRunRuntimeFactory
+    -> RunManager
+      -> AgentRun
+        -> RunLifecycleEventMapper
+        -> ChatAgentAdapter.prepareRun()
+        -> AssistantStepFactory
+        -> AgentRunKernel
+        -> RunTerminalHandler
+        -> ChatAgentAdapter.finalizeRun()
+        -> PostRunJobService
 ```
 
 step 执行链路：
 
 ```text
-AssistantStepFactory
-  -> AgentStepLoop
-  -> ToolExecutor
-  -> AssistantStepMessageManager
-  -> AssistantStepEventMapper
+hostAdapters/chat/execution/AssistantStepFactory
+  -> agentCore/execution/AgentStepRuntimeFactory
+    -> AgentStepLoop
+    -> parser/*
+    -> ToolExecutor
+    -> AssistantStepMessageManager
+    -> AssistantStepEventMapper
 ```
 
 显式 operation 链路：
@@ -245,32 +272,43 @@ AgentRun completed
 当前已经比较明确的部分：
 
 - `agentCore`
-  - 开始承载稳定的 core types / execution / tools
+  - 稳定 core types
+  - step execution
+  - parser
+  - tool execution
+  - run kernel
 - `hostAdapters/chat`
-  - 开始承载稳定的 chat mapping / persistence / adapter
+  - chat config
+  - chat preparation/finalize
+  - chat persistence
+  - chat event mapping
+  - chat-side step wiring
 - `chatPostRun`
   - 明确是异步 side jobs
 - `chatOperations`
   - 明确是显式 use case
+- `chatRun`
+  - 明确是 shell/runtime orchestration
 
 当前仍然没有完全收干净的部分：
 
-- `chatRun/preparation`
-- `chatRun/finalize`
-- `chatRun/config`
-- `chatRun/streaming/parser`
-- `chatRun/errors` / `logger` / `tool-confirmation`
+- `chatRun/streaming/executor`
+  - 已无主路径引用，属于待清理 legacy 目录
+- `chatRun/logger.ts` / `chatRun/errors.ts`
+  - 仍带有 shell 历史包袱
+- `agentCore/mapping`
+  - 目录已预留，但内部边界还未真正展开
 
 所以目前的状态是：
 
 - 新架构骨架已经落地
-- core execution 与 tools 已进 `agentCore`
+- core execution、parser、tools、run-kernel 已进 `agentCore`
 - chat host adapter 已经成型
-- 但仍有一部分实现暂时挂在 `chatRun` 下
+- `chatRun` 已明显退化为 shell 层
 
 ## 后续建议
 
-- 继续把 `chatRun/preparation` 物理迁到 `hostAdapters/chat/preparation`
-- 继续把 `chatRun/finalize` 物理迁到 `hostAdapters/chat/finalize`
-- 继续评估 `chatRun/config` 是否也应迁到 `hostAdapters/chat`
-- 等 run runtime 边界进一步稳定后，再决定是否把 `chatRun/runtime` 中的更多内容下沉到 `agentCore/run-kernel`
+- 评估 `ChatAgentAdapter` 是否进一步拆成更薄的 `prepare / step-context / finalize` facade
+- 继续清理 `chatRun/streaming/executor` 这类已无主路径引用的 legacy 目录
+- 进一步扩展 `agentCore/contracts`，让 core 依赖更稳定地面向 contract 而不是 concrete 实现
+- 等 shell/runtime 边界进一步稳定后，再决定 `chatRun/runtime` 中是否还有内容可继续下沉到 `agentCore`

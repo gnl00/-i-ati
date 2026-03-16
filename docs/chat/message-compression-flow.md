@@ -459,4 +459,4 @@ RequestMessageBuilder 在每个步骤都会输出日志：
 
 ## 相关文档
 
-- `docs/message-builder-design.md` - RequestMessageBuilder 设计方案
+- `docs/chat/message-builder-design.md` - RequestMessageBuilder 设计方案

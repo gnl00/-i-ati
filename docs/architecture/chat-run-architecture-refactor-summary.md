@@ -1,5 +1,8 @@
 # Chat Run Architecture Refactor Summary
 
+> 这份文档记录的是 `chatRun` 重构阶段的阶段性总结，部分目录与文件路径属于当时状态。
+> 当前结构请优先参考 [chat-runtime-architecture-current.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-runtime-architecture-current.md)。
+
 ## 背景
 
 这次优化不是一次局部修补，而是一次应用结构级别的重构。
@@ -237,10 +240,10 @@ run.accepted
 - `src/main/services/chatRun/index.ts`
 - `src/main/services/chatRun/runtime/RunManager.ts`
 - `src/main/services/chatRun/runtime/AgentRun.ts`
-- `src/main/services/chatRun/runtime/assistant-step/AssistantStepLoop.ts`
-- `src/main/services/chatRun/runtime/assistant-step/AssistantStepMessageManager.ts`
-- `src/main/services/chatRun/preparation/index.ts`
-- `src/main/services/chatRun/finalize/RunFinalizeService.ts`
+- `src/main/services/agentCore/execution/AgentStepLoop.ts`
+- `src/main/services/hostAdapters/chat/execution/AssistantStepMessageManager.ts`
+- `src/main/services/hostAdapters/chat/preparation/index.ts`
+- `src/main/services/hostAdapters/chat/finalize/ChatFinalizeService.ts`
 - `src/main/services/chatPostRun/PostRunJobService.ts`
 - `src/shared/chatRun/events.ts`
 - `src/renderer/src/hooks/chatSubmit/index.tsx`
