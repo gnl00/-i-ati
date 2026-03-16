@@ -18,7 +18,7 @@ vi.mock('@main/services/DatabaseService', () => ({
       return taskStore.filter(task => task.chat_uuid === chatUuid).map(task => ({ ...task }))
     }),
     getChatByUuid: vi.fn((chatUuid: string) => ({ id: 1, uuid: chatUuid })),
-    saveChatSubmitEvent: vi.fn(() => 1),
+    saveChatRunEvent: vi.fn(() => 1),
     getScheduledTaskById: vi.fn((id: string) => {
       const task = taskStore.find(item => item.id === id)
       return task ? { ...task } : undefined

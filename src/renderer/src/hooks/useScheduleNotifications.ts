@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { invokeDbScheduledTasksByChatUuid, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
 import { useChatStore } from '@renderer/store'
 import { useScheduledTasksStore } from '@renderer/store/scheduledTasks'
@@ -22,7 +23,7 @@ export function useScheduleNotifications(chatUuid?: string | null): void {
     }
 
     const unsubscribe = subscribeScheduleEvents((event: ScheduleEvent) => {
-      if (event.type === 'message.created') {
+      if (event.type === SCHEDULE_EVENTS.MESSAGE_CREATED) {
         const message = event.payload?.message
         if (!message || message.body?.source !== 'schedule') return
         if (chatUuid && message.chatUuid === chatUuid) {
@@ -30,7 +31,7 @@ export function useScheduleNotifications(chatUuid?: string | null): void {
         }
         return
       }
-      if (event.type === 'message.updated') {
+      if (event.type === SCHEDULE_EVENTS.MESSAGE_UPDATED) {
         const message = event.payload?.message
         if (!message || message.body?.source !== 'schedule') return
         if (chatUuid && message.chatUuid === chatUuid) {
@@ -38,7 +39,7 @@ export function useScheduleNotifications(chatUuid?: string | null): void {
         }
         return
       }
-      if (event.type !== 'schedule.updated') return
+      if (event.type !== SCHEDULE_EVENTS.UPDATED) return
       const task = event.payload?.task
       if (!task?.chat_uuid) return
 

@@ -3,7 +3,8 @@
  * 统一管理所有 Renderer 进程到 Main 进程的 IPC 调用
  */
 
-import type { ChatSubmitEvent } from '@renderer/hooks/chatSubmit/event-driven/events'
+import type { ChatRunEvent } from '@shared/chatRun/events'
+import type { ScheduleEvent } from '@shared/schedule/events'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import {
   PIN_WINDOW,
@@ -63,10 +64,10 @@ import {
   DB_TASK_PLAN_UPDATE_STATUS,
   DB_TASK_PLAN_STEP_UPSERT,
   DB_TASK_PLAN_STEP_UPDATE_STATUS,
-  CHAT_SUBMIT_SUBMIT,
-  CHAT_SUBMIT_CANCEL,
-  CHAT_SUBMIT_TOOL_CONFIRM,
-  CHAT_SUBMIT_EVENT,
+  CHAT_RUN_START,
+  CHAT_RUN_CANCEL,
+  CHAT_RUN_TOOL_CONFIRM,
+  CHAT_RUN_EVENT,
   SCHEDULE_EVENT,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE,
@@ -433,7 +434,7 @@ export async function invokeDbProviderModelSetEnabled(data: { accountId: string;
 
 // ============ Chat Submit (Main-driven) ============
 
-export async function invokeChatSubmit(data: {
+export async function invokeChatRunStart(data: {
   submissionId: string
   input: {
     textCtx: string
@@ -442,73 +443,63 @@ export async function invokeChatSubmit(data: {
     prompt?: string
     options?: IUnifiedRequest['options']
     stream?: boolean
+    userInstruction?: string
   }
   modelRef: ModelRef
   chatId?: number
   chatUuid?: string
 }): Promise<{ accepted: boolean; submissionId: string }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(CHAT_SUBMIT_SUBMIT, data)
+  return await ipc.invoke(CHAT_RUN_START, data)
 }
 
-export async function invokeChatSubmitCancel(data: { submissionId: string; reason?: string }): Promise<{ cancelled: boolean }> {
+export async function invokeChatRunCancel(data: { submissionId: string; reason?: string }): Promise<{ cancelled: boolean }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(CHAT_SUBMIT_CANCEL, data)
+  return await ipc.invoke(CHAT_RUN_CANCEL, data)
 }
 
-export async function invokeChatSubmitToolConfirm(data: {
+export async function invokeChatRunToolConfirm(data: {
   toolCallId: string
   approved: boolean
   reason?: string
   args?: unknown
 }): Promise<{ ok: boolean }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(CHAT_SUBMIT_TOOL_CONFIRM, data)
+  return await ipc.invoke(CHAT_RUN_TOOL_CONFIRM, data)
 }
 
-type ChatSubmitEventHandler = (event: ChatSubmitEvent) => void
-const chatSubmitHandlers = new Set<ChatSubmitEventHandler>()
-let chatSubmitListener: ((event: any, data: any) => void) | null = null
+type ChatRunEventHandler = (event: ChatRunEvent) => void
+const chatRunHandlers = new Set<ChatRunEventHandler>()
+let chatRunListener: ((event: any, data: any) => void) | null = null
 
-export function subscribeChatSubmitEvents(
-  handler: ChatSubmitEventHandler
+export function subscribeChatRunEvents(
+  handler: ChatRunEventHandler
 ): () => void {
   const ipc = getElectronIPC()
-  chatSubmitHandlers.add(handler)
+  chatRunHandlers.add(handler)
 
-  if (!chatSubmitListener) {
-    chatSubmitListener = (_event: any, data: any) => {
-      chatSubmitHandlers.forEach(cb => cb(data))
+  if (!chatRunListener) {
+    chatRunListener = (_event: any, data: any) => {
+      chatRunHandlers.forEach(cb => cb(data))
     }
-    ipc.on(CHAT_SUBMIT_EVENT, chatSubmitListener)
+    ipc.on(CHAT_RUN_EVENT, chatRunListener)
   }
 
   return () => {
-    chatSubmitHandlers.delete(handler)
-    if (chatSubmitHandlers.size === 0 && chatSubmitListener) {
-      ipc.removeListener(CHAT_SUBMIT_EVENT, chatSubmitListener)
-      chatSubmitListener = null
+    chatRunHandlers.delete(handler)
+    if (chatRunHandlers.size === 0 && chatRunListener) {
+      ipc.removeListener(CHAT_RUN_EVENT, chatRunListener)
+      chatRunListener = null
     }
   }
 }
 
-export type ScheduleEventType = 'schedule.updated' | 'message.created' | 'message.updated'
-export type ScheduleEventPayloads = {
-  'schedule.updated': { task: import('@shared/tools/schedule').ScheduleTask }
-  'message.created': { message: MessageEntity }
-  'message.updated': { message: MessageEntity }
-}
-export type ScheduleEventEnvelope<T extends ScheduleEventType = ScheduleEventType> = {
-  type: T
-  payload: ScheduleEventPayloads[T]
-  chatId?: number
-  chatUuid?: string
-  sequence: number
-  timestamp: number
-}
-
-export type ScheduleEvent =
-  { [K in ScheduleEventType]: ScheduleEventEnvelope<K> }[ScheduleEventType]
+export type {
+  ScheduleEventType,
+  ScheduleEventPayloads,
+  ScheduleEventEnvelope,
+  ScheduleEvent
+} from '@shared/schedule/events'
 
 type ScheduleEventHandler = (event: ScheduleEvent) => void
 const scheduleHandlers = new Set<ScheduleEventHandler>()

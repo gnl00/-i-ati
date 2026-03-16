@@ -167,7 +167,7 @@ class AppDatabase {
     `)
 
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS chat_submit_events (
+      CREATE TABLE IF NOT EXISTS chat_run_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         submission_id TEXT NOT NULL,
         chat_id INTEGER,
@@ -265,10 +265,10 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_uuid ON compressed_summaries(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_status_chat ON compressed_summaries(status, chat_id);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_message_range ON compressed_summaries(chat_id, start_message_id, end_message_id);
-      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_submission ON chat_submit_events(submission_id);
-      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_chat_id ON chat_submit_events(chat_id);
-      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_chat_uuid ON chat_submit_events(chat_uuid);
-      CREATE INDEX IF NOT EXISTS idx_chat_submit_events_timestamp ON chat_submit_events(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_chat_run_events_submission ON chat_run_events(submission_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_run_events_chat_id ON chat_run_events(chat_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_run_events_chat_uuid ON chat_run_events(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_chat_run_events_timestamp ON chat_run_events(timestamp);
       CREATE INDEX IF NOT EXISTS idx_assistants_is_built_in ON assistants(is_built_in);
       CREATE INDEX IF NOT EXISTS idx_assistants_is_default ON assistants(is_default);
       CREATE INDEX IF NOT EXISTS idx_assistants_order ON assistants(sort_index ASC, updated_at DESC);

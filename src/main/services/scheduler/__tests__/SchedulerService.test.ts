@@ -50,7 +50,7 @@ vi.mock('@main/services/DatabaseService', () => ({
       const task = taskStore.find(item => item.id === id)
       return task ? { ...task } : undefined
     }),
-    saveChatSubmitEvent: vi.fn(() => 1),
+    saveChatRunEvent: vi.fn(() => 1),
     updateScheduledTaskStatus: vi.fn(
       (id: string, status: string, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         const task = taskStore.find(item => item.id === id)
@@ -71,9 +71,9 @@ vi.mock('@main/services/scheduler/event-emitter', () => ({
   }
 }))
 
-vi.mock('@main/services/chatSubmit', () => ({
-  MainChatSubmitService: class {
-    submit = mockSubmit
+vi.mock('@main/services/chatRun', () => ({
+  ChatRunService: class {
+    runBlocking = mockSubmit
   }
 }))
 

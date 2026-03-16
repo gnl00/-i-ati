@@ -1,7 +1,7 @@
 /**
  * DatabaseService - main-process database facade.
  * Orchestrates SQLite repositories and delegates domain logic to specialized data services
- * (chat/message/config/provider/assistant/plan/schedule/compressed-summary/submit-event).
+ * (chat/message/config/provider/assistant/plan/schedule/compressed-summary/run-event).
  */
 
 import { AppDatabase } from '../db/Database'
@@ -11,7 +11,7 @@ import { ChatRepository } from '../db/repositories/ChatRepository'
 import { ChatSkillRepository } from '../db/repositories/ChatSkillRepository'
 import { MessageRepository } from '../db/repositories/MessageRepository'
 import { CompressedSummaryRepository } from '../db/repositories/CompressedSummaryRepository'
-import { ChatSubmitEventRepository } from '../db/repositories/ChatSubmitEventRepository'
+import { ChatRunEventRepository } from '../db/repositories/ChatRunEventRepository'
 import { AssistantRepository } from '../db/repositories/AssistantRepository'
 import { TaskPlanRepository } from '../db/repositories/TaskPlanRepository'
 import { ScheduledTaskRepository, ScheduledTaskRow } from '../db/repositories/ScheduledTaskRepository'
@@ -22,7 +22,7 @@ import { ChatDataService } from './database/ChatDataService'
 import { MessageDataService } from './database/MessageDataService'
 import { ConfigDataService } from './database/ConfigDataService'
 import { CompressedSummaryDataService } from './database/CompressedSummaryDataService'
-import { ChatSubmitEventDataService } from './database/ChatSubmitEventDataService'
+import { ChatRunEventDataService } from './database/ChatRunEventDataService'
 import { AssistantDataService } from './database/AssistantDataService'
 
 
@@ -41,7 +41,7 @@ class DatabaseService {
   private chatSkillRepo?: ChatSkillRepository
   private messageRepo?: MessageRepository
   private summaryRepo?: CompressedSummaryRepository
-  private submitEventRepo?: ChatSubmitEventRepository
+  private runEventRepo?: ChatRunEventRepository
   private assistantRepo?: AssistantRepository
   private taskPlanRepo?: TaskPlanRepository
   private scheduledTaskRepo?: ScheduledTaskRepository
@@ -51,7 +51,7 @@ class DatabaseService {
   private scheduledTaskDataService?: ScheduledTaskDataService
   private configDataService?: ConfigDataService
   private compressedSummaryDataService?: CompressedSummaryDataService
-  private chatSubmitEventDataService?: ChatSubmitEventDataService
+  private chatRunEventDataService?: ChatRunEventDataService
   private assistantDataService?: AssistantDataService
 
   private constructor() {
@@ -86,7 +86,7 @@ class DatabaseService {
       this.chatSkillRepo = new ChatSkillRepository(this.db)
       this.messageRepo = new MessageRepository(this.db)
       this.summaryRepo = new CompressedSummaryRepository(this.db)
-      this.submitEventRepo = new ChatSubmitEventRepository(this.db)
+      this.runEventRepo = new ChatRunEventRepository(this.db)
       this.assistantRepo = new AssistantRepository(this.db)
       this.taskPlanRepo = new TaskPlanRepository(this.db)
       this.scheduledTaskRepo = new ScheduledTaskRepository(this.db)
@@ -117,9 +117,9 @@ class DatabaseService {
         hasDb: () => Boolean(this.db),
         getSummaryRepo: () => this.summaryRepo
       })
-      this.chatSubmitEventDataService = new ChatSubmitEventDataService({
+      this.chatRunEventDataService = new ChatRunEventDataService({
         hasDb: () => Boolean(this.db),
-        getSubmitEventRepo: () => this.submitEventRepo
+        getRunEventRepo: () => this.runEventRepo
       })
       this.assistantDataService = new AssistantDataService({
         hasDb: () => Boolean(this.db),
@@ -427,7 +427,7 @@ class DatabaseService {
       this.chatSkillRepo = undefined
       this.messageRepo = undefined
       this.summaryRepo = undefined
-      this.submitEventRepo = undefined
+      this.runEventRepo = undefined
       this.assistantRepo = undefined
       this.taskPlanRepo = undefined
       this.scheduledTaskRepo = undefined
@@ -437,21 +437,21 @@ class DatabaseService {
       this.scheduledTaskDataService = undefined
       this.configDataService = undefined
       this.compressedSummaryDataService = undefined
-      this.chatSubmitEventDataService = undefined
+      this.chatRunEventDataService = undefined
       this.assistantDataService = undefined
       this.isInitialized = false
       console.log('[DatabaseService] Database closed')
     }
   }
 
-  // ==================== ChatSubmitEventTrace Methods ====================
+  // ==================== ChatRunEventTrace Methods ====================
 
   /**
-   * 保存 chat submit 事件轨迹
+   * 保存 chat run 事件轨迹
    */
-  public saveChatSubmitEvent(data: ChatSubmitEventTrace): number {
-    if (!this.chatSubmitEventDataService) throw new Error('Chat submit event data service not initialized')
-    return this.chatSubmitEventDataService.saveChatSubmitEvent(data)
+  public saveChatRunEvent(data: ChatRunEventTrace): number {
+    if (!this.chatRunEventDataService) throw new Error('Chat run event data service not initialized')
+    return this.chatRunEventDataService.saveChatRunEvent(data)
   }
 
   // ==================== CompressedSummary Methods ====================

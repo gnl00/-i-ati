@@ -14,7 +14,7 @@ Refactor database layer to separate provider/account/model data into dedicated t
   - `ChatSkillRepository`
   - `MessageRepository`
   - `CompressedSummaryRepository`
-  - `ChatSubmitEventRepository`
+  - `ChatRunEventRepository`
   - `AssistantRepository`
 
 ### DatabaseService

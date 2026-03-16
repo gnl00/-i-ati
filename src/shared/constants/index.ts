@@ -136,11 +136,11 @@ export const DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID = 'db:scheduled-tasks:get-by-ch
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
 
-// Chat Submit (Main-driven)
-export const CHAT_SUBMIT_SUBMIT = 'chat-submit:submit'
-export const CHAT_SUBMIT_CANCEL = 'chat-submit:cancel'
-export const CHAT_SUBMIT_EVENT = 'chat-submit:event'
-export const CHAT_SUBMIT_TOOL_CONFIRM = 'chat-submit:tool-confirm'
+// Chat Run (Main-driven)
+export const CHAT_RUN_START = 'chat-run:start'
+export const CHAT_RUN_CANCEL = 'chat-run:cancel'
+export const CHAT_RUN_EVENT = 'chat-run:event'
+export const CHAT_RUN_TOOL_CONFIRM = 'chat-run:tool-confirm'
 export const CHAT_COMPRESSION_EXECUTE = 'chat-compression:execute'
 export const CHAT_TITLE_GENERATE = 'chat-title:generate'
 export const SCHEDULE_EVENT = 'schedule:event'

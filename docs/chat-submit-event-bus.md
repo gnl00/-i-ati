@@ -1,68 +1,55 @@
-# Chat Submit Event-Bus (Overview)
+# Chat Run Architecture
 
 ## Goal
-Decouple chat submission business logic from UI updates by routing all state changes through a submission-scoped event bus. This makes streaming/tool handling deterministic and easier to debug or test.
+Make main process the only runtime truth for chat execution. Renderer only submits a run command and projects run events into UI state.
 
 ## Core Pieces
-- `ChatSubmitEventBus` - ordered, per-submission event queue.
-- `ChatSubmissionService` - orchestrates session -> request -> streaming -> finalize.
-- Services:
-  - `SessionService` (prepare workspace/chat, load history)
-  - `MessageService` (persist/update messages, tool results)
-  - `RequestService` (build API request)
-  - `StreamingService` (orchestrate streaming + tools)
-  - `FinalizeService` (title, persistence, compression)
-- `SubmissionContext` - shared in-memory state for a single submission.
+- `ChatRunService`
+  - accepts a submission
+  - prepares chat/history/messages
+  - runs the multi-turn agent loop
+  - emits lifecycle/message/tool events
+  - schedules post-run jobs
+- `AssistantTurnLoop`
+  - current assistant-turn loop kernel used by `AgentRun`
+  - drives `request -> stream -> tool -> next request`
+- `ChatRunEventEmitter`
+  - sends `chat-run:event` to renderer
+  - persists trace events for debugging
+- `useChatSubmitV2`
+  - submits a run
+  - subscribes to run events
+  - updates `ChatStore`
 
-## Event Flow (Simplified)
+## Event Flow
 ```
-submission.started
-  -> session.ready
+run.accepted
+  -> run.state.changed(preparing)
+  -> chat.ready
   -> messages.loaded
   -> message.created (user)
   -> message.created (assistant placeholder)
-  -> request.built
-  -> stream.started
-     -> stream.chunk (0..n)
-     -> tool.call.detected (0..n)
-     -> tool.call.flushed (0..n)
-     -> tool.call.attached (0..n)
-     -> tool.exec.started / completed / failed
-     -> tool.result.attached (0..n)
-     -> tool.result.persisted (0..n)
-  -> stream.completed
+  -> run.state.changed(streaming / executing_tools / finalizing)
+  -> message.updated (0..n)
+  -> tool.call.detected (0..n)
+  -> tool.exec.started / completed / failed
+  -> tool.result.attached (0..n)
   -> chat.updated
-  -> submission.completed
+  -> run.completed | run.failed | run.aborted
+  -> title.generate.* / compression.*
 ```
 
-## Ordering Guarantees
-- Events are dispatched sequentially per submission.
-- No cross-run interleaving (each submission uses its own bus).
-- Tool calls are flushed to assistant messages before tool execution results are emitted.
-- Tool result messages are attached before persistence notifications are emitted.
-
-## Event Trace Recording
-Key lifecycle events (excluding `stream.chunk`) are persisted to the database via `ChatSubmitEventTraceRecorder`. This enables post-mortem debugging without high-volume chunk logging.
-
-## UI Hook-up
-`useChatSubmitV2` subscribes to events and updates:
-- `ChatContext` (chatId, chatUuid, title, list)
-- `ChatStore` (messages, fetch/stream flags, request controller)
-
-Request/stream/tool execution runs in the main process and emits `chat-submit:event` to the renderer. The renderer only renders and applies deltas.
+## Design Rules
+- Main owns lifecycle, persistence, tool execution and post-run jobs.
+- Renderer never rebuilds assistant delta or tool-call state.
+- `run.completed` is the boundary for restoring input state.
+- title generation and compression are post-run jobs and must not block run completion.
 
 ## Key Files
-- Event bus + types:
-  - `src/renderer/src/hooks/chatSubmit/event-driven/bus.ts`
-  - `src/renderer/src/hooks/chatSubmit/event-driven/events.ts`
-- Orchestrator:
-  - `src/renderer/src/hooks/chatSubmit/event-driven/submission-service.ts`
-- Default services:
-  - `src/renderer/src/hooks/chatSubmit/event-driven/services/*.ts`
-- UI wiring:
+- Main runtime:
+  - `src/main/services/chatRun/index.ts`
+  - `src/main/services/chatRun/runtime/assistant-turn/AssistantTurnLoop.ts`
+- Shared protocol:
+  - `src/shared/chatRun/events.ts`
+- Renderer projection:
   - `src/renderer/src/hooks/chatSubmit/index.tsx`
-
-## Migration Notes
-- Legacy pipeline (prepare/buildRequest/streaming index/finalize/machine/container/message-manager) is removed.
-- Streaming core logic lives under `src/renderer/src/hooks/chatSubmit/event-driven/streaming/*`.
-- Update any internal references to old files before reusing archived docs.

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHAT_SUBMIT_EVENT, SCHEDULE_EVENT } from '@shared/constants/index'
-import { subscribeChatSubmitEvents, subscribeScheduleEvents } from '../ipcInvoker'
+import { CHAT_RUN_EVENT, SCHEDULE_EVENT } from '@shared/constants/index'
+import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
+import { SCHEDULE_EVENTS } from '@shared/schedule/events'
+import { subscribeChatRunEvents, subscribeScheduleEvents } from '../ipcInvoker'
 
 type Listener = (event: any, data: any) => void
 
@@ -37,17 +39,23 @@ describe('ipcInvoker event channel separation', () => {
     const chatHandler = vi.fn()
     const scheduleHandler = vi.fn()
 
-    const unsubChat = subscribeChatSubmitEvents(chatHandler as any)
+    const unsubChat = subscribeChatRunEvents(chatHandler as any)
     const unsubSchedule = subscribeScheduleEvents(scheduleHandler as any)
 
-    emit(CHAT_SUBMIT_EVENT, { type: 'stream.chunk', payload: { contentDelta: 'a' } })
-    emit(SCHEDULE_EVENT, { type: 'schedule.updated', payload: { task: { id: 'task-1' } } })
+    emit(CHAT_RUN_EVENT, {
+      type: CHAT_RUN_EVENTS.RUN_COMPLETED,
+      payload: { assistantMessageId: 1 }
+    })
+    emit(SCHEDULE_EVENT, {
+      type: SCHEDULE_EVENTS.UPDATED,
+      payload: { task: { id: 'task-1' } }
+    })
 
     expect(chatHandler).toHaveBeenCalledTimes(1)
     expect(scheduleHandler).toHaveBeenCalledTimes(1)
 
-    expect(chatHandler.mock.calls[0][0].type).toBe('stream.chunk')
-    expect(scheduleHandler.mock.calls[0][0].type).toBe('schedule.updated')
+    expect(chatHandler.mock.calls[0][0].type).toBe(CHAT_RUN_EVENTS.RUN_COMPLETED)
+    expect(scheduleHandler.mock.calls[0][0].type).toBe(SCHEDULE_EVENTS.UPDATED)
 
     unsubChat()
     unsubSchedule()

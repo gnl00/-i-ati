@@ -1,14 +1,14 @@
 import { useEffect } from 'react'
-import { subscribeChatSubmitEvents } from '@renderer/invoker/ipcInvoker'
+import { subscribeChatRunEvents } from '@renderer/invoker/ipcInvoker'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
-import type { ChatSubmitEvent } from '@renderer/hooks/chatSubmit/event-driven/events'
+import type { ChatRunEvent } from '@shared/chatRun/events'
 
 export function useToolConfirmations(chatUuid?: string | null): void {
   const setPending = useToolConfirmationStore(state => state.setPending)
   const clear = useToolConfirmationStore(state => state.clear)
 
   useEffect(() => {
-    const unsubscribe = subscribeChatSubmitEvents((event: ChatSubmitEvent) => {
+    const unsubscribe = subscribeChatRunEvents((event: ChatRunEvent) => {
       if (chatUuid && event.chatUuid && event.chatUuid !== chatUuid) {
         return
       }

@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/services/DatabaseService'
-import { MainChatSubmitService } from '@main/services/chatSubmit'
+import { ChatRunService } from '@main/services/chatRun'
+import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { ScheduleEventEmitter } from './event-emitter'
 import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
 
@@ -12,7 +13,7 @@ type ScheduledTaskPayload = {
 export class SchedulerService {
   private timer: NodeJS.Timeout | null = null
   private isTicking = false
-  private readonly chatSubmitService = new MainChatSubmitService()
+  private readonly chatRunService = new ChatRunService()
 
   start(intervalMs: number = 10000): void {
     if (this.timer) return
@@ -87,7 +88,7 @@ export class SchedulerService {
         }
       })
 
-      const submitResult = await this.chatSubmitService.submit({
+      const submitResult = await this.chatRunService.runBlocking({
         submissionId,
         chatId: chat.id,
         chatUuid: chat.uuid,
@@ -96,8 +97,7 @@ export class SchedulerService {
           textCtx: prompt,
           mediaCtx: [],
           stream: true
-        },
-        persistMessages: true
+        }
       })
 
       const assistantMessageId = submitResult.assistantMessageId
@@ -111,16 +111,18 @@ export class SchedulerService {
 
       const userMessage = DatabaseService.getMessageById(userMessageId)
       if (userMessage) {
-        emitter.emit('message.created', { message: userMessage })
+        emitter.emit(SCHEDULE_EVENTS.MESSAGE_CREATED, { message: userMessage })
       }
       if (assistantMessageId) {
         const assistantMessage = DatabaseService.getMessageById(assistantMessageId)
         if (assistantMessage) {
-          emitter.emit('message.created', { message: assistantMessage })
+          emitter.emit(SCHEDULE_EVENTS.MESSAGE_CREATED, { message: assistantMessage })
         }
       }
 
-      emitter.emit('schedule.updated', { task: DatabaseService.getScheduledTaskById(task.id) ?? task })
+      emitter.emit(SCHEDULE_EVENTS.UPDATED, {
+        task: DatabaseService.getScheduledTaskById(task.id) ?? task
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const maxAttempts = task.max_attempts ?? 0
@@ -171,7 +173,7 @@ export class SchedulerService {
       chatId: chat?.id,
       chatUuid: task.chat_uuid
     })
-    emitter.emit('schedule.updated', { task })
+    emitter.emit(SCHEDULE_EVENTS.UPDATED, { task })
   }
 }
 

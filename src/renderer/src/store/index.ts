@@ -139,15 +139,21 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setChatList: (list) => set({ chatList: list }),
   updateChatList: (chatEntity) => {
     set((state) => ({
-      chatList: state.chatList.map(item => {
-        if (item.uuid !== chatEntity.uuid) return item
-        const merged: ChatEntity = {
-          ...item,
-          ...chatEntity,
-          userInstruction: chatEntity.userInstruction ?? item.userInstruction
+      chatList: (() => {
+        const existingIndex = state.chatList.findIndex(item => item.uuid === chatEntity.uuid)
+        if (existingIndex < 0) {
+          return [chatEntity, ...state.chatList]
         }
-        return merged
-      }),
+        return state.chatList.map(item => {
+          if (item.uuid !== chatEntity.uuid) return item
+          const merged: ChatEntity = {
+            ...item,
+            ...chatEntity,
+            userInstruction: chatEntity.userInstruction ?? item.userInstruction
+          }
+          return merged
+        })
+      })(),
       userInstruction:
         state.currentChatUuid === chatEntity.uuid
           ? (chatEntity.userInstruction ?? state.userInstruction)
