@@ -205,12 +205,12 @@ function useChatSubmitV2() {
     mediaCtx: ClipbordImg[] | string[],
     options: { tools?: any[]; prompt?: string; stream?: boolean; options?: IUnifiedRequest['options'] }
   ): Promise<void> => {
-    if (activeSubmissionIdRef.current || !chatStore.selectedModelRef) {
+    if (activeSubmissionIdRef.current) {
       return
     }
 
     const state = useChatStore.getState()
-    const modelRef = state.selectedModelRef
+    const modelRef = state.selectedModelRef ?? state.ensureSelectedModelRef()
     if (!modelRef) {
       return
     }

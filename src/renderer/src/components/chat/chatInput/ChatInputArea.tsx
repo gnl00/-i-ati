@@ -37,9 +37,11 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const setSelectedModelRef = useChatStore(state => state.setSelectedModelRef)
+  const ensureSelectedModelRef = useChatStore(state => state.ensureSelectedModelRef)
   const setUserInstruction = useChatStore(state => state.setUserInstruction)
 
   const {
+    defaultModel,
     getModelOptions,
     resolveModelRef,
     mcpServerConfig,
@@ -50,15 +52,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [getModelOptions])
 
   const selectedModel = useMemo(() => {
-    return resolveModelRef(selectedModelRef)
-  }, [resolveModelRef, selectedModelRef])
+    return resolveModelRef(selectedModelRef ?? defaultModel)
+  }, [defaultModel, resolveModelRef, selectedModelRef])
 
   useEffect(() => {
-    if (!selectedModelRef && modelOptions.length === 1) {
-      const onlyOption = modelOptions[0]
-      setSelectedModelRef({ accountId: onlyOption.account.id, modelId: onlyOption.model.id })
+    if (!selectedModelRef) {
+      ensureSelectedModelRef()
     }
-  }, [modelOptions, selectedModelRef, setSelectedModelRef])
+  }, [ensureSelectedModelRef, selectedModelRef, modelOptions.length, defaultModel])
 
   // Use MCP connection hook
   const {
@@ -204,7 +205,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     if (!trimmedInput) {
       return
     }
-    if (!selectedModelRef) {
+    const activeModelRef = selectedModelRef ?? ensureSelectedModelRef()
+    if (!activeModelRef) {
       toast.warning('Please select a model')
       return
     }
@@ -264,6 +266,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     inputContent,
     imageSrcBase64List,
     selectedModelRef,
+    ensureSelectedModelRef,
     currentSystemPrompt,
     readStreamState,
     queuePaused,
@@ -377,7 +380,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         toast.error('Input text content is required')
         return
       }
-      if (!selectedModelRef) {
+      if (!(selectedModelRef ?? ensureSelectedModelRef())) {
         toast.error('Please select a model')
         return
       }
@@ -401,7 +404,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         caretOverlayRef.current?.updateCaret(true)
       })
     }
-  }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef, queuedMessages.length, editingQueue, startEditQueuedMessage])
+  }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef, ensureSelectedModelRef, queuedMessages.length, editingQueue, startEditQueuedMessage])
 
   const onTextAreaCompositionStart = useCallback(() => {
     isComposingRef.current = true

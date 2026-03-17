@@ -183,6 +183,7 @@ type AppConfigState = {
   accounts: ProviderAccount[]
   providersRevision: number
   currentAccountId: string | undefined
+  defaultModel: ModelRef | undefined
   titleGenerateModel: ModelRef | undefined
   titleGenerateEnabled: boolean
   memoryEnabled: boolean
@@ -221,6 +222,7 @@ type AppConfigAction = {
   removeModel: (accountId: string, modelId: string) => void
   toggleModelEnabled: (accountId: string, modelId: string) => void
 
+  setDefaultModel: (modelRef: ModelRef | undefined) => void
   setTitleGenerateModel: (modelRef: ModelRef | undefined) => void
   setTitleGenerateEnabled: (state: boolean) => void
   setMemoryEnabled: (state: boolean) => void
@@ -240,6 +242,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   accounts: defaultConfig.accounts || [],
   providersRevision: 0,
   currentAccountId: undefined,
+  defaultModel: defaultConfig.tools?.defaultModel || undefined,
 
   // State - Tool settings
   titleGenerateModel: defaultConfig.tools?.titleGenerateModel || undefined,
@@ -269,6 +272,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts,
       providersRevision: 0,
+      defaultModel: config.tools?.defaultModel || undefined,
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
@@ -315,6 +319,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts,
       providersRevision: 0,
+      defaultModel: nextConfig.tools?.defaultModel || undefined,
       titleGenerateModel: nextConfig.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: nextConfig.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: nextConfig.tools?.memoryEnabled ?? true,
@@ -453,11 +458,13 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   removeAccount: (accountId) => {
     set((state) => {
       const nextAccounts = state.accounts.filter(account => account.id !== accountId)
+      const shouldClearDefaultModel = state.defaultModel?.accountId === accountId
       const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
 
       return {
         accounts: nextAccounts,
         currentAccountId: state.currentAccountId === accountId ? undefined : state.currentAccountId,
+        defaultModel: shouldClearDefaultModel ? undefined : state.defaultModel,
         titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
         providersRevision: state.providersRevision + 1
       }
@@ -517,6 +524,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   removeModel: (accountId, modelId) => {
     let updatedAccount: ProviderAccount | undefined
     set((state) => {
+      const shouldClearDefaultModel = state.defaultModel?.accountId === accountId
+        && state.defaultModel?.modelId === modelId
       const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
         && state.titleGenerateModel?.modelId === modelId
 
@@ -529,6 +538,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
       return {
         accounts: nextAccounts,
+        defaultModel: shouldClearDefaultModel ? undefined : state.defaultModel,
         titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
         providersRevision: state.providersRevision + 1
       }
@@ -542,6 +552,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     let updatedAccount: ProviderAccount | undefined
     let nextEnabled = true
     set((state) => {
+      const shouldClearDefaultModel = state.defaultModel?.accountId === accountId
+        && state.defaultModel?.modelId === modelId
       const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
         && state.titleGenerateModel?.modelId === modelId
 
@@ -564,6 +576,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
       return {
         accounts: nextAccounts,
+        defaultModel: shouldClearDefaultModel && !nextEnabled ? undefined : state.defaultModel,
         titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
         providersRevision: state.providersRevision + 1
       }
@@ -574,6 +587,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   },
 
   // Tool setting actions
+  setDefaultModel: (modelRef) => set({ defaultModel: modelRef }),
   setTitleGenerateModel: (modelRef) => set({ titleGenerateModel: modelRef }),
   setTitleGenerateEnabled: (state) => set({ titleGenerateEnabled: state }),
   setMemoryEnabled: (state) => set({ memoryEnabled: state }),
