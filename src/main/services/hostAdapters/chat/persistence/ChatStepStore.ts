@@ -11,11 +11,11 @@ const buildUserMessage = (
   const createdAt = Date.now()
   let messageBody: ChatMessage = { role: 'user', content: '', segments: [], createdAt }
 
-  if (model.type === 'llm' || model.type === 't2i') {
+  if (model.type === 'llm' || model.type === 'img_gen') {
     return { ...messageBody, content: textCtx.trim() }
   }
 
-  if (model.type === 'vlm') {
+  if (model.type === 'vlm' || model.type === 'mllm') {
     const imgContents: VLMContent[] = mediaCtx.map((imgBase64) => ({
       type: 'image_url' as const,
       image_url: { url: imgBase64 as string, detail: 'auto' as const }

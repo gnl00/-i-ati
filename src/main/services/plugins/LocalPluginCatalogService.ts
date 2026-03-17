@@ -187,6 +187,11 @@ export class LocalPluginCatalogService {
 
   private isModelTypes(value: unknown): value is ModelType[] {
     return Array.isArray(value)
-      && value.every((modelType) => modelType === 'llm' || modelType === 'vlm' || modelType === 't2i')
+      && value.every((modelType) =>
+        modelType === 'llm'
+        || modelType === 'vlm'
+        || modelType === 'mllm'
+        || modelType === 'img_gen'
+      )
   }
 }

@@ -47,7 +47,7 @@ const BUILT_IN_APP_PLUGINS: BuiltInAppPluginDefinition[] = [
     capabilities: [{
       kind: 'request-adapter',
       providerType: 'openai',
-      modelTypes: ['t2i']
+      modelTypes: ['img_gen']
     }]
   },
   {

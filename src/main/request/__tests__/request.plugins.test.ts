@@ -42,7 +42,7 @@ describe('unifiedChatRequest plugin gating', () => {
           kind: 'request-adapter',
           data: {
             providerType: 'openai',
-            modelTypes: ['llm', 'vlm', 't2i']
+            modelTypes: ['llm', 'vlm', 'mllm']
           }
         }]
       },
@@ -56,7 +56,7 @@ describe('unifiedChatRequest plugin gating', () => {
           kind: 'request-adapter',
           data: {
             providerType: 'openai',
-            modelTypes: ['t2i']
+            modelTypes: ['img_gen']
           }
         }]
       },

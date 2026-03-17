@@ -1,4 +1,4 @@
-declare type ModelType = 'llm' | 'vlm' | 't2i'
+declare type ModelType = 'llm' | 'vlm' | 'mllm' | 'img_gen'
 
 declare interface AccountModel {
   id: string
