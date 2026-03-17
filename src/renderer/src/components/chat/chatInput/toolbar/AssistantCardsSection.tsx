@@ -10,7 +10,7 @@ interface AssistantCardsSectionProps {
 }
 
 const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen }) => {
-  const { accounts, providerDefinitions } = useAppConfigStore()
+  const { getModelOptions } = useAppConfigStore()
   const { assistants, currentAssistant, setCurrentAssistant, loadAssistants } = useAssistantStore()
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const isDraggingRef = useRef(false)
@@ -27,18 +27,7 @@ const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen
     }
   }, [panelOpen, assistants.length, loadAssistants])
 
-  const modelGroups = useMemo(() => {
-    const groups = new Map<string, { account: ProviderAccount; definition?: ProviderDefinition; models: AccountModel[] }>()
-    accounts.forEach(account => {
-      const definition = providerDefinitions.find(def => def.id === account.providerId)
-      const enabledModels = account.models.filter(model => model.enabled !== false)
-      if (enabledModels.length === 0) {
-        return
-      }
-      groups.set(account.id, { account, definition, models: enabledModels })
-    })
-    return Array.from(groups.values())
-  }, [accounts, providerDefinitions])
+  const modelOptions = useMemo(() => getModelOptions(), [getModelOptions])
 
   const currentAssistants = assistants
 
@@ -199,14 +188,14 @@ const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <AddAssistantDrawer isExpanded={true} variant="compact" modelGroups={modelGroups} />
+          <AddAssistantDrawer isExpanded={true} variant="compact" modelOptions={modelOptions} />
           {currentAssistant && (
             <AddAssistantDrawer
               isExpanded={true}
               variant="compact"
               mode="edit"
               assistantToEdit={currentAssistant}
-              modelGroups={modelGroups}
+              modelOptions={modelOptions}
             />
           )}
         </div>

@@ -9,7 +9,13 @@ let configInitPromise: Promise<void> | null = null
 export type ModelOption = {
   account: ProviderAccount
   model: AccountModel
-  definition?: ProviderDefinition
+  definition: ProviderDefinition
+}
+
+export type ProviderEntry = {
+  definition: ProviderDefinition
+  account?: ProviderAccount
+  models: AccountModel[]
 }
 
 const normalizeProviderId = (value: string): string => {
@@ -70,6 +76,20 @@ const normalizeAccounts = (
   })
 
   return deduped
+}
+
+const buildProviderEntries = (
+  providerDefinitions: ProviderDefinition[] = [],
+  accounts: ProviderAccount[] = []
+): ProviderEntry[] => {
+  return providerDefinitions.map(definition => {
+    const account = accounts.find(item => item.providerId === definition.id)
+    return {
+      definition,
+      account,
+      models: account?.models ?? []
+    }
+  })
 }
 
 const persistProviderDefinitions = async (
@@ -187,6 +207,7 @@ type AppConfigAction = {
   getProviderDefinitionById: (providerId: string) => ProviderDefinition | undefined
   getAccountById: (accountId: string) => ProviderAccount | undefined
   getAccountModel: (accountId: string, modelId: string) => AccountModel | undefined
+  getProviderEntries: () => ProviderEntry[]
   resolveModelRef: (ref?: ModelRef) => ModelOption | undefined
   getModelOptions: () => ModelOption[]
 
@@ -338,25 +359,29 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     return account?.models.find(model => model.id === modelId)
   },
 
+  getProviderEntries: () => {
+    const { accounts, providerDefinitions } = get()
+    return buildProviderEntries(providerDefinitions, accounts)
+  },
+
   resolveModelRef: (ref) => {
     if (!ref) return undefined
-    const account = get().accounts.find(item => item.id === ref.accountId)
+    const entry = get().getProviderEntries().find(item => item.account?.id === ref.accountId)
+    const account = entry?.account
     if (!account) return undefined
     const model = account.models.find(item => item.id === ref.modelId)
     if (!model) return undefined
-    const definition = get().providerDefinitions.find(def => def.id === account.providerId)
-    return { account, model, definition }
+    return { account, model, definition: entry.definition }
   },
 
   getModelOptions: () => {
-    const { accounts, providerDefinitions } = get()
-    return accounts.flatMap(account =>
-      account.models
+    return get().getProviderEntries().flatMap(entry =>
+      (entry.account ? entry.models : [])
         .filter(model => model.enabled !== false)
         .map(model => ({
-          account,
+          account: entry.account!,
           model,
-          definition: providerDefinitions.find(def => def.id === account.providerId)
+          definition: entry.definition
         }))
     )
   },

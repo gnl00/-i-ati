@@ -1,8 +1,8 @@
 import { cn } from '@renderer/lib/utils'
+import { ChatToolbarModelSelector } from '@renderer/components/shared/model-selector'
 import React from 'react'
 import ConfigPanel from './toolbar/ConfigPanel'
 import McpSelector from './toolbar/McpSelector'
-import ModelSelector from './toolbar/ModelSelector'
 import type { ModelOption } from '@renderer/store/appConfig'
 
 interface ChatInputToolbarProps {
@@ -139,7 +139,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
     >
       {/* Model Selector */}
       <div id="modelSelector" className="app-undragable bg-transparent">
-        <ModelSelector
+        <ChatToolbarModelSelector
           selectedModel={selectedModel}
           modelOptions={modelOptions}
           isOpen={selectModelPopoutState}

@@ -16,16 +16,17 @@ import {
 } from '@renderer/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
+import type { ProviderEntry } from '@renderer/store/appConfig'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { getProviderIcon } from '@renderer/utils/providerIcons'
 import { ProviderIconPicker } from './ProviderIconPicker'
 
 interface ProviderListSidebarProps {
-    plugins?: PluginEntity[]
-    providers: ProviderDefinition[]
-    selectedProviderId?: string
-    onSelectProvider: (definition: ProviderDefinition) => void
-    onDeleteProvider: (event: React.MouseEvent, definition: ProviderDefinition) => void
+  plugins?: PluginEntity[]
+  providers: ProviderEntry[]
+  selectedProviderId?: string
+  onSelectProvider: (definition: ProviderDefinition) => void
+  onDeleteProvider: (event: React.MouseEvent, definition: ProviderDefinition) => void
     addProvider: {
         displayName: string
         adapterPluginId: string
@@ -192,7 +193,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
             </div>
             <div className='flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1'>
                 <TooltipProvider>
-                    {providers.map((definition, idx) => {
+                    {providers.map(({ definition }, idx) => {
                         const iconKey = definition.iconKey || definition.id
                         const iconSrc = getProviderIcon(iconKey)
                         const isActive = definition.id === selectedProviderId
