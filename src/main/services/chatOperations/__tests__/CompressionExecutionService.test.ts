@@ -46,7 +46,7 @@ const input = {
   messages: [{ id: 1 }] as any,
   model: { id: 'model-1', label: 'model-1', type: 'llm' },
   account: { id: 'account-1', providerId: 'provider-1', apiUrl: 'https://example.com', apiKey: 'key', models: [] },
-  providerDefinition: { id: 'provider-1', adapterType: 'openai', apiVersion: 'v1' }
+  providerDefinition: { id: 'provider-1', adapterPluginId: 'openai-chat-compatible-adapter' }
 } as any
 
 describe('CompressionExecutionService', () => {

@@ -18,21 +18,6 @@ import PluginsManager from './PluginsManager'
 
 interface PreferenceProps { }
 
-const DEFAULT_PLUGINS: AppPluginConfig[] = [
-    {
-        id: 'openai-compatible-adapter',
-        name: 'OpenAICompatibleAdapter',
-        description: 'Built-in plugin for OpenAI-compatible adapter integration.',
-        enabled: true
-    },
-    {
-        id: 'claude-compatible-adapter',
-        name: 'ClaudeCompatibleAdapter',
-        description: 'Built-in plugin for Claude-compatible adapter integration.',
-        enabled: true
-    }
-]
-
 const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const { appVersion } = useChatStore()
 
@@ -50,11 +35,17 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setMcpServerConfig,
         savedMcpServerConfig,
         saveMcpServerConfig,
+        plugins,
+        savedPlugins,
+        setPlugins,
+        savePlugins,
+        refreshPlugins,
+        importLocalPlugin,
+        uninstallLocalPlugin
     } = useAppConfigStore()
 
     const [maxWebSearchItems, setMaxWebSearchItems] = useState<number>(appConfig?.tools?.maxWebSearchItems || 3)
     const [activeTab, setActiveTab] = useState<string>('provider-list')
-    const [plugins, setPlugins] = useState<AppPluginConfig[]>(appConfig?.plugins?.items || DEFAULT_PLUGINS)
 
     // Compression state
     const [compressionEnabled, setCompressionEnabled] = useState<boolean>(appConfig?.compression?.enabled ?? true)
@@ -72,7 +63,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             setCompressionKeepRecentCount(appConfig.compression.keepRecentCount || 20)
             setCompressionCompressCount(appConfig.compression.compressCount || 10)
         }
-        setPlugins(appConfig?.plugins?.items || DEFAULT_PLUGINS)
     }, [appConfig])
 
     const saveConfigurationClick = async (): Promise<void> => {
@@ -93,15 +83,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 keepRecentCount: compressionKeepRecentCount,
                 compressCount: compressionCompressCount,
                 autoCompress: true
-            },
-            plugins: {
-                items: plugins
             }
         }
 
         await Promise.all([
             setAppConfig(updatedAppConfig),
-            saveMcpServerConfig(mcpServerConfig)
+            saveMcpServerConfig(mcpServerConfig),
+            savePlugins(plugins)
         ])
         toast.success('Save configurations success')
     }
@@ -155,7 +143,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         || compressionCompressCount !== (savedCompression?.compressCount ?? 10)
 
     const mcpDirty = JSON.stringify(mcpServerConfig ?? {}) !== JSON.stringify(savedMcpConfig ?? {})
-    const pluginsDirty = JSON.stringify(plugins) !== JSON.stringify(appConfig?.plugins?.items ?? DEFAULT_PLUGINS)
+    const pluginsDirty = JSON.stringify(plugins) !== JSON.stringify(savedPlugins)
 
     const hasUnsavedChanges = providersRevision > 0 || toolsDirty || compressionDirty || mcpDirty || pluginsDirty
 
@@ -206,7 +194,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 </div>
 
                 <TabsContent value="provider-list">
-                    <ProvidersManager />
+                    <ProvidersManager plugins={plugins} />
                 </TabsContent>
 
                 <TabsContent value="tool">
@@ -250,6 +238,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <PluginsManager
                         plugins={plugins}
                         setPlugins={setPlugins}
+                        refreshPlugins={refreshPlugins}
+                        importLocalPlugin={importLocalPlugin}
+                        uninstallLocalPlugin={uninstallLocalPlugin}
                     />
                 </TabsContent>
             </Tabs>

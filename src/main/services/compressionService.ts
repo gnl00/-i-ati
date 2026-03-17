@@ -8,7 +8,7 @@
  * 4. 避免并发压缩
  */
 
-import { unifiedChatRequest } from '@request/index'
+import { unifiedChatRequest } from '@main/request/index'
 import { buildCompressionPrompt } from '@shared/prompts'
 import DatabaseService from './DatabaseService'
 
@@ -195,8 +195,7 @@ class MessageCompressionService {
 
     // 3. 构建请求
     const request: IUnifiedRequest = {
-      providerType: providerDefinition.adapterType,
-      apiVersion: providerDefinition.apiVersion,
+      adapterPluginId: providerDefinition.adapterPluginId,
       baseUrl: account.apiUrl,
       messages: [{ role: 'user', content: userContent, segments: [] }],
       apiKey: account.apiKey,

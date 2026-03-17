@@ -33,8 +33,7 @@ declare interface ProviderAccount {
 declare interface ProviderDefinition {
   id: string
   displayName: string
-  adapterType: ProviderType
-  apiVersion?: ProviderAPIVersion
+  adapterPluginId: string
   iconKey?: string
   defaultApiUrl?: string
   requestOverrides?: Record<string, any>
@@ -85,6 +84,30 @@ declare interface AppPluginConfig {
   name: string
   description?: string
   enabled?: boolean
+  source?: 'built-in' | 'local'
+  version?: string
+  manifestPath?: string
+}
+
+declare type PluginStatus = 'installed' | 'invalid' | 'load_failed' | 'uninstalled'
+
+declare interface PluginCapabilityEntity {
+  kind: string
+  data?: Record<string, unknown>
+}
+
+declare interface PluginEntity {
+  pluginId: string
+  name: string
+  description?: string
+  source: 'built-in' | 'local'
+  enabled: boolean
+  version?: string
+  manifestPath?: string
+  installRoot?: string
+  status: PluginStatus
+  lastError?: string
+  capabilities: PluginCapabilityEntity[]
 }
 
 declare type AppConfigType = Omit<IAppConfig, 'configUpdate'>
@@ -107,11 +130,8 @@ declare interface IChatRequest {
 }
 
 declare type ProviderType = string | 'openai' | 'claude' | 'azure-openai'
-declare type ProviderAPIVersion = string | 'v1' | 'v2'
-
 declare interface IUnifiedRequest {
-  providerType?: ProviderType
-  apiVersion?: ProviderAPIVersion
+  adapterPluginId: string
   /** API Base URL (endpoint path will be added by adapter) */
   baseUrl: string
   apiKey: string
@@ -132,8 +152,6 @@ declare interface RequestSnapshot {
   account: ProviderAccount
   model: AccountModel
   options?: IUnifiedRequest['options']
-  providerType?: ProviderType
-  apiVersion?: ProviderAPIVersion
   stream?: boolean
 }
 

@@ -1,23 +1,5 @@
 import { BaseAdapter } from './base'
 
-const extractSseDataChunks = (buffer: string): { chunks: string[]; remaining: string } => {
-  const events = buffer.split(/\r?\n\r?\n/)
-  const remaining = events.pop() ?? ''
-  const chunks: string[] = []
-
-  for (const eventText of events) {
-    const dataLines = eventText
-      .split(/\r?\n/)
-      .filter(line => line.startsWith('data:'))
-      .map(line => line.slice(5).trimStart())
-
-    if (dataLines.length === 0) continue
-    chunks.push(`data: ${dataLines.join('\n')}`)
-  }
-
-  return { chunks, remaining }
-}
-
 interface ClaudeToolUseState {
   id: string
   name: string
@@ -29,7 +11,6 @@ interface ClaudeToolUseState {
 // Claude Messages API (v1) 适配器
 export class ClaudeAdapter extends BaseAdapter {
   providerType: ProviderType = 'claude'
-  apiVersion = 'v1'
   private streamMessageId = 'claude-stream'
   private streamModel = 'claude'
   private pendingToolUses = new Map<number, ClaudeToolUseState>()
@@ -63,7 +44,7 @@ export class ClaudeAdapter extends BaseAdapter {
     }
   }
 
-  transformRequest(req: IUnifiedRequest): any {
+  buildRequest(req: IUnifiedRequest): any {
     const { systemPrompt, messages } = this.transformClaudeMessages(req.messages)
 
     const requestBody: any = {
@@ -86,7 +67,7 @@ export class ClaudeAdapter extends BaseAdapter {
     return requestBody
   }
 
-  transformNotStreamResponse(response: any): IUnifiedResponse {
+  parseResponse(response: any): IUnifiedResponse {
     const content = Array.isArray(response.content)
       ? response.content.find(c => c.type === 'text')?.text || ''
       : response.content || ''
@@ -103,64 +84,7 @@ export class ClaudeAdapter extends BaseAdapter {
     }
   }
 
-  async *transformStreamResponse(streamReader: ReadableStreamDefaultReader<string>): AsyncGenerator<IUnifiedResponse, void, unknown> {
-    if (!streamReader || typeof streamReader.read !== 'function') {
-      console.error('Invalid streamReader provided:', streamReader);
-      return;
-    }
-
-    this.resetStreamState()
-    let sseBuffer = ''
-
-    while (true) {
-      const { done, value } = await streamReader.read()
-      if (done) {
-        break
-      }
-
-      sseBuffer += value
-      const { chunks, remaining } = extractSseDataChunks(sseBuffer)
-      sseBuffer = remaining
-
-      for (const chunk of chunks) {
-        const streamResponse = this.parseStreamChunk(chunk)
-        if (streamResponse) {
-          const unifiedResponse: IUnifiedResponse = {
-            id: streamResponse.id,
-            model: streamResponse.model,
-            timestamp: Date.now(),
-            content: streamResponse.delta?.content || '',
-            reasoning: streamResponse.delta?.reasoning,
-            toolCalls: streamResponse.delta?.toolCalls,
-            finishReason: streamResponse.delta?.finishReason || 'stop',
-            raw: streamResponse.raw
-          }
-          yield unifiedResponse
-        }
-      }
-    }
-
-    if (sseBuffer.trim() !== '') {
-      const { chunks } = extractSseDataChunks(`${sseBuffer}\n\n`)
-      for (const chunk of chunks) {        
-        const streamResponse = this.parseStreamChunk(chunk)
-        if (!streamResponse) continue
-        const unifiedResponse: IUnifiedResponse = {
-          id: streamResponse.id,
-          model: streamResponse.model,
-          timestamp: Date.now(),
-          content: streamResponse.delta?.content || '',
-          reasoning: streamResponse.delta?.reasoning,
-          toolCalls: streamResponse.delta?.toolCalls,
-          finishReason: streamResponse.delta?.finishReason || 'stop',
-          raw: streamResponse.raw
-        }
-        yield unifiedResponse
-      }
-    }
-  }
-
-  parseStreamChunk(chunk: string): IUnifiedStreamResponse | null {
+  parseStreamResponse(chunk: string): IUnifiedStreamResponse | null {
     try {
       // Claude 流式响应格式
       if (chunk.startsWith('data: ')) {
@@ -274,7 +198,7 @@ export class ClaudeAdapter extends BaseAdapter {
     return null
   }
 
-  private resetStreamState(): void {
+  protected override onStreamStart(): void {
     this.streamMessageId = 'claude-stream'
     this.streamModel = 'claude'
     this.streamLastFinishReason = null

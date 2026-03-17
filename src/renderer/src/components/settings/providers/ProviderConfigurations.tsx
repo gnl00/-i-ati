@@ -1,18 +1,20 @@
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import {
-    Select,
+  Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue
 } from '@renderer/components/ui/select'
 import { cn } from '@renderer/lib/utils'
+import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { Eye, EyeOff } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ProviderAdvanceConfigDrawer } from '@renderer/components/settings/providers/ProviderAdvanceConfigDrawer'
 
 interface ProviderConfigurationsProps {
+    plugins?: PluginEntity[]
     providerDefinition?: ProviderDefinition
     account?: ProviderAccount
     defaultApiUrl?: string
@@ -31,6 +33,7 @@ const fieldClassName = cn(
 )
 
 const ProviderConfigurations = ({
+    plugins,
     providerDefinition,
     account,
     defaultApiUrl,
@@ -55,6 +58,13 @@ const ProviderConfigurations = ({
             setPayloadDrawerOpen(false)
         }
     }, [providerDefinition?.id])
+
+    const adapterOptions = useMemo(() => {
+        return getRequestAdapterOptionsFromPlugins(plugins)
+    }, [plugins])
+
+    const currentAdapterOption = adapterOptions.find(option => option.pluginId === (providerDefinition?.adapterPluginId ?? 'openai-chat-compatible-adapter'))
+    const currentAdapterDisabled = Boolean(currentAdapterOption && !currentAdapterOption.enabled)
 
     return (
         <div className='px-4 pt-3 pb-2.5 border-b border-gray-200/70 dark:border-gray-700/60 space-y-2.5'>
@@ -98,11 +108,11 @@ const ProviderConfigurations = ({
                         Adapter
                     </Label>
                     <Select
-                        value={providerDefinition?.adapterType ?? 'openai'}
+                        value={providerDefinition?.adapterPluginId ?? 'openai-chat-compatible-adapter'}
                         onValueChange={(value) => {
                             if (!providerDefinition) return
                             onUpdateProviderDefinition(providerDefinition.id, {
-                                adapterType: value as ProviderType
+                                adapterPluginId: value
                             })
                         }}
                         disabled={!providerDefinition}
@@ -115,10 +125,23 @@ const ProviderConfigurations = ({
                             <SelectValue placeholder="Select adapter" />
                         </SelectTrigger>
                         <SelectContent className='bg-white/20 rounded-lg shadow-xs backdrop-blur-3xl font-medium'>
-                            <SelectItem value="openai" className='text-[11px] tracking-tight'>OpenAI Compatible</SelectItem>
-                            <SelectItem value="claude" className='text-[11px] tracking-tight'>Claude Compatible</SelectItem>
+                            {adapterOptions.map(option => (
+                                <SelectItem
+                                    key={option.pluginId}
+                                    value={option.pluginId}
+                                    disabled={!option.enabled}
+                                    className='text-[11px] tracking-tight'
+                                >
+                                    {option.label}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
+                    {currentAdapterDisabled && (
+                        <p className='text-[10.5px] text-amber-600 dark:text-amber-400 leading-relaxed'>
+                            This provider is using a disabled adapter plugin. Re-enable it in Plugins or switch to another adapter before requesting.
+                        </p>
+                    )}
                 </div>
 
                 <div className='col-span-2 space-y-1'>

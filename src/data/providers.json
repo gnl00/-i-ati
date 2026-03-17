@@ -2,56 +2,49 @@
   {
     "id": "openai",
     "displayName": "OpenAI",
-    "adapterType": "openai",
-    "apiVersion": "v1",
+    "adapterPluginId": "openai-chat-compatible-adapter",
     "iconKey": "openai",
     "defaultApiUrl": "https://api.openai.com/v1"
   },
   {
     "id": "anthropic",
     "displayName": "Anthropic",
-    "adapterType": "claude",
-    "apiVersion": "v1",
+    "adapterPluginId": "claude-compatible-adapter",
     "iconKey": "anthropic",
     "defaultApiUrl": "https://api.anthropic.com/v1"
   },
   {
     "id": "openrouter",
     "displayName": "OpenRouter",
-    "adapterType": "openai",
-    "apiVersion": "v1",
+    "adapterPluginId": "openai-chat-compatible-adapter",
     "iconKey": "openrouter",
     "defaultApiUrl": "https://openrouter.ai/api/v1"
   },
   {
     "id": "groq",
     "displayName": "Groq",
-    "adapterType": "openai",
-    "apiVersion": "v1",
+    "adapterPluginId": "openai-chat-compatible-adapter",
     "iconKey": "groq",
     "defaultApiUrl": "https://api.groq.com/openai/v1"
   },
   {
     "id": "deepseek",
     "displayName": "DeepSeek",
-    "adapterType": "openai",
-    "apiVersion": "v1",
+    "adapterPluginId": "openai-chat-compatible-adapter",
     "iconKey": "deepseek",
     "defaultApiUrl": "https://api.deepseek.com/v1"
   },
   {
     "id": "siliconflow",
     "displayName": "SiliconFlow",
-    "adapterType": "openai",
-    "apiVersion": "v1",
+    "adapterPluginId": "openai-chat-compatible-adapter",
     "iconKey": "siliconflow",
     "defaultApiUrl": "https://api.siliconflow.cn/v1"
   },
   {
     "id": "moonshot",
     "displayName": "MoonShot",
-    "adapterType": "openai",
-    "apiVersion": "v1",
+    "adapterPluginId": "openai-chat-compatible-adapter",
     "iconKey": "moonshot",
     "defaultApiUrl": "https://api.moonshot.cn/v1"
   }

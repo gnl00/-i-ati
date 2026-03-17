@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Badge } from '@renderer/components/ui/badge'
+import InlineDeleteConfirm from './common/InlineDeleteConfirm'
 import { Label } from '@renderer/components/ui/label'
 import { Switch } from '@renderer/components/ui/switch'
 import { toast } from 'sonner'
@@ -42,7 +43,6 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
 }) => {
   const [memoryItems, setMemoryItems] = useState<MemoryListEntry[]>([])
   const [isMemoryLoading, setIsMemoryLoading] = useState(false)
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
 
   const loadMemories = async () => {
     setIsMemoryLoading(true)
@@ -61,7 +61,6 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
     try {
       await window.electron.ipcRenderer.invoke(MEMORY_DELETE, id)
       setMemoryItems(prev => prev.filter(item => item.id !== id))
-      setConfirmingDeleteId(null)
       toast.success('Memory deleted')
     } catch (error) {
       console.error('[MemoryManager] Failed to delete memory:', error)
@@ -157,53 +156,11 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
                         {item.context_origin}
                       </p>
                     </div>
-                    <div className="relative shrink-0" style={{ width: 66, height: 24, marginTop: 2 }}>
-                      {/* Trash icon —— 确认时淡出缩小 */}
-                      <button
-                        onClick={() => setConfirmingDeleteId(item.id)}
-                        aria-label="Delete memory"
-                        tabIndex={confirmingDeleteId === item.id ? -1 : 0}
-                        className="absolute inset-0 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-                        style={{
-                          transition: 'opacity 140ms ease, transform 140ms ease, background-color 120ms ease, color 120ms ease',
-                          ...(confirmingDeleteId === item.id && {
-                            opacity: 0,
-                            transform: 'scale(0.7)',
-                            pointerEvents: 'none',
-                          }),
-                        }}
-                      >
-                        <i className="ri-delete-bin-line text-[13px]" />
-                      </button>
-
-                      {/* No | Yes —— 原地淡入 */}
-                      <div
-                        className="absolute inset-0 flex items-center justify-center"
-                        style={{
-                          transition: 'opacity 160ms ease 30ms, transform 160ms ease 30ms',
-                          opacity: confirmingDeleteId === item.id ? 1 : 0,
-                          transform: confirmingDeleteId === item.id ? 'scale(1)' : 'scale(0.75)',
-                          pointerEvents: confirmingDeleteId === item.id ? 'auto' : 'none',
-                        }}
-                      >
-                        <button
-                          onClick={() => setConfirmingDeleteId(null)}
-                          tabIndex={confirmingDeleteId === item.id ? 0 : -1}
-                          className="h-[22px] px-2 text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded-l-md border border-gray-200 dark:border-gray-700 border-r-0"
-                          style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
-                        >
-                          No
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMemory(item.id)}
-                          tabIndex={confirmingDeleteId === item.id ? 0 : -1}
-                          className="h-[22px] px-2 text-[11px] font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-r-md border border-gray-200 dark:border-gray-700"
-                          style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
-                        >
-                          Yes
-                        </button>
-                      </div>
-                    </div>
+                    <InlineDeleteConfirm
+                      onConfirm={() => handleDeleteMemory(item.id)}
+                      ariaLabel="Delete memory"
+                      revealOnGroupHover
+                    />
                   </div>
                 )
               })

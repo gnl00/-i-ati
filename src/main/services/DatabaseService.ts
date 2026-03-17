@@ -7,6 +7,9 @@
 import { AppDatabase } from '../db/Database'
 import { ConfigRepository } from '../db/repositories/ConfigRepository'
 import { McpServerRepository } from '../db/repositories/McpServerRepository'
+import { PluginRepository } from '../db/repositories/PluginRepository'
+import { PluginCapabilityRepository } from '../db/repositories/PluginCapabilityRepository'
+import { PluginSettingRepository } from '../db/repositories/PluginSettingRepository'
 import { ProviderRepository } from '../db/repositories/ProviderRepository'
 import { ChatRepository } from '../db/repositories/ChatRepository'
 import { ChatSkillRepository } from '../db/repositories/ChatSkillRepository'
@@ -23,9 +26,11 @@ import { ChatDataService } from './database/ChatDataService'
 import { MessageDataService } from './database/MessageDataService'
 import { ConfigDataService } from './database/ConfigDataService'
 import { McpServerDataService } from './database/McpServerDataService'
+import { PluginDataService } from './database/PluginDataService'
 import { CompressedSummaryDataService } from './database/CompressedSummaryDataService'
 import { ChatRunEventDataService } from './database/ChatRunEventDataService'
 import { AssistantDataService } from './database/AssistantDataService'
+import { LocalPluginCatalogService, LocalPluginInstallService } from './plugins'
 
 
 /**
@@ -39,6 +44,9 @@ class DatabaseService {
 
   private configRepo?: ConfigRepository
   private mcpServerRepo?: McpServerRepository
+  private pluginRepo?: PluginRepository
+  private pluginCapabilityRepo?: PluginCapabilityRepository
+  private pluginSettingRepo?: PluginSettingRepository
   private providerRepo?: ProviderRepository
   private chatRepo?: ChatRepository
   private chatSkillRepo?: ChatSkillRepository
@@ -54,6 +62,9 @@ class DatabaseService {
   private scheduledTaskDataService?: ScheduledTaskDataService
   private configDataService?: ConfigDataService
   private mcpServerDataService?: McpServerDataService
+  private pluginDataService?: PluginDataService
+  private localPluginCatalogService?: LocalPluginCatalogService
+  private localPluginInstallService?: LocalPluginInstallService
   private compressedSummaryDataService?: CompressedSummaryDataService
   private chatRunEventDataService?: ChatRunEventDataService
   private assistantDataService?: AssistantDataService
@@ -86,6 +97,9 @@ class DatabaseService {
       this.db = this.dbCore.initialize()
       this.configRepo = new ConfigRepository(this.db)
       this.mcpServerRepo = new McpServerRepository(this.db)
+      this.pluginRepo = new PluginRepository(this.db)
+      this.pluginCapabilityRepo = new PluginCapabilityRepository(this.db)
+      this.pluginSettingRepo = new PluginSettingRepository(this.db)
       this.providerRepo = new ProviderRepository(this.db)
       this.chatRepo = new ChatRepository(this.db)
       this.chatSkillRepo = new ChatSkillRepository(this.db)
@@ -124,6 +138,16 @@ class DatabaseService {
         getMcpServerRepo: () => this.mcpServerRepo,
         getConfigRepo: () => this.configRepo
       })
+      this.pluginDataService = new PluginDataService({
+        hasDb: () => Boolean(this.db),
+        getDb: () => this.db,
+        getPluginRepo: () => this.pluginRepo,
+        getPluginCapabilityRepo: () => this.pluginCapabilityRepo,
+        getPluginSettingRepo: () => this.pluginSettingRepo,
+        getConfigRepo: () => this.configRepo
+      })
+      this.localPluginCatalogService = new LocalPluginCatalogService()
+      this.localPluginInstallService = new LocalPluginInstallService(this.localPluginCatalogService)
       this.compressedSummaryDataService = new CompressedSummaryDataService({
         hasDb: () => Boolean(this.db),
         getSummaryRepo: () => this.summaryRepo
@@ -384,6 +408,40 @@ class DatabaseService {
   public saveMcpServerConfig(config: McpServerConfig): void {
     if (!this.mcpServerDataService) throw new Error('MCP server data service not initialized')
     this.mcpServerDataService.saveMcpServerConfig(config)
+  }
+
+  public getPluginConfigs(): AppPluginConfig[] {
+    if (!this.pluginDataService) throw new Error('Plugin data service not initialized')
+    return this.pluginDataService.getPluginConfigs()
+  }
+
+  public savePluginConfigs(configs: AppPluginConfig[]): void {
+    if (!this.pluginDataService) throw new Error('Plugin data service not initialized')
+    this.pluginDataService.savePluginConfigs(configs)
+  }
+
+  public getPlugins(): PluginEntity[] {
+    if (!this.pluginDataService) throw new Error('Plugin data service not initialized')
+    return this.pluginDataService.getPlugins()
+  }
+
+  public async rescanLocalPlugins(): Promise<PluginEntity[]> {
+    if (!this.pluginDataService) throw new Error('Plugin data service not initialized')
+    if (!this.localPluginCatalogService) throw new Error('Local plugin catalog service not initialized')
+    const manifests = await this.localPluginCatalogService.scanInstalledPlugins()
+    return this.pluginDataService.syncLocalPluginManifests(manifests)
+  }
+
+  public async importLocalPluginFromDirectory(sourceDir: string): Promise<PluginEntity[]> {
+    if (!this.localPluginInstallService) throw new Error('Local plugin install service not initialized')
+    await this.localPluginInstallService.importFromDirectory(sourceDir)
+    return await this.rescanLocalPlugins()
+  }
+
+  public async uninstallLocalPlugin(pluginId: string): Promise<PluginEntity[]> {
+    if (!this.localPluginInstallService) throw new Error('Local plugin install service not initialized')
+    await this.localPluginInstallService.uninstall(pluginId)
+    return await this.rescanLocalPlugins()
   }
 
   public getProviderDefinitions(): ProviderDefinition[] {

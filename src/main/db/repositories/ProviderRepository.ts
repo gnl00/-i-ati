@@ -3,8 +3,7 @@ import type Database from 'better-sqlite3'
 interface ProviderDefinitionRow {
   id: string
   display_name: string
-  adapter_type: string
-  api_version: string | null
+  adapter_plugin_id: string
   icon_key: string | null
   default_api_url: string | null
   request_overrides: string | null
@@ -64,12 +63,11 @@ class ProviderRepository {
       `),
       upsertProviderDefinition: db.prepare(`
         INSERT INTO provider_definitions (
-          id, display_name, adapter_type, api_version, icon_key, default_api_url, request_overrides, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, display_name, adapter_plugin_id, icon_key, default_api_url, request_overrides, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           display_name = excluded.display_name,
-          adapter_type = excluded.adapter_type,
-          api_version = excluded.api_version,
+          adapter_plugin_id = excluded.adapter_plugin_id,
           icon_key = excluded.icon_key,
           default_api_url = excluded.default_api_url,
           request_overrides = excluded.request_overrides,
@@ -143,8 +141,7 @@ class ProviderRepository {
     this.stmts.upsertProviderDefinition.run(
       row.id,
       row.display_name,
-      row.adapter_type,
-      row.api_version ?? null,
+      row.adapter_plugin_id,
       row.icon_key ?? null,
       row.default_api_url ?? null,
       row.request_overrides ?? null,

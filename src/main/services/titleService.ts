@@ -1,4 +1,4 @@
-import { unifiedChatRequest } from '@request/index'
+import { unifiedChatRequest } from '@main/request/index'
 import { generateTitlePrompt } from '@shared/prompts'
 
 export async function generateTitle(
@@ -8,8 +8,7 @@ export async function generateTitle(
   providerDefinition: ProviderDefinition
 ): Promise<string> {
   const titleReq: IUnifiedRequest = {
-    providerType: providerDefinition.adapterType,
-    apiVersion: providerDefinition.apiVersion,
+    adapterPluginId: providerDefinition.adapterPluginId,
     baseUrl: account.apiUrl,
     apiKey: account.apiKey,
     model: model.id,

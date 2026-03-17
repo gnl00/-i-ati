@@ -23,8 +23,7 @@ export class ProviderDataService {
       return {
         id: row.id,
         displayName: row.display_name,
-        adapterType: row.adapter_type as ProviderType,
-        apiVersion: row.api_version ?? undefined,
+        adapterPluginId: row.adapter_plugin_id,
         iconKey: row.icon_key ?? undefined,
         defaultApiUrl: row.default_api_url ?? undefined,
         requestOverrides
@@ -74,8 +73,7 @@ export class ProviderDataService {
         providerRepo.upsertProviderDefinition({
           id: def.id,
           display_name: def.displayName,
-          adapter_type: def.adapterType,
-          api_version: def.apiVersion ?? null,
+          adapter_plugin_id: def.adapterPluginId,
           icon_key: def.iconKey ?? null,
           default_api_url: def.defaultApiUrl ?? null,
           request_overrides: def.requestOverrides ? JSON.stringify(def.requestOverrides) : null,
@@ -101,8 +99,7 @@ export class ProviderDataService {
         providerRepo.upsertProviderDefinition({
           id: def.id,
           display_name: def.displayName,
-          adapter_type: def.adapterType,
-          api_version: def.apiVersion ?? null,
+          adapter_plugin_id: def.adapterPluginId,
           icon_key: def.iconKey ?? null,
           default_api_url: def.defaultApiUrl ?? null,
           request_overrides: def.requestOverrides ? JSON.stringify(def.requestOverrides) : null,
@@ -186,8 +183,7 @@ export class ProviderDataService {
     this.requireProviderRepo().upsertProviderDefinition({
       id: normalized.id,
       display_name: normalized.displayName,
-      adapter_type: normalized.adapterType,
-      api_version: normalized.apiVersion ?? null,
+      adapter_plugin_id: normalized.adapterPluginId,
       icon_key: normalized.iconKey ?? null,
       default_api_url: normalized.defaultApiUrl ?? null,
       request_overrides: normalized.requestOverrides ? JSON.stringify(normalized.requestOverrides) : null,

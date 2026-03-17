@@ -36,8 +36,7 @@ export class RunRequestFactory {
       .build()
 
     return {
-      providerType: environment.modelContext.providerDefinition.adapterType,
-      apiVersion: environment.modelContext.providerDefinition.apiVersion,
+      adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
       baseUrl: environment.modelContext.account.apiUrl,
       messages: finalMessages,
       apiKey: environment.modelContext.account.apiKey,

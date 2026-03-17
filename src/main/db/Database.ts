@@ -117,11 +117,50 @@ class AppDatabase {
     `)
 
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS plugins (
+        plugin_id TEXT PRIMARY KEY,
+        source TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        description TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        version TEXT,
+        manifest_path TEXT,
+        install_root TEXT,
+        status TEXT NOT NULL DEFAULT 'installed',
+        last_error TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS plugin_capabilities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plugin_id TEXT NOT NULL,
+        capability_kind TEXT NOT NULL,
+        capability_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (plugin_id) REFERENCES plugins(plugin_id) ON DELETE CASCADE
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS plugin_settings (
+        plugin_id TEXT NOT NULL,
+        key TEXT NOT NULL,
+        value_json TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (plugin_id, key),
+        FOREIGN KEY (plugin_id) REFERENCES plugins(plugin_id) ON DELETE CASCADE
+      )
+    `)
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS provider_definitions (
         id TEXT PRIMARY KEY,
         display_name TEXT NOT NULL,
-        adapter_type TEXT NOT NULL,
-        api_version TEXT,
+        adapter_plugin_id TEXT NOT NULL,
         icon_key TEXT,
         default_api_url TEXT,
         request_overrides TEXT,
@@ -271,6 +310,10 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_uuid ON messages(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_mcp_servers_updated_at ON mcp_servers(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_plugins_source ON plugins(source);
+      CREATE INDEX IF NOT EXISTS idx_plugins_enabled ON plugins(enabled);
+      CREATE INDEX IF NOT EXISTS idx_plugin_capabilities_plugin_id ON plugin_capabilities(plugin_id);
+      CREATE INDEX IF NOT EXISTS idx_plugin_capabilities_kind ON plugin_capabilities(capability_kind);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_id ON compressed_summaries(chat_id);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_uuid ON compressed_summaries(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_status_chat ON compressed_summaries(status, chat_id);

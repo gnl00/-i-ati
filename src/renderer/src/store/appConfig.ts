@@ -168,12 +168,15 @@ type AppConfigState = {
   memoryEnabled: boolean
   mcpServerConfig: McpServerConfig
   savedMcpServerConfig: McpServerConfig
+  plugins: PluginEntity[]
+  savedPlugins: PluginEntity[]
   compression: CompressionConfig | undefined
 }
 
 type AppConfigAction = {
   _setAppConfig: (config: IAppConfig) => void
   _setLoadedMcpServerConfig: (config: McpServerConfig) => void
+  _setLoadedPlugins: (plugins: PluginEntity[]) => void
   setAppConfig: (config: IAppConfig) => Promise<void>
   getAppConfig: () => IAppConfig
 
@@ -202,6 +205,11 @@ type AppConfigAction = {
   setMemoryEnabled: (state: boolean) => void
   setMcpServerConfig: (config: McpServerConfig) => void
   saveMcpServerConfig: (config: McpServerConfig) => Promise<void>
+  setPlugins: (plugins: PluginEntity[]) => void
+  savePlugins: (plugins: PluginEntity[]) => Promise<void>
+  refreshPlugins: () => Promise<void>
+  importLocalPlugin: (sourceDir: string) => Promise<void>
+  uninstallLocalPlugin: (pluginId: string) => Promise<void>
 }
 
 export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, get) => ({
@@ -218,6 +226,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   memoryEnabled: defaultConfig.tools?.memoryEnabled ?? true,
   mcpServerConfig: { mcpServers: {} },
   savedMcpServerConfig: { mcpServers: {} },
+  plugins: [],
+  savedPlugins: [],
 
   // State - Compression settings
   compression: defaultConfig.compression,
@@ -252,6 +262,13 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     set({
       mcpServerConfig: nextConfig,
       savedMcpServerConfig: nextConfig
+    })
+  },
+
+  _setLoadedPlugins: (plugins: PluginEntity[]) => {
+    set({
+      plugins,
+      savedPlugins: plugins
     })
   },
 
@@ -546,6 +563,48 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       mcpServerConfig: nextConfig,
       savedMcpServerConfig: nextConfig
     })
+  },
+  setPlugins: (plugins) => set({ plugins }),
+  savePlugins: async (plugins) => {
+    const { savePluginConfigs, getPlugins } = await import('../db/PluginRepository')
+    await savePluginConfigs(plugins.map(plugin => ({
+      id: plugin.pluginId,
+      name: plugin.name,
+      description: plugin.description,
+      enabled: plugin.enabled,
+      source: plugin.source,
+      version: plugin.version,
+      manifestPath: plugin.manifestPath
+    })))
+    const nextPlugins = await getPlugins()
+    set({
+      plugins: nextPlugins,
+      savedPlugins: nextPlugins
+    })
+  },
+  refreshPlugins: async () => {
+    const { rescanLocalPlugins } = await import('../db/PluginRepository')
+    const nextPlugins = await rescanLocalPlugins()
+    set({
+      plugins: nextPlugins,
+      savedPlugins: nextPlugins
+    })
+  },
+  importLocalPlugin: async (sourceDir) => {
+    const { importLocalPlugin } = await import('../db/PluginRepository')
+    const nextPlugins = await importLocalPlugin(sourceDir)
+    set({
+      plugins: nextPlugins,
+      savedPlugins: nextPlugins
+    })
+  },
+  uninstallLocalPlugin: async (pluginId) => {
+    const { uninstallLocalPlugin } = await import('../db/PluginRepository')
+    const nextPlugins = await uninstallLocalPlugin(pluginId)
+    set({
+      plugins: nextPlugins,
+      savedPlugins: nextPlugins
+    })
   }
 }))
 
@@ -556,18 +615,21 @@ export const initializeAppConfig = async (): Promise<void> => {
 
   configInitPromise = (async () => {
     try {
-      const [{ initConfig }, { getMcpServerConfig }] = await Promise.all([
+      const [{ initConfig }, { getMcpServerConfig }, { getPlugins }] = await Promise.all([
         import('../db/ConfigRepository'),
-        import('../db/McpServerRepository')
+        import('../db/McpServerRepository'),
+        import('../db/PluginRepository')
       ])
-      const [loadedConfig, loadedMcpServerConfig] = await Promise.all([
+      const [loadedConfig, loadedMcpServerConfig, loadedPlugins] = await Promise.all([
         initConfig(),
-        getMcpServerConfig()
+        getMcpServerConfig(),
+        getPlugins()
       ])
       console.log('[appConfig] Config loaded from SQLite, account count:', loadedConfig.accounts?.length || 0)
       const store = useAppConfigStore.getState()
       store._setAppConfig(loadedConfig)
       store._setLoadedMcpServerConfig(loadedMcpServerConfig)
+      store._setLoadedPlugins(loadedPlugins)
       configInitialized = true
       console.log('[@i] App config initialized from SQLite')
     } catch (error) {

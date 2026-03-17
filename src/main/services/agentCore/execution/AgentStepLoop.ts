@@ -1,4 +1,4 @@
-import { unifiedChatRequest } from '@request/index'
+import { unifiedChatRequest } from '@main/request/index'
 import { AbortError } from '@main/services/chatRun/errors'
 import { formatWebSearchForLLM } from '@main/services/chatRun/utils'
 import type { ChunkParser, ParseResult } from './parser'

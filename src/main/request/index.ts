@@ -1,19 +1,32 @@
-import { initializeAdapters } from './adapters/index'
-import { adapterManager } from './adapters/manager'
-
-initializeAdapters()
+import DatabaseService from '@main/services/DatabaseService'
+import {
+  adapterManager,
+  getRequestAdapterPluginById,
+  isRequestAdapterPluginEnabled,
+  syncAdaptersWithPlugins
+} from './adapters/index'
 
 export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
+  const pluginConfigs = DatabaseService.getPluginConfigs()
+  const plugins = DatabaseService.getPlugins()
+  await syncAdaptersWithPlugins(plugins)
 
   let adapter
-  if (req.modelType === 't2i') {
-    adapter = adapterManager.getAdapter(req.providerType ?? 'openai', req.apiVersion ?? 'gpt-image-1')
-  } else {
-    adapter = adapterManager.getAdapter(req.providerType ?? 'openai', req.apiVersion ?? 'v1')
+  const adapterPluginId = req.adapterPluginId
+
+  if (!isRequestAdapterPluginEnabled(pluginConfigs, adapterPluginId, plugins)) {
+    const plugin = getRequestAdapterPluginById(adapterPluginId, plugins)
+    const pluginName = plugin?.name ?? adapterPluginId
+    throw new Error(`Request adapter plugin disabled: ${pluginName}`)
   }
+
+  if (!adapterPluginId) {
+    throw new Error('Missing adapter plugin id')
+  }
+  adapter = adapterManager.getAdapter(adapterPluginId)
   const headers = adapter.buildHeaders(req)
 
-  const requestBody = adapter.transformRequest(req)
+  const requestBody = adapter.buildRequest(req)
   if (req.requestOverrides && typeof req.requestOverrides === 'object' && !Array.isArray(req.requestOverrides)) {
     applyRequestOverrides(requestBody, req.requestOverrides)
   }
@@ -27,10 +40,10 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   beforeFetch()
   try {
     // Use adapter to construct complete endpoint URL
-    const endpoint = adapter.getEndpoint(req.baseUrl)
+    const endpoint = adapter.getEndpoint(req.baseUrl, req)
 
     console.log(`[Request] baseUrl: ${req.baseUrl}`)
-    console.log(`[Request] adapter: ${adapter.providerType}/${adapter.apiVersion}`)
+    console.log(`[Request] adapterPluginId: ${adapterPluginId}`)
     console.log(`[Request] endpoint: ${endpoint}`)
     // const {messages, tools, ...rest} = requestBody
     // console.log(`[Request] payloads: ${JSON.stringify(rest)}`)
@@ -74,7 +87,7 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
       const reader = fetchResponse.body?.pipeThrough(new TextDecoderStream()).getReader()
       return reader && adapter.transformStreamResponse(reader)
     } else {
-      const response = adapter.transformNotStreamResponse(await fetchResponse.json())
+      const response = adapter.parseResponse(await fetchResponse.json())
       return response
     }
 
