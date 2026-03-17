@@ -69,8 +69,7 @@ const config = {
   }],
   providerDefinitions: [{
     id: 'provider-1',
-    adapterType: 'openai',
-    apiVersion: 'v1',
+    adapterPluginId: 'openai-chat-compatible-adapter',
     requestOverrides: undefined
   }],
   compression: {
@@ -170,11 +169,10 @@ describe('ChatPreparationPipeline', () => {
     expect(runSpec.initialMessages).toEqual(chatContext.messageEntities.map(entity => entity.body))
     expect(emitter.emit).not.toHaveBeenCalled()
     expect(runSpec.request).toEqual(expect.objectContaining({
+      adapterPluginId: 'openai-chat-compatible-adapter',
       model: 'model-1',
       modelType: 'llm',
       stream: true,
-      providerType: 'openai',
-      apiVersion: 'v1',
       baseUrl: 'https://example.com/v1'
     }))
     expect(runSpec.request.messages).toEqual(expect.arrayContaining([

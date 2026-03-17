@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { toast } from 'sonner'
 import FetchModelsDrawer from './FetchModelsDrawer'
 import { v4 as uuidv4 } from 'uuid'
@@ -7,13 +8,15 @@ import { ProviderModelsList } from './ProviderModelsList'
 import ProviderConfigurations from './ProviderConfigurations'
 import ProviderListSidebar from './ProviderListSidebar'
 
-interface ProvidersManagerProps { }
+interface ProvidersManagerProps {
+    plugins?: PluginEntity[]
+}
 
 const normalizeProviderId = (name: string): string => {
     return name.trim().toLowerCase().replace(/\s+/g, '-')
 }
 
-const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
+const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
     const {
         providerDefinitions,
         setProviderDefinitions,
@@ -33,19 +36,34 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
     const [currentAccount, setCurrentAccount] = useState<ProviderAccount | undefined>(undefined)
 
     const [newDefinitionDisplayName, setNewDefinitionDisplayName] = useState<string>('')
-    const [newDefinitionAdapterType, setNewDefinitionAdapterType] = useState<string>('openai')
+    const [newDefinitionAdapterPluginId, setNewDefinitionAdapterPluginId] = useState<string>('openai-chat-compatible-adapter')
     const [newProviderApi, setNewProviderApi] = useState<string>('')
     const [newProviderApiKey, setNewProviderApiKey] = useState<string>('')
     const [newDefinitionIconKey, setNewDefinitionIconKey] = useState<string | undefined>(undefined)
 
     const [showFetchModelsDrawer, setShowFetchModelsDrawer] = useState<boolean>(false)
     const [showNewApiKey, setShowNewApiKey] = useState<boolean>(false)
+    const adapterOptions = useMemo(() => {
+        return getRequestAdapterOptionsFromPlugins(plugins)
+    }, [plugins])
+
+    const firstEnabledAdapterPluginId = useMemo(() => {
+        return adapterOptions.find(option => option.enabled)?.pluginId ?? 'openai-chat-compatible-adapter'
+    }, [adapterOptions])
 
     useEffect(() => {
         if (!selectedProviderId && visibleProviderDefinitions.length > 0) {
             setSelectedProviderId(visibleProviderDefinitions[0].id)
         }
     }, [visibleProviderDefinitions, selectedProviderId])
+
+    useEffect(() => {
+        const selectedOption = adapterOptions.find(option => option.pluginId === newDefinitionAdapterPluginId)
+        if (selectedOption?.enabled) {
+            return
+        }
+        setNewDefinitionAdapterPluginId(firstEnabledAdapterPluginId)
+    }, [adapterOptions, firstEnabledAdapterPluginId, newDefinitionAdapterPluginId])
 
     useEffect(() => {
         if (!selectedProviderId) {
@@ -117,13 +135,18 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
             providerId = `${providerId}-${shortSuffix}`
         }
 
-        const adapterType = newDefinitionAdapterType.trim() || 'openai'
+        const adapterPluginId = newDefinitionAdapterPluginId.trim() || 'openai-chat-compatible-adapter'
+        const selectedAdapterOption = adapterOptions.find(option => option.pluginId === adapterPluginId)
+        if (!selectedAdapterOption?.enabled) {
+            toast.warning(`Adapter "${selectedAdapterOption?.label ?? adapterPluginId}" is disabled in Plugins`)
+            e.preventDefault()
+            return
+        }
 
         const newDefinition: ProviderDefinition = {
             id: providerId,
             displayName,
-            adapterType,
-            apiVersion: 'v1',
+            adapterPluginId,
             iconKey: newDefinitionIconKey || providerId,
             defaultApiUrl: baseUrl
         }
@@ -141,7 +164,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
         setSelectedProviderId(providerId)
 
         setNewDefinitionDisplayName('')
-        setNewDefinitionAdapterType('openai')
+        setNewDefinitionAdapterPluginId('openai-chat-compatible-adapter')
         setNewProviderApi('')
         setNewProviderApiKey('')
         setNewDefinitionIconKey(undefined)
@@ -229,20 +252,21 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
     return (
         <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
             <div className='flex h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md gap-2'>
-                <ProviderListSidebar
+            <ProviderListSidebar
+                plugins={plugins}
                     providers={visibleProviderDefinitions}
                     selectedProviderId={selectedProviderId}
                     onSelectProvider={onProviderCardClick}
                     onDeleteProvider={onProviderDeleteClick}
                     addProvider={{
                         displayName: newDefinitionDisplayName,
-                        adapterType: newDefinitionAdapterType,
+                        adapterPluginId: newDefinitionAdapterPluginId,
                         apiUrl: newProviderApi,
                         apiKey: newProviderApiKey,
                         iconKey: newDefinitionIconKey,
                         showApiKey: showNewApiKey,
                         onDisplayNameChange: setNewDefinitionDisplayName,
-                        onAdapterTypeChange: setNewDefinitionAdapterType,
+                        onAdapterPluginIdChange: setNewDefinitionAdapterPluginId,
                         onApiUrlChange: setNewProviderApi,
                         onApiKeyChange: setNewProviderApiKey,
                         onIconKeyChange: setNewDefinitionIconKey,
@@ -258,7 +282,8 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = () => {
                         </div>
                     ) : (
                         <div className='flex-1 min-h-0 overflow-hidden rounded-lg border border-gray-200/70 dark:border-gray-700/70 shadow-[0_14px_30px_-18px_rgba(15,23,42,0.22)] flex flex-col'>
-                            <ProviderConfigurations
+            <ProviderConfigurations
+                plugins={plugins}
                                 providerDefinition={selectedDefinition}
                                 account={currentAccount}
                                 defaultApiUrl={defaultApiUrl}

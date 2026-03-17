@@ -30,7 +30,7 @@ export class ConfigDataService {
     if (!row) return undefined
 
     const config = JSON.parse(row.value) as IAppConfig
-    const { mcp: _legacyMcp, ...baseConfig } = config
+    const { mcp: _legacyMcp, plugins: _legacyPlugins, ...baseConfig } = config
     const providerDefinitions = this.providerDataService.getProviderDefinitions()
     const accounts = this.providerDataService.getProviderAccounts()
 
@@ -55,10 +55,13 @@ export class ConfigDataService {
       this.providerDataService.saveProviderAccountsToDb(config.accounts ?? [])
     }
 
-    const { providerDefinitions: _defs, accounts: _accounts, mcp: _mcp, ...baseConfig } = config
+    const { providerDefinitions: _defs, accounts: _accounts, mcp: _mcp, plugins: _plugins, ...baseConfig } = config
+    const normalizedConfig: IAppConfig = {
+      ...baseConfig
+    }
     this.requireConfigRepo().saveConfig(
-      JSON.stringify(baseConfig),
-      baseConfig.version ?? null
+      JSON.stringify(normalizedConfig),
+      normalizedConfig.version ?? null
     )
   }
 
@@ -83,22 +86,6 @@ export class ConfigDataService {
       version: 2.0,
       tools: {
         maxWebSearchItems: 3
-      },
-      plugins: {
-        items: [
-          {
-            id: 'openai-compatible-adapter',
-            name: 'OpenAICompatibleAdapter',
-            description: 'Built-in plugin for OpenAI-compatible adapter integration.',
-            enabled: true
-          },
-          {
-            id: 'claude-compatible-adapter',
-            name: 'ClaudeCompatibleAdapter',
-            description: 'Built-in plugin for Claude-compatible adapter integration.',
-            enabled: true
-          }
-        ]
       },
       configForUpdate: {
         version: 2.0

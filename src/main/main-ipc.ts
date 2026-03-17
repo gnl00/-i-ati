@@ -2,6 +2,7 @@ import { registerChatHandlers } from '@main/ipc/chat'
 import { registerConfigHandlers } from '@main/ipc/config'
 import { registerMcpServerHandlers } from '@main/ipc/mcp-servers'
 import { registerMessageHandlers } from '@main/ipc/messages'
+import { registerPluginHandlers } from '@main/ipc/plugins'
 import { registerProviderHandlers } from '@main/ipc/providers'
 import { registerSkillHandlers } from '@main/ipc/skills'
 import { registerSystemHandlers } from '@main/ipc/system'
@@ -15,6 +16,7 @@ function mainIPCSetup() {
   registerSkillHandlers()
   registerConfigHandlers()
   registerMcpServerHandlers()
+  registerPluginHandlers()
   registerProviderHandlers()
   registerMessageHandlers()
   registerChatHandlers()

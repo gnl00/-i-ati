@@ -45,6 +45,11 @@ import {
   DB_CONFIG_INIT,
   DB_MCP_SERVERS_GET,
   DB_MCP_SERVERS_SAVE,
+  DB_PLUGINS_GET,
+  DB_PLUGINS_IMPORT,
+  DB_PLUGINS_RESCAN,
+  DB_PLUGINS_SAVE,
+  DB_PLUGINS_UNINSTALL,
   DB_PROVIDER_DEFINITIONS_GET_ALL,
   DB_PROVIDER_DEFINITION_SAVE,
   DB_PROVIDER_DEFINITION_DELETE,
@@ -391,6 +396,31 @@ export async function invokeDbConfigSave(config: IAppConfig): Promise<void> {
 export async function invokeDbConfigInit(): Promise<IAppConfig> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CONFIG_INIT)
+}
+
+export async function invokeDbPluginsGet(): Promise<PluginEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PLUGINS_GET)
+}
+
+export async function invokeDbPluginsRescan(): Promise<PluginEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PLUGINS_RESCAN)
+}
+
+export async function invokeDbPluginsImport(sourceDir: string): Promise<PluginEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PLUGINS_IMPORT, sourceDir)
+}
+
+export async function invokeDbPluginsUninstall(pluginId: string): Promise<PluginEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PLUGINS_UNINSTALL, pluginId)
+}
+
+export async function invokeDbPluginsSave(configs: AppPluginConfig[]): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PLUGINS_SAVE, configs)
 }
 
 export async function invokeDbMcpServersGet(): Promise<McpServerConfig> {

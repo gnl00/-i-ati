@@ -14,22 +14,6 @@ export const defaultConfig: IAppConfig = {
   skills: {
     folders: []
   },
-  plugins: {
-    items: [
-      {
-        id: 'openai-compatible-adapter',
-        name: 'OpenAICompatibleAdapter',
-        description: 'Placeholder test plugin for OpenAI-compatible adapter integration.',
-        enabled: true
-      },
-      {
-        id: 'claude-compatible-adapter',
-        name: 'ClaudeCompatibleAdapter',
-        description: 'Placeholder test plugin for Claude-compatible adapter integration.',
-        enabled: true
-      }
-    ]
-  },
   compression: {
     enabled: true,
     triggerThreshold: 30,

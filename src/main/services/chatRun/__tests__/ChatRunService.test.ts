@@ -87,8 +87,7 @@ vi.mock('@main/services/DatabaseService', () => ({
       }],
       providerDefinitions: [{
         id: 'provider-1',
-        adapterType: 'openai',
-        apiVersion: 'v1',
+        adapterPluginId: 'openai-chat-compatible-adapter',
         requestOverrides: undefined
       }],
       tools: {
@@ -195,8 +194,7 @@ describe('ChatRunService', () => {
       }],
       providerDefinitions: [{
         id: 'provider-1',
-        adapterType: 'openai',
-        apiVersion: 'v1',
+        adapterPluginId: 'openai-chat-compatible-adapter',
         requestOverrides: undefined
       }],
       tools: {
@@ -268,8 +266,7 @@ describe('ChatRunService', () => {
       }],
       providerDefinitions: [{
         id: 'provider-1',
-        adapterType: 'openai',
-        apiVersion: 'v1',
+        adapterPluginId: 'openai-chat-compatible-adapter',
         requestOverrides: undefined
       }],
       tools: {

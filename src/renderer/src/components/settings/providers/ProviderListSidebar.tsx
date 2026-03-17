@@ -16,23 +16,25 @@ import {
 } from '@renderer/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
+import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { getProviderIcon } from '@renderer/utils/providerIcons'
 import { ProviderIconPicker } from './ProviderIconPicker'
 
 interface ProviderListSidebarProps {
+    plugins?: PluginEntity[]
     providers: ProviderDefinition[]
     selectedProviderId?: string
     onSelectProvider: (definition: ProviderDefinition) => void
     onDeleteProvider: (event: React.MouseEvent, definition: ProviderDefinition) => void
     addProvider: {
         displayName: string
-        adapterType: string
+        adapterPluginId: string
         apiUrl: string
         apiKey: string
         iconKey?: string
         showApiKey: boolean
         onDisplayNameChange: (value: string) => void
-        onAdapterTypeChange: (value: string) => void
+        onAdapterPluginIdChange: (value: string) => void
         onApiUrlChange: (value: string) => void
         onApiKeyChange: (value: string) => void
         onIconKeyChange: (value?: string) => void
@@ -42,6 +44,7 @@ interface ProviderListSidebarProps {
 }
 
 const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
+    plugins,
     providers,
     selectedProviderId,
     onSelectProvider,
@@ -49,6 +52,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
     addProvider
 }) => {
     const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
+    const adapterOptions = getRequestAdapterOptionsFromPlugins(plugins)
 
     return (
         <div className='w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-md shadow-xs'>
@@ -92,15 +96,23 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label htmlFor="adapterType" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Adapter</Label>
-                                    <Select value={addProvider.adapterType} onValueChange={addProvider.onAdapterTypeChange}>
-                                        <SelectTrigger id="adapterType" className="h-8 text-[12.5px] w-full bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150">
+                                    <Label htmlFor="adapterPluginId" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Adapter</Label>
+                                    <Select value={addProvider.adapterPluginId} onValueChange={addProvider.onAdapterPluginIdChange}>
+                                        <SelectTrigger id="adapterPluginId" className="h-8 text-[12.5px] w-full bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150">
                                             <SelectValue placeholder="Select adapter" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white/20 rounded-lg shadow-xs backdrop-blur-3xl font-medium">
                                             <SelectGroup>
-                                                <SelectItem value="openai" className="text-[11px] tracking-tight">OpenAI Compatible</SelectItem>
-                                                <SelectItem value="claude" className="text-[11px] tracking-tight">Claude Compatible</SelectItem>
+                                                {adapterOptions.map(option => (
+                                                    <SelectItem
+                                                        key={option.pluginId}
+                                                        value={option.pluginId}
+                                                        disabled={!option.enabled}
+                                                        className="text-[11px] tracking-tight"
+                                                    >
+                                                        {option.label}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectGroup>
                                         </SelectContent>
                                     </Select>

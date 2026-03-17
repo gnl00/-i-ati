@@ -1,23 +1,42 @@
-
-// 导出所有适配器
 export { BaseAdapter } from './base'
-export { OpenAIAdapter, OpenAIImage1Adapter } from './openai'
+export { RequestAdapterPluginWrapper } from './RequestAdapterPluginWrapper'
+export { OpenAIAdapter, OpenAIImage1Adapter } from './openai/index'
 export { ClaudeAdapter } from './claude'
 export { adapterManager } from './manager'
+export {
+  getRequestAdapterPluginById,
+  isRequestAdapterPluginEnabled
+} from './plugins'
 
-// 注册所有适配器
 import { adapterManager } from './manager'
-import { OpenAIAdapter, OpenAIImage1Adapter } from './openai'
-import { ClaudeAdapter } from './claude'
+import { mergeBuiltInPluginConfigs } from '@shared/plugins/requestAdapters'
+import { registerEnabledBuiltInRequestAdapters, registerEnabledLocalRequestAdapters } from './plugins'
 
-// 初始化适配器注册
-export function initializeAdapters() {
-  // 注册 OpenAI 适配器
-  adapterManager.register(new OpenAIAdapter())          // v1/chat/completions
-  adapterManager.register(new OpenAIImage1Adapter())     // OpenAI Image1
-  
-  // 注册 Claude 适配器
-  adapterManager.register(new ClaudeAdapter())          // v1/messages (当前标准)
-  
+export async function syncAdaptersWithPlugins(plugins?: PluginEntity[]) {
+  const pluginConfigs = (plugins ?? []).map(plugin => ({
+    id: plugin.pluginId,
+    name: plugin.name,
+    description: plugin.description,
+    enabled: plugin.enabled,
+    source: plugin.source,
+    version: plugin.version,
+    manifestPath: plugin.manifestPath
+  }))
+  const enabledPlugins = new Set(
+    mergeBuiltInPluginConfigs(pluginConfigs)
+      .filter(plugin => plugin.enabled !== false)
+      .map(plugin => plugin.id)
+  )
+
+  adapterManager.clear()
+
+  registerEnabledBuiltInRequestAdapters(enabledPlugins, (pluginId, adapter) => {
+    adapterManager.register(pluginId, adapter)
+  })
+
+  await registerEnabledLocalRequestAdapters(plugins ?? [], (pluginId, adapter) => {
+    adapterManager.register(pluginId, adapter)
+  })
+
   console.log('Registered adapters:', adapterManager.listAdapters())
 }
