@@ -57,6 +57,10 @@ const ChatWindowComponentNext: React.FC = () => {
   const onUserScrollUpIntentRef = useRef<(() => void) | null>(null)
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
+  const streamingFollowEnabledRef = useRef<boolean>(true)
+  const setStreamingFollowEnabled = useCallback((enabled: boolean) => {
+    streamingFollowEnabledRef.current = enabled
+  }, [])
   const {
     scrollParentRef,
     virtuosoRef,
@@ -68,7 +72,12 @@ const ChatWindowComponentNext: React.FC = () => {
     messages,
     messagesLength: messages.length,
     chatUuid,
-    onUserScrollUpIntentRef
+    onUserScrollUpIntentRef,
+    onLatestVisibleChange: (visible) => {
+      if (visible && readStreamState) {
+        setStreamingFollowEnabled(true)
+      }
+    }
   })
 
   const lastMessageIndex = messages.length - 1
@@ -229,6 +238,7 @@ const ChatWindowComponentNext: React.FC = () => {
 
   const requestTopAnchorLock = useCallback(() => {
     if (!readStreamState) return
+    if (!streamingFollowEnabledRef.current) return
     if (autoTopAnchorIndex < 0) return
     if (topAnchorLockRafRef.current) return
 
@@ -239,10 +249,19 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [autoTopAnchorIndex, readStreamState, scrollToMessageIndex])
 
   useEffect(() => {
+    if (readStreamState) {
+      setStreamingFollowEnabled(true)
+    }
+  }, [readStreamState, setStreamingFollowEnabled])
+
+  useEffect(() => {
     onUserScrollUpIntentRef.current = () => {
       const container = scrollParentRef.current
       if (!container) return
-      if (readStreamState) return
+      if (readStreamState) {
+        setStreamingFollowEnabled(false)
+        return
+      }
 
       const latestMetrics = getLatestMessageMetrics()
       if (!latestMetrics) return
@@ -261,7 +280,7 @@ const ChatWindowComponentNext: React.FC = () => {
     return () => {
       onUserScrollUpIntentRef.current = null
     }
-  }, [getLatestMessageMetrics, messages.length, readStreamState, scrollParentRef])
+  }, [getLatestMessageMetrics, messages.length, readStreamState, scrollParentRef, setStreamingFollowEnabled])
 
   const handleJumpToLatestClick = useCallback(() => {
     const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
@@ -294,9 +313,10 @@ const ChatWindowComponentNext: React.FC = () => {
     disableTailSpacerRef.current = true
     spacerHeightRef.current = 0
     setDisableTailSpacer(true)
+    setStreamingFollowEnabled(true)
     // Button targets the latest message (confirmed behavior).
     scrollToMessageIndex(latestMessageIndex, true, 'end')
-  }, [latestMessageIndex, messages, readStreamState, scrollToMessageIndex, updateMessage, upsertMessage, lastMessageIndex])
+  }, [latestMessageIndex, messages, readStreamState, scrollToMessageIndex, setStreamingFollowEnabled, updateMessage, upsertMessage, lastMessageIndex])
 
   
 
@@ -335,6 +355,7 @@ const ChatWindowComponentNext: React.FC = () => {
 
     spacerDisabledAtLengthRef.current = 0
     disableTailSpacerRef.current = false
+    streamingFollowEnabledRef.current = true
     spacerHeightRef.current = 0
     setDisableTailSpacer(false)
     setBottomSpacerHeight(0)
