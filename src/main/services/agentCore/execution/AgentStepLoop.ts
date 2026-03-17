@@ -1,6 +1,6 @@
 import { unifiedChatRequest } from '@main/request/index'
 import { AbortError } from '@main/services/chatRun/errors'
-import { formatWebSearchForLLM } from '@main/services/chatRun/utils'
+import { formatWebSearchForLLM, normalizeToolArgs } from '@main/services/chatRun/utils'
 import type { ChunkParser, ParseResult } from './parser'
 import { SegmentBuilder } from './parser'
 import { extractContentFromSegments } from './parser/segment-content'
@@ -64,6 +64,18 @@ const handleToolCallError = (_functionName: string, result: ToolExecutionResult)
     functionCallCompleted: true
   }
   return JSON.stringify(errorPayload)
+}
+
+const parseToolArgsForSegment = (args: string): unknown => {
+  if (!args.trim()) {
+    return {}
+  }
+
+  try {
+    return normalizeToolArgs(JSON.parse(args))
+  } catch {
+    return args
+  }
 }
 
 export class AgentStepLoop {
@@ -310,6 +322,8 @@ export class AgentStepLoop {
   }
 
   private async handleToolSuccess(result: ToolExecutionResult): Promise<void> {
+    const tool = this.tools.find(t => t.id === result.id)
+    const toolArgs = tool ? parseToolArgsForSegment(tool.args) : undefined
     const toolFunctionMessage: ChatMessage = {
       role: 'tool',
       name: result.name,
@@ -321,7 +335,12 @@ export class AgentStepLoop {
     this.messageManager.appendSegmentToLastMessage({
       type: 'toolCall',
       name: result.name,
-      content: result.content,
+      content: {
+        toolName: result.name,
+        args: toolArgs,
+        result: result.content,
+        status: 'success'
+      },
       cost: result.cost,
       timestamp: Date.now(),
       toolCallId: result.id,
@@ -332,6 +351,8 @@ export class AgentStepLoop {
   }
 
   private async handleToolFailure(result: ToolExecutionResult): Promise<void> {
+    const tool = this.tools.find(t => t.id === result.id)
+    const toolArgs = tool ? parseToolArgsForSegment(tool.args) : undefined
     console.error(`[Tool] Execution failed:`, {
       name: result.name,
       status: result.status,
@@ -351,6 +372,8 @@ export class AgentStepLoop {
       type: 'toolCall',
       name: result.name,
       content: {
+        toolName: result.name,
+        args: toolArgs,
         error: result.error?.message || 'Unknown error',
         status: result.status
       },
