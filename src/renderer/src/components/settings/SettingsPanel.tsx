@@ -27,6 +27,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         accounts,
         providerDefinitions,
         providersRevision,
+        defaultModel,
         titleGenerateModel,
         titleGenerateEnabled,
         memoryEnabled,
@@ -72,6 +73,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             providerDefinitions: providerDefinitions,
             tools: {
                 ...appConfig.tools,
+                defaultModel: defaultModel,
                 titleGenerateModel: titleGenerateModel,
                 titleGenerateEnabled: titleGenerateEnabled,
                 maxWebSearchItems: maxWebSearchItems,
@@ -134,6 +136,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const toolsDirty = maxWebSearchItems !== (savedTools.maxWebSearchItems ?? 3)
         || titleGenerateEnabled !== (savedTools.titleGenerateEnabled ?? true)
         || memoryEnabled !== (savedTools.memoryEnabled ?? true)
+        || defaultModel?.accountId !== savedTools.defaultModel?.accountId
+        || defaultModel?.modelId !== savedTools.defaultModel?.modelId
         || titleGenerateModel?.accountId !== savedTools.titleGenerateModel?.accountId
         || titleGenerateModel?.modelId !== savedTools.titleGenerateModel?.modelId
 

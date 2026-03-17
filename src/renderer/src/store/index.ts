@@ -1,5 +1,6 @@
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { messagePersistence } from '@renderer/services/messages/MessagePersistenceService'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 import { create } from 'zustand'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
@@ -33,6 +34,7 @@ export type ChatState = {
 export type ChatAction = {
   // UI 状态更新
   setSelectedModelRef: (ref: ModelRef) => void
+  ensureSelectedModelRef: () => ModelRef | undefined
   setFetchState: (state: boolean) => void
   setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
   setReadStreamState: (state: boolean) => void
@@ -106,6 +108,31 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   // ============ UI 状态更新方法 ============
 
   setSelectedModelRef: (ref) => set({ selectedModelRef: ref }),
+  ensureSelectedModelRef: () => {
+    const selectedModelRef = get().selectedModelRef
+    if (selectedModelRef) {
+      return selectedModelRef
+    }
+
+    const appConfigState = useAppConfigStore.getState()
+    const validDefaultModel = appConfigState.defaultModel
+      && appConfigState.resolveModelRef(appConfigState.defaultModel)
+      ? appConfigState.defaultModel
+      : undefined
+    const firstOption = appConfigState.getModelOptions()[0]
+    const fallbackModelRef = validDefaultModel ?? (firstOption
+      ? {
+        accountId: firstOption.account.id,
+        modelId: firstOption.model.id
+      }
+      : undefined)
+
+    if (fallbackModelRef) {
+      set({ selectedModelRef: fallbackModelRef })
+    }
+
+    return fallbackModelRef
+  },
   setFetchState: (state) => set({ fetchState: state }),
   setCurrentReqCtrl: (ctrl) => set({ currentReqCtrl: ctrl }),
   setReadStreamState: (state) => set({ readStreamState: state }),

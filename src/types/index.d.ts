@@ -62,6 +62,7 @@ declare interface IAppConfig {
   providerDefinitions?: ProviderDefinition[]
   accounts?: ProviderAccount[]
   tools?: {
+    defaultModel?: ModelRef
     titleGenerateModel?: ModelRef
     titleGenerateEnabled?: boolean
     maxWebSearchItems?: number

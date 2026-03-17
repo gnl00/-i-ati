@@ -36,18 +36,24 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
 }) => {
     const {
         setAppConfig,
+        defaultModel,
         getModelOptions,
         resolveModelRef,
+        setDefaultModel,
         titleGenerateModel,
         setTitleGenerateModel,
         titleGenerateEnabled,
         setTitleGenerateEnabled,
     } = useAppConfigStore()
 
+    const [selectDefaultModelPopoutState, setSelectDefaultModelPopoutState] = useState(false)
     const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
     const modelOptions = React.useMemo(() => {
         return getModelOptions()
     }, [getModelOptions])
+    const selectedDefaultModel = React.useMemo(() => {
+        return resolveModelRef(defaultModel)
+    }, [defaultModel, resolveModelRef])
     const selectedTitleModel = React.useMemo(() => {
         return resolveModelRef(titleGenerateModel)
     }, [resolveModelRef, titleGenerateModel])
@@ -98,6 +104,51 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     return (
         <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
             <div className='w-full h-full space-y-2 p-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'>
+                {/* Default Model Setting */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
+                    <div className="px-4 py-4 flex items-start gap-4">
+                        <div className="flex-1 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
+                                    Default Model
+                                </Label>
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                                    CHAT
+                                </Badge>
+                            </div>
+                            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                                Used by chat when no model is selected. If unset, the first available model in the list is used automatically.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50">
+                        <div className="px-4 py-2.5 flex items-center justify-between gap-4">
+                            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Default Target</span>
+                            <div className="flex items-center gap-2">
+                                <SettingsInlineModelSelector
+                                    selectedModel={selectedDefaultModel}
+                                    modelOptions={modelOptions}
+                                    isOpen={selectDefaultModelPopoutState}
+                                    onOpenChange={setSelectDefaultModelPopoutState}
+                                    onModelSelect={(ref) => {
+                                        setSelectDefaultModelPopoutState(false)
+                                        setDefaultModel(ref)
+                                    }}
+                                />
+                                {defaultModel && (
+                                    <button
+                                        type="button"
+                                        className="h-8 px-2 rounded-lg text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                                        onClick={() => setDefaultModel(undefined)}
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Title Generation Setting */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
                     <div className="px-4 py-4 flex items-start gap-4">
