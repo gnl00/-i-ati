@@ -39,10 +39,20 @@ export class ProviderDataService {
 
     modelRows.forEach(row => {
       const models = modelsByAccount.get(row.account_id) || []
+      let modalities: string[] | undefined
+      if (row.modalities_json) {
+        try {
+          const parsed = JSON.parse(row.modalities_json)
+          modalities = Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : undefined
+        } catch {
+          modalities = undefined
+        }
+      }
       models.push({
         id: row.model_id,
         label: row.label,
         type: row.type as ModelType,
+        modalities,
         enabled: row.enabled === 1
       })
       modelsByAccount.set(row.account_id, models)
@@ -154,6 +164,7 @@ export class ProviderDataService {
             model_id: model.id,
             label: model.label,
             type: model.type,
+            modalities_json: model.modalities?.length ? JSON.stringify(model.modalities) : null,
             enabled: model.enabled ? 1 : 0,
             created_at: now,
             updated_at: now
@@ -239,6 +250,7 @@ export class ProviderDataService {
           model_id: model.id,
           label: model.label,
           type: model.type,
+          modalities_json: model.modalities?.length ? JSON.stringify(model.modalities) : null,
           enabled: model.enabled ? 1 : 0,
           created_at: now,
           updated_at: now
@@ -269,6 +281,7 @@ export class ProviderDataService {
       model_id: model.id,
       label: model.label,
       type: model.type,
+      modalities_json: model.modalities?.length ? JSON.stringify(model.modalities) : null,
       enabled: model.enabled ? 1 : 0,
       created_at: now,
       updated_at: now

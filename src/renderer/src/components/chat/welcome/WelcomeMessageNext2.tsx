@@ -395,7 +395,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
           </div>
 
           <div className="animate-fade-in-delayed-2 pt-4">
-            <p className="text-center text-sm text-muted-foreground font-light">
+            <p className="text-center text-sm text-muted-foreground font-light animate-bounce duration-1500 infinite">
               Or type your own question below
             </p>
           </div>

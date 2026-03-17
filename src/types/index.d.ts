@@ -4,6 +4,7 @@ declare interface AccountModel {
   id: string
   label: string
   type: ModelType
+  modalities?: string[]
   capabilities?: string[]
   enabled?: boolean
 }

@@ -187,12 +187,15 @@ class AppDatabase {
         model_id TEXT NOT NULL,
         label TEXT NOT NULL,
         type TEXT NOT NULL,
+        modalities_json TEXT,
         enabled INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (account_id, model_id)
       )
     `)
+
+    this.ensureColumn('provider_models', 'modalities_json', 'TEXT')
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS compressed_summaries (
@@ -339,6 +342,17 @@ class AppDatabase {
     `)
 
     console.log('[Database] Indexes created')
+  }
+
+  private ensureColumn(tableName: string, columnName: string, definition: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const columns = this.db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>
+    if (columns.some(column => column.name === columnName)) {
+      return
+    }
+
+    this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
   }
 
 }

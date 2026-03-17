@@ -256,9 +256,9 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
 
     return (
         <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
-            <div className='flex h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md gap-2'>
-            <ProviderListSidebar
-                plugins={plugins}
+            <div className='flex h-full bg-gray-50 dark:bg-gray-900 p-1 rounded-md gap-2'>
+                <ProviderListSidebar
+                    plugins={plugins}
                     providers={visibleProviderEntries}
                     selectedProviderId={selectedProviderId}
                     onSelectProvider={onProviderCardClick}
@@ -287,8 +287,8 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                         </div>
                     ) : (
                         <div className='flex-1 min-h-0 overflow-hidden rounded-lg border border-gray-200/70 dark:border-gray-700/70 shadow-[0_14px_30px_-18px_rgba(15,23,42,0.22)] flex flex-col'>
-            <ProviderConfigurations
-                plugins={plugins}
+                            <ProviderConfigurations
+                                plugins={plugins}
                                 providerDefinition={selectedDefinition}
                                 account={currentAccount}
                                 defaultApiUrl={defaultApiUrl}
