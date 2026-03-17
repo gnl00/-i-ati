@@ -26,7 +26,7 @@ describe('request adapter plugin registry', () => {
           kind: 'request-adapter',
           data: {
             providerType: 'openai',
-            modelTypes: ['llm', 'vlm', 't2i']
+            modelTypes: ['llm', 'vlm', 'mllm']
           }
         }]
       },
@@ -40,7 +40,7 @@ describe('request adapter plugin registry', () => {
           kind: 'request-adapter',
           data: {
             providerType: 'openai',
-            modelTypes: ['t2i']
+            modelTypes: ['img_gen']
           }
         }]
       },
@@ -123,7 +123,7 @@ describe('request adapter plugin registry', () => {
           kind: 'request-adapter',
           data: {
             providerType: 'openai',
-            modelTypes: ['llm', 'vlm', 't2i']
+            modelTypes: ['llm', 'vlm', 'mllm']
           }
         }]
       },
@@ -137,7 +137,7 @@ describe('request adapter plugin registry', () => {
           kind: 'request-adapter',
           data: {
             providerType: 'openai',
-            modelTypes: ['t2i']
+            modelTypes: ['img_gen']
           }
         }]
       },

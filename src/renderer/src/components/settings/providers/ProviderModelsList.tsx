@@ -197,7 +197,8 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
               <SelectGroup>
                 <SelectItem value="llm" className='text-[11px] tracking-tight'>LLM</SelectItem>
                 <SelectItem value="vlm" className='text-[11px] tracking-tight'>VLM</SelectItem>
-                <SelectItem value="t2i" className='text-[11px] tracking-tight'>T2I</SelectItem>
+                <SelectItem value="mllm" className='text-[11px] tracking-tight'>MLLM</SelectItem>
+                <SelectItem value="img_gen" className='text-[11px] tracking-tight'>IMG_GEN</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>

@@ -73,13 +73,20 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     const [modelsCache, setModelsCache] = useState<Map<string, CachedModels>>(new Map())
 
     // 工具函数
-    const inferModelType = (modelId: string): 'llm' | 'vlm' | 't2i' => {
+    const inferModelType = (modelId: string): ModelType => {
         const id = modelId.toLowerCase()
 
         // 图像生成模型
         if (id.includes('dall-e') || id.includes('stable-diffusion') ||
             id.includes('imagen') || id.includes('midjourney')) {
-            return 't2i'
+            return 'img_gen'
+        }
+
+        // 明确多模态模型
+        if (id.includes('gpt-4o') || id.includes('omni') ||
+            id.includes('gemini') || id.includes('multimodal') ||
+            id.includes('mllm')) {
+            return 'mllm'
         }
 
         // 视觉语言模型
@@ -553,12 +560,19 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                                     className={cn(
                                                         "text-[9px] px-2 py-0.5 h-5 font-bold tracking-tight",
                                                         "border transition-all duration-150",
-                                                        model.type === 't2i' && cn(
+                                                        model.type === 'img_gen' && cn(
                                                             "bg-purple-50 dark:bg-purple-950/30",
                                                             "text-purple-600 dark:text-purple-400",
                                                             "border-purple-200 dark:border-purple-900/50",
                                                             "group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40",
                                                             "group-hover:border-purple-300 dark:group-hover:border-purple-800"
+                                                        ),
+                                                        model.type === 'mllm' && cn(
+                                                            "bg-emerald-50 dark:bg-emerald-950/30",
+                                                            "text-emerald-600 dark:text-emerald-400",
+                                                            "border-emerald-200 dark:border-emerald-900/50",
+                                                            "group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40",
+                                                            "group-hover:border-emerald-300 dark:group-hover:border-emerald-800"
                                                         ),
                                                         model.type === 'vlm' && cn(
                                                             "bg-blue-50 dark:bg-blue-950/30",

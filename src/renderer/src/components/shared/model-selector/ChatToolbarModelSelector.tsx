@@ -37,7 +37,7 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
 
           <span className="flex grow justify-center overflow-x-hidden relative z-10">
             {selectedModel ? (
-              selectedModel.model.type === 'vlm' ? (
+              selectedModel.model.type === 'vlm' || selectedModel.model.type === 'mllm' ? (
                 <span className="flex items-center space-x-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
                   <span className="truncate">{selectedModel.model.label}</span>
                   <i className="ri-eye-line text-emerald-500 dark:text-emerald-400 text-[10px] animate-in zoom-in duration-200 delay-100"></i>

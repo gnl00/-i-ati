@@ -124,7 +124,7 @@ const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
                         }}
                       >
                         <span className="truncate">{model.label}</span>
-                        {model.type === 'vlm' && (
+                        {(model.type === 'vlm' || model.type === 'mllm') && (
                           <i className="ri-eye-line text-emerald-500 dark:text-emerald-400 ml-2 text-xs animate-in zoom-in duration-200"></i>
                         )}
                         {selectedModel
