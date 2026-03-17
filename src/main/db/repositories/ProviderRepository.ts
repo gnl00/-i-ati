@@ -26,6 +26,7 @@ interface ProviderModelRow {
   model_id: string
   label: string
   type: string
+  modalities_json: string | null
   enabled: number
   created_at: number
   updated_at: number
@@ -103,11 +104,12 @@ class ProviderRepository {
       `),
       upsertProviderModel: db.prepare(`
         INSERT INTO provider_models (
-          account_id, model_id, label, type, enabled, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          account_id, model_id, label, type, modalities_json, enabled, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(account_id, model_id) DO UPDATE SET
           label = excluded.label,
           type = excluded.type,
+          modalities_json = excluded.modalities_json,
           enabled = excluded.enabled,
           updated_at = excluded.updated_at
       `),
@@ -188,6 +190,7 @@ class ProviderRepository {
       row.model_id,
       row.label,
       row.type,
+      row.modalities_json ?? null,
       row.enabled,
       row.created_at,
       row.updated_at
