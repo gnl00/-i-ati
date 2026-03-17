@@ -26,9 +26,19 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
     status?: string
     error?: string
     raw?: any
-  } | undefined
+    results?: any[]
+    } | undefined
 
-  const resultPayload = toolResponse?.result ?? toolResponse?.raw
+  const resultPayload = toolResponse?.result
+    ?? toolResponse?.raw
+    ?? (
+      toolResponse
+      && !('toolName' in toolResponse)
+      && !('args' in toolResponse)
+      && !('status' in toolResponse)
+        ? toolResponse
+        : undefined
+    )
   // 检测是否为 Web Search 结果
   const isWebSearch = (toolResponse?.toolName ?? tc.name) === 'web_search'
   const webSearchData = isWebSearch && resultPayload?.results ? resultPayload : null
@@ -54,8 +64,19 @@ export const ToolCallResult: React.FC<ToolCallResultProps> = React.memo(({ toolC
 
   const paramEntries = useMemo(() => {
     const args = toolResponse?.args
-    if (!args || typeof args === 'string') return []
-    return Object.entries(args)
+    if (!args) return []
+    if (typeof args === 'string') {
+      try {
+        const parsed = JSON.parse(args)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return Object.entries(parsed) as Array<[string, unknown]>
+        }
+      } catch {
+        return [['input', args]] as Array<[string, unknown]>
+      }
+      return []
+    }
+    return Object.entries(args) as Array<[string, unknown]>
   }, [toolResponse?.args])
 
 
