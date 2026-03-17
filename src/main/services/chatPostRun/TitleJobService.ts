@@ -21,6 +21,10 @@ export class TitleJobService {
       return
     }
 
+    if (args.chatEntity.title && args.chatEntity.title !== 'NewChat') {
+      return
+    }
+
     const titleRef = config.tools?.titleGenerateModel
     const titleContext = titleRef
       ? this.chatModelContextResolver.resolve(config, titleRef)

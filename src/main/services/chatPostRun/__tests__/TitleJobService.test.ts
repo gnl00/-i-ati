@@ -123,4 +123,20 @@ describe('TitleJobService', () => {
       })
     })
   })
+
+  it('skips title generation when chat already has a non-default title', async () => {
+    const service = new TitleJobService()
+
+    await service.run({
+      ...args,
+      chatEntity: {
+        ...args.chatEntity,
+        title: 'Existing title'
+      }
+    }, config)
+
+    expect(generateTitleMock).not.toHaveBeenCalled()
+    expect(updateChatMock).not.toHaveBeenCalled()
+    expect(emitterInstances[0]).toBeUndefined()
+  })
 })
