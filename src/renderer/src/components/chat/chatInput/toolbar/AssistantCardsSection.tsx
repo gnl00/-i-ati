@@ -10,7 +10,7 @@ interface AssistantCardsSectionProps {
 }
 
 const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen }) => {
-  const { getModelOptions } = useAppConfigStore()
+  const { getModelOptions, providersRevision } = useAppConfigStore()
   const { assistants, currentAssistant, setCurrentAssistant, loadAssistants } = useAssistantStore()
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const isDraggingRef = useRef(false)
@@ -27,7 +27,7 @@ const AssistantCardsSection: React.FC<AssistantCardsSectionProps> = ({ panelOpen
     }
   }, [panelOpen, assistants.length, loadAssistants])
 
-  const modelOptions = useMemo(() => getModelOptions(), [getModelOptions])
+  const modelOptions = useMemo(() => getModelOptions(), [getModelOptions, providersRevision])
 
   const currentAssistants = assistants
 
