@@ -44,16 +44,17 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     defaultModel,
     getModelOptions,
     resolveModelRef,
+    providersRevision,
     mcpServerConfig,
   } = useAppConfigStore()
 
   const modelOptions = useMemo(() => {
     return getModelOptions()
-  }, [getModelOptions])
+  }, [getModelOptions, providersRevision])
 
   const selectedModel = useMemo(() => {
     return resolveModelRef(selectedModelRef ?? defaultModel)
-  }, [defaultModel, resolveModelRef, selectedModelRef])
+  }, [defaultModel, providersRevision, resolveModelRef, selectedModelRef])
 
   useEffect(() => {
     if (!selectedModelRef) {

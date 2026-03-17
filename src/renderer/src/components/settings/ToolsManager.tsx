@@ -38,6 +38,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
         setAppConfig,
         defaultModel,
         getModelOptions,
+        providersRevision,
         resolveModelRef,
         setDefaultModel,
         titleGenerateModel,
@@ -50,13 +51,13 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
     const modelOptions = React.useMemo(() => {
         return getModelOptions()
-    }, [getModelOptions])
+    }, [getModelOptions, providersRevision])
     const selectedDefaultModel = React.useMemo(() => {
         return resolveModelRef(defaultModel)
-    }, [defaultModel, resolveModelRef])
+    }, [defaultModel, providersRevision, resolveModelRef])
     const selectedTitleModel = React.useMemo(() => {
         return resolveModelRef(titleGenerateModel)
-    }, [resolveModelRef, titleGenerateModel])
+    }, [providersRevision, resolveModelRef, titleGenerateModel])
 
     const handleExportConfig = async () => {
         try {
