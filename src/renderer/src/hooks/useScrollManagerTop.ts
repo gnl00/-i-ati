@@ -8,6 +8,7 @@ interface UseScrollManagerTopProps {
   messagesLength: number
   chatUuid?: string
   onUserScrollUpIntentRef?: RefObject<(() => void) | null>
+  onLatestVisibleChange?: (visible: boolean) => void
 }
 
 interface UseScrollManagerTopReturn {
@@ -28,7 +29,8 @@ export function useScrollManagerTop({
   messages,
   messagesLength,
   chatUuid,
-  onUserScrollUpIntentRef
+  onUserScrollUpIntentRef,
+  onLatestVisibleChange
 }: UseScrollManagerTopProps): UseScrollManagerTopReturn {
   const scrollParentRef = useRef<HTMLDivElement>(null)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
@@ -85,6 +87,7 @@ export function useScrollManagerTop({
 
   const onRangeChanged = useCallback((range: { startIndex: number; endIndex: number }) => {
     if (messagesLength <= 0) {
+      onLatestVisibleChange?.(false)
       if (showJumpToLatestRef.current) {
         setShowJumpToLatest(false)
       }
@@ -93,6 +96,7 @@ export function useScrollManagerTop({
 
     const latestIndex = messagesLength - 1
     const latestVisible = range.startIndex <= latestIndex && range.endIndex >= latestIndex
+    onLatestVisibleChange?.(latestVisible)
 
     if (latestVisible) {
       if (showJumpToLatestRef.current) {
@@ -105,7 +109,7 @@ export function useScrollManagerTop({
     if (!programmaticScrollRef.current && !showJumpToLatestRef.current) {
       setShowJumpToLatest(true)
     }
-  }, [messagesLength])
+  }, [messagesLength, onLatestVisibleChange])
 
   useEffect(() => {
     showJumpToLatestRef.current = showJumpToLatest
