@@ -40,27 +40,18 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const setUserInstruction = useChatStore(state => state.setUserInstruction)
 
   const {
-    accounts,
-    providerDefinitions,
+    getModelOptions,
     resolveModelRef,
     mcpServerConfig,
   } = useAppConfigStore()
 
   const modelOptions = useMemo(() => {
-    return accounts.flatMap(account =>
-      account.models
-        .filter(model => model.enabled !== false)
-        .map(model => ({
-          account,
-          model,
-          definition: providerDefinitions.find(def => def.id === account.providerId)
-        }))
-    )
-  }, [accounts, providerDefinitions])
+    return getModelOptions()
+  }, [getModelOptions])
 
   const selectedModel = useMemo(() => {
     return resolveModelRef(selectedModelRef)
-  }, [resolveModelRef, selectedModelRef, accounts, providerDefinitions])
+  }, [resolveModelRef, selectedModelRef])
 
   useEffect(() => {
     if (!selectedModelRef && modelOptions.length === 1) {

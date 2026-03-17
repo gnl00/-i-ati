@@ -1,14 +1,7 @@
 import React from 'react'
-import { BadgePlus, Check, ChevronsUpDown, Pencil } from 'lucide-react'
+import { BadgePlus, Pencil } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@renderer/components/ui/command'
+import { DrawerFieldModelSelector } from '@renderer/components/shared/model-selector'
 import {
   Drawer,
   DrawerClose,
@@ -21,22 +14,17 @@ import {
 } from '@renderer/components/ui/drawer'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
+import type { ModelOption } from '@renderer/store/appConfig'
 import { useAssistantStore } from '@renderer/store/assistant'
-import { getProviderIcon } from '@renderer/utils/providerIcons'
 
 interface AddAssistantCardProps {
   isExpanded: boolean
   variant?: 'card' | 'compact'
   mode?: 'create' | 'edit'
   assistantToEdit?: Assistant | null
-  modelGroups: Array<{
-    account: ProviderAccount
-    definition?: ProviderDefinition
-    models: AccountModel[]
-  }>
+  modelOptions: ModelOption[]
 }
 
 export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
@@ -44,16 +32,12 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
   variant = 'card',
   mode = 'create',
   assistantToEdit = null,
-  modelGroups
+  modelOptions
 }) => {
   const { addAssistant, updateAssistantById, assistants } = useAssistantStore()
   const [open, setOpen] = React.useState(false)
   const [modelOpen, setModelOpen] = React.useState(false)
-  const [selectedModel, setSelectedModel] = React.useState<{
-    accountId: string
-    modelId: string
-    label: string
-  } | null>(null)
+  const [selectedModelRef, setSelectedModelRef] = React.useState<ModelRef | null>(null)
   const [assistantName, setAssistantName] = React.useState('')
   const [assistantDescription, setAssistantDescription] = React.useState('')
   const [assistantPrompt, setAssistantPrompt] = React.useState('')
@@ -82,27 +66,34 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
         setAssistantPrompt(assistantToEdit.systemPrompt ?? '')
         setSortIndex(assistantToEdit.sortIndex ?? 0)
 
-        const matchedGroup = modelGroups.find(group => group.account.id === assistantToEdit.modelRef.accountId)
-        const matchedModel = matchedGroup?.models.find(model => model.id === assistantToEdit.modelRef.modelId)
-        setSelectedModel({
+        setSelectedModelRef({
           accountId: assistantToEdit.modelRef.accountId,
-          modelId: assistantToEdit.modelRef.modelId,
-          label: matchedModel?.label ?? assistantToEdit.modelRef.modelId
+          modelId: assistantToEdit.modelRef.modelId
         })
       } else {
         const maxSortIndex = assistants.reduce((max, item) => Math.max(max, item.sortIndex ?? 0), -1)
         setSortIndex(maxSortIndex + 1)
       }
     }
-  }, [open, assistants, mode, assistantToEdit, modelGroups])
+  }, [open, assistants, mode, assistantToEdit])
 
   const resetForm = React.useCallback(() => {
     setAssistantName('')
     setAssistantDescription('')
     setAssistantPrompt('')
-    setSelectedModel(null)
+    setSelectedModelRef(null)
     setSubmitError('')
   }, [])
+
+  const selectedModel = React.useMemo(() => {
+    if (!selectedModelRef) {
+      return undefined
+    }
+    return modelOptions.find(option =>
+      option.account.id === selectedModelRef.accountId
+      && option.model.id === selectedModelRef.modelId
+    )
+  }, [modelOptions, selectedModelRef])
 
   const handleOpenChange = React.useCallback((nextOpen: boolean) => {
     setOpen(nextOpen)
@@ -116,7 +107,7 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
       setSubmitError('Name is required.')
       return
     }
-    if (!selectedModel) {
+    if (!selectedModelRef) {
       setSubmitError('Model is required.')
       return
     }
@@ -136,8 +127,8 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
           name: assistantName.trim(),
           description: assistantDescription.trim() || undefined,
           modelRef: {
-            accountId: selectedModel.accountId,
-            modelId: selectedModel.modelId
+            accountId: selectedModelRef.accountId,
+            modelId: selectedModelRef.modelId
           },
           systemPrompt: assistantPrompt.trim(),
           sortIndex: safeSortIndex,
@@ -150,8 +141,8 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
           name: assistantName.trim(),
           description: assistantDescription.trim() || undefined,
           modelRef: {
-            accountId: selectedModel.accountId,
-            modelId: selectedModel.modelId
+            accountId: selectedModelRef.accountId,
+            modelId: selectedModelRef.modelId
             },
             systemPrompt: assistantPrompt.trim(),
             sortIndex: safeSortIndex,
@@ -169,7 +160,7 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
     } finally {
       setIsSubmitting(false)
     }
-  }, [assistantName, selectedModel, assistantPrompt, sortIndex, assistantDescription, mode, assistantToEdit, addAssistant, updateAssistantById, resetForm])
+  }, [assistantName, selectedModelRef, assistantPrompt, sortIndex, assistantDescription, mode, assistantToEdit, addAssistant, updateAssistantById, resetForm])
 
   return (
     <div>
@@ -275,93 +266,17 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
                       Model <span className="text-red-500 ml-0.5">*</span>
                     </Label>
 
-                    <Popover open={modelOpen} onOpenChange={setModelOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="assistant-model"
-                          variant="outline"
-                          role="combobox"
-                          className={cn(
-                            "w-full h-10 justify-between group rounded-xl",
-                            "bg-slate-50/90 dark:bg-slate-900/60",
-                            "border border-slate-200/90 dark:border-slate-800",
-                            "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
-                            "ring-0 focus:ring-0 focus-visible:ring-0",
-                            "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
-                            "focus:border-sky-400/70 dark:focus:border-sky-500/60",
-                            "hover:bg-slate-50 dark:hover:bg-slate-900/60",
-                            "hover:border-slate-300/80 dark:hover:border-slate-700/80",
-                            "shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-all duration-200"
-                          )}
-                        >
-                          <span className={cn("truncate", selectedModel ? "text-slate-800 dark:text-slate-100" : "text-muted-foreground")}>
-                            {selectedModel?.label ?? 'Select a model...'}
-                          </span>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-[1px]" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        portalContainer={drawerContentRef.current}
-                        className="w-full p-0 rounded-xl overflow-hidden border border-slate-200/70 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/95 backdrop-blur-xl shadow-[0_20px_48px_-28px_rgba(15,23,42,0.5)]"
-                        sideOffset={8}
-                        align="start"
-                      >
-                        <Command className="bg-transparent dark:bg-slate-900">
-                          <CommandInput placeholder="Search models..." className="h-auto" />
-                          <CommandList className="max-h-64">
-                            <CommandEmpty>No model found.</CommandEmpty>
-                            {modelGroups.map(group => (
-                              <CommandGroup
-                                key={group.account.id}
-                                value={group.account.label}
-                                className="scroll-smooth **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground"
-                                heading={
-                                  <div className="flex rounded items-center gap-2 px-2 py-1.5 dark:bg-slate-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-slate-700">
-                                    <img
-                                      src={getProviderIcon(group.definition?.iconKey || group.definition?.id || group.account.providerId)}
-                                      alt={group.definition?.displayName || group.account.label}
-                                      className="w-4 h-4 object-contain dark:invert dark:brightness-90 opacity-70"
-                                    />
-                                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 tracking-tight">
-                                      {group.definition?.displayName || group.account.label}
-                                    </span>
-                                  </div>
-                                }
-                              >
-                                <div className="pt-1">
-                                  {group.models.map(model => (
-                                    <CommandItem
-                                      key={`${group.account.id}/${model.id}`}
-                                      value={`${group.account.id}/${model.id}`}
-                                      onSelect={() => {
-                                        setSelectedModel({
-                                          accountId: group.account.id,
-                                          modelId: model.id,
-                                          label: model.label
-                                        })
-                                        setModelOpen(false)
-                                      }}
-                                      className={cn(
-                                        "pl-4 py-2.5 cursor-pointer rounded-xl",
-                                        "transition-all duration-200",
-                                        "dark:aria-selected:bg-sky-900/20",
-                                        "aria-selected:text-sky-700 dark:aria-selected:text-sky-300",
-                                        "data-[selected=true]:bg-black/5"
-                                      )}
-                                    >
-                                      <span className="truncate">{model.label}</span>
-                                      {selectedModel?.accountId === group.account.id && selectedModel?.modelId === model.id && (
-                                        <Check className="ml-auto h-4 w-4 text-sky-600 dark:text-sky-400" />
-                                      )}
-                                    </CommandItem>
-                                  ))}
-                                </div>
-                              </CommandGroup>
-                            ))}
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                    <DrawerFieldModelSelector
+                      selectedModel={selectedModel}
+                      modelOptions={modelOptions}
+                      isOpen={modelOpen}
+                      onOpenChange={setModelOpen}
+                      onModelSelect={(ref) => {
+                        setSelectedModelRef(ref)
+                        setModelOpen(false)
+                      }}
+                      portalContainer={drawerContentRef.current}
+                    />
                   </div>
 
                   <div className="space-y-2.5">

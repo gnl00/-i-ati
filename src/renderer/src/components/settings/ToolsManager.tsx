@@ -1,13 +1,11 @@
 import { Badge } from '@renderer/components/ui/badge'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@renderer/components/ui/command'
+import { SettingsInlineModelSelector } from '@renderer/components/shared/model-selector'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { Switch } from "@renderer/components/ui/switch"
 import { cn } from '@renderer/lib/utils'
 import { exportConfigAsJSON, getConfig, importConfigFromJSON } from '@renderer/db/ConfigRepository'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { Check, ChevronsUpDown } from "lucide-react"
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -38,8 +36,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
 }) => {
     const {
         setAppConfig,
-        accounts,
-        providerDefinitions,
+        getModelOptions,
         resolveModelRef,
         titleGenerateModel,
         setTitleGenerateModel,
@@ -49,19 +46,11 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
 
     const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
     const modelOptions = React.useMemo(() => {
-        return accounts.flatMap(account =>
-            account.models
-                .filter(model => model.enabled !== false)
-                .map(model => ({
-                    account,
-                    model,
-                    definition: providerDefinitions.find(def => def.id === account.providerId)
-                }))
-        )
-    }, [accounts, providerDefinitions])
+        return getModelOptions()
+    }, [getModelOptions])
     const selectedTitleModel = React.useMemo(() => {
         return resolveModelRef(titleGenerateModel)
-    }, [resolveModelRef, titleGenerateModel, accounts, providerDefinitions])
+    }, [resolveModelRef, titleGenerateModel])
 
     const handleExportConfig = async () => {
         try {
@@ -140,68 +129,17 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                         <div className="overflow-hidden">
                             <div className="px-4 py-2.5 flex items-center justify-between gap-4">
                                 <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Target Model</span>
-                                <Popover open={selectTitleModelPopoutState} onOpenChange={setSelectTitleModelPopoutState}>
-                                    <PopoverTrigger disabled={!titleGenerateEnabled} asChild>
-                                        <button
-                                            role="combobox"
-                                            aria-expanded={selectTitleModelPopoutState}
-                                            className="h-8 px-3 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-[12px] hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 min-w-[180px] justify-between"
-                                        >
-                                            <div className="flex items-center gap-2 truncate">
-                                                <span className="truncate font-medium text-gray-700 dark:text-gray-200">
-                                                    {selectedTitleModel ? selectedTitleModel.model.label : "Select model…"}
-                                                </span>
-                                                {selectedTitleModel && (
-                                                    <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
-                                                        {selectedTitleModel.definition?.displayName || selectedTitleModel.account.label}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 text-gray-400 opacity-70" />
-                                        </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-fit p-0 rounded-xl bg-white/50 backdrop-blur-lg" align="end">
-                                        <Command className='rounded-3xl bg-transparent'>
-                                            <CommandInput placeholder="Search model..." className="h-9" />
-                                            <CommandList>
-                                                <CommandEmpty>No model found.</CommandEmpty>
-                                                <CommandGroup className="max-h-[300px] overflow-y-auto">
-                                                    {modelOptions.map((option, idx) => (
-                                                        <CommandItem
-                                                            key={idx}
-                                                            value={`${option.account.id}/${option.model.id}`}
-                                                            onSelect={(_) => {
-                                                                setSelectTitleModelPopoutState(false)
-                                                                setTitleGenerateModel({
-                                                                    accountId: option.account.id,
-                                                                    modelId: option.model.id
-                                                                })
-                                                            }}
-                                                            className="cursor-pointer rounded-xl"
-                                                        >
-                                                            <div className="flex flex-col">
-                                                                <span>{option.model.label}</span>
-                                                                <span className="text-[10px] text-gray-400">
-                                                                    {option.definition?.displayName || option.account.label}
-                                                                </span>
-                                                            </div>
-                                                            <Check
-                                                                className={cn(
-                                                                    "ml-auto h-4 w-4",
-                                                                    titleGenerateModel
-                                                                        && titleGenerateModel.accountId === option.account.id
-                                                                        && titleGenerateModel.modelId === option.model.id
-                                                                        ? "opacity-100"
-                                                                        : "opacity-0"
-                                                                )}
-                                                            />
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
+                                <SettingsInlineModelSelector
+                                    selectedModel={selectedTitleModel}
+                                    modelOptions={modelOptions}
+                                    isOpen={selectTitleModelPopoutState}
+                                    onOpenChange={setSelectTitleModelPopoutState}
+                                    onModelSelect={(ref) => {
+                                        setSelectTitleModelPopoutState(false)
+                                        setTitleGenerateModel(ref)
+                                    }}
+                                    disabled={!titleGenerateEnabled}
+                                />
                             </div>
                         </div>
                     </div>

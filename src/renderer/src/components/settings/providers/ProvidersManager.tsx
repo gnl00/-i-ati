@@ -22,6 +22,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
         setProviderDefinitions,
         setAccounts,
         accounts,
+        getProviderEntries,
         currentAccountId,
         setCurrentAccountId,
         addProviderWithAccount,
@@ -30,7 +31,11 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
         removeAccount,
     } = useAppConfigStore()
 
-    const visibleProviderDefinitions = useMemo(() => providerDefinitions, [providerDefinitions])
+    const visibleProviderEntries = useMemo(() => getProviderEntries(), [getProviderEntries, providerDefinitions, accounts])
+    const visibleProviderDefinitions = useMemo(
+        () => visibleProviderEntries.map(entry => entry.definition),
+        [visibleProviderEntries]
+    )
 
     const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(undefined)
     const [currentAccount, setCurrentAccount] = useState<ProviderAccount | undefined>(undefined)
@@ -254,7 +259,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
             <div className='flex h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md gap-2'>
             <ProviderListSidebar
                 plugins={plugins}
-                    providers={visibleProviderDefinitions}
+                    providers={visibleProviderEntries}
                     selectedProviderId={selectedProviderId}
                     onSelectProvider={onProviderCardClick}
                     onDeleteProvider={onProviderDeleteClick}
