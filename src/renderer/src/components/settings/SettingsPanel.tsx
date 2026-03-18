@@ -159,7 +159,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         <span>@i</span>
                         <Badge variant="secondary" className='bg-slate-100 dark:bg-slate-800 text-gray-800 dark:text-gray-200'>{appVersion}</Badge>
                     </h4>
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">Customize @i to fit your workflow</p>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">Shape how @i works and connects.</p>
                 </div>
                 <div id="changes-indicator" className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-linear-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-xs">
                     <div className="flex items-center gap-2">
