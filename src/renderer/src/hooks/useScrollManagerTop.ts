@@ -7,6 +7,7 @@ interface UseScrollManagerTopProps {
   messages: MessageEntity[]
   messagesLength: number
   chatUuid?: string
+  onUserScrollIntentRef?: RefObject<(() => void) | null>
   onUserScrollUpIntentRef?: RefObject<(() => void) | null>
   onLatestVisibleChange?: (visible: boolean) => void
 }
@@ -29,6 +30,7 @@ export function useScrollManagerTop({
   messages,
   messagesLength,
   chatUuid,
+  onUserScrollIntentRef,
   onUserScrollUpIntentRef,
   onLatestVisibleChange
 }: UseScrollManagerTopProps): UseScrollManagerTopReturn {
@@ -189,6 +191,10 @@ export function useScrollManagerTop({
 
     prevScrollTopRef.current = container.scrollTop
 
+    const notifyUserScrollIntent = () => {
+      onUserScrollIntentRef?.current?.()
+    }
+
     const showByUserUpScroll = () => {
       if (messagesLength <= 0) return
       if (!showJumpToLatestRef.current) {
@@ -198,13 +204,24 @@ export function useScrollManagerTop({
     }
 
     const onWheel = (event: WheelEvent) => {
+      if (event.deltaY !== 0) {
+        notifyUserScrollIntent()
+      }
       if (event.deltaY < 0) {
         showByUserUpScroll()
       }
     }
 
     const onScroll = () => {
+      if (programmaticScrollRef.current) {
+        prevScrollTopRef.current = container.scrollTop
+        return
+      }
+
       const currentTop = container.scrollTop
+      if (currentTop !== prevScrollTopRef.current) {
+        notifyUserScrollIntent()
+      }
       if (currentTop < prevScrollTopRef.current) {
         showByUserUpScroll()
       }
@@ -217,7 +234,7 @@ export function useScrollManagerTop({
       container.removeEventListener('wheel', onWheel)
       container.removeEventListener('scroll', onScroll)
     }
-  }, [messagesLength, onUserScrollUpIntentRef])
+  }, [messagesLength, onUserScrollIntentRef, onUserScrollUpIntentRef])
 
   return {
     scrollParentRef,
