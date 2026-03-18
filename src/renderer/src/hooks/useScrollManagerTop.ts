@@ -153,7 +153,19 @@ export function useScrollManagerTop({
 
     lastChatUuidRef.current = chatUuid
     pendingChatInitScrollRef.current = true
+    showJumpToLatestRef.current = false
+    setShowJumpToLatest(false)
+    setIsButtonFadingOut(false)
   }, [chatUuid])
+
+  useEffect(() => {
+    if (messagesLength > 0) {
+      return
+    }
+    showJumpToLatestRef.current = false
+    setShowJumpToLatest(false)
+    setIsButtonFadingOut(false)
+  }, [messagesLength])
 
   useEffect(() => {
     return () => {
