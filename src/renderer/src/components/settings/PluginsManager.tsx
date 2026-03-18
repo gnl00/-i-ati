@@ -150,7 +150,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Local Plugins</span>
                 <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
-                  installable
+                  external
                 </Badge>
               </div>
               <p className="mt-1 text-[11.5px] text-gray-400 dark:text-gray-500 leading-relaxed">
@@ -237,7 +237,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Built-in Adapters</span>
                 <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
-                  app capability
+                  built-in
                 </Badge>
               </div>
               <p className="mt-1 text-[11.5px] text-gray-400 dark:text-gray-500 leading-relaxed">
