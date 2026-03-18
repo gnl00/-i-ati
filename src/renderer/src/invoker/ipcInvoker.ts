@@ -488,10 +488,10 @@ export async function invokeChatRunStart(data: {
     textCtx: string
     mediaCtx: ClipbordImg[] | string[]
     tools?: any[]
-    prompt?: string
+    userInstruction?: string
     options?: IUnifiedRequest['options']
     stream?: boolean
-    userInstruction?: string
+    chatUserInstruction?: string
   }
   modelRef: ModelRef
   chatId?: number

@@ -25,10 +25,10 @@ export class RunRequestFactory {
     const systemPrompts = await this.systemPromptComposer.compose(
       environment.workspacePath,
       environment.chat.id,
-      input.prompt
+      input.userInstruction
     )
 
-    const finalMessages = new RequestMessageBuilder()
+    const requestMessages = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
       .setUserInstruction(environment.chat.userInstruction)
       .setMessages(step.messageBuffer)
@@ -38,10 +38,12 @@ export class RunRequestFactory {
     return {
       adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
       baseUrl: environment.modelContext.account.apiUrl,
-      messages: finalMessages,
+      systemPrompt: requestMessages.systemPrompt,
+      messages: requestMessages.messages,
       apiKey: environment.modelContext.account.apiKey,
       model: environment.modelContext.model.id,
       modelType: environment.modelContext.model.type,
+      userInstruction: input.userInstruction,
       tools: this.toolListBuilder.build(input.tools),
       options: input.options,
       stream: input.stream,

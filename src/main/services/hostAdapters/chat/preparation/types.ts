@@ -4,10 +4,10 @@ export type ChatRunInputState = {
   textCtx: string
   mediaCtx: ClipbordImg[] | string[]
   tools?: any[]
-  prompt?: string
+  userInstruction?: string
   options?: IUnifiedRequest['options']
   stream?: boolean
-  userInstruction?: string
+  chatUserInstruction?: string
 }
 
 export type MainChatRunInput = {

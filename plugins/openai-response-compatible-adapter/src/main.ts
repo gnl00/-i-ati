@@ -121,22 +121,20 @@ const stringifyToolOutput = (content: ChatMessage['content']): string => {
   }
 }
 
-const transformMessages = (messages: ChatMessage[]): {
+const transformMessages = (
+  messages: ChatMessage[],
+  systemPrompt?: string
+): {
   instructions?: string
   input: ResponseInputItem[]
 } => {
   const instructionParts: string[] = []
+  if (typeof systemPrompt === 'string' && systemPrompt.trim()) {
+    instructionParts.push(systemPrompt.trim())
+  }
   const input: ResponseInputItem[] = []
 
   for (const message of messages) {
-    if (message.role === 'system') {
-      const text = extractTextContent(message.content)
-      if (text) {
-        instructionParts.push(text)
-      }
-      continue
-    }
-
     if (message.role === 'tool') {
       input.push({
         type: 'function_call_output',
@@ -299,7 +297,7 @@ export const openAIResponsesRequestAdapter: RequestAdapterHooks = {
   supportsStreamOptionsUsage: false,
 
   request({ request }) {
-    const { instructions, input } = transformMessages(request.messages)
+    const { instructions, input } = transformMessages(request.messages, request.systemPrompt)
     const body: Record<string, unknown> = {
       model: request.model,
       input,

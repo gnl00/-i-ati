@@ -12,7 +12,6 @@ export async function generateTitle(
     baseUrl: account.apiUrl,
     apiKey: account.apiKey,
     model: model.id,
-    prompt: '',
     messages: [{ role: 'user', content: generateTitlePrompt(content), segments: [] }],
     stream: false
   }

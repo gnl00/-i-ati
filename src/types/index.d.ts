@@ -139,7 +139,8 @@ declare interface IUnifiedRequest {
   apiKey: string
   modelType?: string
   model: string
-  prompt?: string
+  userInstruction?: string
+  systemPrompt?: string
   messages: ChatMessage[]
   stream?: boolean
   tools?: any[]

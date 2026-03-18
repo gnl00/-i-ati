@@ -137,7 +137,8 @@ vi.mock('@main/services/TitleService', () => ({
 }))
 
 vi.mock('@shared/prompts', () => ({
-  systemPrompt: vi.fn(() => 'system prompt')
+  systemPrompt: vi.fn(() => 'system prompt'),
+  buildUserInstructionPrompt: vi.fn(() => '')
 }))
 
 vi.mock('@shared/services/skills/SkillPromptBuilder', () => ({

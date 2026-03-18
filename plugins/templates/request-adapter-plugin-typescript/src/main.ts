@@ -100,7 +100,19 @@ export const requestAdapter: RequestAdapterHooks = {
       },
       body: {
         model: request.model,
-        messages: transformMessages(request.messages),
+        ...(request.systemPrompt
+          ? {
+              messages: [
+                {
+                  role: 'system',
+                  content: request.systemPrompt
+                },
+                ...transformMessages(request.messages)
+              ]
+            }
+          : {
+              messages: transformMessages(request.messages)
+            }),
         stream: request.stream !== false,
         tools: transformTools(request.tools),
         max_tokens: request.options?.maxTokens

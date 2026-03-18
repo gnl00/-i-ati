@@ -35,6 +35,18 @@ const mapOpenAIMessageFields = (message: ChatMessage): BaseChatMessage => ({
   ...(message.toolCallId && { tool_call_id: message.toolCallId })
 })
 
+const buildOpenAIMessages = (req: IUnifiedRequest): BaseChatMessage[] => {
+  const messages = req.messages.map(mapOpenAIMessageFields)
+  if (!req.systemPrompt) {
+    return messages
+  }
+
+  return [{
+    role: 'system',
+    content: req.systemPrompt
+  }, ...messages]
+}
+
 export class OpenAIAdapter extends BaseAdapter {
   providerType: ProviderType = 'openai'
 
@@ -73,7 +85,7 @@ export class OpenAIAdapter extends BaseAdapter {
   buildRequest(req: IUnifiedRequest): any {
     const requestBody: any = {
       model: req.model,
-      messages: req.messages.map(mapOpenAIMessageFields),
+      messages: buildOpenAIMessages(req),
       stream: req.stream ?? true,
       ...(req.options?.maxTokens !== undefined ? { max_tokens: req.options.maxTokens } : {})
     }
