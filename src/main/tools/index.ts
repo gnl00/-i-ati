@@ -47,6 +47,11 @@ import {
   processScheduleList,
   processScheduleUpdate
 } from '@main/tools/schedule/ScheduleToolsProcessor'
+import {
+  processEditSoul,
+  processGetSoul,
+  processResetSoul
+} from '@main/tools/soul/SoulToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
@@ -88,7 +93,10 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   schedule_create: processScheduleCreate,
   schedule_list: processScheduleList,
   schedule_cancel: processScheduleCancel,
-  schedule_update: processScheduleUpdate
+  schedule_update: processScheduleUpdate,
+  get_soul: processGetSoul,
+  edit_soul: processEditSoul,
+  reset_soul: processResetSoul
 }
 
 export function initializeMainEmbeddedTools(): void {
