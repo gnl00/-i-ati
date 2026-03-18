@@ -114,19 +114,14 @@ const transformToolDefinitions = (tools: ToolDefinition[] | undefined) => {
 // - `systemInstruction` for system prompts
 // - `contents[]` for conversation messages
 // - `functionCall` / `functionResponse` parts for tool use
-const transformMessages = (messages: ChatMessage[]) => {
+const transformMessages = (messages: ChatMessage[], systemPrompt?: string) => {
   const systemParts: Array<{ text: string }> = []
+  if (typeof systemPrompt === 'string' && systemPrompt.trim()) {
+    systemParts.push(createTextPart(systemPrompt.trim()))
+  }
   const contents: Array<Record<string, unknown>> = []
 
   for (const message of messages || []) {
-    if (message.role === 'system') {
-      const text = extractTextContent(message.content)
-      if (text) {
-        systemParts.push(createTextPart(text))
-      }
-      continue
-    }
-
     if (message.role === 'tool') {
       const responseName = message.name || message.toolCallId || 'tool'
       contents.push({
@@ -222,7 +217,7 @@ export const geminiRequestAdapter: RequestAdapterHooks = {
   // This is where request-level differences between stream and non-stream
   // should be handled.
   request({ request }) {
-    const { systemInstruction, contents } = transformMessages(request.messages)
+    const { systemInstruction, contents } = transformMessages(request.messages, request.systemPrompt)
     const modelName = normalizeModelName(request.model)
     const endpoint = request.stream === false
       ? `${request.baseUrl}/${modelName}:generateContent`

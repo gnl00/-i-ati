@@ -59,7 +59,7 @@ class RequestMessageBuilder {
    * 4. 插入系统提示词
    * 5. 验证消息合法性
    */
-  build(): ChatMessage[] {
+  build(): { systemPrompt?: string; messages: ChatMessage[] } {
     // console.log('[RequestMessageBuilder] Starting message build pipeline')
 
     // Step 1: 应用压缩策略
@@ -79,13 +79,16 @@ class RequestMessageBuilder {
     // console.log(`[RequestMessageBuilder] After tool call pairing: ${messages.length} messages`)
 
     // Step 4: 插入系统提示词
-    messages = this.insertSystemPrompts(messages)
+    const { systemPrompt, messages: messagesWithInstruction } = this.insertSystemPrompts(messages)
     // console.log(`[RequestMessageBuilder] After system prompts: ${messages.length} messages`)
 
     // Step 5: 验证消息合法性
-    this.validateMessages(messages)
+    this.validateMessages(messagesWithInstruction)
 
-    return messages
+    return {
+      systemPrompt,
+      messages: messagesWithInstruction
+    }
   }
 
   // ========== 私有方法 ==========
@@ -245,33 +248,26 @@ class RequestMessageBuilder {
   /**
    * 步骤 4: 插入系统提示词
    */
-  private insertSystemPrompts(messages: ChatMessage[]): ChatMessage[] {
-    if (this.systemPrompts.length === 0) {
-      return messages
-    }
+  private insertSystemPrompts(messages: ChatMessage[]): { systemPrompt?: string; messages: ChatMessage[] } {
+    const systemPrompt = this.systemPrompts
+      .map(prompt => prompt.trim())
+      .filter(prompt => prompt.length > 0)
+      .join('\n')
 
-    // 合并所有系统提示词
-    const systemPrompt = this.systemPrompts.join('\n')
-
-    // 插入到最前面
-    const result: ChatMessage[] = [
-      {
-        role: 'system',
-        content: systemPrompt,
-        segments: []
-      },
-      ...messages
-    ]
+    const result = [...messages]
 
     if (this.userInstruction) {
-      result.splice(1, 0, {
+      result.unshift({
         role: 'user',
         content: `<user_instruction>\n${this.userInstruction}\n</user_instruction>`,
         segments: []
       })
     }
 
-    return result
+    return {
+      systemPrompt: systemPrompt || undefined,
+      messages: result
+    }
   }
 
   /**

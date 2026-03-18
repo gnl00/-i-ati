@@ -199,7 +199,6 @@ class MessageCompressionService {
       baseUrl: account.apiUrl,
       messages: [{ role: 'user', content: userContent, segments: [] }],
       apiKey: account.apiKey,
-      prompt: '',
       model: model.id,
       modelType: model.type,
       tools: [],

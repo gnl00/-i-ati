@@ -43,7 +43,8 @@ vi.mock('@shared/services/skills/SkillPromptBuilder', () => ({
 }))
 
 vi.mock('@shared/prompts', () => ({
-  systemPrompt: vi.fn(() => 'system prompt')
+  systemPrompt: vi.fn(() => 'system prompt'),
+  buildUserInstructionPrompt: vi.fn(() => '')
 }))
 
 vi.mock('@tools/registry', () => ({
@@ -175,10 +176,8 @@ describe('ChatPreparationPipeline', () => {
       stream: true,
       baseUrl: 'https://example.com/v1'
     }))
+    expect(runSpec.request.systemPrompt).toContain('system prompt')
     expect(runSpec.request.messages).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        role: 'system'
-      }),
       expect.objectContaining({
         role: 'user',
         content: 'hello'

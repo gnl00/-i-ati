@@ -45,7 +45,7 @@ export class ClaudeAdapter extends BaseAdapter {
   }
 
   buildRequest(req: IUnifiedRequest): any {
-    const { systemPrompt, messages } = this.transformClaudeMessages(req.messages)
+    const messages = this.transformClaudeMessages(req.messages)
 
     const requestBody: any = {
       model: req.model,
@@ -56,8 +56,8 @@ export class ClaudeAdapter extends BaseAdapter {
 
     // Claude API requires system prompts in separate 'system' field
     // System prompts are extracted from messages by RequestMessageBuilder
-    if (systemPrompt) {
-      requestBody.system = systemPrompt
+    if (req.systemPrompt) {
+      requestBody.system = req.systemPrompt
     }
 
     if (req.tools?.length) {
@@ -226,16 +226,10 @@ export class ClaudeAdapter extends BaseAdapter {
    * - assistant.toolCalls => assistant.content tool_use blocks
    * - role=tool => user.content tool_result block
    */
-  private transformClaudeMessages(messages: ChatMessage[]): { systemPrompt: string | null; messages: any[] } {
-    const systemMessages: string[] = []
+  private transformClaudeMessages(messages: ChatMessage[]): any[] {
     const claudeMessages: any[] = []
 
     for (const msg of messages) {
-      if (msg.role === 'system') {
-        systemMessages.push(typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content))
-        continue
-      }
-
       if (msg.role === 'tool') {
         if (!msg.toolCallId) {
           continue
@@ -280,10 +274,7 @@ export class ClaudeAdapter extends BaseAdapter {
       })
     }
 
-    return {
-      systemPrompt: systemMessages.length > 0 ? systemMessages.join('\n\n') : null,
-      messages: claudeMessages
-    }
+    return claudeMessages
   }
 
   private toClaudeText(content: ChatMessage['content']): string {

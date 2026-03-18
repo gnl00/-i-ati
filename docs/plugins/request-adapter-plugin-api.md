@@ -200,7 +200,8 @@ interface IUnifiedRequest {
   apiKey: string
   modelType?: string
   model: string
-  prompt?: string
+  userInstruction?: string
+  systemPrompt?: string
   messages: ChatMessage[]
   stream?: boolean
   tools?: any[]
@@ -217,7 +218,9 @@ Field notes:
 - `baseUrl`: provider base URL configured by the user
 - `apiKey`: upstream API key
 - `model`: selected model id
-- `messages`: normalized conversation history
+- `userInstruction`: request-level extra instruction text when provided
+- `systemPrompt`: composed system prompt, already separated from chat messages
+- `messages`: normalized conversation history without system messages
 - `stream`: defaults to `true` in most chat flows
 - `tools`: normalized tool definitions when tool calling is enabled
 - `options.maxTokens`: optional token budget

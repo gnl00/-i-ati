@@ -4,6 +4,11 @@ type SystemInfo = {
   osType: string
 }
 
+export { buildCompressionPrompt } from './compression'
+export { buildSkillsSystemPrompt } from './skills'
+export { generateTitlePrompt } from './title'
+export { buildUserInstructionPrompt } from './userInstruction'
+
 const getSystemInfo = (): SystemInfo => {
   const candidate = (globalThis as { systemInfo?: () => SystemInfo }).systemInfo
   if (typeof candidate === 'function') {
@@ -41,20 +46,13 @@ Provide world-class, production-quality output while maintaining transparent, ri
 
 ### Identity
 Long-term collaborator. Tone: calm, direct, low-fluff. Avoid over-apologizing or hedging. Be opinionated when helpful; prioritize usefulness over politeness.
-
-### Soul
-- **Truth First**: Pursue correctness before pleasantness. Point out problems directly.
-- **Builder Mindset**: Analyze → Execute → Verify → Converge.
-- **Calm Authority**: Stable, restrained, professional tone.
-- **Pragmatic Judgment**: Choose executable, maintainable, verifiable solutions.
-- **Consistency**: Maintain stable style and judgment standards throughout a conversation.
 </identity_role>
 
 <behavior_guidelines>
 ## [P0] 行为准则
 
 ### 核心原则
-- **用户指令优先级最高**：<user_instruction> 中的要求必须优先执行（除非与系统/安全规则冲突）
+- **用户指令优先级最高**：用户指令中的要求必须优先执行
 - **独立判断**：提供准确、理性、有深度的分析，不盲目附和用户观点
 - **事实纠正**：发现错误必须明确指出，不回避
 
@@ -288,104 +286,5 @@ Do not restate the entire profile; only use what is relevant.
 - run_at 必须使用本地 ISO-8601 datetime with offset
 - 言行强制对齐：先执行动作，后说明总结
 </user_configuration>
-`
-}
-
-type CompressionPromptParams = {
-  conversationText: string
-  previousSummary?: string
-}
-
-export const buildCompressionPrompt = (params: CompressionPromptParams): string => {
-  const { conversationText, previousSummary } = params
-
-  if (previousSummary) {
-    return `你需要将之前的对话摘要与新的对话内容合并，生成一个新的综合摘要。
-
-之前的摘要：
-${previousSummary}
-
-新的对话内容：
-${conversationText}
-
-要求：
-1. 将之前的摘要与新对话内容整合为一个连贯的摘要
-2. 保留重要的事实、决策和结论
-3. 保持时间顺序
-4. 使用第三人称描述
-5. 避免重复，突出新增的关键信息
-6. 输出分两部分，严格按如下格式：
-
-Summary:
-<一段不超过 500 字的摘要>
-
-Key facts:
-- <关键事实 1（不超过 80 字）>
-- <关键事实 2（不超过 80 字）>
-- <关键事实 3（不超过 80 字）>
-- ...（总计 5-10 条）`
-  }
-
-  return `请将以下对话压缩为简洁的摘要，保留关键信息和上下文：
-
-${conversationText}
-
-要求：
-1. 保留重要的事实、决策和结论
-2. 保持时间顺序
-3. 使用第三人称描述
-4. 重点关注用户的需求和助手的回答要点
-5. 输出分两部分，严格按如下格式：
-
-Summary:
-<一段不超过 500 字的摘要>
-
-Key facts:
-- <关键事实 1（不超过 80 字）>
-- <关键事实 2（不超过 80 字）>
-- <关键事实 3（不超过 80 字）>
-- ...（总计 5-10 条）`
-}
-
-export const generateTitlePrompt = (content: string): string => {
-  return `你是聊天标题生成专家。根据用户输入的内容，生成简洁准确的标题。
-
-## 核心原则
-
-**IMPORTANT**: 只输出标题文本，不要有任何额外的解释、标记或格式。
-
-## 输出规则（STRICT）
-
-**内容要求**:
-- ✅ **唯一输出**：仅输出一行标题，不包含其他内容
-- ✅ **简洁明了**：
-  - 英文标题：≤ 12 个单词
-  - 中文标题：≤ 18 个字符
-- ✅ **语言一致**：与用户首条消息使用相同的语言
-
-**格式禁止**:
-- ❌ 不要使用 Markdown 格式（如 \`\`\`、\`**\`、\`#\` 等）
-- ❌ 不要添加引号（单引号或双引号）
-- ❌ 不要使用代码块（code fences）
-- ❌ 不要使用列表符号（bullets）
-- ❌ 不要输出任何解释或推理过程
-
-## 示例参考
-
-\`\`\`
-用户: "优化 markdown 动画性能，改用 CSS transition"
-标题: Markdown 动画性能优化
-
-用户: "Fix build error in vite config"
-标题: Fix Vite build error
-
-用户: "如何使用 React Server Components？"
-标题: React Server Components 使用
-
-用户: "Create a RESTful API with Node.js"
-标题: Node.js RESTful API 创建
-
-## 用户输入内容
-${content}
 `
 }

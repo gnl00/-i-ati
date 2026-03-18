@@ -203,7 +203,7 @@ function useChatSubmitV2() {
   const onSubmit = async (
     textCtx: string,
     mediaCtx: ClipbordImg[] | string[],
-    options: { tools?: any[]; prompt?: string; stream?: boolean; options?: IUnifiedRequest['options'] }
+    options: { tools?: any[]; userInstruction?: string; stream?: boolean; options?: IUnifiedRequest['options'] }
   ): Promise<void> => {
     if (activeSubmissionIdRef.current) {
       return
@@ -237,10 +237,10 @@ function useChatSubmitV2() {
           textCtx,
           mediaCtx,
           tools: collectTools(state, options),
-          prompt: options.prompt,
+          userInstruction: options.userInstruction,
           options: options.options,
           stream: options.stream,
-          userInstruction: state.userInstruction
+          chatUserInstruction: state.userInstruction
         },
         modelRef,
         chatId: state.currentChatId ?? undefined,

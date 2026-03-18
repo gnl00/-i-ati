@@ -38,6 +38,6 @@ The built entry is:
 
 ## Notes
 
-- system messages are mapped into `instructions`
+- `request.systemPrompt` is mapped into `instructions`
 - user and assistant messages are mapped into `input`
 - tool results are mapped into `function_call_output`

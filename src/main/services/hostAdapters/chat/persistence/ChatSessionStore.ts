@@ -30,7 +30,7 @@ export class ChatSessionStore {
       messages: [],
       model: model.id,
       workspacePath,
-      userInstruction: input.input.userInstruction || '',
+      userInstruction: input.input.chatUserInstruction || '',
       createTime: Date.now(),
       updateTime: Date.now()
     }

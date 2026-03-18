@@ -86,18 +86,18 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const [queuedMessages, setQueuedMessages] = useState<Array<{
     text: string
     images: ClipbordImg[]
-    prompt: string
+    userInstruction: string
   }>>([])
   const [queuePaused, setQueuePaused] = useState<boolean>(false)
   const [editingQueue, setEditingQueue] = useState<boolean>(false)
-  const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('')
+  const [currentUserInstruction, setCurrentUserInstruction] = useState<string>('')
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
 
-  // Apply currentAssistant's systemPrompt to currentSystemPrompt
+  // Apply currentAssistant's systemPrompt to the request-level user instruction
   useEffect(() => {
     if (currentAssistant?.systemPrompt) {
-      setCurrentSystemPrompt(currentAssistant.systemPrompt)
+      setCurrentUserInstruction(currentAssistant.systemPrompt)
     }
   }, [currentAssistant])
 
@@ -112,7 +112,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const editingQueueRef = useRef<{
     text: string
     images: ClipbordImg[]
-    prompt: string
+    userInstruction: string
   } | null>(null)
 
   // Callback to handle command execution with textarea cleanup
@@ -155,7 +155,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   // Extend startNewChat to include local state reset
   const startNewChat = useCallback(() => {
     startNewChatBase()
-    setCurrentSystemPrompt('')
+    setCurrentUserInstruction('')
     setUserInstruction('')
     setQueuedMessages([])
     setQueuePaused(false)
@@ -170,18 +170,18 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const submitMessage = useCallback((payload: {
     text: string
     images: ClipbordImg[]
-    prompt: string
+    userInstruction: string
   }) => {
     onMessagesUpdate?.()
     handleChatSubmitCallback(payload.text, payload.images, {
-      prompt: payload.prompt
+      userInstruction: payload.userInstruction
     })
   }, [handleChatSubmitCallback, onMessagesUpdate])
 
   const enqueueMessage = useCallback((payload: {
     text: string
     images: ClipbordImg[]
-    prompt: string
+    userInstruction: string
   }) => {
     if (queuedMessages.length >= 5) {
       toast.warning('Queue is full (max 5)')
@@ -223,14 +223,14 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     const payload = {
       text: trimmedInput,
       images: imageSrcBase64List,
-      prompt: currentSystemPrompt
+      userInstruction: currentUserInstruction
     }
 
     if (editingQueue) {
       const editedPayload = {
         text: trimmedInput,
         images: imageSrcBase64List,
-        prompt: editingQueueRef.current?.prompt ?? currentSystemPrompt
+        userInstruction: editingQueueRef.current?.userInstruction ?? currentUserInstruction
       }
 
       setEditingQueue(false)
@@ -268,7 +268,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     imageSrcBase64List,
     selectedModelRef,
     ensureSelectedModelRef,
-    currentSystemPrompt,
+    currentUserInstruction,
     readStreamState,
     queuePaused,
     editingQueue,
