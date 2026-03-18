@@ -54,6 +54,7 @@ const ChatWindowComponentNext: React.FC = () => {
   const readStreamState = useChatStore(state => state.readStreamState)
   const updateMessage = useChatStore(state => state.updateMessage)
   const upsertMessage = useChatStore(state => state.upsertMessage)
+  const onUserScrollIntentRef = useRef<(() => void) | null>(null)
   const onUserScrollUpIntentRef = useRef<(() => void) | null>(null)
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
@@ -72,6 +73,7 @@ const ChatWindowComponentNext: React.FC = () => {
     messages,
     messagesLength: messages.length,
     chatUuid,
+    onUserScrollIntentRef,
     onUserScrollUpIntentRef,
     onLatestVisibleChange: (visible) => {
       if (visible && readStreamState) {
@@ -255,13 +257,21 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [readStreamState, setStreamingFollowEnabled])
 
   useEffect(() => {
+    onUserScrollIntentRef.current = () => {
+      if (!readStreamState) return
+      setStreamingFollowEnabled(false)
+    }
+
+    return () => {
+      onUserScrollIntentRef.current = null
+    }
+  }, [readStreamState, setStreamingFollowEnabled])
+
+  useEffect(() => {
     onUserScrollUpIntentRef.current = () => {
       const container = scrollParentRef.current
       if (!container) return
-      if (readStreamState) {
-        setStreamingFollowEnabled(false)
-        return
-      }
+      if (readStreamState) return
 
       const latestMetrics = getLatestMessageMetrics()
       if (!latestMetrics) return
