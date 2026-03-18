@@ -122,7 +122,8 @@ vi.mock('@main/services/DatabaseService', () => ({
     updateChat: updateChatMock,
     updateMessage: updateMessageMock,
     getActiveCompressedSummariesByChatId: vi.fn(() => []),
-    getChatSkills: vi.fn(() => [])
+    getChatSkills: vi.fn(() => []),
+    getConfigValue: vi.fn(() => undefined)
   }
 }))
 
