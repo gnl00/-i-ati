@@ -79,6 +79,32 @@ const extractRegeneratePayload = (
   return { text, images }
 }
 
+const getAssistantCopyContent = (message: ChatMessage): string => {
+  const segmentText = (message.segments || [])
+    .filter((segment): segment is TextSegment => segment.type === 'text')
+    .map(segment => segment.content)
+    .join('')
+    .trim()
+
+  if (segmentText) {
+    return segmentText
+  }
+
+  if (typeof message.content === 'string') {
+    return message.content
+  }
+
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((item): item is VLMContent & { text: string } => item.type === 'text' && typeof item.text === 'string')
+      .map(item => item.text)
+      .join('\n')
+      .trim()
+  }
+
+  return ''
+}
+
 /**
  * Text segment component with typewriter effect.
  */
@@ -403,7 +429,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         type="assistant"
         isHovered={isHovered}
         showRegenerate={isLatest}
-        onCopyClick={() => onCopyClick(m.content as string)}
+        onCopyClick={() => onCopyClick(getAssistantCopyContent(m))}
         onRegenerateClick={handleRegenerate}
         onEditClick={() => {
           // TODO: 实现编辑助手消息功能
