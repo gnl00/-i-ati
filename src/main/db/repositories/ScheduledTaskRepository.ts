@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 
 export interface ScheduledTaskRow {
   id: string
@@ -7,7 +8,7 @@ export interface ScheduledTaskRow {
   goal: string
   run_at: number
   timezone: string | null
-  status: string
+  status: ScheduleTaskStatus
   payload: string | null
   attempt_count: number
   max_attempts: number
@@ -122,7 +123,7 @@ class ScheduledTaskRepository {
 
   updateStatus(
     id: string,
-    status: string,
+    status: ScheduleTaskStatus,
     attemptCount: number,
     lastError: string | null,
     resultMessageId: number | null,
@@ -139,7 +140,7 @@ class ScheduledTaskRepository {
     return this.stmts.getByChatUuid.all(chatUuid) as ScheduledTaskRow[]
   }
 
-  listByStatus(status: string, limit: number): ScheduledTaskRow[] {
+  listByStatus(status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] {
     return this.stmts.listByStatus.all(status, limit) as ScheduledTaskRow[]
   }
 

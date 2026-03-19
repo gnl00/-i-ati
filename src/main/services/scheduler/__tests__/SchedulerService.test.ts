@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
+import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import { SchedulerService } from '../SchedulerService'
 import DatabaseService from '@main/services/DatabaseService'
 
@@ -52,7 +53,7 @@ vi.mock('@main/services/DatabaseService', () => ({
     }),
     saveChatRunEvent: vi.fn(() => 1),
     updateScheduledTaskStatus: vi.fn(
-      (id: string, status: string, attemptCount: number, lastError?: string, resultMessageId?: number) => {
+      (id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         const task = taskStore.find(item => item.id === id)
         if (!task) return
         task.status = status
@@ -157,7 +158,7 @@ describe('SchedulerService', () => {
     DatabaseService.saveScheduledTask(failingTask)
 
     ;(DatabaseService.updateScheduledTaskStatus as any).mockImplementation(
-      (id: string, status: string, attemptCount: number, lastError?: string, resultMessageId?: number) => {
+      (id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         if (id === 'task-fail-retry' && status === 'completed') {
           throw new Error('simulated completion failure')
         }
@@ -211,7 +212,7 @@ describe('SchedulerService', () => {
     DatabaseService.saveScheduledTask(noRetryTask)
 
     ;(DatabaseService.updateScheduledTaskStatus as any).mockImplementation(
-      (id: string, status: string, attemptCount: number, lastError?: string, resultMessageId?: number) => {
+      (id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         if (id === 'task-no-retry' && status === 'completed') {
           throw new Error('forced failure no-retry')
         }

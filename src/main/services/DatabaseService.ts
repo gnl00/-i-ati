@@ -19,6 +19,7 @@ import { ChatRunEventRepository } from '../db/repositories/ChatRunEventRepositor
 import { AssistantRepository } from '../db/repositories/AssistantRepository'
 import { TaskPlanRepository } from '../db/repositories/TaskPlanRepository'
 import { ScheduledTaskRepository, ScheduledTaskRow } from '../db/repositories/ScheduledTaskRepository'
+import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import { TaskPlanDataService } from './database/TaskPlanDataService'
 import { ScheduledTaskDataService } from './database/ScheduledTaskDataService'
@@ -336,7 +337,7 @@ class DatabaseService {
 
   public updateScheduledTaskStatus(
     id: string,
-    status: string,
+    status: ScheduleTaskStatus,
     attemptCount: number,
     lastError?: string,
     resultMessageId?: number
@@ -355,7 +356,7 @@ class DatabaseService {
     return this.scheduledTaskDataService.getScheduledTasksByChatUuid(chatUuid)
   }
 
-  public getScheduledTasksByStatus(status: string, limit: number): ScheduledTaskRow[] {
+  public getScheduledTasksByStatus(status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] {
     if (!this.scheduledTaskDataService) throw new Error('Scheduled task data service not initialized')
     return this.scheduledTaskDataService.getScheduledTasksByStatus(status, limit)
   }

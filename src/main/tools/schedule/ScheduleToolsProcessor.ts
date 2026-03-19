@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/services/DatabaseService'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
+import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 
 const MIN_DELAY_MS = 30_000
 
@@ -99,7 +100,7 @@ export async function processScheduleCreate(args: ScheduleCreateArgs) {
       goal: args.goal,
       run_at: runAtMs,
       timezone: args.timezone ?? null,
-      status: 'pending',
+      status: 'pending' as ScheduleTaskStatus,
       payload: args.payload ? JSON.stringify(args.payload) : null,
       attempt_count: 0,
       max_attempts: args.max_attempts ?? 0,
@@ -150,7 +151,13 @@ export async function processScheduleCancel(args: ScheduleCancelArgs) {
     if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
       return { success: false, message: `Cannot cancel task in status: ${task.status}`, currentDateTime }
     }
-    DatabaseService.updateScheduledTaskStatus(task.id, 'cancelled', task.attempt_count, undefined, task.result_message_id ?? undefined)
+    DatabaseService.updateScheduledTaskStatus(
+      task.id,
+      'cancelled',
+      task.attempt_count,
+      'Cancelled by user',
+      task.result_message_id ?? undefined
+    )
     emitScheduleUpdated(task.id)
     return { success: true, id: task.id, currentDateTime }
   } catch (error) {

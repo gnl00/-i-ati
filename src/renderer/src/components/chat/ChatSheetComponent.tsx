@@ -12,9 +12,37 @@ import { switchWorkspace } from '@renderer/utils/workspaceUtils'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { BadgePlus } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import type { ScheduleTask } from '@shared/tools/schedule'
+import type { ScheduleTask, ScheduleTaskStatus } from '@shared/tools/schedule'
 
 interface ChatSheetProps { }
+
+const HIDDEN_SCHEDULE_STATUSES = new Set<ScheduleTaskStatus>(['cancelled', 'dismissed'])
+
+const SCHEDULE_PRIORITY: Record<ScheduleTaskStatus, number> = {
+    running: 0,
+    pending: 1,
+    completed: 2,
+    failed: 2,
+    cancelled: 3,
+    dismissed: 4
+}
+
+const normalizeScheduledTasks = (tasks: ScheduleTask[]): ScheduleTask[] => {
+    return [...tasks]
+        .filter(task => !HIDDEN_SCHEDULE_STATUSES.has(task.status))
+        .sort((a, b) => {
+            const priorityDiff = SCHEDULE_PRIORITY[a.status] - SCHEDULE_PRIORITY[b.status]
+            if (priorityDiff !== 0) return priorityDiff
+
+            const runAtDiff = b.run_at - a.run_at
+            if (runAtDiff !== 0) return runAtDiff
+
+            const updatedAtDiff = b.updated_at - a.updated_at
+            if (updatedAtDiff !== 0) return updatedAtDiff
+
+            return b.created_at - a.created_at
+        })
+}
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
@@ -118,7 +146,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         }
         try {
             const tasks = await invokeDbScheduledTasksByChatUuid(targetChatUuid)
-            const sortedTasks = [...tasks].sort((a, b) => a.run_at - b.run_at)
+            const sortedTasks = normalizeScheduledTasks(tasks)
             scheduleCacheRef.current.set(targetChatUuid, sortedTasks)
             scheduleLoadedRef.current.add(targetChatUuid)
             setScheduledTasks(sortedTasks)
@@ -184,10 +212,11 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             }
             setScheduledTasks(prev => {
                 const index = prev.findIndex(item => item.id === task.id)
-                const next = index >= 0
-                    ? [...prev.slice(0, index), task, ...prev.slice(index + 1)]
-                    : [task, ...prev]
-                const sorted = next.sort((a, b) => a.run_at - b.run_at)
+                const next =
+                    index >= 0
+                        ? [...prev.slice(0, index), task, ...prev.slice(index + 1)]
+                        : [task, ...prev]
+                const sorted = normalizeScheduledTasks(next)
                 scheduleCacheRef.current.set(task.chat_uuid, sorted)
                 scheduleLoadedRef.current.add(task.chat_uuid)
                 return sorted
