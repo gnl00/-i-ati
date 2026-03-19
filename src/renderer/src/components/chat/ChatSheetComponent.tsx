@@ -1,7 +1,7 @@
 import ChatScheduleBoard from '@renderer/components/chat/chatSchedule/ChatScheduleBoard'
 import ChatTitleList from '@renderer/components/chat/title/ChatTitleList'
 import { Button } from '@renderer/components/ui/button'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@renderer/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader } from '@renderer/components/ui/sheet'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
 import { getAllChat } from '@renderer/db/ChatRepository'
@@ -279,11 +279,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 </div>
 
                 {/* Header - 固定高度 */}
-                <SheetHeader className="shrink-0 pt-4">
-                    <SheetTitle>@i-ati</SheetTitle>
-                    <SheetDescription>
-                        -
-                    </SheetDescription>
+                <SheetHeader className="pt-0.5">
                 </SheetHeader>
 
                 {/* 主内容区 - 占据剩余空间 */}
