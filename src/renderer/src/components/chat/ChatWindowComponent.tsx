@@ -11,7 +11,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import { useScrollManagerLite } from '@renderer/hooks/useScrollManagerLite'
-import { TaskPlanCard } from './task/TaskPlanCard'
+import { TaskPlanBar } from './task/TaskPlanBar'
 import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
 import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
 import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotifications'
@@ -196,7 +196,7 @@ const ChatWindowComponent: React.FC = () => {
                             delay: index * 0.05
                           }}
                         >
-                          <TaskPlanCard
+                          <TaskPlanBar
                             plan={plan}
                             onPlanUpdated={refreshPlans}
                             onApprove={isPendingReview ? approvePlanReview : undefined}

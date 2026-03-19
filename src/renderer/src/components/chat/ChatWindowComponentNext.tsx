@@ -12,7 +12,7 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, 
 import { Virtuoso, type StateSnapshot } from 'react-virtuoso'
 import { useScrollManagerTop } from '@renderer/hooks/useScrollManagerTop'
 import { resolveAnchorIndex } from './scroll-anchor'
-import { TaskPlanCard } from './task/TaskPlanCard'
+import { TaskPlanBar } from './task/TaskPlanBar'
 import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
 import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
 import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotifications'
@@ -496,7 +496,7 @@ const ChatWindowComponentNext: React.FC = () => {
                             delay: index * 0.05
                           }}
                         >
-                          <TaskPlanCard
+                          <TaskPlanBar
                             plan={plan}
                             onPlanUpdated={refreshPlans}
                             onApprove={isPendingReview ? approvePlanReview : undefined}
