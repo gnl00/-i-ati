@@ -15,6 +15,9 @@ export type RiskLevel = 'safe' | 'warning' | 'dangerous'
 
 export interface ExecuteCommandArgs {
   command: string
+  execution_reason: string
+  possible_risk: string
+  risk_score: number
   cwd?: string
   timeout?: number
   env?: Record<string, string>
@@ -34,4 +37,7 @@ export interface ExecuteCommandResponse {
   requires_confirmation?: boolean
   risk_level?: RiskLevel
   risk_reason?: string
+  execution_reason?: string
+  possible_risk?: string
+  risk_score?: number
 }
