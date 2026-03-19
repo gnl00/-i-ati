@@ -1,7 +1,7 @@
 import ChatScheduleBoard from '@renderer/components/chat/chatSchedule/ChatScheduleBoard'
 import ChatTitleList from '@renderer/components/chat/title/ChatTitleList'
 import { Button } from '@renderer/components/ui/button'
-import { Sheet, SheetContent, SheetHeader } from '@renderer/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@renderer/components/ui/sheet'
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
 import { getAllChat } from '@renderer/db/ChatRepository'
@@ -307,8 +307,10 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                     <TrafficLights />
                 </div>
 
-                {/* Header - 固定高度 */}
-                <SheetHeader className="pt-0.5">
+                {/* Header - needs both SheetTitle and SheetDescription to keep ui behavious right */}
+                <SheetHeader>
+                    <SheetTitle></SheetTitle>
+                    <SheetDescription></SheetDescription>
                 </SheetHeader>
 
                 {/* 主内容区 - 占据剩余空间 */}
