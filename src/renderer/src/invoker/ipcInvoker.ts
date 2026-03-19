@@ -4,6 +4,7 @@
  */
 
 import type { ChatRunEvent } from '@shared/chatRun/events'
+import type { PluginEvent } from '@shared/plugins/events'
 import type { ScheduleEvent } from '@shared/schedule/events'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import {
@@ -76,6 +77,7 @@ import {
   CHAT_RUN_CANCEL,
   CHAT_RUN_TOOL_CONFIRM,
   CHAT_RUN_EVENT,
+  PLUGIN_EVENT,
   SCHEDULE_EVENT,
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE,
@@ -538,6 +540,39 @@ export function subscribeChatRunEvents(
     if (chatRunHandlers.size === 0 && chatRunListener) {
       ipc.removeListener(CHAT_RUN_EVENT, chatRunListener)
       chatRunListener = null
+    }
+  }
+}
+
+export type {
+  PluginEventType,
+  PluginEventPayloads,
+  PluginEventEnvelope,
+  PluginEvent
+} from '@shared/plugins/events'
+
+type PluginEventHandler = (event: PluginEvent) => void
+const pluginHandlers = new Set<PluginEventHandler>()
+let pluginListener: ((event: any, data: any) => void) | null = null
+
+export function subscribePluginEvents(
+  handler: PluginEventHandler
+): () => void {
+  const ipc = getElectronIPC()
+  pluginHandlers.add(handler)
+
+  if (!pluginListener) {
+    pluginListener = (_event: any, data: any) => {
+      pluginHandlers.forEach(cb => cb(data))
+    }
+    ipc.on(PLUGIN_EVENT, pluginListener)
+  }
+
+  return () => {
+    pluginHandlers.delete(handler)
+    if (pluginHandlers.size === 0 && pluginListener) {
+      ipc.removeListener(PLUGIN_EVENT, pluginListener)
+      pluginListener = null
     }
   }
 }

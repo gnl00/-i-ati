@@ -52,6 +52,11 @@ import {
   processGetSoul,
   processResetSoul
 } from '@main/tools/soul/SoulToolsProcessor'
+import {
+  processListPlugins,
+  processPluginInstall,
+  processPluginUninstall
+} from '@main/tools/plugins/PluginToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
@@ -96,7 +101,10 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   schedule_update: processScheduleUpdate,
   get_soul: processGetSoul,
   edit_soul: processEditSoul,
-  reset_soul: processResetSoul
+  reset_soul: processResetSoul,
+  list_plugins: processListPlugins,
+  plugin_install: processPluginInstall,
+  plugin_uninstall: processPluginUninstall
 }
 
 export function initializeMainEmbeddedTools(): void {
