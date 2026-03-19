@@ -7,6 +7,7 @@ import type { ChatRunEvent } from '@shared/chatRun/events'
 import type { PluginEvent } from '@shared/plugins/events'
 import type { ScheduleEvent } from '@shared/schedule/events'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
+import type { ScheduleTask, ScheduleTaskStatus } from '@shared/tools/schedule'
 import {
   PIN_WINDOW,
   OPEN_PATH,
@@ -82,6 +83,7 @@ import {
   CHAT_COMPRESSION_EXECUTE,
   CHAT_TITLE_GENERATE,
   DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID,
+  DB_SCHEDULED_TASK_UPDATE_STATUS,
   CHECK_IS_DIRECTORY,
   SELECT_DIRECTORY
 } from '@shared/constants/index'
@@ -639,9 +641,18 @@ export async function invokeChatTitleGenerate(data: {
   return await ipc.invoke(CHAT_TITLE_GENERATE, data)
 }
 
-export async function invokeDbScheduledTasksByChatUuid(chatUuid: string): Promise<import('@shared/tools/schedule').ScheduleTask[]> {
+export async function invokeDbScheduledTasksByChatUuid(chatUuid: string): Promise<ScheduleTask[]> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, chatUuid)
+}
+
+export async function invokeDbScheduledTaskUpdateStatus(args: {
+  id: string
+  status: ScheduleTaskStatus
+  lastError?: string | null
+}): Promise<ScheduleTask> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_SCHEDULED_TASK_UPDATE_STATUS, args)
 }
 
 // ============ Database Operations - Chat Submit Event Trace ============

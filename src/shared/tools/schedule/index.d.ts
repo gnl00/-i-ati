@@ -1,3 +1,11 @@
+export type ScheduleTaskStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'dismissed'
+
 export interface ScheduleTask {
   id: string
   chat_uuid: string
@@ -5,7 +13,7 @@ export interface ScheduleTask {
   goal: string
   run_at: number
   timezone: string | null
-  status: string
+  status: ScheduleTaskStatus
   payload: string | null
   attempt_count: number
   max_attempts: number
@@ -41,4 +49,10 @@ export interface ScheduleUpdateResponse {
   task?: ScheduleTask
   message?: string
   currentDateTime?: string
+}
+
+export interface ScheduleStatusUpdateResponse {
+  success: boolean
+  task?: ScheduleTask
+  message?: string
 }

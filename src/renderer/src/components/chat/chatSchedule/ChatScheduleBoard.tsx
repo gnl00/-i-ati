@@ -1,7 +1,9 @@
 import { cn } from '@renderer/lib/utils'
+import { invokeDbScheduledTaskUpdateStatus } from '@renderer/invoker/ipcInvoker'
 import type { ScheduleTask } from '@shared/tools/schedule'
 import { AlertCircle, CalendarClock, Check, CheckCircle2, Clock3, Loader2, Square, X, XCircle } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 interface SummaryMeta {
   label: string
@@ -75,7 +77,8 @@ const TASK_PRIORITY: Record<string, number> = {
   pending: 1,
   completed: 2,
   failed: 2,
-  cancelled: 2
+  cancelled: 3,
+  dismissed: 4
 }
 
 // Phase 1: 200ms slide-right + fade
@@ -113,8 +116,9 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
   scheduleLoading,
   scheduleLoadError
 }) => {
-  const [dismissedTaskIds, setDismissedTaskIds] = useState<Set<string>>(new Set())
+  const [hiddenTaskIds, setHiddenTaskIds] = useState<Set<string>>(new Set())
   const [confirmingTaskId, setConfirmingTaskId] = useState<string | null>(null)
+  const [pendingActionTaskIds, setPendingActionTaskIds] = useState<Set<string>>(new Set())
   // exitPhases: tracks which phase each exiting item is in
   const [exitPhases, setExitPhases] = useState<Map<string, ExitPhase>>(new Map())
   // exitHeights: measured height of each item before collapse
@@ -127,14 +131,20 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
     // Clear all exit timers on tasks change
     exitTimers.current.forEach(id => clearTimeout(id))
     exitTimers.current.clear()
-    setDismissedTaskIds(new Set())
+    setHiddenTaskIds(new Set())
     setConfirmingTaskId(null)
+    setPendingActionTaskIds(new Set())
     setExitPhases(new Map())
     setExitHeights(new Map())
   }, [scheduledTasks])
 
+  const boardTasks = useMemo(
+    () => scheduledTasks.filter(task => task.status !== 'dismissed' && task.status !== 'cancelled'),
+    [scheduledTasks]
+  )
+
   const scheduleSummary = useMemo(() => {
-    return scheduledTasks.reduce<Record<SummaryKey, number>>((acc, task) => {
+    return boardTasks.reduce<Record<SummaryKey, number>>((acc, task) => {
       if (task.status === 'running') {
         acc.running += 1
       } else if (task.status === 'pending') {
@@ -146,16 +156,16 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
       }
       return acc
     }, { running: 0, pending: 0, done: 0, failure: 0 })
-  }, [scheduledTasks])
+  }, [boardTasks])
 
   const nextTask = useMemo(() => {
-    return [...scheduledTasks]
+    return [...boardTasks]
       .filter(task => task.status === 'pending' || task.status === 'running')
       .sort((a, b) => a.run_at - b.run_at)[0]
-  }, [scheduledTasks])
+  }, [boardTasks])
 
   const sortedTasks = useMemo(() => {
-    return [...scheduledTasks].sort((a, b) => {
+    return [...boardTasks].sort((a, b) => {
       const priorityDiff = (TASK_PRIORITY[a.status] ?? 2) - (TASK_PRIORITY[b.status] ?? 2)
       if (priorityDiff !== 0) return priorityDiff
 
@@ -167,12 +177,12 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
 
       return b.created_at - a.created_at
     })
-  }, [scheduledTasks])
+  }, [boardTasks])
 
   // visibleTasks includes items currently in exit animation (not yet fully dismissed)
   const visibleTasks = useMemo(
-    () => sortedTasks.filter(task => !dismissedTaskIds.has(task.id)),
-    [dismissedTaskIds, sortedTasks]
+    () => sortedTasks.filter(task => !hiddenTaskIds.has(task.id)),
+    [hiddenTaskIds, sortedTasks]
   )
 
   const shouldShowScrollFade = visibleTasks.length > 3
@@ -183,6 +193,38 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
       return
     }
     itemRefs.current.delete(taskId)
+  }
+
+  const clearExitTimers = (taskId: string) => {
+    const t1 = exitTimers.current.get(taskId)
+    if (t1) {
+      clearTimeout(t1)
+      exitTimers.current.delete(taskId)
+    }
+    const t2 = exitTimers.current.get(`${taskId}_2`)
+    if (t2) {
+      clearTimeout(t2)
+      exitTimers.current.delete(`${taskId}_2`)
+    }
+  }
+
+  const restoreTask = (taskId: string) => {
+    clearExitTimers(taskId)
+    setHiddenTaskIds(prev => {
+      const next = new Set(prev)
+      next.delete(taskId)
+      return next
+    })
+    setExitPhases(prev => {
+      const next = new Map(prev)
+      next.delete(taskId)
+      return next
+    })
+    setExitHeights(prev => {
+      const next = new Map(prev)
+      next.delete(taskId)
+      return next
+    })
   }
 
   const hideTask = (taskId: string) => {
@@ -204,7 +246,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
 
       // Phase complete: remove from DOM
       const t2 = setTimeout(() => {
-        setDismissedTaskIds(prev => {
+        setHiddenTaskIds(prev => {
           const next = new Set(prev)
           next.add(taskId)
           return next
@@ -225,7 +267,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
       exitTimers.current.set(taskId, t1)
       exitTimers.current.set(`${taskId}_2`, t2)
     } else {
-      setDismissedTaskIds(prev => {
+      setHiddenTaskIds(prev => {
         const next = new Set(prev)
         next.add(taskId)
         return next
@@ -233,6 +275,37 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
     }
 
     setConfirmingTaskId(current => (current === taskId ? null : current))
+  }
+
+  const handleTaskAction = async (task: ScheduleTask) => {
+    const nextStatus = task.status === 'pending' || task.status === 'running' ? 'cancelled' : 'dismissed'
+    const nextLastError = nextStatus === 'cancelled' ? 'Cancelled by user' : task.last_error
+
+    setPendingActionTaskIds(prev => new Set(prev).add(task.id))
+    hideTask(task.id)
+
+    try {
+      await invokeDbScheduledTaskUpdateStatus({
+        id: task.id,
+        status: nextStatus,
+        lastError: nextLastError
+      })
+      toast.success(nextStatus === 'cancelled' ? 'Task cancelled' : 'Task dismissed', {
+        description: task.goal
+      })
+    } catch (error) {
+      restoreTask(task.id)
+      setConfirmingTaskId(task.status === 'pending' || task.status === 'running' ? task.id : null)
+      toast.error(nextStatus === 'cancelled' ? 'Failed to cancel task' : 'Failed to dismiss task', {
+        description: error instanceof Error ? error.message : String(error)
+      })
+    } finally {
+      setPendingActionTaskIds(prev => {
+        const next = new Set(prev)
+        next.delete(task.id)
+        return next
+      })
+    }
   }
 
   // Wrapper div: controls layout collapse (maxHeight + paddingBottom → 0)
@@ -361,12 +434,13 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
             <div className="relative">
               {/* No space-y-2 — spacing managed via wrapper paddingBottom */}
               <div className="relative max-h-50 overflow-y-auto pr-1">
-                {visibleTasks.map((task) => {
-                  const meta = TASK_STATUS_META[task.status] ?? TASK_STATUS_META.pending
-                  const actionMeta = getTaskActionMeta(task.status)
-                  const requiresConfirm = task.status === 'pending' || task.status === 'running'
-                  const isConfirming = confirmingTaskId === task.id
-                  return (
+              {visibleTasks.map((task) => {
+                const meta = TASK_STATUS_META[task.status] ?? TASK_STATUS_META.pending
+                const actionMeta = getTaskActionMeta(task.status)
+                const requiresConfirm = task.status === 'pending' || task.status === 'running'
+                const isConfirming = confirmingTaskId === task.id
+                const isPendingAction = pendingActionTaskIds.has(task.id)
+                return (
                     // Wrapper: owns layout space and collapses it
                     <div key={task.id} style={getWrapperStyle(task.id)}>
                       {/* Card: owns visual transform/opacity */}
@@ -400,39 +474,43 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
                               className="mt-0.5 inline-flex shrink-0 items-center gap-1"
                               style={{ animation: '_csb_confirm_in 170ms cubic-bezier(0.34, 1.4, 0.64, 1) both' }}
                             >
-                              <button
-                                type="button"
-                                onClick={() => setConfirmingTaskId(null)}
-                                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:text-slate-500 dark:hover:bg-white/6 dark:hover:text-slate-200 dark:focus-visible:ring-slate-700"
-                                aria-label="Keep task"
-                                title="Keep task"
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingTaskId(null)}
+                              disabled={isPendingAction}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:text-slate-500 dark:hover:bg-white/6 dark:hover:text-slate-200 dark:focus-visible:ring-slate-700"
+                              aria-label="Keep task"
+                              title="Keep task"
                               >
                                 <X className="h-3.5 w-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => hideTask(task.id)}
-                                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-rose-500 transition-all hover:bg-rose-500/10 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 dark:text-rose-400 dark:hover:bg-rose-500/12 dark:hover:text-rose-300 dark:focus-visible:ring-rose-900"
-                                aria-label={actionMeta.label}
-                                title={actionMeta.label}
-                              >
+                            <button
+                              type="button"
+                              onClick={() => void handleTaskAction(task)}
+                              disabled={isPendingAction}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-rose-500 transition-all hover:bg-rose-500/10 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:pointer-events-none disabled:opacity-50 dark:text-rose-400 dark:hover:bg-rose-500/12 dark:hover:text-rose-300 dark:focus-visible:ring-rose-900"
+                              aria-label={actionMeta.label}
+                              title={actionMeta.label}
+                            >
                                 <Check className="h-3.5 w-3.5" />
                               </button>
                             </div>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (requiresConfirm) {
-                                  setConfirmingTaskId(task.id)
-                                  return
-                                }
-                                hideTask(task.id)
-                              }}
-                              className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 group-hover:opacity-100 dark:text-slate-500 dark:hover:bg-white/6 dark:hover:text-slate-200 dark:focus-visible:ring-slate-700"
-                              aria-label={actionMeta.label}
-                              title={actionMeta.label}
-                            >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isPendingAction) return
+                              if (requiresConfirm) {
+                                setConfirmingTaskId(task.id)
+                                return
+                              }
+                              void handleTaskAction(task)
+                            }}
+                            disabled={isPendingAction}
+                            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50 group-hover:opacity-100 dark:text-slate-500 dark:hover:bg-white/6 dark:hover:text-slate-200 dark:focus-visible:ring-slate-700"
+                            aria-label={actionMeta.label}
+                            title={actionMeta.label}
+                          >
                               <actionMeta.Icon className="h-3.5 w-3.5" />
                             </button>
                           )}

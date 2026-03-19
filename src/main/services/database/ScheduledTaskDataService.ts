@@ -1,4 +1,5 @@
 import type { ScheduledTaskRepository, ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
+import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 
 type ScheduledTaskDataServiceDeps = {
   hasDb: () => boolean
@@ -20,7 +21,7 @@ export class ScheduledTaskDataService {
 
   updateScheduledTaskStatus(
     id: string,
-    status: string,
+    status: ScheduleTaskStatus,
     attemptCount: number,
     lastError?: string,
     resultMessageId?: number
@@ -46,7 +47,7 @@ export class ScheduledTaskDataService {
     return scheduledTaskRepo.getByChatUuid(chatUuid)
   }
 
-  getScheduledTasksByStatus(status: string, limit: number): ScheduledTaskRow[] {
+  getScheduledTasksByStatus(status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] {
     const scheduledTaskRepo = this.requireScheduledTaskRepo()
     return scheduledTaskRepo.listByStatus(status, limit)
   }

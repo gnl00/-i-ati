@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
+import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import {
   processScheduleCancel,
   processScheduleCreate,
@@ -23,7 +24,7 @@ vi.mock('@main/services/DatabaseService', () => ({
       const task = taskStore.find(item => item.id === id)
       return task ? { ...task } : undefined
     }),
-    updateScheduledTaskStatus: vi.fn((id: string, status: string, attemptCount: number, lastError?: string, resultMessageId?: number) => {
+    updateScheduledTaskStatus: vi.fn((id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
       const task = taskStore.find(item => item.id === id)
       if (!task) return
       task.status = status
