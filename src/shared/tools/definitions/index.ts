@@ -13,6 +13,7 @@ import skillsTools from './skills_tools'
 import planTools from './plan_tools'
 import scheduleTools from './schedule_tools'
 import soulTools from './soul_tools'
+import pluginTools from './plugin_tools'
 
 /**
  * 合并所有工具定义
@@ -27,7 +28,8 @@ export const tools = [
   ...skillsTools,
   ...planTools,
   ...scheduleTools,
-  ...soulTools
+  ...soulTools,
+  ...pluginTools
 ]
 
 /**

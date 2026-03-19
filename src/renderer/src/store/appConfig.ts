@@ -5,6 +5,7 @@ import { defaultConfig } from '../config'
 // Initialization tracking
 let configInitialized = false
 let configInitPromise: Promise<void> | null = null
+let pluginEventsSubscribed = false
 
 export type ModelOption = {
   account: ProviderAccount
@@ -669,6 +670,14 @@ export const initializeAppConfig = async (): Promise<void> => {
       store._setAppConfig(loadedConfig)
       store._setLoadedMcpServerConfig(loadedMcpServerConfig)
       store._setLoadedPlugins(loadedPlugins)
+      if (!pluginEventsSubscribed) {
+        const { subscribePluginEvents } = await import('../invoker/ipcInvoker')
+        subscribePluginEvents((event) => {
+          if (event.type !== 'updated') return
+          useAppConfigStore.getState()._setLoadedPlugins(event.payload.plugins)
+        })
+        pluginEventsSubscribed = true
+      }
       configInitialized = true
       console.log('[@i] App config initialized from SQLite')
     } catch (error) {
