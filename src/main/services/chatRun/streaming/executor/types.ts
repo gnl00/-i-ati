@@ -62,6 +62,9 @@ export interface ToolExecutorConfig {
       riskLevel?: 'risky' | 'dangerous'
       reason?: string
       command?: string
+      executionReason?: string
+      possibleRisk?: string
+      riskScore?: number
     }
   }) => Promise<{ approved: boolean; reason?: string; args?: unknown }>
 }

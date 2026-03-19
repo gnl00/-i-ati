@@ -415,7 +415,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             request={{
               command: pendingCommand,
               risk_level: pendingToolConfirm?.ui?.riskLevel || 'risky',
-              risk_reason: pendingToolConfirm?.ui?.reason || 'Requires confirmation'
+              execution_reason: pendingToolConfirm?.ui?.executionReason || pendingToolConfirm?.ui?.title || 'Command requires approval',
+              possible_risk: pendingToolConfirm?.ui?.possibleRisk || pendingToolConfirm?.ui?.reason || 'Potential risk not provided',
+              risk_score: pendingToolConfirm?.ui?.riskScore
             }}
             onConfirm={confirm}
             onCancel={() => cancel('user abort')}

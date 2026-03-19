@@ -13,6 +13,9 @@ export type ToolConfirmationRequest = {
     riskLevel?: 'risky' | 'dangerous'
     reason?: string
     command?: string
+    executionReason?: string
+    possibleRisk?: string
+    riskScore?: number
   }
 }
 

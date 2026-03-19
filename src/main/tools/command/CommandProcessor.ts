@@ -11,9 +11,9 @@ import { app } from 'electron'
 import DatabaseService from '@main/services/DatabaseService'
 import type {
   ExecuteCommandArgs,
-  ExecuteCommandResponse,
-  RiskLevel
+  ExecuteCommandResponse
 } from '@tools/command/index.d'
+import { assessExecuteCommandReview } from './risk'
 
 const execAsync = promisify(exec)
 const execFileAsync = promisify(execFile)
@@ -69,74 +69,6 @@ function resolveWorkspaceBaseDir(chatUuid?: string): string {
   return join(userDataPath, 'workspaces', chatUuid)
 }
 
-// 危险命令模式（需要用户确认）
-const DANGEROUS_PATTERNS = [
-  // 文件删除相关
-  { pattern: /rm\s+-rf\s+[\/~]/i, reason: 'Recursive deletion from root or home directory' },
-  { pattern: /rm\s+-rf\s+\*/i, reason: 'Recursive deletion with wildcard' },
-  { pattern: /rm\s+.*\s+-rf/i, reason: 'Recursive file deletion' },
-
-  // 磁盘操作
-  { pattern: /dd\s+if=/i, reason: 'Direct disk write operation' },
-  { pattern: /mkfs/i, reason: 'File system formatting' },
-  { pattern: /fdisk/i, reason: 'Disk partitioning' },
-
-  // 设备文件操作
-  { pattern: />\s*\/dev\/(sd|hd|nvme)/i, reason: 'Writing to disk device' },
-
-  // 权限相关
-  { pattern: /chmod\s+-R\s+777/i, reason: 'Setting world-writable permissions recursively' },
-  { pattern: /chown\s+-R/i, reason: 'Changing ownership recursively' },
-
-  // Sudo 操作
-  { pattern: /sudo\s+rm/i, reason: 'Deleting files with sudo' },
-  { pattern: /sudo\s+dd/i, reason: 'Disk operation with sudo' },
-
-  // 系统关键目录
-  { pattern: /rm.*\/etc/i, reason: 'Deleting system configuration files' },
-  { pattern: /rm.*\/usr/i, reason: 'Deleting system binaries' },
-  { pattern: /rm.*\/var/i, reason: 'Deleting system data' },
-
-  // Fork bomb 和恶意命令
-  { pattern: /:\(\)\{.*:\|:.*\};:/i, reason: 'Fork bomb detected' },
-  { pattern: /while\s+true.*do/i, reason: 'Infinite loop detected' }
-]
-
-// 警告级别命令模式
-const WARNING_PATTERNS = [
-  { pattern: /rm\s+-r/i, reason: 'Recursive deletion' },
-  { pattern: /rm\s+.*\*/i, reason: 'Deletion with wildcard' },
-  { pattern: /git\s+push\s+.*--force/i, reason: 'Force push to git repository' },
-  { pattern: /npm\s+publish/i, reason: 'Publishing to npm registry' },
-  { pattern: /curl.*\|\s*bash/i, reason: 'Executing downloaded script' },
-  { pattern: /wget.*\|\s*sh/i, reason: 'Executing downloaded script' },
-  { pattern: />\s*\/dev\/null/i, reason: 'Redirecting to /dev/null' }
-]
-
-// ============================================
-// Risk Assessment (shared)
-// ============================================
-
-export function assessCommandRisk(command: string): { level: RiskLevel; reason?: string } {
-  // 检查危险命令
-  for (const { pattern, reason } of DANGEROUS_PATTERNS) {
-    if (pattern.test(command)) {
-      console.log(`[CommandExecutor] Dangerous command detected: ${reason}`)
-      return { level: 'dangerous', reason }
-    }
-  }
-
-  // 检查警告级别命令
-  for (const { pattern, reason } of WARNING_PATTERNS) {
-    if (pattern.test(command)) {
-      console.log(`[CommandExecutor] Warning command detected: ${reason}`)
-      return { level: 'warning', reason }
-    }
-  }
-
-  return { level: 'safe' }
-}
-
 // ============================================
 // CommandExecutor Class
 // ============================================
@@ -150,13 +82,6 @@ class CommandExecutor {
   setWorkspaceBasePath(path: string): void {
     this.workspaceBasePath = normalizeWorkspaceBaseDir(path)
     console.log(`[CommandExecutor] Workspace base path set to: ${this.workspaceBasePath}`)
-  }
-
-  /**
-   * 评估命令风险等级
-   */
-  private assessRisk(command: string): { level: RiskLevel; reason?: string } {
-    return assessCommandRisk(command)
   }
 
   /**
@@ -259,7 +184,17 @@ class CommandExecutor {
    * 执行命令
    */
   async executeCommand(args: ExecuteCommandArgs): Promise<ExecuteCommandResponse> {
-    const { command, cwd, timeout = DEFAULT_TIMEOUT, env, confirmed = false, chat_uuid } = args
+    const {
+      command,
+      execution_reason,
+      possible_risk,
+      risk_score,
+      cwd,
+      timeout = DEFAULT_TIMEOUT,
+      env,
+      confirmed = false,
+      chat_uuid
+    } = args
 
     console.log(`[CommandExecutor] Executing command: ${command}`)
     console.log(`[CommandExecutor] CWD: ${cwd || 'workspace root'}`)
@@ -267,7 +202,7 @@ class CommandExecutor {
 
     try {
       // 1. 评估命令风险
-      const riskAssessment = this.assessRisk(command)
+      const riskAssessment = assessExecuteCommandReview({ command, possible_risk, risk_score })
       console.log(`[CommandExecutor] Risk level: ${riskAssessment.level}`)
 
       // 2. 如果是危险或警告级别命令，且未确认，则要求确认
@@ -279,6 +214,9 @@ class CommandExecutor {
           requires_confirmation: true,
           risk_level: riskAssessment.level,
           risk_reason: riskAssessment.reason,
+          execution_reason,
+          possible_risk,
+          risk_score: riskAssessment.normalizedRiskScore,
           error: 'This command requires user confirmation before execution'
         }
       }

@@ -1,5 +1,5 @@
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
-import { assessCommandRisk } from '@main/tools/command/CommandProcessor'
+import { assessExecuteCommandReview } from '@main/tools/command/risk'
 import { embeddedToolsRegistry } from '@tools/registry'
 import { v4 as uuidv4 } from 'uuid'
 import type { ToolCallProps } from '../types'
@@ -113,7 +113,14 @@ export class ToolExecutor implements IToolExecutor {
 
       if (requiresCommandReview && this.requestConfirmation) {
         const command = typeof runtimeArgs?.command === 'string' ? runtimeArgs.command : ''
-        const risk = assessCommandRisk(command)
+        const executionReason = typeof runtimeArgs?.execution_reason === 'string' ? runtimeArgs.execution_reason : ''
+        const possibleRisk = typeof runtimeArgs?.possible_risk === 'string' ? runtimeArgs.possible_risk : ''
+        const riskScore = typeof runtimeArgs?.risk_score === 'number' ? runtimeArgs.risk_score : 0
+        const risk = assessExecuteCommandReview({
+          command,
+          possible_risk: possibleRisk,
+          risk_score: riskScore
+        })
         if (risk.level === 'dangerous' || risk.level === 'warning') {
           const decision = await this.requestConfirmation({
             toolCallId: toolId,
@@ -122,7 +129,10 @@ export class ToolExecutor implements IToolExecutor {
             ui: {
               command,
               riskLevel: risk.level === 'warning' ? 'risky' : 'dangerous',
-              reason: risk.reason
+              reason: risk.reason,
+              executionReason,
+              possibleRisk: risk.possibleRisk,
+              riskScore: risk.normalizedRiskScore
             }
           })
           if (!decision.approved) {

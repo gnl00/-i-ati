@@ -79,6 +79,9 @@ export type ChatRunEventPayloads = {
       riskLevel?: 'risky' | 'dangerous'
       reason?: string
       command?: string
+      executionReason?: string
+      possibleRisk?: string
+      riskScore?: number
     }
   }
   'tool.exec.started': { toolCallId: string; name: string }
