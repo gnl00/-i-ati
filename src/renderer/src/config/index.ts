@@ -9,7 +9,8 @@ export const defaultConfig: IAppConfig = {
   version: configVersion,
   tools: {
     maxWebSearchItems: 3,
-    memoryEnabled: true
+    memoryEnabled: true,
+    streamChunkDebugEnabled: false
   },
   skills: {
     folders: []

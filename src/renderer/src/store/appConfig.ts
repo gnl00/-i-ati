@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
+import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import { defaultConfig } from '../config'
 
 // Initialization tracking
 let configInitialized = false
 let configInitPromise: Promise<void> | null = null
 let pluginEventsSubscribed = false
+const logger = createRendererLogger('AppConfigStore')
 
 export type ModelOption = {
   account: ProviderAccount
@@ -106,7 +108,7 @@ const persistProviderDefinitions = async (
     const removed = Array.from(prevIds).filter(id => !nextIds.has(id))
     await Promise.all(removed.map(id => deleteProviderDefinition(id)))
   } catch (error) {
-    console.error('[appConfig] Failed to persist provider definitions:', error)
+    logger.error('provider_definitions.persist_failed', error)
   }
 }
 
@@ -123,7 +125,7 @@ const persistProviderAccounts = async (
     const removed = Array.from(prevIds).filter(id => !nextIds.has(id))
     await Promise.all(removed.map(id => deleteProviderAccount(id)))
   } catch (error) {
-    console.error('[appConfig] Failed to persist provider accounts:', error)
+    logger.error('provider_accounts.persist_failed', error)
     if (error instanceof Error && error.message.includes('Provider not found')) {
       toast.error('Provider not found. Please select a valid provider before saving.')
     }
@@ -135,7 +137,7 @@ const persistProviderAccount = async (account: ProviderAccount): Promise<void> =
     const { saveProviderAccount } = await import('../db/ProviderRepository')
     await saveProviderAccount(account)
   } catch (error) {
-    console.error('[appConfig] Failed to persist provider account:', error)
+    logger.error('provider_account.persist_failed', error)
     if (error instanceof Error && error.message.includes('Provider not found')) {
       toast.error('Provider not found. Please select a valid provider before saving.')
     }
@@ -147,7 +149,7 @@ const removeProviderAccount = async (accountId: string): Promise<void> => {
     const { deleteProviderAccount } = await import('../db/ProviderRepository')
     await deleteProviderAccount(accountId)
   } catch (error) {
-    console.error('[appConfig] Failed to delete provider account:', error)
+    logger.error('provider_account.delete_failed', error)
   }
 }
 
@@ -156,7 +158,7 @@ const persistProviderModel = async (accountId: string, model: AccountModel): Pro
     const { saveProviderModel } = await import('../db/ProviderRepository')
     await saveProviderModel(accountId, model)
   } catch (error) {
-    console.error('[appConfig] Failed to persist provider model:', error)
+    logger.error('provider_model.persist_failed', error)
   }
 }
 
@@ -165,7 +167,7 @@ const removeProviderModel = async (accountId: string, modelId: string): Promise<
     const { deleteProviderModel } = await import('../db/ProviderRepository')
     await deleteProviderModel(accountId, modelId)
   } catch (error) {
-    console.error('[appConfig] Failed to delete provider model:', error)
+    logger.error('provider_model.delete_failed', error)
   }
 }
 
@@ -174,7 +176,7 @@ const setProviderModelEnabled = async (accountId: string, modelId: string, enabl
     const { setProviderModelEnabled } = await import('../db/ProviderRepository')
     await setProviderModelEnabled(accountId, modelId, enabled)
   } catch (error) {
-    console.error('[appConfig] Failed to set provider model enabled:', error)
+    logger.error('provider_model.set_enabled_failed', error)
   }
 }
 
@@ -188,6 +190,7 @@ type AppConfigState = {
   titleGenerateModel: ModelRef | undefined
   titleGenerateEnabled: boolean
   memoryEnabled: boolean
+  streamChunkDebugEnabled: boolean
   mcpServerConfig: McpServerConfig
   savedMcpServerConfig: McpServerConfig
   plugins: PluginEntity[]
@@ -227,6 +230,7 @@ type AppConfigAction = {
   setTitleGenerateModel: (modelRef: ModelRef | undefined) => void
   setTitleGenerateEnabled: (state: boolean) => void
   setMemoryEnabled: (state: boolean) => void
+  setStreamChunkDebugEnabled: (state: boolean) => void
   setMcpServerConfig: (config: McpServerConfig) => void
   saveMcpServerConfig: (config: McpServerConfig) => Promise<void>
   setPlugins: (plugins: PluginEntity[]) => void
@@ -249,6 +253,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   titleGenerateModel: defaultConfig.tools?.titleGenerateModel || undefined,
   titleGenerateEnabled: defaultConfig.tools?.titleGenerateEnabled ?? true,
   memoryEnabled: defaultConfig.tools?.memoryEnabled ?? true,
+  streamChunkDebugEnabled: defaultConfig.tools?.streamChunkDebugEnabled ?? false,
   mcpServerConfig: { mcpServers: {} },
   savedMcpServerConfig: { mcpServers: {} },
   plugins: [],
@@ -277,6 +282,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       titleGenerateModel: config.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
+      streamChunkDebugEnabled: config.tools?.streamChunkDebugEnabled ?? false,
       compression: config.compression
     })
   },
@@ -324,6 +330,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       titleGenerateModel: nextConfig.tools?.titleGenerateModel || undefined,
       titleGenerateEnabled: nextConfig.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: nextConfig.tools?.memoryEnabled ?? true,
+      streamChunkDebugEnabled: nextConfig.tools?.streamChunkDebugEnabled ?? false,
       compression: nextConfig.compression
     })
   },
@@ -422,7 +429,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       await saveProviderDefinition(normalizedDefinition)
       await saveProviderAccount(normalizedAccount)
     } catch (error) {
-      console.error('[appConfig] Failed to add provider with account:', error)
+      logger.error('provider_with_account.add_failed', error)
       toast.error('Failed to save provider')
       return
     }
@@ -592,6 +599,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   setTitleGenerateModel: (modelRef) => set({ titleGenerateModel: modelRef }),
   setTitleGenerateEnabled: (state) => set({ titleGenerateEnabled: state }),
   setMemoryEnabled: (state) => set({ memoryEnabled: state }),
+  setStreamChunkDebugEnabled: (state) => set({ streamChunkDebugEnabled: state }),
   setMcpServerConfig: (config) => set({ mcpServerConfig: config }),
   saveMcpServerConfig: async (config) => {
     const { saveMcpServerConfig } = await import('../db/McpServerRepository')
@@ -665,7 +673,9 @@ export const initializeAppConfig = async (): Promise<void> => {
         getMcpServerConfig(),
         getPlugins()
       ])
-      console.log('[appConfig] Config loaded from SQLite, account count:', loadedConfig.accounts?.length || 0)
+      logger.info('config.loaded_from_sqlite', {
+        accountCount: loadedConfig.accounts?.length || 0
+      })
       const store = useAppConfigStore.getState()
       store._setAppConfig(loadedConfig)
       store._setLoadedMcpServerConfig(loadedMcpServerConfig)
@@ -679,9 +689,9 @@ export const initializeAppConfig = async (): Promise<void> => {
         pluginEventsSubscribed = true
       }
       configInitialized = true
-      console.log('[@i] App config initialized from SQLite')
+      logger.info('config.initialize_completed')
     } catch (error) {
-      console.error('Failed to load config from SQLite:', error)
+      logger.error('config.initialize_failed', error)
       configInitialized = true
     }
   })()

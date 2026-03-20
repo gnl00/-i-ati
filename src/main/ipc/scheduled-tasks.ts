@@ -1,9 +1,12 @@
 import { ipcMain } from 'electron'
 import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, DB_SCHEDULED_TASK_UPDATE_STATUS } from '@shared/constants'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
+
+const logger = createLogger('DatabaseIPC')
 
 const emitScheduledTaskUpdated = (taskId: string): void => {
   const task = DatabaseService.getScheduledTaskById(taskId)
@@ -19,7 +22,7 @@ const emitScheduledTaskUpdated = (taskId: string): void => {
 
 export function registerScheduledTaskHandlers(): void {
   ipcMain.handle(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, async (_event, chatUuid: string) => {
-    console.log(`[Database IPC] Get scheduled tasks by chat uuid: ${chatUuid}`)
+    logger.info('scheduled_tasks.get_by_chat_uuid', { chatUuid })
     return DatabaseService.getScheduledTasksByChatUuid(chatUuid)
   })
 
@@ -29,7 +32,7 @@ export function registerScheduledTaskHandlers(): void {
       _event,
       args: { id: string; status: ScheduleTaskStatus; lastError?: string | null }
     ) => {
-      console.log(`[Database IPC] Update scheduled task status: ${args.id} -> ${args.status}`)
+      logger.info('scheduled_task.update_status', { id: args.id, status: args.status })
 
       const task = DatabaseService.getScheduledTaskById(args.id)
       if (!task) {

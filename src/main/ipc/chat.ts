@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
 import {
   ChatRunService,
   type MainChatRunInput,
@@ -31,45 +32,46 @@ import {
 } from '@shared/constants'
 
 const chatRunService = new ChatRunService()
+const logger = createLogger('DatabaseIPC')
 
 export function registerChatHandlers(): void {
   ipcMain.handle(DB_CHAT_SAVE, async (_event, data) => {
-    console.log('[Database IPC] Save chat')
+    logger.info('chat.save')
     return DatabaseService.saveChat(data)
   })
 
   ipcMain.handle(DB_CHAT_GET_ALL, async (_event) => {
-    console.log('[Database IPC] Get all chats')
+    logger.info('chat.get_all')
     return DatabaseService.getAllChats()
   })
 
   ipcMain.handle(DB_CHAT_GET_BY_ID, async (_event, id) => {
-    console.log(`[Database IPC] Get chat by id: ${id}`)
+    logger.info('chat.get_by_id', { id })
     return DatabaseService.getChatById(id)
   })
 
   ipcMain.handle(DB_CHAT_UPDATE, async (_event, data) => {
-    console.log(`[Database IPC] Update chat: ${data.id}`)
+    logger.info('chat.update', { id: data.id })
     return DatabaseService.updateChat(data)
   })
 
   ipcMain.handle(DB_CHAT_DELETE, async (_event, id) => {
-    console.log(`[Database IPC] Delete chat: ${id}`)
+    logger.info('chat.delete', { id })
     return DatabaseService.deleteChat(id)
   })
 
   ipcMain.handle(DB_CHAT_SKILL_ADD, async (_event, { chatId, skillName }) => {
-    console.log(`[Database IPC] Add chat skill: ${skillName}`)
+    logger.info('chat_skill.add', { chatId, skillName })
     return DatabaseService.addChatSkill(chatId, skillName)
   })
 
   ipcMain.handle(DB_CHAT_SKILL_REMOVE, async (_event, { chatId, skillName }) => {
-    console.log(`[Database IPC] Remove chat skill: ${skillName}`)
+    logger.info('chat_skill.remove', { chatId, skillName })
     return DatabaseService.removeChatSkill(chatId, skillName)
   })
 
   ipcMain.handle(DB_CHAT_SKILLS_GET, async (_event, chatId) => {
-    console.log(`[Database IPC] Get chat skills: ${chatId}`)
+    logger.info('chat_skill.get', { chatId })
     return DatabaseService.getChatSkills(chatId)
   })
 
@@ -105,27 +107,27 @@ export function registerChatHandlers(): void {
   })
 
   ipcMain.handle(DB_ASSISTANT_SAVE, async (_event, data: Assistant) => {
-    console.log(`[Database IPC] Save assistant: ${data.name}`)
+    logger.info('assistant.save', { id: data.id, name: data.name })
     return DatabaseService.saveAssistant(data)
   })
 
   ipcMain.handle(DB_ASSISTANT_GET_ALL, async (_event) => {
-    console.log('[Database IPC] Get all assistants')
+    logger.info('assistant.get_all')
     return DatabaseService.getAllAssistants()
   })
 
   ipcMain.handle(DB_ASSISTANT_GET_BY_ID, async (_event, id: string) => {
-    console.log(`[Database IPC] Get assistant by id: ${id}`)
+    logger.info('assistant.get_by_id', { id })
     return DatabaseService.getAssistantById(id)
   })
 
   ipcMain.handle(DB_ASSISTANT_UPDATE, async (_event, data: Assistant) => {
-    console.log(`[Database IPC] Update assistant: ${data.id}`)
+    logger.info('assistant.update', { id: data.id, name: data.name })
     return DatabaseService.updateAssistant(data)
   })
 
   ipcMain.handle(DB_ASSISTANT_DELETE, async (_event, id: string) => {
-    console.log(`[Database IPC] Delete assistant: ${id}`)
+    logger.info('assistant.delete', { id })
     return DatabaseService.deleteAssistant(id)
   })
 }

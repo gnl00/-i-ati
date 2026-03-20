@@ -4,8 +4,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { rendererStartupTracer } from '@renderer/utils/startupTracer'
+import { installRendererConsoleCapture } from '@renderer/services/logging/rendererLogger'
 import { initializeAppConfig } from './store/appConfig'
 
+installRendererConsoleCapture()
 rendererStartupTracer.mark('renderer.boot')
 
 // 初始化配置 (从 SQLite 加载)

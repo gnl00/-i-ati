@@ -34,3 +34,5 @@
   - [agent-core-chat-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/agent-core-chat-adapter-stage-summary.md)
 - chat 事件协议：
   - [chat-submit-event-bus.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-submit-event-bus.md)
+- 日志系统：
+  - [logging-system.md](/Users/gnl/Workspace/code/-i-ati/docs/internal/logging-system.md)

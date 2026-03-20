@@ -4,6 +4,7 @@ import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
 import { existsSync, statSync, accessSync, constants } from 'fs'
 import { lookup } from 'mime-types'
 import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,
@@ -42,6 +43,8 @@ import type {
   MoveFileResponse
 } from '@tools/fileOperations/index.d'
 
+const logger = createLogger('FileOperationsProcessor')
+
 // ============ Helper Functions ============
 
 const DEFAULT_WORKSPACE_NAME = 'tmp'
@@ -66,7 +69,7 @@ function normalizeWorkspaceBaseDir(workspacePath: string, chatUuid?: string): st
   }
 
   // Defensive fallback: prevent relative workspace paths from binding to process.cwd()
-  console.warn(`[FileOps] Relative workspace path detected, rebasing to userData: ${workspacePath}`)
+  logger.warn('workspace.relative_path_rebased', { workspacePath })
   return resolve(join(userDataPath, clean))
 }
 
@@ -83,7 +86,7 @@ function resolveWorkspaceBaseDir(chatUuid?: string): string {
       return normalizeWorkspaceBaseDir(workspacePath, chatUuid)
     }
   } catch (error) {
-    console.error('[FileOps] Failed to resolve workspace path from DB:', error)
+    logger.error('workspace.resolve_from_db_failed', error)
   }
 
   return join(userDataPath, 'workspaces', chatUuid)
@@ -106,21 +109,21 @@ function resolveFilePath(relativePath: string, chatUuid?: string, baseDirOverrid
     const target = resolve(relativePath)
     const rel = relative(resolvedBase, target)
     if (rel.startsWith('..') || isAbsolute(rel)) {
-      console.warn(`[FileOps] Absolute path outside workspace base: ${relativePath}`)
+      logger.warn('workspace.absolute_path_outside_base', { relativePath, baseDir })
     }
     return target
   }
 
   // Detect legacy format: paths starting with "workspaces/" or "./workspaces/"
   if (relativePath.startsWith('workspaces/') || relativePath.startsWith('./workspaces/')) {
-    console.log(`[FileOps] Legacy format detected: ${relativePath}`)
+    logger.debug('path.legacy_format_detected', { relativePath })
     const cleanPath = relativePath.startsWith('./') ? relativePath.slice(2) : relativePath
     return join(userDataPath, cleanPath)
   }
 
   // New format: resolve relative to baseDir
   const resolvedPath = join(baseDir, relativePath)
-  console.log(`[FileOps] Resolved: ${relativePath} -> ${resolvedPath} (chatUuid: ${chatUuid ?? 'none'})`)
+  logger.debug('path.resolved', { relativePath, resolvedPath, chatUuid: chatUuid ?? 'none' })
   return resolvedPath
 }
 
@@ -134,10 +137,10 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
   try {
     const { file_path, chat_uuid, encoding = 'utf-8', start_line, end_line } = args
     const absolutePath = resolveFilePath(file_path, chat_uuid)
-    console.log(`[ReadTextFile] File exists check:`, existsSync(absolutePath))
+    logger.debug('read_text_file.exists_check', { absolutePath, exists: existsSync(absolutePath) })
 
     if (!existsSync(absolutePath)) {
-      console.error(`[ReadTextFile] File not found at: ${absolutePath}`)
+      logger.warn('read_text_file.not_found', { absolutePath, filePath: file_path })
       return { success: false, error: `File not found: ${file_path}` }
     }
 
@@ -152,10 +155,10 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
       resultContent = lines.slice(start, end).join('\n')
     }
 
-    console.log(`[ReadTextFile] Successfully read ${totalLines} lines`)
+    logger.info('read_text_file.success', { filePath: file_path, totalLines })
     return { success: true, file_path, content: resultContent, lines: totalLines }
   } catch (error: any) {
-    console.error('[ReadTextFile] Error:', error)
+    logger.error('read_text_file.failed', error)
     return { success: false, error: error.message || 'Failed to read file' }
   }
 }
@@ -168,7 +171,7 @@ export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<Rea
   try {
     const { file_path, chat_uuid } = args
     const absolutePath = resolveFilePath(file_path, chat_uuid)
-    console.log(`[ReadMediaFile] Reading media file: ${file_path} -> ${absolutePath}`)
+    logger.info('read_media_file.start', { filePath: file_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
@@ -179,10 +182,10 @@ export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<Rea
     const mimeType = lookup(absolutePath) || 'application/octet-stream'
     const size = buffer.length
 
-    console.log(`[ReadMediaFile] Successfully read ${size} bytes, MIME: ${mimeType}`)
+    logger.info('read_media_file.success', { filePath: file_path, size, mimeType })
     return { success: true, file_path, content: base64Content, mime_type: mimeType, size }
   } catch (error: any) {
-    console.error('[ReadMediaFile] Error:', error)
+    logger.error('read_media_file.failed', error)
     return { success: false, error: error.message || 'Failed to read media file' }
   }
 }
@@ -194,7 +197,7 @@ export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<Rea
 export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Promise<ReadMultipleFilesResponse> {
   try {
     const { file_paths, chat_uuid, encoding = 'utf-8' } = args
-    console.log(`[ReadMultipleFiles] Reading ${file_paths.length} files`)
+    logger.info('read_multiple_files.start', { count: file_paths.length })
     const baseDir = resolveWorkspaceBaseDir(chat_uuid)
 
     const files: FileContent[] = await Promise.all(
@@ -213,10 +216,10 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
       })
     )
 
-    console.log(`[ReadMultipleFiles] Successfully processed ${files.length} files`)
+    logger.info('read_multiple_files.success', { count: files.length })
     return { success: true, files, total_files: files.length }
   } catch (error: any) {
-    console.error('[ReadMultipleFiles] Error:', error)
+    logger.error('read_multiple_files.failed', error)
     return { success: false, error: error.message || 'Failed to read multiple files' }
   }
 }
@@ -231,13 +234,13 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
   try {
     const { file_path, chat_uuid, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
     const absolutePath = resolveFilePath(file_path, chat_uuid)
-    console.log(`[WriteFile] Writing to file: ${file_path} -> ${absolutePath}`)
+    logger.info('write_file.start', { filePath: file_path, absolutePath, backup, createDirs: create_dirs })
 
     // 如果需要备份且文件存在，先备份
     if (backup && existsSync(absolutePath)) {
       const backupPath = `${absolutePath}.backup`
       await copyFile(absolutePath, backupPath)
-      console.log(`[WriteFile] Created backup: ${backupPath}`)
+      logger.info('write_file.backup_created', { backupPath })
     }
 
     // 如果需要创建目录
@@ -245,7 +248,7 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
       const dir = dirname(absolutePath)
       if (!existsSync(dir)) {
         await mkdir(dir, { recursive: true })
-        console.log(`[WriteFile] Created directory: ${dir}`)
+        logger.info('write_file.directory_created', { directory: dir })
       }
     }
 
@@ -253,10 +256,10 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
     await writeFile(absolutePath, content, encoding as BufferEncoding)
     const bytesWritten = Buffer.byteLength(content, encoding as BufferEncoding)
 
-    console.log(`[WriteFile] Successfully wrote ${bytesWritten} bytes`)
+    logger.info('write_file.success', { filePath: file_path, bytesWritten })
     return { success: true, file_path, bytes_written: bytesWritten }
   } catch (error: any) {
-    console.error('[WriteFile] Error:', error)
+    logger.error('write_file.failed', error)
     return { success: false, error: error.message || 'Failed to write file' }
   }
 }
@@ -269,7 +272,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
   try {
     const { file_path, chat_uuid, search, replace, regex = false, all = false } = args
     const absolutePath = resolveFilePath(file_path, chat_uuid)
-    console.log(`[EditFile] Editing file: ${file_path} -> ${absolutePath}`)
+    logger.info('edit_file.start', { filePath: file_path, absolutePath, regex, replaceAll: all })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
@@ -304,14 +307,14 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
 
     if (replacements > 0) {
       await writeFile(absolutePath, newContent, 'utf-8')
-      console.log(`[EditFile] Made ${replacements} replacement(s)`)
+      logger.info('edit_file.replacements_applied', { filePath: file_path, replacements })
     } else {
-      console.log(`[EditFile] No matches found`)
+      logger.info('edit_file.no_matches', { filePath: file_path })
     }
 
     return { success: true, file_path, replacements }
   } catch (error: any) {
-    console.error('[EditFile] Error:', error)
+    logger.error('edit_file.failed', error)
     return { success: false, error: error.message || 'Failed to edit file' }
   }
 }
@@ -326,7 +329,7 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
   try {
     const { file_path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100 } = args
     const absolutePath = resolveFilePath(file_path, chat_uuid)
-    console.log(`[SearchFile] Searching in file: ${file_path} -> ${absolutePath}`)
+    logger.info('search_file.start', { filePath: file_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
@@ -360,10 +363,10 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
       }
     }
 
-    console.log(`[SearchFile] Found ${matches.length} match(es)`)
+    logger.info('search_file.success', { filePath: file_path, totalMatches: matches.length })
     return { success: true, file_path, matches, total_matches: matches.length }
   } catch (error: any) {
-    console.error('[SearchFile] Error:', error)
+    logger.error('search_file.failed', error)
     return { success: false, error: error.message || 'Failed to search file' }
   }
 }
@@ -376,7 +379,7 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
   try {
     const { directory_path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
     const absoluteDirPath = resolveFilePath(directory_path, chat_uuid)
-    console.log(`[SearchFiles] Searching in directory: ${directory_path} -> ${absoluteDirPath}`)
+    logger.info('search_files.start', { directoryPath: directory_path, absoluteDirPath })
 
     if (!existsSync(absoluteDirPath)) {
       return { success: false, error: `Directory not found: ${directory_path}` }
@@ -442,10 +445,10 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
 
     await searchInDirectory(absoluteDirPath)
 
-    console.log(`[SearchFiles] Found ${matches.length} match(es) in ${filesSearched} files`)
+    logger.info('search_files.success', { directoryPath: directory_path, totalMatches: matches.length, filesSearched })
     return { success: true, directory_path, matches, total_matches: matches.length, files_searched: filesSearched }
   } catch (error: any) {
-    console.error('[SearchFiles] Error:', error)
+    logger.error('search_files.failed', error)
     return { success: false, error: error.message || 'Failed to search files' }
   }
 }
@@ -460,7 +463,7 @@ export async function processListDirectory(args: ListDirectoryArgs): Promise<Lis
   try {
     const { directory_path, chat_uuid } = args
     const absolutePath = resolveFilePath(directory_path, chat_uuid)
-    console.log(`[ListDirectory] Listing directory: ${directory_path} -> ${absolutePath}`)
+    logger.info('list_directory.start', { directoryPath: directory_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `Directory not found: ${directory_path}` }
@@ -480,10 +483,10 @@ export async function processListDirectory(args: ListDirectoryArgs): Promise<Lis
       }
     }
 
-    console.log(`[ListDirectory] Found ${entries.length} entries`)
+    logger.info('list_directory.success', { directoryPath: directory_path, totalCount: entries.length })
     return { success: true, directory_path, entries, total_count: entries.length }
   } catch (error: any) {
-    console.error('[ListDirectory] Error:', error)
+    logger.error('list_directory.failed', error)
     return { success: false, error: error.message || 'Failed to list directory' }
   }
 }
@@ -496,7 +499,7 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
   try {
     const { directory_path, chat_uuid } = args
     const absolutePath = resolveFilePath(directory_path, chat_uuid)
-    console.log(`[ListDirectoryWithSizes] Listing: ${directory_path} -> ${absolutePath}`)
+    logger.info('list_directory_with_sizes.start', { directoryPath: directory_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `Directory not found: ${directory_path}` }
@@ -522,10 +525,10 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
       }
     }
 
-    console.log(`[ListDirectoryWithSizes] Found ${entries.length} entries`)
+    logger.info('list_directory_with_sizes.success', { directoryPath: directory_path, totalCount: entries.length })
     return { success: true, directory_path, entries, total_count: entries.length }
   } catch (error: any) {
-    console.error('[ListDirectoryWithSizes] Error:', error)
+    logger.error('list_directory_with_sizes.failed', error)
     return { success: false, error: error.message || 'Failed to list directory' }
   }
 }
@@ -539,7 +542,7 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
     const { directory_path, chat_uuid, max_depth = 3 } = args
     const absolutePath = resolveFilePath(directory_path, chat_uuid)
     const userDataPath = app.getPath('userData')
-    console.log(`[DirectoryTree] Building tree for: ${directory_path} -> ${absolutePath}`)
+    logger.info('directory_tree.start', { directoryPath: directory_path, absolutePath, maxDepth: max_depth })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `Directory not found: ${directory_path}` }
@@ -575,10 +578,10 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
     }
 
     const tree = await buildTree(absolutePath, 0)
-    console.log(`[DirectoryTree] Successfully built tree`)
+    logger.info('directory_tree.success', { directoryPath: directory_path })
     return { success: true, directory_path, tree }
   } catch (error: any) {
-    console.error('[DirectoryTree] Error:', error)
+    logger.error('directory_tree.failed', error)
     return { success: false, error: error.message || 'Failed to build directory tree' }
   }
 }
@@ -593,7 +596,7 @@ export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFile
   try {
     const { file_path, chat_uuid } = args
     const absolutePath = resolveFilePath(file_path, chat_uuid)
-    console.log(`[GetFileInfo] Getting info for: ${file_path} -> ${absolutePath}`)
+    logger.info('get_file_info.start', { filePath: file_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
@@ -626,10 +629,10 @@ export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFile
       is_writable: isWritable
     }
 
-    console.log(`[GetFileInfo] Successfully retrieved info`)
+    logger.info('get_file_info.success', { filePath: file_path })
     return { success: true, info }
   } catch (error: any) {
-    console.error('[GetFileInfo] Error:', error)
+    logger.error('get_file_info.failed', error)
     return { success: false, error: error.message || 'Failed to get file info' }
   }
 }
@@ -640,7 +643,7 @@ export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFile
  */
 export async function processListAllowedDirectories(_args: ListAllowedDirectoriesArgs): Promise<ListAllowedDirectoriesResponse> {
   try {
-    console.log(`[ListAllowedDirectories] Listing allowed directories`)
+    logger.info('list_allowed_directories.start')
 
     // TODO: Implement actual allowed directories logic
     // For now, return common directories
@@ -651,7 +654,7 @@ export async function processListAllowedDirectories(_args: ListAllowedDirectorie
 
     return { success: true, directories }
   } catch (error: any) {
-    console.error('[ListAllowedDirectories] Error:', error)
+    logger.error('list_allowed_directories.failed', error)
     return { success: false, error: error.message || 'Failed to list allowed directories' }
   }
 }
@@ -666,20 +669,20 @@ export async function processCreateDirectory(args: CreateDirectoryArgs): Promise
   try {
     const { directory_path, chat_uuid, recursive = true } = args
     const absolutePath = resolveFilePath(directory_path, chat_uuid)
-    console.log(`[CreateDirectory] Creating: ${directory_path} -> ${absolutePath}`)
+    logger.info('create_directory.start', { directoryPath: directory_path, absolutePath, recursive })
 
     if (existsSync(absolutePath)) {
-      console.log(`[CreateDirectory] Directory already exists`)
+      logger.info('create_directory.already_exists', { directoryPath: directory_path })
       return { success: true, directory_path, created: false }
     }
 
     await mkdir(absolutePath, { recursive })
 
-    console.log(`[CreateDirectory] Successfully created`)
+    logger.info('create_directory.success', { directoryPath: directory_path })
 
     return { success: true, directory_path, created: true }
   } catch (error: any) {
-    console.error('[CreateDirectory] Error:', error)
+    logger.error('create_directory.failed', error)
     return { success: false, error: error.message || 'Failed to create directory' }
   }
 }
@@ -693,8 +696,13 @@ export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileRespo
     const { source_path, destination_path, chat_uuid, overwrite = false } = args
     const absoluteSourcePath = resolveFilePath(source_path, chat_uuid)
     const absoluteDestPath = resolveFilePath(destination_path, chat_uuid)
-    console.log(`[MoveFile] Moving: ${source_path} -> ${destination_path}`)
-    console.log(`[MoveFile] Absolute: ${absoluteSourcePath} -> ${absoluteDestPath}`)
+    logger.info('move_file.start', {
+      sourcePath: source_path,
+      destinationPath: destination_path,
+      absoluteSourcePath,
+      absoluteDestPath,
+      overwrite
+    })
 
     if (!existsSync(absoluteSourcePath)) {
       return { success: false, error: `Source file not found: ${source_path}` }
@@ -705,10 +713,10 @@ export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileRespo
     }
 
     await rename(absoluteSourcePath, absoluteDestPath)
-    console.log(`[MoveFile] Successfully moved`)
+    logger.info('move_file.success', { sourcePath: source_path, destinationPath: destination_path })
     return { success: true, source_path, destination_path }
   } catch (error: any) {
-    console.error('[MoveFile] Error:', error)
+    logger.error('move_file.failed', error)
     return { success: false, error: error.message || 'Failed to move file' }
   }
 }

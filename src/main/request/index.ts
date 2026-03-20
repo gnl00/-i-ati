@@ -1,10 +1,13 @@
 import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
 import {
   adapterManager,
   getRequestAdapterPluginById,
   isRequestAdapterPluginEnabled,
   syncAdaptersWithPlugins
 } from './adapters/index'
+
+const logger = createLogger('UnifiedRequest')
 
 export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
   const pluginConfigs = DatabaseService.getPluginConfigs()
@@ -42,9 +45,12 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
     // Use adapter to construct complete endpoint URL
     const endpoint = adapter.getEndpoint(req.baseUrl, req)
 
-    console.log(`[Request] baseUrl: ${req.baseUrl}`)
-    console.log(`[Request] adapterPluginId: ${adapterPluginId}`)
-    console.log(`[Request] endpoint: ${endpoint}`)
+    logger.info('request.dispatch', {
+      baseUrl: req.baseUrl,
+      adapterPluginId,
+      endpoint,
+      stream: req.stream ?? true
+    })
 
     const fetchResponse = await fetch(endpoint, {
       method: 'POST',
@@ -117,7 +123,7 @@ const hasForbiddenKey = (obj: any): boolean => {
 
 const applyRequestOverrides = (target: any, overrides: Record<string, any>): void => {
   if (hasForbiddenKey(overrides)) {
-    console.warn('[Request] requestOverrides contains forbidden keys, ignoring')
+    logger.warn('request_overrides.forbidden_keys_ignored')
     return
   }
   mergeDeep(target, overrides)

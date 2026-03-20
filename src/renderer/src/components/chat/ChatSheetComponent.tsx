@@ -6,6 +6,7 @@ import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
 import { getAllChat } from '@renderer/db/ChatRepository'
 import { invokeDbScheduledTasksByChatUuid, invokeOpenExternal, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
+import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
 import { switchWorkspace } from '@renderer/utils/workspaceUtils'
@@ -45,6 +46,7 @@ const normalizeScheduledTasks = (tasks: ScheduleTask[]): ScheduleTask[] => {
 }
 
 const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
+    const logger = React.useMemo(() => createRendererLogger('ChatSheetComponent'), [])
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
     const {
         clearMessages,
@@ -113,7 +115,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 })
             )
         ).catch(err => {
-            console.error('[ChatSheet] Failed to batch update typewriterCompleted:', err)
+            logger.error('typewriter.batch_complete_failed', err)
         })
     }
 
@@ -152,7 +154,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             setScheduledTasks(sortedTasks)
             setScheduleLoadError('')
         } catch (error) {
-            console.error('[ChatSheet] Failed to load scheduled tasks:', error)
+            logger.error('scheduled_tasks.load_failed', error)
             scheduleLoadedRef.current.delete(targetChatUuid)
             if (!silent) {
                 setScheduledTasks([])
@@ -171,7 +173,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 getAllChat().then(res => {
                     setChatList([...res, { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }])
                 }).catch(err => {
-                    console.error('refreshChatList', err)
+                    logger.error('chat_list.refresh_failed', err)
                 })
             }
             refreshChatList()
@@ -229,7 +231,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
 
     const onNewChatClick = (_) => {
         setSheetOpenState(false)
-        console.log('current chatId ', chatId, 'chatUuid ', chatUuid)
+        logger.debug('new_chat.clicked', { chatId, chatUuid })
         if ((chatId && chatUuid) || !chatId || !chatUuid) {
             startNewChat()
         }
@@ -247,7 +249,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         // 切换到默认 workspace (tmp)
         const workspaceResult = await switchWorkspace()
         if (!workspaceResult.success) {
-            console.warn(`[Workspace] Failed to switch to default workspace:`, workspaceResult.error)
+            logger.warn('workspace.switch_default_failed', { error: workspaceResult.error })
         }
 
         toggleArtifacts(false)
@@ -266,7 +268,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             // 切换 workspace
             const workspaceResult = await switchWorkspace(chat.uuid)
             if (!workspaceResult.success) {
-                console.warn(`[Workspace] Failed to switch workspace for chat ${chat.uuid}:`, workspaceResult.error)
+                logger.warn('workspace.switch_for_chat_failed', { chatUuid: chat.uuid, error: workspaceResult.error })
             }
 
             setCurrentChat(chat.id ?? null, chat.uuid)

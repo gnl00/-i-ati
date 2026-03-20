@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { createLogger } from '@main/services/logging/LogService'
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { processWebSearch, processWebFetch } from '@main/tools/webTools/WebToolsProcessor'
 import {
@@ -69,107 +70,109 @@ import {
   EMBEDDING_GET_MODEL_INFO
 } from '@shared/constants'
 
+const logger = createLogger('ToolIPC')
+
 export function registerToolHandlers(): void {
   ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param, fetchCounts, snippetsOnly }) => {
-    console.log(`[WebSearch IPC] Using fetchCounts: ${fetchCounts ?? 'config/default'}`)
+    logger.info('web_search.invoke', { fetchCounts: fetchCounts ?? 'config/default', query: param, snippetsOnly })
     return processWebSearch({ fetchCounts, param, snippetsOnly })
   })
 
   ipcMain.handle(WEB_FETCH_ACTION, (_event, args) => {
-    console.log(`[WebFetch IPC] Fetching URL: ${args?.url}`)
+    logger.info('web_fetch.invoke', { url: args?.url })
     return processWebFetch(args)
   })
 
   ipcMain.handle(FILE_READ_TEXT_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Read text file: ${args.file_path}`)
+    logger.info('file_read_text.invoke', { filePath: args.file_path })
     return processReadTextFile(args)
   })
   ipcMain.handle(FILE_READ_MEDIA_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Read media file: ${args.file_path}`)
+    logger.info('file_read_media.invoke', { filePath: args.file_path })
     return processReadMediaFile(args)
   })
   ipcMain.handle(FILE_READ_MULTIPLE_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Read multiple files: ${args.file_paths.length} files`)
+    logger.info('file_read_multiple.invoke', { count: args.file_paths.length })
     return processReadMultipleFiles(args)
   })
   ipcMain.handle(FILE_WRITE_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Write file: ${args.file_path}`)
+    logger.info('file_write.invoke', { filePath: args.file_path })
     return processWriteFile(args)
   })
   ipcMain.handle(FILE_EDIT_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Edit file: ${args.file_path}`)
+    logger.info('file_edit.invoke', { filePath: args.file_path })
     return processEditFile(args)
   })
   ipcMain.handle(FILE_SEARCH_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Search file: ${args.file_path}`)
+    logger.info('file_search.invoke', { filePath: args.file_path })
     return processSearchFile(args)
   })
   ipcMain.handle(FILE_SEARCH_FILES_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Search files: ${args.directory_path}`)
+    logger.info('file_search_files.invoke', { directoryPath: args.directory_path })
     return processSearchFiles(args)
   })
   ipcMain.handle(FILE_LIST_DIR_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] List directory: ${args.directory_path}`)
+    logger.info('file_list_directory.invoke', { directoryPath: args.directory_path })
     return processListDirectory(args)
   })
   ipcMain.handle(FILE_LIST_DIR_SIZES_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] List directory with sizes: ${args.directory_path}`)
+    logger.info('file_list_directory_sizes.invoke', { directoryPath: args.directory_path })
     return processListDirectoryWithSizes(args)
   })
   ipcMain.handle(FILE_DIR_TREE_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Directory tree: ${args.directory_path}`)
+    logger.info('file_directory_tree.invoke', { directoryPath: args.directory_path })
     return processDirectoryTree(args)
   })
   ipcMain.handle(FILE_GET_INFO_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Get file info: ${args.file_path}`)
+    logger.info('file_get_info.invoke', { filePath: args.file_path })
     return processGetFileInfo(args)
   })
   ipcMain.handle(FILE_CREATE_DIR_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Create directory: ${args.directory_path}`)
+    logger.info('file_create_directory.invoke', { directoryPath: args.directory_path })
     return processCreateDirectory(args)
   })
   ipcMain.handle(FILE_MOVE_ACTION, (_event, args) => {
-    console.log(`[FileOps IPC] Move file: ${args.source_path} -> ${args.destination_path}`)
+    logger.info('file_move.invoke', { sourcePath: args.source_path, destinationPath: args.destination_path })
     return processMoveFile(args)
   })
 
   ipcMain.handle(DEV_SERVER_CHECK_PREVIEW_SH, (_event, args) => {
-    console.log(`[DevServer IPC] Check preview.sh: ${args.workspace_path}`)
+    logger.info('dev_server_check_preview.invoke', { workspacePath: args.workspace_path })
     return processCheckPreviewSh(args)
   })
   ipcMain.handle(DEV_SERVER_START, (_event, args) => {
-    console.log(`[DevServer IPC] Start dev server: ${args.workspace_path}`)
+    logger.info('dev_server_start.invoke', { workspacePath: args.workspace_path })
     return processStartDevServer(args)
   })
   ipcMain.handle(DEV_SERVER_STOP, (_event, args) => {
-    console.log(`[DevServer IPC] Stop dev server: ${args.workspace_path}`)
+    logger.info('dev_server_stop.invoke', { workspacePath: args.workspace_path })
     return processStopDevServer(args)
   })
   ipcMain.handle(DEV_SERVER_STATUS, (_event, args) => {
-    console.log(`[DevServer IPC] Get dev server status: ${args.workspace_path}`)
+    logger.info('dev_server_status.invoke', { workspacePath: args.workspace_path })
     return processGetDevServerStatus(args)
   })
   ipcMain.handle(DEV_SERVER_LOGS, (_event, args) => {
-    console.log(`[DevServer IPC] Get dev server logs: ${args.workspace_path}`)
+    logger.info('dev_server_logs.invoke', { workspacePath: args.workspace_path })
     return processGetDevServerLogs(args)
   })
 
   ipcMain.handle(MEMORY_RETRIEVAL_ACTION, async (_event, args) => {
-    console.log('[Memory IPC] Retrieval')
+    logger.info('memory_retrieval.invoke')
     return await processMemoryRetrieval(args)
   })
   ipcMain.handle(MEMORY_SAVE_ACTION, async (_event, args) => {
-    console.log('[Memory IPC] Save')
+    logger.info('memory_save.invoke')
     return await processMemorySave(args)
   })
 
   ipcMain.handle(COMMAND_EXECUTE_ACTION, async (_event, args) => {
-    console.log('[Command IPC] Execute')
+    logger.info('command_execute.invoke')
     return await processExecuteCommand(args)
   })
 
   ipcMain.handle(MCP_CONNECT, async (_, mcpProps) => {
-    console.log('[MCP IPC] Connect')
+    logger.info('mcp_connect.invoke', { serverName: mcpProps?.name })
     return mcpRuntimeService.connectServer(mcpProps)
   })
   ipcMain.handle(MCP_DISCONNECT, (_, { name }) => mcpRuntimeService.disconnectServer(name))
@@ -181,52 +184,52 @@ export function registerToolHandlers(): void {
   })
 
   ipcMain.handle(MEMORY_ADD, async (_event, args) => {
-    console.log('[Memory IPC] Add')
+    logger.info('memory_add.invoke')
     return await MemoryService.addMemory(args)
   })
   ipcMain.handle(MEMORY_ADD_BATCH, async (_event, args) => {
-    console.log('[Memory IPC] Add batch')
+    logger.info('memory_add_batch.invoke', { count: Array.isArray(args) ? args.length : args?.length })
     return await MemoryService.addBatchMemories(args)
   })
   ipcMain.handle(MEMORY_SEARCH, async (_event, args) => {
-    console.log('[Memory IPC] Search')
+    logger.info('memory_search.invoke')
     return await MemoryService.searchMemories(args.query ?? args, args.options ?? {})
   })
   ipcMain.handle(MEMORY_GET_CHAT, async (_event, args) => {
-    console.log('[Memory IPC] Get chat')
+    logger.info('memory_get_chat.invoke')
     return await MemoryService.getChatMemories(args.chatId ?? args)
   })
   ipcMain.handle(MEMORY_GET_ALL, async () => {
-    console.log('[Memory IPC] Get all')
+    logger.info('memory_get_all.invoke')
     return await MemoryService.getAllMemories()
   })
   ipcMain.handle(MEMORY_DELETE, async (_event, args) => {
-    console.log('[Memory IPC] Delete')
+    logger.info('memory_delete.invoke')
     return await MemoryService.deleteMemory(args)
   })
   ipcMain.handle(MEMORY_DELETE_CHAT, async (_event, args) => {
-    console.log('[Memory IPC] Delete chat')
+    logger.info('memory_delete_chat.invoke')
     return await MemoryService.deleteChatMemories(args.chatId ?? args)
   })
   ipcMain.handle(MEMORY_GET_STATS, async (_event) => {
-    console.log('[Memory IPC] Get stats')
+    logger.info('memory_get_stats.invoke')
     return await MemoryService.getStats()
   })
   ipcMain.handle(MEMORY_CLEAR, async (_event) => {
-    console.log('[Memory IPC] Clear')
+    logger.info('memory_clear.invoke')
     return await MemoryService.clear()
   })
 
   ipcMain.handle(EMBEDDING_GENERATE, async (_event, args) => {
-    console.log('[Embedding IPC] Generate')
+    logger.info('embedding_generate.invoke')
     return await EmbeddingServiceInstance.generateEmbedding(args)
   })
   ipcMain.handle(EMBEDDING_GENERATE_BATCH, async (_event, args) => {
-    console.log('[Embedding IPC] Generate batch')
+    logger.info('embedding_generate_batch.invoke', { count: args?.texts?.length })
     return await EmbeddingServiceInstance.generateBatchEmbeddings(args.texts ?? args, args.options)
   })
   ipcMain.handle(EMBEDDING_GET_MODEL_INFO, async (_event) => {
-    console.log('[Embedding IPC] Get model info')
+    logger.info('embedding_get_model_info.invoke')
     return await EmbeddingServiceInstance.getModelInfo()
   })
 }

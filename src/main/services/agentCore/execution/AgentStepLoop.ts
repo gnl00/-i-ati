@@ -1,5 +1,6 @@
 import { unifiedChatRequest } from '@main/request/index'
 import { AbortError } from '@main/services/chatRun/errors'
+import { createLogger } from '@main/services/logging/LogService'
 import { formatWebSearchForLLM, normalizeToolArgs } from '@main/services/chatRun/utils'
 import type { ChunkParser, ParseResult } from './parser'
 import { SegmentBuilder } from './parser'
@@ -93,6 +94,7 @@ export class AgentStepLoop {
   private readonly onChunk?: (result: ParseResult) => void
   private readonly onToolCallsDetected?: (toolCalls: ToolCall[]) => void
   private readonly onToolCallsFlushed?: (toolCalls: IToolCall[]) => void
+  private readonly logger = createLogger('AgentStepLoop')
   private toolCallIds = new Set<string>()
   private tools: ToolCall[] = []
 
@@ -137,7 +139,7 @@ export class AgentStepLoop {
 
     const completed = !(cycleCount >= MAX_CYCLES && this.hasToolCalls())
     if (!completed) {
-      console.warn(`[AgentStepLoop] Max cycles (${MAX_CYCLES}) reached, stopping`)
+      this.logger.warn('max_cycles_reached', { maxCycles: MAX_CYCLES })
     }
 
     return {
@@ -353,7 +355,7 @@ export class AgentStepLoop {
   private async handleToolFailure(result: ToolExecutionResult): Promise<void> {
     const tool = this.tools.find(t => t.id === result.id)
     const toolArgs = tool ? parseToolArgsForSegment(tool.args) : undefined
-    console.error(`[Tool] Execution failed:`, {
+    this.logger.error('tool_execution_failed', {
       name: result.name,
       status: result.status,
       error: result.error,
@@ -412,11 +414,17 @@ export class AgentStepLoop {
       requestConfirmation: this.toolConfirmationHandler,
       onProgress: (progress: ToolExecutionProgress) => {
         if (progress.phase === 'started') {
-          console.log(`[Tool] Starting: ${progress.name}`)
+          this.logger.info('tool_progress.started', { name: progress.name })
         } else if (progress.phase === 'completed') {
-          console.log(`[Tool] Completed: ${progress.name} (${progress.result?.cost}ms)`)
+          this.logger.info('tool_progress.completed', {
+            name: progress.name,
+            cost: progress.result?.cost
+          })
         } else if (progress.phase === 'failed') {
-          console.error(`[Tool] Failed: ${progress.name}`, progress.result?.error)
+          this.logger.error('tool_progress.failed', {
+            name: progress.name,
+            error: progress.result?.error
+          })
         }
       }
     })

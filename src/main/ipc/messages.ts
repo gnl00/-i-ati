@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
 import {
   DB_MESSAGE_SAVE,
   DB_MESSAGE_GET_ALL,
@@ -11,69 +12,71 @@ import {
   DB_MESSAGE_DELETE
 } from '@shared/constants'
 
+const logger = createLogger('DatabaseIPC')
+
 export function registerMessageHandlers(): void {
   ipcMain.handle(DB_MESSAGE_SAVE, async (_event, data) => {
-    console.log('[Database IPC] Save message')
+    logger.info('message.save')
     return DatabaseService.saveMessage(data)
   })
 
   ipcMain.handle(DB_MESSAGE_GET_ALL, async (_event) => {
-    console.log('[Database IPC] Get all messages')
+    logger.info('message.get_all')
     return DatabaseService.getAllMessages()
   })
 
   ipcMain.handle(DB_MESSAGE_GET_BY_ID, async (_event, id) => {
-    console.log(`[Database IPC] Get message by id: ${id}`)
+    logger.info('message.get_by_id', { id })
     return DatabaseService.getMessageById(id)
   })
 
   ipcMain.handle(DB_MESSAGE_GET_BY_IDS, async (_event, ids) => {
-    console.log(`[Database IPC] Get messages by ids: ${ids?.length ?? 0}`)
+    logger.info('message.get_by_ids', { count: ids?.length ?? 0 })
     return DatabaseService.getMessageByIds(ids)
   })
 
   ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_ID, async (_event, chatId) => {
-    console.log(`[Database IPC] Get messages by chat id: ${chatId}`)
+    logger.info('message.get_by_chat_id', { chatId })
     return DatabaseService.getMessagesByChatId(chatId)
   })
 
   ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_UUID, async (_event, chatUuid) => {
-    console.log(`[Database IPC] Get messages by chat uuid: ${chatUuid}`)
+    logger.info('message.get_by_chat_uuid', { chatUuid })
     return DatabaseService.getMessagesByChatUuid(chatUuid)
   })
 
   ipcMain.handle(DB_MESSAGE_UPDATE, async (_event, data) => {
-    console.log(`[Database IPC] Update message: ${data.id}`)
+    logger.info('message.update', { id: data.id })
     return DatabaseService.updateMessage(data)
   })
 
   ipcMain.handle(DB_MESSAGE_DELETE, async (_event, id) => {
-    console.log(`[Database IPC] Delete message: ${id}`)
+    logger.info('message.delete', { id })
     return DatabaseService.deleteMessage(id)
   })
 
   ipcMain.handle('db:compressed-summary:save', async (_event, data: CompressedSummaryEntity) => {
-    console.log('[Database IPC] Save compressed summary')
+    logger.info('compressed_summary.save', { id: data.id })
     return DatabaseService.saveCompressedSummary(data)
   })
 
   ipcMain.handle('db:compressed-summary:get-by-chat-id', async (_event, chatId: number) => {
-    console.log('[Database IPC] Get compressed summaries by chat id')
+    logger.info('compressed_summary.get_by_chat_id', { chatId })
     return DatabaseService.getCompressedSummariesByChatId(chatId)
   })
 
   ipcMain.handle('db:compressed-summary:get-active-by-chat-id', async (_event, chatId: number) => {
-    console.log('[Database IPC] Get active compressed summaries by chat id')
+    logger.info('compressed_summary.get_active_by_chat_id', { chatId })
     return DatabaseService.getActiveCompressedSummariesByChatId(chatId)
   })
 
   ipcMain.handle('db:compressed-summary:update-status', async (_event, id: number, status: string) => {
-    console.log('[Database IPC] Update compressed summary status')
+    logger.info('compressed_summary.update_status', { id, status })
     return DatabaseService.updateCompressedSummaryStatus(id, status as 'active' | 'superseded' | 'invalid')
   })
 
   ipcMain.handle('db:compressed-summary:delete', async (_event, id: number) => {
-    console.log('[Database IPC] Delete compressed summary')
+    logger.info('compressed_summary.delete', { id })
     return DatabaseService.deleteCompressedSummary(id)
   })
 }

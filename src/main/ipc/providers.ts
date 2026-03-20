@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
 import {
   DB_PROVIDER_DEFINITIONS_GET_ALL,
   DB_PROVIDER_DEFINITION_SAVE,
@@ -12,49 +13,51 @@ import {
   DB_PROVIDER_MODEL_SET_ENABLED
 } from '@shared/constants'
 
+const logger = createLogger('DatabaseIPC')
+
 export function registerProviderHandlers(): void {
   ipcMain.handle(DB_PROVIDER_DEFINITIONS_GET_ALL, async (_event) => {
-    console.log('[Database IPC] Get provider definitions')
+    logger.info('provider_definitions.get_all')
     return DatabaseService.getProviderDefinitions()
   })
 
   ipcMain.handle(DB_PROVIDER_DEFINITION_SAVE, async (_event, definition: ProviderDefinition) => {
-    console.log(`[Database IPC] Save provider definition: ${definition.id}`)
+    logger.info('provider_definition.save', { providerId: definition.id })
     return DatabaseService.saveProviderDefinition(definition)
   })
 
   ipcMain.handle(DB_PROVIDER_DEFINITION_DELETE, async (_event, providerId: string) => {
-    console.log(`[Database IPC] Delete provider definition: ${providerId}`)
+    logger.info('provider_definition.delete', { providerId })
     return DatabaseService.deleteProviderDefinition(providerId)
   })
 
   ipcMain.handle(DB_PROVIDER_ACCOUNTS_GET_ALL, async (_event) => {
-    console.log('[Database IPC] Get provider accounts')
+    logger.info('provider_accounts.get_all')
     return DatabaseService.getProviderAccounts()
   })
 
   ipcMain.handle(DB_PROVIDER_ACCOUNT_SAVE, async (_event, account: ProviderAccount) => {
-    console.log(`[Database IPC] Save provider account: ${account.id}`)
+    logger.info('provider_account.save', { accountId: account.id })
     return DatabaseService.saveProviderAccount(account)
   })
 
   ipcMain.handle(DB_PROVIDER_ACCOUNT_DELETE, async (_event, accountId: string) => {
-    console.log(`[Database IPC] Delete provider account: ${accountId}`)
+    logger.info('provider_account.delete', { accountId })
     return DatabaseService.deleteProviderAccount(accountId)
   })
 
   ipcMain.handle(DB_PROVIDER_MODEL_SAVE, async (_event, data: { accountId: string; model: AccountModel }) => {
-    console.log(`[Database IPC] Save provider model: ${data.accountId}/${data.model.id}`)
+    logger.info('provider_model.save', { accountId: data.accountId, modelId: data.model.id })
     return DatabaseService.saveProviderModel(data.accountId, data.model)
   })
 
   ipcMain.handle(DB_PROVIDER_MODEL_DELETE, async (_event, data: { accountId: string; modelId: string }) => {
-    console.log(`[Database IPC] Delete provider model: ${data.accountId}/${data.modelId}`)
+    logger.info('provider_model.delete', { accountId: data.accountId, modelId: data.modelId })
     return DatabaseService.deleteProviderModel(data.accountId, data.modelId)
   })
 
   ipcMain.handle(DB_PROVIDER_MODEL_SET_ENABLED, async (_event, data: { accountId: string; modelId: string; enabled: boolean }) => {
-    console.log(`[Database IPC] Set provider model enabled: ${data.accountId}/${data.modelId} => ${data.enabled}`)
+    logger.info('provider_model.set_enabled', { accountId: data.accountId, modelId: data.modelId, enabled: data.enabled })
     return DatabaseService.setProviderModelEnabled(data.accountId, data.modelId, data.enabled)
   })
 }
