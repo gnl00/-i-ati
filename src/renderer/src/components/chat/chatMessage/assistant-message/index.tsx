@@ -1,25 +1,18 @@
 import React, { memo } from 'react'
-import ReactMarkdown from 'react-markdown'
-import rehypeKatex from 'rehype-katex'
-import rehypeRaw from 'rehype-raw'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
 import { cn } from '@renderer/lib/utils'
-import { ChevronDown, Lightbulb } from 'lucide-react'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
 import { useChatStore } from '@renderer/store'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
 import { ToolCallResult } from './toolcall/ToolCallResult'
-import { useMessageTypewriter } from './typewriter/use-message-typewriter'
-import { markdownCodeComponents, fixMalformedCodeBlocks } from './markdown/markdown-components'
-import { MessageOperations } from './message-operations'
-import { ErrorMessage } from './error-message'
+import { useMessageTypewriter } from '../typewriter/use-message-typewriter'
+import { MessageOperations } from '../message-operations'
+import { ErrorMessage } from '../error-message'
 import { CommandConfirmation } from './CommandConfirmation'
-import { useEnterTransition } from './typewriter/use-enter-transition'
-import { StreamingMarkdownSwitch } from './typewriter/StreamingMarkdownSwitch'
-import { remarkPreserveLineBreaks } from './markdown/markdown-plugins'
+import { StreamingMarkdownSwitch } from '../typewriter/StreamingMarkdownSwitch'
 import { toast } from 'sonner'
+import { ModelBadgeV2 } from './model-badge/ModelBadgeV2'
+import { TextSegment } from './segments/TextSegment'
+import { ReasoningSegmentV2 } from './segments/ReasoningSegmentV2'
 
 function getStreamingTextRenderMode(): 'markdown' | 'switch' {
   return (globalThis as any).__STREAMING_TEXT_RENDER_MODE ?? 'switch'
@@ -104,133 +97,6 @@ const getAssistantCopyContent = (message: ChatMessage): string => {
 
   return ''
 }
-
-/**
- * Text segment component with typewriter effect.
- */
-const TextSegment: React.FC<{
-  segment: MessageSegment
-  visibleText?: string
-  animateOnChange?: boolean
-  transitionKey?: string
-}> = memo(({ segment, visibleText, animateOnChange, transitionKey }) => {
-  const displayedText = visibleText ?? segment.content
-
-  const entered = useEnterTransition(
-    animateOnChange ? (transitionKey ?? displayedText) : 'enter',
-    { enabled: Boolean(displayedText), throttleMs: animateOnChange ? 120 : 0 }
-  )
-
-  if (!displayedText) return null
-
-  const transitionStateClass = animateOnChange
-    ? (entered ? "opacity-100 translate-y-0 blur-0" : "opacity-100 translate-y-[2px] blur-[2px]")
-    : (entered ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-1 blur-xs")
-
-  // Fix malformed code blocks before rendering
-  const fixedText = fixMalformedCodeBlocks(displayedText)
-
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }], remarkPreserveLineBreaks]}
-      rehypePlugins={[rehypeRaw, rehypeKatex]}
-      skipHtml={false}
-      remarkRehypeOptions={{ passThrough: ['link'] }}
-      className={cn(
-        "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-full",
-        "prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300",
-        "transform-gpu transition-[opacity,transform,filter] duration-250 ease-out",
-        "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:blur-0",
-        transitionStateClass
-      )}
-      components={markdownCodeComponents}
-    >
-      {fixedText}
-    </ReactMarkdown>
-  )
-})
-
-/**
- * Reasoning segment component (collapsible with Framer Motion).
- */
-const ReasoningSegment: React.FC<{ segment: MessageSegment }> = memo(({ segment }) => {
-  // Fix malformed code blocks in reasoning content
-  const fixedContent = fixMalformedCodeBlocks(segment.content)
-  const [openItem, setOpenItem] = React.useState<string>('')
-  const isOpen = openItem === 'reasoning'
-
-  return (
-    <div className="w-full my-2">
-      <Accordion type="single" collapsible value={openItem} onValueChange={setOpenItem}>
-        <AccordionItem value="reasoning" className="border-0">
-          <AccordionTrigger
-            className={cn(
-              'group inline-flex items-center justify-start gap-1.5 rounded-lg px-2 py-1',
-              'border-0 ring-0 outline-hidden',
-              'transition-all duration-300 ease-out',
-              'focus:outline-hidden focus-visible:outline-hidden',
-              'hover:no-underline',
-              'py-0'
-            )}
-          >
-            <span className="inline-flex">
-              <Lightbulb className={cn(
-                'w-3 h-3 text-slate-400 dark:text-slate-500',
-                'transition-all duration-300 ease-out',
-                'group-hover:text-slate-500 dark:group-hover:text-slate-300',
-                isOpen && 'scale-110 rotate-12'
-              )} />
-            </span>
-            <span className={cn(
-              'text-[10px] font-semibold uppercase select-none',
-              'text-slate-500 dark:text-slate-400',
-              'transition-colors duration-300 ease-out',
-              'group-hover:text-slate-700 dark:group-hover:text-slate-300'
-            )}>
-              Thinking
-            </span>
-            <ChevronDown className={cn(
-              "w-3 h-3 transition-transform duration-300 text-zinc-500 dark:text-zinc-400"
-            )} />
-          </AccordionTrigger>
-          <AccordionContent className="pt-0 pb-0">
-            <div className={cn(
-              'ml-3 pl-3 mt-1',
-              'bg-transparent',
-              'border-l-2 border-dashed',
-              'border-slate-300/60 dark:border-slate-600/50',
-              'relative',
-              'transition-colors duration-300 ease-out'
-            )}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
-                skipHtml={false}
-                className={cn(
-                  "prose prose-sm max-w-none",
-                  "prose-slate dark:prose-invert",
-                  // 统一设置文本颜色和大小
-                  "text-[13px] text-slate-500 dark:text-slate-400 italic",
-                  // 段落间距
-                  "prose-p:my-1.5 prose-p:leading-relaxed",
-                  // 代码块样式（覆盖斜体）
-                  "prose-code:text-slate-600 dark:prose-code:text-slate-400",
-                  "prose-code:bg-slate-200/50 dark:prose-code:bg-slate-800/50",
-                  "prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[10px] prose-code:not-italic",
-                  // 分隔线
-                  "prose-hr:border-slate-200 dark:prose-hr:border-slate-700 prose-hr:my-2",
-                  // 粗体（覆盖斜体）
-                  "prose-strong:text-slate-600 dark:prose-strong:text-slate-300 prose-strong:font-semibold prose-strong:not-italic",
-                )}
-              >
-                {fixedContent}
-              </ReactMarkdown>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </div>
-  )
-})
 
 /**
  * Assistant message component (left-aligned).
@@ -329,32 +195,10 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
       <div>
         {/* Model Badge */}
         {m.model && (
-          <div
-            id='model-badge'
-            className={cn(
-              'inline-flex items-center gap-1.5 px-2.5 py-1 mb-1.5 rounded-lg',
-              'select-none font-medium text-[11px] tracking-wide',
-              'bg-slate-50/80 dark:bg-slate-800/60',
-              'border border-slate-200/60 dark:border-slate-700/50',
-              'shadow-xs',
-              'transition-all duration-300 ease-out',
-              'backdrop-blur-xs',
-              showLoadingIndicator && isLatest && 'animate-shine-infinite'
-            )}
-          >
-            {/* Icon indicator */}
-            <div className={cn(
-              'w-1.5 h-1.5 rounded-full',
-              'bg-slate-400 dark:bg-slate-500',
-              'transition-all duration-1000',
-              showLoadingIndicator && isLatest && 'animate-model-badge-dot'
-            )} />
-
-            {/* Model name */}
-            <span className="text-slate-600 dark:text-slate-400">
-              {m.model}
-            </span>
-          </div>
+          <ModelBadgeV2
+            model={m.model}
+            animate={showLoadingIndicator && isLatest}
+          />
         )}
 
         {/* Segments */}
@@ -400,7 +244,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
               />
             )
           } else if (segment.type === 'reasoning') {
-            return <ReasoningSegment key={key} segment={segment} />
+            return <ReasoningSegmentV2 key={key} segment={segment} />
           } else if (segment.type === 'toolCall') {
             return <ToolCallResult key={key} toolCall={segment} index={index} />
           } else if (segment.type === 'error') {
