@@ -2,7 +2,7 @@ import React, { memo } from 'react'
 import { toast } from 'sonner'
 import { UserMessage } from './user-message'
 import { AssistantMessage } from './assistant-message'
-import { useMessageHover } from './use-message-hover'
+import { useMessageHover } from './user-message/use-message-hover'
 import { Timer } from 'lucide-react'
 
 interface ChatMessageComponentProps {

@@ -1,4 +1,4 @@
-import { CommandConfirmation, type CommandConfirmationRequest } from '@renderer/components/chat/chatMessage/CommandConfirmation'
+import { CommandConfirmation, type CommandConfirmationRequest } from '@renderer/components/chat/chatMessage/assistant-message/CommandConfirmation'
 
 const mockRequests: CommandConfirmationRequest[] = [
   {
