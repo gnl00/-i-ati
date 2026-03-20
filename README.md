@@ -1,95 +1,91 @@
-# @i-app
+# @i
 
-> Yeah We aim to build an Agent.
+`@i` is an AI Agent application with tool calling, task execution, long-term memory, and workspace operations.
 
-## Usages
+## Core Capabilities
 
-### macOS
+- Unified multi-provider access: built-in adapters for OpenAI-compatible / Claude-compatible / Gemini-compatible providers.
+- Agent toolchain: built-in file read/write, directory traversal, command execution, web search/fetch, plan management, skill loading, memory read/write, and scheduled tasks.
+- MCP support: connect to local or remote MCP servers, and search/import configs from the MCP Registry.
+- Skills system: scan local folders and import `SKILL.md`, enable skills per chat.
+- Long-term memory: main process uses `better-sqlite3 + sqlite-vec` for semantic memory storage and vector retrieval.
+- Tasks and scheduling: plan review, step status management, and scheduled prompt delivery to specific chats.
+- Artifacts / Workspace: each session is bound to an isolated workspace for file browsing and previewing dev services.
 
-macOS can not open after installed, execute the command below then run again
+## Project Structure
 
-```shell
-sudo xattr -r -d com.apple.quarantine /Applications/te-app.app
+```text
+src/main          Electron main process, IPC, database, tool execution, scheduler
+src/preload       preload bridge
+src/renderer/src  React UI, Zustand store, chat and settings screens
+src/shared        shared constants, prompts, tool definitions, schema
+src/data          built-in provider definitions
+resources         bundled resources
+docs              design and data-flow docs
 ```
 
-### Linux
+## Local Development
 
-Update ubuntu desktop icon manually
+```bash
+pnpm install
+pnpm dev
+```
 
-```shell
-# sudo update-desktop-database
+## Architecture
+
+The app follows a clear split:
+
+1. `renderer` handles UI, state, and event-driven streaming rendering.
+2. `preload` exposes a controlled Electron API to the renderer.
+3. `main` owns the database, model requests, tool execution, MCP connections, memory retrieval, and scheduling.
+
+On submission, the renderer triggers `MainChatSubmitService` via IPC. The main process builds system prompts, skill prompts, message context, and tool definitions, then sends a unified model request. Streaming output is parsed into text segments, tool calls, and tool results, and pushed back to the UI.
+
+## Build & Release
+
+Packaging is handled by `electron-builder`, configured in `electron-builder.yml`. GitHub Actions builds multi-platform releases on tags `v*.*.*` and produces a draft release.
+
+Linux build prerequisites:
+
+```bash
+sudo apt update
+sudo apt install -y libx11-dev libxtst-dev libc6 libstdc++6 build-essential libpng-dev
+```
+
+## Screenshots
+
+Main chat window
+
+![chat-windows](./screenshot/chatmainwindow-20260320113838.png)
+
+Chat sidebar
+
+![chat-sheet](./screenshot/chatsheet-20260320113626.png)
+
+Task plan bar
+
+![task-plan-bar](./screenshot/plantaskbar-260319.png)
+
+## FAQ
+
+### macOS: app cannot be opened after install
+
+```bash
+sudo xattr -r -d com.apple.quarantine /Applications/at-i-app.app
+```
+
+### Linux: icons not refreshed
+
+```bash
 sudo gtk-update-icon-cache /usr/share/icons/hicolor
 sudo update-icon-caches /usr/share/icons/hicolor
 sudo update-desktop-database /usr/share/applications
 ```
 
-## Build
-
-Linux install required dependencies
-
-```shell
-sudo apt update && sudo apt install -y libx11-dev libxtst-dev libc6 libstdc++6 build-essential libpng-dev
-```
-
-Install dependencies
-
-```shell
-pnpm install
-```
-
-Do build
-
-```shell
-pnpm build:linux
-pnpm build:win
-pnpm build:mac
-```
-
-> No icon show in Linux?
-> Add more resolution icon under `build` folder, 256x256/512x512/1024x1024... then build again
-
-## ScreenShot
-
-![chat-windows](./screenshot/20251223224340.png)
-
-![chat-sheet](./screenshot/20251223224240.png)
-
-## TODO
-
-- [X] api quetsion tooltip
-- [X] use StreamEvent
-- [X] custom prompt support
-- [X] add shortcut key: `CmdOrCtrl+G` show window, `CmdOrCtrl+Esc` hide window
-- [X] smooth scrool
-- [X] use virtual list for chat list?
-- [X] [markdown code highlight](https://stackoverflow.com/questions/71907116/react-markdown-and-react-syntax-highlighter)
-- [X] input area toolbar
-- [X] Copy and Edit tooltips
-- [X] ~~fetch models from api(if API provider supports)~~ maybe no need
-- [X] save chat list
-- [X] chat list ~~title~~ and hisoty summary AKA session compact
-- [X] dark/light mode
-- [X] artifacts supports(~~THANKS CLAUDECODE :P~~)
-- [X] default model for chat
-- [X] add provider
-- [X] ~chat config topK/topP/maxToken(very soon)~
-- [X] web search & web_fetch
-- [X] mcp(yes it is here~)
-- [X] [mcp-registry](https://registry.modelcontextprotocol.io/)
-- [X] re-design provider card
-- [X] math(LaTex) render(only `$` and `$$` supports,[ref](https://github.com/remarkjs/remark-math?tab=readme-ov-file#example-katex)))
-- [X] memory~~(finally~ :P)~~
-- [X] chat message split to multipart
-- [X] command panel
-- [ ] llm arena
-- [X] skills
-- [ ] ask user questions?
-
-## Reference
+## References
 
 - https://github.com/openai/openai-node
-- https://www.builder.io/blog/stream-ai-javascript
-- https://stackoverflow.com/questions/73547502/how-do-i-stream-openais-completion-api
-- https://stackademic.com/blog/building-a-resizable-sidebar-component-with-persisting-width-using-react-tailwindcss
-- https://medium.com/@devblog_/electron-window-settitle-how-to-1a2e268d3430
-- https://reniki.com/blog/gradient-border
+- https://developers.openai.com/api/docs
+- https://platform.claude.com/docs/en/home
+- https://ai.google.dev/gemini-api/docs
+- https://icons.lobehub.com/
