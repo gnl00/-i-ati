@@ -68,6 +68,7 @@ declare interface IAppConfig {
     titleGenerateEnabled?: boolean
     maxWebSearchItems?: number
     memoryEnabled?: boolean
+    streamChunkDebugEnabled?: boolean
   }
   skills?: {
     folders?: string[]

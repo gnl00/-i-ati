@@ -32,6 +32,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         titleGenerateEnabled,
         memoryEnabled,
         setMemoryEnabled,
+        streamChunkDebugEnabled,
         mcpServerConfig,
         setMcpServerConfig,
         savedMcpServerConfig,
@@ -77,7 +78,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 titleGenerateModel: titleGenerateModel,
                 titleGenerateEnabled: titleGenerateEnabled,
                 maxWebSearchItems: maxWebSearchItems,
-                memoryEnabled: memoryEnabled
+                memoryEnabled: memoryEnabled,
+                streamChunkDebugEnabled: streamChunkDebugEnabled
             },
             compression: {
                 enabled: compressionEnabled,
@@ -136,6 +138,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const toolsDirty = maxWebSearchItems !== (savedTools.maxWebSearchItems ?? 3)
         || titleGenerateEnabled !== (savedTools.titleGenerateEnabled ?? true)
         || memoryEnabled !== (savedTools.memoryEnabled ?? true)
+        || streamChunkDebugEnabled !== (savedTools.streamChunkDebugEnabled ?? false)
         || defaultModel?.accountId !== savedTools.defaultModel?.accountId
         || defaultModel?.modelId !== savedTools.defaultModel?.modelId
         || titleGenerateModel?.accountId !== savedTools.titleGenerateModel?.accountId

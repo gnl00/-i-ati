@@ -1,5 +1,6 @@
 import { registerChatHandlers } from '@main/ipc/chat'
 import { registerConfigHandlers } from '@main/ipc/config'
+import { registerLoggingHandlers } from '@main/ipc/logging'
 import { registerMcpServerHandlers } from '@main/ipc/mcp-servers'
 import { registerMessageHandlers } from '@main/ipc/messages'
 import { registerPluginHandlers } from '@main/ipc/plugins'
@@ -11,6 +12,7 @@ import { registerTaskPlanHandlers } from '@main/ipc/task-planner'
 import { registerScheduledTaskHandlers } from '@main/ipc/scheduled-tasks'
 
 function mainIPCSetup() {
+  registerLoggingHandlers()
   registerSystemHandlers()
   registerToolHandlers()
   registerSkillHandlers()

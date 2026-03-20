@@ -6,6 +6,7 @@
  */
 
 import EmbeddingServiceInstance from '../embedding/EmbeddingService'
+import { createLogger } from '@main/services/logging/LogService'
 import { app } from 'electron'
 import path from 'path'
 import Database from 'better-sqlite3'
@@ -82,6 +83,7 @@ class MemoryService {
   private db: Database.Database | null = null
   private dbPath: string
   private isInitialized: boolean = false
+  private readonly logger = createLogger('MemoryService')
 
   // 预编译语句缓存
   private stmts: {
@@ -100,7 +102,7 @@ class MemoryService {
     // 数据库存储路径
     const userDataPath = app.getPath('userData')
     this.dbPath = path.join(userDataPath, 'memories.db')
-    console.log('[MemoryService] Database path:', this.dbPath)
+    this.logger.info('database.path_resolved', { dbPath: this.dbPath })
   }
 
   /**
@@ -122,18 +124,18 @@ class MemoryService {
     }
 
     try {
-      console.log('[MemoryService] Initializing memory service...')
+      this.logger.info('initialize.start')
 
       // 打开数据库连接
       this.db = new Database(this.dbPath)
 
       // 加载 sqlite-vec 扩展
       sqliteVec.load(this.db)
-      console.log('[MemoryService] sqlite-vec extension loaded')
+      this.logger.info('initialize.sqlite_vec_loaded')
       const { vec_version } = this.db
         .prepare("select vec_version() as vec_version;")
         .get();
-      console.log(`vec_version=${vec_version}`);
+      this.logger.info('initialize.sqlite_vec_version', { vecVersion: vec_version })
 
       // 启用 WAL 模式以提高并发性能
       this.db.pragma('journal_mode = WAL')
@@ -150,11 +152,13 @@ class MemoryService {
       this.isInitialized = true
 
       const count = this.db.prepare('SELECT COUNT(*) as count FROM memories').get() as { count: number }
-      console.log(`[MemoryService] Initialized with ${count.count} memories`)
       const vecCount = this.db.prepare('SELECT count(*) as count FROM vec_memories').get() as { count: number }
-      console.log(`[MemoryService] Initialized with ${vecCount.count} vec_memories`)
+      this.logger.info('initialize.completed', {
+        memoriesCount: count.count,
+        vecMemoriesCount: vecCount.count
+      })
     } catch (error) {
-      console.error('[MemoryService] Failed to initialize:', error)
+      this.logger.error('initialize.failed', error)
       throw error
     }
   }
@@ -184,7 +188,7 @@ class MemoryService {
       )
     `)
 
-    console.log('[MemoryService] Tables created (with vec0 virtual table)')
+    this.logger.debug('schema.tables_ready')
   }
 
   /**
@@ -200,7 +204,7 @@ class MemoryService {
       CREATE INDEX IF NOT EXISTS idx_role ON memories(role);
     `)
 
-    console.log('[MemoryService] Indexes created')
+    this.logger.debug('schema.indexes_ready')
   }
 
   /**
@@ -247,7 +251,7 @@ class MemoryService {
       SELECT chat_id, COUNT(*) as count FROM memories GROUP BY chat_id
     `)
 
-    console.log('[MemoryService] Statements prepared')
+    this.logger.debug('schema.statements_prepared')
   }
 
 
@@ -353,10 +357,10 @@ class MemoryService {
 
       insertTransaction()
 
-      console.log(`[MemoryService] Added memory: ${id}`)
+      this.logger.info('memory.added', { id, chatId: entry.chatId, messageId: entry.messageId })
       return memoryEntry
     } catch (error) {
-      console.error('[MemoryService] Failed to add memory:', error)
+      this.logger.error('memory.add_failed', error)
       throw error
     }
   }
@@ -422,10 +426,10 @@ class MemoryService {
       // 批量插入
       insertMany(memoryEntries)
 
-      console.log(`[MemoryService] Added ${memoryEntries.length} memories in batch`)
+      this.logger.info('memory.add_batch_completed', { count: memoryEntries.length })
       return memoryEntries
     } catch (error) {
-      console.error('[MemoryService] Failed to add batch memories:', error)
+      this.logger.error('memory.add_batch_failed', error)
       throw error
     }
   }
@@ -520,7 +524,7 @@ class MemoryService {
 
       return results
     } catch (error) {
-      console.error('[MemoryService] Failed to search memories:', error)
+      this.logger.error('memory.search_failed', error)
       throw error
     }
   }
@@ -535,7 +539,7 @@ class MemoryService {
       const rows = this.stmts.getByChatId!.all(chatId) as MemoryRow[]
       return rows.map(row => this.rowToEntry(row))
     } catch (error) {
-      console.error('[MemoryService] Failed to get chat memories:', error)
+      this.logger.error('memory.get_chat_failed', error)
       throw error
     }
   }
@@ -550,7 +554,7 @@ class MemoryService {
       const rows = this.stmts.getAll!.all() as MemoryRow[]
       return rows.map(row => this.rowToListEntry(row))
     } catch (error) {
-      console.error('[MemoryService] Failed to get all memories:', error)
+      this.logger.error('memory.get_all_failed', error)
       throw error
     }
   }
@@ -565,7 +569,7 @@ class MemoryService {
       const row = this.stmts.getById!.get(id) as MemoryRow | undefined
       return row ? this.rowToEntry(row) : null
     } catch (error) {
-      console.error('[MemoryService] Failed to get memory:', error)
+      this.logger.error('memory.get_by_id_failed', error)
       throw error
     }
   }
@@ -643,7 +647,7 @@ class MemoryService {
         embedding: nextEmbedding
       }
     } catch (error) {
-      console.error('[MemoryService] Failed to update memory:', error)
+      this.logger.error('memory.update_failed', error)
       throw error
     }
   }
@@ -662,10 +666,10 @@ class MemoryService {
       })
 
       deleteTransaction()
-      console.log(`[MemoryService] Deleted memory: ${id}`)
+      this.logger.info('memory.deleted', { id })
       return true
     } catch (error) {
-      console.error('[MemoryService] Failed to delete memory:', error)
+      this.logger.error('memory.delete_failed', error)
       throw error
     }
   }
@@ -695,10 +699,10 @@ class MemoryService {
       })
 
       deleteTransaction()
-      console.log(`[MemoryService] Deleted ${ids.length} memories for chat ${chatId}`)
+      this.logger.info('memory.delete_chat_completed', { chatId, count: ids.length })
       return ids.length
     } catch (error) {
-      console.error('[MemoryService] Failed to delete chat memories:', error)
+      this.logger.error('memory.delete_chat_failed', error)
       throw error
     }
   }
@@ -728,7 +732,7 @@ class MemoryService {
         })),
       }
     } catch (error) {
-      console.error('[MemoryService] Failed to get stats:', error)
+      this.logger.error('memory.get_stats_failed', error)
       return {
         totalMemories: 0,
         totalChats: 0,
@@ -754,9 +758,9 @@ class MemoryService {
 
       // 使用 VACUUM 回收空间
       this.db!.prepare('VACUUM').run()
-      console.log('[MemoryService] Cleared all memories and vectors')
+      this.logger.info('memory.clear_completed')
     } catch (error) {
-      console.error('[MemoryService] Failed to clear memories:', error)
+      this.logger.error('memory.clear_failed', error)
       throw error
     }
   }
@@ -770,9 +774,9 @@ class MemoryService {
     try {
       // 分析表以优化查询计划
       this.db!.prepare('ANALYZE').run()
-      console.log('[MemoryService] Database optimized')
+      this.logger.info('database.optimized')
     } catch (error) {
-      console.error('[MemoryService] Failed to optimize database:', error)
+      this.logger.error('database.optimize_failed', error)
       throw error
     }
   }
@@ -785,7 +789,7 @@ class MemoryService {
       this.db.close()
       this.db = null
       this.isInitialized = false
-      console.log('[MemoryService] Database closed')
+      this.logger.info('database.closed')
     }
   }
 }

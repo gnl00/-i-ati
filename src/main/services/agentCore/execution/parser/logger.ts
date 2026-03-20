@@ -1,14 +1,3 @@
-export const parserLogger = {
-  error: (message: string, error?: Error) => {
-    if (error) {
-      console.error(`[AgentParser] ${message}`, {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      })
-      return
-    }
+import { createLogger } from '@main/services/logging/LogService'
 
-    console.error(`[AgentParser] ${message}`)
-  }
-}
+export const parserLogger = createLogger('AgentParser')

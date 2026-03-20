@@ -10,6 +10,8 @@ import DatabaseService from './services/DatabaseService'
 import MemoryService from './services/memory/MemoryService'
 import { SkillService } from './services/skills/SkillService'
 import { schedulerService } from './services/scheduler/SchedulerService'
+import { installMainConsoleCapture } from './services/logging/console-capture'
+import { createPerfLogger, logService } from './services/logging/LogService'
 import { StartupTracer } from './utils/startupTracer'
 import { STARTUP_RENDERER_MARK, STARTUP_RENDERER_READY } from '@shared/constants/startup'
 import appIcon from '../../build/icon.png?asset'
@@ -20,6 +22,7 @@ import appIcon from '../../build/icon.png?asset'
 // )
 
 const startupTracer = new StartupTracer()
+const startupLogger = createPerfLogger('Startup')
 startupTracer.mark('boot.start')
 let rendererReadyMarked = false
 let rendererSummaryScheduled = false
@@ -37,7 +40,10 @@ ipcMain.on(STARTUP_RENDERER_READY, () => {
 ipcMain.on(STARTUP_RENDERER_MARK, (_event, label: string, offsetMs?: number) => {
   const safeLabel = typeof label === 'string' ? label : 'renderer.mark'
   if (typeof offsetMs === 'number' && Number.isFinite(offsetMs)) {
-    console.log(`[Startup] renderer.${safeLabel} +${offsetMs.toFixed(1)}ms`)
+    startupLogger.info('renderer.mark', {
+      label: `renderer.${safeLabel}`,
+      offsetMs: Number(offsetMs.toFixed(1))
+    })
     return
   }
   startupTracer.mark(`renderer.${safeLabel}`)
@@ -47,6 +53,8 @@ ipcMain.on(STARTUP_RENDERER_MARK, (_event, label: string, offsetMs?: number) => 
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  await logService.initialize()
+  installMainConsoleCapture()
   startupTracer.mark('app.ready')
   if (process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(appIcon)

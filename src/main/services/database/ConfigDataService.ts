@@ -85,7 +85,8 @@ export class ConfigDataService {
     const defaultConfig: IAppConfig = {
       version: 2.0,
       tools: {
-        maxWebSearchItems: 3
+        maxWebSearchItems: 3,
+        streamChunkDebugEnabled: false
       },
       configForUpdate: {
         version: 2.0

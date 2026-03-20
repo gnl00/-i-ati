@@ -1,4 +1,8 @@
+import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
 import type { RequestAdapterStreamProtocol } from '@shared/plugins/requestAdapterHooks'
+
+const logger = createLogger('BaseAdapter')
 
 const extractSseDataChunks = (buffer: string): { chunks: string[]; remaining: string } => {
   const events = buffer.split(/\r?\n\r?\n/)
@@ -22,6 +26,7 @@ const extractSseDataChunks = (buffer: string): { chunks: string[]; remaining: st
 export abstract class BaseAdapter {
   abstract providerType: ProviderType
   protected streamProtocol: RequestAdapterStreamProtocol = 'sse'
+  private streamChunkDebugEnabled = false
 
   abstract buildHeaders(req: IUnifiedRequest): Record<string, string>
 
@@ -41,6 +46,7 @@ export abstract class BaseAdapter {
       return
     }
 
+    this.refreshStreamDebugFlag()
     this.onStreamStart()
 
     if (this.streamProtocol === 'raw') {
@@ -49,6 +55,8 @@ export abstract class BaseAdapter {
         if (done) {
           break
         }
+
+        this.logStreamChunkIfEnabled(value)
 
         const parsed = this.parseStreamResponse(value)
         if (!parsed) {
@@ -73,7 +81,7 @@ export abstract class BaseAdapter {
       sseBuffer = remaining
 
       for (const chunk of chunks) {
-        // console.log(`[Stream] chunk: ${chunk}`)
+        this.logStreamChunkIfEnabled(chunk)
         const parsed = this.parseStreamResponse(chunk)
         if (!parsed) {
           continue
@@ -86,6 +94,7 @@ export abstract class BaseAdapter {
     if (sseBuffer.trim() !== '') {
       const { chunks } = extractSseDataChunks(`${sseBuffer}\n\n`)
       for (const chunk of chunks) {
+        this.logStreamChunkIfEnabled(chunk)
         const parsed = this.parseStreamResponse(chunk)
         if (!parsed) {
           continue
@@ -108,6 +117,23 @@ export abstract class BaseAdapter {
   }
 
   protected onStreamStart(): void {}
+
+  private refreshStreamDebugFlag(): void {
+    try {
+      this.streamChunkDebugEnabled = DatabaseService.getConfig()?.tools?.streamChunkDebugEnabled ?? false
+    } catch {
+      this.streamChunkDebugEnabled = false
+    }
+  }
+
+  private logStreamChunkIfEnabled(chunk: string): void {
+    if (!this.streamChunkDebugEnabled) return
+    logger.info('stream.chunk', {
+      providerType: this.providerType,
+      protocol: this.streamProtocol,
+      chunk
+    })
+  }
 
   // 工具调用转换的通用方法
   protected transformToolDefinitions(tools: any[]): any[] {

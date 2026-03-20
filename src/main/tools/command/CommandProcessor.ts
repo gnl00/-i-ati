@@ -9,6 +9,7 @@ import { resolve, isAbsolute, join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { app } from 'electron'
 import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
 import type {
   ExecuteCommandArgs,
   ExecuteCommandResponse
@@ -17,6 +18,7 @@ import { assessExecuteCommandReview } from './risk'
 
 const execAsync = promisify(exec)
 const execFileAsync = promisify(execFile)
+const logger = createLogger('CommandExecutor')
 
 // ============================================
 // Constants
@@ -46,7 +48,7 @@ function normalizeWorkspaceBaseDir(workspacePath: string, chatUuid?: string): st
   }
 
   // Defensive fallback: prevent relative workspace paths from binding to process.cwd()
-  console.warn(`[CommandExecutor] Relative workspace path detected, rebasing to userData: ${workspacePath}`)
+  logger.warn('workspace.relative_path_rebased', { workspacePath })
   return resolve(join(userDataPath, clean))
 }
 
@@ -63,7 +65,7 @@ function resolveWorkspaceBaseDir(chatUuid?: string): string {
       return normalizeWorkspaceBaseDir(workspacePath, chatUuid)
     }
   } catch (error) {
-    console.error('[CommandExecutor] Failed to resolve workspace path from DB:', error)
+    logger.error('workspace.resolve_from_db_failed', error)
   }
 
   return join(userDataPath, 'workspaces', chatUuid)
@@ -81,7 +83,7 @@ class CommandExecutor {
    */
   setWorkspaceBasePath(path: string): void {
     this.workspaceBasePath = normalizeWorkspaceBaseDir(path)
-    console.log(`[CommandExecutor] Workspace base path set to: ${this.workspaceBasePath}`)
+    logger.info('workspace.base_path_set', { workspaceBasePath: this.workspaceBasePath })
   }
 
   /**
@@ -90,7 +92,7 @@ class CommandExecutor {
   private resolveWorkingDirectory(cwd?: string, workspaceBasePath: string | null = this.workspaceBasePath): string {
     // 如果没有设置 workspace base path，使用当前工作目录
     if (!workspaceBasePath) {
-      console.log('[CommandExecutor] No workspace base path set, using process.cwd()')
+      logger.debug('workspace.base_path_missing_use_cwd')
       return cwd ? resolve(process.cwd(), cwd) : process.cwd()
     }
 
@@ -102,7 +104,7 @@ class CommandExecutor {
     // 如果 cwd 是绝对路径，检查是否在 workspace 内
     if (isAbsolute(cwd)) {
       if (!cwd.startsWith(workspaceBasePath)) {
-        console.warn(`[CommandExecutor] Absolute path outside workspace: ${cwd}`)
+        logger.warn('workspace.absolute_path_outside_base', { cwd, workspaceBasePath })
       }
       return cwd
     }
@@ -144,14 +146,14 @@ class CommandExecutor {
     let lastError: any
     for (const shell of shells) {
       try {
-        console.log(`[CommandExecutor] Using shell: ${shell}`)
+        logger.debug('command.using_shell', { shell })
         return await execAsync(command, { ...options, shell })
       } catch (error: any) {
         lastError = error
         const code = typeof error?.code === 'string' ? error.code : undefined
         const message = typeof error?.message === 'string' ? error.message : ''
         if (code === 'ENOENT' || message.includes('ENOENT')) {
-          console.warn(`[CommandExecutor] Shell not found, retrying: ${shell}`)
+          logger.warn('command.shell_not_found_retry', { shell })
           continue
         }
         throw error
@@ -196,18 +198,28 @@ class CommandExecutor {
       chat_uuid
     } = args
 
-    console.log(`[CommandExecutor] Executing command: ${command}`)
-    console.log(`[CommandExecutor] CWD: ${cwd || 'workspace root'}`)
-    console.log(`[CommandExecutor] Timeout: ${timeout}ms`)
+    logger.info('command.execute_start', {
+      command,
+      cwd: cwd || 'workspace root',
+      timeout,
+      chatUuid: chat_uuid
+    })
 
     try {
       // 1. 评估命令风险
       const riskAssessment = assessExecuteCommandReview({ command, possible_risk, risk_score })
-      console.log(`[CommandExecutor] Risk level: ${riskAssessment.level}`)
+      logger.info('command.risk_assessed', {
+        command,
+        riskLevel: riskAssessment.level,
+        riskScore: riskAssessment.normalizedRiskScore
+      })
 
       // 2. 如果是危险或警告级别命令，且未确认，则要求确认
       if ((riskAssessment.level === 'dangerous' || riskAssessment.level === 'warning') && !confirmed) {
-        console.log(`[CommandExecutor] Command requires user confirmation`)
+        logger.info('command.requires_confirmation', {
+          command,
+          riskLevel: riskAssessment.level
+        })
         return {
           success: false,
           command,
@@ -224,16 +236,16 @@ class CommandExecutor {
       // 3. 解析工作目录
       const workspaceBasePath = chat_uuid ? resolveWorkspaceBaseDir(chat_uuid) : this.workspaceBasePath
       if (chat_uuid) {
-        console.log(`[CommandExecutor] Workspace base path resolved for chat ${chat_uuid}: ${workspaceBasePath}`)
+        logger.debug('workspace.base_path_resolved_for_chat', { chatUuid: chat_uuid, workspaceBasePath })
       }
       const workingDir = this.resolveWorkingDirectory(cwd, workspaceBasePath)
-      console.log(`[CommandExecutor] Resolved working directory: ${workingDir}`)
+      logger.info('workspace.working_directory_resolved', { workingDir, chatUuid: chat_uuid })
       if (!existsSync(workingDir)) {
         try {
           mkdirSync(workingDir, { recursive: true })
-          console.log(`[CommandExecutor] Created working directory: ${workingDir}`)
+          logger.info('workspace.working_directory_created', { workingDir })
         } catch (error) {
-          console.warn(`[CommandExecutor] Failed to create working directory: ${workingDir}`, error)
+          logger.warn('workspace.working_directory_create_failed', { workingDir, error })
         }
       }
 
@@ -279,7 +291,12 @@ class CommandExecutor {
 
       const executionTime = Date.now() - startTime
 
-      console.log(`[CommandExecutor] Command completed successfully in ${executionTime}ms`)
+      logger.info('command.execute_success', {
+        command,
+        executionTime,
+        stdoutLength: stdout.length,
+        stderrLength: stderr.length
+      })
 
       return {
         success: true,
@@ -290,8 +307,14 @@ class CommandExecutor {
         execution_time: executionTime
       }
     } catch (error: any) {
-      const executionTime = Date.now() - Date.now()
-      console.error(`[CommandExecutor] Command failed:`, error.message)
+      const executionTime = 0
+      logger.error('command.execute_failed', {
+        command,
+        error: error.message,
+        code: error.code,
+        killed: error.killed,
+        signal: error.signal
+      })
 
       // 处理超时错误
       if (error.killed && error.signal === 'SIGTERM') {

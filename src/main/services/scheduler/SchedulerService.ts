@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/services/DatabaseService'
 import { ChatRunService } from '@main/services/chatRun'
+import { createLogger } from '@main/services/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { ScheduleEventEmitter } from './event-emitter'
 import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
@@ -14,6 +15,7 @@ export class SchedulerService {
   private timer: NodeJS.Timeout | null = null
   private isTicking = false
   private readonly chatRunService = new ChatRunService()
+  private readonly logger = createLogger('SchedulerService')
 
   start(intervalMs: number = 10000): void {
     if (this.timer) return
@@ -21,14 +23,14 @@ export class SchedulerService {
       void this.tick()
     }, intervalMs)
     void this.tick()
-    console.log('[Scheduler] Started')
+    this.logger.info('scheduler.started', { intervalMs })
   }
 
   stop(): void {
     if (this.timer) {
       clearInterval(this.timer)
       this.timer = null
-      console.log('[Scheduler] Stopped')
+      this.logger.info('scheduler.stopped')
     }
   }
 
@@ -37,11 +39,12 @@ export class SchedulerService {
     this.isTicking = true
     try {
       const tasks = DatabaseService.claimDueScheduledTasks(Date.now(), 5)
+      this.logger.debug('tick.claimed_due_tasks', { count: tasks.length })
       for (const task of tasks) {
         await this.runTask(task)
       }
     } catch (error) {
-      console.error('[Scheduler] Tick failed:', error)
+      this.logger.error('tick.failed', error)
     } finally {
       this.isTicking = false
     }
@@ -56,6 +59,10 @@ export class SchedulerService {
       }
 
       if (this.chatRunService.hasActiveRunForChat(task.chat_uuid)) {
+        this.logger.info('task.skipped.chat_busy', {
+          taskId: task.id,
+          chatUuid: task.chat_uuid
+        })
         return
       }
 
@@ -73,6 +80,12 @@ export class SchedulerService {
       const prompt = payload.prompt?.trim() || task.goal
       const submissionId = uuidv4()
 
+      this.logger.info('task.started', {
+        taskId: task.id,
+        chatUuid: task.chat_uuid,
+        submissionId,
+        attempt: nextAttempt
+      })
       DatabaseService.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
 
       const submitResult = await this.chatRunService.runBlocking({
@@ -96,6 +109,12 @@ export class SchedulerService {
         undefined,
         assistantMessageId
       )
+      this.logger.info('task.completed', {
+        taskId: task.id,
+        chatUuid: task.chat_uuid,
+        attempt: nextAttempt,
+        assistantMessageId
+      })
 
       const userMessage = submitResult.userMessageId
         ? DatabaseService.getMessageById(submitResult.userMessageId)
@@ -119,7 +138,13 @@ export class SchedulerService {
       const status = maxAttempts === 0 || nextAttempt >= maxAttempts ? 'failed' : 'pending'
       DatabaseService.updateScheduledTaskStatus(task.id, status, nextAttempt, message, undefined)
       this.emitScheduleUpdated(task.id)
-      console.error('[Scheduler] Task failed:', { taskId: task.id, error: message })
+      this.logger.error('task.failed', {
+        taskId: task.id,
+        chatUuid: task.chat_uuid,
+        nextAttempt,
+        status,
+        error: message
+      })
     }
   }
 

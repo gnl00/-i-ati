@@ -3,6 +3,7 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { spawn } from 'child_process'
+import { createLogger } from '@main/services/logging/LogService'
 
 export type McpClientProps = {
   name: string
@@ -83,9 +84,16 @@ class McpRuntimeService {
   private readonly registry = new McpRuntimeRegistry()
   private readonly toolCallCountMap = new Map<string, number>()
   private readonly lastErrorByServer = new Map<string, string>()
+  private readonly logger = createLogger('McpRuntimeService')
 
   async connectServer(props: McpClientProps): Promise<any> {
-    console.log('[@i] mcp-client connect to server:', props.name, JSON.stringify(props))
+    this.logger.info('connect.start', {
+      serverName: props.name,
+      type: props.type,
+      url: props.url,
+      command: props.command,
+      args: props.args
+    })
 
     const client = new Client({
       name: `ati-mcp-client-${props.name}`,
@@ -99,65 +107,85 @@ class McpRuntimeService {
         if (!commandExists) {
           throw new Error(`Connect to '${props.name} error. 'Command '${props.command}' not found!`)
         }
-        console.log('[@i] creating StdioClientTransport')
+        this.logger.debug('connect.create_stdio_transport', { serverName: props.name })
         transport = new StdioClientTransport({
           command: props.command,
           args: props.args
         })
       } catch (error: any) {
-        console.error(`[@i] mcp-server '${props.name}' connect error: ${error.message}`)
+        this.logger.error('connect.command_validation_failed', {
+          serverName: props.name,
+          error: error.message
+        })
         return { result: false, msg: error.message }
       }
     } else if (props.url && props.type) {
       if (props.type === 'sse') {
-        console.log('[@i] creating SSEClientTransport')
+        this.logger.debug('connect.create_sse_transport', { serverName: props.name })
         transport = new SSEClientTransport(new URL(props.url))
       } else if (props.type === 'streamableHttp') {
-        console.log('[@i] creating StreamableHTTPClientTransport')
+        this.logger.debug('connect.create_streamable_http_transport', { serverName: props.name })
         transport = new StreamableHTTPClientTransport(new URL(props.url))
       }
     }
 
-    console.log('[@i] mcp transport protocol', JSON.stringify(transport))
-
     if (!transport) {
+      this.logger.warn('connect.transport_missing', { serverName: props.name })
       return { result: false, tools: {}, msg: `Connnected to '${props.name}' Error` }
     }
 
     try {
-      console.log('[@i] mcp-client connecting')
+      this.logger.info('connect.client_connecting', { serverName: props.name })
       await client.connect(transport)
       const tools = await client.listTools()
       this.registry.addServer(props.name, client, tools.tools)
       this.lastErrorByServer.delete(props.name)
-      console.log('[@i] mcp-tools\n', JSON.stringify(tools))
+      this.logger.info('connect.connected', {
+        serverName: props.name,
+        toolCount: tools.tools.length
+      })
       return {
         result: true,
         tools: tools.tools.map(toMcpTool),
         msg: `Connected to '${props.name}'`
       }
     } catch (error: any) {
-      console.error(`[@i] mcp-server '${props.name}' connection error:`, error)
+      this.logger.error('connect.failed', {
+        serverName: props.name,
+        error: error.message
+      })
       this.lastErrorByServer.set(props.name, error.message)
       return { result: false, msg: `Failed to connect to '${props.name}': ${error.message}` }
     }
   }
 
   async callTool(tcId: string, toolName: string, args: { [x: string]: unknown } | undefined): Promise<any[]> {
-    console.log(`[@i] toolCall ${toolName} start, getAllClients.length=${this.registry.getAllClients().length}`)
+    this.logger.info('tool_call.start', {
+      toolName,
+      toolCallId: tcId,
+      clientCount: this.registry.getAllClients().length
+    })
     if (this.registry.isEmpty()) {
       return []
     }
 
-    console.log(`[@i] toolCall ${toolName} ID ${tcId} processing`)
     const promises = this.registry.getAllClients().map(async ([serverName, client]) => {
       const tools = this.registry.getTools(serverName)
       if (!tools || tools.every(tool => tool.name !== toolName)) {
-        console.log(`[@i] mcp-server: ${serverName} does not have tool: ${toolName}`)
+        this.logger.debug('tool_call.tool_not_found_on_server', {
+          serverName,
+          toolName,
+          toolCallId: tcId
+        })
         return null
       }
 
-      console.log(`[@i] Call mcp-server: ${serverName}, tool: ${toolName}, args: ${JSON.stringify(args)}`)
+      this.logger.info('tool_call.dispatch', {
+        serverName,
+        toolName,
+        toolCallId: tcId,
+        args
+      })
       try {
         const currentCount = this.toolCallCountMap.get(tcId) ?? 0
         if (currentCount >= 3) {
@@ -165,16 +193,29 @@ class McpRuntimeService {
         }
         this.toolCallCountMap.set(tcId, currentCount + 1)
         const result = await client.callTool({ name: toolName, arguments: args })
-        console.log(`[@i] Call mcp-server: ${serverName}, tool: ${toolName}, result: ${JSON.stringify(result)}`)
+        this.logger.info('tool_call.completed', {
+          serverName,
+          toolName,
+          toolCallId: tcId
+        })
         return JSON.parse(JSON.stringify(result))
       } catch (error: any) {
-        console.error(`[@i] Error calling tool on ${serverName}:`, error)
+        this.logger.error('tool_call.failed', {
+          serverName,
+          toolName,
+          toolCallId: tcId,
+          error: error.message
+        })
         return { error: error.message, serverName }
       }
     })
 
     const results = await Promise.all(promises)
-    console.log(`[@i] toolCall ${toolName} end`)
+    this.logger.info('tool_call.end', {
+      toolName,
+      toolCallId: tcId,
+      resultCount: results.length
+    })
     return results
   }
 
@@ -182,14 +223,14 @@ class McpRuntimeService {
     if (this.registry.isEmpty()) {
       return true
     }
-    console.log('[@i] mcp-client closing')
+    this.logger.info('disconnect.start', { serverName })
     if (!this.registry.hasServer(serverName)) {
       return true
     }
     const success = this.registry.removeServer(serverName)
     if (success) {
       this.lastErrorByServer.delete(serverName)
-      console.log('[@i] mcp-client closed')
+      this.logger.info('disconnect.completed', { serverName })
     }
     return success
   }
@@ -198,10 +239,10 @@ class McpRuntimeService {
     if (this.registry.isEmpty()) {
       return
     }
-    console.log('[@i] mcp-client closing')
+    this.logger.info('disconnect_all.start')
     this.registry.removeAllServers()
     this.lastErrorByServer.clear()
-    console.log('[@i] mcp-client closed')
+    this.logger.info('disconnect_all.completed')
   }
 
   getRuntimeSnapshot(): McpRuntimeSnapshot {

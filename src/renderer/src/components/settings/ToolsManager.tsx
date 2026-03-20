@@ -5,6 +5,8 @@ import { Label } from '@renderer/components/ui/label'
 import { Switch } from "@renderer/components/ui/switch"
 import { cn } from '@renderer/lib/utils'
 import { exportConfigAsJSON, getConfig, importConfigFromJSON } from '@renderer/db/ConfigRepository'
+import { invokeOpenPath } from '@renderer/invoker/ipcInvoker'
+import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
@@ -34,6 +36,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     compressionCompressCount,
     setCompressionCompressCount
 }) => {
+    const logger = React.useMemo(() => createRendererLogger('ToolsManager'), [])
     const {
         setAppConfig,
         defaultModel,
@@ -45,6 +48,8 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
         setTitleGenerateModel,
         titleGenerateEnabled,
         setTitleGenerateEnabled,
+        streamChunkDebugEnabled,
+        setStreamChunkDebugEnabled,
     } = useAppConfigStore()
 
     const [selectDefaultModelPopoutState, setSelectDefaultModelPopoutState] = useState(false)
@@ -71,7 +76,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
             URL.revokeObjectURL(url)
             toast.success('Config exported successfully')
         } catch (error) {
-            console.error('Export error:', error)
+            logger.error('config_export_failed', error)
             toast.error('Failed to export config')
         }
     }
@@ -95,11 +100,24 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                     setTimeout(() => window.location.reload(), 1000)
                 }
             } catch (error: any) {
-                console.error('Import error:', error)
+                logger.error('config_import_failed', error)
                 toast.error('Failed to import config: ' + error.message)
             }
         }
         input.click()
+    }
+
+    const handleOpenLogs = async () => {
+        try {
+            const result = await invokeOpenPath('logs')
+            if (!result.success) {
+                toast.error(result.error || 'Failed to open logs folder')
+                return
+            }
+            toast.success('Logs folder opened')
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to open logs folder')
+        }
     }
 
     return (
@@ -367,6 +385,60 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
+                    <div className="px-4 py-4">
+                        <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
+                                    Logs
+                                </Label>
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-slate-600 border-slate-200 bg-slate-50 dark:bg-slate-900/30 dark:text-slate-300 dark:border-slate-700">
+                                    DEBUG
+                                </Badge>
+                            </div>
+                            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                                Open the application logs directory to inspect daily log files, compressed archives, and runtime diagnostics.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="bg-gray-50/40 dark:bg-gray-900/20 border-t border-gray-100 dark:border-gray-700/50">
+                        <div className="px-4 py-2.5 flex items-center justify-between gap-4">
+                            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Log Files</span>
+                            <button
+                                onClick={handleOpenLogs}
+                                className="h-7 px-3 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:scale-[0.97] transition-all duration-150"
+                            >
+                                <i className="ri-folder-open-line text-[12px]" />
+                                Open Logs
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
+                    <div className="px-4 py-4 flex items-start gap-4">
+                        <div className="flex-1 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="toggle-stream-chunk-debug" className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
+                                    Debug Mode
+                                </Label>
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-rose-600 border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800">
+                                    STREAM
+                                </Badge>
+                            </div>
+                            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                                Log raw stream chunks from request adapters into the daily log file. Keep this off unless you are actively debugging streaming or parser behavior.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={streamChunkDebugEnabled}
+                            onCheckedChange={setStreamChunkDebugEnabled}
+                            id="toggle-stream-chunk-debug"
+                            className="data-[state=checked]:bg-rose-500 mt-0.5 shrink-0"
+                        />
                     </div>
                 </div>
             </div>

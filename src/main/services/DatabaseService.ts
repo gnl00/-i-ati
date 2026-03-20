@@ -32,6 +32,7 @@ import { CompressedSummaryDataService } from './database/CompressedSummaryDataSe
 import { ChatRunEventDataService } from './database/ChatRunEventDataService'
 import { AssistantDataService } from './database/AssistantDataService'
 import { LocalPluginCatalogService, LocalPluginInstallService } from './plugins'
+import { createLogger } from './logging/LogService'
 
 
 /**
@@ -39,6 +40,7 @@ import { LocalPluginCatalogService, LocalPluginInstallService } from './plugins'
  */
 class DatabaseService {
   private static instance: DatabaseService
+  private readonly logger = createLogger('DatabaseService')
   private dbCore: AppDatabase
   private db: ReturnType<AppDatabase['getDb']> | null = null
   private isInitialized: boolean = false
@@ -93,7 +95,7 @@ class DatabaseService {
     }
 
     try {
-      console.log('[DatabaseService] Initializing database service...')
+      this.logger.info('initialize.start')
 
       this.db = this.dbCore.initialize()
       this.configRepo = new ConfigRepository(this.db)
@@ -166,13 +168,16 @@ class DatabaseService {
 
       const chatCount = this.db.prepare('SELECT COUNT(*) as count FROM chats').get() as { count: number }
       const messageCount = this.db.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number }
-      console.log(`[DatabaseService] Initialized with ${chatCount.count} chats and ${messageCount.count} messages`)
+      this.logger.info('initialize.completed', {
+        chats: chatCount.count,
+        messages: messageCount.count
+      })
 
       // 初始化内置 Assistants
       const { initializeBuiltInAssistants } = await import('./AssistantInitializer')
       await initializeBuiltInAssistants()
     } catch (error) {
-      console.error('[DatabaseService] Failed to initialize:', error)
+      this.logger.error('initialize.failed', error)
       throw error
     }
   }
@@ -525,7 +530,7 @@ class DatabaseService {
       this.chatRunEventDataService = undefined
       this.assistantDataService = undefined
       this.isInitialized = false
-      console.log('[DatabaseService] Database closed')
+      this.logger.info('database.closed')
     }
   }
 

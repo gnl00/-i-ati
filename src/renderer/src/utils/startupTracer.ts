@@ -7,15 +7,15 @@ export class RendererStartupTracer {
   mark(label: string): void {
     const t = performance.now() - this.t0
     this.marks.set(label, t)
-    // eslint-disable-next-line no-console
-    console.log(`[RendererStartup] ${label} +${t.toFixed(1)}ms`)
+    // 启动性能标记统一交给 main 侧写入 perf.log，避免混入普通 app 日志。
     window.electron?.ipcRenderer?.send(STARTUP_RENDERER_MARK, label, t)
   }
 
   report(): void {
     const entries = Array.from(this.marks.entries())
-    // eslint-disable-next-line no-console
-    console.log('[RendererStartup] summary', entries)
+    for (const [label, offsetMs] of entries) {
+      window.electron?.ipcRenderer?.send(STARTUP_RENDERER_MARK, `summary.${label}`, offsetMs)
+    }
   }
 }
 

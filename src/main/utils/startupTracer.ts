@@ -1,3 +1,7 @@
+import { createPerfLogger } from '@main/services/logging/LogService'
+
+const logger = createPerfLogger('Startup')
+
 export class StartupTracer {
   private readonly t0 = performance.now()
   private marks = new Map<string, number>()
@@ -5,16 +9,16 @@ export class StartupTracer {
   mark(label: string): void {
     const t = performance.now() - this.t0
     this.marks.set(label, t)
-    console.log(`[Startup] ${label} +${t.toFixed(1)}ms`)
+    logger.info('mark', { label, offsetMs: Number(t.toFixed(1)) })
   }
 
   report(): void {
     const entries = Array.from(this.marks.entries())
-    console.log('[Startup] summary', entries)
+    logger.info('summary', { entries })
   }
 
   reportWithLabel(label: string): void {
     const entries = Array.from(this.marks.entries())
-    console.log(`[Startup] summary (${label})`, entries)
+    logger.info('summary', { label, entries })
   }
 }
