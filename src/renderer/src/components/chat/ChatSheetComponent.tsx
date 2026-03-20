@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
 import { getAllChat } from '@renderer/db/ChatRepository'
-import { invokeDbScheduledTasksByChatUuid, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
+import { invokeDbScheduledTasksByChatUuid, invokeOpenExternal, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
 import { useChatStore } from '@renderer/store'
 import { useSheetStore } from '@renderer/store/sheet'
 import { switchWorkspace } from '@renderer/utils/workspaceUtils'
@@ -350,9 +350,29 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                     <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span>v1.0.0</span>
                         <div className="flex items-center gap-2">
-                            <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors">GitHub</a>
+                            <a
+                                id="github"
+                                href="https://github.com/gnl00/-i-ati"
+                                onClick={(event) => {
+                                    event.preventDefault()
+                                    void invokeOpenExternal('https://github.com/gnl00/-i-ati')
+                                }}
+                                className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                            >
+                                GitHub
+                            </a>
                             <span>·</span>
-                            <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Docs</a>
+                            <a
+                                id="plugins"
+                                href="https://github.com/gnl00/atiapp-plugins"
+                                onClick={(event) => {
+                                    event.preventDefault()
+                                    void invokeOpenExternal('https://github.com/gnl00/atiapp-plugins')
+                                }}
+                                className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                            >
+                                Plugins
+                            </a>
                         </div>
                     </div>
                 </div>
