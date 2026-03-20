@@ -6,10 +6,17 @@ import type { ChatRunInputState } from '../preparation'
 const buildUserMessage = (
   model: AccountModel,
   textCtx: string,
-  mediaCtx: ClipbordImg[] | string[]
+  mediaCtx: ClipbordImg[] | string[],
+  source?: string
 ): ChatMessage => {
   const createdAt = Date.now()
-  let messageBody: ChatMessage = { role: 'user', content: '', segments: [], createdAt }
+  let messageBody: ChatMessage = {
+    role: 'user',
+    content: '',
+    segments: [],
+    createdAt,
+    ...(source ? { source } : {})
+  }
 
   if (model.type === 'llm' || model.type === 'img_gen') {
     return { ...messageBody, content: textCtx.trim() }
@@ -37,7 +44,7 @@ export class ChatStepStore implements ConversationStore {
     input: ChatRunInputState
   ): MessageEntity {
     const entity: MessageEntity = {
-      body: buildUserMessage(model, input.textCtx, input.mediaCtx),
+      body: buildUserMessage(model, input.textCtx, input.mediaCtx, input.source),
       chatId: chatEntity.id,
       chatUuid: chatEntity.uuid
     }
@@ -99,8 +106,7 @@ export class ChatStepStore implements ConversationStore {
       body: {
         ...finalAssistantMessage.body,
         content,
-        typewriterCompleted: true,
-        source: finalAssistantMessage.body.source ?? 'schedule'
+        typewriterCompleted: true
       }
     }
 

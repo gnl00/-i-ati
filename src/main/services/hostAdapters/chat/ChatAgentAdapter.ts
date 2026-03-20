@@ -87,6 +87,7 @@ export class ChatAgentAdapter {
 
     return {
       runResult: {
+        userMessageId: chatContext.createdMessages[0]?.id,
         assistantMessageId,
         usage: stepResult.usage ?? messageManager.getLastUsage(),
         state: 'completed'

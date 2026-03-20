@@ -39,6 +39,10 @@ export class ChatRunService {
   cancel(submissionId: string): void {
     this.runtime.runManager.cancel(submissionId)
   }
+
+  hasActiveRunForChat(chatUuid: string): boolean {
+    return this.runtime.runManager.hasActiveRunForChat(chatUuid)
+  }
 }
 
 export type { MainChatRunInput } from '@main/services/hostAdapters/chat'

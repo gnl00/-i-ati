@@ -77,14 +77,16 @@ describe('ScheduleToolsProcessor', () => {
     expect(res.message).toContain('Invalid run_at')
   })
 
-  it('fails schedule_create when run_at is too soon', async () => {
+  it('clamps schedule_create run_at to minimum delay when it is too soon', async () => {
     const res = await processScheduleCreate({
       chat_uuid: 'chat-1',
       goal: 'test',
       run_at: new Date(now.getTime() + 5000).toISOString()
     })
-    expect(res.success).toBe(false)
-    expect(res.message).toContain('at least')
+    expect(res.success).toBe(true)
+    expect(res.task).toBeDefined()
+    expect(taskStore).toHaveLength(1)
+    expect(taskStore[0].run_at).toBe(now.getTime() + 30000)
   })
 
   it('creates schedule_create with valid input', async () => {
@@ -171,6 +173,32 @@ describe('ScheduleToolsProcessor', () => {
     })
     expect(res.success).toBe(true)
     expect(taskStore[0].goal).toBe('updated')
+  })
+
+  it('clamps schedule_update run_at to minimum delay when it is too soon', async () => {
+    taskStore.push({
+      id: 'task-3b',
+      chat_uuid: 'chat-3',
+      plan_id: null,
+      goal: 'test',
+      run_at: now.getTime() + 60000,
+      timezone: null,
+      status: 'pending',
+      payload: null,
+      attempt_count: 0,
+      max_attempts: 0,
+      last_error: null,
+      result_message_id: null,
+      created_at: now.getTime(),
+      updated_at: now.getTime()
+    })
+    const res = await processScheduleUpdate({
+      chat_uuid: 'chat-3',
+      id: 'task-3b',
+      run_at: new Date(now.getTime() + 5000).toISOString()
+    })
+    expect(res.success).toBe(true)
+    expect(taskStore[0].run_at).toBe(now.getTime() + 30000)
   })
 
   it('rejects cancel when task does not belong to chat_uuid', async () => {

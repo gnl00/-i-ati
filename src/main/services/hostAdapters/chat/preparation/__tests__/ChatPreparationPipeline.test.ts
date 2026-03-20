@@ -45,7 +45,7 @@ vi.mock('@shared/services/skills/SkillPromptBuilder', () => ({
 
 vi.mock('@shared/prompts', () => ({
   systemPrompt: vi.fn(() => 'system prompt'),
-  buildUserInstructionPrompt: vi.fn(() => '')
+  buildUserInstructionPrompt: vi.fn((prompt?: string) => prompt ? `<user_instruction>\n${prompt}\n</user_instruction>` : '')
 }))
 
 vi.mock('@tools/registry', () => ({
@@ -185,6 +185,33 @@ describe('ChatPreparationPipeline', () => {
       }),
       expect.objectContaining({
         role: 'assistant'
+      })
+    ]))
+  })
+
+  it('appends schedule execution context only for schedule-triggered runs', async () => {
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare({
+      ...input,
+      input: {
+        ...input.input,
+        source: 'schedule',
+        userInstruction: 'Keep the answer concise.'
+      }
+    }, emitter)
+
+    expect(prepared.runSpec.request.userInstruction).toContain('Keep the answer concise.')
+    expect(prepared.runSpec.request.userInstruction).toContain('## Schedule Execution Context')
+    expect(prepared.runSpec.request.systemPrompt).toContain('## Schedule Execution Context')
+    expect(prepared.runSpec.request.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        role: 'user',
+        content: 'hello',
+        source: 'schedule'
       })
     ]))
   })

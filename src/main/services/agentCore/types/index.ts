@@ -65,6 +65,7 @@ export type StepResult = {
 }
 
 export type RunResult = {
+  userMessageId?: number
   assistantMessageId?: number
   usage?: ITokenUsage
   state: 'completed' | 'failed' | 'aborted'

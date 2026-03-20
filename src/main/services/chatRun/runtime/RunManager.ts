@@ -78,6 +78,10 @@ export class RunManager {
     this.registry.delete(submissionId)
   }
 
+  hasActiveRunForChat(chatUuid: string): boolean {
+    return this.registry.hasActiveRunForChat(chatUuid)
+  }
+
   private createRun(input: MainChatRunInput): AgentRun {
     const emitter = this.deps.eventEmitterFactory.create({
       submissionId: input.submissionId

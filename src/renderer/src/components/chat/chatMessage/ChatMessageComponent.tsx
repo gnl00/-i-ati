@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { UserMessage } from './user-message'
 import { AssistantMessage } from './assistant-message'
 import { useMessageHover } from './use-message-hover'
+import { Timer } from 'lucide-react'
 
 interface ChatMessageComponentProps {
   index: number
@@ -34,13 +35,18 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
     return (
       <>
         {message.source && (
-          <div className="flex items-center gap-3 py-2">
+          <div className="flex items-center gap-3 py-2.5">
             <div className="h-px flex-1 bg-slate-200/70 dark:bg-slate-700/70" />
-            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-              {typeof message.content === 'string' && message.content.trim()
-                ? message.content
-                : `Scheduled`}
-            </p>
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 shadow-xs shadow-black/5 backdrop-blur-sm dark:bg-slate-900/45">
+              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-slate-100/50 text-slate-500 dark:bg-slate-800/80 dark:text-slate-300">
+                <Timer className="h-3 w-3" />
+              </span>
+              <p className="text-[11px] font-medium leading-none text-slate-500 dark:text-slate-400">
+                {typeof message.content === 'string' && message.content.trim()
+                  ? message.content
+                  : 'Scheduled'}
+              </p>
+            </div>
             <div className="h-px flex-1 bg-slate-200/70 dark:bg-slate-700/70" />
           </div>
         )}
