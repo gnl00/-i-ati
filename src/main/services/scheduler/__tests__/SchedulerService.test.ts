@@ -5,8 +5,9 @@ import { SchedulerService } from '../SchedulerService'
 import DatabaseService from '@main/services/DatabaseService'
 
 const taskStore: ScheduledTaskRow[] = []
-const { mockSubmit } = vi.hoisted(() => ({
-  mockSubmit: vi.fn().mockResolvedValue({ assistantMessageId: 42 })
+const { mockSubmit, mockHasActiveRunForChat } = vi.hoisted(() => ({
+  mockSubmit: vi.fn().mockResolvedValue({ assistantMessageId: 42 }),
+  mockHasActiveRunForChat: vi.fn(() => false)
 }))
 
 vi.mock('@main/services/DatabaseService', () => ({
@@ -75,6 +76,7 @@ vi.mock('@main/services/scheduler/event-emitter', () => ({
 vi.mock('@main/services/chatRun', () => ({
   ChatRunService: class {
     runBlocking = mockSubmit
+    hasActiveRunForChat = mockHasActiveRunForChat
   }
 }))
 
@@ -103,6 +105,8 @@ describe('SchedulerService', () => {
   beforeEach(() => {
     taskStore.length = 0
     mockSubmit.mockClear()
+    mockHasActiveRunForChat.mockReset()
+    mockHasActiveRunForChat.mockReturnValue(false)
     vi.clearAllMocks()
   })
 
@@ -130,8 +134,16 @@ describe('SchedulerService', () => {
       undefined,
       42
     )
-    expect(DatabaseService.saveMessage).toHaveBeenCalledTimes(1)
+    expect(DatabaseService.saveMessage).not.toHaveBeenCalled()
     expect(mockSubmit).toHaveBeenCalledTimes(1)
+    expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({
+        textCtx: dueTask.goal,
+        mediaCtx: [],
+        source: 'schedule',
+        stream: true
+      })
+    }))
     expect(taskStore[0].status).toBe('completed')
     expect(taskStore[0].attempt_count).toBe(1)
   })
@@ -148,6 +160,23 @@ describe('SchedulerService', () => {
 
     expect(DatabaseService.updateScheduledTaskStatus).not.toHaveBeenCalled()
     expect(taskStore[0].status).toBe('pending')
+  })
+
+  it('skips due tasks when the chat already has an active run', async () => {
+    const dueTask = buildTask({
+      id: 'task-busy-chat'
+    })
+    DatabaseService.saveScheduledTask(dueTask)
+    mockHasActiveRunForChat.mockReturnValue(true)
+
+    const scheduler = new SchedulerService()
+    await (scheduler as any).tick()
+
+    expect(mockHasActiveRunForChat).toHaveBeenCalledWith('chat-1')
+    expect(mockSubmit).not.toHaveBeenCalled()
+    expect(DatabaseService.updateScheduledTaskStatus).not.toHaveBeenCalled()
+    expect(taskStore[0].status).toBe('pending')
+    expect(taskStore[0].attempt_count).toBe(0)
   })
 
   it('retries as pending when execution fails and attempts remain', async () => {

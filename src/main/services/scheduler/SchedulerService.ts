@@ -49,12 +49,14 @@ export class SchedulerService {
 
   private async runTask(task: ScheduledTaskRow): Promise<void> {
     const nextAttempt = (task.attempt_count || 0) + 1
-    DatabaseService.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
-
     try {
       const chat = DatabaseService.getChatByUuid(task.chat_uuid)
       if (!chat?.id || !chat.uuid) {
         throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
+      }
+
+      if (this.chatRunService.hasActiveRunForChat(task.chat_uuid)) {
+        return
       }
 
       const emitter = new ScheduleEventEmitter({
@@ -71,22 +73,7 @@ export class SchedulerService {
       const prompt = payload.prompt?.trim() || task.goal
       const submissionId = uuidv4()
 
-      const userMessageId = DatabaseService.saveMessage({
-        chatId: chat.id,
-        chatUuid: chat.uuid,
-        body: {
-          role: 'user',
-          content: prompt,
-          segments: [
-            {
-              type: 'text',
-              content: prompt,
-              timestamp: Date.now()
-            }
-          ],
-          source: 'schedule'
-        }
-      })
+      DatabaseService.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
 
       const submitResult = await this.chatRunService.runBlocking({
         submissionId,
@@ -96,6 +83,7 @@ export class SchedulerService {
         input: {
           textCtx: prompt,
           mediaCtx: [],
+          source: 'schedule',
           stream: true
         }
       })
@@ -109,7 +97,9 @@ export class SchedulerService {
         assistantMessageId
       )
 
-      const userMessage = DatabaseService.getMessageById(userMessageId)
+      const userMessage = submitResult.userMessageId
+        ? DatabaseService.getMessageById(submitResult.userMessageId)
+        : undefined
       if (userMessage) {
         emitter.emit(SCHEDULE_EVENTS.MESSAGE_CREATED, { message: userMessage })
       }

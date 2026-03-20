@@ -13,6 +13,10 @@ const {
 
 vi.mock('../AgentRun', () => ({
   AgentRun: class {
+    chatUuid?: string
+    constructor(input: { chatUuid?: string }) {
+      this.chatUuid = input.chatUuid
+    }
     emitAccepted = emitAcceptedMock
     run = runMock
     cancel = cancelMock
@@ -129,6 +133,26 @@ describe('RunManager', () => {
 
     deferred.resolve({ assistantMessageId: 11, state: 'completed' })
     await deferred.promise
+  })
+
+  it('tracks whether a chat already has an active run', async () => {
+    const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as any)
+
+    const manager = createManager()
+    await manager.start({
+      ...input,
+      chatUuid: 'chat-1'
+    })
+
+    expect(manager.hasActiveRunForChat('chat-1')).toBe(true)
+    expect(manager.hasActiveRunForChat('chat-2')).toBe(false)
+
+    deferred.resolve({ assistantMessageId: 11, state: 'completed' })
+    await deferred.promise
+    await Promise.resolve()
+
+    expect(manager.hasActiveRunForChat('chat-1')).toBe(false)
   })
 
   it('returns the run result from runBlocking', async () => {

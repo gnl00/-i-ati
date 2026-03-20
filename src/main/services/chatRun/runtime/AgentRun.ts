@@ -27,6 +27,7 @@ export type AgentRunRuntime = {
 
 export class AgentRun {
   readonly submissionId: string
+  readonly chatUuid?: string
   readonly controller = new AbortController()
   readonly emitter: ChatRunEventEmitter
   private readonly lifecycle: RunLifecycleEventMapper
@@ -38,6 +39,7 @@ export class AgentRun {
     private readonly runtime: AgentRunRuntime
   ) {
     this.submissionId = input.submissionId
+    this.chatUuid = input.chatUuid
     this.emitter = runtime.emitter
     this.lifecycle = new RunLifecycleEventMapper(runtime.emitter)
   }

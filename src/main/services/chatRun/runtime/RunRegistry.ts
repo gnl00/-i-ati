@@ -18,4 +18,13 @@ export class RunRegistry {
   delete(submissionId: string): void {
     this.active.delete(submissionId)
   }
+
+  hasActiveRunForChat(chatUuid: string): boolean {
+    for (const run of this.active.values()) {
+      if (run.chatUuid === chatUuid) {
+        return true
+      }
+    }
+    return false
+  }
 }

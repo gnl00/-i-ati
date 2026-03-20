@@ -58,12 +58,9 @@ function parseRunAt(runAt: string): number | null {
   return ts
 }
 
-function ensureMinDelay(runAtMs: number): { ok: true } | { ok: false; message: string } {
+function ensureMinDelay(runAtMs: number): number {
   const minRunAt = Date.now() + MIN_DELAY_MS
-  if (runAtMs < minRunAt) {
-    return { ok: false, message: `run_at must be at least ${Math.floor(MIN_DELAY_MS / 1000)} seconds in the future` }
-  }
-  return { ok: true }
+  return runAtMs < minRunAt ? minRunAt : runAtMs
 }
 
 function emitScheduleUpdated(taskId: string): void {
@@ -87,10 +84,7 @@ export async function processScheduleCreate(args: ScheduleCreateArgs) {
     if (runAtMs === null) {
       return { success: false, message: 'Invalid run_at format. Use ISO-8601 datetime string.', currentDateTime }
     }
-    const minDelayCheck = ensureMinDelay(runAtMs)
-    if (!minDelayCheck.ok) {
-      return { success: false, message: minDelayCheck.message, currentDateTime }
-    }
+    const normalizedRunAt = ensureMinDelay(runAtMs)
 
     const now = Date.now()
     const task = {
@@ -98,7 +92,7 @@ export async function processScheduleCreate(args: ScheduleCreateArgs) {
       chat_uuid: args.chat_uuid,
       plan_id: args.plan_id ?? null,
       goal: args.goal,
-      run_at: runAtMs,
+      run_at: normalizedRunAt,
       timezone: args.timezone ?? null,
       status: 'pending' as ScheduleTaskStatus,
       payload: args.payload ? JSON.stringify(args.payload) : null,
@@ -190,11 +184,7 @@ export async function processScheduleUpdate(args: ScheduleUpdateArgs) {
       if (parsed === null) {
         return { success: false, message: 'Invalid run_at format. Use ISO-8601 datetime string.', currentDateTime }
       }
-      const minDelayCheck = ensureMinDelay(parsed)
-      if (!minDelayCheck.ok) {
-        return { success: false, message: minDelayCheck.message, currentDateTime }
-      }
-      nextRunAt = parsed
+      nextRunAt = ensureMinDelay(parsed)
     }
 
     const updated = {

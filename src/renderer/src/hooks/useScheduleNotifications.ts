@@ -25,7 +25,7 @@ export function useScheduleNotifications(chatUuid?: string | null): void {
     const unsubscribe = subscribeScheduleEvents((event: ScheduleEvent) => {
       if (event.type === SCHEDULE_EVENTS.MESSAGE_CREATED) {
         const message = event.payload?.message
-        if (!message || message.body?.source !== 'schedule') return
+        if (!message) return
         if (chatUuid && message.chatUuid === chatUuid) {
           upsertMessage(message)
         }
@@ -33,7 +33,7 @@ export function useScheduleNotifications(chatUuid?: string | null): void {
       }
       if (event.type === SCHEDULE_EVENTS.MESSAGE_UPDATED) {
         const message = event.payload?.message
-        if (!message || message.body?.source !== 'schedule') return
+        if (!message) return
         if (chatUuid && message.chatUuid === chatUuid) {
           upsertMessage(message)
         }

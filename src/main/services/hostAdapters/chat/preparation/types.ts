@@ -3,6 +3,7 @@ import type { ChatRunModelContext, RunSpec } from '@main/services/agentCore/type
 export type ChatRunInputState = {
   textCtx: string
   mediaCtx: ClipbordImg[] | string[]
+  source?: string
   tools?: any[]
   userInstruction?: string
   options?: IUnifiedRequest['options']
