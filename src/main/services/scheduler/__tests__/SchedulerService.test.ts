@@ -75,7 +75,7 @@ vi.mock('@main/services/scheduler/event-emitter', () => ({
 
 vi.mock('@main/services/chatRun', () => ({
   ChatRunService: class {
-    runBlocking = mockSubmit
+    execute = mockSubmit
     hasActiveRunForChat = mockHasActiveRunForChat
   }
 }))

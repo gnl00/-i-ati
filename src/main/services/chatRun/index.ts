@@ -19,9 +19,10 @@ export class ChatRunService {
     return await this.runtime.runManager.start(input)
   }
 
-  // Internal entry: wait for the main run pipeline, but not asynchronous post-run jobs.
-  async runBlocking(input: MainChatRunInput): Promise<RunResult> {
-    return await this.runtime.runManager.runBlocking(input)
+  // Internal entry: execute the main run pipeline and wait for its terminal result,
+  // but not asynchronous post-run jobs.
+  async execute(input: MainChatRunInput): Promise<RunResult> {
+    return await this.runtime.runManager.execute(input)
   }
 
   async executeCompression(data: ChatCompressionExecuteInput): Promise<CompressionResult> {

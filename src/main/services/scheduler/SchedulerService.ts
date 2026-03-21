@@ -88,7 +88,7 @@ export class SchedulerService {
       })
       DatabaseService.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
 
-      const submitResult = await this.chatRunService.runBlocking({
+      const submitResult = await this.chatRunService.execute({
         submissionId,
         chatId: chat.id,
         chatUuid: chat.uuid,

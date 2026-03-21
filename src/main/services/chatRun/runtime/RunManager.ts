@@ -45,8 +45,9 @@ export class RunManager {
     }
   }
 
-  // Wait for the main run pipeline to finish, but not post-run jobs like title/compression.
-  async runBlocking(input: MainChatRunInput): Promise<RunResult> {
+  // Execute the main run pipeline and wait for its terminal result,
+  // but do not wait for asynchronous post-run jobs like title/compression.
+  async execute(input: MainChatRunInput): Promise<RunResult> {
     const run = this.createRun(input)
     run.emitAccepted()
 

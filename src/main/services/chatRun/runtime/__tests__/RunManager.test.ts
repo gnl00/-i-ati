@@ -155,10 +155,10 @@ describe('RunManager', () => {
     expect(manager.hasActiveRunForChat('chat-1')).toBe(false)
   })
 
-  it('returns the run result from runBlocking', async () => {
+  it('returns the run result from execute', async () => {
     const manager = createManager()
 
-    const result = await manager.runBlocking(input)
+    const result = await manager.execute(input)
 
     expect(result).toEqual({ assistantMessageId: 1, state: 'completed' })
     expect(emitAcceptedMock).toHaveBeenCalledTimes(1)
