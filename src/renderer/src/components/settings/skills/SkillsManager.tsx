@@ -37,6 +37,25 @@ const summarizeImport = (result: ImportSkillsResult): string => {
   return parts.join(', ')
 }
 
+const getFolderDisplayParts = (folder: string): { parent?: string; name: string } => {
+  const segments = folder
+    .split(/[\\/]/)
+    .filter(Boolean)
+
+  if (segments.length === 0) {
+    return { name: folder }
+  }
+
+  if (segments.length === 1) {
+    return { name: segments[0] }
+  }
+
+  return {
+    parent: segments[segments.length - 2],
+    name: segments[segments.length - 1]
+  }
+}
+
 const SkillsManager: React.FC = () => {
   const { currentChatId } = useChatStore()
   const { appConfig, setAppConfig } = useAppConfigStore()
@@ -260,16 +279,28 @@ const SkillsManager: React.FC = () => {
               <>
                 {folders.map(folder => {
                   const isPending = pendingFolders.has(folder)
-                  const short = folder.split('/').pop() || folder
+                  const display = getFolderDisplayParts(folder)
                   return (
                     <div
                       key={folder}
                       title={folder}
-                      className="group/f flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/60 max-w-[220px] transition-colors duration-150 hover:border-gray-300 dark:hover:border-gray-600"
+                      className="group/f flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/60 max-w-[240px] transition-colors duration-150 hover:border-gray-300 dark:hover:border-gray-600"
                     >
                       <i className={`ri-folder-3-line text-[12px] shrink-0 ${isPending ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`} />
-                      <span className="font-mono text-[10.5px] text-gray-600 dark:text-gray-300 truncate">
-                        {short}
+                      <span className="min-w-0 flex items-baseline gap-1 truncate font-mono text-[10.5px]">
+                        {display.parent && (
+                          <span className="truncate text-gray-400 dark:text-gray-500">
+                            {display.parent}
+                          </span>
+                        )}
+                        {display.parent && (
+                          <span className="shrink-0 text-gray-300 dark:text-gray-600">
+                            /
+                          </span>
+                        )}
+                        <span className="truncate text-gray-700 dark:text-gray-200">
+                          {display.name}
+                        </span>
                       </span>
                       {isPending ? (
                         <span className="text-[9px] text-amber-500 shrink-0 pr-1">…</span>
