@@ -31,7 +31,7 @@ import { PluginDataService } from './database/PluginDataService'
 import { CompressedSummaryDataService } from './database/CompressedSummaryDataService'
 import { ChatRunEventDataService } from './database/ChatRunEventDataService'
 import { AssistantDataService } from './database/AssistantDataService'
-import { LocalPluginCatalogService, LocalPluginInstallService } from './plugins'
+import { LocalPluginCatalogService, LocalPluginInstallService, RemotePluginInstallService, RemotePluginRegistryService } from './plugins'
 import { createLogger } from './logging/LogService'
 
 
@@ -68,6 +68,8 @@ class DatabaseService {
   private pluginDataService?: PluginDataService
   private localPluginCatalogService?: LocalPluginCatalogService
   private localPluginInstallService?: LocalPluginInstallService
+  private remotePluginRegistryService?: RemotePluginRegistryService
+  private remotePluginInstallService?: RemotePluginInstallService
   private compressedSummaryDataService?: CompressedSummaryDataService
   private chatRunEventDataService?: ChatRunEventDataService
   private assistantDataService?: AssistantDataService
@@ -151,6 +153,11 @@ class DatabaseService {
       })
       this.localPluginCatalogService = new LocalPluginCatalogService()
       this.localPluginInstallService = new LocalPluginInstallService(this.localPluginCatalogService)
+      this.remotePluginRegistryService = new RemotePluginRegistryService()
+      this.remotePluginInstallService = new RemotePluginInstallService(
+        this.remotePluginRegistryService,
+        this.localPluginInstallService
+      )
       this.compressedSummaryDataService = new CompressedSummaryDataService({
         hasDb: () => Boolean(this.db),
         getSummaryRepo: () => this.summaryRepo
@@ -448,6 +455,28 @@ class DatabaseService {
     if (!this.localPluginInstallService) throw new Error('Local plugin install service not initialized')
     await this.localPluginInstallService.uninstall(pluginId)
     return await this.rescanLocalPlugins()
+  }
+
+  public async listRemotePlugins(): Promise<import('@shared/plugins/remoteRegistry').RemotePluginCatalogItem[]> {
+    if (!this.remotePluginRegistryService) throw new Error('Remote plugin registry service not initialized')
+    return await this.remotePluginRegistryService.listAvailablePlugins()
+  }
+
+  public async installRemotePlugin(pluginId: string): Promise<PluginEntity[]> {
+    if (!this.remotePluginInstallService) throw new Error('Remote plugin install service not initialized')
+    if (!this.pluginDataService) throw new Error('Plugin data service not initialized')
+
+    const result = await this.remotePluginInstallService.install(pluginId)
+    await this.rescanLocalPlugins()
+    this.pluginDataService.updatePluginSource(result.plugin.pluginId, 'remote')
+    this.pluginDataService.savePluginSetting(result.plugin.pluginId, 'remote_meta', {
+      repo: result.plugin.repo,
+      ref: result.plugin.ref,
+      path: result.plugin.path,
+      version: result.plugin.version,
+      installedAt: Date.now()
+    })
+    return this.getPlugins()
   }
 
   public getProviderDefinitions(): ProviderDefinition[] {

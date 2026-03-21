@@ -1,4 +1,6 @@
 export { LocalPluginCatalogService } from './LocalPluginCatalogService'
 export { LocalPluginInstallService } from './LocalPluginInstallService'
+export { RemotePluginInstallService } from './RemotePluginInstallService'
+export { RemotePluginRegistryService } from './RemotePluginRegistryService'
 export { PluginEventEmitter, pluginEventEmitter } from './event-emitter'
 export type { ScannedLocalPluginManifest } from './LocalPluginCatalogService'

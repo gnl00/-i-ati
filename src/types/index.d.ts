@@ -87,7 +87,7 @@ declare interface AppPluginConfig {
   name: string
   description?: string
   enabled?: boolean
-  source?: 'built-in' | 'local'
+  source?: 'built-in' | 'local' | 'remote'
   version?: string
   manifestPath?: string
 }
@@ -103,7 +103,7 @@ declare interface PluginEntity {
   pluginId: string
   name: string
   description?: string
-  source: 'built-in' | 'local'
+  source: 'built-in' | 'local' | 'remote'
   enabled: boolean
   version?: string
   manifestPath?: string

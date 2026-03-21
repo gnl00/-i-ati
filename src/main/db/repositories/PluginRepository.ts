@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3'
 
 interface PluginRow {
   plugin_id: string
-  source: 'built-in' | 'local'
+  source: 'built-in' | 'local' | 'remote'
   display_name: string
   description: string | null
   enabled: number

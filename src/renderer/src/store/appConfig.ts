@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
+import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import { defaultConfig } from '../config'
 
 // Initialization tracking
@@ -195,6 +196,7 @@ type AppConfigState = {
   savedMcpServerConfig: McpServerConfig
   plugins: PluginEntity[]
   savedPlugins: PluginEntity[]
+  remotePlugins: RemotePluginCatalogItem[]
   compression: CompressionConfig | undefined
 }
 
@@ -202,6 +204,7 @@ type AppConfigAction = {
   _setAppConfig: (config: IAppConfig) => void
   _setLoadedMcpServerConfig: (config: McpServerConfig) => void
   _setLoadedPlugins: (plugins: PluginEntity[]) => void
+  _setLoadedRemotePlugins: (plugins: RemotePluginCatalogItem[]) => void
   setAppConfig: (config: IAppConfig) => Promise<void>
   getAppConfig: () => IAppConfig
 
@@ -236,6 +239,8 @@ type AppConfigAction = {
   setPlugins: (plugins: PluginEntity[]) => void
   savePlugins: (plugins: PluginEntity[]) => Promise<void>
   refreshPlugins: () => Promise<void>
+  refreshRemotePlugins: () => Promise<void>
+  installRemotePlugin: (pluginId: string) => Promise<void>
   importLocalPlugin: (sourceDir: string) => Promise<void>
   uninstallLocalPlugin: (pluginId: string) => Promise<void>
 }
@@ -258,6 +263,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   savedMcpServerConfig: { mcpServers: {} },
   plugins: [],
   savedPlugins: [],
+  remotePlugins: [],
 
   // State - Compression settings
   compression: defaultConfig.compression,
@@ -301,6 +307,12 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     set({
       plugins,
       savedPlugins: plugins
+    })
+  },
+
+  _setLoadedRemotePlugins: (plugins: RemotePluginCatalogItem[]) => {
+    set({
+      remotePlugins: plugins
     })
   },
 
@@ -638,6 +650,31 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       savedPlugins: nextPlugins
     })
   },
+  refreshRemotePlugins: async () => {
+    const { getRemotePlugins } = await import('../db/PluginRepository')
+    const nextRemotePlugins = await getRemotePlugins()
+    set({
+      remotePlugins: nextRemotePlugins
+    })
+  },
+  installRemotePlugin: async (pluginId) => {
+    const { installRemotePlugin, getRemotePlugins } = await import('../db/PluginRepository')
+    const [nextPlugins, nextRemotePlugins] = await Promise.all([
+      installRemotePlugin(pluginId),
+      getRemotePlugins().catch((error) => {
+        logger.warn('remote_plugins.refresh_after_install_failed', {
+          pluginId,
+          error: error instanceof Error ? error.message : String(error)
+        })
+        return get().remotePlugins
+      })
+    ])
+    set({
+      plugins: nextPlugins,
+      savedPlugins: nextPlugins,
+      remotePlugins: nextRemotePlugins
+    })
+  },
   importLocalPlugin: async (sourceDir) => {
     const { importLocalPlugin } = await import('../db/PluginRepository')
     const nextPlugins = await importLocalPlugin(sourceDir)
@@ -663,15 +700,21 @@ export const initializeAppConfig = async (): Promise<void> => {
 
   configInitPromise = (async () => {
     try {
-      const [{ initConfig }, { getMcpServerConfig }, { getPlugins }] = await Promise.all([
+      const [{ initConfig }, { getMcpServerConfig }, { getPlugins, getRemotePlugins }] = await Promise.all([
         import('../db/ConfigRepository'),
         import('../db/McpServerRepository'),
         import('../db/PluginRepository')
       ])
-      const [loadedConfig, loadedMcpServerConfig, loadedPlugins] = await Promise.all([
+      const [loadedConfig, loadedMcpServerConfig, loadedPlugins, loadedRemotePlugins] = await Promise.all([
         initConfig(),
         getMcpServerConfig(),
-        getPlugins()
+        getPlugins(),
+        getRemotePlugins().catch((error) => {
+          logger.warn('remote_plugins.load_failed', {
+            error: error instanceof Error ? error.message : String(error)
+          })
+          return []
+        })
       ])
       logger.info('config.loaded_from_sqlite', {
         accountCount: loadedConfig.accounts?.length || 0
@@ -680,6 +723,7 @@ export const initializeAppConfig = async (): Promise<void> => {
       store._setAppConfig(loadedConfig)
       store._setLoadedMcpServerConfig(loadedMcpServerConfig)
       store._setLoadedPlugins(loadedPlugins)
+      store._setLoadedRemotePlugins(loadedRemotePlugins)
       if (!pluginEventsSubscribed) {
         const { subscribePluginEvents } = await import('../invoker/ipcInvoker')
         subscribePluginEvents((event) => {

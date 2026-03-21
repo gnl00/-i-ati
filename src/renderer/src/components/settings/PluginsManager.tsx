@@ -1,39 +1,62 @@
 import React from 'react'
+import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import InlineDeleteConfirm from './common/InlineDeleteConfirm'
 import { Label } from '@renderer/components/ui/label'
 import { Switch } from '@renderer/components/ui/switch'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
-import { builtInPluginRegistry } from '@shared/plugins/requestAdapters'
 import { toast } from 'sonner'
 
 interface PluginsManagerProps {
   plugins: PluginEntity[]
+  remotePlugins: RemotePluginCatalogItem[]
   setPlugins: (plugins: PluginEntity[]) => void
   refreshPlugins: () => Promise<void>
+  refreshRemotePlugins: () => Promise<void>
+  installRemotePlugin: (pluginId: string) => Promise<void>
   importLocalPlugin: (sourceDir: string) => Promise<void>
   uninstallLocalPlugin: (pluginId: string) => Promise<void>
 }
 
 const PluginsManager: React.FC<PluginsManagerProps> = ({
   plugins,
+  remotePlugins,
   setPlugins,
   refreshPlugins,
+  refreshRemotePlugins,
+  installRemotePlugin,
   importLocalPlugin,
   uninstallLocalPlugin
 }) => {
-  const localPlugins = React.useMemo(
-    () => plugins.filter(plugin => plugin.source === 'local'),
+  const compareVersions = React.useCallback((left?: string, right?: string): number => {
+    if (!left && !right) return 0
+    if (!left) return -1
+    if (!right) return 1
+
+    const leftParts = left.split('.').map(part => Number.parseInt(part, 10) || 0)
+    const rightParts = right.split('.').map(part => Number.parseInt(part, 10) || 0)
+    const length = Math.max(leftParts.length, rightParts.length)
+
+    for (let index = 0; index < length; index += 1) {
+      const leftValue = leftParts[index] ?? 0
+      const rightValue = rightParts[index] ?? 0
+      if (leftValue > rightValue) return 1
+      if (leftValue < rightValue) return -1
+    }
+
+    return 0
+  }, [])
+
+  const installedPlugins = React.useMemo(
+    () => plugins.filter(plugin => plugin.source !== 'built-in'),
     [plugins]
   )
-  const activeCount = localPlugins.filter(plugin => plugin.enabled).length
-  const builtInAdapters = React.useMemo(
-    () => builtInPluginRegistry.listRequestAdapterPlugins(),
-    []
-  )
+  const activeCount = installedPlugins.filter(plugin => plugin.enabled).length
   const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const [isRefreshingRemote, setIsRefreshingRemote] = React.useState(false)
   const [isImporting, setIsImporting] = React.useState(false)
+  const [installingRemotePluginId, setInstallingRemotePluginId] = React.useState<string | null>(null)
 
   const handleToggle = (pluginId: string, enabled: boolean): void => {
     setPlugins(
@@ -56,6 +79,19 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
       await refreshPlugins()
     } finally {
       setIsRefreshing(false)
+    }
+  }
+
+  const handleRefreshRemote = async (): Promise<void> => {
+    if (isRefreshingRemote) {
+      return
+    }
+
+    try {
+      setIsRefreshingRemote(true)
+      await refreshRemotePlugins()
+    } finally {
+      setIsRefreshingRemote(false)
     }
   }
 
@@ -82,16 +118,33 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
   }
 
   const handleUninstall = async (plugin: PluginEntity): Promise<void> => {
-    if (plugin.source !== 'local') {
+    if (plugin.source === 'built-in') {
       return
     }
 
     try {
       await uninstallLocalPlugin(plugin.pluginId)
-      toast.success('Local plugin uninstalled')
+      toast.success('Plugin uninstalled')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       toast.error(message || 'Failed to uninstall local plugin')
+    }
+  }
+
+  const handleRemoteInstall = async (plugin: RemotePluginCatalogItem): Promise<void> => {
+    if (installingRemotePluginId) {
+      return
+    }
+
+    try {
+      setInstallingRemotePluginId(plugin.pluginId)
+      await installRemotePlugin(plugin.pluginId)
+      toast.success('Remote plugin installed')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(message || 'Failed to install remote plugin')
+    } finally {
+      setInstallingRemotePluginId(null)
     }
   }
 
@@ -108,7 +161,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                     Plugins
                   </Label>
                   <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-                    {localPlugins.length} local
+                    {installedPlugins.length} installed
                   </Badge>
                   {activeCount > 0 && (
                     <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
@@ -146,26 +199,30 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
           </div>
 
           <div className="bg-gray-50/40 dark:bg-gray-900/30">
-            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/10">
+            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800/70 bg-gray-100 dark:bg-gray-900/10">
               <div className="flex items-center gap-2">
-                <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Local Plugins</span>
+                <span className="text-[12px] font-semibold tracking-wide text-gray-700 dark:text-gray-300">Installed Plugins</span>
                 <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
                   external
                 </Badge>
               </div>
               <p className="mt-1 text-[11.5px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                Import custom plugins from a local folder. Only local plugins can be enabled, disabled, or uninstalled here.
+                Plugins installed from local folders or the official remote registry. Built-in adapters are managed separately.
               </p>
             </div>
 
             <div className="divide-y divide-gray-100 dark:divide-gray-800/70">
-              {localPlugins.length === 0 && (
+              {installedPlugins.length === 0 && (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-[12px] text-gray-400 dark:text-gray-500">No local plugins installed.</p>
+                  <p className="text-[12px] text-gray-400 dark:text-gray-500">No installed plugins yet.</p>
                 </div>
               )}
 
-              {localPlugins.map((plugin) => {
+              {installedPlugins.map((plugin) => {
+                const remotePlugin = remotePlugins.find(item => item.pluginId === plugin.pluginId)
+                const hasRemoteUpdate = plugin.source === 'remote'
+                  && remotePlugin
+                  && compareVersions(remotePlugin.version, plugin.version) > 0
                 const requestAdapterCapabilities = plugin.capabilities
                   .filter(capability => capability.kind === 'request-adapter')
                   .map(capability => capability.data ?? {})
@@ -184,7 +241,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                           </Badge>
                         )}
                         <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
-                          local
+                          {plugin.source}
                         </Badge>
                         {requestAdapterCapabilities.length > 0 && (
                           <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-900/50 font-normal">
@@ -194,6 +251,11 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                         {plugin.version && (
                           <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-300 dark:border-emerald-900/50 font-normal">
                             v{plugin.version}
+                          </Badge>
+                        )}
+                        {hasRemoteUpdate && (
+                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:text-violet-300 dark:border-violet-900/50 font-normal">
+                            Update available
                           </Badge>
                         )}
                         {plugin.status !== 'installed' && (
@@ -233,53 +295,111 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
               })}
             </div>
 
-            <div className="px-5 py-3 border-y border-gray-100 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/10">
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Built-in Adapters</span>
-                <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
-                  built-in
-                </Badge>
+            <div className="px-5 py-3 border-y border-gray-100 dark:border-gray-800/70 bg-gray-100 dark:bg-gray-900/10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-semibold tracking-wide text-gray-700 dark:text-gray-300">Remote Plugins</span>
+                    <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
+                      registry
+                    </Badge>
+                    <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
+                      {remotePlugins.length} available
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                    Official remote catalog from the atiapp plugins registry.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void handleRefreshRemote()}
+                  disabled={isRefreshingRemote}
+                  className="h-8 px-3 text-[11px]"
+                >
+                  {isRefreshingRemote ? <i className='ri-refresh-line animate-spin'></i> : <i className='ri-refresh-line'></i>}
+                </Button>
               </div>
-              <p className="mt-1 text-[11.5px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                These adapters ship with the app and are selected from Provider settings, not installed as plugins.
-              </p>
             </div>
 
             <div className="divide-y divide-gray-100 dark:divide-gray-800/70">
-              {builtInAdapters.map((definition) => {
-                const capability = definition.capabilities.find(
-                  item => item.kind === 'request-adapter'
-                )
+              {remotePlugins.length === 0 && (
+                <div className="px-5 py-8 text-center">
+                  <p className="text-[12px] text-gray-400 dark:text-gray-500">No remote plugins available.</p>
+                </div>
+              )}
+
+              {remotePlugins.map((plugin) => {
+                const installedPlugin = plugins.find(item => item.pluginId === plugin.pluginId)
+                const hasUpdateAvailable = installedPlugin?.source === 'remote'
+                  && compareVersions(plugin.version, installedPlugin.version) > 0
+                const requestAdapterCapabilities = plugin.capabilities
+                  .filter(capability => capability.kind === 'request-adapter')
 
                 return (
                   <div
-                    key={definition.id}
+                    key={plugin.pluginId}
                     className="flex items-start justify-between gap-4 px-5 py-4"
                   >
                     <div className="flex-1 space-y-2 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 tracking-tight">{definition.name}</span>
-                        <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-900/50 font-normal">
-                          request-adapter
+                        <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 tracking-tight">{plugin.name}</span>
+                        <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:text-violet-300 dark:border-violet-900/50 font-normal">
+                          remote
                         </Badge>
-                        {capability?.kind === 'request-adapter' && (
-                          <>
-                            <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-500 border-gray-200/80 bg-transparent dark:text-gray-400 dark:border-gray-700 font-normal">
-                              {capability.providerType}
-                            </Badge>
-                            <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-500 border-gray-200/80 bg-transparent dark:text-gray-400 dark:border-gray-700 font-normal">
-                              {capability.modelTypes.join(', ')}
-                            </Badge>
-                          </>
+                        {requestAdapterCapabilities.length > 0 && (
+                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-900/50 font-normal">
+                            request-adapter
+                          </Badge>
                         )}
+                        <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-300 dark:border-emerald-900/50 font-normal">
+                          v{plugin.version}
+                        </Badge>
+                        {hasUpdateAvailable ? (
+                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:text-violet-300 dark:border-violet-900/50 font-normal">
+                            Update available
+                          </Badge>
+                        ) : installedPlugin ? (
+                          <Badge variant="secondary" className="text-[9.5px] h-[18px] px-1.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-0">
+                            Installed
+                          </Badge>
+                        ) : null}
                       </div>
-                      <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed">{definition.description}</p>
-                      <p className="font-mono text-[10px] text-gray-400/60 dark:text-gray-600 tracking-tight">{definition.id}</p>
+
+                      {plugin.description && (
+                        <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed">{plugin.description}</p>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-mono text-[10px] text-gray-400/60 dark:text-gray-600 tracking-tight">{plugin.pluginId}</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-0.5 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={hasUpdateAvailable ? 'default' : installedPlugin ? 'ghost' : 'outline'}
+                        disabled={(Boolean(installedPlugin) && !hasUpdateAvailable) || installingRemotePluginId === plugin.pluginId}
+                        onClick={() => void handleRemoteInstall(plugin)}
+                        className="h-7 px-3 text-[11px]"
+                      >
+                        {installingRemotePluginId === plugin.pluginId
+                          ? 'Installing...'
+                          : hasUpdateAvailable
+                            ? 'Update'
+                            : installedPlugin
+                            ? 'Installed'
+                            : 'Install'}
+                      </Button>
                     </div>
                   </div>
                 )
               })}
             </div>
+
           </div>
         </div>
       </div>
