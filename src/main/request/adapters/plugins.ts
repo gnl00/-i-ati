@@ -74,7 +74,7 @@ export const registerEnabledLocalRequestAdapters = async (
   register: (pluginId: string, adapter: BaseAdapter) => void
 ): Promise<void> => {
   const localPlugins = plugins.filter(plugin =>
-    plugin.source === 'local'
+    (plugin.source === 'local' || plugin.source === 'remote')
     && plugin.enabled
     && plugin.status === 'installed'
     && plugin.capabilities.some(capability => capability.kind === 'request-adapter')

@@ -1,4 +1,4 @@
-export type AppPluginSource = 'built-in' | 'local'
+export type AppPluginSource = 'built-in' | 'local' | 'remote'
 
 export type PluginCapabilityKind = 'request-adapter'
 

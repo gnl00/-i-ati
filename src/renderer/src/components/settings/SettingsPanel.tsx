@@ -6,6 +6,7 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import { Brain, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
@@ -38,10 +39,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         savedMcpServerConfig,
         saveMcpServerConfig,
         plugins,
+        remotePlugins,
         savedPlugins,
         setPlugins,
         savePlugins,
         refreshPlugins,
+        refreshRemotePlugins,
+        installRemotePlugin,
         importLocalPlugin,
         uninstallLocalPlugin
     } = useAppConfigStore()
@@ -244,8 +248,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 <TabsContent value="plugins">
                     <PluginsManager
                         plugins={plugins}
+                        remotePlugins={remotePlugins as RemotePluginCatalogItem[]}
                         setPlugins={setPlugins}
                         refreshPlugins={refreshPlugins}
+                        refreshRemotePlugins={refreshRemotePlugins}
+                        installRemotePlugin={installRemotePlugin}
                         importLocalPlugin={importLocalPlugin}
                         uninstallLocalPlugin={uninstallLocalPlugin}
                     />

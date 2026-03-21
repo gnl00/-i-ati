@@ -1,4 +1,5 @@
 import { builtInPluginRegistry } from '@shared/plugins/builtInRegistry'
+import type { AppPluginSource } from '@shared/plugins/types'
 import type { ConfigRepository } from '@main/db/repositories/ConfigRepository'
 import type { PluginCapabilityRepository } from '@main/db/repositories/PluginCapabilityRepository'
 import type { PluginRepository } from '@main/db/repositories/PluginRepository'
@@ -117,7 +118,7 @@ export class PluginDataService {
 
         pluginRepo.upsert({
           plugin_id: manifest.pluginId,
-          source: 'local',
+          source: existing?.source === 'remote' ? 'remote' : 'local',
           display_name: manifest.displayName,
           description: manifest.description ?? null,
           enabled: existing?.enabled ?? 1,
@@ -143,7 +144,7 @@ export class PluginDataService {
       })
 
       existingRows
-        .filter(row => row.source === 'local' && !nextManifestIds.has(row.plugin_id))
+        .filter(row => row.source !== 'built-in' && !nextManifestIds.has(row.plugin_id))
         .forEach((row) => {
           pluginRepo.deleteById(row.plugin_id)
           capabilityRepo.replaceByPluginId(row.plugin_id, [])
@@ -153,6 +154,35 @@ export class PluginDataService {
 
     tx()
     return this.getPlugins()
+  }
+
+  updatePluginSource(pluginId: string, source: AppPluginSource): PluginEntity[] {
+    this.assertDbReady()
+    this.ensureBuiltInPlugins()
+
+    const pluginRepo = this.requirePluginRepo()
+    const existing = pluginRepo.getAll().find(row => row.plugin_id === pluginId)
+    if (!existing) {
+      throw new Error(`Plugin not found: ${pluginId}`)
+    }
+
+    pluginRepo.upsert({
+      ...existing,
+      source,
+      updated_at: Date.now()
+    })
+
+    return this.getPlugins()
+  }
+
+  savePluginSetting(pluginId: string, key: string, value: unknown): void {
+    this.assertDbReady()
+    this.requirePluginSettingRepo().upsert({
+      plugin_id: pluginId,
+      key,
+      value_json: JSON.stringify(value),
+      updated_at: Date.now()
+    })
   }
 
   private migrateLegacyConfigIfNeeded(): void {

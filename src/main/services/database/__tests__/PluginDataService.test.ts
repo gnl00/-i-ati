@@ -203,4 +203,53 @@ describe('PluginDataService', () => {
     expect(plugins.find(plugin => plugin.pluginId === 'local-existing')).toBeUndefined()
     expect(settingRepo.deletedPluginIds).toContain('local-existing')
   })
+
+  it('preserves remote source when a remotely installed plugin is rescanned from disk', () => {
+    const pluginRepo = createPluginRepo([
+      {
+        plugin_id: 'remote-existing',
+        source: 'remote',
+        display_name: 'Remote Existing',
+        description: null,
+        enabled: 1,
+        version: '1.0.0',
+        manifest_path: '/plugins/remote-existing/plugin.json',
+        install_root: '/plugins/remote-existing',
+        status: 'installed',
+        last_error: null,
+        created_at: 1,
+        updated_at: 1
+      }
+    ])
+    const capabilityRepo = createCapabilityRepo()
+    const settingRepo = createSettingRepo()
+
+    const service = new PluginDataService({
+      hasDb: () => true,
+      getDb: () => createTransactionDb() as any,
+      getPluginRepo: () => pluginRepo as any,
+      getPluginCapabilityRepo: () => capabilityRepo as any,
+      getPluginSettingRepo: () => settingRepo as any,
+      getConfigRepo: () => undefined
+    })
+
+    const plugins = service.syncLocalPluginManifests([
+      {
+        pluginId: 'remote-existing',
+        displayName: 'Remote Existing',
+        description: 'Remote plugin',
+        version: '1.0.1',
+        manifestPath: '/plugins/remote-existing/plugin.json',
+        installRoot: '/plugins/remote-existing',
+        status: 'installed',
+        capabilities: [{
+          kind: 'request-adapter',
+          providerType: 'openai-response',
+          modelTypes: ['llm']
+        }]
+      }
+    ])
+
+    expect(plugins.find(plugin => plugin.pluginId === 'remote-existing')?.source).toBe('remote')
+  })
 })

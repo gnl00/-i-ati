@@ -5,6 +5,7 @@
 
 import type { ChatRunEvent } from '@shared/chatRun/events'
 import type { PluginEvent } from '@shared/plugins/events'
+import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import type { ScheduleEvent } from '@shared/schedule/events'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import type { ScheduleTask, ScheduleTaskStatus } from '@shared/tools/schedule'
@@ -48,6 +49,8 @@ import {
   DB_MCP_SERVERS_GET,
   DB_MCP_SERVERS_SAVE,
   DB_PLUGINS_GET,
+  DB_PLUGINS_REMOTE_INSTALL,
+  DB_PLUGINS_REMOTE_LIST,
   DB_PLUGINS_IMPORT,
   DB_PLUGINS_RESCAN,
   DB_PLUGINS_SAVE,
@@ -644,6 +647,16 @@ export async function invokeChatTitleGenerate(data: {
 export async function invokeDbScheduledTasksByChatUuid(chatUuid: string): Promise<ScheduleTask[]> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, chatUuid)
+}
+
+export async function invokeDbPluginsRemoteList(): Promise<RemotePluginCatalogItem[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PLUGINS_REMOTE_LIST)
+}
+
+export async function invokeDbPluginsRemoteInstall(pluginId: string): Promise<PluginEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_PLUGINS_REMOTE_INSTALL, pluginId)
 }
 
 export async function invokeDbScheduledTaskUpdateStatus(args: {

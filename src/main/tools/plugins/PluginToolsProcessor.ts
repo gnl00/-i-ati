@@ -17,7 +17,7 @@ type ListPluginsResponse = {
   plugins: Array<{
     pluginId: string
     name: string
-    source: 'built-in' | 'local'
+    source: 'built-in' | 'local' | 'remote'
     enabled: boolean
     version?: string
     status: PluginStatus
