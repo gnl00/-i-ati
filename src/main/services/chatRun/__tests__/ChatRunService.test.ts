@@ -253,7 +253,7 @@ describe('ChatRunService', () => {
     await deferred.promise
   })
 
-  it('does not wait for post-run title or compression jobs before resolving runBlocking', async () => {
+  it('does not wait for post-run title or compression jobs before resolving execute', async () => {
     const titleDeferred = createDeferred<string>()
     const compressionDeferred = createDeferred<any>()
     generateTitleMock.mockReturnValueOnce(titleDeferred.promise)
@@ -284,7 +284,7 @@ describe('ChatRunService', () => {
     })
 
     const service = new ChatRunService()
-    const result = await service.runBlocking({
+    const result = await service.execute({
       submissionId: 'submission-2',
       chatId: 1,
       modelRef: { accountId: 'account-1', modelId: 'model-1' },
@@ -296,10 +296,12 @@ describe('ChatRunService', () => {
     })
 
     expect(result).toEqual({
+      userMessageId: 101,
       assistantMessageId: 102,
       usage: undefined,
       state: 'completed'
     })
+    await Promise.resolve()
     expect(generateTitleMock).toHaveBeenCalledTimes(1)
     expect(compressionExecuteMock).toHaveBeenCalledTimes(1)
     expect(emitterInstances.some(instance =>
