@@ -125,10 +125,10 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
     <div
       className={cn(
         'group relative overflow-hidden rounded-[18px] border transition-all duration-300',
-        'bg-white/72 shadow-[0_12px_42px_-26px_rgba(15,23,42,0.42)] backdrop-blur-xl',
+        'bg-white/72 shadow-xs backdrop-blur-xl',
         'dark:bg-slate-950/55 dark:shadow-[0_14px_44px_-28px_rgba(2,6,23,0.78)]',
         'border-white/70 dark:border-white/10',
-        'hover:-translate-y-0.5 hover:shadow-[0_18px_54px_-30px_rgba(15,23,42,0.46)]',
+        'hover:-translate-y-0.5 hover:shadow-sm',
         mode === 'installed' && 'ring-1 ring-emerald-500/10 dark:ring-emerald-400/10',
         installed && mode === 'registry' && 'opacity-75 hover:opacity-100'
       )}
@@ -138,7 +138,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
         opacity: 0
       } : undefined}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-br from-white/55 via-white/10 to-transparent dark:from-white/10 dark:via-white/[0.03] dark:to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-linear-to-br from-white/55 via-white/10 to-transparent dark:from-white/10 dark:via-white/3 dark:to-transparent" />
 
       <div className="relative flex h-full flex-col gap-2.5 p-3">
         <div className="flex items-start gap-2.5">

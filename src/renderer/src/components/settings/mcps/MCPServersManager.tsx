@@ -1,4 +1,3 @@
-import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
 import { Button } from '@renderer/components/ui/button'
 import {
   Drawer,
@@ -34,6 +33,7 @@ import type {
   RegistryServerItem
 } from './MCPServersManager.types'
 import MCPServerCard from './MCPServerCard'
+import MCPTabSwitcher from './MCPTabSwitcher'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const API_BASE_URL = 'https://registry.modelcontextprotocol.io/v0.1/servers'
@@ -262,17 +262,10 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
         {/* ── Tab bar + toolbar ─────────────────────────────────── */}
         <div className="flex items-center justify-between mx-4 mt-4 mb-0">
-          <AnimatedTabsList
-            tabs={[
-              {
-                value: 'local',
-                label: `Installed (${Object.keys(mcpServerConfig.mcpServers || {}).length})`,
-                icon: <Server className="h-3.5 w-3.5" />
-              },
-              { value: 'registry', label: 'Registry', icon: <Globe className="h-3.5 w-3.5" /> }
-            ]}
+          <MCPTabSwitcher
             value={activeTab}
-            tabsListClassName="h-9"
+            installedCount={Object.keys(mcpServerConfig.mcpServers || {}).length}
+            onValueChange={setActiveTab}
           />
 
           {activeTab === 'local' && (
