@@ -37,6 +37,7 @@ import MCPServerCard from './MCPServerCard'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const API_BASE_URL = 'https://registry.modelcontextprotocol.io/v0.1/servers'
+const REGISTRY_PAGE_SIZE = 15
 
 // Content props (without drawer-specific props)
 export interface MCPServersManagerContentProps {
@@ -84,8 +85,8 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
     setIsFetching(true)
     try {
       const url = cursor
-        ? `${API_BASE_URL}?limit=96&cursor=${cursor}&version=latest`
-        : `${API_BASE_URL}?limit=96&version=latest`
+        ? `${API_BASE_URL}?limit=${REGISTRY_PAGE_SIZE}&cursor=${cursor}&version=latest`
+        : `${API_BASE_URL}?limit=${REGISTRY_PAGE_SIZE}&version=latest`
 
       const response = await fetch(url)
       if (!response.ok) {
@@ -118,8 +119,8 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
     setIsSearching(true)
     try {
-      const url = `${API_BASE_URL}?limit=96&search=${encodeURIComponent(keyword)}&version=latest`
-      const response = await fetch(url)
+      const limitedUrl = `${API_BASE_URL}?limit=${REGISTRY_PAGE_SIZE}&search=${encodeURIComponent(keyword)}&version=latest`
+      const response = await fetch(limitedUrl)
       if (!response.ok) throw new Error(`Search failed: ${response.statusText}`)
       const data: RegistryResponse = await response.json()
       setSearchResults(data.servers)
