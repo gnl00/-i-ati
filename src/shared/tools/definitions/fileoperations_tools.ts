@@ -2,8 +2,8 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "read_text_file",
-      "description": "Read the contents of a text file from the local filesystem. Supports reading specific line ranges and different encodings.",
+      "name": "read",
+      "description": "Read the contents of a text file from the local filesystem. Use this after locating the target file or line range.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -23,6 +23,14 @@ export default [
           "end_line": {
             "type": "number",
             "description": "Optional: The line number to stop reading at (inclusive)."
+          },
+          "around_line": {
+            "type": "number",
+            "description": "Optional: Center the read around this 1-indexed line number. Ignored when start_line or end_line is provided."
+          },
+          "window_size": {
+            "type": "number",
+            "description": "Optional: Maximum number of lines to return when using around_line or when no explicit range is provided. Defaults to 200."
           }
         },
         "required": ["file_path"],
@@ -33,8 +41,8 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "read_media_file",
-      "description": "Read a media file (image, video, audio, etc.) and return its content as base64 encoded string with MIME type information.",
+      "name": "read_media",
+      "description": "Read a media file (image, video, audio, etc.) and return its content as a base64 encoded string with MIME type information.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -51,34 +59,8 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "read_multiple_files",
-      "description": "Read multiple text files at once. Returns an array of file contents with their paths and metadata.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "file_paths": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Array of absolute file paths to read."
-          },
-          "encoding": {
-            "type": "string",
-            "description": "The file encoding (default: utf-8).",
-            "default": "utf-8"
-          }
-        },
-        "required": ["file_paths"],
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "write_file",
-      "description": "Write content to a file on the local filesystem. Can create parent directories and backup existing files.",
+      "name": "write",
+      "description": "Write content to a file on the local filesystem. Can create parent directories and back up existing files.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -114,7 +96,7 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "edit_file",
+      "name": "edit",
       "description": "Edit a file by searching for a pattern and replacing it with new content. Supports both string and regex matching.",
       "parameters": {
         "type": "object",
@@ -150,51 +132,14 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "search_file",
-      "description": "Search for a pattern in a file and return all matching lines with their line numbers and positions.",
+      "name": "grep",
+      "description": "Search for a pattern in a file or directory tree and return matching lines with file paths, line numbers, and positions.",
       "parameters": {
         "type": "object",
         "properties": {
-          "file_path": {
+          "path": {
             "type": "string",
-            "description": "The absolute path to the file to search."
-          },
-          "pattern": {
-            "type": "string",
-            "description": "The text or regex pattern to search for."
-          },
-          "regex": {
-            "type": "boolean",
-            "description": "Whether to use regex for searching (default: false).",
-            "default": false
-          },
-          "case_sensitive": {
-            "type": "boolean",
-            "description": "Whether the search should be case-sensitive (default: true).",
-            "default": true
-          },
-          "max_results": {
-            "type": "number",
-            "description": "Maximum number of results to return (default: 100).",
-            "default": 100
-          }
-        },
-        "required": ["file_path", "pattern"],
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "search_files",
-      "description": "Search for a pattern across multiple files in a directory. Returns matches with file paths, line numbers, and content.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "directory_path": {
-            "type": "string",
-            "description": "The directory path to search in."
+            "description": "The file or directory path to search in."
           },
           "pattern": {
             "type": "string",
@@ -217,10 +162,10 @@ export default [
           },
           "file_pattern": {
             "type": "string",
-            "description": "Optional regex pattern to filter files by name."
+            "description": "Optional regex pattern to filter file names when path is a directory."
           }
         },
-        "required": ["directory_path", "pattern"],
+        "required": ["path", "pattern"],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
@@ -228,17 +173,22 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "list_directory",
-      "description": "List all files and directories in a given directory path.",
+      "name": "ls",
+      "description": "List files and directories in a given path. Use this to inspect a directory before reading or editing files.",
       "parameters": {
         "type": "object",
         "properties": {
-          "directory_path": {
+          "path": {
             "type": "string",
             "description": "The directory path to list."
+          },
+          "details": {
+            "type": "boolean",
+            "description": "Whether to include file sizes and modification timestamps.",
+            "default": false
           }
         },
-        "required": ["directory_path"],
+        "required": ["path"],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
@@ -246,17 +196,26 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "list_directory_with_sizes",
-      "description": "List all files and directories with their sizes and modification times.",
+      "name": "glob",
+      "description": "Find files or directories by glob-style path pattern, such as src/**/*.ts or **/*.test.ts.",
       "parameters": {
         "type": "object",
         "properties": {
-          "directory_path": {
+          "path": {
             "type": "string",
-            "description": "The directory path to list."
+            "description": "The root directory path to search from."
+          },
+          "pattern": {
+            "type": "string",
+            "description": "The glob pattern to match relative paths against."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results to return (default: 100).",
+            "default": 100
           }
         },
-        "required": ["directory_path"],
+        "required": ["path", "pattern"],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
@@ -264,14 +223,14 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "directory_tree",
-      "description": "Build a recursive tree structure of a directory with configurable depth.",
+      "name": "tree",
+      "description": "Build a recursive tree structure of a directory with configurable depth. Use only when a flat ls result is not enough.",
       "parameters": {
         "type": "object",
         "properties": {
-          "directory_path": {
+          "path": {
             "type": "string",
-            "description": "The directory path to build tree for."
+            "description": "The directory path to build a tree for."
           },
           "max_depth": {
             "type": "number",
@@ -279,7 +238,7 @@ export default [
             "default": 3
           }
         },
-        "required": ["directory_path"],
+        "required": ["path"],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
@@ -287,14 +246,14 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "get_file_info",
+      "name": "stat",
       "description": "Get detailed information about a file or directory including size, permissions, and timestamps.",
       "parameters": {
         "type": "object",
         "properties": {
           "file_path": {
             "type": "string",
-            "description": "The file or directory path to get info for."
+            "description": "The file or directory path to inspect."
           }
         },
         "required": ["file_path"],
@@ -305,7 +264,7 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "create_directory",
+      "name": "mkdir",
       "description": "Create a new directory at the specified path. Can create parent directories recursively.",
       "parameters": {
         "type": "object",
@@ -328,7 +287,7 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "move_file",
+      "name": "mv",
       "description": "Move or rename a file or directory from source to destination path.",
       "parameters": {
         "type": "object",

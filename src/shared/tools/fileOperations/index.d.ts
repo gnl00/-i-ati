@@ -10,6 +10,8 @@ export interface ReadTextFileArgs {
   encoding?: string
   start_line?: number
   end_line?: number
+  around_line?: number
+  window_size?: number
 }
 
 export interface ReadTextFileResponse {
@@ -17,6 +19,9 @@ export interface ReadTextFileResponse {
   file_path?: string
   content?: string
   lines?: number
+  returned_start_line?: number
+  returned_end_line?: number
+  truncated?: boolean
   error?: string
 }
 
@@ -269,3 +274,95 @@ export interface MoveFileResponse {
   destination_path?: string
   error?: string
 }
+
+// ============ Claude-style Aliases ============
+export interface ReadArgs extends ReadTextFileArgs {}
+export interface ReadResponse extends ReadTextFileResponse {}
+
+export interface ReadMediaArgs extends ReadMediaFileArgs {}
+export interface ReadMediaResponse extends ReadMediaFileResponse {}
+
+export interface WriteArgs extends WriteFileArgs {}
+export interface WriteResponse extends WriteFileResponse {}
+
+export interface EditArgs extends EditFileArgs {}
+export interface EditResponse extends EditFileResponse {}
+
+export interface GrepArgs {
+  path: string
+  chat_uuid?: string
+  pattern: string
+  regex?: boolean
+  case_sensitive?: boolean
+  max_results?: number
+  file_pattern?: string
+}
+
+export interface GrepResponse {
+  success: boolean
+  path?: string
+  target_type?: 'file' | 'directory'
+  matches?: FileSearchMatch[]
+  total_matches?: number
+  files_searched?: number
+  error?: string
+}
+
+export interface LsArgs {
+  path: string
+  chat_uuid?: string
+  details?: boolean
+}
+
+export interface LsEntry extends DirectoryEntryWithSize {}
+
+export interface LsResponse {
+  success: boolean
+  path?: string
+  entries?: LsEntry[]
+  total_count?: number
+  error?: string
+}
+
+export interface TreeArgs {
+  path: string
+  chat_uuid?: string
+  max_depth?: number
+}
+
+export interface TreeResponse {
+  success: boolean
+  path?: string
+  tree?: TreeNode
+  error?: string
+}
+
+export interface GlobArgs {
+  path: string
+  chat_uuid?: string
+  pattern: string
+  max_results?: number
+}
+
+export interface GlobMatch {
+  path: string
+  name: string
+  type: 'file' | 'directory'
+}
+
+export interface GlobResponse {
+  success: boolean
+  path?: string
+  matches?: GlobMatch[]
+  total_matches?: number
+  error?: string
+}
+
+export interface StatArgs extends GetFileInfoArgs {}
+export interface StatResponse extends GetFileInfoResponse {}
+
+export interface MkdirArgs extends CreateDirectoryArgs {}
+export interface MkdirResponse extends CreateDirectoryResponse {}
+
+export interface MvArgs extends MoveFileArgs {}
+export interface MvResponse extends MoveFileResponse {}

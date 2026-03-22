@@ -8,15 +8,23 @@ import { createLogger } from '@main/services/logging/LogService'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,
+  ReadArgs,
+  ReadResponse,
   ReadMediaFileArgs,
   ReadMediaFileResponse,
+  ReadMediaArgs,
+  ReadMediaResponse,
   ReadMultipleFilesArgs,
   ReadMultipleFilesResponse,
   FileContent,
   WriteFileArgs,
   WriteFileResponse,
+  WriteArgs,
+  WriteResponse,
   EditFileArgs,
   EditFileResponse,
+  EditArgs,
+  EditResponse,
   SearchFileArgs,
   SearchFileResponse,
   SearchMatch,
@@ -32,18 +40,37 @@ import type {
   SearchFilesArgs,
   SearchFilesResponse,
   FileSearchMatch,
+  GrepArgs,
+  GrepResponse,
+  LsArgs,
+  LsEntry,
+  LsResponse,
+  TreeArgs,
+  TreeResponse,
+  GlobArgs,
+  GlobMatch,
+  GlobResponse,
   GetFileInfoArgs,
   GetFileInfoResponse,
   FileInfo,
+  StatArgs,
+  StatResponse,
   ListAllowedDirectoriesArgs,
   ListAllowedDirectoriesResponse,
   CreateDirectoryArgs,
   CreateDirectoryResponse,
+  MkdirArgs,
+  MkdirResponse,
   MoveFileArgs,
-  MoveFileResponse
+  MoveFileResponse,
+  MvArgs,
+  MvResponse
 } from '@tools/fileOperations/index.d'
 
 const logger = createLogger('FileOperationsProcessor')
+const DEFAULT_READ_WINDOW_SIZE = 200
+const MAX_READ_WINDOW_SIZE = 500
+const DEFAULT_GLOB_MAX_RESULTS = 100
 
 // ============ Helper Functions ============
 
@@ -129,13 +156,130 @@ function resolveFilePath(relativePath: string, chatUuid?: string, baseDirOverrid
 
 // ============ Read Operations ============
 
+function clampReadWindowSize(windowSize?: number): number {
+  if (!Number.isFinite(windowSize) || !windowSize || windowSize < 1) {
+    return DEFAULT_READ_WINDOW_SIZE
+  }
+
+  return Math.min(Math.floor(windowSize), MAX_READ_WINDOW_SIZE)
+}
+
+function normalizeLineNumber(line?: number): number | undefined {
+  if (!Number.isFinite(line) || line === undefined) {
+    return undefined
+  }
+
+  return Math.max(1, Math.floor(line))
+}
+
+function resolveReadWindow(
+  totalLines: number,
+  startLine?: number,
+  endLine?: number,
+  aroundLine?: number,
+  windowSize?: number
+): { startIndex: number, endIndex: number, truncated: boolean } {
+  const normalizedStartLine = normalizeLineNumber(startLine)
+  const normalizedEndLine = normalizeLineNumber(endLine)
+  const normalizedAroundLine = normalizeLineNumber(aroundLine)
+  const implicitWindowSize = clampReadWindowSize(windowSize)
+
+  if (normalizedStartLine !== undefined || normalizedEndLine !== undefined) {
+    const explicitWindowSize = windowSize === undefined ? MAX_READ_WINDOW_SIZE : clampReadWindowSize(windowSize)
+    const startIndex = Math.max(0, (normalizedStartLine ?? 1) - 1)
+    const requestedEndIndex = normalizedEndLine ? Math.min(totalLines, normalizedEndLine) : totalLines
+    const cappedEndIndex = Math.min(totalLines, startIndex + explicitWindowSize)
+    const endIndex = Math.max(startIndex, Math.min(requestedEndIndex, cappedEndIndex))
+    return {
+      startIndex,
+      endIndex,
+      truncated: requestedEndIndex > cappedEndIndex
+    }
+  }
+
+  if (normalizedAroundLine !== undefined) {
+    const targetIndex = Math.min(totalLines - 1, Math.max(0, normalizedAroundLine - 1))
+    const linesBefore = Math.floor((implicitWindowSize - 1) / 2)
+    let startIndex = Math.max(0, targetIndex - linesBefore)
+    let endIndex = Math.min(totalLines, startIndex + implicitWindowSize)
+    startIndex = Math.max(0, endIndex - implicitWindowSize)
+
+    return {
+      startIndex,
+      endIndex,
+      truncated: totalLines > (endIndex - startIndex)
+    }
+  }
+
+  return {
+    startIndex: 0,
+    endIndex: Math.min(totalLines, implicitWindowSize),
+    truncated: totalLines > implicitWindowSize
+  }
+}
+
+function createSearchPattern(pattern: string, regex = false, caseSensitive = true): RegExp {
+  if (regex) {
+    const flags = caseSensitive ? 'g' : 'gi'
+    return new RegExp(pattern, flags)
+  }
+
+  const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const flags = caseSensitive ? 'g' : 'gi'
+  return new RegExp(escapedPattern, flags)
+}
+
+function normalizePathForMatching(value: string): string {
+  return value.replace(/\\/g, '/')
+}
+
+function globPatternToRegExp(pattern: string): RegExp {
+  const normalized = normalizePathForMatching(pattern)
+  let regex = '^'
+
+  for (let index = 0; index < normalized.length; index++) {
+    const char = normalized[index]
+    const nextChar = normalized[index + 1]
+
+    if (char === '*') {
+      if (nextChar === '*') {
+        if (normalized[index + 2] === '/') {
+          regex += '(?:.*/)?'
+          index += 2
+          continue
+        }
+        regex += '.*'
+        index++
+      } else {
+        regex += '[^/]*'
+      }
+      continue
+    }
+
+    if (char === '?') {
+      regex += '[^/]'
+      continue
+    }
+
+    if ('\\^$+?.()|{}[]'.includes(char)) {
+      regex += `\\${char}`
+      continue
+    }
+
+    regex += char
+  }
+
+  regex += '$'
+  return new RegExp(regex)
+}
+
 /**
  * Read Text File Processor
  * 读取文本文件内容，支持指定行范围
  */
 export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
   try {
-    const { file_path, chat_uuid, encoding = 'utf-8', start_line, end_line } = args
+    const { file_path, chat_uuid, encoding = 'utf-8', start_line, end_line, around_line, window_size } = args
     const absolutePath = resolveFilePath(file_path, chat_uuid)
     logger.debug('read_text_file.exists_check', { absolutePath, exists: existsSync(absolutePath) })
 
@@ -147,20 +291,41 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
     const content = await readFile(absolutePath, encoding as BufferEncoding)
     const lines = content.split('\n')
     const totalLines = lines.length
+    const { startIndex, endIndex, truncated } = resolveReadWindow(
+      totalLines,
+      start_line,
+      end_line,
+      around_line,
+      window_size
+    )
+    const resultContent = lines.slice(startIndex, endIndex).join('\n')
+    const returnedStartLine = startIndex + 1
+    const returnedEndLine = endIndex
 
-    let resultContent = content
-    if (start_line !== undefined || end_line !== undefined) {
-      const start = Math.max(0, (start_line || 1) - 1)
-      const end = end_line ? Math.min(totalLines, end_line) : totalLines
-      resultContent = lines.slice(start, end).join('\n')
+    logger.info('read_text_file.success', {
+      filePath: file_path,
+      totalLines,
+      returnedStartLine,
+      returnedEndLine,
+      truncated
+    })
+    return {
+      success: true,
+      file_path,
+      content: resultContent,
+      lines: totalLines,
+      returned_start_line: returnedStartLine,
+      returned_end_line: returnedEndLine,
+      truncated
     }
-
-    logger.info('read_text_file.success', { filePath: file_path, totalLines })
-    return { success: true, file_path, content: resultContent, lines: totalLines }
   } catch (error: any) {
     logger.error('read_text_file.failed', error)
     return { success: false, error: error.message || 'Failed to read file' }
   }
+}
+
+export async function processRead(args: ReadArgs): Promise<ReadResponse> {
+  return processReadTextFile(args)
 }
 
 /**
@@ -190,9 +355,13 @@ export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<Rea
   }
 }
 
+export async function processReadMedia(args: ReadMediaArgs): Promise<ReadMediaResponse> {
+  return processReadMediaFile(args)
+}
+
 /**
- * Read Multiple Files Processor
- * 批量读取多个文件
+ * Deprecated compatibility path kept for renderer IPC.
+ * Embedded tools no longer expose multi-file reads.
  */
 export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Promise<ReadMultipleFilesResponse> {
   try {
@@ -264,6 +433,10 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
   }
 }
 
+export async function processWrite(args: WriteArgs): Promise<WriteResponse> {
+  return processWriteFile(args)
+}
+
 /**
  * Edit File Processor
  * 编辑文件内容，支持字符串替换和正则替换
@@ -319,6 +492,10 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
   }
 }
 
+export async function processEdit(args: EditArgs): Promise<EditResponse> {
+  return processEditFile(args)
+}
+
 // ============ Search Operations ============
 
 /**
@@ -339,15 +516,7 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
     const lines = content.split('\n')
     const matches: SearchMatch[] = []
 
-    let searchPattern: RegExp
-    if (regex) {
-      const flags = case_sensitive ? '' : 'i'
-      searchPattern = new RegExp(pattern, flags)
-    } else {
-      const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const flags = case_sensitive ? 'g' : 'gi'
-      searchPattern = new RegExp(escapedPattern, flags)
-    }
+    const searchPattern = createSearchPattern(pattern, regex, case_sensitive)
 
     for (let i = 0; i < lines.length && matches.length < max_results; i++) {
       const line = lines[i]
@@ -412,15 +581,7 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
             const content = await readFile(itemPath, 'utf-8')
             const lines = content.split('\n')
 
-            let searchPattern: RegExp
-            if (regex) {
-              const flags = case_sensitive ? '' : 'i'
-              searchPattern = new RegExp(pattern, flags)
-            } else {
-              const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-              const flags = case_sensitive ? 'g' : 'gi'
-              searchPattern = new RegExp(escapedPattern, flags)
-            }
+            const searchPattern = createSearchPattern(pattern, regex, case_sensitive)
 
             for (let i = 0; i < lines.length && matches.length < max_results; i++) {
               const line = lines[i]
@@ -450,6 +611,69 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
   } catch (error: any) {
     logger.error('search_files.failed', error)
     return { success: false, error: error.message || 'Failed to search files' }
+  }
+}
+
+export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
+  try {
+    const { path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
+    const absolutePath = resolveFilePath(path, chat_uuid)
+    logger.info('grep.start', { path, absolutePath })
+
+    if (!existsSync(absolutePath)) {
+      return { success: false, error: `Path not found: ${path}` }
+    }
+
+    const targetStats = await stat(absolutePath)
+
+    if (targetStats.isFile()) {
+      const fileResult = await processSearchFile({
+        file_path: path,
+        chat_uuid,
+        pattern,
+        regex,
+        case_sensitive,
+        max_results
+      })
+
+      return {
+        success: fileResult.success,
+        path,
+        target_type: 'file',
+        matches: (fileResult.matches || []).map((match) => ({
+          file_path: path,
+          line: match.line,
+          content: match.content,
+          column: match.column
+        })),
+        total_matches: fileResult.total_matches,
+        files_searched: fileResult.success ? 1 : 0,
+        error: fileResult.error
+      }
+    }
+
+    const directoryResult = await processSearchFiles({
+      directory_path: path,
+      chat_uuid,
+      pattern,
+      regex,
+      case_sensitive,
+      max_results,
+      file_pattern
+    })
+
+    return {
+      success: directoryResult.success,
+      path,
+      target_type: 'directory',
+      matches: directoryResult.matches,
+      total_matches: directoryResult.total_matches,
+      files_searched: directoryResult.files_searched,
+      error: directoryResult.error
+    }
+  } catch (error: any) {
+    logger.error('grep.failed', error)
+    return { success: false, error: error.message || 'Failed to grep path' }
   }
 }
 
@@ -533,6 +757,37 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
   }
 }
 
+export async function processLs(args: LsArgs): Promise<LsResponse> {
+  try {
+    const { path, chat_uuid, details = false } = args
+    const result = details
+      ? await processListDirectoryWithSizes({ directory_path: path, chat_uuid })
+      : await processListDirectory({ directory_path: path, chat_uuid })
+
+    if (!result.success) {
+      return { success: false, error: result.error }
+    }
+
+    const entries: LsEntry[] = (result.entries || []).map((entry: DirectoryEntry | DirectoryEntryWithSize) => ({
+      name: entry.name,
+      type: entry.type,
+      path: entry.path,
+      size: 'size' in entry ? entry.size : undefined,
+      modified: 'modified' in entry ? entry.modified : undefined
+    }))
+
+    return {
+      success: true,
+      path,
+      entries,
+      total_count: result.total_count
+    }
+  } catch (error: any) {
+    logger.error('ls.failed', error)
+    return { success: false, error: error.message || 'Failed to list directory' }
+  }
+}
+
 /**
  * Directory Tree Processor
  * 递归列出目录树结构
@@ -583,6 +838,79 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
   } catch (error: any) {
     logger.error('directory_tree.failed', error)
     return { success: false, error: error.message || 'Failed to build directory tree' }
+  }
+}
+
+export async function processTree(args: TreeArgs): Promise<TreeResponse> {
+  return processDirectoryTree({
+    directory_path: args.path,
+    chat_uuid: args.chat_uuid,
+    max_depth: args.max_depth
+  })
+}
+
+export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
+  try {
+    const { path, chat_uuid, pattern, max_results = DEFAULT_GLOB_MAX_RESULTS } = args
+    const absoluteRootPath = resolveFilePath(path, chat_uuid)
+    logger.info('glob.start', { path, absoluteRootPath, pattern, maxResults: max_results })
+
+    if (!existsSync(absoluteRootPath)) {
+      return { success: false, error: `Path not found: ${path}` }
+    }
+
+    const rootStats = await stat(absoluteRootPath)
+    if (!rootStats.isDirectory()) {
+      return { success: false, error: `Path is not a directory: ${path}` }
+    }
+
+    const matcher = globPatternToRegExp(pattern)
+    const matches: GlobMatch[] = []
+    const limit = Math.max(1, Math.floor(max_results))
+
+    const walk = async (currentPath: string) => {
+      if (matches.length >= limit) return
+
+      const items = await readdir(currentPath)
+      for (const item of items) {
+        if (matches.length >= limit) break
+
+        const itemPath = join(currentPath, item)
+        let itemStats
+        try {
+          itemStats = await stat(itemPath)
+        } catch {
+          continue
+        }
+
+        const relativePath = normalizePathForMatching(relative(absoluteRootPath, itemPath)) || item
+        const entryType = itemStats.isDirectory() ? 'directory' : 'file'
+
+        if (matcher.test(relativePath)) {
+          matches.push({
+            path: relativePath,
+            name: basename(itemPath),
+            type: entryType
+          })
+        }
+
+        if (itemStats.isDirectory()) {
+          await walk(itemPath)
+        }
+      }
+    }
+
+    await walk(absoluteRootPath)
+
+    return {
+      success: true,
+      path,
+      matches,
+      total_matches: matches.length
+    }
+  } catch (error: any) {
+    logger.error('glob.failed', error)
+    return { success: false, error: error.message || 'Failed to glob path' }
   }
 }
 
@@ -637,6 +965,10 @@ export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFile
   }
 }
 
+export async function processStat(args: StatArgs): Promise<StatResponse> {
+  return processGetFileInfo(args)
+}
+
 /**
  * List Allowed Directories Processor
  * 列出允许访问的目录
@@ -687,6 +1019,10 @@ export async function processCreateDirectory(args: CreateDirectoryArgs): Promise
   }
 }
 
+export async function processMkdir(args: MkdirArgs): Promise<MkdirResponse> {
+  return processCreateDirectory(args)
+}
+
 /**
  * Move File Processor
  * 移动或重命名文件
@@ -719,4 +1055,8 @@ export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileRespo
     logger.error('move_file.failed', error)
     return { success: false, error: error.message || 'Failed to move file' }
   }
+}
+
+export async function processMv(args: MvArgs): Promise<MvResponse> {
+  return processMoveFile(args)
 }
