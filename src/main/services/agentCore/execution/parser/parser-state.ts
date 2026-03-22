@@ -27,8 +27,6 @@ export class ParserState {
   thinkTagMode: ThinkTagMode = ThinkTagMode.Outside
   // 用于跨 chunk 拼接半截标签前缀，例如 "<thi" / "</thi"
   pendingThinkTagPrefix = ''
-  // 当前策略：只有第一个完整 think block 会被当作 reasoning
-  hasClosedThinkTag = false
 
   /**
    * 重置所有状态
@@ -36,7 +34,6 @@ export class ParserState {
   reset(): void {
     this.thinkTagMode = ThinkTagMode.Outside
     this.pendingThinkTagPrefix = ''
-    this.hasClosedThinkTag = false
   }
 
   /**
@@ -46,7 +43,6 @@ export class ParserState {
     const newState = new ParserState()
     newState.thinkTagMode = this.thinkTagMode
     newState.pendingThinkTagPrefix = this.pendingThinkTagPrefix
-    newState.hasClosedThinkTag = this.hasClosedThinkTag
     return newState
   }
 
