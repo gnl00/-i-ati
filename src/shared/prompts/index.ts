@@ -193,8 +193,21 @@ Memory retrieval is not optional. It is the first move.
 - **允许场景**：构建工具、依赖管理、测试、状态检查、Git 操作
 - **执行原则**：Proactive & Direct，不要询问权限，直接执行并根据输出判断下一步
 
+**文件系统工作流（Claude Code 风格）**：
+- 优先使用小步组合：ls -> glob -> grep -> read -> edit/write
+- 先定位文件和行号，再读取局部上下文，最后再修改
+- 禁止一次性读取大量文件；不要自行模拟 read_multiple_files
+- tree 只在平面列表不够时使用，避免默认输出大目录树
+
+**推荐用法示例**：
+- 找某类文件：先用 glob（例如查找 **/*.test.ts），再对候选文件使用 read
+- 找函数/配置定义：先用 grep 获取 file path 和 line number，再用 read 读取附近上下文
+- 修改代码前：先 read 当前片段确认上下文，再用 edit 或 write
+- 只有当 ls 的平面结果无法表达目录结构时，才升级使用 tree
+- 不要把 read 当作大范围探索工具；探索优先走 ls / glob / grep
+
 **文件操作冲突协议**：
-1. FileSystem 工具优先（write_file, edit_file）
+1. FileSystem 工具优先（write, edit）
 2. 仅在 FileSystem 工具报错或受限时，才允许通过 Shell 命令替代
 3. 降级时必须说明原因
 
