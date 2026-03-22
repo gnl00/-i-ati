@@ -6,7 +6,6 @@ import DatabaseService from '@main/services/DatabaseService'
 import type { MainChatRunInput } from '../preparation'
 
 const DEFAULT_WORKSPACE_DIR = 'workspaces'
-const MAX_TITLE_LENGTH = 30
 
 export class ChatSessionStore {
   async resolveOrCreateChat(
@@ -54,12 +53,12 @@ export class ChatSessionStore {
 
   finalizeChatEntity(
     chatEntity: ChatEntity,
-    inputText: string,
+    _inputText: string,
     modelId: string
   ): ChatEntity {
     const nextTitle = chatEntity.title && chatEntity.title !== 'NewChat'
       ? chatEntity.title
-      : inputText.substring(0, MAX_TITLE_LENGTH)
+      : 'NewChat'
 
     const updatedChat: ChatEntity = {
       ...chatEntity,

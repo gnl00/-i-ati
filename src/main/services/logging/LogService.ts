@@ -3,6 +3,7 @@ import pino, { type DestinationStream, type Logger as PinoLogger } from 'pino'
 import type { LogLevel, LogWritePayload } from '@shared/types/logging'
 import { LogFileManager } from './LogFileManager'
 import { sanitizeLogValue, serializeError } from './redact'
+import { localIsoPinoTimestamp } from './time'
 
 const levelPriority: Record<LogLevel, number> = {
   debug: 20,
@@ -177,7 +178,7 @@ export class LogService {
       {
         level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
         base: undefined,
-        timestamp: pino.stdTimeFunctions.isoTime,
+        timestamp: localIsoPinoTimestamp,
         formatters: {
           level: (label) => ({ level: label })
         }
@@ -200,7 +201,7 @@ export class LogService {
       {
         level: 'debug',
         base: undefined,
-        timestamp: pino.stdTimeFunctions.isoTime,
+        timestamp: localIsoPinoTimestamp,
         formatters: {
           level: (label) => ({ level: label })
         }

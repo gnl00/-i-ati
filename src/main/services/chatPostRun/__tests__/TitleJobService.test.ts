@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 
-const { emitterInstances, updateChatMock, generateTitleMock } = vi.hoisted(() => ({
+const { emitterInstances, updateChatMock, generateTitleMock, loggerInfoMock, loggerWarnMock } = vi.hoisted(() => ({
   emitterInstances: [] as Array<{ emit: ReturnType<typeof vi.fn> }>,
   updateChatMock: vi.fn(),
-  generateTitleMock: vi.fn(async () => 'generated title')
+  generateTitleMock: vi.fn(async () => 'generated title'),
+  loggerInfoMock: vi.fn(),
+  loggerWarnMock: vi.fn()
 }))
 
 vi.mock('@main/services/chatRun/infrastructure', () => {
@@ -53,6 +55,15 @@ vi.mock('@main/services/TitleService', () => ({
   generateTitle: generateTitleMock
 }))
 
+vi.mock('@main/services/logging/LogService', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: loggerInfoMock,
+    warn: loggerWarnMock,
+    error: vi.fn()
+  }))
+}))
+
 import { TitleJobService } from '../TitleJobService'
 
 const args = {
@@ -89,6 +100,8 @@ describe('TitleJobService', () => {
     updateChatMock.mockReset()
     generateTitleMock.mockReset()
     generateTitleMock.mockResolvedValue('generated title')
+    loggerInfoMock.mockReset()
+    loggerWarnMock.mockReset()
   })
 
   it('generates and persists a new title', async () => {
@@ -108,6 +121,10 @@ describe('TitleJobService', () => {
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(CHAT_RUN_EVENTS.TITLE_GENERATE_COMPLETED, {
       title: 'generated title'
     })
+    expect(loggerInfoMock).toHaveBeenCalledWith('title.job.completed.updated', expect.objectContaining({
+      chatUuid: 'chat-1',
+      title: 'generated title'
+    }))
   })
 
   it('emits failed when title generation throws', async () => {
@@ -138,5 +155,21 @@ describe('TitleJobService', () => {
     expect(generateTitleMock).not.toHaveBeenCalled()
     expect(updateChatMock).not.toHaveBeenCalled()
     expect(emitterInstances[0]).toBeUndefined()
+  })
+
+  it('logs noop completion when generated title is empty or unchanged', async () => {
+    const service = new TitleJobService()
+    generateTitleMock.mockResolvedValueOnce('NewChat')
+
+    await service.run(args, config)
+
+    expect(updateChatMock).not.toHaveBeenCalled()
+    expect(loggerWarnMock).toHaveBeenCalledWith('title.job.completed.noop', expect.objectContaining({
+      currentTitle: 'NewChat',
+      generatedTitle: 'NewChat'
+    }))
+    expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(CHAT_RUN_EVENTS.TITLE_GENERATE_COMPLETED, {
+      title: 'NewChat'
+    })
   })
 })
