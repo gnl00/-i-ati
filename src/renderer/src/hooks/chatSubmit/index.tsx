@@ -14,6 +14,10 @@ function useChatSubmitV2() {
   const unsubscribeRef = useRef<(() => void) | null>(null)
   const lastErrorMessageRef = useRef<{ id: number; chatUuid: string | null } | null>(null)
   const clearedErrorMessageIdsRef = useRef<Set<number>>(new Set())
+  const runCompletedRef = useRef(false)
+  const titleJobPendingRef = useRef(false)
+  const compressionJobPendingRef = useRef(false)
+  const deferredCleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const resetUiState = () => {
     chatStore.setCurrentReqCtrl(undefined)
@@ -24,11 +28,38 @@ function useChatSubmitV2() {
   }
 
   const cleanupActiveRun = () => {
+    if (deferredCleanupTimerRef.current) {
+      clearTimeout(deferredCleanupTimerRef.current)
+      deferredCleanupTimerRef.current = null
+    }
     unsubscribeRef.current?.()
     unsubscribeRef.current = null
     activeSubmissionIdRef.current = null
     activeAbortControllerRef.current = null
+    runCompletedRef.current = false
+    titleJobPendingRef.current = false
+    compressionJobPendingRef.current = false
     chatStore.setCurrentReqCtrl(undefined)
+  }
+
+  const maybeCleanupAfterBackgroundJobs = () => {
+    if (!runCompletedRef.current) {
+      return
+    }
+    if (titleJobPendingRef.current || compressionJobPendingRef.current) {
+      return
+    }
+    cleanupActiveRun()
+  }
+
+  const scheduleDeferredCleanup = () => {
+    if (deferredCleanupTimerRef.current) {
+      clearTimeout(deferredCleanupTimerRef.current)
+    }
+    deferredCleanupTimerRef.current = setTimeout(() => {
+      deferredCleanupTimerRef.current = null
+      maybeCleanupAfterBackgroundJobs()
+    }, 8000)
   }
 
   const normalizeError = (error: SerializedError | Error): Error => {
@@ -128,13 +159,42 @@ function useChatSubmitV2() {
         return
       }
 
+      if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_STARTED) {
+        titleJobPendingRef.current = true
+        return
+      }
+
+      if (
+        event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_COMPLETED ||
+        event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_FAILED
+      ) {
+        titleJobPendingRef.current = false
+        maybeCleanupAfterBackgroundJobs()
+        return
+      }
+
+      if (event.type === CHAT_RUN_EVENTS.COMPRESSION_STARTED) {
+        compressionJobPendingRef.current = true
+        return
+      }
+
+      if (
+        event.type === CHAT_RUN_EVENTS.COMPRESSION_COMPLETED ||
+        event.type === CHAT_RUN_EVENTS.COMPRESSION_FAILED
+      ) {
+        compressionJobPendingRef.current = false
+        maybeCleanupAfterBackgroundJobs()
+        return
+      }
+
       if (event.type === 'run.completed') {
         void clearPreviousErrorMessage()
         chatStore.setFetchState(false)
         chatStore.setShowLoadingIndicator(false)
         chatStore.setLastMsgStatus(true)
         chatStore.setReadStreamState(false)
-        cleanupActiveRun()
+        runCompletedRef.current = true
+        scheduleDeferredCleanup()
         return
       }
 
