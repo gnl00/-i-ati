@@ -14,7 +14,6 @@ describe('ThinkTagParser', () => {
     ])
     expect(state.thinkTagMode).toBe(ThinkTagMode.Inside)
     expect(state.pendingThinkTagPrefix).toBe('')
-    expect(state.hasClosedThinkTag).toBe(false)
   })
 
   it('does not replay accumulated reasoning when </think> arrives', () => {
@@ -36,7 +35,6 @@ describe('ThinkTagParser', () => {
       { type: 'text', content: '\n\n测试目标是什么？' }
     ])
     expect(state.thinkTagMode).toBe(ThinkTagMode.Outside)
-    expect(state.hasClosedThinkTag).toBe(true)
   })
 
   it('handles opening think tags split across chunks', () => {
@@ -67,7 +65,6 @@ describe('ThinkTagParser', () => {
       { type: 'text', content: 'tail' }
     ])
     expect(state.thinkTagMode).toBe(ThinkTagMode.Outside)
-    expect(state.hasClosedThinkTag).toBe(true)
   })
 
   it('preserves text-think-text ordering within a single chunk', () => {
@@ -85,10 +82,9 @@ describe('ThinkTagParser', () => {
       { type: 'text', content: '\n\n最终回答' }
     ])
     expect(state.thinkTagMode).toBe(ThinkTagMode.Outside)
-    expect(state.hasClosedThinkTag).toBe(true)
   })
 
-  it('treats subsequent think tags as plain text after the first think closes', () => {
+  it('continues parsing subsequent think tags as reasoning blocks', () => {
     const parser = new ThinkTagParser()
     const state = createInitialParserState()
 
@@ -99,8 +95,26 @@ describe('ThinkTagParser', () => {
       { type: 'reasoning', content: '一次推理' }
     ])
     expect(second).toEqual([
-      { type: 'text', content: '<think>二次推理</think>' }
+      { type: 'reasoning', content: '二次推理' }
     ])
-    expect(state.hasClosedThinkTag).toBe(true)
+  })
+
+  it('supports multiple think blocks with interleaved text in one chunk', () => {
+    const parser = new ThinkTagParser()
+    const state = createInitialParserState()
+
+    const result = parser.parse(
+      '前文<think>第一段推理</think>中间<think>第二段推理</think>结尾',
+      state
+    )
+
+    expect(result).toEqual([
+      { type: 'text', content: '前文' },
+      { type: 'reasoning', content: '第一段推理' },
+      { type: 'text', content: '中间' },
+      { type: 'reasoning', content: '第二段推理' },
+      { type: 'text', content: '结尾' }
+    ])
+    expect(state.thinkTagMode).toBe(ThinkTagMode.Outside)
   })
 })

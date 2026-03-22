@@ -16,8 +16,8 @@ import type { SegmentDelta } from './types'
  * - 输出：按原始顺序排列的 segment deltas
  *
  * 设计约束：
- * - 只把第一个完整的 think block 视为 reasoning
- * - 后续再出现的 <think> 标签按普通文本处理
+ * - 每个完整的 think block 都会被视为 reasoning
+ * - 允许 text -> think -> text -> think -> text 的多段交替
  */
 export class ThinkTagParser {
   private static readonly THINK_START = '<think>'
@@ -72,7 +72,6 @@ export class ThinkTagParser {
     if (thinkEndIndex !== -1) {
       this.pushSegment(segmentDeltas, 'reasoning', input.slice(0, thinkEndIndex))
       state.thinkTagMode = ThinkTagMode.Outside
-      state.hasClosedThinkTag = true
       return input.slice(thinkEndIndex + ThinkTagParser.THINK_END.length)
     }
 
@@ -109,12 +108,6 @@ export class ThinkTagParser {
         if (state.thinkTagMode === ThinkTagMode.Inside) {
           input = this.tokenizeInsideThink(input, state, segmentDeltas)
           continue
-        }
-
-        // 当前策略：只接受第一个完整 think block。
-        if (state.hasClosedThinkTag) {
-          this.pushSegment(segmentDeltas, 'text', input)
-          break
         }
 
         const thinkStartIndex = input.indexOf(ThinkTagParser.THINK_START)
