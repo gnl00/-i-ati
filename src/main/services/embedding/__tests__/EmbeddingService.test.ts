@@ -71,7 +71,7 @@ describe('EmbeddingService', () => {
       expect(pipeline).toHaveBeenCalledTimes(1)
       expect(pipeline).toHaveBeenCalledWith(
         'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2',
+        'all-MiniLM-L6-v2',
         expect.objectContaining({
           quantized: true,
         })

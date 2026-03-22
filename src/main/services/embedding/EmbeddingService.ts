@@ -280,8 +280,36 @@ class EmbeddingService {
   }
 }
 
-// 导出单例实例
-export default EmbeddingService.getInstance()
+const EmbeddingServiceInstance = {
+  generateEmbedding(
+    text: string,
+    options?: {
+      pooling?: 'mean' | 'cls'
+      normalize?: boolean
+    }
+  ): Promise<EmbeddingResult> {
+    return EmbeddingService.getInstance().generateEmbedding(text, options)
+  },
 
-// 同时导出类，以便访问静态方法
+  generateBatchEmbeddings(
+    texts: string[],
+    options?: {
+      pooling?: 'mean' | 'cls'
+      normalize?: boolean
+      batchSize?: number
+    }
+  ): Promise<BatchEmbeddingResult> {
+    return EmbeddingService.getInstance().generateBatchEmbeddings(texts, options)
+  },
+
+  getModelInfo(): ReturnType<EmbeddingService['getModelInfo']> {
+    return EmbeddingService.getInstance().getModelInfo()
+  },
+
+  dispose(): Promise<void> {
+    return EmbeddingService.getInstance().dispose()
+  }
+}
+
+export default EmbeddingServiceInstance
 export { EmbeddingService }
