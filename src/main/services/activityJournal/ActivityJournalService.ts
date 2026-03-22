@@ -18,6 +18,7 @@ import type {
 } from '@tools/activityJournal/index.d'
 import { createLogger } from '@main/services/logging/LogService'
 import { ActivityJournalRepository } from './ActivityJournalRepository'
+import EmbeddingServiceInstance from '../embedding/EmbeddingService'
 
 interface EmbeddingServiceLike {
   generateEmbedding: (text: string) => Promise<{ embedding: number[] }>
@@ -29,10 +30,7 @@ interface ActivityJournalServiceOptions {
 }
 
 function resolveDefaultEmbeddingService(): EmbeddingServiceLike {
-  const module = require('@main/services/embedding/EmbeddingService') as {
-    default: EmbeddingServiceLike
-  }
-  return module.default
+  return EmbeddingServiceInstance
 }
 
 const INDEXED_CATEGORIES = new Set<ActivityJournalCategory>(['task', 'plan', 'decision', 'blocker', 'summary'])
