@@ -234,7 +234,11 @@ export class ToolExecutor implements IToolExecutor {
       return args
     }
 
-    if (this.chatUuid && (toolName?.startsWith('schedule_') || toolName?.startsWith('plan_'))) {
+    if (this.chatUuid && (
+      toolName?.startsWith('schedule_')
+      || toolName?.startsWith('plan_')
+      || toolName?.startsWith('activity_journal_')
+    )) {
       return { ...args, chat_uuid: this.chatUuid }
     }
 

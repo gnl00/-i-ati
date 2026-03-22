@@ -283,8 +283,12 @@ export class ToolExecutor implements IToolExecutor {
       return args
     }
 
-    if (this.chatUuid && (toolName?.startsWith('schedule_') || toolName?.startsWith('plan_'))) {
-      // chat_uuid is system context; always override for schedule/plan tools.
+    if (this.chatUuid && (
+      toolName?.startsWith('schedule_')
+      || toolName?.startsWith('plan_')
+      || toolName?.startsWith('activity_journal_')
+    )) {
+      // chat_uuid is system context; always override for schedule/plan/activity journal tools.
       return { ...args, chat_uuid: this.chatUuid }
     }
 
