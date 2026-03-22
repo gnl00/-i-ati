@@ -9,4 +9,9 @@ export { ToolCallParser } from './tool-call-parser'
 export { ChunkParser } from './chunk-parser'
 export { ParserError, ChunkParseError } from './errors'
 
-export type { ParseResult, ChunkParser as IChunkParser, SegmentBuilder as ISegmentBuilder } from './types'
+export type {
+  ParseResult,
+  SegmentDelta,
+  ChunkParser as IChunkParser,
+  SegmentBuilder as ISegmentBuilder
+} from './types'

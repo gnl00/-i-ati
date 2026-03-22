@@ -8,12 +8,14 @@
  */
 
 /**
- * Think Tag 状态枚举
+ * Think Tag 词法状态。
+ *
+ * 只表示当前 tokenizer 是否位于 think tag 内部，
+ * 不再把“只接受第一个 think tag”这种业务策略混进状态枚举。
  */
-export enum ThinkTagState {
-  NoThink = 'noThink',       // not in think tag
-  InThink = 'inThink',       // inside think tag
-  EndThink = 'endThink'      // think tag closed
+export enum ThinkTagMode {
+  Outside = 'outside',
+  Inside = 'inside'
 }
 
 /**
@@ -21,16 +23,20 @@ export enum ThinkTagState {
  * 集中管理所有 Parser 相关的状态
  */
 export class ParserState {
-  // Think Tag 解析状态
-  thinkTagState: ThinkTagState = ThinkTagState.NoThink
-  thinkTagBuffer: string = ''
+  // Think Tag 词法状态
+  thinkTagMode: ThinkTagMode = ThinkTagMode.Outside
+  // 用于跨 chunk 拼接半截标签前缀，例如 "<thi" / "</thi"
+  pendingThinkTagPrefix = ''
+  // 当前策略：只有第一个完整 think block 会被当作 reasoning
+  hasClosedThinkTag = false
 
   /**
    * 重置所有状态
    */
   reset(): void {
-    this.thinkTagState = ThinkTagState.NoThink
-    this.thinkTagBuffer = ''
+    this.thinkTagMode = ThinkTagMode.Outside
+    this.pendingThinkTagPrefix = ''
+    this.hasClosedThinkTag = false
   }
 
   /**
@@ -38,8 +44,9 @@ export class ParserState {
    */
   clone(): ParserState {
     const newState = new ParserState()
-    newState.thinkTagState = this.thinkTagState
-    newState.thinkTagBuffer = this.thinkTagBuffer
+    newState.thinkTagMode = this.thinkTagMode
+    newState.pendingThinkTagPrefix = this.pendingThinkTagPrefix
+    newState.hasClosedThinkTag = this.hasClosedThinkTag
     return newState
   }
 
@@ -47,7 +54,7 @@ export class ParserState {
    * 检查是否在 think tag 中
    */
   get isInThinkTag(): boolean {
-    return this.thinkTagState === ThinkTagState.InThink
+    return this.thinkTagMode === ThinkTagMode.Inside
   }
 }
 
