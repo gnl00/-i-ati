@@ -19,8 +19,8 @@ import {
   processMemoryRetrieval,
   processMemorySave,
   processMemoryUpdate,
-  processWorkingMemoryGet,
-  processWorkingMemorySet
+  processWorkContextGet,
+  processWorkContextSet
 } from '@main/tools/memory/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import {
@@ -81,8 +81,8 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   memory_retrieval: processMemoryRetrieval,
   memory_save: processMemorySave,
   memory_update: processMemoryUpdate,
-  working_memory_get: processWorkingMemoryGet,
-  working_memory_set: processWorkingMemorySet,
+  work_context_get: processWorkContextGet,
+  work_context_set: processWorkContextSet,
   execute_command: processExecuteCommand,
   install_skill: processInstallSkill,
   load_skill: processLoadSkill,

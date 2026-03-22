@@ -67,7 +67,7 @@ export default [
     "type": "function",
     "function": {
       "name": "activity_journal_search",
-      "description": "Search recent activity journal entries by semantic similarity. Use this to recall what work was done recently around a topic across sessions. Prefer this over working_memory when you need historical work timeline rather than current state.",
+      "description": "Search recent activity journal entries by semantic similarity. Use this to recall what work was done recently around a topic across sessions. Prefer this over work_context when you need historical work timeline rather than current state.",
       "parameters": {
         "type": "object",
         "properties": {

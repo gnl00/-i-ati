@@ -2,8 +2,8 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "working_memory_get",
-      "description": "Get the current working memory markdown for this chat. Use this for short-term, high-frequency context such as current goal, decisions, in-progress items, open questions, and temporary constraints.",
+      "name": "work_context_get",
+      "description": "Get the current work context markdown for this chat. Use this for short-term, high-frequency context such as current goal, decisions, in-progress items, open questions, and temporary constraints.",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -15,14 +15,14 @@ export default [
   {
     "type": "function",
     "function": {
-      "name": "working_memory_set",
-      "description": "Set (replace) the current working memory markdown for this chat. Write concise, structured markdown and keep sections up to date as the conversation progresses.",
+      "name": "work_context_set",
+      "description": "Set (replace) the current work context markdown for this chat. Write concise, structured markdown and keep sections up to date as the conversation progresses.",
       "parameters": {
         "type": "object",
         "properties": {
           "content": {
             "type": "string",
-            "description": "Complete markdown content to store as current working memory."
+            "description": "Complete markdown content to store as the current work context."
           }
         },
         "required": ["content"],
