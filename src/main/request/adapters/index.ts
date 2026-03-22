@@ -83,3 +83,7 @@ export async function resolveAdapterForRequest(
     throw resolvedError
   }
 }
+
+export function invalidateRequestAdapterCache(): void {
+  adapterManager.clear()
+}

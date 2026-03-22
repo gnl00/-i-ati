@@ -131,7 +131,10 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
     }
   }
 
-  const handleRemoteInstall = async (plugin: RemotePluginCatalogItem): Promise<void> => {
+  const handleRemoteInstall = async (
+    plugin: RemotePluginCatalogItem,
+    mode: 'install' | 'upgrade'
+  ): Promise<void> => {
     if (installingRemotePluginId) {
       return
     }
@@ -139,10 +142,10 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
     try {
       setInstallingRemotePluginId(plugin.pluginId)
       await installRemotePlugin(plugin.pluginId)
-      toast.success('Remote plugin installed')
+      toast.success(mode === 'upgrade' ? 'Remote plugin upgraded' : 'Remote plugin installed')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      toast.error(message || 'Failed to install remote plugin')
+      toast.error(message || (mode === 'upgrade' ? 'Failed to upgrade remote plugin' : 'Failed to install remote plugin'))
     } finally {
       setInstallingRemotePluginId(null)
     }
@@ -220,8 +223,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
 
               {installedPlugins.map((plugin) => {
                 const remotePlugin = remotePlugins.find(item => item.pluginId === plugin.pluginId)
-                const hasRemoteUpdate = plugin.source === 'remote'
-                  && remotePlugin
+                const hasRemoteUpdate = remotePlugin
                   && compareVersions(remotePlugin.version, plugin.version) > 0
                 const requestAdapterCapabilities = plugin.capabilities
                   .filter(capability => capability.kind === 'request-adapter')
@@ -254,8 +256,8 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                           </Badge>
                         )}
                         {hasRemoteUpdate && (
-                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:text-violet-300 dark:border-violet-900/50 font-normal">
-                            Update available
+                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-950/20 dark:text-sky-300 dark:border-sky-900/50 font-normal">
+                            Upgrade available
                           </Badge>
                         )}
                         {plugin.status !== 'installed' && (
@@ -333,8 +335,9 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
 
               {remotePlugins.map((plugin) => {
                 const installedPlugin = plugins.find(item => item.pluginId === plugin.pluginId)
-                const hasUpdateAvailable = installedPlugin?.source === 'remote'
-                  && compareVersions(plugin.version, installedPlugin.version) > 0
+                const hasUpdateAvailable = installedPlugin
+                  ? compareVersions(plugin.version, installedPlugin.version) > 0
+                  : false
                 const requestAdapterCapabilities = plugin.capabilities
                   .filter(capability => capability.kind === 'request-adapter')
 
@@ -358,8 +361,8 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                           v{plugin.version}
                         </Badge>
                         {hasUpdateAvailable ? (
-                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:text-violet-300 dark:border-violet-900/50 font-normal">
-                            Update available
+                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-950/20 dark:text-sky-300 dark:border-sky-900/50 font-normal">
+                            Upgrade available
                           </Badge>
                         ) : installedPlugin ? (
                           <Badge variant="secondary" className="text-[9.5px] h-[18px] px-1.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-0">
@@ -381,15 +384,19 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                       <Button
                         type="button"
                         size="sm"
-                        variant={hasUpdateAvailable ? 'default' : installedPlugin ? 'ghost' : 'outline'}
+                        variant={installedPlugin && !hasUpdateAvailable ? 'ghost' : 'outline'}
                         disabled={(Boolean(installedPlugin) && !hasUpdateAvailable) || installingRemotePluginId === plugin.pluginId}
-                        onClick={() => void handleRemoteInstall(plugin)}
-                        className="h-7 px-3 text-[11px]"
+                        onClick={() => void handleRemoteInstall(plugin, hasUpdateAvailable ? 'upgrade' : 'install')}
+                        className={`h-7 px-3 text-[11px] ${hasUpdateAvailable
+                          ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-300 dark:hover:bg-sky-950/35'
+                          : ''}`}
                       >
                         {installingRemotePluginId === plugin.pluginId
-                          ? 'Installing...'
+                          ? hasUpdateAvailable
+                            ? 'Upgrading...'
+                            : 'Installing...'
                           : hasUpdateAvailable
-                            ? 'Update'
+                            ? 'Upgrade'
                             : installedPlugin
                             ? 'Installed'
                             : 'Install'}

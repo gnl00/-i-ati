@@ -33,7 +33,7 @@ describe('LocalPluginInstallService', () => {
 
   it('imports a local plugin directory into userData/plugins/<pluginId>', async () => {
     const sourceDir = path.join(userDataPath, 'source', 'gemini-adapter')
-    await fs.mkdir(sourceDir, { recursive: true })
+    await fs.mkdir(path.join(sourceDir, 'dist'), { recursive: true })
     await fs.writeFile(
       path.join(sourceDir, 'plugin.json'),
       JSON.stringify({
@@ -44,10 +44,14 @@ describe('LocalPluginInstallService', () => {
           kind: 'request-adapter',
           providerType: 'openai',
           modelTypes: ['llm']
-        }]
+        }],
+        entries: {
+          main: './dist/main.js'
+        }
       }),
       'utf-8'
     )
+    await fs.writeFile(path.join(sourceDir, 'dist', 'main.js'), 'export default { requestAdapter: {} }', 'utf-8')
 
     const installRoot = await installService.importFromDirectory(sourceDir)
 
@@ -57,6 +61,30 @@ describe('LocalPluginInstallService', () => {
       id: 'gemini-compatible-adapter',
       name: 'Gemini Compatible Adapter'
     })
+  })
+
+  it('rejects importing a plugin when entries.main is missing', async () => {
+    const sourceDir = path.join(userDataPath, 'source', 'broken-adapter')
+    await fs.mkdir(sourceDir, { recursive: true })
+    await fs.writeFile(
+      path.join(sourceDir, 'plugin.json'),
+      JSON.stringify({
+        id: 'broken-adapter',
+        name: 'Broken Adapter',
+        version: '1.0.0',
+        capabilities: [{
+          kind: 'request-adapter',
+          providerType: 'openai',
+          modelTypes: ['llm']
+        }],
+        entries: {
+          main: './dist/main.js'
+        }
+      }),
+      'utf-8'
+    )
+
+    await expect(installService.importFromDirectory(sourceDir)).rejects.toThrow('missing entries.main file')
   })
 
   it('uninstalls a local plugin by removing its install directory', async () => {

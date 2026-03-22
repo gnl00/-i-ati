@@ -14,9 +14,14 @@ vi.mock('electron', () => ({
   net: {}
 }))
 
+vi.mock('extract-zip', () => ({
+  default: vi.fn()
+}))
+
 import { LocalPluginCatalogService } from '../LocalPluginCatalogService'
 import { LocalPluginInstallService } from '../LocalPluginInstallService'
 import { RemotePluginInstallService } from '../RemotePluginInstallService'
+import extractZip from 'extract-zip'
 
 describe('RemotePluginInstallService', () => {
   let catalogService: LocalPluginCatalogService
@@ -35,7 +40,7 @@ describe('RemotePluginInstallService', () => {
     userDataPath = ''
   })
 
-  it('downloads a remote plugin directory and installs it into the local plugin root', async () => {
+  it('downloads a remote plugin archive and installs it into the local plugin root', async () => {
     const plugin: RemotePluginCatalogItem = {
       pluginId: 'openai-response-compatible-adapter',
       path: 'openai-response-compatible-adapter',
@@ -59,64 +64,42 @@ describe('RemotePluginInstallService', () => {
     }
 
     const fetchMock = vi.fn(async (url: string) => {
-      if (url.includes('/contents/openai-response-compatible-adapter?')) {
+      if (url === 'https://github.com/gnl00/atiapp-plugins/archive/main.zip') {
         return {
           ok: true,
-          json: async () => ([
-            {
-              type: 'file',
-              path: 'openai-response-compatible-adapter/plugin.json',
-              download_url: 'https://download/plugin.json'
-            },
-            {
-              type: 'dir',
-              path: 'openai-response-compatible-adapter/dist'
-            }
-          ])
-        }
-      }
-
-      if (url.includes('/contents/openai-response-compatible-adapter/dist?')) {
-        return {
-          ok: true,
-          json: async () => ([
-            {
-              type: 'file',
-              path: 'openai-response-compatible-adapter/dist/main.js',
-              download_url: 'https://download/dist/main.js'
-            }
-          ])
-        }
-      }
-
-      if (url === 'https://download/plugin.json') {
-        return {
-          ok: true,
-          arrayBuffer: async () => Buffer.from(JSON.stringify({
-            id: 'openai-response-compatible-adapter',
-            name: 'OpenAI Responses Compatible Adapter',
-            version: '0.1.0',
-            description: 'Remote adapter',
-            capabilities: [{
-              kind: 'request-adapter',
-              providerType: 'openai-response',
-              modelTypes: ['llm', 'vlm']
-            }],
-            entries: {
-              main: './dist/main.js'
-            }
-          }))
-        }
-      }
-
-      if (url === 'https://download/dist/main.js') {
-        return {
-          ok: true,
-          arrayBuffer: async () => Buffer.from('export default { requestAdapter: {} }')
+          arrayBuffer: async () => Buffer.from('fake-zip-content')
         }
       }
 
       throw new Error(`Unexpected URL: ${url}`)
+    })
+
+    vi.mocked(extractZip).mockImplementation(async (_archivePath: string, options: { dir: string }) => {
+      const extractedPluginRoot = path.join(options.dir, 'atiapp-plugins-main', 'openai-response-compatible-adapter')
+      await fs.mkdir(path.join(extractedPluginRoot, 'dist'), { recursive: true })
+      await fs.writeFile(
+        path.join(extractedPluginRoot, 'plugin.json'),
+        JSON.stringify({
+          id: 'openai-response-compatible-adapter',
+          name: 'OpenAI Responses Compatible Adapter',
+          version: '0.1.0',
+          description: 'Remote adapter',
+          capabilities: [{
+            kind: 'request-adapter',
+            providerType: 'openai-response',
+            modelTypes: ['llm', 'vlm']
+          }],
+          entries: {
+            main: './dist/main.js'
+          }
+        }),
+        'utf-8'
+      )
+      await fs.writeFile(
+        path.join(extractedPluginRoot, 'dist', 'main.js'),
+        'export default { requestAdapter: {} }',
+        'utf-8'
+      )
     })
 
     const service = new RemotePluginInstallService(
@@ -130,6 +113,10 @@ describe('RemotePluginInstallService', () => {
 
     expect(result.plugin.pluginId).toBe('openai-response-compatible-adapter')
     expect(result.installRoot).toBe(installRoot)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://github.com/gnl00/atiapp-plugins/archive/main.zip',
+      expect.any(Object)
+    )
     await expect(fs.readFile(path.join(installRoot, 'plugin.json'), 'utf-8')).resolves.toContain('"id":"openai-response-compatible-adapter"')
     await expect(fs.readFile(path.join(installRoot, 'dist', 'main.js'), 'utf-8')).resolves.toContain('requestAdapter')
   })

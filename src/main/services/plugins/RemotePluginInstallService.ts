@@ -2,18 +2,13 @@ import { net } from 'electron'
 import fs from 'fs/promises'
 import os from 'os'
 import path from 'path'
+import extractZip from 'extract-zip'
 import { createLogger } from '@main/services/logging/LogService'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import { LocalPluginInstallService } from './LocalPluginInstallService'
 import { RemotePluginRegistryService } from './RemotePluginRegistryService'
 
 type FetchLike = typeof fetch
-
-type GitHubContentNode = {
-  type: 'file' | 'dir'
-  path: string
-  download_url?: string | null
-}
 
 export class RemotePluginInstallService {
   private readonly logger = createLogger('RemotePluginInstallService')
@@ -38,11 +33,14 @@ export class RemotePluginInstallService {
     }
 
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'remote-plugin-install-'))
-    const stagedPluginDir = path.join(tempRoot, plugin.pluginId)
+    const archivePath = path.join(tempRoot, `${plugin.pluginId}.zip`)
+    const extractedRoot = path.join(tempRoot, 'archive')
 
     try {
       this.logger.info('install.start', { pluginId: plugin.pluginId, repo: plugin.repo, ref: plugin.ref })
-      await this.downloadPluginDirectory(plugin, stagedPluginDir)
+      await this.downloadPluginArchive(plugin, archivePath)
+      await extractZip(archivePath, { dir: extractedRoot })
+      const stagedPluginDir = await this.resolveExtractedPluginDir(extractedRoot, plugin.path)
       const installRoot = await this.localInstallService.importFromDirectory(stagedPluginDir)
       this.logger.info('install.completed', { pluginId: plugin.pluginId, installRoot })
       return { plugin, installRoot }
@@ -51,76 +49,49 @@ export class RemotePluginInstallService {
     }
   }
 
-  private async downloadPluginDirectory(plugin: RemotePluginCatalogItem, destinationRoot: string): Promise<void> {
-    await fs.mkdir(destinationRoot, { recursive: true })
-    await this.downloadDirectoryRecursive(plugin.repo, plugin.ref, plugin.path, plugin.path, destinationRoot)
-  }
-
-  private async downloadDirectoryRecursive(
-    repo: string,
-    ref: string,
-    remotePath: string,
-    basePluginPath: string,
-    destinationRoot: string
-  ): Promise<void> {
-    const apiUrl = `https://api.github.com/repos/${repo}/contents/${remotePath}?ref=${encodeURIComponent(ref)}`
-    const response = await this.effectiveFetch(apiUrl, {
+  private async downloadPluginArchive(plugin: RemotePluginCatalogItem, archivePath: string): Promise<void> {
+    const archiveUrl = `https://github.com/${plugin.repo}/archive/${encodeURIComponent(plugin.ref)}.zip`
+    const response = await this.effectiveFetch(archiveUrl, {
       headers: {
-        Accept: 'application/vnd.github+json',
         'User-Agent': 'atiapp'
       }
     })
-
     if (!response.ok) {
-      throw new Error(`Failed to list remote plugin files: ${response.status} ${response.statusText}`)
+      throw new Error(`Failed to download remote plugin archive: ${response.status} ${response.statusText}`)
     }
 
-    const payload = await response.json() as unknown
-    if (!Array.isArray(payload)) {
-      throw new Error(`Unexpected GitHub contents response for ${remotePath}`)
-    }
-
-    for (const item of payload) {
-      const node = item as GitHubContentNode
-      if (node.type === 'dir') {
-        await this.downloadDirectoryRecursive(repo, ref, node.path, basePluginPath, destinationRoot)
-        continue
-      }
-
-      if (node.type !== 'file' || !node.download_url) {
-        continue
-      }
-
-      const relativePath = this.toSafeRelativePath(node.path, basePluginPath)
-      const outputPath = path.join(destinationRoot, relativePath)
-      await fs.mkdir(path.dirname(outputPath), { recursive: true })
-
-      const fileResponse = await this.effectiveFetch(node.download_url, {
-        headers: {
-          'User-Agent': 'atiapp'
-        }
-      })
-      if (!fileResponse.ok) {
-        throw new Error(`Failed to download remote plugin file: ${node.path}`)
-      }
-
-      const fileBuffer = Buffer.from(await fileResponse.arrayBuffer())
-      await fs.writeFile(outputPath, fileBuffer)
-    }
+    const fileBuffer = Buffer.from(await response.arrayBuffer())
+    await fs.writeFile(archivePath, fileBuffer)
   }
 
-  private toSafeRelativePath(fullPath: string, basePluginPath: string): string {
-    if (!fullPath.startsWith(`${basePluginPath}/`)) {
-      throw new Error(`Remote plugin file escaped plugin root: ${fullPath}`)
+  private async resolveExtractedPluginDir(extractedRoot: string, pluginPath: string): Promise<string> {
+    const directMatch = path.join(extractedRoot, pluginPath)
+    if (await this.pathExists(directMatch)) {
+      return directMatch
     }
 
-    const relativePath = fullPath.slice(basePluginPath.length + 1)
-    const normalized = path.normalize(relativePath)
-    if (normalized.startsWith('..') || path.isAbsolute(normalized)) {
-      throw new Error(`Remote plugin file resolved outside destination root: ${fullPath}`)
+    const topLevelEntries = await fs.readdir(extractedRoot, { withFileTypes: true })
+    for (const entry of topLevelEntries) {
+      if (!entry.isDirectory()) {
+        continue
+      }
+
+      const candidate = path.join(extractedRoot, entry.name, pluginPath)
+      if (await this.pathExists(candidate)) {
+        return candidate
+      }
     }
 
-    return normalized
+    throw new Error(`Failed to locate plugin directory in downloaded archive: ${pluginPath}`)
+  }
+
+  private async pathExists(targetPath: string): Promise<boolean> {
+    try {
+      await fs.access(targetPath)
+      return true
+    } catch {
+      return false
+    }
   }
 
   private resolveDefaultFetch(): FetchLike {

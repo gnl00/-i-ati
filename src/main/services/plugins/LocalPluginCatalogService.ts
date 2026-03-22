@@ -58,7 +58,7 @@ export class LocalPluginCatalogService {
     try {
       const manifestContent = await fs.readFile(manifestPath, 'utf-8')
       const rawManifest = JSON.parse(manifestContent) as unknown
-      return this.normalizeManifest(rawManifest, manifestPath, pluginDir, fallbackPluginId)
+      return await this.normalizeManifest(rawManifest, manifestPath, pluginDir, fallbackPluginId)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       return {
@@ -73,12 +73,12 @@ export class LocalPluginCatalogService {
     }
   }
 
-  private normalizeManifest(
+  private async normalizeManifest(
     rawManifest: unknown,
     manifestPath: string,
     installRoot: string,
     fallbackPluginId: string
-  ): ScannedLocalPluginManifest {
+  ): Promise<ScannedLocalPluginManifest> {
     if (!this.isManifestRecord(rawManifest)) {
       return {
         pluginId: fallbackPluginId,
@@ -124,6 +124,11 @@ export class LocalPluginCatalogService {
       missingFields.push('capabilities')
     }
 
+    const mainEntry = this.normalizeRelativeEntryPath(manifest.entries?.main)
+    if (!mainEntry) {
+      missingFields.push('entries.main')
+    }
+
     if (missingFields.length > 0) {
       return {
         pluginId,
@@ -138,6 +143,37 @@ export class LocalPluginCatalogService {
       }
     }
 
+    if (!mainEntry) {
+      return {
+        pluginId,
+        displayName,
+        description,
+        version,
+        manifestPath,
+        installRoot,
+        status: 'invalid',
+        lastError: 'Manifest validation failed: entries.main',
+        capabilities
+      }
+    }
+
+    const resolvedMainEntryPath = path.join(installRoot, mainEntry)
+    try {
+      await fs.access(resolvedMainEntryPath)
+    } catch {
+      return {
+        pluginId,
+        displayName,
+        description,
+        version,
+        manifestPath,
+        installRoot,
+        status: 'invalid',
+        lastError: `Manifest validation failed: missing entries.main file (${mainEntry})`,
+        capabilities
+      }
+    }
+
     return {
       pluginId,
       displayName,
@@ -148,6 +184,24 @@ export class LocalPluginCatalogService {
       status: 'installed',
       capabilities
     }
+  }
+
+  private normalizeRelativeEntryPath(value: unknown): string | null {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      return null
+    }
+
+    const normalized = value.replace(/\\/g, '/').trim().replace(/^\.\//, '')
+    if (
+      normalized.startsWith('/')
+      || normalized === '..'
+      || normalized.startsWith('../')
+      || normalized.includes('/../')
+    ) {
+      return null
+    }
+
+    return normalized
   }
 
   private parseCapabilities(rawCapabilities: unknown): PluginCapability[] {

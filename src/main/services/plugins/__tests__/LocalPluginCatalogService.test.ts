@@ -30,7 +30,7 @@ describe('LocalPluginCatalogService', () => {
 
   it('scans valid local plugin manifests from the userData plugins directory', async () => {
     const pluginDir = path.join(userDataPath, 'plugins', 'gemini-compatible')
-    await fs.mkdir(pluginDir, { recursive: true })
+    await fs.mkdir(path.join(pluginDir, 'dist'), { recursive: true })
     await fs.writeFile(
       path.join(pluginDir, 'plugin.json'),
       JSON.stringify({
@@ -42,10 +42,14 @@ describe('LocalPluginCatalogService', () => {
           kind: 'request-adapter',
           providerType: 'openai',
           modelTypes: ['llm']
-        }]
+        }],
+        entries: {
+          main: './dist/main.js'
+        }
       }),
       'utf-8'
     )
+    await fs.writeFile(path.join(pluginDir, 'dist', 'main.js'), 'export default { requestAdapter: {} }', 'utf-8')
 
     const plugins = await service.scanInstalledPlugins()
 
@@ -70,5 +74,36 @@ describe('LocalPluginCatalogService', () => {
       status: 'invalid'
     })
     expect(plugins[0]?.lastError).toContain('Invalid plugin manifest')
+  })
+
+  it('returns invalid local plugin entries when entries.main is missing on disk', async () => {
+    const pluginDir = path.join(userDataPath, 'plugins', 'broken-entry-plugin')
+    await fs.mkdir(pluginDir, { recursive: true })
+    await fs.writeFile(
+      path.join(pluginDir, 'plugin.json'),
+      JSON.stringify({
+        id: 'broken-entry-plugin',
+        name: 'Broken Entry Plugin',
+        version: '1.0.0',
+        capabilities: [{
+          kind: 'request-adapter',
+          providerType: 'openai',
+          modelTypes: ['llm']
+        }],
+        entries: {
+          main: './dist/main.js'
+        }
+      }),
+      'utf-8'
+    )
+
+    const plugins = await service.scanInstalledPlugins()
+
+    expect(plugins).toHaveLength(1)
+    expect(plugins[0]).toMatchObject({
+      pluginId: 'broken-entry-plugin',
+      status: 'invalid'
+    })
+    expect(plugins[0]?.lastError).toContain('missing entries.main file')
   })
 })

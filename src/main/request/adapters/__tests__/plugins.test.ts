@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resolveAdapterForRequest, adapterManager } from '..'
+import { invalidateRequestAdapterCache, resolveAdapterForRequest, adapterManager } from '..'
 
 vi.mock('electron', () => ({
   app: {
@@ -205,5 +205,80 @@ describe('request adapter resolution', () => {
     expect(statSpy).toHaveBeenCalledTimes(1)
     expect(adapterManager.listAdapters()).toEqual([])
     expect(adapterManager.getFailedAdapter('broken-adapter')).toBeDefined()
+  })
+
+  it('allows retry after request adapter cache invalidation', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'broken-plugin-retry-test-'))
+    const manifestPath = path.join(tempRoot, 'plugin.json')
+    const entryPath = path.join(tempRoot, 'main.mjs')
+
+    await fs.writeFile(
+      manifestPath,
+      JSON.stringify({
+        id: 'recoverable-adapter',
+        name: 'Recoverable Adapter',
+        version: '1.0.0',
+        capabilities: [{
+          kind: 'request-adapter',
+          providerType: 'gemini',
+          modelTypes: ['llm']
+        }],
+        entries: {
+          main: './main.mjs'
+        }
+      }),
+      'utf-8'
+    )
+
+    const plugins: PluginEntity[] = [
+      {
+        pluginId: 'recoverable-adapter',
+        name: 'Recoverable Adapter',
+        enabled: true,
+        source: 'local',
+        status: 'installed',
+        manifestPath,
+        installRoot: tempRoot,
+        capabilities: [{
+          kind: 'request-adapter',
+          data: {
+            providerType: 'gemini',
+            modelTypes: ['llm']
+          }
+        }]
+      }
+    ]
+
+    await expect(resolveAdapterForRequest('recoverable-adapter', plugins)).rejects.toThrow()
+    expect(adapterManager.getFailedAdapter('recoverable-adapter')).toBeDefined()
+
+    await fs.writeFile(
+      entryPath,
+      `
+      export const requestAdapter = {
+        providerType: 'gemini',
+        streamProtocol: 'sse',
+        supportsStreamOptionsUsage: false,
+        request({ request }) {
+          return {
+            endpoint: request.baseUrl + '/models/test:generateContent',
+            headers: { 'content-type': 'application/json', 'x-goog-api-key': request.apiKey },
+            body: { model: request.model, contents: [] }
+          }
+        },
+        parseResponse({ raw }) {
+          return { id: '1', model: 'gemini', timestamp: Date.now(), content: '', finishReason: 'stop', raw }
+        },
+        parseStreamResponse() { return null }
+      }
+      `,
+      'utf-8'
+    )
+
+    invalidateRequestAdapterCache()
+
+    const adapter = await resolveAdapterForRequest('recoverable-adapter', plugins)
+    expect(adapter).toBe(adapterManager.getAdapter('recoverable-adapter'))
+    expect(adapterManager.getFailedAdapter('recoverable-adapter')).toBeUndefined()
   })
 })
