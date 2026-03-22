@@ -244,7 +244,20 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
               />
             )
           } else if (segment.type === 'reasoning') {
-            return <ReasoningSegmentV2 key={key} segment={segment} />
+            const nextSegment = segments[segIdx + 1]
+            const nextSegmentTimestamp =
+              nextSegment && 'timestamp' in nextSegment && typeof nextSegment.timestamp === 'number'
+                ? nextSegment.timestamp
+                : undefined
+
+            return (
+              <ReasoningSegmentV2
+                key={key}
+                segment={segment}
+                nextSegmentTimestamp={nextSegmentTimestamp}
+                isStreaming={isLatest && showLoadingIndicator && segIdx === segments.length - 1}
+              />
+            )
           } else if (segment.type === 'toolCall') {
             return <ToolCallResult key={key} toolCall={segment} index={index} />
           } else if (segment.type === 'error') {

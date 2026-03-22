@@ -6,11 +6,18 @@
  * 解析结果
  * 包含从单个 chunk 中提取的所有信息
  */
+export interface SegmentDelta {
+  type: 'text' | 'reasoning'
+  content: string
+}
+
 export interface ParseResult {
   /** 文本内容增量 */
   contentDelta: string
   /** 推理内容增量 */
   reasoningDelta: string
+  /** 按原始出现顺序排列的 segment 增量 */
+  segmentDeltas: SegmentDelta[]
   /** 检测到的工具调用（累积的） */
   toolCalls: import('../../types').ToolCall[]
   /** 是否包含 think tag */

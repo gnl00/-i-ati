@@ -7,7 +7,7 @@ import type { ToolCall } from '@main/services/agentCore/types'
 import { ThinkTagParser } from './think-tag-parser'
 import { ToolCallParser } from './tool-call-parser'
 import { ParserState, createInitialParserState } from './parser-state'
-import type { ChunkParser as IChunkParser, ParseResult } from './types'
+import type { ChunkParser as IChunkParser, ParseResult, SegmentDelta } from './types'
 import { ChunkParseError } from './errors'
 import { parserLogger } from './logger'
 
@@ -29,21 +29,18 @@ export class ChunkParser implements IChunkParser {
    */
   parse(chunk: IUnifiedResponse, toolCalls: ToolCall[]): ParseResult {
     try {
-      let contentDelta = ''
-      let reasoningDelta = ''
+      let segmentDeltas: SegmentDelta[] = []
 
       // 1. 优先处理 reasoning 字段（如果有）
       if (chunk.reasoning) {
-        reasoningDelta = chunk.reasoning
+        segmentDeltas = [{ type: 'reasoning', content: chunk.reasoning }]
         // reasoning 字段存在时，不处理 content
       } else if (chunk.content) {
         // 2. 如果没有 reasoning 字段，使用 Think Tag Parser 处理 content
-        const thinkResult = this.thinkTagParser.parse(
+        segmentDeltas = this.thinkTagParser.parse(
           chunk.content,
           this.parserState
         )
-        contentDelta = thinkResult.textDelta
-        reasoningDelta = thinkResult.reasoningDelta
       }
 
       // 3. 使用 Tool Call Parser 处理 tool calls
@@ -53,8 +50,15 @@ export class ChunkParser implements IChunkParser {
       )
 
       return {
-        contentDelta,
-        reasoningDelta,
+        contentDelta: segmentDeltas
+          .filter(segment => segment.type === 'text')
+          .map(segment => segment.content)
+          .join(''),
+        reasoningDelta: segmentDeltas
+          .filter(segment => segment.type === 'reasoning')
+          .map(segment => segment.content)
+          .join(''),
+        segmentDeltas,
         toolCalls: parsedToolCalls,
         hasThinkTag: this.parserState.isInThinkTag,
         isInThinkTag: this.parserState.isInThinkTag

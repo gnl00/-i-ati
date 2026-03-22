@@ -2,7 +2,7 @@ import { unifiedChatRequest } from '@main/request/index'
 import { AbortError } from '@main/services/chatRun/errors'
 import { createLogger } from '@main/services/logging/LogService'
 import { formatWebSearchForLLM, normalizeToolArgs } from '@main/services/chatRun/utils'
-import type { ChunkParser, ParseResult } from './parser'
+import type { ChunkParser, ParseResult, SegmentDelta } from './parser'
 import { SegmentBuilder } from './parser'
 import { extractContentFromSegments } from './parser/segment-content'
 import { ToolExecutor } from '../tools'
@@ -252,12 +252,24 @@ export class AgentStepLoop {
 
     let segments = [...(lastMessage.body.segments || [])]
 
-    if (result.reasoningDelta.trim()) {
-      segments = segmentBuilder.appendSegment(segments, result.reasoningDelta, 'reasoning')
-    }
+    const orderedSegmentDeltas: SegmentDelta[] =
+      result.segmentDeltas.length > 0
+        ? result.segmentDeltas
+        : [
+            ...(result.reasoningDelta
+              ? ([{ type: 'reasoning', content: result.reasoningDelta }] as SegmentDelta[])
+              : []),
+            ...(result.contentDelta
+              ? ([{ type: 'text', content: result.contentDelta }] as SegmentDelta[])
+              : [])
+          ]
 
-    if (result.contentDelta.trim()) {
-      segments = segmentBuilder.appendSegment(segments, result.contentDelta, 'text')
+    for (const segmentDelta of orderedSegmentDeltas) {
+      if (!segmentDelta.content.trim()) {
+        continue
+      }
+
+      segments = segmentBuilder.appendSegment(segments, segmentDelta.content, segmentDelta.type)
     }
 
     this.messageManager.updateLastAssistantMessage(msg => ({

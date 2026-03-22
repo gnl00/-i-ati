@@ -9,12 +9,57 @@ import { remarkPreserveLineBreaks } from '../../markdown/markdown-plugins'
 
 interface ReasoningSegmentV2Props {
   segment: ReasoningSegment
+  nextSegmentTimestamp?: number
+  isStreaming?: boolean
 }
 
-export const ReasoningSegmentV2: React.FC<ReasoningSegmentV2Props> = memo(({ segment }) => {
+function formatThoughtDuration(seconds: number): string {
+  return `THOUGHT · ${seconds}s`
+}
+
+export const ReasoningSegmentV2: React.FC<ReasoningSegmentV2Props> = memo(({
+  segment,
+  nextSegmentTimestamp,
+  isStreaming = false
+}) => {
   const fixedContent = fixMalformedCodeBlocks(segment.content)
   const [openItem, setOpenItem] = React.useState<string>('')
   const isOpen = openItem === 'reasoning'
+  const [liveNow, setLiveNow] = React.useState(() => Date.now())
+
+  React.useEffect(() => {
+    if (!isStreaming) {
+      return
+    }
+
+    setLiveNow(Date.now())
+
+    const timer = window.setInterval(() => {
+      setLiveNow(Date.now())
+    }, 250)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [isStreaming])
+
+  const durationMs = React.useMemo(() => {
+    if (typeof segment.timestamp !== 'number') {
+      return undefined
+    }
+
+    if (typeof nextSegmentTimestamp === 'number' && nextSegmentTimestamp >= segment.timestamp) {
+      return nextSegmentTimestamp - segment.timestamp
+    }
+
+    if (isStreaming) {
+      return Math.max(0, liveNow - segment.timestamp)
+    }
+
+    return undefined
+  }, [isStreaming, liveNow, nextSegmentTimestamp, segment.timestamp])
+
+  const thoughtSeconds = durationMs != null ? Math.max(1, Math.ceil(durationMs / 1000)) : undefined
 
   return (
     <div className="my-1.5 w-full">
@@ -39,12 +84,13 @@ export const ReasoningSegmentV2: React.FC<ReasoningSegmentV2Props> = memo(({ seg
             </span>
             <span
               className={cn(
-                'select-none text-[10px] font-semibold uppercase tracking-tight',
+                'select-none text-[10px] font-semibold tracking-tight tabular-nums',
                 'text-slate-500 dark:text-slate-400',
-                'group-hover:text-slate-700 dark:group-hover:text-slate-300'
+                'group-hover:text-slate-700 dark:group-hover:text-slate-300',
+                'transition-colors duration-200 ease-out'
               )}
             >
-              Reasoning
+              {typeof thoughtSeconds === 'number' ? formatThoughtDuration(thoughtSeconds) : 'THOUGHT'}
             </span>
             <ChevronDown
               className={cn(
