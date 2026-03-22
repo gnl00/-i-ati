@@ -7,7 +7,11 @@ const { handlerMock } = vi.hoisted(() => ({
 
 vi.mock('@tools/registry', () => ({
   embeddedToolsRegistry: {
-    isRegistered: vi.fn((name: string) => name === 'schedule_create' || name === 'plan_get_current_chat'),
+    isRegistered: vi.fn((name: string) => (
+      name === 'schedule_create'
+      || name === 'plan_get_current_chat'
+      || name === 'activity_journal_append'
+    )),
     getHandler: vi.fn(() => handlerMock)
   }
 }))
@@ -72,6 +76,27 @@ describe('ToolExecutor runtime context', () => {
       id: 'call-3',
       function: 'plan_get_current_chat',
       args: ''
+    } as any])
+
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    const callArgs = handlerMock.mock.calls[0][0]
+    expect(callArgs.chat_uuid).toBe('chat-runtime')
+  })
+
+  it('overrides chat_uuid for activity journal tools from runtime context', async () => {
+    handlerMock.mockClear()
+    const executor = new ToolExecutor({
+      chatUuid: 'chat-runtime'
+    })
+
+    await executor.execute([{
+      id: 'call-4',
+      function: 'activity_journal_append',
+      args: JSON.stringify({
+        chat_uuid: 'chat-from-llm',
+        title: 'Finished step',
+        category: 'summary'
+      })
     } as any])
 
     expect(handlerMock).toHaveBeenCalledTimes(1)

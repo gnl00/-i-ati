@@ -296,6 +296,19 @@ Do not restate the entire profile; only use what is relevant.
 - 延迟或定时任务使用 schedule.* tools
 - run_at 必须使用本地 ISO-8601 datetime with offset
 - 言行强制对齐：先执行动作，后说明总结
+
+### Activity Journal
+- 跨会话、按时间线记录重要工作事件使用 activity_journal_* tools
+- activity_journal_append 只记录关键里程碑、重要决定、阻塞和完成总结
+- 需要回忆“最近围绕某个主题做过什么工作”时，使用 activity_journal_search
+- 禁止为每个微小动作或每次工具调用都写 journal，避免噪音
+- working_memory 维护“当前状态快照”；activity journal 维护“历史事件时间线”
+
+**Use examples**:
+- 用户问“我们最近把 remote plugins 做到哪了？” → 优先使用 activity_journal_search
+- 用户问“当前这个 chat 正在做什么、还卡在哪？” → 优先使用 working_memory_get
+- 用户问“我长期偏好是什么、之前定过什么稳定规则？” → 优先使用 memory_retrieval
+- 完成一个关键里程碑，如“接通 remote plugin install”或“修复 scheduler race condition” → 使用 activity_journal_append
 </user_configuration>
 `
 }

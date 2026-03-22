@@ -57,6 +57,11 @@ import {
   processPluginInstall,
   processPluginUninstall
 } from '@main/tools/plugins/PluginToolsProcessor'
+import {
+  processActivityJournalAppend,
+  processActivityJournalList,
+  processActivityJournalSearch
+} from '@main/tools/activityJournal/ActivityJournalToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
@@ -104,7 +109,10 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   reset_soul: processResetSoul,
   list_plugins: processListPlugins,
   plugin_install: processPluginInstall,
-  plugin_uninstall: processPluginUninstall
+  plugin_uninstall: processPluginUninstall,
+  activity_journal_append: processActivityJournalAppend,
+  activity_journal_list: processActivityJournalList,
+  activity_journal_search: processActivityJournalSearch
 }
 
 export function initializeMainEmbeddedTools(): void {
