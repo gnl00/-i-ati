@@ -1,10 +1,9 @@
 import DatabaseService from '@main/services/DatabaseService'
 import { createLogger } from '@main/services/logging/LogService'
 import {
-  adapterManager,
   getRequestAdapterPluginById,
   isRequestAdapterPluginEnabled,
-  syncAdaptersWithPlugins
+  resolveAdapterForRequest
 } from './adapters/index'
 
 const logger = createLogger('UnifiedRequest')
@@ -12,7 +11,6 @@ const logger = createLogger('UnifiedRequest')
 export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
   const pluginConfigs = DatabaseService.getPluginConfigs()
   const plugins = DatabaseService.getPlugins()
-  await syncAdaptersWithPlugins(plugins)
 
   let adapter
   const adapterPluginId = req.adapterPluginId
@@ -26,7 +24,7 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   if (!adapterPluginId) {
     throw new Error('Missing adapter plugin id')
   }
-  adapter = adapterManager.getAdapter(adapterPluginId)
+  adapter = await resolveAdapterForRequest(adapterPluginId, plugins)
   const headers = adapter.buildHeaders(req)
 
   const requestBody = adapter.buildRequest(req)

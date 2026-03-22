@@ -50,6 +50,11 @@ export const registerEnabledBuiltInRequestAdapters = (
   })
 }
 
+export const createBuiltInRequestAdapter = (pluginId: string): BaseAdapter | null => {
+  const createAdapter = requestAdapterFactories.get(pluginId as BuiltInAppPluginId)
+  return createAdapter ? createAdapter() : null
+}
+
 const loadRequestAdapterPluginModule = async (plugin: PluginEntity): Promise<RequestAdapterPluginModule | null> => {
   if (!plugin.manifestPath) {
     console.warn(`[Request] Local plugin missing manifestPath: ${plugin.pluginId}`)
@@ -69,6 +74,28 @@ const loadRequestAdapterPluginModule = async (plugin: PluginEntity): Promise<Req
   return await import(moduleUrl) as RequestAdapterPluginModule
 }
 
+export const getRequestAdapterPluginFingerprint = (plugin: PluginEntity): string => {
+  return JSON.stringify({
+    pluginId: plugin.pluginId,
+    source: plugin.source,
+    enabled: plugin.enabled,
+    status: plugin.status,
+    version: plugin.version ?? '',
+    manifestPath: plugin.manifestPath ?? '',
+    installRoot: plugin.installRoot ?? ''
+  })
+}
+
+export const loadLocalRequestAdapter = async (plugin: PluginEntity): Promise<BaseAdapter> => {
+  const module = await loadRequestAdapterPluginModule(plugin)
+  const requestAdapterHooks = module?.requestAdapter ?? module?.default?.requestAdapter
+  if (!requestAdapterHooks) {
+    throw new Error(`[Request] Local plugin must export a single requestAdapter: ${plugin.pluginId}`)
+  }
+
+  return new RequestAdapterPluginWrapper(requestAdapterHooks)
+}
+
 export const registerEnabledLocalRequestAdapters = async (
   plugins: PluginEntity[],
   register: (pluginId: string, adapter: BaseAdapter) => void
@@ -82,14 +109,7 @@ export const registerEnabledLocalRequestAdapters = async (
 
   for (const plugin of localPlugins) {
     try {
-      const module = await loadRequestAdapterPluginModule(plugin)
-      const requestAdapterHooks = module?.requestAdapter ?? module?.default?.requestAdapter
-      if (!requestAdapterHooks) {
-        console.warn(`[Request] Local plugin must export a single requestAdapter: ${plugin.pluginId}`)
-        continue
-      }
-
-      register(plugin.pluginId, new RequestAdapterPluginWrapper(requestAdapterHooks))
+      register(plugin.pluginId, await loadLocalRequestAdapter(plugin))
     } catch (error) {
       console.warn(`[Request] Failed to load local request adapter plugin: ${plugin.pluginId}`, error)
     }

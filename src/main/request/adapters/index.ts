@@ -8,35 +8,78 @@ export {
   isRequestAdapterPluginEnabled
 } from './plugins'
 
+import { getBuiltInRequestAdapterPlugin } from '@shared/plugins/requestAdapters'
 import { adapterManager } from './manager'
-import { mergeBuiltInPluginConfigs } from '@shared/plugins/requestAdapters'
-import { registerEnabledBuiltInRequestAdapters, registerEnabledLocalRequestAdapters } from './plugins'
+import {
+  createBuiltInRequestAdapter,
+  getRequestAdapterPluginFingerprint,
+  loadLocalRequestAdapter
+} from './plugins'
 
-export async function syncAdaptersWithPlugins(plugins?: PluginEntity[]) {
-  const pluginConfigs = (plugins ?? []).map(plugin => ({
-    id: plugin.pluginId,
-    name: plugin.name,
-    description: plugin.description,
-    enabled: plugin.enabled,
-    source: plugin.source,
-    version: plugin.version,
-    manifestPath: plugin.manifestPath
-  }))
-  const enabledPlugins = new Set(
-    mergeBuiltInPluginConfigs(pluginConfigs)
-      .filter(plugin => plugin.enabled !== false)
-      .map(plugin => plugin.id)
-  )
+const isLocalRequestAdapterPlugin = (plugin: PluginEntity | null | undefined): plugin is PluginEntity => {
+  if (!plugin) {
+    return false
+  }
 
-  adapterManager.clear()
+  return (plugin.source === 'local' || plugin.source === 'remote')
+    && plugin.enabled
+    && plugin.status === 'installed'
+    && plugin.capabilities.some(capability => capability.kind === 'request-adapter')
+}
 
-  registerEnabledBuiltInRequestAdapters(enabledPlugins, (pluginId, adapter) => {
-    adapterManager.register(pluginId, adapter)
-  })
+export async function resolveAdapterForRequest(
+  adapterPluginId: string,
+  plugins?: PluginEntity[]
+) {
+  const cachedAdapter = adapterManager.peekAdapter(adapterPluginId)
+  const builtInPlugin = getBuiltInRequestAdapterPlugin(adapterPluginId)
+  const plugin = (plugins ?? []).find(item => item.pluginId === adapterPluginId)
 
-  await registerEnabledLocalRequestAdapters(plugins ?? [], (pluginId, adapter) => {
-    adapterManager.register(pluginId, adapter)
-  })
+  if (builtInPlugin) {
+    if (cachedAdapter) {
+      return cachedAdapter
+    }
 
-  console.log('Registered adapters:', adapterManager.listAdapters())
+    const builtInAdapter = createBuiltInRequestAdapter(builtInPlugin.id)
+    if (!builtInAdapter) {
+      throw new Error(`No built-in adapter factory registered for plugin id: ${builtInPlugin.id}`)
+    }
+
+    adapterManager.register(builtInPlugin.id, builtInAdapter)
+    return builtInAdapter
+  }
+
+  if (!isLocalRequestAdapterPlugin(plugin)) {
+    if (cachedAdapter) {
+      return cachedAdapter
+    }
+    throw new Error(`No adapter found for plugin id: ${adapterPluginId}`)
+  }
+
+  const fingerprint = getRequestAdapterPluginFingerprint(plugin)
+  if (cachedAdapter && adapterManager.getFingerprint(adapterPluginId) === fingerprint) {
+    return cachedAdapter
+  }
+
+  const failedAdapter = adapterManager.getFailedAdapter(adapterPluginId)
+  if (failedAdapter && failedAdapter.fingerprint === fingerprint) {
+    throw failedAdapter.error
+  }
+
+  adapterManager.delete(adapterPluginId)
+
+  try {
+    const adapter = await loadLocalRequestAdapter(plugin)
+    adapterManager.register(adapterPluginId, adapter, fingerprint)
+    return adapter
+  } catch (error) {
+    const resolvedError = error instanceof Error
+      ? error
+      : new Error(String(error))
+    adapterManager.setFailedAdapter(adapterPluginId, {
+      fingerprint,
+      error: resolvedError
+    })
+    throw resolvedError
+  }
 }
