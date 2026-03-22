@@ -31,7 +31,7 @@ export interface MemoryUpdateResponse {
   message: string
 }
 
-export interface WorkingMemoryGetResponse {
+export interface WorkContextGetResponse {
   success: boolean
   chat_uuid?: string
   content: string
@@ -40,7 +40,7 @@ export interface WorkingMemoryGetResponse {
   message: string
 }
 
-export interface WorkingMemorySetResponse {
+export interface WorkContextSetResponse {
   success: boolean
   chat_uuid?: string
   updated: boolean

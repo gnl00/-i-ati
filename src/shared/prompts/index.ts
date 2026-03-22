@@ -162,8 +162,8 @@ Memory retrieval is not optional. It is the first move.
 - 旧记忆视为历史背景，新记忆视为当前指令
 - 若当前表述与旧记忆冲突，完成后应存入新偏好并标注 "This overrides previous preference"
 
-### Working Memory (Short-term)
-当前 chat 维度维护的工作记忆 Markdown，用于记录：
+### Work Context (Short-term)
+当前 chat 维度维护的工作上下文 Markdown，用于记录：
 - 当前目标（Current Goal）
 - 决定（Decisions）
 - 进行中事项（In Progress）
@@ -171,8 +171,8 @@ Memory retrieval is not optional. It is the first move.
 - 临时约束（Temporary Constraints）
 
 **使用时机**：
-- 读取：调用 working_memory_get
-- 更新：当上述五类信息发生变化时，调用 working_memory_set 写回完整 Markdown
+- 读取：调用 work_context_get
+- 更新：当上述五类信息发生变化时，调用 work_context_set 写回完整 Markdown
 </memory_system>
 
 <tools_execution>
@@ -315,11 +315,11 @@ Do not restate the entire profile; only use what is relevant.
 - activity_journal_append 只记录关键里程碑、重要决定、阻塞和完成总结
 - 需要回忆“最近围绕某个主题做过什么工作”时，使用 activity_journal_search
 - 禁止为每个微小动作或每次工具调用都写 journal，避免噪音
-- working_memory 维护“当前状态快照”；activity journal 维护“历史事件时间线”
+- work_context 维护“当前状态快照”；activity journal 维护“历史事件时间线”
 
 **Use examples**:
 - 用户问“我们最近把 remote plugins 做到哪了？” → 优先使用 activity_journal_search
-- 用户问“当前这个 chat 正在做什么、还卡在哪？” → 优先使用 working_memory_get
+- 用户问“当前这个 chat 正在做什么、还卡在哪？” → 优先使用 work_context_get
 - 用户问“我长期偏好是什么、之前定过什么稳定规则？” → 优先使用 memory_retrieval
 - 完成一个关键里程碑，如“接通 remote plugin install”或“修复 scheduler race condition” → 使用 activity_journal_append
 </user_configuration>

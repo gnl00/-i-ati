@@ -3,21 +3,22 @@ import path from 'path'
 import os from 'os'
 import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
-import { processWorkingMemoryGet, processWorkingMemorySet } from '../MemoryToolsProcessor'
+import { processWorkContextGet, processWorkContextSet } from '../MemoryToolsProcessor'
 
 var userDataPath = ''
 
 vi.mock('electron', () => ({
   app: {
-    getPath: vi.fn(() => userDataPath || '/tmp')
+    getPath: vi.fn(() => userDataPath || '/tmp'),
+    isReady: vi.fn(() => false)
   }
 }))
 
-describe('WorkingMemoryToolsProcessor', () => {
+describe('WorkContextToolsProcessor', () => {
   const chatUuid = 'c06fa90a-436c-46fb-84ff-3d2532cacec1'
 
   beforeEach(async () => {
-    userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'working-memory-test-'))
+    userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'work-context-test-'))
   })
 
   afterEach(async () => {
@@ -26,25 +27,25 @@ describe('WorkingMemoryToolsProcessor', () => {
     }
   })
 
-  it('returns template when working memory file does not exist', async () => {
-    const res = await processWorkingMemoryGet({ chat_uuid: chatUuid })
+  it('returns template when work context file does not exist', async () => {
+    const res = await processWorkContextGet({ chat_uuid: chatUuid })
     expect(res.success).toBe(true)
     expect(res.exists).toBe(false)
-    expect(res.content).toContain('# Working Memory')
+    expect(res.content).toContain('# Work Context')
     expect(res.content).toContain('## Current Goal')
   })
 
   it('returns template content when chat_uuid is missing', async () => {
-    const res = await processWorkingMemoryGet({})
+    const res = await processWorkContextGet({})
     expect(res.success).toBe(false)
     expect(res.exists).toBe(false)
-    expect(res.content).toContain('# Working Memory')
+    expect(res.content).toContain('# Work Context')
     expect(res.message).toContain('chat_uuid is required')
   })
 
-  it('writes and reads working memory markdown', async () => {
+  it('writes and reads work context markdown', async () => {
     const content = [
-      '# Working Memory',
+      '# Work Context',
       '',
       '## Current Goal',
       'Ship schedule stability fix.',
@@ -53,7 +54,7 @@ describe('WorkingMemoryToolsProcessor', () => {
       '- Use single subscription per submission.'
     ].join('\n')
 
-    const setRes = await processWorkingMemorySet({
+    const setRes = await processWorkContextSet({
       chat_uuid: chatUuid,
       content
     })
@@ -64,18 +65,18 @@ describe('WorkingMemoryToolsProcessor', () => {
     expect(setRes.file_path).toBeDefined()
     expect(existsSync(setRes.file_path!)).toBe(true)
 
-    const getRes = await processWorkingMemoryGet({ chat_uuid: chatUuid })
+    const getRes = await processWorkContextGet({ chat_uuid: chatUuid })
     expect(getRes.success).toBe(true)
     expect(getRes.exists).toBe(true)
     expect(getRes.content).toContain('Ship schedule stability fix.')
   })
 
   it('skips writing when normalized content is unchanged', async () => {
-    const original = '# Working Memory\n\n## Current Goal\nStabilize streaming.\n'
-    await processWorkingMemorySet({ chat_uuid: chatUuid, content: original })
+    const original = '# Work Context\n\n## Current Goal\nStabilize streaming.\n'
+    await processWorkContextSet({ chat_uuid: chatUuid, content: original })
 
-    const sameWithFormattingNoise = '# Working Memory\r\n\r\n## Current Goal\r\nStabilize streaming.   \r\n\r\n'
-    const res = await processWorkingMemorySet({
+    const sameWithFormattingNoise = '# Work Context\r\n\r\n## Current Goal\r\nStabilize streaming.   \r\n\r\n'
+    const res = await processWorkContextSet({
       chat_uuid: chatUuid,
       content: sameWithFormattingNoise
     })
@@ -87,7 +88,7 @@ describe('WorkingMemoryToolsProcessor', () => {
   })
 
   it('writes template when content is empty', async () => {
-    const res = await processWorkingMemorySet({
+    const res = await processWorkContextSet({
       chat_uuid: chatUuid,
       content: '   \n\n  '
     })
@@ -96,14 +97,14 @@ describe('WorkingMemoryToolsProcessor', () => {
     expect(res.updated).toBe(true)
     expect(res.skipped).toBe(false)
 
-    const getRes = await processWorkingMemoryGet({ chat_uuid: chatUuid })
+    const getRes = await processWorkContextGet({ chat_uuid: chatUuid })
     expect(getRes.success).toBe(true)
-    expect(getRes.content).toContain('# Working Memory')
+    expect(getRes.content).toContain('# Work Context')
     expect(getRes.content).toContain('## Current Goal')
   })
 
   it('returns validation message when content type is invalid', async () => {
-    const res = await processWorkingMemorySet({
+    const res = await processWorkContextSet({
       chat_uuid: chatUuid,
       content: 123 as any
     })
@@ -113,7 +114,7 @@ describe('WorkingMemoryToolsProcessor', () => {
   })
 
   it('returns missing required param error when content is absent', async () => {
-    const res = await processWorkingMemorySet({
+    const res = await processWorkContextSet({
       chat_uuid: chatUuid
     } as any)
 

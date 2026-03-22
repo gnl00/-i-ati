@@ -3,7 +3,13 @@ import path from 'path'
 import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import MemoryService from '@main/services/memory/MemoryService'
-import type { MemoryRetrievalResponse, MemorySaveResponse, MemoryUpdateResponse } from '@tools/memory/index.d'
+import type {
+  MemoryRetrievalResponse,
+  MemorySaveResponse,
+  MemoryUpdateResponse,
+  WorkContextGetResponse,
+  WorkContextSetResponse
+} from '@tools/memory/index.d'
 
 interface MemoryRetrievalArgs {
   query: string
@@ -32,18 +38,18 @@ interface MemoryUpdateArgs {
   timestamp?: number
 }
 
-interface WorkingMemoryGetArgs {
+interface WorkContextGetArgs {
   chat_uuid?: string
 }
 
-interface WorkingMemorySetArgs {
+interface WorkContextSetArgs {
   content: string
   chat_uuid?: string
 }
 
-const WORKING_MEMORY_ROOT = 'memories'
-const WORKING_MEMORY_FILE = 'current.md'
-const WORKING_MEMORY_TEMPLATE = `# Working Memory
+const WORK_CONTEXT_ROOT = 'memories'
+const WORK_CONTEXT_FILE = 'current.md'
+const WORK_CONTEXT_TEMPLATE = `# Work Context
 
 ## Current Goal
 
@@ -58,11 +64,11 @@ const WORKING_MEMORY_TEMPLATE = `# Working Memory
 ## Last Updated
 `
 
-const resolveWorkingMemoryFilePath = (chatUuid: string): string => {
-  return path.join(app.getPath('userData'), WORKING_MEMORY_ROOT, chatUuid, 'working', WORKING_MEMORY_FILE)
+const resolveWorkContextFilePath = (chatUuid: string): string => {
+  return path.join(app.getPath('userData'), WORK_CONTEXT_ROOT, chatUuid, 'working', WORK_CONTEXT_FILE)
 }
 
-const normalizeWorkingMemoryContent = (content: string): string => {
+const normalizeWorkContextContent = (content: string): string => {
   return content
     .replace(/\r\n/g, '\n')
     .split('\n')
@@ -72,7 +78,7 @@ const normalizeWorkingMemoryContent = (content: string): string => {
     .trim()
 }
 
-const readWorkingMemoryFile = async (filePath: string): Promise<string> => {
+const readWorkContextFile = async (filePath: string): Promise<string> => {
   if (!existsSync(filePath)) {
     return ''
   }
@@ -225,29 +231,22 @@ export async function processMemoryUpdate(
   }
 }
 
-export async function processWorkingMemoryGet(
-  args: WorkingMemoryGetArgs
-): Promise<{
-  success: boolean
-  chat_uuid?: string
-  content: string
-  exists: boolean
-  file_path?: string
-  message: string
-}> {
+export async function processWorkContextGet(
+  args: WorkContextGetArgs
+): Promise<WorkContextGetResponse> {
   try {
     if (!args.chat_uuid) {
       return {
         success: false,
-        content: WORKING_MEMORY_TEMPLATE,
+        content: WORK_CONTEXT_TEMPLATE,
         exists: false,
-        message: 'chat_uuid is required. Returned template content.'
+        message: 'chat_uuid is required. Returned work context template content.'
       }
     }
 
-    const filePath = resolveWorkingMemoryFilePath(args.chat_uuid)
+    const filePath = resolveWorkContextFilePath(args.chat_uuid)
     const exists = existsSync(filePath)
-    const rawContent = exists ? await readWorkingMemoryFile(filePath) : WORKING_MEMORY_TEMPLATE
+    const rawContent = exists ? await readWorkContextFile(filePath) : WORK_CONTEXT_TEMPLATE
 
     return {
       success: true,
@@ -255,30 +254,23 @@ export async function processWorkingMemoryGet(
       content: rawContent,
       exists,
       file_path: filePath,
-      message: exists ? 'Working memory loaded.' : 'Working memory not found. Returned template.'
+      message: exists ? 'Work context loaded.' : 'Work context not found. Returned template.'
     }
   } catch (error) {
-    console.error('[MemoryTools] Failed to get working memory:', error)
+    console.error('[MemoryTools] Failed to get work context:', error)
     const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
-      content: WORKING_MEMORY_TEMPLATE,
+      content: WORK_CONTEXT_TEMPLATE,
       exists: false,
-      message: `Failed to get working memory: ${message}`
+      message: `Failed to get work context: ${message}`
     }
   }
 }
 
-export async function processWorkingMemorySet(
-  args: WorkingMemorySetArgs
-): Promise<{
-  success: boolean
-  chat_uuid?: string
-  updated: boolean
-  skipped: boolean
-  file_path?: string
-  message: string
-}> {
+export async function processWorkContextSet(
+  args: WorkContextSetArgs
+): Promise<WorkContextSetResponse> {
   try {
     if (!args.chat_uuid) {
       return {
@@ -305,11 +297,11 @@ export async function processWorkingMemorySet(
       }
     }
 
-    const filePath = resolveWorkingMemoryFilePath(args.chat_uuid)
-    const previousRaw = await readWorkingMemoryFile(filePath)
-    const previousNormalized = normalizeWorkingMemoryContent(previousRaw)
-    const normalizedInput = normalizeWorkingMemoryContent(args.content)
-    const nextNormalized = normalizedInput || normalizeWorkingMemoryContent(WORKING_MEMORY_TEMPLATE)
+    const filePath = resolveWorkContextFilePath(args.chat_uuid)
+    const previousRaw = await readWorkContextFile(filePath)
+    const previousNormalized = normalizeWorkContextContent(previousRaw)
+    const normalizedInput = normalizeWorkContextContent(args.content)
+    const nextNormalized = normalizedInput || normalizeWorkContextContent(WORK_CONTEXT_TEMPLATE)
 
     if (previousNormalized === nextNormalized) {
       return {
@@ -318,7 +310,7 @@ export async function processWorkingMemorySet(
         updated: false,
         skipped: true,
         file_path: filePath,
-        message: 'Working memory unchanged. Skipped write.'
+        message: 'Work context unchanged. Skipped write.'
       }
     }
 
@@ -331,16 +323,16 @@ export async function processWorkingMemorySet(
       updated: true,
       skipped: false,
       file_path: filePath,
-      message: 'Working memory updated.'
+      message: 'Work context updated.'
     }
   } catch (error) {
-    console.error('[MemoryTools] Failed to set working memory:', error)
+    console.error('[MemoryTools] Failed to set work context:', error)
     const message = error instanceof Error ? error.message : String(error)
     return {
       success: false,
       updated: false,
       skipped: false,
-      message: `Failed to set working memory: ${message}`
+      message: `Failed to set work context: ${message}`
     }
   }
 }
