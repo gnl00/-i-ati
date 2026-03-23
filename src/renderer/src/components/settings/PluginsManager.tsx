@@ -160,39 +160,40 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
               <div className="space-y-1.5 w-full">
                 <div className="w-full flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                  <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
-                    Plugins
-                  </Label>
-                  <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-                    {installedPlugins.length} installed
-                  </Badge>
-                  {activeCount > 0 && (
-                    <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-                      {activeCount} active
+                    <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
+                      Plugins
+                    </Label>
+                    <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
+                      {installedPlugins.length} installed
                     </Badge>
-                  )}
+                    {activeCount > 0 && (
+                      <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                        {activeCount} active
+                      </Badge>
+                    )}
                   </div>
-                                  <div className="flex items-center gap-2">
-                  <Button
+                  <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void handleRefresh()}
+                        disabled={isRefreshing}
+                        className="h-8 px-3 text-[11px] gap-1.5  dark:hover:bg-slate-700/50"
+                      >
+                      {isRefreshing ? <i className='ri-refresh-line animate-spin'></i> : <i className='ri-refresh-line'></i>}
+                      <span>{isRefreshing ? 'Refreshing...' : 'Refresh Installed'}</span>
+                    </Button>
+                    <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      onClick={() => void handleRefresh()}
-                      disabled={isRefreshing}
-                      className="h-8 px-3 text-[11px]"
+                      onClick={() => void handleImport()}
+                      disabled={isImporting}
+                      className="h-7 px-3 text-[11px]"
                     >
-                    {isRefreshing ? <i className='ri-refresh-line animate-spin'></i> : <i className='ri-refresh-line'></i>}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => void handleImport()}
-                    disabled={isImporting}
-                    className="h-7 px-3 text-[11px]"
-                  >
-                    {isImporting ? 'Importing...' : 'Import Local Plugin'}
-                  </Button>
-                </div>
+                      {isImporting ? 'Importing...' : 'Import Local Plugin'}
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
                   Built-in adapters are app capabilities. This page is mainly for importing and managing local plugins.
@@ -319,9 +320,10 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                   variant="ghost"
                   onClick={() => void handleRefreshRemote()}
                   disabled={isRefreshingRemote}
-                  className="h-8 px-3 text-[11px]"
+                  className="h-8 px-3 text-[11px] gap-1.5 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
                 >
                   {isRefreshingRemote ? <i className='ri-refresh-line animate-spin'></i> : <i className='ri-refresh-line'></i>}
+                  <span>{isRefreshingRemote ? 'Refreshing...' : 'Refresh Registry'}</span>
                 </Button>
               </div>
             </div>
