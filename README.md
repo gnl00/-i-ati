@@ -2,6 +2,13 @@
 
 `@i` is an AI Agent application with tool calling, task execution, long-term memory, and workspace operations.
 
+## License
+
+This project is licensed under the GNU General Public License v3.0 or later.
+
+- SPDX identifier: `GPL-3.0-or-later`
+- See [LICENSE](./LICENSE) for the full text.
+
 ## Core Capabilities
 
 - Unified multi-provider access: built-in adapters for OpenAI-compatible / Claude-compatible / Gemini-compatible providers.
@@ -71,7 +78,7 @@ Task plan bar
 ### macOS: app cannot be opened after install
 
 ```bash
-sudo xattr -r -d com.apple.quarantine /Applications/at-i-app.app
+sudo xattr -r -d com.apple.quarantine /Applications/at-i.app
 ```
 
 ### Linux: icons not refreshed

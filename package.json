@@ -4,6 +4,7 @@
   "description": "An AI API client build with Electron",
   "main": "./out/main/index.js",
   "author": "gnl",
+  "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/gnl00/-i-ati",
   "scripts": {
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
