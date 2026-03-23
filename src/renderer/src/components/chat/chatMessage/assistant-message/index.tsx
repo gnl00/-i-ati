@@ -3,16 +3,17 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
-import { ToolCallResult } from './toolcall/ToolCallResult'
+import { ToolCallResultNextOutput } from './toolcall/ToolCallResultNextOutput'
 import { useMessageTypewriter } from '../typewriter/use-message-typewriter'
 import { MessageOperations } from '../message-operations'
 import { ErrorMessage } from '../error-message'
 import { CommandConfirmation } from './CommandConfirmation'
 import { StreamingMarkdownSwitch } from '../typewriter/StreamingMarkdownSwitch'
 import { toast } from 'sonner'
-import { ModelBadgeV2 } from './model-badge/ModelBadgeV2'
+import { ModelBadgeNext } from './model-badge/ModelBadgeNext'
 import { TextSegment } from './segments/TextSegment'
-import { ReasoningSegmentV2 } from './segments/ReasoningSegmentV2'
+import { ReasoningSegmentNext } from './segments/ReasoningSegmentNext'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 
 function getStreamingTextRenderMode(): 'markdown' | 'switch' {
   return (globalThis as any).__STREAMING_TEXT_RENDER_MODE ?? 'switch'
@@ -30,6 +31,20 @@ function getSegmentRenderKey(segment: MessageSegment, index: number): string {
     return `${segment.type}-${timestamp}`
   }
   return `${segment.type}-${index}`
+}
+
+function resolveMessageProvider(
+  modelRef: ModelRef | undefined,
+  providerDefinitions: ProviderDefinition[],
+  accounts: ProviderAccount[]
+): string | undefined {
+  if (!modelRef) return undefined
+
+  const account = accounts.find(item => item.id === modelRef.accountId)
+  if (!account) return undefined
+
+  const definition = providerDefinitions.find(item => item.id === account.providerId)
+  return definition?.iconKey || definition?.id || account.providerId
 }
 
 export interface AssistantMessageProps {
@@ -115,6 +130,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const messages = useChatStore(state => state.messages)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const readStreamState = useChatStore(state => state.readStreamState)
+  const providerDefinitions = useAppConfigStore(state => state.providerDefinitions)
+  const accounts = useAppConfigStore(state => state.accounts)
   const { onSubmit: handleChatSubmit } = useChatSubmit()
 
   const pendingToolConfirm = useToolConfirmationStore(state => state.pendingRequest)
@@ -181,6 +198,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     void handleChatSubmit(payload.text, payload.images, {})
   }
 
+  const modelProvider = resolveMessageProvider(m.modelRef, providerDefinitions, accounts)
+
   return (
     <div
       id={'assistant-message-' + index}
@@ -195,8 +214,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
       <div>
         {/* Model Badge */}
         {m.model && (
-          <ModelBadgeV2
+          <ModelBadgeNext
             model={m.model}
+            provider={modelProvider}
             animate={showLoadingIndicator && isLatest}
           />
         )}
@@ -251,7 +271,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
                 : undefined
 
             return (
-              <ReasoningSegmentV2
+              <ReasoningSegmentNext
                 key={key}
                 segment={segment}
                 nextSegmentTimestamp={nextSegmentTimestamp}
@@ -259,7 +279,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
               />
             )
           } else if (segment.type === 'toolCall') {
-            return <ToolCallResult key={key} toolCall={segment} index={index} />
+            return <ToolCallResultNextOutput key={key} toolCall={segment} index={index} />
           } else if (segment.type === 'error') {
             return <ErrorMessage key={key} error={segment.error} />
           }
