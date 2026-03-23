@@ -133,7 +133,7 @@ vi.mock('@main/services/CompressionService', () => ({
   }
 }))
 
-vi.mock('@main/services/TitleService', () => ({
+vi.mock('@main/services/title-service', () => ({
   generateTitle: generateTitleMock
 }))
 

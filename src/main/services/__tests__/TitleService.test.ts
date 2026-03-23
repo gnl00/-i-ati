@@ -18,7 +18,7 @@ vi.mock('@main/services/logging/LogService', () => ({
   }))
 }))
 
-import { generateTitle } from '../TitleService'
+import { generateTitle } from '../title-service'
 
 describe('TitleService', () => {
   it('uses a dedicated short title-generation request', async () => {

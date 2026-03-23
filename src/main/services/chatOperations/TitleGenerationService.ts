@@ -1,4 +1,4 @@
-import { generateTitle } from '@main/services/TitleService'
+import { generateTitle } from '@main/services/title-service'
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import type { ChatTitleGenerateInput } from './types'

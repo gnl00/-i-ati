@@ -31,7 +31,7 @@ vi.mock('@main/services/chatRun/infrastructure', () => {
   return { ChatRunEventEmitter, ChatRunEventEmitterFactory }
 })
 
-vi.mock('@main/services/TitleService', () => ({
+vi.mock('@main/services/title-service', () => ({
   generateTitle: generateTitleMock
 }))
 

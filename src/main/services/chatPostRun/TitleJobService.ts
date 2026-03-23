@@ -1,4 +1,4 @@
-import { generateTitle } from '@main/services/TitleService'
+import { generateTitle } from '@main/services/title-service'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
 import { createLogger } from '@main/services/logging/LogService'
