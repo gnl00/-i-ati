@@ -26,23 +26,16 @@ jobs:
         with:
           node-version: lts/krypton
 
-      - name: Linux pre-install dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt update && sudo apt install -y libx11-dev libxtst-dev libc6 libstdc++6 build-essential libpng-dev
-
-      - name: install-pnpm
+      - name: Install-pnpm
         run: npm install -g pnpm
 
-      - name: install-dependencies-win
+      - name: Install-dependencies-win
         if: matrix.os == 'windows-latest'
         run: npm install -g node-gyp && npm install
 
-      - name: install-dependencies-mac-or-linix
+      - name: Install-dependencies-mac-or-linix
         if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
         run: pnpm install
-
-      - name: rebuild-robotjs
-        run: npm rebuild
 
       - name: build-linux
         if: matrix.os == 'ubuntu-latest'
