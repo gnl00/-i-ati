@@ -1,4 +1,4 @@
-import type { CompressionJob } from '@main/services/CompressionService'
+import type { CompressionJob } from '@main/services/compression-service'
 
 export type ChatCompressionExecuteInput = CompressionJob & {
   submissionId?: string

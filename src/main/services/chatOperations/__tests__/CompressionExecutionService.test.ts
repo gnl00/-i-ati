@@ -31,7 +31,7 @@ vi.mock('@main/services/chatRun/infrastructure', () => {
   return { ChatRunEventEmitter, ChatRunEventEmitterFactory }
 })
 
-vi.mock('@main/services/CompressionService', () => ({
+vi.mock('@main/services/compression-service', () => ({
   compressionService: {
     execute: compressionExecuteMock
   }

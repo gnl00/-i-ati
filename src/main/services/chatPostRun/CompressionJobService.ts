@@ -1,4 +1,4 @@
-import { compressionService } from '@main/services/CompressionService'
+import { compressionService } from '@main/services/compression-service'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
 import { createPostRunEmitter, serializeError } from './utils'

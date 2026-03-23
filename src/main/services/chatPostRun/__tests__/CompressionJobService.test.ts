@@ -37,7 +37,7 @@ vi.mock('@main/services/DatabaseService', () => ({
   }
 }))
 
-vi.mock('@main/services/CompressionService', () => ({
+vi.mock('@main/services/compression-service', () => ({
   compressionService: {
     execute: compressionExecuteMock
   }
