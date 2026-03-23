@@ -2,13 +2,6 @@
 
 `@i` is an AI Agent application with tool calling, task execution, long-term memory, and workspace operations.
 
-## License
-
-This project is licensed under the GNU General Public License v3.0 or later.
-
-- SPDX identifier: `GPL-3.0-or-later`
-- See [LICENSE](./LICENSE) for the full text.
-
 ## Core Capabilities
 
 - Unified multi-provider access: built-in adapters for OpenAI-compatible / Claude-compatible / Gemini-compatible providers.
@@ -48,17 +41,6 @@ The app follows a clear split:
 
 On submission, the renderer triggers `MainChatSubmitService` via IPC. The main process builds system prompts, skill prompts, message context, and tool definitions, then sends a unified model request. Streaming output is parsed into text segments, tool calls, and tool results, and pushed back to the UI.
 
-## Build & Release
-
-Packaging is handled by `electron-builder`, configured in `electron-builder.yml`. GitHub Actions builds multi-platform releases on tags `v*.*.*` and produces a draft release.
-
-Linux build prerequisites:
-
-```bash
-sudo apt update
-sudo apt install -y libx11-dev libxtst-dev libc6 libstdc++6 build-essential libpng-dev
-```
-
 ## Screenshots
 
 Main chat window
@@ -68,6 +50,10 @@ Main chat window
 Chat sidebar
 
 ![chat-sheet](./screenshot/chatsheet-20260320113626.png)
+
+Setting section
+
+![setting-sections](./screenshot/setting-sections.png)
 
 Task plan bar
 
@@ -96,3 +82,10 @@ sudo update-desktop-database /usr/share/applications
 - https://platform.claude.com/docs/en/home
 - https://ai.google.dev/gemini-api/docs
 - https://icons.lobehub.com/
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 or later.
+
+- SPDX identifier: `GPL-3.0-or-later`
+- See [LICENSE](./LICENSE) for the full text.
