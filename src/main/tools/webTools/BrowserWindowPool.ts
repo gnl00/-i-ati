@@ -1,4 +1,6 @@
 import { BrowserWindow } from 'electron'
+import { mainWindow } from '@main/main-window'
+import { createLogger } from '@main/services/logging/LogService'
 
 interface WindowPoolConfig {
   searchWindowCount: number
@@ -12,6 +14,8 @@ interface PooledWindow {
   createdAt: number
   lastUsedAt: number
 }
+
+const logger = createLogger('BrowserWindowPool')
 
 class BrowserWindowPool {
   private searchWindows: PooledWindow[] = []
@@ -28,12 +32,15 @@ class BrowserWindowPool {
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
-      console.log('[WindowPool] Already initialized')
+      logger.debug('initialize.skipped_already_initialized')
       return
     }
 
-    console.log('[WindowPool] Initializing...')
     const startTime = Date.now()
+    logger.info('initialize.started', {
+      searchWindowCount: this.config.searchWindowCount,
+      contentWindowCount: this.config.contentWindowCount
+    })
 
     // Create search windows
     for (let i = 0; i < this.config.searchWindowCount; i++) {
@@ -59,7 +66,11 @@ class BrowserWindowPool {
 
     this.isInitialized = true
     const initTime = Date.now() - startTime
-    console.log(`[WindowPool] Initialized with ${this.searchWindows.length} search windows and ${this.contentWindows.length} content windows in ${initTime}ms`)
+    logger.info('initialize.completed', {
+      searchWindows: this.searchWindows.length,
+      contentWindows: this.contentWindows.length,
+      durationMs: initTime
+    })
   }
 
   /**
@@ -75,7 +86,9 @@ class BrowserWindowPool {
 
     if (!pooled) {
       // If no available window, create a new one
-      console.log('[WindowPool] No available search window, creating new one')
+      logger.warn('acquire_search_window.pool_exhausted_creating_new', {
+        existingWindows: this.searchWindows.length
+      })
       const window = this.createSearchWindow()
       const newPooled: PooledWindow = {
         window,
@@ -105,7 +118,9 @@ class BrowserWindowPool {
 
     if (!pooled) {
       // If no available window, create a new one
-      console.log('[WindowPool] No available content window, creating new one')
+      logger.warn('acquire_content_window.pool_exhausted_creating_new', {
+        existingWindows: this.contentWindows.length
+      })
       const window = this.createContentWindow()
       const newPooled: PooledWindow = {
         window,
@@ -163,7 +178,7 @@ class BrowserWindowPool {
         // Ignore errors during cleanup
       })
     } catch (err) {
-      console.error('[WindowPool] Error clearing window state:', err)
+      logger.error('clear_window_state.failed', err)
     }
   }
 
@@ -171,15 +186,19 @@ class BrowserWindowPool {
    * Create a search window with appropriate settings
    */
   private createSearchWindow(): BrowserWindow {
+    const { width, height } = mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow.getBounds()
+      : { width: 1366, height: 768 }
+
     const window = new BrowserWindow({
       show: false,
-      width: 1366,
-      height: 768,
+      width,
+      height,
       webPreferences: {
-        offscreen: true,
+        offscreen: false,
         sandbox: false,
         webSecurity: false,
-        images: false
+        images: true
       }
     })
 
@@ -187,7 +206,7 @@ class BrowserWindowPool {
 
     // Handle window crashes
     window.webContents.on('render-process-gone', (_event, details) => {
-      console.error('[WindowPool] Search window crashed', details)
+      logger.error('search_window.render_process_gone', details)
       this.handleWindowCrash(window, this.searchWindows)
     })
 
@@ -211,7 +230,7 @@ class BrowserWindowPool {
 
     // Handle window crashes
     window.webContents.on('render-process-gone', (_event, details) => {
-      console.error('[WindowPool] Content window crashed', details)
+      logger.error('content_window.render_process_gone', details)
       this.handleWindowCrash(window, this.contentWindows)
     })
 
@@ -234,7 +253,9 @@ class BrowserWindowPool {
         lastUsedAt: Date.now()
       }
 
-      console.log(`[WindowPool] Recreated ${isSearchWindow ? 'search' : 'content'} window after crash`)
+      logger.warn('window.recreated_after_crash', {
+        kind: isSearchWindow ? 'search' : 'content'
+      })
     }
   }
 
@@ -242,7 +263,10 @@ class BrowserWindowPool {
    * Destroy all windows in the pool
    */
   destroy(): void {
-    console.log('[WindowPool] Destroying all windows...')
+    logger.info('destroy.started', {
+      searchWindows: this.searchWindows.length,
+      contentWindows: this.contentWindows.length
+    })
 
     // Destroy all search windows
     for (const pooled of this.searchWindows) {
@@ -262,7 +286,7 @@ class BrowserWindowPool {
     this.contentWindows = []
     this.isInitialized = false
 
-    console.log('[WindowPool] All windows destroyed')
+    logger.info('destroy.completed')
   }
 
   /**

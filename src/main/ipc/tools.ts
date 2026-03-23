@@ -73,9 +73,9 @@ import {
 const logger = createLogger('ToolIPC')
 
 export function registerToolHandlers(): void {
-  ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param, fetchCounts, snippetsOnly }) => {
-    logger.info('web_search.invoke', { fetchCounts: fetchCounts ?? 'config/default', query: param, snippetsOnly })
-    return processWebSearch({ fetchCounts, param, snippetsOnly })
+  ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param, engine, fetchCounts, snippetsOnly }) => {
+    logger.info('web_search.invoke', { engine: engine ?? 'bing', fetchCounts: fetchCounts ?? 'config/default', query: param, snippetsOnly })
+    return processWebSearch({ engine, fetchCounts, param, snippetsOnly })
   })
 
   ipcMain.handle(WEB_FETCH_ACTION, (_event, args) => {

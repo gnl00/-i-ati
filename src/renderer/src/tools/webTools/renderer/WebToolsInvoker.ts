@@ -9,6 +9,7 @@ import { useAppConfigStore } from '@renderer/store/appConfig'
 // Web Search Types
 interface WebSearchArgs {
   query: string
+  engine?: 'bing' | 'google'
   fetchCounts?: number
   snippetsOnly?: boolean
 }
@@ -44,6 +45,7 @@ export async function invokeWebSearch(args: WebSearchArgs): Promise<WebSearchRes
 
     const searchResponse: WebSearchResponse = await invokeWebSearchIPC({
       param: args.query,
+      engine: args.engine,
       fetchCounts: fetchCounts,
       snippetsOnly: args.snippetsOnly
     })

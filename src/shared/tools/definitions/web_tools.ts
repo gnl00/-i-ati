@@ -11,6 +11,11 @@ export default [
             "type": "string",
             "description": "The search query to perform on the web."
           },
+          "engine": {
+            "type": "string",
+            "description": "Search engine to use. Defaults to bing. Use google when you need Google search result jump URLs.",
+            "enum": ["bing", "google"]
+          },
           "snippetsOnly": {
             "type": "boolean",
             "description": "If true, returns only titles, snippets, and links without fetching full page content. Use for fast initial searches when you only need quick overviews. Set to false or omit when you need complete page content for detailed analysis."

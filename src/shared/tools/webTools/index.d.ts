@@ -1,5 +1,6 @@
 export interface WebSearchArgs {
   query: string
+  engine?: 'bing' | 'google'
   snippetsOnly?: boolean
 }
 

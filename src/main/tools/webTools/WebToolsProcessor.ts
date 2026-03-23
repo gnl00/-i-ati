@@ -4,8 +4,11 @@ import TurndownService from 'turndown'
 import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@tools/webTools/index.d'
 import { getWindowPool } from './BrowserWindowPool'
 import DatabaseService from '@main/services/DatabaseService'
+import { createLogger } from '@main/services/logging/LogService'
+import { resolveSearchEngine, type SearchResultItem } from './search-engine'
 
 interface WebSearchProcessArgs {
+  engine?: 'bing' | 'google'
   fetchCounts?: number
   param?: string
   query?: string
@@ -19,11 +22,13 @@ interface WebFetchProcessArgs {
   cleanMode?: CleanMode
 }
 
-interface BingSearchItem {
-  link: string
+interface PageSnapshot {
+  currentUrl: string
   title: string
-  snippet: string
+  bodyPreview: string
 }
+
+type GooglePageKind = 'result' | 'anti_bot' | 'consent' | 'unknown'
 
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
 const directHttpExtensions = new Set([
@@ -38,6 +43,8 @@ const directHttpExtensions = new Set([
   '.xml',
   '.log'
 ])
+
+const logger = createLogger('WebToolsProcessor')
 
 function getFallbackTitleFromUrl(url: string): string {
   try {
@@ -79,7 +86,7 @@ function withTimeout<T>(
       try {
         onTimeout?.()
       } catch (err) {
-        console.warn('[WebTools] onTimeout hook failed:', err)
+        logger.warn('timeout_hook.failed', err)
       }
       reject(new Error(timeoutMessage))
     }, timeoutMs)
@@ -90,6 +97,155 @@ function withTimeout<T>(
       clearTimeout(timer)
     }
   })
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function isExpectedSearchResultUrl(engine: 'bing' | 'google', currentUrl: string): boolean {
+  try {
+    const parsed = new URL(currentUrl)
+    const hostname = parsed.hostname.replace(/^www\./, '')
+    if (engine === 'google') {
+      return hostname.endsWith('google.com') && parsed.pathname === '/search'
+    }
+    return hostname.endsWith('bing.com') && parsed.pathname === '/search'
+  } catch {
+    return false
+  }
+}
+
+async function capturePageSnapshot(window: BrowserWindow): Promise<PageSnapshot> {
+  try {
+    const snapshot = await window.webContents.executeJavaScript(`
+      ({
+        currentUrl: window.location.href,
+        title: document.title || '',
+        bodyPreview: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 300)
+      })
+    `)
+
+    return {
+      currentUrl: typeof snapshot?.currentUrl === 'string' ? snapshot.currentUrl : '',
+      title: typeof snapshot?.title === 'string' ? snapshot.title : '',
+      bodyPreview: typeof snapshot?.bodyPreview === 'string' ? snapshot.bodyPreview : ''
+    }
+  } catch {
+    return {
+      currentUrl: window.webContents.getURL() || '',
+      title: '',
+      bodyPreview: ''
+    }
+  }
+}
+
+function classifyGoogleSearchPage(snapshot: PageSnapshot): GooglePageKind {
+  const currentUrl = snapshot.currentUrl.toLowerCase()
+  const title = snapshot.title.toLowerCase()
+  const body = snapshot.bodyPreview.toLowerCase()
+  const combined = `${title}\n${body}`
+
+  if (currentUrl.includes('/sorry/') || currentUrl.includes('sorry/index')) {
+    return 'anti_bot'
+  }
+
+  const antiBotSignals = [
+    'unusual traffic',
+    'verify you are human',
+    'not a robot',
+    'captcha',
+    'detected unusual traffic',
+    '验证您是否是真人',
+    '验证您不是机器人',
+    '不是机器人'
+  ]
+  if (antiBotSignals.some(signal => combined.includes(signal))) {
+    return 'anti_bot'
+  }
+
+  const consentSignals = [
+    'before you continue to google',
+    'before you continue',
+    'accept all',
+    'reject all',
+    'i agree',
+    'cookies',
+    '在继续之前',
+    '接受全部',
+    '拒绝全部'
+  ]
+  if (
+    currentUrl.includes('consent.google.com')
+    || consentSignals.some(signal => combined.includes(signal))
+  ) {
+    return 'consent'
+  }
+
+  if (isExpectedSearchResultUrl('google', snapshot.currentUrl)) {
+    return 'result'
+  }
+
+  return 'unknown'
+}
+
+async function waitForManualGoogleVerification(window: BrowserWindow): Promise<PageSnapshot> {
+  logger.warn('search_verification.manual_required')
+  window.show()
+  window.focus()
+
+  await waitForCondition(async () => {
+    const snapshot = await capturePageSnapshot(window)
+    const kind = classifyGoogleSearchPage(snapshot)
+    return kind === 'result'
+  }, 120000, 1000)
+
+  const snapshot = await capturePageSnapshot(window)
+  logger.info('search_verification.completed', {
+    currentUrl: snapshot.currentUrl,
+    title: snapshot.title,
+    bodyPreview: snapshot.bodyPreview
+  })
+
+  if (!window.isDestroyed()) {
+    window.hide()
+  }
+
+  return snapshot
+}
+
+async function loadSearchPage(
+  window: BrowserWindow,
+  searchUrl: string,
+  engine: 'bing' | 'google'
+): Promise<PageSnapshot> {
+  try {
+    await window.loadURL(searchUrl, { userAgent })
+    return await capturePageSnapshot(window)
+  } catch (error: any) {
+    if (engine !== 'google' || error?.code !== 'ERR_ABORTED') {
+      throw error
+    }
+
+    await sleep(600)
+    const snapshot = await capturePageSnapshot(window)
+    if (isExpectedSearchResultUrl(engine, snapshot.currentUrl)) {
+      logger.warn('search_load.google_redirect_aborted_but_recovered', {
+        requestedUrl: searchUrl,
+        currentUrl: snapshot.currentUrl,
+        title: snapshot.title
+      })
+      return snapshot
+    }
+
+    logger.warn('search_load.google_redirect_aborted_unexpected_page', {
+      requestedUrl: searchUrl,
+      currentUrl: snapshot.currentUrl,
+      title: snapshot.title,
+      bodyPreview: snapshot.bodyPreview
+    })
+    throw error
+  }
 }
 
 function resolveConfiguredFetchCounts(fetchCounts?: number): number {
@@ -103,7 +259,7 @@ function resolveConfiguredFetchCounts(fetchCounts?: number): number {
       return configured
     }
   } catch (error) {
-    console.warn('[WebSearch] Failed to read maxWebSearchItems from config:', error)
+    logger.warn('web_search.read_max_items_config_failed', error)
   }
 
   return 3
@@ -269,7 +425,7 @@ function extractContentWithCheerio(html: string): string {
     const cleanedHtml = targetElement.html() || ''
     return cleanedHtml
   } catch (error) {
-    console.error('[Cheerio] Error extracting content:', error)
+    logger.error('cheerio_extract.failed', error)
     return ''
   }
 }
@@ -285,7 +441,7 @@ function convertHtmlToMarkdown(html: string, mode: CleanMode): string {
     const markdown = turndownService.turndown(html)
     return markdown
   } catch (error) {
-    console.error('[Turndown] Error converting to markdown:', error)
+    logger.error('turndown_convert.failed', error)
     // 如果转换失败，返回纯文本
     const $ = cheerio.load(html)
     return $('body').text()
@@ -320,7 +476,7 @@ async function fetchPageContent(
       }
     )
   } catch (error: any) {
-    console.warn('[WebFetch] loadURL failed, fallback to HTTP fetch:', {
+    logger.warn('web_fetch.load_url_failed_fallback_http', {
       url,
       message: error?.message || String(error)
     })
@@ -354,7 +510,7 @@ async function fetchPageContent(
     }
   } catch (error: any) {
     const currentUrl = contentWindow.webContents.getURL() || url
-    console.warn('[WebFetch] executeJavaScript failed, fallback to HTTP fetch:', {
+    logger.warn('web_fetch.extract_js_failed_fallback_http', {
       url: currentUrl,
       message: error?.message || String(error)
     })
@@ -366,6 +522,7 @@ async function fetchPageContent(
  * Web Search - 执行网页搜索
  */
 const processWebSearch = async ({
+  engine,
   fetchCounts,
   param,
   query,
@@ -383,99 +540,84 @@ const processWebSearch = async ({
     }
     const resolvedQuery = trimmedQuery
     const resolvedFetchCounts = resolveConfiguredFetchCounts(fetchCounts)
+    const searchEngine = resolveSearchEngine(engine)
 
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log(`[SEARCH START] Query: "${trimmedQuery}", Count: ${resolvedFetchCounts}, SnippetsOnly: ${Boolean(snippetsOnly)}`)
-    console.log(`[SEARCH START] Timestamp: ${new Date().toISOString()}`)
+    logger.info('web_search.started', {
+      engine: searchEngine.displayName,
+      query: trimmedQuery,
+      fetchCounts: resolvedFetchCounts,
+      snippetsOnly: Boolean(snippetsOnly),
+      timestamp: new Date().toISOString()
+    })
 
     // Acquire a search window from the pool
     const windowCreateStart = Date.now()
     searchWindow = await windowPool.acquireSearchWindow()
     const windowCreateTime = Date.now() - windowCreateStart
-    console.log(`[WINDOW ACQUIRE] Search window acquired in ${windowCreateTime}ms`)
+    logger.info('web_search.search_window_acquired', {
+      engine: searchEngine.displayName,
+      durationMs: windowCreateTime
+    })
 
-    const searchSite = 'www.bing.com'
-    const queryStr = encodeURIComponent(trimmedQuery)
-    const searchUrl = `https://${searchSite}/search?q=${queryStr}`
+    const searchUrl = searchEngine.buildSearchUrl(trimmedQuery)
 
     // Load search page
     const pageLoadStart = Date.now()
-    await searchWindow.loadURL(searchUrl, { userAgent })
+    const pageSnapshot = await loadSearchPage(searchWindow, searchUrl, searchEngine.id)
     const pageLoadTime = Date.now() - pageLoadStart
-    console.log(`[PAGE LOAD] Bing search page loaded in ${pageLoadTime}ms`)
+    logger.info('web_search.page_loaded', {
+      engine: searchEngine.displayName,
+      durationMs: pageLoadTime
+    })
+    logger.info('web_search.page_snapshot', {
+      engine: searchEngine.displayName,
+      currentUrl: pageSnapshot.currentUrl,
+      title: pageSnapshot.title,
+      bodyPreview: pageSnapshot.bodyPreview
+    })
+
+    if (searchEngine.id === 'google') {
+      const pageKind = classifyGoogleSearchPage(pageSnapshot)
+      logger.info('web_search.google_page_classified', {
+        engine: searchEngine.displayName,
+        kind: pageKind,
+        currentUrl: pageSnapshot.currentUrl
+      })
+
+      if (pageKind === 'anti_bot' || pageKind === 'consent') {
+        const verifiedSnapshot = await waitForManualGoogleVerification(searchWindow)
+        logger.info('web_search.page_snapshot_after_verification', {
+          engine: searchEngine.displayName,
+          currentUrl: verifiedSnapshot.currentUrl,
+          title: verifiedSnapshot.title,
+          bodyPreview: verifiedSnapshot.bodyPreview
+        })
+      }
+    }
 
     // Wait for results to be present
     const waitStart = Date.now()
     await waitForCondition(async () => {
       if (!searchWindow) return false
-      return await searchWindow.webContents.executeJavaScript(`
-        document.querySelectorAll('ol#b_results').length > 0
-      `)
+      return await searchWindow.webContents.executeJavaScript(searchEngine.waitForResultsScript)
     }, 15000, 500)
     const waitTime = Date.now() - waitStart
-    console.log(`[WAIT RESULTS] Waited ${waitTime}ms for search results`)
+    logger.info('web_search.results_ready', {
+      engine: searchEngine.displayName,
+      durationMs: waitTime
+    })
 
-    // Extract links, titles, and snippets from Bing search results
+    // Extract links, titles, and snippets from search results
     const extractStart = Date.now()
-    const searchItems: BingSearchItem[] = await searchWindow.webContents.executeJavaScript(`
-      (() => {
-        const results = []
-        const count = ${resolvedFetchCounts}
-        const searchResultItems = document.querySelectorAll('ol#b_results li.b_algo')
-
-        for (let i = 0; i < Math.min(count, searchResultItems.length); i++) {
-          const item = searchResultItems[i]
-
-          // 提取链接
-          const linkElement = item.querySelector('h2 a[href^="http"]')
-          if (!linkElement || !linkElement.href || linkElement.href.includes('google.com')) {
-            continue
-          }
-
-          // Bing result links are often redirect wrappers (bing.com/ck/a?...&u=...).
-          // Decode them to the original URL to reduce redirect failures and SSL handshake noise.
-          const decodeBingRedirect = (href) => {
-            try {
-              const parsed = new URL(href)
-              const isBingRedirect = parsed.hostname.includes('bing.com') && parsed.pathname.startsWith('/ck/a')
-              if (!isBingRedirect) return href
-
-              const encoded = parsed.searchParams.get('u')
-              if (!encoded) return href
-
-              const normalized = encoded.startsWith('a1') ? encoded.slice(2) : encoded
-              const base64 = normalized.replace(/-/g, '+').replace(/_/g, '/')
-              const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-              const decoded = atob(padded)
-
-              if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
-                return decoded
-              }
-              return href
-            } catch {
-              return href
-            }
-          }
-
-          // 提取标题（来自搜索结果）
-          const title = linkElement.textContent?.trim() || 'Untitled'
-
-          // 提取摘要（来自搜索结果描述）
-          const snippetElement = item.querySelector('p, .b_caption p, .b_algoSlug')
-          const snippet = snippetElement?.textContent?.trim() || ''
-
-          results.push({
-            link: decodeBingRedirect(linkElement.href),
-            title: title,
-            snippet: snippet
-          })
-        }
-
-        return results
-      })()
-    `)
+    const searchItems: SearchResultItem[] = await searchWindow.webContents.executeJavaScript(
+      searchEngine.buildExtractResultsScript(resolvedFetchCounts)
+    )
     const extractTime = Date.now() - extractStart
-    console.log(`[EXTRACT] Extracted ${searchItems.length} items in ${extractTime}ms`)
+    logger.info('web_search.results_extracted', {
+      engine: searchEngine.displayName,
+      count: searchItems.length,
+      durationMs: extractTime
+    })
 
     // Release search window back to pool
     if (searchWindow) {
@@ -486,8 +628,11 @@ const processWebSearch = async ({
     // Snippets only mode: return titles/snippets/links without fetching full pages
     if (snippetsOnly) {
       const totalTime = Date.now() - searchStartTime
-      console.log(`[SEARCH COMPLETE - SNIPPETS ONLY] Total time: ${totalTime}ms`)
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+      logger.info('web_search.completed_snippets_only', {
+        engine: searchEngine.displayName,
+        count: searchItems.length,
+        durationMs: totalTime
+      })
 
       return {
         success: true,
@@ -504,10 +649,13 @@ const processWebSearch = async ({
     }
 
     // Process each search item: scrape full content and extract metadata
-    console.log(`[SCRAPE START] Starting parallel content scraping for ${searchItems.length} pages`)
+    logger.info('web_search.scrape_started', {
+      engine: searchEngine.displayName,
+      count: searchItems.length
+    })
     const scrapeStart = Date.now()
     const scrapedResults: WebSearchResultV2[] = await Promise.all(
-      searchItems.map(async (item: BingSearchItem, index: number): Promise<WebSearchResultV2> => {
+      searchItems.map(async (item: SearchResultItem, index: number): Promise<WebSearchResultV2> => {
         const itemStart = Date.now()
         let contentWindow: BrowserWindow | null = null
 
@@ -525,7 +673,12 @@ const processWebSearch = async ({
           const contentWindowStart = Date.now()
           contentWindow = await windowPool.acquireContentWindow()
           const contentWindowTime = Date.now() - contentWindowStart
-          console.log(`[SCRAPE ${index + 1}] Content window #${index + 1} acquired in ${contentWindowTime}ms`)
+          logger.debug('web_search.scrape_item_content_window_acquired', {
+            engine: searchEngine.displayName,
+            index: index + 1,
+            link: item.link,
+            durationMs: contentWindowTime
+          })
 
           const contentLoadStart = Date.now()
           const { pageTitle, finalUrl, extractedText } = await withTimeout(
@@ -539,7 +692,12 @@ const processWebSearch = async ({
             }
           )
           const contentLoadTime = Date.now() - contentLoadStart
-          console.log(`[SCRAPE ${index + 1}] Page loaded in ${contentLoadTime}ms - ${item.link}`)
+          logger.debug('web_search.scrape_item_page_loaded', {
+            engine: searchEngine.displayName,
+            index: index + 1,
+            link: item.link,
+            durationMs: contentLoadTime
+          })
 
           resultItem.link = finalUrl
           resultItem.title = pageTitle || item.title
@@ -547,12 +705,22 @@ const processWebSearch = async ({
           resultItem.success = true
 
           const itemTime = Date.now() - itemStart
-          console.log(`[SCRAPE ${index + 1}] Completed in ${itemTime}ms total`)
+          logger.debug('web_search.scrape_item_completed', {
+            engine: searchEngine.displayName,
+            index: index + 1,
+            link: resultItem.link,
+            durationMs: itemTime
+          })
 
           return resultItem
 
         } catch (err: any) {
-          console.error(`Error scraping ${item.link}:`, err.message)
+          logger.warn('web_search.scrape_item_failed', {
+            engine: searchEngine.displayName,
+            index: index + 1,
+            link: item.link,
+            message: err?.message || 'Failed to fetch page'
+          })
           resultItem.success = false
           resultItem.error = err.message || 'Failed to fetch page'
           return resultItem
@@ -566,11 +734,18 @@ const processWebSearch = async ({
     )
 
     const scrapeTime = Date.now() - scrapeStart
-    console.log(`[SCRAPE COMPLETE] All ${searchItems.length} pages scraped in ${scrapeTime}ms`)
+    logger.info('web_search.scrape_completed', {
+      engine: searchEngine.displayName,
+      count: searchItems.length,
+      durationMs: scrapeTime
+    })
 
     const totalTime = Date.now() - searchStartTime
-    console.log(`[SEARCH COMPLETE] Total time: ${totalTime}ms`)
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+    logger.info('web_search.completed', {
+      engine: searchEngine.displayName,
+      count: scrapedResults.length,
+      durationMs: totalTime
+    })
 
     return {
       success: true,
@@ -578,7 +753,7 @@ const processWebSearch = async ({
     }
 
   } catch (error: any) {
-    console.error('electron-web-search error:', error)
+    logger.error('web_search.failed', error)
     return {
       success: false,
       results: [],
@@ -600,9 +775,11 @@ const processWebFetch = async ({ url, cleanMode }: WebFetchProcessArgs): Promise
   let contentWindow: BrowserWindow | null = null
 
   try {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log(`[WEB FETCH START] URL: "${url}"`)
-    console.log(`[WEB FETCH START] Timestamp: ${new Date().toISOString()}`)
+    logger.info('web_fetch.started', {
+      url,
+      cleanMode: cleanMode === 'full' ? 'full' : 'lite',
+      timestamp: new Date().toISOString()
+    })
 
     const mode = cleanMode === 'full' ? 'full' : 'lite'
     let pageTitle = ''
@@ -610,19 +787,25 @@ const processWebFetch = async ({ url, cleanMode }: WebFetchProcessArgs): Promise
     let extractedText = ''
 
     if (shouldPreferDirectHttpFetch(url)) {
-      console.log('[WEB FETCH MODE] Direct HTTP fetch path')
+      logger.info('web_fetch.mode_direct_http', { url })
       const fetchStart = Date.now()
       const direct = await fetchPageContentViaHttp(url, mode)
       pageTitle = direct.pageTitle
       finalUrl = direct.finalUrl
       extractedText = direct.extractedText
       const fetchTime = Date.now() - fetchStart
-      console.log(`[PAGE FETCH] Direct fetch completed in ${fetchTime}ms`)
+      logger.info('web_fetch.direct_http_completed', {
+        url: finalUrl,
+        durationMs: fetchTime
+      })
     } else {
       const windowCreateStart = Date.now()
       contentWindow = await windowPool.acquireContentWindow()
       const windowCreateTime = Date.now() - windowCreateStart
-      console.log(`[WINDOW ACQUIRE] Content window acquired in ${windowCreateTime}ms`)
+      logger.info('web_fetch.content_window_acquired', {
+        url,
+        durationMs: windowCreateTime
+      })
 
       const fetchStart = Date.now()
       const fetched = await fetchPageContent(url, contentWindow, mode)
@@ -630,14 +813,19 @@ const processWebFetch = async ({ url, cleanMode }: WebFetchProcessArgs): Promise
       finalUrl = fetched.finalUrl
       extractedText = fetched.extractedText
       const fetchTime = Date.now() - fetchStart
-      console.log(`[PAGE FETCH] Page fetched in ${fetchTime}ms`)
+      logger.info('web_fetch.page_fetched', {
+        url: finalUrl,
+        durationMs: fetchTime
+      })
     }
 
     const cleanedContent = extractedText
 
     const totalTime = Date.now() - fetchStartTime
-    console.log(`[WEB FETCH COMPLETE] Total time: ${totalTime}ms`)
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+    logger.info('web_fetch.completed', {
+      url: finalUrl,
+      durationMs: totalTime
+    })
 
     return {
       success: true,
@@ -647,7 +835,7 @@ const processWebFetch = async ({ url, cleanMode }: WebFetchProcessArgs): Promise
     }
 
   } catch (error: any) {
-    console.error('web-fetch error:', error)
+    logger.error('web_fetch.failed', error)
     return {
       success: false,
       url: url,
