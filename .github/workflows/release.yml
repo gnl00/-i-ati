@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Check out Git repository
@@ -24,10 +24,10 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: lts/krypton
 
       - name: Linux pre-install dependencies
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-latest'
         run: sudo apt update && sudo apt install -y libx11-dev libxtst-dev libc6 libstdc++6 build-essential libpng-dev
 
       - name: install-pnpm
@@ -38,14 +38,14 @@ jobs:
         run: npm install -g node-gyp && npm install
 
       - name: install-dependencies-mac-or-linix
-        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
         run: pnpm install
 
       - name: rebuild-robotjs
         run: npm rebuild
 
       - name: build-linux
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-latest'
         run: pnpm build:linux
 
       - name: build-mac
