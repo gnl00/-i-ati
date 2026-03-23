@@ -7,7 +7,7 @@ import { Button } from "@renderer/components/ui/button"
 import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
-import { Brain, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
+import { Brain, Database, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
 import MemoryManager from './MemoryManager'
@@ -16,6 +16,7 @@ import ProvidersManager from './providers/ProvidersManager'
 import ToolsManager from './ToolsManager'
 import SkillsManager from './skills/SkillsManager'
 import PluginsManager from './PluginsManager'
+import DataAndLogManager from './DataAndLogManager'
 
 interface PreferenceProps { }
 
@@ -34,6 +35,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         memoryEnabled,
         setMemoryEnabled,
         streamChunkDebugEnabled,
+        setStreamChunkDebugEnabled,
         mcpServerConfig,
         setMcpServerConfig,
         savedMcpServerConfig,
@@ -109,8 +111,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             icon: <Server className="w-3 h-3" />
         },
         {
-            value: 'tool',
-            label: 'Tool',
+            value: 'tools',
+            label: 'Tools',
             icon: <Wrench className="w-3 h-3" />
         },
         {
@@ -119,8 +121,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             icon: <Brain className="w-3 h-3" />
         },
         {
-            value: 'mcp-server',
-            label: 'MCP Server',
+            value: 'mcp-servers',
+            label: 'MCP Servers',
             icon: <Plug className="w-3 h-3" />
         },
         {
@@ -132,6 +134,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             value: 'plugins',
             label: 'Plugins',
             icon: <Puzzle className="w-3 h-3" />
+        },
+        {
+            value: 'data-log',
+            label: 'Data & Log',
+            icon: <Database className="w-3 h-3" />
         }
     ]
 
@@ -208,7 +215,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <ProvidersManager plugins={plugins} />
                 </TabsContent>
 
-                <TabsContent value="tool">
+                <TabsContent value="tools">
                     <ToolsManager
                         maxWebSearchItems={maxWebSearchItems}
                         setMaxWebSearchItems={setMaxWebSearchItems}
@@ -230,7 +237,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     />
                 </TabsContent>
 
-                <TabsContent value="mcp-server" className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
+                <TabsContent value="mcp-servers" className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
                     <div className="w-full h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md">
                         <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
                             <MCPServersManagerContent
@@ -255,6 +262,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         installRemotePlugin={installRemotePlugin}
                         importLocalPlugin={importLocalPlugin}
                         uninstallLocalPlugin={uninstallLocalPlugin}
+                    />
+                </TabsContent>
+
+                <TabsContent value="data-log">
+                    <DataAndLogManager
+                        streamChunkDebugEnabled={streamChunkDebugEnabled}
+                        setStreamChunkDebugEnabled={setStreamChunkDebugEnabled}
                     />
                 </TabsContent>
             </Tabs>
