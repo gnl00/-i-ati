@@ -1,7 +1,6 @@
 import { app } from 'electron'
 import path from 'path'
 import Database from 'better-sqlite3'
-import * as sqliteVec from 'sqlite-vec'
 import { v4 as uuidv4 } from 'uuid'
 import type {
   ActivityJournalAppendInput,
@@ -17,6 +16,7 @@ import type {
   ActivityJournalSearchItem
 } from '@tools/activityJournal/index.d'
 import { createLogger } from '@main/services/logging/LogService'
+import { loadSqliteVecExtension } from '@main/services/sqlite/loadSqliteVec'
 import { ActivityJournalRepository } from './ActivityJournalRepository'
 import EmbeddingServiceInstance from '../embedding/EmbeddingService'
 
@@ -98,7 +98,7 @@ export class ActivityJournalService {
     const dbPath = this.getDbPath()
     this.logger.info('initialize.start', { dbPath })
     this.db = new Database(dbPath)
-    sqliteVec.load(this.db)
+    loadSqliteVecExtension(this.db, this.logger)
     this.db.pragma('journal_mode = WAL')
 
     this.db.exec(`

@@ -37,11 +37,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         streamChunkDebugEnabled,
         setStreamChunkDebugEnabled,
         mcpServerConfig,
+        mcpConfigLoaded,
         setMcpServerConfig,
         savedMcpServerConfig,
         saveMcpServerConfig,
         plugins,
         remotePlugins,
+        pluginsLoaded,
+        remotePluginsLoaded,
         savedPlugins,
         setPlugins,
         savePlugins,
@@ -160,8 +163,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         || compressionKeepRecentCount !== (savedCompression?.keepRecentCount ?? 20)
         || compressionCompressCount !== (savedCompression?.compressCount ?? 10)
 
-    const mcpDirty = JSON.stringify(mcpServerConfig ?? {}) !== JSON.stringify(savedMcpConfig ?? {})
-    const pluginsDirty = JSON.stringify(plugins) !== JSON.stringify(savedPlugins)
+    const mcpDirty = mcpConfigLoaded
+        && JSON.stringify(mcpServerConfig ?? {}) !== JSON.stringify(savedMcpConfig ?? {})
+    const pluginsDirty = pluginsLoaded
+        && JSON.stringify(plugins) !== JSON.stringify(savedPlugins)
 
     const hasUnsavedChanges = providersRevision > 0 || toolsDirty || compressionDirty || mcpDirty || pluginsDirty
 
@@ -240,10 +245,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 <TabsContent value="mcp-servers" className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
                     <div className="w-full h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md">
                         <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-                            <MCPServersManagerContent
-                                mcpServerConfig={mcpServerConfig}
-                                setMcpServerConfig={setMcpServerConfig}
-                            />
+                            {!mcpConfigLoaded ? (
+                                <div className="w-full h-full flex items-center justify-center text-[12px] text-gray-400 dark:text-gray-500">
+                                    Loading MCP configuration...
+                                </div>
+                            ) : (
+                                <MCPServersManagerContent
+                                    mcpServerConfig={mcpServerConfig}
+                                    setMcpServerConfig={setMcpServerConfig}
+                                />
+                            )}
                         </div>
                     </div>
                 </TabsContent>
@@ -256,6 +267,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <PluginsManager
                         plugins={plugins}
                         remotePlugins={remotePlugins as RemotePluginCatalogItem[]}
+                        pluginsLoaded={pluginsLoaded}
+                        remotePluginsLoaded={remotePluginsLoaded}
                         setPlugins={setPlugins}
                         refreshPlugins={refreshPlugins}
                         refreshRemotePlugins={refreshRemotePlugins}

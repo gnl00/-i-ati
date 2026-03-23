@@ -194,9 +194,12 @@ type AppConfigState = {
   streamChunkDebugEnabled: boolean
   mcpServerConfig: McpServerConfig
   savedMcpServerConfig: McpServerConfig
+  mcpConfigLoaded: boolean
   plugins: PluginEntity[]
   savedPlugins: PluginEntity[]
+  pluginsLoaded: boolean
   remotePlugins: RemotePluginCatalogItem[]
+  remotePluginsLoaded: boolean
   compression: CompressionConfig | undefined
 }
 
@@ -261,9 +264,12 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   streamChunkDebugEnabled: defaultConfig.tools?.streamChunkDebugEnabled ?? false,
   mcpServerConfig: { mcpServers: {} },
   savedMcpServerConfig: { mcpServers: {} },
+  mcpConfigLoaded: false,
   plugins: [],
   savedPlugins: [],
+  pluginsLoaded: false,
   remotePlugins: [],
+  remotePluginsLoaded: false,
 
   // State - Compression settings
   compression: defaultConfig.compression,
@@ -299,20 +305,23 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       : { mcpServers: {} }
     set({
       mcpServerConfig: nextConfig,
-      savedMcpServerConfig: nextConfig
+      savedMcpServerConfig: nextConfig,
+      mcpConfigLoaded: true
     })
   },
 
   _setLoadedPlugins: (plugins: PluginEntity[]) => {
     set({
       plugins,
-      savedPlugins: plugins
+      savedPlugins: plugins,
+      pluginsLoaded: true
     })
   },
 
   _setLoadedRemotePlugins: (plugins: RemotePluginCatalogItem[]) => {
     set({
-      remotePlugins: plugins
+      remotePlugins: plugins,
+      remotePluginsLoaded: true
     })
   },
 
@@ -621,7 +630,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     await saveMcpServerConfig(nextConfig)
     set({
       mcpServerConfig: nextConfig,
-      savedMcpServerConfig: nextConfig
+      savedMcpServerConfig: nextConfig,
+      mcpConfigLoaded: true
     })
   },
   setPlugins: (plugins) => set({ plugins }),
@@ -639,7 +649,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     const nextPlugins = await getPlugins()
     set({
       plugins: nextPlugins,
-      savedPlugins: nextPlugins
+      savedPlugins: nextPlugins,
+      pluginsLoaded: true
     })
   },
   refreshPlugins: async () => {
@@ -647,14 +658,16 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     const nextPlugins = await rescanLocalPlugins()
     set({
       plugins: nextPlugins,
-      savedPlugins: nextPlugins
+      savedPlugins: nextPlugins,
+      pluginsLoaded: true
     })
   },
   refreshRemotePlugins: async () => {
     const { getRemotePlugins } = await import('../db/PluginRepository')
     const nextRemotePlugins = await getRemotePlugins()
     set({
-      remotePlugins: nextRemotePlugins
+      remotePlugins: nextRemotePlugins,
+      remotePluginsLoaded: true
     })
   },
   installRemotePlugin: async (pluginId) => {
@@ -672,7 +685,9 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     set({
       plugins: nextPlugins,
       savedPlugins: nextPlugins,
-      remotePlugins: nextRemotePlugins
+      pluginsLoaded: true,
+      remotePlugins: nextRemotePlugins,
+      remotePluginsLoaded: true
     })
   },
   importLocalPlugin: async (sourceDir) => {
@@ -680,7 +695,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     const nextPlugins = await importLocalPlugin(sourceDir)
     set({
       plugins: nextPlugins,
-      savedPlugins: nextPlugins
+      savedPlugins: nextPlugins,
+      pluginsLoaded: true
     })
   },
   uninstallLocalPlugin: async (pluginId) => {
@@ -688,7 +704,8 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     const nextPlugins = await uninstallLocalPlugin(pluginId)
     set({
       plugins: nextPlugins,
-      savedPlugins: nextPlugins
+      savedPlugins: nextPlugins,
+      pluginsLoaded: true
     })
   }
 }))
@@ -700,30 +717,13 @@ export const initializeAppConfig = async (): Promise<void> => {
 
   configInitPromise = (async () => {
     try {
-      const [{ initConfig }, { getMcpServerConfig }, { getPlugins, getRemotePlugins }] = await Promise.all([
-        import('../db/ConfigRepository'),
-        import('../db/McpServerRepository'),
-        import('../db/PluginRepository')
-      ])
-      const [loadedConfig, loadedMcpServerConfig, loadedPlugins, loadedRemotePlugins] = await Promise.all([
-        initConfig(),
-        getMcpServerConfig(),
-        getPlugins(),
-        getRemotePlugins().catch((error) => {
-          logger.warn('remote_plugins.load_failed', {
-            error: error instanceof Error ? error.message : String(error)
-          })
-          return []
-        })
-      ])
+      const { initConfig } = await import('../db/ConfigRepository')
+      const loadedConfig = await initConfig()
       logger.info('config.loaded_from_sqlite', {
         accountCount: loadedConfig.accounts?.length || 0
       })
       const store = useAppConfigStore.getState()
       store._setAppConfig(loadedConfig)
-      store._setLoadedMcpServerConfig(loadedMcpServerConfig)
-      store._setLoadedPlugins(loadedPlugins)
-      store._setLoadedRemotePlugins(loadedRemotePlugins)
       if (!pluginEventsSubscribed) {
         const { subscribePluginEvents } = await import('../invoker/ipcInvoker')
         subscribePluginEvents((event) => {
@@ -733,7 +733,7 @@ export const initializeAppConfig = async (): Promise<void> => {
         pluginEventsSubscribed = true
       }
       configInitialized = true
-      logger.info('config.initialize_completed')
+      logger.info('config.bootstrap_completed')
     } catch (error) {
       logger.error('config.initialize_failed', error)
       configInitialized = true
@@ -741,6 +741,72 @@ export const initializeAppConfig = async (): Promise<void> => {
   })()
 
   return configInitPromise
+}
+
+let deferredHydrationStarted = false
+let deferredHydrationPromise: Promise<void> | null = null
+
+export const hydrateDeferredAppConfig = async (): Promise<void> => {
+  if (deferredHydrationStarted) {
+    return deferredHydrationPromise ?? Promise.resolve()
+  }
+
+  deferredHydrationStarted = true
+  deferredHydrationPromise = Promise.allSettled([
+    (async () => {
+      const store = useAppConfigStore.getState()
+      try {
+        logger.info('config.hydrate_mcp.started')
+        const { getMcpServerConfig } = await import('../db/McpServerRepository')
+        const loadedMcpServerConfig = await getMcpServerConfig()
+        store._setLoadedMcpServerConfig(loadedMcpServerConfig)
+        logger.info('config.hydrate_mcp.completed', {
+          count: Object.keys(loadedMcpServerConfig?.mcpServers || {}).length
+        })
+      } catch (error) {
+        useAppConfigStore.setState({ mcpConfigLoaded: true })
+        logger.warn('config.hydrate_mcp.failed', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    })(),
+    (async () => {
+      const store = useAppConfigStore.getState()
+      try {
+        logger.info('config.hydrate_plugins.started')
+        const { getPlugins } = await import('../db/PluginRepository')
+        const loadedPlugins = await getPlugins()
+        store._setLoadedPlugins(loadedPlugins)
+        logger.info('config.hydrate_plugins.completed', {
+          count: loadedPlugins.length
+        })
+      } catch (error) {
+        useAppConfigStore.setState({ pluginsLoaded: true })
+        logger.warn('config.hydrate_plugins.failed', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    })(),
+    (async () => {
+      const store = useAppConfigStore.getState()
+      try {
+        logger.info('config.hydrate_remote_plugins.started')
+        const { getRemotePlugins } = await import('../db/PluginRepository')
+        const loadedRemotePlugins = await getRemotePlugins()
+        store._setLoadedRemotePlugins(loadedRemotePlugins)
+        logger.info('config.hydrate_remote_plugins.completed', {
+          count: loadedRemotePlugins.length
+        })
+      } catch (error) {
+        useAppConfigStore.setState({ remotePluginsLoaded: true })
+        logger.warn('config.hydrate_remote_plugins.failed', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    })()
+  ]).then(() => undefined)
+
+  return deferredHydrationPromise
 }
 
 // Export type

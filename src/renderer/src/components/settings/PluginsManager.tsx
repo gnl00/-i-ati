@@ -11,6 +11,8 @@ import { toast } from 'sonner'
 interface PluginsManagerProps {
   plugins: PluginEntity[]
   remotePlugins: RemotePluginCatalogItem[]
+  pluginsLoaded: boolean
+  remotePluginsLoaded: boolean
   setPlugins: (plugins: PluginEntity[]) => void
   refreshPlugins: () => Promise<void>
   refreshRemotePlugins: () => Promise<void>
@@ -22,6 +24,8 @@ interface PluginsManagerProps {
 const PluginsManager: React.FC<PluginsManagerProps> = ({
   plugins,
   remotePlugins,
+  pluginsLoaded,
+  remotePluginsLoaded,
   setPlugins,
   refreshPlugins,
   refreshRemotePlugins,
@@ -164,7 +168,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                       Plugins
                     </Label>
                     <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-                      {installedPlugins.length} installed
+                      {pluginsLoaded ? `${installedPlugins.length} installed` : 'Loading...'}
                     </Badge>
                     {activeCount > 0 && (
                       <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
@@ -218,7 +222,9 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
             <div className="divide-y divide-gray-100 dark:divide-gray-800/70">
               {installedPlugins.length === 0 && (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-[12px] text-gray-400 dark:text-gray-500">No installed plugins yet.</p>
+                  <p className="text-[12px] text-gray-400 dark:text-gray-500">
+                    {pluginsLoaded ? 'No installed plugins yet.' : 'Loading installed plugins...'}
+                  </p>
                 </div>
               )}
 
@@ -307,7 +313,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                       registry
                     </Badge>
                     <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-                      {remotePlugins.length} available
+                      {remotePluginsLoaded ? `${remotePlugins.length} available` : 'Loading...'}
                     </Badge>
                   </div>
                   <p className="mt-1 text-[11.5px] text-gray-400 dark:text-gray-500 leading-relaxed">
@@ -331,7 +337,9 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
             <div className="divide-y divide-gray-100 dark:divide-gray-800/70">
               {remotePlugins.length === 0 && (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-[12px] text-gray-400 dark:text-gray-500">No remote plugins available.</p>
+                  <p className="text-[12px] text-gray-400 dark:text-gray-500">
+                    {remotePluginsLoaded ? 'No remote plugins available.' : 'Loading registry...'}
+                  </p>
                 </div>
               )}
 

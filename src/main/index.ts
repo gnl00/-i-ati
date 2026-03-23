@@ -71,7 +71,11 @@ app.whenReady().then(async () => {
   // Initialize memory service
   console.log('[App] Initializing memory service...')
   startupTracer.mark('memory.init.start')
-  await MemoryService.initialize()
+  try {
+    await MemoryService.initialize()
+  } catch (error) {
+    console.error('[App] Failed to initialize memory service; continuing without vector memory features:', error)
+  }
   startupTracer.mark('memory.init.end')
 
   // Initialize skills from configured folders (background)
@@ -124,6 +128,8 @@ app.whenReady().then(async () => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}).catch((error) => {
+  console.error('[App] Failed during app.whenReady bootstrap:', error)
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

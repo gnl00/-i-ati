@@ -10,7 +10,7 @@ import { createLogger } from '@main/services/logging/LogService'
 import { app } from 'electron'
 import path from 'path'
 import Database from 'better-sqlite3'
-import * as sqliteVec from 'sqlite-vec'
+import { loadSqliteVecExtension } from '@main/services/sqlite/loadSqliteVec'
 
 /**
  * 记忆条目接口
@@ -130,7 +130,7 @@ class MemoryService {
       this.db = new Database(this.dbPath)
 
       // 加载 sqlite-vec 扩展
-      sqliteVec.load(this.db)
+      loadSqliteVecExtension(this.db, this.logger)
       this.logger.info('initialize.sqlite_vec_loaded')
       const { vec_version } = this.db
         .prepare("select vec_version() as vec_version;")
