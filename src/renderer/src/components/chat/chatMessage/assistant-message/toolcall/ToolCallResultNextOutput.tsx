@@ -169,7 +169,7 @@ export const ToolCallResultNextOutput: React.FC<ToolCallResultNextOutputProps> =
       initial={{ opacity: 0, y: 8, scale: 0.985 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-      className="w-full max-w-full py-2 font-sans flow-root"
+      className="w-full max-w-full py-1 font-sans flow-root"
     >
       <Accordion
         type="single"
@@ -244,24 +244,6 @@ export const ToolCallResultNextOutput: React.FC<ToolCallResultNextOutputProps> =
               )}>
                 {isWebSearch && webSearchData ? (
                   <div className="p-3 bg-slate-100/50 dark:bg-slate-900/34">
-                    <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-white/64 px-3 py-2 ring-1 ring-slate-200/45 dark:bg-white/4 dark:ring-white/6">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg bg-slate-200/55 text-slate-600 dark:bg-white/6 dark:text-slate-300">
-                          <Braces className="h-3 w-3" />
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                          Output
-                        </span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700/60"
-                        onClick={(e) => onCopyClick(e, tc.content)}
-                      >
-                        <Clipboard className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
-                      </Button>
-                    </div>
                     <WebSearchResults results={webSearchData.results} />
                   </div>
                 ) : (

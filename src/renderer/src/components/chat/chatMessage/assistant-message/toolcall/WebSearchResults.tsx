@@ -62,30 +62,34 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ r
       </div>
 
       {/* Results Carousel */}
-      <Carousel
-        opts={{
-          align: 'start',
-          containScroll: 'trimSnaps'
-        }}
-        className="w-full"
-      >
-        <CarouselContent className="-ml-1.5 pt-1.5">
-          {sortedResults.map((result, idx) => (
-            <CarouselItem key={idx} className="pl-1.5 basis-[60%] sm:basis-[28%] lg:basis-[18%]">
-              <WebSearchResultCard
-                result={result}
-                index={results.findIndex((r) => r === result)}
-              />
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        {results.length > 3 && (
-          <>
-            <CarouselPrevious className="hidden sm:flex -left-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs shadow-xs border-slate-200 dark:border-slate-800" />
-            <CarouselNext className="hidden sm:flex -right-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs shadow-xs border-slate-200 dark:border-slate-800" />
-          </>
-        )}
-      </Carousel>
+      {
+        results.length !== 0 && (
+          <Carousel
+          opts={{
+            align: 'start',
+            containScroll: 'trimSnaps'
+          }}
+          className="w-full"
+        >
+          <CarouselContent className="-ml-1.5 pt-1.5">
+            {sortedResults.map((result, idx) => (
+              <CarouselItem key={idx} className="pl-1.5 basis-[60%] sm:basis-[28%] lg:basis-[18%]">
+                <WebSearchResultCard
+                  result={result}
+                  index={results.findIndex((r) => r === result)}
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          {results.length > 3 && (
+            <>
+              <CarouselPrevious className="hidden sm:flex -left-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs shadow-xs border-slate-200 dark:border-slate-800" />
+              <CarouselNext className="hidden sm:flex -right-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs shadow-xs border-slate-200 dark:border-slate-800" />
+            </>
+          )}
+        </Carousel>
+        )
+      }
     </div>
   )
 })
