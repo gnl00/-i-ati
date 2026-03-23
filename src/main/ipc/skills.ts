@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { createLogger } from '@main/services/logging/LogService'
 import { SkillService } from '@main/services/skills/SkillService'
 import { processImportSkills, processInstallSkill, processLoadSkill, processReadSkillFile, processUnloadSkill } from '@main/tools/skills/SkillToolsProcessor'
 import {
@@ -12,44 +13,46 @@ import {
   SKILL_DELETE_ACTION
 } from '@shared/constants'
 
+const logger = createLogger('SkillIPC')
+
 export function registerSkillHandlers(): void {
   ipcMain.handle(SKILL_LIST_ACTION, async () => {
-    console.log('[Skill IPC] List installed skills')
+    logger.info('skill.list')
     return await SkillService.listSkills()
   })
 
   ipcMain.handle(SKILL_GET_ACTION, async (_event, { name }) => {
-    console.log(`[Skill IPC] Get skill content: ${name}`)
+    logger.info('skill.get', { name })
     return await SkillService.getSkillContent(name)
   })
 
   ipcMain.handle(SKILL_READ_FILE_ACTION, async (_event, args) => {
-    console.log('[Skill IPC] Read skill file')
+    logger.info('skill.read_file')
     return await processReadSkillFile(args)
   })
 
   ipcMain.handle(SKILL_INSTALL_ACTION, async (_event, args) => {
-    console.log('[Skill IPC] Install skill')
+    logger.info('skill.install')
     return await processInstallSkill(args)
   })
 
   ipcMain.handle(SKILL_LOAD_ACTION, async (_event, args) => {
-    console.log('[Skill IPC] Load skill')
+    logger.info('skill.load')
     return await processLoadSkill(args)
   })
 
   ipcMain.handle(SKILL_UNLOAD_ACTION, async (_event, args) => {
-    console.log('[Skill IPC] Unload skill')
+    logger.info('skill.unload')
     return await processUnloadSkill(args)
   })
 
   ipcMain.handle(SKILL_IMPORT_ACTION, async (_event, args) => {
-    console.log('[Skill IPC] Import skills from folder')
+    logger.info('skill.import')
     return await processImportSkills(args)
   })
 
   ipcMain.handle(SKILL_DELETE_ACTION, async (_event, { name }) => {
-    console.log(`[Skill IPC] Delete skill: ${name}`)
+    logger.info('skill.delete', { name })
     await SkillService.deleteSkill(name)
   })
 }
