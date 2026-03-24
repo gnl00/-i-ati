@@ -1,6 +1,7 @@
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { assessExecuteCommandReview } from '@main/tools/command/risk'
 import { embeddedToolsRegistry } from '@tools/registry'
+import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 import { v4 as uuidv4 } from 'uuid'
 import type { ToolCallProps } from '../types'
 import { AbortError, ToolExecutionError } from '@main/services/chatRun/errors'
@@ -23,6 +24,11 @@ export class ToolExecutor implements IToolExecutor {
   private readonly onProgress?: (progress: ToolExecutionProgress) => void
   private readonly signal?: AbortSignal
   private readonly chatUuid?: string
+  private readonly submissionId?: string
+  private readonly modelRef?: ModelRef
+  private readonly allowedTools?: Set<string>
+  private readonly approvalPolicy: ResolvedAgentApprovalPolicy
+  private readonly confirmationSource?: AgentConfirmationSource
   private readonly requestConfirmation?: ToolExecutorConfig['requestConfirmation']
 
   constructor(config: ToolExecutorConfig = {}) {
@@ -32,6 +38,11 @@ export class ToolExecutor implements IToolExecutor {
     this.onProgress = config.onProgress
     this.signal = config.signal
     this.chatUuid = config.chatUuid
+    this.submissionId = config.submissionId
+    this.modelRef = config.modelRef
+    this.allowedTools = config.allowedTools ? new Set(config.allowedTools) : undefined
+    this.approvalPolicy = config.approvalPolicy ?? { mode: 'strict' }
+    this.confirmationSource = config.confirmationSource
     this.requestConfirmation = config.requestConfirmation
   }
 
@@ -73,7 +84,9 @@ export class ToolExecutor implements IToolExecutor {
     const toolIndex = call.index ?? 0
     const startTime = Date.now()
 
-    const requiresPlanReview = toolName === 'plan_create' && Boolean(this.requestConfirmation)
+    const requiresPlanReview = toolName === 'plan_create'
+      && Boolean(this.requestConfirmation)
+      && !this.shouldAutoApprovePlanCreate()
     const requiresCommandReview = toolName === 'execute_command' && Boolean(this.requestConfirmation)
 
     if (!requiresPlanReview && !requiresCommandReview) {
@@ -94,7 +107,8 @@ export class ToolExecutor implements IToolExecutor {
         const decision = await this.requestConfirmation({
           toolCallId: toolId,
           name: toolName,
-          args: runtimeArgs
+          args: runtimeArgs,
+          agent: this.confirmationSource
         })
         if (!decision.approved) {
           const result = this.createAbortedResultWithReason(call, decision.reason)
@@ -126,6 +140,7 @@ export class ToolExecutor implements IToolExecutor {
             toolCallId: toolId,
             name: toolName,
             args: runtimeArgs,
+            agent: this.confirmationSource,
             ui: {
               command,
               riskLevel: risk.level === 'warning' ? 'risky' : 'dangerous',
@@ -199,6 +214,10 @@ export class ToolExecutor implements IToolExecutor {
   private async executeTool(call: ToolCallProps, runtimeArgs?: any): Promise<any> {
     const toolName = call.function
 
+    if (this.allowedTools && !this.allowedTools.has(toolName)) {
+      throw new Error(`Tool "${toolName}" is not allowed in this runtime`)
+    }
+
     if (embeddedToolsRegistry.isRegistered(toolName)) {
       const safeArgs = runtimeArgs ?? this.normalizeArgs(call)
       const handler = embeddedToolsRegistry.getHandler(toolName)
@@ -238,15 +257,39 @@ export class ToolExecutor implements IToolExecutor {
       toolName?.startsWith('schedule_')
       || toolName?.startsWith('plan_')
       || toolName?.startsWith('activity_journal_')
+      || toolName === 'execute_command'
     )) {
-      return { ...args, chat_uuid: this.chatUuid }
+      const nextArgs = { ...args, chat_uuid: this.chatUuid }
+      if (toolName?.startsWith('subagent_')) {
+        return {
+          ...nextArgs,
+          ...(this.modelRef ? { model_ref: this.modelRef } : {}),
+          ...(this.submissionId ? { parent_submission_id: this.submissionId } : {})
+        }
+      }
+      return nextArgs
     }
+
+    let nextArgs = args
 
     if (this.chatUuid && !args.chat_uuid) {
-      return { ...args, chat_uuid: this.chatUuid }
+      nextArgs = { ...nextArgs, chat_uuid: this.chatUuid }
     }
 
-    return args
+    if (toolName?.startsWith('subagent_')) {
+      if (this.modelRef && !nextArgs.model_ref) {
+        nextArgs = { ...nextArgs, model_ref: this.modelRef }
+      }
+      if (this.submissionId && !nextArgs.parent_submission_id) {
+        nextArgs = { ...nextArgs, parent_submission_id: this.submissionId }
+      }
+    }
+
+    return nextArgs
+  }
+
+  private shouldAutoApprovePlanCreate(): boolean {
+    return this.approvalPolicy.mode === 'relaxed'
   }
 
   private createErrorResult(

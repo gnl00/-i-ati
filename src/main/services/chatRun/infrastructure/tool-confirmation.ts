@@ -49,7 +49,8 @@ export class ToolConfirmationManager {
       toolCallId: request.toolCallId,
       name: request.name,
       args: request.args,
-      ui: request.ui
+      ui: request.ui,
+      agent: request.agent
     })
 
     return promise

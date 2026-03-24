@@ -13,6 +13,7 @@ import { Virtuoso } from 'react-virtuoso'
 import { useScrollManagerLite } from '@renderer/hooks/useScrollManagerLite'
 import { TaskPlanBar } from './task/TaskPlanBar'
 import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
+import { useSubagentRuntime } from '@renderer/hooks/useSubagentRuntime'
 import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
 import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotifications'
 
@@ -77,6 +78,7 @@ const ChatWindowComponent: React.FC = () => {
   const hasShownWelcomeRef = useRef<boolean>(false)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
   useToolConfirmations(chatUuid)
+  useSubagentRuntime(chatUuid)
   useScheduleNotifications(chatUuid)
   const displayPlans = pendingPlanReview
     ? [pendingPlanReview.plan, ...activePlans]

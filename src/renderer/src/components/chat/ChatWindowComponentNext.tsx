@@ -14,6 +14,7 @@ import { useScrollManagerTop } from '@renderer/hooks/useScrollManagerTop'
 import { resolveAnchorIndex } from './scroll-anchor'
 import { TaskPlanBar } from './task/TaskPlanBar'
 import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
+import { useSubagentRuntime } from '@renderer/hooks/useSubagentRuntime'
 import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
 import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotifications'
 
@@ -97,6 +98,7 @@ const ChatWindowComponentNext: React.FC = () => {
   const topAnchorLockRafRef = useRef<number>(0)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
   useToolConfirmations(chatUuid)
+  useSubagentRuntime(chatUuid)
   useScheduleNotifications(chatUuid)
   const displayPlans = pendingPlanReview
     ? [pendingPlanReview.plan, ...activePlans]

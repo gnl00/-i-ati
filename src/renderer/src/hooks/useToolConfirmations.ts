@@ -4,7 +4,7 @@ import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 import type { ChatRunEvent } from '@shared/chatRun/events'
 
 export function useToolConfirmations(chatUuid?: string | null): void {
-  const setPending = useToolConfirmationStore(state => state.setPending)
+  const enqueue = useToolConfirmationStore(state => state.enqueue)
   const clear = useToolConfirmationStore(state => state.clear)
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export function useToolConfirmations(chatUuid?: string | null): void {
       }
 
       if (event.type === 'tool.exec.requires_confirmation') {
-        setPending(event.payload)
+        enqueue(event.payload)
       }
     })
 
@@ -22,5 +22,5 @@ export function useToolConfirmations(chatUuid?: string | null): void {
       unsubscribe()
       clear()
     }
-  }, [chatUuid, setPending, clear])
+  }, [chatUuid, enqueue, clear])
 }

@@ -1,3 +1,6 @@
+import type { AgentConfirmationSource } from '@tools/approval'
+import type { SubagentRecord } from '@tools/subagent/index.d'
+
 export const CHAT_RUN_STATES = {
   PREPARING: 'preparing',
   STREAMING: 'streaming',
@@ -45,6 +48,7 @@ export const CHAT_RUN_EVENTS = {
   TOOL_EXEC_COMPLETED: 'tool.exec.completed',
   TOOL_EXEC_FAILED: 'tool.exec.failed',
   TOOL_RESULT_ATTACHED: 'tool.result.attached',
+  SUBAGENT_UPDATED: 'subagent.updated',
   CHAT_UPDATED: 'chat.updated',
   TITLE_GENERATE_STARTED: 'title.generate.started',
   TITLE_GENERATE_COMPLETED: 'title.generate.completed',
@@ -74,6 +78,7 @@ export type ChatRunEventPayloads = {
     toolCallId: string
     name: string
     args?: unknown
+    agent?: AgentConfirmationSource
     ui?: {
       title?: string
       riskLevel?: 'risky' | 'dangerous'
@@ -88,6 +93,7 @@ export type ChatRunEventPayloads = {
   'tool.exec.completed': { toolCallId: string; result: unknown; cost: number }
   'tool.exec.failed': { toolCallId: string; error: SerializedError | Error }
   'tool.result.attached': { toolCallId: string; message: MessageEntity }
+  'subagent.updated': { subagent: SubagentRecord }
   'chat.updated': { chatEntity: ChatEntity }
   'title.generate.started': { model: AccountModel; contentLength: number }
   'title.generate.completed': { title: string }

@@ -1,4 +1,5 @@
 import type { ToolCallProps } from '../types'
+import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 
 export interface ToolExecutionResult {
   id: string
@@ -22,10 +23,16 @@ export interface ToolExecutorConfig {
   onProgress?: (progress: ToolExecutionProgress) => void
   signal?: AbortSignal
   chatUuid?: string
+  submissionId?: string
+  modelRef?: ModelRef
+  allowedTools?: string[]
+  approvalPolicy?: ResolvedAgentApprovalPolicy
+  confirmationSource?: AgentConfirmationSource
   requestConfirmation?: (request: {
     toolCallId: string
     name: string
     args?: unknown
+    agent?: AgentConfirmationSource
     ui?: {
       title?: string
       riskLevel?: 'risky' | 'dangerous'

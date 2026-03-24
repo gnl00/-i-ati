@@ -6,6 +6,7 @@ import type { RunSpec } from '@main/services/agentCore/types'
 import { ToolExecutor } from '@main/services/agentCore/tools'
 import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
 import { ChunkParser, AgentStepLoop, AgentStepRuntimeFactory } from '@main/services/agentCore/execution'
+import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
 import type { ChatStepRuntimeContext } from '../mapping'
 import {
   AssistantStepMessageManagerImpl,
@@ -33,6 +34,10 @@ export class AssistantStepFactory {
 
   create(input: AssistantStepFactoryInput): AssistantStepHandle {
     const { runSpec, stepContext, signal, emitter, toolConfirmationRequester } = input
+    subagentRuntimeBridge.register(runSpec.submissionId, {
+      requester: toolConfirmationRequester,
+      emitter
+    })
     const eventMapper: AgentEventMapper = new AssistantStepEventMapper(emitter)
     const parser = new ChunkParser()
     const messageManager = new AssistantStepMessageManagerImpl(
@@ -47,6 +52,11 @@ export class AssistantStepFactory {
       maxConcurrency: 3,
       signal,
       chatUuid: stepContext.chatUuid,
+      submissionId: runSpec.submissionId,
+      modelRef: {
+        accountId: runSpec.modelContext.account.id,
+        modelId: runSpec.modelContext.model.id
+      },
       requestConfirmation: (requestConfirmation) =>
         toolConfirmationRequester.request(requestConfirmation),
       onProgress: (progress) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest'
-import { embeddedToolsRegistry, type ToolDefinition } from '../registry'
+import { embeddedToolsRegistry, type ToolDefinition, type EmbeddedToolMetadata } from '../registry'
 
 const embeddedTool: ToolDefinition = {
   type: 'function',
@@ -19,6 +19,13 @@ const externalTool: ToolDefinition = {
   }
 }
 
+const embeddedMetadata: EmbeddedToolMetadata = {
+  capability: 'filesystem_read',
+  riskLevel: 'none',
+  mutatesWorkspace: false,
+  subagent: 'allow'
+}
+
 describe('EmbeddedToolsRegistry', () => {
   beforeEach(() => {
     embeddedToolsRegistry.unregister(embeddedTool.function.name)
@@ -32,7 +39,7 @@ describe('EmbeddedToolsRegistry', () => {
   })
 
   it('getAllTools returns embedded tool definitions only', () => {
-    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool)
+    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool, embeddedMetadata)
     embeddedToolsRegistry.registerExternal(externalTool.function.name, externalTool)
 
     const allTools = embeddedToolsRegistry.getAllTools()
@@ -41,7 +48,7 @@ describe('EmbeddedToolsRegistry', () => {
   })
 
   it('getAllToolDefinitions returns embedded and external tools', () => {
-    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool)
+    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool, embeddedMetadata)
     embeddedToolsRegistry.registerExternal(externalTool.function.name, externalTool)
 
     const allTools = embeddedToolsRegistry.getAllToolDefinitions()
@@ -50,7 +57,7 @@ describe('EmbeddedToolsRegistry', () => {
   })
 
   it('availableTools returns only external tool summaries', () => {
-    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool)
+    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool, embeddedMetadata)
     embeddedToolsRegistry.registerExternal(externalTool.function.name, externalTool)
 
     const available = embeddedToolsRegistry.availableTools()
@@ -60,5 +67,11 @@ describe('EmbeddedToolsRegistry', () => {
         description: externalTool.function.description
       }
     ])
+  })
+
+  it('stores embedded tool metadata', () => {
+    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool, embeddedMetadata)
+
+    expect(embeddedToolsRegistry.getToolMetadata(embeddedTool.function.name)).toEqual(embeddedMetadata)
   })
 })

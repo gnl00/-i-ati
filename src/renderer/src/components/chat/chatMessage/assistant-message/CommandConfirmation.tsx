@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { AlertTriangle, Check, Copy, ShieldAlert, Terminal } from 'lucide-react'
+import { AlertTriangle, Bot, Check, Copy, ShieldAlert, Terminal } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
+import type { AgentConfirmationSource } from '@shared/tools/approval'
 
 export interface CommandConfirmationRequest {
   command: string
@@ -9,6 +10,8 @@ export interface CommandConfirmationRequest {
   execution_reason: string
   possible_risk: string
   risk_score?: number
+  agent?: AgentConfirmationSource
+  pending_count?: number
 }
 
 interface CommandConfirmationProps {
@@ -54,6 +57,14 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
   }
 }
 
+function getAgentLabel(agent?: AgentConfirmationSource): string | null {
+  if (!agent) return null
+  if (agent.kind === 'subagent') {
+    return agent.role ? `Subagent · ${agent.role}` : 'Subagent'
+  }
+  return 'Main agent'
+}
+
 export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
   request,
   onConfirm,
@@ -62,6 +73,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
 }) => {
   const config = getRiskLevelConfig(request.risk_level)
   const Icon = config.icon
+  const agentLabel = getAgentLabel(request.agent)
   const [isVisible, setIsVisible] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -103,9 +115,29 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
               <Icon className={cn('h-3 w-3', config.iconColor)} />
             </div>
 
-            <h3 className={cn('min-w-0 flex-1 text-[12px] leading-none font-medium', config.titleColor)}>
-              {request.execution_reason || config.title}
-            </h3>
+            <div className="min-w-0 flex-1">
+              <h3 className={cn('min-w-0 text-[12px] leading-none font-medium', config.titleColor)}>
+                {request.execution_reason || config.title}
+              </h3>
+              {(agentLabel || request.agent?.task || (request.pending_count && request.pending_count > 1)) && (
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] leading-none text-slate-500 dark:text-slate-400">
+                  {agentLabel && (
+                    <span className="inline-flex items-center gap-1">
+                      <Bot className="h-2.5 w-2.5" />
+                      {agentLabel}
+                    </span>
+                  )}
+                  {request.agent?.task && (
+                    <span className="truncate max-w-[280px]">
+                      Task: {request.agent.task}
+                    </span>
+                  )}
+                  {request.pending_count && request.pending_count > 1 && (
+                    <span>+{request.pending_count - 1} more pending</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="mt-2.5 space-y-1.5">

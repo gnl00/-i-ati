@@ -30,6 +30,8 @@
 
 - 架构现状：
   - [chat-runtime-architecture-current.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-runtime-architecture-current.md)
+- Subagent 当前实现：
+  - [subagent-mvp.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/subagent-mvp.md)
 - 本轮阶段总结：
   - [agent-core-chat-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/agent-core-chat-adapter-stage-summary.md)
 - chat 事件协议：

@@ -7,6 +7,7 @@ import { Braces, Check, ChevronDown, Clipboard, Loader2, Wrench, X } from 'lucid
 import React, { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
+import { SubagentResults } from './SubagentResults'
 
 interface ToolCallResultNextOutputProps {
   toolCall: ToolCallSegment
@@ -91,6 +92,9 @@ export const ToolCallResultNextOutput: React.FC<ToolCallResultNextOutputProps> =
 
   const isWebSearch = (toolResponse?.toolName ?? tc.name) === 'web_search'
   const webSearchData = isWebSearch && resultPayload?.results ? resultPayload : null
+  const isSubagentTool = (toolResponse?.toolName ?? tc.name) === 'subagent_spawn'
+    || (toolResponse?.toolName ?? tc.name) === 'subagent_wait'
+  const subagentData = isSubagentTool ? (resultPayload ?? toolResponse) : null
   const isError = tc.isError
   const status = typeof toolResponse?.status === 'string' ? toolResponse.status : undefined
   const isRunning = !isError && status === 'running'
@@ -246,6 +250,11 @@ export const ToolCallResultNextOutput: React.FC<ToolCallResultNextOutputProps> =
                   <div className="p-3 bg-slate-100/50 dark:bg-slate-900/34">
                     <WebSearchResults results={webSearchData.results} />
                   </div>
+                ) : isSubagentTool && subagentData ? (
+                  <SubagentResults
+                    toolName={(toolResponse?.toolName ?? tc.name)}
+                    payload={subagentData}
+                  />
                 ) : (
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-0.5 border-b border-slate-200/55 dark:border-slate-800/55 bg-slate-50/56 dark:bg-slate-900/36">

@@ -3,6 +3,7 @@
  */
 
 import type { ToolCallProps } from '@main/services/agentCore/types'
+import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 
 /**
  * 工具执行结果
@@ -52,11 +53,22 @@ export interface ToolExecutorConfig {
   signal?: AbortSignal
   /** 当前聊天 UUID（用于工具执行上下文） */
   chatUuid?: string
+  /** 当前提交 ID（用于工具执行上下文） */
+  submissionId?: string
+  /** 当前模型引用（用于工具执行上下文） */
+  modelRef?: ModelRef
+  /** 限制允许执行的工具名称 */
+  allowedTools?: string[]
+  /** 已解析的审批策略 */
+  approvalPolicy?: ResolvedAgentApprovalPolicy
+  /** 确认请求的来源信息 */
+  confirmationSource?: AgentConfirmationSource
   /** 工具执行前确认回调（可用于计划审核） */
   requestConfirmation?: (request: {
     toolCallId: string
     name: string
     args?: unknown
+    agent?: AgentConfirmationSource
     ui?: {
       title?: string
       riskLevel?: 'risky' | 'dangerous'

@@ -1,5 +1,6 @@
 import tools from '@tools/definitions'
 import { embeddedToolsRegistry, type ToolDefinition } from '@tools/registry'
+import { embeddedToolMetadata } from '@tools/metadata'
 import {
   processRead,
   processReadMedia,
@@ -60,6 +61,10 @@ import {
   processActivityJournalList,
   processActivityJournalSearch
 } from '@main/tools/activityJournal/ActivityJournalToolsProcessor'
+import {
+  processSubagentSpawn,
+  processSubagentWait
+} from '@main/tools/subagent/SubagentToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
@@ -108,7 +113,9 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   plugin_uninstall: processPluginUninstall,
   activity_journal_append: processActivityJournalAppend,
   activity_journal_list: processActivityJournalList,
-  activity_journal_search: processActivityJournalSearch
+  activity_journal_search: processActivityJournalSearch,
+  subagent_spawn: processSubagentSpawn,
+  subagent_wait: processSubagentWait
 }
 
 export function initializeMainEmbeddedTools(): void {
@@ -117,7 +124,7 @@ export function initializeMainEmbeddedTools(): void {
     const toolName = toolDef.function.name
     const handler = toolHandlers[toolName]
     if (handler) {
-      embeddedToolsRegistry.register(toolName, handler, toolDef)
+      embeddedToolsRegistry.register(toolName, handler, toolDef, embeddedToolMetadata[toolName])
     } else {
       console.warn(`[EmbeddedTools] No handler found for tool "${toolName}"`)
     }

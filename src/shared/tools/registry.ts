@@ -12,10 +12,19 @@ export interface ToolDefinition {
   }
 }
 
+export interface EmbeddedToolMetadata {
+  capability: string
+  riskLevel: 'none' | 'warning' | 'dangerous'
+  mutatesWorkspace: boolean
+  subagent: 'allow' | 'deny'
+  roles?: string[]
+}
+
 export interface EmbeddedToolHandler {
   name: string
   handler: (args: any) => Promise<any>
   definition?: ToolDefinition
+  metadata?: EmbeddedToolMetadata
 }
 
 class EmbeddedToolsRegistry {
@@ -25,11 +34,17 @@ class EmbeddedToolsRegistry {
   /**
    * 注册一个内置工具（embedded tool）
    */
-  register(toolName: string, handler: (args: any) => Promise<any>, definition?: ToolDefinition): void {
+  register(
+    toolName: string,
+    handler: (args: any) => Promise<any>,
+    definition?: ToolDefinition,
+    metadata?: EmbeddedToolMetadata
+  ): void {
     this.tools.set(toolName, {
       name: toolName,
       handler,
-      definition
+      definition,
+      metadata
     })
     // console.log(`[EmbeddedToolsRegistry] Registered tool: ${toolName}`)
   }
@@ -83,6 +98,11 @@ class EmbeddedToolsRegistry {
   getTool(toolName: string): ToolDefinition | undefined {
     const tool = this.tools.get(toolName)
     return tool?.definition
+  }
+
+  getToolMetadata(toolName: string): EmbeddedToolMetadata | undefined {
+    const tool = this.tools.get(toolName)
+    return tool?.metadata
   }
 
   /**

@@ -193,6 +193,12 @@ Memory retrieval is not optional. It is the first move.
 - **允许场景**：构建工具、依赖管理、测试、状态检查、Git 操作
 - **执行原则**：Proactive & Direct，不要询问权限，直接执行并根据输出判断下一步
 
+### Subagents
+- 当任务可以独立并行推进、需要隔离大量上下文、或适合单独研究/审查/实现时，使用 \`subagent_spawn\`
+- 子代理必须是明确、边界清晰的子任务；不要把普通连续推理拆成子代理
+- 子代理启动后，用 \`subagent_wait\` 收集结果
+- 子代理结果应由主代理汇总后再返回给用户，不要原样转发内部过程
+
 **文件系统工作流（Claude Code 风格）**：
 - 优先使用小步组合：ls -> glob -> grep -> read -> edit/write
 - 先定位文件和行号，再读取局部上下文，最后再修改

@@ -1,3 +1,5 @@
+import type { AgentConfirmationSource } from '@tools/approval'
+
 export type ToolConfirmationDecision = {
   approved: boolean
   reason?: string
@@ -8,6 +10,7 @@ export type ToolConfirmationRequest = {
   toolCallId: string
   name: string
   args?: unknown
+  agent?: AgentConfirmationSource
   ui?: {
     title?: string
     riskLevel?: 'risky' | 'dangerous'

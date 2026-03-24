@@ -15,6 +15,7 @@ import scheduleTools from './schedule_tools'
 import soulTools from './soul_tools'
 import pluginTools from './plugin_tools'
 import activityJournalTools from './activity_journal_tools'
+import subagentTools from './subagent_tools'
 
 /**
  * 合并所有工具定义
@@ -31,7 +32,8 @@ export const tools = [
   ...scheduleTools,
   ...soulTools,
   ...pluginTools,
-  ...activityJournalTools
+  ...activityJournalTools,
+  ...subagentTools
 ]
 
 /**
