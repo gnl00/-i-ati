@@ -195,10 +195,18 @@ function useChatSubmitV2() {
       }
 
       if (
-        event.type === CHAT_RUN_EVENTS.COMPRESSION_COMPLETED ||
-        event.type === CHAT_RUN_EVENTS.COMPRESSION_FAILED
+        event.type === CHAT_RUN_EVENTS.COMPRESSION_COMPLETED
       ) {
         compressionJobPendingRef.current = false
+        maybeCleanupAfterBackgroundJobs()
+        return
+      }
+
+      if (event.type === CHAT_RUN_EVENTS.COMPRESSION_FAILED) {
+        compressionJobPendingRef.current = false
+        toast.warning('Message compression failed', {
+          description: getTitleFailureDescription(event.payload.error)
+        })
         maybeCleanupAfterBackgroundJobs()
         return
       }
