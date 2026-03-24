@@ -1,15 +1,16 @@
 # @i
 
-`@i` is an AI Agent application with tool calling, task execution, long-term memory, and workspace operations.
+`@i` is an AI Agent application with tool calling, subagent execution, long-term memory, and workspace operations.
 
 ## Core Capabilities
 
 - Unified multi-provider access: built-in adapters for OpenAI-compatible / Claude-compatible / Gemini-compatible providers.
-- Agent toolchain: built-in file read/write, directory traversal, command execution, web search/fetch, plan management, skill loading, memory read/write, and scheduled tasks.
+- Agent toolchain: built-in file read/write, directory traversal, command execution, web search/fetch, subagent spawn/wait, plan management, skill loading, memory read/write, and scheduled tasks.
 - MCP support: connect to local or remote MCP servers, and search/import configs from the MCP Registry.
 - Skills system: scan local folders and import `SKILL.md`, enable skills per chat.
 - Long-term memory: main process uses `better-sqlite3 + sqlite-vec` for semantic memory storage and vector retrieval.
 - Tasks and scheduling: plan review, step status management, and scheduled prompt delivery to specific chats.
+- Subagents: spawn background researcher/coder/reviewer-style subagents with isolated execution context, live status updates, and parent-run confirmation bridging.
 - Artifacts / Workspace: each session is bound to an isolated workspace for file browsing and previewing dev services.
 
 ## Project Structure
@@ -37,9 +38,9 @@ The app follows a clear split:
 
 1. `renderer` handles UI, state, and event-driven streaming rendering.
 2. `preload` exposes a controlled Electron API to the renderer.
-3. `main` owns the database, model requests, tool execution, MCP connections, memory retrieval, and scheduling.
+3. `main` owns the database, model requests, tool execution, subagent runtime, MCP connections, memory retrieval, and scheduling.
 
-On submission, the renderer triggers `MainChatSubmitService` via IPC. The main process builds system prompts, skill prompts, message context, and tool definitions, then sends a unified model request. Streaming output is parsed into text segments, tool calls, and tool results, and pushed back to the UI.
+On submission, the renderer triggers `MainChatSubmitService` via IPC. The main process builds system prompts, skill prompts, message context, and tool definitions, then sends a unified model request. Streaming output is parsed into text segments, tool calls, and tool results, and pushed back to the UI. When needed, the main agent can also spawn background subagents that run with their own runtime context and report status/results back into the same chat flow.
 
 ## Screenshots
 
