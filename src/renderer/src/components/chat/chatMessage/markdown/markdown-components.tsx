@@ -5,48 +5,13 @@ import React from 'react'
 import { toast } from 'sonner'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
+import { normalizeLanguage } from './markdown-normalization'
 
-function normalizeLanguage(lang: string) {
-  const lower = lang.toLowerCase()
-  if (lower === 'c++') return 'cpp'
-  if (lower === 'c#') return 'csharp'
-  if (lower === 'typescript') return 'ts'
-  if (lower === 'javascript') return 'js'
-  if (lower === 'python') return 'py'
-  return lower
-}
+export { fixMalformedCodeBlocks } from './markdown-normalization'
 
 function childrenToText(children: any) {
   if (Array.isArray(children)) return children.join('')
   return String(children ?? '')
-}
-
-/**
- * Fix malformed code blocks where language identifier is concatenated with code content.
- * Example: ```bashecho 'test' -> ```bash\necho 'test'
- */
-export function fixMalformedCodeBlocks(markdown: string): string {
-  // First pass: Fix ``` that's not on its own line (preceded by non-whitespace)
-  // Example: "text```\ncode" -> "text\n```\ncode"
-  let fixed = markdown.replace(/([^\s\n])```/g, '$1\n```')
-
-  // Second pass: Fix fenced code blocks where language and code are on the same line.
-  // Examples:
-  // - ```bashecho 'test' -> ```bash\necho 'test'
-  // - ```css .message { -> ```css\n.message {
-  fixed = fixed.replace(/(^|\n)```([^\n\r]*)/g, (match, prefix, info) => {
-    const rawLine = String(info ?? '')
-    const trimmed = rawLine.trim()
-    if (!trimmed) return match
-    const firstTokenMatch = trimmed.match(/^(\S+)([\s\S]*)$/)
-    if (!firstTokenMatch) return match
-    const lang = firstTokenMatch[1]
-    const rest = firstTokenMatch[2] ?? ''
-    if (!rest.trim()) return match
-    return prefix + '```' + normalizeLanguage(lang) + '\n' + rest.replace(/^\s+/, '')
-  })
-
-  return fixed
 }
 
 /**
