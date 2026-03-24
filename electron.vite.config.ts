@@ -1,11 +1,32 @@
 import react from '@vitejs/plugin-react'
+import { builtinModules } from 'node:module'
 import { defineConfig } from 'electron-vite'
 import tailwindcss from "@tailwindcss/vite"
 import { resolve } from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
 
+const mainExternalPackages = [
+  'electron',
+  '@xenova/transformers',
+  'better-sqlite3',
+  'sqlite-vec',
+  'onnxruntime-node'
+]
+
+const mainExternal = [
+  ...builtinModules,
+  ...builtinModules.map((moduleName) => `node:${moduleName}`),
+  ...mainExternalPackages
+]
+
 export default defineConfig({
   main: {
+    build: {
+      externalizeDeps: false,
+      rollupOptions: {
+        external: mainExternal
+      }
+    },
     resolve: {
       alias: {
         '@main': resolve('src/main'),
