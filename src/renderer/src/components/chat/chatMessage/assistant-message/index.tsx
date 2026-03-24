@@ -14,6 +14,7 @@ import { ModelBadgeNext } from './model-badge/ModelBadgeNext'
 import { TextSegment } from './segments/TextSegment'
 import { ReasoningSegmentNext } from './segments/ReasoningSegmentNext'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import { shouldRenderAssistantMessageShell } from './assistant-message-visibility'
 
 function getStreamingTextRenderMode(): 'markdown' | 'switch' {
   return (globalThis as any).__STREAMING_TEXT_RENDER_MODE ?? 'switch'
@@ -159,9 +160,15 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const hasSegments = Array.isArray(segments) && segments.length > 0
   const hasToolCalls = Array.isArray(m.toolCalls) && m.toolCalls.length > 0
 
-  // Keep rendering the container when command confirmation is pending,
-  // even if this assistant message currently only carries tool calls.
-  if (!hasContent && !hasSegments && hasToolCalls && !isCommandConfirmPending) {
+  if (!shouldRenderAssistantMessageShell({
+    hasContent,
+    hasSegments,
+    hasToolCalls,
+    isCommandConfirmPending,
+    isLatest,
+    readStreamState,
+    showLoadingIndicator
+  })) {
     return null
   }
 
