@@ -5,6 +5,7 @@ import { useRef } from 'react'
 import { invokeChatRunCancel, invokeChatRunStart, subscribeChatRunEvents } from '@renderer/invoker/ipcInvoker'
 import { CHAT_RUN_EVENTS, type ChatRunEvent, type SerializedError } from '@shared/chatRun/events'
 import toolsDefinitions from '@tools/definitions'
+import { toast } from 'sonner'
 
 function useChatSubmitV2() {
   const chatStore = useChatStore()
@@ -73,6 +74,15 @@ function useChatSubmitV2() {
       ;(normalized as any).cause = error.cause
     }
     return normalized
+  }
+
+  const getTitleFailureDescription = (error: SerializedError | Error): string => {
+    const normalized = normalizeError(error)
+    const firstLine = (normalized.message || 'Unknown error').split('\n')[0].trim()
+    if (firstLine.length <= 180) {
+      return firstLine
+    }
+    return `${firstLine.slice(0, 177)}...`
   }
 
   const clearPreviousErrorMessage = async () => {
@@ -164,11 +174,17 @@ function useChatSubmitV2() {
         return
       }
 
-      if (
-        event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_COMPLETED ||
-        event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_FAILED
-      ) {
+      if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_COMPLETED) {
         titleJobPendingRef.current = false
+        maybeCleanupAfterBackgroundJobs()
+        return
+      }
+
+      if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_FAILED) {
+        titleJobPendingRef.current = false
+        toast.warning('Title generation failed', {
+          description: getTitleFailureDescription(event.payload.error)
+        })
         maybeCleanupAfterBackgroundJobs()
         return
       }
