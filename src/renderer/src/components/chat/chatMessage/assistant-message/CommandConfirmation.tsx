@@ -35,6 +35,7 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
       titleColor: 'text-rose-950 dark:text-rose-50',
       reasonTone: 'text-rose-700 dark:text-rose-300',
       commandTone: 'text-rose-950 dark:text-rose-100',
+      commandShell: 'border-rose-200/48 bg-rose-50/34 dark:border-rose-900/30 dark:bg-rose-950/12',
       executeButton: 'bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500',
       cancelButton: 'text-slate-500 hover:bg-white/70 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900/70 dark:hover:text-slate-100'
     }
@@ -52,7 +53,8 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
     titleColor: 'text-amber-950 dark:text-amber-50',
     reasonTone: 'text-amber-700 dark:text-amber-300',
     commandTone: 'text-slate-900 dark:text-slate-100',
-    executeButton: 'bg-amber-500/14 text-amber-700 hover:bg-amber-500/20 dark:bg-amber-500/14 dark:text-amber-200 dark:hover:bg-amber-500/24',
+    commandShell: 'border-amber-200/48 bg-amber-50/30 dark:border-amber-900/30 dark:bg-amber-950/10',
+    executeButton: 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white',
     cancelButton: 'text-slate-500 hover:bg-white/70 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900/70 dark:hover:text-slate-100'
   }
 }
@@ -103,10 +105,9 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
     >
       <div
         className={cn(
-          'relative overflow-hidden rounded-2xl border shadow-[0_12px_28px_-24px_rgba(15,23,42,0.24)] backdrop-blur-xl',
+          'relative overflow-hidden rounded-2xl shadow-[0_12px_28px_-24px_rgba(15,23,42,0.24)] backdrop-blur-xl',
           'bg-white/52 dark:bg-slate-950/34',
-          config.shellBg,
-          config.shellBorder
+          config.shellBg
         )}
       >
         <div className="relative p-2.5">
@@ -141,9 +142,12 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
           </div>
 
           <div className="mt-2.5 space-y-1.5">
-            <div className="rounded-xl border border-black/6 bg-black/3 dark:border-white/8 dark:bg-white/3">
-              <div className="flex items-start gap-2 px-2.5 py-2">
-                <Terminal className="mt-[2px] h-3 w-3 shrink-0 text-slate-500 dark:text-slate-400" />
+            <div className={cn(
+              'rounded-xl border',
+              config.commandShell
+            )}>
+              <div className="flex items-center gap-2 px-2.5 py-2">
+                <Terminal className="h-3 w-3 shrink-0 text-slate-500 dark:text-slate-400" />
                 <code
                   className={cn(
                     'flex-1 break-all text-[10px] leading-[1.4] font-mono',
@@ -168,13 +172,14 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                 {request.possible_risk}
               </p>
 
-              <div className="flex items-center justify-end gap-1 shrink-0">
+              <div className="shrink-0">
+                <div className="flex items-center justify-end gap-1 rounded-full border border-white/60 bg-white/5 p-1 shadow-[0_10px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md dark:border-white/10 dark:bg-slate-900/55">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={onCancel}
                   className={cn(
-                    'h-5.5 rounded-full px-2.5 text-[10px] font-medium shadow-none transition-colors',
+                    'h-6 rounded-full px-2.5 text-[10px] font-medium shadow-none transition-colors',
                     config.cancelButton
                   )}
                 >
@@ -185,12 +190,13 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                   size="sm"
                   onClick={onConfirm}
                   className={cn(
-                    'h-5.5 rounded-full px-2.5 text-[10px] font-semibold shadow-none transition-colors',
+                    'h-6 rounded-full px-2.5 text-[10px] font-semibold shadow-none transition-colors',
                     config.executeButton
                   )}
                 >
                   Execute
                 </Button>
+                </div>
               </div>
             </div>
           </div>
