@@ -10,8 +10,12 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
-  - resources/**
   - node_modules/sqlite-vec-*/**
+extraResources:
+  - from: resources/models
+    to: models
+    filter:
+      - '**/*'
 win:
   executableName: at-i-app
 nsis:

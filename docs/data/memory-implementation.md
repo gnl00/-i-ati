@@ -426,7 +426,7 @@ private constructor() {
     // 开发环境: project_root/resources/models/
     this.modelPath = path.join(process.cwd(), 'resources', 'models', this.MODEL_NAME)
   } else {
-    // 生产环境: app.asar.unpacked/resources/models/
+    // 生产环境: YourApp.app/Contents/Resources/models/
     this.modelPath = path.join(process.resourcesPath, 'models', this.MODEL_NAME)
   }
 }
@@ -1538,7 +1538,7 @@ resources/
       }
     ],
     "asarUnpack": [
-      "resources/models/**/*"
+      "node_modules/sqlite-vec-*/**"
     ],
     "files": [
       "out/**/*",
@@ -1556,8 +1556,8 @@ resources/
 ```
 
 **关键配置**:
-- `extraResources`: 将模型文件复制到 `resources/models/`
-- `asarUnpack`: 确保模型文件不被打包到 asar 中（因为 transformers.js 需要直接访问文件）
+- `extraResources`: 将模型文件复制到应用包内的 `Contents/Resources/models/`
+- `asarUnpack`: 仅用于需要直接访问文件系统的原生模块，例如 `sqlite-vec`
 
 #### 7.2.2 路径解析逻辑
 
@@ -1569,14 +1569,14 @@ if (isDev) {
   // 开发环境: project_root/resources/models/all-MiniLM-L6-v2
   this.modelPath = path.join(process.cwd(), 'resources', 'models', this.MODEL_NAME)
 } else {
-  // 生产环境: app.asar.unpacked/resources/models/all-MiniLM-L6-v2
+  // 生产环境: YourApp.app/Contents/Resources/models/all-MiniLM-L6-v2
   this.modelPath = path.join(process.resourcesPath, 'models', this.MODEL_NAME)
 }
 ```
 
 **路径说明**:
 - 开发环境: `process.cwd()` 指向项目根目录
-- 生产环境: `process.resourcesPath` 指向 `app.asar.unpacked/resources/` 或 `resources/`
+- 生产环境: `process.resourcesPath` 指向应用包内的 `Contents/Resources/`
 
 #### 7.2.3 验证打包结果
 

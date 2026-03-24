@@ -5,6 +5,7 @@
  */
 
 import { pipeline, env } from '@xenova/transformers'
+import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
 
@@ -35,18 +36,9 @@ class EmbeddingService {
   private readonly EMBEDDING_DIMENSIONS = 384
 
   private constructor() {
-    // 获取模型路径
-    // transformers.js 会在 localModelPath 下查找 Xenova/MODEL_NAME
-    // 所以我们需要设置 localModelPath 为 models 目录
-    const isDev = !app.isPackaged
-
-    if (isDev) {
-      // 开发环境: resources/models/
-      this.modelPath = path.join(process.cwd(), 'resources', 'models')
-    } else {
-      // 生产环境
-      this.modelPath = path.join(process.resourcesPath, 'models')
-    }
+    this.modelPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'models')
+      : path.join(process.cwd(), 'resources', 'models')
 
     console.log('[EmbeddingService] Model path:', this.modelPath)
   }
@@ -93,6 +85,11 @@ class EmbeddingService {
 
       // 设置本地模型路径
       env.localModelPath = this.modelPath
+
+      const modelDirectory = path.join(this.modelPath, this.MODEL_NAME)
+      if (!fs.existsSync(modelDirectory)) {
+        throw new Error(`Model directory not found: ${modelDirectory}`)
+      }
 
       // 加载 feature-extraction pipeline
       // 使用量化的 ONNX 模型以获得更好的性能

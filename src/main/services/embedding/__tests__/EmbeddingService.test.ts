@@ -6,6 +6,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EmbeddingService } from '../EmbeddingService'
 
+const { mockExistsSync } = vi.hoisted(() => ({
+  mockExistsSync: vi.fn(),
+}))
+
 // Mock @xenova/transformers
 vi.mock('@xenova/transformers', () => {
   const mockPipeline = vi.fn()
@@ -20,6 +24,13 @@ vi.mock('@xenova/transformers', () => {
   }
 })
 
+vi.mock('fs', () => ({
+  default: {
+    existsSync: mockExistsSync,
+  },
+  existsSync: mockExistsSync,
+}))
+
 // Mock electron
 vi.mock('electron', () => ({
   app: {
@@ -33,8 +44,11 @@ describe('EmbeddingService', () => {
   let mockPipelineInstance: any
 
   beforeEach(async () => {
+    ;(EmbeddingService as any).instance = undefined
+
     // 重置所有 mock
     vi.clearAllMocks()
+    mockExistsSync.mockReturnValue(true)
 
     // 创建 mock pipeline 实例
     mockPipelineInstance = vi.fn(async (_text: string, _options?: any) => {
@@ -99,6 +113,69 @@ describe('EmbeddingService', () => {
       await service.initialize()
       // 调用次数不应该增加
       expect(vi.mocked(pipeline).mock.calls.length).toBe(callCount)
+    })
+  })
+
+  describe('模型路径解析', () => {
+    it('开发环境应该使用项目 resources/models 目录', () => {
+      const info = service.getModelInfo()
+
+      expect(info.modelPath).toBe('/Users/gnl/Workspace/code/-i-ati/resources/models')
+    })
+
+    it('打包环境应该使用 Resources/models 目录', async () => {
+      const { app } = await import('electron')
+      const originalResourcesPath = process.resourcesPath
+
+      ;(app as any).isPackaged = true
+
+      Object.defineProperty(process, 'resourcesPath', {
+        configurable: true,
+        value: '/mock/resources',
+      })
+
+      try {
+        ;(EmbeddingService as any).instance = undefined
+        const packagedService = EmbeddingService.getInstance()
+
+        expect(packagedService.getModelInfo().modelPath).toBe(
+          '/mock/resources/models'
+        )
+      } finally {
+        ;(app as any).isPackaged = false
+        Object.defineProperty(process, 'resourcesPath', {
+          configurable: true,
+          value: originalResourcesPath,
+        })
+      }
+    })
+
+    it('模型目录不存在时应该在初始化阶段抛出明确错误', async () => {
+      const { app } = await import('electron')
+      const originalResourcesPath = process.resourcesPath
+
+      ;(app as any).isPackaged = true
+      mockExistsSync.mockReturnValue(false)
+
+      Object.defineProperty(process, 'resourcesPath', {
+        configurable: true,
+        value: '/mock/resources',
+      })
+
+      try {
+        ;(EmbeddingService as any).instance = undefined
+        const packagedService = EmbeddingService.getInstance()
+
+        await expect(packagedService.initialize()).rejects.toThrow(
+          'Failed to initialize embedding model: Model directory not found: /mock/resources/models/all-MiniLM-L6-v2'
+        )
+      } finally {
+        ;(app as any).isPackaged = false
+        Object.defineProperty(process, 'resourcesPath', {
+          configurable: true,
+          value: originalResourcesPath,
+        })
+      }
     })
   })
 
