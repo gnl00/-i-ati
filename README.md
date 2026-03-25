@@ -12,6 +12,7 @@
 - Tasks and scheduling: plan review, step status management, and scheduled prompt delivery to specific chats.
 - Subagents: spawn background researcher/coder/reviewer-style subagents with isolated execution context, live status updates, and parent-run confirmation bridging.
 - Artifacts / Workspace: each session is bound to an isolated workspace for file browsing and previewing dev services.
+- Telegram bot support: receive Telegram messages and attachments through a gateway, map them into the shared chat runtime, and reply back through the same unified agent pipeline.
 
 ## Project Structure
 
@@ -38,9 +39,11 @@ The app follows a clear split:
 
 1. `renderer` handles UI, state, and event-driven streaming rendering.
 2. `preload` exposes a controlled Electron API to the renderer.
-3. `main` owns the database, model requests, tool execution, subagent runtime, MCP connections, memory retrieval, and scheduling.
+3. `main` owns the database, model requests, tool execution, subagent runtime, MCP connections, memory retrieval, scheduling, and host adapters such as Telegram.
 
 On submission, the renderer triggers `MainChatSubmitService` via IPC. The main process builds system prompts, skill prompts, message context, and tool definitions, then sends a unified model request. Streaming output is parsed into text segments, tool calls, and tool results, and pushed back to the UI. When needed, the main agent can also spawn background subagents that run with their own runtime context and report status/results back into the same chat flow.
+
+Telegram follows the same main-process path through a host adapter and gateway layer. Incoming Telegram text, commands, and supported attachments are normalized into the shared chat/message model, executed by the same runtime, and formatted back into Telegram replies.
 
 ## Screenshots
 
