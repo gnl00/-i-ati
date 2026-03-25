@@ -99,6 +99,24 @@ class AppDatabase {
     `)
 
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_host_bindings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        host_type TEXT NOT NULL,
+        host_chat_id TEXT NOT NULL,
+        host_thread_id TEXT,
+        host_user_id TEXT,
+        chat_id INTEGER NOT NULL,
+        chat_uuid TEXT NOT NULL,
+        last_host_message_id TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        metadata_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+      )
+    `)
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS configs (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
@@ -312,6 +330,12 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chats_update_time ON chats(update_time DESC);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_uuid ON messages(chat_uuid);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_host_bindings_unique
+        ON chat_host_bindings(host_type, host_chat_id, host_thread_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_host_bindings_chat_uuid
+        ON chat_host_bindings(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_chat_host_bindings_host_user_id
+        ON chat_host_bindings(host_user_id);
       CREATE INDEX IF NOT EXISTS idx_mcp_servers_updated_at ON mcp_servers(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_plugins_source ON plugins(source);
       CREATE INDEX IF NOT EXISTS idx_plugins_enabled ON plugins(enabled);

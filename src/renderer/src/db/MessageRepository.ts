@@ -6,6 +6,7 @@ import {
   invokeDbMessageGetByChatId,
   invokeDbMessageGetByChatUuid,
   invokeDbMessageUpdate,
+  invokeDbMessagePatchUiState,
   invokeDbMessageDelete
 } from '@renderer/invoker/ipcInvoker'
 
@@ -44,6 +45,13 @@ const updateMessage = async (data: MessageEntity): Promise<void> => {
   return await invokeDbMessageUpdate(data)
 }
 
+const patchMessageUiState = async (
+  id: number,
+  uiState: { typewriterCompleted?: boolean }
+): Promise<void> => {
+  return await invokeDbMessagePatchUiState(id, uiState)
+}
+
 // 删除数据
 const deleteMessage = async (id: number): Promise<void> => {
   return await invokeDbMessageDelete(id)
@@ -57,5 +65,6 @@ export {
   getMessagesByChatId,
   getMessagesByChatUuid,
   updateMessage,
+  patchMessageUiState,
   deleteMessage
 }

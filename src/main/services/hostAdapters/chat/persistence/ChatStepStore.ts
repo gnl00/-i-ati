@@ -7,7 +7,8 @@ const buildUserMessage = (
   model: AccountModel,
   textCtx: string,
   mediaCtx: ClipbordImg[] | string[],
-  source?: string
+  source?: string,
+  host?: ChatMessageHostMeta
 ): ChatMessage => {
   const createdAt = Date.now()
   let messageBody: ChatMessage = {
@@ -15,7 +16,8 @@ const buildUserMessage = (
     content: '',
     segments: [],
     createdAt,
-    ...(source ? { source } : {})
+    ...(source ? { source } : {}),
+    ...(host ? { host } : {})
   }
 
   if (model.type === 'llm' || model.type === 'img_gen') {
@@ -44,7 +46,7 @@ export class ChatStepStore implements ConversationStore {
     input: ChatRunInputState
   ): MessageEntity {
     const entity: MessageEntity = {
-      body: buildUserMessage(model, input.textCtx, input.mediaCtx, input.source),
+      body: buildUserMessage(model, input.textCtx, input.mediaCtx, input.source, input.host),
       chatId: chatEntity.id,
       chatUuid: chatEntity.uuid
     }
@@ -57,7 +59,9 @@ export class ChatStepStore implements ConversationStore {
   createAssistantPlaceholder(
     chatEntity: ChatEntity,
     model: AccountModel,
-    modelRef: ModelRef
+    modelRef: ModelRef,
+    source?: string,
+    host?: ChatMessageHostMeta
   ): MessageEntity {
     const entity: MessageEntity = {
       body: {
@@ -67,7 +71,9 @@ export class ChatStepStore implements ConversationStore {
         modelRef,
         content: '',
         segments: [],
-        typewriterCompleted: false
+        typewriterCompleted: false,
+        ...(source ? { source } : {}),
+        ...(host ? { host } : {})
       },
       chatId: chatEntity.id,
       chatUuid: chatEntity.uuid

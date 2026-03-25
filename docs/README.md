@@ -32,6 +32,10 @@
   - [chat-runtime-architecture-current.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-runtime-architecture-current.md)
 - Subagent 当前实现：
   - [subagent-mvp.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/subagent-mvp.md)
+- Telegram gateway grammY 迁移：
+  - [telegram-gateway-grammy-migration.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/telegram-gateway-grammy-migration.md)
+- Telegram host adapter 阶段总结：
+  - [telegram-host-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/telegram-host-adapter-stage-summary.md)
 - 本轮阶段总结：
   - [agent-core-chat-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/agent-core-chat-adapter-stage-summary.md)
 - chat 事件协议：

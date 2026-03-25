@@ -53,7 +53,7 @@ const ChatWindowComponentNext: React.FC = () => {
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
   const readStreamState = useChatStore(state => state.readStreamState)
-  const updateMessage = useChatStore(state => state.updateMessage)
+  const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
   const upsertMessage = useChatStore(state => state.upsertMessage)
   const onUserScrollIntentRef = useRef<(() => void) | null>(null)
   const onUserScrollUpIntentRef = useRef<(() => void) | null>(null)
@@ -318,7 +318,7 @@ const ChatWindowComponentNext: React.FC = () => {
       }
       upsertMessage(updatedMessage)
       if (updatedMessage.id) {
-        void updateMessage(updatedMessage)
+        void patchMessageUiState(updatedMessage.id, { typewriterCompleted: true })
       }
     }
     spacerDisabledAtLengthRef.current = messages.length
@@ -328,7 +328,7 @@ const ChatWindowComponentNext: React.FC = () => {
     setStreamingFollowEnabled(true)
     // Button targets the latest message (confirmed behavior).
     scrollToMessageIndex(latestMessageIndex, true, 'end')
-  }, [latestMessageIndex, messages, readStreamState, scrollToMessageIndex, setStreamingFollowEnabled, updateMessage, upsertMessage, lastMessageIndex])
+  }, [latestMessageIndex, messages, readStreamState, scrollToMessageIndex, setStreamingFollowEnabled, patchMessageUiState, upsertMessage, lastMessageIndex])
 
   
 

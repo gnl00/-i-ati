@@ -42,10 +42,15 @@ import {
   DB_MESSAGE_GET_BY_CHAT_ID,
   DB_MESSAGE_GET_BY_CHAT_UUID,
   DB_MESSAGE_UPDATE,
+  DB_MESSAGE_PATCH_UI_STATE,
   DB_MESSAGE_DELETE,
   DB_CONFIG_GET,
   DB_CONFIG_SAVE,
   DB_CONFIG_INIT,
+  TELEGRAM_GATEWAY_STATUS,
+  TELEGRAM_GATEWAY_TEST,
+  TELEGRAM_GATEWAY_START,
+  TELEGRAM_GATEWAY_STOP,
   DB_MCP_SERVERS_GET,
   DB_MCP_SERVERS_SAVE,
   DB_PLUGINS_GET,
@@ -371,6 +376,14 @@ export async function invokeDbMessageUpdate(data: MessageEntity): Promise<void> 
   return await ipc.invoke(DB_MESSAGE_UPDATE, data)
 }
 
+export async function invokeDbMessagePatchUiState(
+  id: number,
+  uiState: { typewriterCompleted?: boolean }
+): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_MESSAGE_PATCH_UI_STATE, { id, uiState })
+}
+
 /**
  * 删除消息
  */
@@ -403,6 +416,73 @@ export async function invokeDbConfigSave(config: IAppConfig): Promise<void> {
 export async function invokeDbConfigInit(): Promise<IAppConfig> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CONFIG_INIT)
+}
+
+export async function invokeTelegramGatewayStatus(): Promise<{
+  running: boolean
+  starting: boolean
+  configured: boolean
+  enabled: boolean
+  mode?: 'polling' | 'webhook'
+  hasDefaultModel: boolean
+  lastUpdateId: number
+  botUsername?: string
+  botId?: string
+  lastError?: string
+  lastErrorAt?: number
+  lastSuccessfulPollAt?: number
+  lastMessageProcessedAt?: number
+}> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(TELEGRAM_GATEWAY_STATUS)
+}
+
+export async function invokeTelegramGatewayTest(botToken?: string): Promise<{
+  ok: boolean
+  username?: string
+  id?: string
+  error?: string
+}> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(TELEGRAM_GATEWAY_TEST, { botToken })
+}
+
+export async function invokeTelegramGatewayStart(): Promise<{
+  running: boolean
+  starting: boolean
+  configured: boolean
+  enabled: boolean
+  mode?: 'polling' | 'webhook'
+  hasDefaultModel: boolean
+  lastUpdateId: number
+  botUsername?: string
+  botId?: string
+  lastError?: string
+  lastErrorAt?: number
+  lastSuccessfulPollAt?: number
+  lastMessageProcessedAt?: number
+}> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(TELEGRAM_GATEWAY_START)
+}
+
+export async function invokeTelegramGatewayStop(): Promise<{
+  running: boolean
+  starting: boolean
+  configured: boolean
+  enabled: boolean
+  mode?: 'polling' | 'webhook'
+  hasDefaultModel: boolean
+  lastUpdateId: number
+  botUsername?: string
+  botId?: string
+  lastError?: string
+  lastErrorAt?: number
+  lastSuccessfulPollAt?: number
+  lastMessageProcessedAt?: number
+}> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(TELEGRAM_GATEWAY_STOP)
 }
 
 export async function invokeDbPluginsGet(): Promise<PluginEntity[]> {

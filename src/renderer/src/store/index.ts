@@ -64,6 +64,7 @@ export type ChatAction = {
   fetchMessagesByChatUuid: (chatUuid: string) => Promise<MessageEntity[]>
   addMessage: (message: MessageEntity) => Promise<number>
   updateMessage: (message: MessageEntity) => Promise<void>
+  patchMessageUiState: (id: number, uiState: { typewriterCompleted?: boolean }) => Promise<void>
   deleteMessage: (messageId: number) => Promise<void>
   upsertMessage: (message: MessageEntity) => void
   updateLastAssistantMessageWithError: (error: Error) => Promise<number | undefined>
@@ -292,6 +293,26 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     // 2. 更新 Zustand state
     set((prevState) => ({
       messages: prevState.messages.map(m => (m.id === message.id ? message : m))
+    }))
+  },
+
+  patchMessageUiState: async (id, uiState) => {
+    await messagePersistence.patchMessageUiState(id, uiState)
+
+    set((prevState) => ({
+      messages: prevState.messages.map((message) => (
+        message.id === id
+          ? {
+            ...message,
+            body: {
+              ...message.body,
+              ...(uiState.typewriterCompleted !== undefined
+                ? { typewriterCompleted: uiState.typewriterCompleted }
+                : {})
+            }
+          }
+          : message
+      ))
     }))
   },
 

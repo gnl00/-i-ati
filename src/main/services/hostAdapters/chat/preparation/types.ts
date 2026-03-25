@@ -4,6 +4,7 @@ export type ChatRunInputState = {
   textCtx: string
   mediaCtx: ClipbordImg[] | string[]
   source?: string
+  host?: ChatMessageHostMeta
   tools?: any[]
   userInstruction?: string
   options?: IUnifiedRequest['options']

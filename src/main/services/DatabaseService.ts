@@ -12,6 +12,7 @@ import { PluginCapabilityRepository } from '../db/repositories/PluginCapabilityR
 import { PluginSettingRepository } from '../db/repositories/PluginSettingRepository'
 import { ProviderRepository } from '../db/repositories/ProviderRepository'
 import { ChatRepository } from '../db/repositories/ChatRepository'
+import { ChatHostBindingRepository } from '../db/repositories/ChatHostBindingRepository'
 import { ChatSkillRepository } from '../db/repositories/ChatSkillRepository'
 import { MessageRepository } from '../db/repositories/MessageRepository'
 import { CompressedSummaryRepository } from '../db/repositories/CompressedSummaryRepository'
@@ -24,6 +25,7 @@ import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import { TaskPlanDataService } from './database/TaskPlanDataService'
 import { ScheduledTaskDataService } from './database/ScheduledTaskDataService'
 import { ChatDataService } from './database/ChatDataService'
+import { ChatHostBindingDataService } from './database/ChatHostBindingDataService'
 import { MessageDataService } from './database/MessageDataService'
 import { ConfigDataService } from './database/ConfigDataService'
 import { McpServerDataService } from './database/McpServerDataService'
@@ -52,6 +54,7 @@ class DatabaseService {
   private pluginSettingRepo?: PluginSettingRepository
   private providerRepo?: ProviderRepository
   private chatRepo?: ChatRepository
+  private chatHostBindingRepo?: ChatHostBindingRepository
   private chatSkillRepo?: ChatSkillRepository
   private messageRepo?: MessageRepository
   private summaryRepo?: CompressedSummaryRepository
@@ -60,6 +63,7 @@ class DatabaseService {
   private taskPlanRepo?: TaskPlanRepository
   private scheduledTaskRepo?: ScheduledTaskRepository
   private chatDataService?: ChatDataService
+  private chatHostBindingDataService?: ChatHostBindingDataService
   private messageDataService?: MessageDataService
   private planDataService?: TaskPlanDataService
   private scheduledTaskDataService?: ScheduledTaskDataService
@@ -107,6 +111,7 @@ class DatabaseService {
       this.pluginSettingRepo = new PluginSettingRepository(this.db)
       this.providerRepo = new ProviderRepository(this.db)
       this.chatRepo = new ChatRepository(this.db)
+      this.chatHostBindingRepo = new ChatHostBindingRepository(this.db)
       this.chatSkillRepo = new ChatSkillRepository(this.db)
       this.messageRepo = new MessageRepository(this.db)
       this.summaryRepo = new CompressedSummaryRepository(this.db)
@@ -118,6 +123,10 @@ class DatabaseService {
         hasDb: () => Boolean(this.db),
         getChatRepo: () => this.chatRepo,
         getChatSkillRepo: () => this.chatSkillRepo
+      })
+      this.chatHostBindingDataService = new ChatHostBindingDataService({
+        hasDb: () => Boolean(this.db),
+        getChatHostBindingRepo: () => this.chatHostBindingRepo
       })
       this.messageDataService = new MessageDataService({
         hasDb: () => Boolean(this.db),
@@ -236,6 +245,40 @@ class DatabaseService {
     this.chatDataService.addChatSkill(chatId, skillName)
   }
 
+  public saveChatHostBinding(data: ChatHostBindingEntity): number {
+    if (!this.chatHostBindingDataService) throw new Error('Chat host binding data service not initialized')
+    return this.chatHostBindingDataService.saveBinding(data)
+  }
+
+  public upsertChatHostBinding(data: ChatHostBindingEntity): void {
+    if (!this.chatHostBindingDataService) throw new Error('Chat host binding data service not initialized')
+    this.chatHostBindingDataService.upsertBinding(data)
+  }
+
+  public getChatHostBindingByHost(
+    hostType: string,
+    hostChatId: string,
+    hostThreadId?: string
+  ): ChatHostBindingEntity | undefined {
+    if (!this.chatHostBindingDataService) throw new Error('Chat host binding data service not initialized')
+    return this.chatHostBindingDataService.getBindingByHost(hostType, hostChatId, hostThreadId)
+  }
+
+  public getChatHostBindingsByChatUuid(chatUuid: string): ChatHostBindingEntity[] {
+    if (!this.chatHostBindingDataService) throw new Error('Chat host binding data service not initialized')
+    return this.chatHostBindingDataService.getBindingsByChatUuid(chatUuid)
+  }
+
+  public updateChatHostBindingLastMessage(id: number, lastHostMessageId?: string): void {
+    if (!this.chatHostBindingDataService) throw new Error('Chat host binding data service not initialized')
+    this.chatHostBindingDataService.updateLastHostMessageId(id, lastHostMessageId)
+  }
+
+  public updateChatHostBindingStatus(id: number, status: 'active' | 'archived'): void {
+    if (!this.chatHostBindingDataService) throw new Error('Chat host binding data service not initialized')
+    this.chatHostBindingDataService.updateStatus(id, status)
+  }
+
   public removeChatSkill(chatId: number, skillName: string): void {
     if (!this.chatDataService) throw new Error('Chat data service not initialized')
     this.chatDataService.removeChatSkill(chatId, skillName)
@@ -274,6 +317,11 @@ class DatabaseService {
   public updateMessage(data: MessageEntity): void {
     if (!this.messageDataService) throw new Error('Message data service not initialized')
     this.messageDataService.updateMessage(data)
+  }
+
+  public patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {
+    if (!this.messageDataService) throw new Error('Message data service not initialized')
+    this.messageDataService.patchMessageUiState(id, uiState)
   }
 
   public deleteMessage(id: number): void {

@@ -9,6 +9,7 @@ import { remarkPreserveLineBreaks } from '../markdown/markdown-plugins'
 import { MessageOperations } from '../message-operations'
 import { useEnterTransition } from '../typewriter/use-enter-transition'
 import { loadKatexStyles } from '@renderer/utils/styleLoaders'
+import { Send } from 'lucide-react'
 
 export interface UserMessageProps {
   index: number
@@ -86,6 +87,8 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
   onHover,
   onCopyClick
 }) => {
+  const telegramAttachmentCount = m.host?.attachments?.length ?? 0
+
   const onCopy = () => {
     if (typeof m.content === 'string') {
       onCopyClick(m.content)
@@ -108,6 +111,19 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
       onMouseLeave={() => onHover(-1)}
       className={cn("flex flex-col items-end mr-1", index === 0 ? 'mt-2' : '')}
     >
+      {m.source === 'telegram' && (
+        <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-sky-50/90 px-2.5 py-1 text-[11px] font-medium leading-none text-sky-700 shadow-xs shadow-black/5 dark:bg-sky-950/40 dark:text-sky-300">
+          <span className="flex h-[16px] w-[16px] items-center justify-center rounded-full bg-sky-100/90 text-sky-600 dark:bg-sky-900/70 dark:text-sky-300">
+            <Send className="h-2.5 w-2.5" />
+          </span>
+          <span>
+            Telegram
+            {m.host?.username ? ` · @${m.host.username}` : m.host?.displayName ? ` · ${m.host.displayName}` : ''}
+            {telegramAttachmentCount > 0 ? ` · ${telegramAttachmentCount} attachment${telegramAttachmentCount > 1 ? 's' : ''}` : ''}
+          </span>
+        </div>
+      )}
+
       <div
         id="usr-msg-content"
         className={cn(

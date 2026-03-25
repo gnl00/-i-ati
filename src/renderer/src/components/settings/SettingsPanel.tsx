@@ -56,6 +56,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     } = useAppConfigStore()
 
     const [maxWebSearchItems, setMaxWebSearchItems] = useState<number>(appConfig?.tools?.maxWebSearchItems || 3)
+    const [telegramEnabled, setTelegramEnabled] = useState<boolean>(appConfig?.telegram?.enabled ?? false)
+    const [telegramBotToken, setTelegramBotToken] = useState<string>(appConfig?.telegram?.botToken || '')
     const [activeTab, setActiveTab] = useState<string>('provider-list')
 
     // Compression state
@@ -68,6 +70,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         if (appConfig?.tools?.maxWebSearchItems !== undefined) {
             setMaxWebSearchItems(appConfig.tools.maxWebSearchItems)
         }
+        setTelegramEnabled(appConfig?.telegram?.enabled ?? false)
+        setTelegramBotToken(appConfig?.telegram?.botToken || '')
         if (appConfig?.compression) {
             setCompressionEnabled(appConfig.compression.enabled ?? true)
             setCompressionTriggerThreshold(appConfig.compression.triggerThreshold || 30)
@@ -89,6 +93,15 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 maxWebSearchItems: maxWebSearchItems,
                 memoryEnabled: memoryEnabled,
                 streamChunkDebugEnabled: streamChunkDebugEnabled
+            },
+            telegram: {
+                ...(appConfig.telegram || {}),
+                enabled: telegramEnabled,
+                botToken: telegramBotToken,
+                mode: appConfig.telegram?.mode || 'polling',
+                requireMentionInGroups: appConfig.telegram?.requireMentionInGroups ?? true,
+                dmPolicy: appConfig.telegram?.dmPolicy || 'open',
+                groupPolicy: appConfig.telegram?.groupPolicy || 'open'
             },
             compression: {
                 enabled: compressionEnabled,
@@ -153,6 +166,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         || titleGenerateEnabled !== (savedTools.titleGenerateEnabled ?? true)
         || memoryEnabled !== (savedTools.memoryEnabled ?? true)
         || streamChunkDebugEnabled !== (savedTools.streamChunkDebugEnabled ?? false)
+        || telegramEnabled !== (appConfig?.telegram?.enabled ?? false)
+        || telegramBotToken !== (appConfig?.telegram?.botToken ?? '')
         || defaultModel?.accountId !== savedTools.defaultModel?.accountId
         || defaultModel?.modelId !== savedTools.defaultModel?.modelId
         || titleGenerateModel?.accountId !== savedTools.titleGenerateModel?.accountId
@@ -224,6 +239,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <ToolsManager
                         maxWebSearchItems={maxWebSearchItems}
                         setMaxWebSearchItems={setMaxWebSearchItems}
+                        telegramEnabled={telegramEnabled}
+                        setTelegramEnabled={setTelegramEnabled}
+                        telegramBotToken={telegramBotToken}
+                        setTelegramBotToken={setTelegramBotToken}
                         compressionEnabled={compressionEnabled}
                         setCompressionEnabled={setCompressionEnabled}
                         compressionTriggerThreshold={compressionTriggerThreshold}

@@ -19,7 +19,18 @@ export class StepBootstrapService {
     const assistantPlaceholder = this.chatStepStore.createAssistantPlaceholder(
       environment.chat,
       environment.modelContext.model,
-      input.modelRef
+      input.modelRef,
+      input.input.source,
+      input.input.source === 'telegram'
+        ? {
+          ...(input.input.host ?? {
+            type: 'telegram',
+            direction: 'outbound',
+            peerId: input.chatUuid ?? environment.chat.uuid
+          }),
+          direction: 'outbound'
+        }
+        : undefined
     )
 
     return {

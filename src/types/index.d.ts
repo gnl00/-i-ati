@@ -78,8 +78,22 @@ declare interface IAppConfig {
   }
   compression?: CompressionConfig
   mcp?: McpServerConfig
+  telegram?: TelegramChannelConfig
   version?: number
   configForUpdate?: IAppConfig
+}
+
+declare interface TelegramChannelConfig {
+  enabled?: boolean
+  botToken?: string
+  mode?: 'polling' | 'webhook'
+  webhookUrl?: string
+  webhookSecret?: string
+  dmPolicy?: 'open' | 'allowlist' | 'disabled'
+  groupPolicy?: 'open' | 'allowlist' | 'disabled'
+  requireMentionInGroups?: boolean
+  allowedChatIds?: string[]
+  lastUpdateId?: number
 }
 
 declare interface AppPluginConfig {
@@ -258,6 +272,21 @@ declare interface ChatEntity {
   createTime: number // 创建时间
 }
 
+declare interface ChatHostBindingEntity {
+  id?: number
+  hostType: string
+  hostChatId: string
+  hostThreadId?: string
+  hostUserId?: string
+  chatId: number
+  chatUuid: string
+  lastHostMessageId?: string
+  status: 'active' | 'archived'
+  metadata?: Record<string, unknown>
+  createTime: number
+  updateTime: number
+}
+
 declare interface MessageEntity {
   id?: number
   chatId?: number
@@ -292,9 +321,35 @@ declare interface ChatMessage extends BaseChatMessage {
   modelRef?: { accountId: string; modelId: string }
   typewriterCompleted?: boolean,
   source?: string // message source, e.g. 'schedule'
+  host?: ChatMessageHostMeta
   // ==================== Message Segments ====================
   // 使用segments替代原有的content、reasoning、toolCallResults字段
   segments: MessageSegment[]  // 强制字段，所有消息必须有segments
+}
+
+declare interface ChatMessageHostMeta {
+  type: 'telegram'
+  direction: 'inbound' | 'outbound'
+  peerId: string
+  peerType?: 'private' | 'group' | 'supergroup' | 'channel'
+  threadId?: string
+  messageId?: string
+  replyToMessageId?: string
+  userId?: string
+  username?: string
+  displayName?: string
+  attachments?: ChatMessageHostAttachmentMeta[]
+}
+
+declare interface ChatMessageHostAttachmentMeta {
+  kind: 'photo' | 'document'
+  fileId: string
+  fileUniqueId?: string
+  fileName?: string
+  mimeType?: string
+  fileSize?: number
+  width?: number
+  height?: number
 }
 
 declare type LLMContent = string;

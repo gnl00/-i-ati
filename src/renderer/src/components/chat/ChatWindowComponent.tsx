@@ -52,7 +52,7 @@ const ChatWindowComponent: React.FC = () => {
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
   const readStreamState = useChatStore(state => state.readStreamState)
-  const updateMessage = useChatStore(state => state.updateMessage)
+  const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
   const upsertMessage = useChatStore(state => state.upsertMessage)
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
@@ -108,11 +108,11 @@ const ChatWindowComponent: React.FC = () => {
       }
       upsertMessage(updatedMessage)
       if (updatedMessage.id) {
-        void updateMessage(updatedMessage)
+        void patchMessageUiState(updatedMessage.id, { typewriterCompleted: true })
       }
     }
     scrollToBottom(true)
-  }, [messages, readStreamState, scrollToBottom, updateMessage, upsertMessage, lastMessageIndex])
+  }, [messages, readStreamState, scrollToBottom, patchMessageUiState, upsertMessage, lastMessageIndex])
 
   
 

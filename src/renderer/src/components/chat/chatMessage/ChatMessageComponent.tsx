@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { UserMessage } from './user-message'
 import { AssistantMessage } from './assistant-message'
 import { useMessageHover } from './user-message/use-message-hover'
-import { Timer } from 'lucide-react'
+import { Send, Timer } from 'lucide-react'
 
 interface ChatMessageComponentProps {
   index: number
@@ -31,7 +31,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
     }
   }
 
-  if (message.role === 'user' && message.source) {
+  if (message.role === 'user' && message.source && message.source !== 'telegram') {
     return (
       <>
         {message.source && (
@@ -50,6 +50,34 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
             <div className="h-px flex-1 bg-slate-200/70 dark:bg-slate-700/70" />
           </div>
         )}
+      </>
+    )
+  }
+
+  if (message.role === 'assistant' && message.source === 'telegram' && message.host?.direction === 'outbound') {
+    return (
+      <>
+        <div className="flex items-center gap-3 py-2.5">
+          <div className="h-px flex-1 bg-slate-200/70 dark:bg-slate-700/70" />
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50/80 px-2.5 py-1 shadow-xs shadow-black/5 backdrop-blur-sm dark:bg-sky-950/35">
+            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-sky-100/80 text-sky-600 dark:bg-sky-900/70 dark:text-sky-300">
+              <Send className="h-3 w-3" />
+            </span>
+            <p className="text-[11px] font-medium leading-none text-sky-700 dark:text-sky-300">
+              Sent to Telegram
+            </p>
+          </div>
+          <div className="h-px flex-1 bg-slate-200/70 dark:bg-slate-700/70" />
+        </div>
+        <AssistantMessage
+          index={index}
+          message={message}
+          isLatest={isLatest}
+          isHovered={hoverState.assistantMessageHovered}
+          onHover={hoverState.onMouseHoverAssistantMsg}
+          onCopyClick={onCopyClick}
+          onTypingChange={onTypingChange}
+        />
       </>
     )
   }

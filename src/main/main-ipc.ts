@@ -8,6 +8,7 @@ import { registerProviderHandlers } from '@main/ipc/providers'
 import { registerSkillHandlers } from '@main/ipc/skills'
 import { registerSystemHandlers } from '@main/ipc/system'
 import { registerToolHandlers } from '@main/ipc/tools'
+import { registerTelegramHandlers } from '@main/ipc/telegram'
 import { registerTaskPlanHandlers } from '@main/ipc/task-planner'
 import { registerScheduledTaskHandlers } from '@main/ipc/scheduled-tasks'
 
@@ -15,6 +16,7 @@ function mainIPCSetup() {
   registerLoggingHandlers()
   registerSystemHandlers()
   registerToolHandlers()
+  registerTelegramHandlers()
   registerSkillHandlers()
   registerConfigHandlers()
   registerMcpServerHandlers()

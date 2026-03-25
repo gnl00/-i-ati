@@ -51,7 +51,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const {
         clearMessages,
         upsertMessage,
-        updateMessage,
+        patchMessageUiState,
         loadMessagesByChatId,
         toggleArtifacts,
         toggleWebSearch,
@@ -106,13 +106,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         // 批量更新数据库（异步，不阻塞 UI）
         Promise.all(
             messagesToUpdate.map(msg =>
-                updateMessage({
-                    ...msg,
-                    body: {
-                        ...msg.body,
-                        typewriterCompleted: true
-                    }
-                })
+                patchMessageUiState(msg.id as number, { typewriterCompleted: true })
             )
         ).catch(err => {
             logger.error('typewriter.batch_complete_failed', err)

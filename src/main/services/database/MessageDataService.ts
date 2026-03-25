@@ -61,6 +61,30 @@ export class MessageDataService {
     })
   }
 
+  patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {
+    const messageRepo = this.requireMessageRepo()
+    const row = messageRepo.getMessageById(id)
+    if (!row) {
+      return
+    }
+
+    const body = JSON.parse(row.body) as ChatMessage
+    const nextBody: ChatMessage = {
+      ...body,
+      ...(uiState.typewriterCompleted !== undefined
+        ? { typewriterCompleted: uiState.typewriterCompleted }
+        : {})
+    }
+
+    messageRepo.updateMessage({
+      id: row.id,
+      chat_id: row.chat_id,
+      chat_uuid: row.chat_uuid,
+      body: JSON.stringify(nextBody),
+      tokens: row.tokens
+    })
+  }
+
   deleteMessage(id: number): void {
     const messageRepo = this.requireMessageRepo()
     messageRepo.deleteMessage(id)

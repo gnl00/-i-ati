@@ -32,7 +32,7 @@ export function useMessageTypewriter(
   const { index, message: m, isLatest, onTypingChange } = props
   const readStreamState = useChatStore(state => state.readStreamState)
   const upsertMessage = useChatStore(state => state.upsertMessage)
-  const updateMessage = useChatStore(state => state.updateMessage)
+  const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
   const setForceCompleteTypewriter = useChatStore(state => state.setForceCompleteTypewriter)
 
   const segments = m.segments || []
@@ -76,10 +76,11 @@ export function useMessageTypewriter(
         if (!m.typewriterCompleted) {
           const messageEntity = useChatStore.getState().messages[index]
           if (!messageEntity) return
-          if (!messageEntity.id) {
+          if (messageEntity.id == null) {
             console.warn('[useMessageTypewriter] Cannot persist typewriterCompleted without id')
             return
           }
+          const messageId = messageEntity.id
 
           const updatedMessage: MessageEntity = {
             ...messageEntity,
@@ -92,9 +93,9 @@ export function useMessageTypewriter(
           // 1. 更新 Zustand store（仅更新当前消息）
           upsertMessage(updatedMessage)
 
-          // 2. 持久化到数据库（异步，不阻塞 UI）
-          updateMessage(updatedMessage).catch(err => {
-            console.error('[useMessageTypewriter] Failed to persist typewriterCompleted:', err)
+          // 2. 仅 patch UI 状态，避免覆盖 main 维护的消息内容
+          patchMessageUiState(messageId, { typewriterCompleted: true }).catch(err => {
+            console.error('[useMessageTypewriter] Failed to patch typewriterCompleted:', err)
           })
         }
       }

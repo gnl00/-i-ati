@@ -7,6 +7,7 @@ import { visualizer } from 'rollup-plugin-visualizer'
 
 const mainExternalPackages = [
   'electron',
+  'grammy',
   '@xenova/transformers',
   'better-sqlite3',
   'sqlite-vec',

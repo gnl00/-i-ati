@@ -9,6 +9,7 @@ import {
   DB_MESSAGE_GET_BY_CHAT_ID,
   DB_MESSAGE_GET_BY_CHAT_UUID,
   DB_MESSAGE_UPDATE,
+  DB_MESSAGE_PATCH_UI_STATE,
   DB_MESSAGE_DELETE
 } from '@shared/constants'
 
@@ -48,6 +49,17 @@ export function registerMessageHandlers(): void {
   ipcMain.handle(DB_MESSAGE_UPDATE, async (_event, data) => {
     logger.info('message.update', { id: data.id })
     return DatabaseService.updateMessage(data)
+  })
+
+  ipcMain.handle(DB_MESSAGE_PATCH_UI_STATE, async (_event, data: {
+    id: number
+    uiState: { typewriterCompleted?: boolean }
+  }) => {
+    logger.info('message.patch_ui_state', {
+      id: data.id,
+      typewriterCompleted: data.uiState?.typewriterCompleted
+    })
+    return DatabaseService.patchMessageUiState(data.id, data.uiState)
   })
 
   ipcMain.handle(DB_MESSAGE_DELETE, async (_event, id) => {

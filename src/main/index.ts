@@ -10,6 +10,7 @@ import DatabaseService from './services/DatabaseService'
 import MemoryService from './services/memory/MemoryService'
 import { SkillService } from './services/skills/SkillService'
 import { schedulerService } from './services/scheduler/SchedulerService'
+import { telegramGatewayService } from './services/telegram'
 import { installMainConsoleCapture } from './services/logging/console-capture'
 import { createPerfLogger, logService } from './services/logging/LogService'
 import { StartupTracer } from './utils/startupTracer'
@@ -123,6 +124,10 @@ app.whenReady().then(async () => {
     console.error('[App#TASK] Failed to initialize window pool:', err)
   })
 
+  void telegramGatewayService.start().catch((error) => {
+    console.error('[App#TASK] Failed to start telegram gateway:', error)
+  })
+
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -146,6 +151,7 @@ app.on('window-all-closed', () => {
   // Clean up development servers
   cleanupDevServers()
   schedulerService.stop()
+  telegramGatewayService.stop()
 })
 
 // In this file you can include the rest of your app"s specific main process

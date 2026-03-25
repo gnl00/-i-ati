@@ -70,6 +70,9 @@ class RequestMessageBuilder {
     messages = this.filterInvalidMessages(messages)
     // console.log(`[RequestMessageBuilder] After filtering: ${messages.length} messages`)
 
+    // Step 2.5: 裁剪历史内联图片，避免反复重发旧的 base64 图像
+    messages = this.stripHistoricalInlineImages(messages)
+
     // Step 3: 修复落单的 tool 消息
     messages = this.fixOrphanedToolMessages(messages)
     // console.log(`[RequestMessageBuilder] After orphaned tool fix: ${messages.length} messages`)
@@ -172,6 +175,63 @@ class RequestMessageBuilder {
       }
 
       return true
+    })
+  }
+
+  /**
+   * 步骤 2.5: 仅保留最近一条用户图片消息的真实 image_url，
+   * 更早的历史图片降级成文本，避免请求体被历史 base64 撑爆。
+   */
+  private stripHistoricalInlineImages(messages: ChatMessage[]): ChatMessage[] {
+    let lastImageUserIndex = -1
+
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i]
+      if (
+        message.role === 'user' &&
+        Array.isArray(message.content) &&
+        message.content.some(part => part?.type === 'image_url' && part.image_url?.url)
+      ) {
+        lastImageUserIndex = i
+        break
+      }
+    }
+
+    if (lastImageUserIndex === -1) {
+      return messages
+    }
+
+    return messages.map((message, index) => {
+      if (
+        index === lastImageUserIndex ||
+        message.role !== 'user' ||
+        !Array.isArray(message.content)
+      ) {
+        return message
+      }
+
+      const textParts = message.content
+        .flatMap((part) => (
+          part?.type === 'text' && typeof part.text === 'string'
+            ? [part.text.trim()]
+            : []
+        ))
+        .filter(Boolean)
+
+      const hasImages = message.content.some(part => part?.type === 'image_url' && part.image_url?.url)
+      if (!hasImages) {
+        return message
+      }
+
+      const historyNote = '[Previous image omitted from history]'
+      const content = textParts.length > 0
+        ? `${historyNote}\n${textParts.join('\n')}`
+        : historyNote
+
+      return {
+        ...message,
+        content
+      }
     })
   }
 
