@@ -7,7 +7,7 @@ import {
   TooltipTrigger
 } from "@renderer/components/ui/tooltip"
 import { cn } from '@renderer/lib/utils'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { useAssistantStore } from '@renderer/store/assistant'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'

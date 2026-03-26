@@ -1,4 +1,4 @@
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { useMcpRuntimeStore } from '@renderer/store/mcpRuntime'
 import { v4 as uuidv4 } from 'uuid'
 import { useRef } from 'react'

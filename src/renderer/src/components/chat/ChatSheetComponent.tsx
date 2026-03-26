@@ -7,7 +7,8 @@ import { toast } from '@renderer/components/ui/use-toast'
 import { getAllChat } from '@renderer/db/ChatRepository'
 import { invokeDbScheduledTasksByChatUuid, invokeOpenExternal, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
 import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useSheetStore } from '@renderer/store/sheet'
 import { switchWorkspace } from '@renderer/utils/workspaceUtils'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
@@ -48,6 +49,7 @@ const normalizeScheduledTasks = (tasks: ScheduleTask[]): ScheduleTask[] => {
 const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const logger = React.useMemo(() => createRendererLogger('ChatSheetComponent'), [])
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
+    const { appVersion } = useAppConfigStore()
     const {
         clearMessages,
         upsertMessage,
@@ -347,7 +349,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 {/* Footer - 固定在底部 */}
                 <div className="shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-800">
                     <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <span>v1.0.0</span>
+                        <span>v{appVersion}</span>
                         <div className="flex items-center gap-2">
                             <a
                                 id="github"

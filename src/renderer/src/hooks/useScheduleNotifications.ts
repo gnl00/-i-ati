@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { invokeDbScheduledTasksByChatUuid, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { useScheduledTasksStore } from '@renderer/store/scheduledTasks'
 import { toast } from 'sonner'
 import type { ScheduleEvent } from '@renderer/invoker/ipcInvoker'

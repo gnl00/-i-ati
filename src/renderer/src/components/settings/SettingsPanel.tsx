@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from 'react'
 
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
-import { useChatStore } from '@renderer/store'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import { Brain, Database, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
@@ -21,9 +20,8 @@ import DataAndLogManager from './DataAndLogManager'
 interface PreferenceProps { }
 
 const PreferenceComponent: React.FC<PreferenceProps> = () => {
-    const { appVersion } = useChatStore()
-
     const {
+        appVersion,
         appConfig,
         setAppConfig,
         accounts,

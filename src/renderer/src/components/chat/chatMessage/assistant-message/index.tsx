@@ -1,6 +1,6 @@
 import React, { memo } from 'react'
 import { cn } from '@renderer/lib/utils'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 import useChatSubmit from '@renderer/hooks/useChatSubmit'
 import { ToolCallResultNextOutput } from './toolcall/ToolCallResultNextOutput'

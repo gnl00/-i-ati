@@ -5,7 +5,7 @@ import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMess
 import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageNext2"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { cn } from '@renderer/lib/utils'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { ArrowDown } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'

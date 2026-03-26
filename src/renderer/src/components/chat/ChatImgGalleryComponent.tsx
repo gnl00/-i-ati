@@ -1,6 +1,6 @@
 import { Cross1Icon } from "@radix-ui/react-icons"
 import { cn } from "@renderer/lib/utils"
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import React, { useState } from 'react'
 
 interface ImageGalleryProps { }

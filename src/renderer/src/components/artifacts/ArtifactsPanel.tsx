@@ -1,7 +1,7 @@
 import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import {
   FileCode,
   Monitor,

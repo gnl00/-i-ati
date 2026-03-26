@@ -1,5 +1,5 @@
 import { cn } from '@renderer/lib/utils'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { FileCode, Monitor } from 'lucide-react'
 import React from 'react'
 
@@ -48,4 +48,3 @@ export const FloatingArtifactsToggle: React.FC = () => {
     </div>
   )
 }
-

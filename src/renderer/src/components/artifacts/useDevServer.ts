@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { useDevServerStore } from '@renderer/store/devServerStore'

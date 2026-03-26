@@ -14,7 +14,7 @@ import {
   FILE_CREATE_DIR_ACTION,
   FILE_MOVE_ACTION
 } from '@shared/constants/index'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,

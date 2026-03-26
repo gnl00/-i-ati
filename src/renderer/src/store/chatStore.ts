@@ -6,7 +6,6 @@ import { create } from 'zustand'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
 export type ChatState = {
-  appVersion: string
   // Chat data
   selectedModelRef: ModelRef | undefined
   messages: MessageEntity[]
@@ -76,9 +75,6 @@ export type ChatAction = {
 }
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
-  // @ts-ignore
-  appVersion: __APP_VERSION__,
-
   // Chat state
   selectedModelRef: undefined,
   messages: [],

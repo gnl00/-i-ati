@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { useAssistantStore } from '@renderer/store/assistant'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import './WelcomeMessage.css'
 import { ArrowRight, Check } from 'lucide-react'
 

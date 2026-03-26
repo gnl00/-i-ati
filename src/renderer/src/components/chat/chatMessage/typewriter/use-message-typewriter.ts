@@ -1,4 +1,4 @@
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { useSegmentTypewriterNext } from '@renderer/hooks/useSegmentTypewriterNext'
 import { useCallback, useEffect, useRef } from 'react'
 

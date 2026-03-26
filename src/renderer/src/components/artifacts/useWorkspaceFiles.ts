@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { getWorkspacePath } from '@renderer/utils/workspaceUtils'
 import { getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { invokeDirectoryTree, invokeReadTextFile } from '@renderer/tools/fileOperations/renderer/FileOperationsInvoker'

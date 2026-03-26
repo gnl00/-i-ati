@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { listInstalledSkills } from '@renderer/services/skills/SkillService'
 import { getChatSkills } from '@renderer/db/ChatSkillRepository'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 import { invokeCheckIsDirectory, invokeImportSkills, invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'

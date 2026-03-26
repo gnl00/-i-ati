@@ -5,7 +5,7 @@ import {
   SKILL_READ_FILE_ACTION,
   SKILL_UNLOAD_ACTION
 } from '@shared/constants/index'
-import { useChatStore } from '@renderer/store'
+import { useChatStore } from '@renderer/store/chatStore'
 
 interface InstallSkillArgs {
   source: string

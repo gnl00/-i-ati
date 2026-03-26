@@ -183,6 +183,7 @@ const setProviderModelEnabled = async (accountId: string, modelId: string, enabl
 }
 
 type AppConfigState = {
+  appVersion: string
   appConfig: IAppConfig
   providerDefinitions: ProviderDefinition[]
   accounts: ProviderAccount[]
@@ -251,6 +252,8 @@ type AppConfigAction = {
 }
 
 export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, get) => ({
+  // @ts-ignore
+  appVersion: __APP_VERSION__,
   // State - Config
   appConfig: defaultConfig,
   providerDefinitions: defaultConfig.providerDefinitions || [],
