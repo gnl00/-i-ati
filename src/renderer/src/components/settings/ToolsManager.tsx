@@ -299,20 +299,95 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                 <div className="rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-2 text-[11px] leading-relaxed text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
                                     Telegram gateway uses the current <span className="font-semibold">Default Model</span>. If no default model is configured, the gateway will stay disabled even if this switch is on.
                                 </div>
-                                <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200/70 bg-white/80 px-3 py-2.5 dark:border-gray-700/70 dark:bg-gray-950/40">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[12px] font-medium text-gray-700 dark:text-gray-200">Gateway Status</span>
-                                            <Badge variant="outline" className={cn(
-                                                "h-5 px-1.5 text-[10px] font-normal",
-                                                telegramGatewayStatus?.running
-                                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
-                                                    : telegramGatewayStatus?.starting
-                                                        ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300"
-                                                    : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                                            )}>
-                                                {telegramGatewayStatus?.running ? 'Running' : telegramGatewayStatus?.starting ? 'Starting' : 'Stopped'}
-                                            </Badge>
+                                <div className="flex items-start justify-between gap-4 rounded-lg border border-gray-200/70 bg-white/80 px-3 py-2.5 dark:border-gray-700/70 dark:bg-gray-950/40">
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <span className="text-[12px] font-medium text-gray-700 dark:text-gray-200">Gateway Status</span>
+                                                <Badge variant="outline" className={cn(
+                                                    "h-5 px-1.5 text-[10px] font-normal shrink-0",
+                                                    telegramGatewayStatus?.running
+                                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
+                                                        : telegramGatewayStatus?.starting
+                                                            ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300"
+                                                            : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                                                )}>
+                                                    {telegramGatewayStatus?.running ? 'Running' : telegramGatewayStatus?.starting ? 'Starting' : 'Stopped'}
+                                                </Badge>
+                                            </div>
+                                            <div className="flex shrink-0 items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-[11px] font-medium text-gray-600 shadow-xs transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                                                    disabled={telegramTesting || !telegramBotToken.trim()}
+                                                    onClick={async () => {
+                                                        try {
+                                                            setTelegramTesting(true)
+                                                            const result = await invokeTelegramGatewayTest(telegramBotToken.trim())
+                                                            if (result.ok) {
+                                                                toast.success(`Telegram connected${result.username ? ` as @${result.username}` : ''}`)
+                                                            } else {
+                                                                toast.error(result.error || 'Telegram connection test failed')
+                                                            }
+                                                        } finally {
+                                                            setTelegramTesting(false)
+                                                        }
+                                                    }}
+                                                >
+                                                    {telegramTesting && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                                                    {!telegramTesting && <Send className="h-3.5 w-3.5" />}
+                                                    Test Connection
+                                                </button>
+                                                {telegramGatewayStatus?.running ? (
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-gray-900 px-3 text-[11px] font-medium text-white shadow-xs transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+                                                        disabled={telegramStopping}
+                                                        onClick={async () => {
+                                                            try {
+                                                                setTelegramStopping(true)
+                                                                await invokeTelegramGatewayStop()
+                                                                await refreshTelegramGatewayStatus()
+                                                                toast.success('Telegram gateway stopped')
+                                                            } finally {
+                                                                setTelegramStopping(false)
+                                                            }
+                                                        }}
+                                                    >
+                                                        {telegramStopping && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                                                        Stop Gateway
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-sky-600 px-3 text-[11px] font-medium text-white shadow-xs transition hover:bg-sky-500 disabled:opacity-50 dark:bg-sky-500 dark:hover:bg-sky-400"
+                                                        disabled={telegramStarting || telegramGatewayStatus?.starting}
+                                                        onClick={async () => {
+                                                            try {
+                                                                const savedTelegram = appConfig?.telegram
+                                                                const hasUnsavedTelegramChanges = telegramEnabled !== (savedTelegram?.enabled ?? false)
+                                                                    || telegramBotToken !== (savedTelegram?.botToken ?? '')
+                                                                if (hasUnsavedTelegramChanges) {
+                                                                    toast.warning('Save Telegram settings before starting the gateway')
+                                                                    return
+                                                                }
+                                                                setTelegramStarting(true)
+                                                                const nextStatus = await invokeTelegramGatewayStart()
+                                                                setTelegramGatewayStatus(nextStatus)
+                                                                await refreshTelegramGatewayStatus()
+                                                                toast.success(nextStatus.starting ? 'Telegram gateway is starting' : 'Telegram gateway started')
+                                                            } catch (error: any) {
+                                                                toast.error(error?.message || 'Failed to start Telegram gateway')
+                                                            } finally {
+                                                                setTelegramStarting(false)
+                                                            }
+                                                        }}
+                                                    >
+                                                        {(telegramStarting || telegramGatewayStatus?.starting) && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                                                        {telegramGatewayStatus?.starting ? 'Starting...' : 'Start Gateway'}
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                         <p className="text-[11px] text-gray-400 dark:text-gray-500">
                                             {telegramGatewayStatus?.hasDefaultModel === false
@@ -336,79 +411,6 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                             <p className="text-[11px] text-rose-500 dark:text-rose-400">
                                                 Last error: {telegramErrorLine}
                                             </p>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-[11px] font-medium text-gray-600 shadow-xs transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-                                            disabled={telegramTesting || !telegramBotToken.trim()}
-                                            onClick={async () => {
-                                                try {
-                                                    setTelegramTesting(true)
-                                                    const result = await invokeTelegramGatewayTest(telegramBotToken.trim())
-                                                    if (result.ok) {
-                                                        toast.success(`Telegram connected${result.username ? ` as @${result.username}` : ''}`)
-                                                    } else {
-                                                        toast.error(result.error || 'Telegram connection test failed')
-                                                    }
-                                                } finally {
-                                                    setTelegramTesting(false)
-                                                }
-                                            }}
-                                        >
-                                            {telegramTesting && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
-                                            {!telegramTesting && <Send className="h-3.5 w-3.5" />}
-                                            Test Connection
-                                        </button>
-                                        {telegramGatewayStatus?.running ? (
-                                            <button
-                                                type="button"
-                                                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-gray-900 px-3 text-[11px] font-medium text-white shadow-xs transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
-                                                disabled={telegramStopping}
-                                                onClick={async () => {
-                                                    try {
-                                                        setTelegramStopping(true)
-                                                        await invokeTelegramGatewayStop()
-                                                        await refreshTelegramGatewayStatus()
-                                                        toast.success('Telegram gateway stopped')
-                                                    } finally {
-                                                        setTelegramStopping(false)
-                                                    }
-                                                }}
-                                            >
-                                                {telegramStopping && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
-                                                Stop Gateway
-                                            </button>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-sky-600 px-3 text-[11px] font-medium text-white shadow-xs transition hover:bg-sky-500 disabled:opacity-50 dark:bg-sky-500 dark:hover:bg-sky-400"
-                                                disabled={telegramStarting || telegramGatewayStatus?.starting}
-                                                onClick={async () => {
-                                                    try {
-                                                        const savedTelegram = appConfig?.telegram
-                                                        const hasUnsavedTelegramChanges = telegramEnabled !== (savedTelegram?.enabled ?? false)
-                                                            || telegramBotToken !== (savedTelegram?.botToken ?? '')
-                                                        if (hasUnsavedTelegramChanges) {
-                                                            toast.warning('Save Telegram settings before starting the gateway')
-                                                            return
-                                                        }
-                                                        setTelegramStarting(true)
-                                                        const nextStatus = await invokeTelegramGatewayStart()
-                                                        setTelegramGatewayStatus(nextStatus)
-                                                        await refreshTelegramGatewayStatus()
-                                                        toast.success(nextStatus.starting ? 'Telegram gateway is starting' : 'Telegram gateway started')
-                                                    } catch (error: any) {
-                                                        toast.error(error?.message || 'Failed to start Telegram gateway')
-                                                    } finally {
-                                                        setTelegramStarting(false)
-                                                    }
-                                                }}
-                                            >
-                                                {(telegramStarting || telegramGatewayStatus?.starting) && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
-                                                {telegramGatewayStatus?.starting ? 'Starting...' : 'Start Gateway'}
-                                            </button>
                                         )}
                                     </div>
                                 </div>
