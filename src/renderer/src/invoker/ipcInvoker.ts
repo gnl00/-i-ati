@@ -604,29 +604,73 @@ export async function invokeChatRunToolConfirm(data: {
 }
 
 type ChatRunEventHandler = (event: ChatRunEvent) => void
-const chatRunHandlers = new Set<ChatRunEventHandler>()
-let chatRunListener: ((event: any, data: any) => void) | null = null
+type PluginEventHandler = (event: PluginEvent) => void
+type ScheduleEventHandler = (event: ScheduleEvent) => void
+
+type ChannelRegistry<TEvent> = {
+  handlers: Set<(event: TEvent) => void>
+  listener: ((event: any, data: TEvent) => void) | null
+}
+
+type IpcEventRegistryStore = {
+  chatRun: ChannelRegistry<ChatRunEvent>
+  plugin: ChannelRegistry<PluginEvent>
+  schedule: ChannelRegistry<ScheduleEvent>
+}
+
+const IPC_EVENT_REGISTRY_KEY = '__ATI_IPC_EVENT_REGISTRY__'
+
+function createChannelRegistry<TEvent>(): ChannelRegistry<TEvent> {
+  return {
+    handlers: new Set(),
+    listener: null
+  }
+}
+
+function getIpcEventRegistryStore(): IpcEventRegistryStore {
+  const globalObject = globalThis as typeof globalThis & {
+    [IPC_EVENT_REGISTRY_KEY]?: IpcEventRegistryStore
+  }
+
+  if (!globalObject[IPC_EVENT_REGISTRY_KEY]) {
+    globalObject[IPC_EVENT_REGISTRY_KEY] = {
+      chatRun: createChannelRegistry<ChatRunEvent>(),
+      plugin: createChannelRegistry<PluginEvent>(),
+      schedule: createChannelRegistry<ScheduleEvent>()
+    }
+  }
+
+  return globalObject[IPC_EVENT_REGISTRY_KEY]!
+}
+
+function subscribeIpcEvent<TEvent>(
+  channel: string,
+  registry: ChannelRegistry<TEvent>,
+  handler: (event: TEvent) => void
+): () => void {
+  const ipc = getElectronIPC()
+  registry.handlers.add(handler)
+
+  if (!registry.listener) {
+    registry.listener = (_event: any, data: TEvent) => {
+      registry.handlers.forEach(cb => cb(data))
+    }
+    ipc.on(channel, registry.listener)
+  }
+
+  return () => {
+    registry.handlers.delete(handler)
+    if (registry.handlers.size === 0 && registry.listener) {
+      ipc.removeListener(channel, registry.listener)
+      registry.listener = null
+    }
+  }
+}
 
 export function subscribeChatRunEvents(
   handler: ChatRunEventHandler
 ): () => void {
-  const ipc = getElectronIPC()
-  chatRunHandlers.add(handler)
-
-  if (!chatRunListener) {
-    chatRunListener = (_event: any, data: any) => {
-      chatRunHandlers.forEach(cb => cb(data))
-    }
-    ipc.on(CHAT_RUN_EVENT, chatRunListener)
-  }
-
-  return () => {
-    chatRunHandlers.delete(handler)
-    if (chatRunHandlers.size === 0 && chatRunListener) {
-      ipc.removeListener(CHAT_RUN_EVENT, chatRunListener)
-      chatRunListener = null
-    }
-  }
+  return subscribeIpcEvent(CHAT_RUN_EVENT, getIpcEventRegistryStore().chatRun, handler)
 }
 
 export type {
@@ -636,30 +680,10 @@ export type {
   PluginEvent
 } from '@shared/plugins/events'
 
-type PluginEventHandler = (event: PluginEvent) => void
-const pluginHandlers = new Set<PluginEventHandler>()
-let pluginListener: ((event: any, data: any) => void) | null = null
-
 export function subscribePluginEvents(
   handler: PluginEventHandler
 ): () => void {
-  const ipc = getElectronIPC()
-  pluginHandlers.add(handler)
-
-  if (!pluginListener) {
-    pluginListener = (_event: any, data: any) => {
-      pluginHandlers.forEach(cb => cb(data))
-    }
-    ipc.on(PLUGIN_EVENT, pluginListener)
-  }
-
-  return () => {
-    pluginHandlers.delete(handler)
-    if (pluginHandlers.size === 0 && pluginListener) {
-      ipc.removeListener(PLUGIN_EVENT, pluginListener)
-      pluginListener = null
-    }
-  }
+  return subscribeIpcEvent(PLUGIN_EVENT, getIpcEventRegistryStore().plugin, handler)
 }
 
 export type {
@@ -669,30 +693,10 @@ export type {
   ScheduleEvent
 } from '@shared/schedule/events'
 
-type ScheduleEventHandler = (event: ScheduleEvent) => void
-const scheduleHandlers = new Set<ScheduleEventHandler>()
-let scheduleListener: ((event: any, data: any) => void) | null = null
-
 export function subscribeScheduleEvents(
   handler: ScheduleEventHandler
 ): () => void {
-  const ipc = getElectronIPC()
-  scheduleHandlers.add(handler)
-
-  if (!scheduleListener) {
-    scheduleListener = (_event: any, data: any) => {
-      scheduleHandlers.forEach(cb => cb(data))
-    }
-    ipc.on(SCHEDULE_EVENT, scheduleListener)
-  }
-
-  return () => {
-    scheduleHandlers.delete(handler)
-    if (scheduleHandlers.size === 0 && scheduleListener) {
-      ipc.removeListener(SCHEDULE_EVENT, scheduleListener)
-      scheduleListener = null
-    }
-  }
+  return subscribeIpcEvent(SCHEDULE_EVENT, getIpcEventRegistryStore().schedule, handler)
 }
 
 // ============ Compression (Main-driven) ============
