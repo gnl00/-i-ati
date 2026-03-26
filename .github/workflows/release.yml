@@ -38,7 +38,9 @@ jobs:
 
       - name: build-mac
         if: matrix.os == 'macos-latest'
-        run: pnpm build:mac
+        run: pnpm build:mac:ci
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: build-win
         if: matrix.os == 'windows-latest'
