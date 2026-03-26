@@ -9,8 +9,7 @@ const DEFAULT_WORKSPACE_DIR = 'workspaces'
 
 export class ChatSessionStore {
   async resolveOrCreateChat(
-    input: MainChatRunInput,
-    model: AccountModel
+    input: MainChatRunInput
   ): Promise<ChatEntity> {
     const existing = this.resolveExistingChat(input.chatId, input.chatUuid)
     if (existing) {
@@ -27,7 +26,7 @@ export class ChatSessionStore {
       uuid: chatUuid,
       title: 'NewChat',
       messages: [],
-      model: model.id,
+      modelRef: input.modelRef,
       workspacePath,
       userInstruction: input.input.chatUserInstruction || '',
       createTime: Date.now(),
@@ -38,9 +37,6 @@ export class ChatSessionStore {
   }
 
   loadHistoryMessages(chat: ChatEntity): MessageEntity[] {
-    if (chat.id) {
-      return DatabaseService.getMessagesByChatId(chat.id)
-    }
     if (chat.uuid) {
       return DatabaseService.getMessagesByChatUuid(chat.uuid)
     }
@@ -54,7 +50,7 @@ export class ChatSessionStore {
   finalizeChatEntity(
     chatEntity: ChatEntity,
     _inputText: string,
-    modelId: string
+    modelRef: ModelRef
   ): ChatEntity {
     const nextTitle = chatEntity.title && chatEntity.title !== 'NewChat'
       ? chatEntity.title
@@ -63,7 +59,7 @@ export class ChatSessionStore {
     const updatedChat: ChatEntity = {
       ...chatEntity,
       title: nextTitle || chatEntity.title || 'NewChat',
-      model: modelId,
+      modelRef,
       updateTime: Date.now()
     }
 

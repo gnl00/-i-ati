@@ -52,7 +52,6 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         clearMessages,
         upsertMessage,
         patchMessageUiState,
-        loadMessagesByChatId,
         toggleArtifacts,
         toggleWebSearch,
         currentChatId: chatId,
@@ -61,9 +60,8 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         setChatTitle,
         setChatUuid,
         setChatId,
-        setCurrentChat,
-        setSelectedModelRef,
-        selectedModelRef
+        loadChat,
+        syncSelectedModelRefForChat,
     } = useChatStore()
 
     /**
@@ -118,6 +116,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const [scheduleLoadError, setScheduleLoadError] = useState('')
     const scheduleCacheRef = useRef<Map<string, ScheduleTask[]>>(new Map())
     const scheduleLoadedRef = useRef<Set<string>>(new Set())
+    const chatSwitchRequestRef = useRef(0)
 
     const loadScheduledTasks = useCallback(async (
         targetChatUuid?: string | null,
@@ -232,13 +231,19 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     }
 
     const startNewChat = async () => {
+        const requestId = ++chatSwitchRequestRef.current
+
         // 批量完成当前 chat 的所有打字机效果
         await completeAllTypewriters()
+        if (chatSwitchRequestRef.current !== requestId) {
+            return
+        }
 
         setChatId(null)
         setChatUuid(null)
         setChatTitle('NewChat')
         clearMessages()
+        syncSelectedModelRefForChat(null)
 
         // 切换到默认 workspace (tmp)
         const workspaceResult = await switchWorkspace()
@@ -253,8 +258,13 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const onChatClick = async (_, chat: ChatEntity) => {
         setSheetOpenState(false)
         if (chatId != chat.id) {
+            const requestId = ++chatSwitchRequestRef.current
+
             // 批量完成当前 chat 的所有打字机效果
             await completeAllTypewriters()
+            if (chatSwitchRequestRef.current !== requestId) {
+                return
+            }
 
             toggleArtifacts(false)
             toggleWebSearch(false)
@@ -264,33 +274,26 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             if (!workspaceResult.success) {
                 logger.warn('workspace.switch_for_chat_failed', { chatUuid: chat.uuid, error: workspaceResult.error })
             }
+            if (chatSwitchRequestRef.current !== requestId) {
+                return
+            }
 
-            setCurrentChat(chat.id ?? null, chat.uuid)
-            setChatTitle(chat.title)
-
-            if (chat.id) {
-                loadMessagesByChatId(chat.id).then(messageList => {
-
-                    if (!selectedModelRef) {
-                        const lastWithModelRef = [...messageList]
-                            .reverse()
-                            .find(msg => msg.body.role === 'assistant' && msg.body.modelRef)
-                        if (lastWithModelRef?.body.modelRef) {
-                            setSelectedModelRef({
-                                accountId: lastWithModelRef.body.modelRef.accountId,
-                                modelId: lastWithModelRef.body.modelRef.modelId
-                            })
-                        }
-                    }
-                }).catch(err => {
-                    toast({
-                        variant: "destructive",
-                        title: "Uh oh! Something went wrong.",
-                        description: `There was a problem: ${err.message}`
-                    })
-                })
-            } else {
+            if (!chat.id) {
                 clearMessages()
+                return
+            }
+
+            try {
+                await loadChat(chat.id)
+                if (chatSwitchRequestRef.current !== requestId) {
+                    return
+                }
+            } catch (err: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Uh oh! Something went wrong.",
+                    description: `There was a problem: ${err.message}`
+                })
             }
         }
     }

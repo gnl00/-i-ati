@@ -58,7 +58,10 @@ const prepared = {
       uuid: 'chat-1',
       title: 'NewChat',
       messages: [],
-      model: 'model-1',
+      modelRef: {
+        accountId: 'account-1',
+        modelId: 'model-1'
+      },
       workspacePath: './workspaces/chat-1',
       userInstruction: '',
       createTime: 1,

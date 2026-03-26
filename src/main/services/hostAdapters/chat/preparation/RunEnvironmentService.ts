@@ -16,7 +16,7 @@ export class RunEnvironmentService {
   ): Promise<RunEnvironment> {
     const config = this.appConfigStore.requireConfig()
     const modelContext = this.chatModelContextResolver.resolveOrThrow(config, input.modelRef)
-    const chat = await this.chatSessionStore.resolveOrCreateChat(input, modelContext.model)
+    const chat = await this.chatSessionStore.resolveOrCreateChat(input)
     const workspacePath = this.chatSessionStore.resolveWorkspacePath(chat)
     const historyMessages = this.chatSessionStore.loadHistoryMessages(chat)
 

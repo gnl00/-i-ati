@@ -5,7 +5,8 @@ interface ChatRow {
   uuid: string
   title: string
   msg_count: number
-  model: string | null
+  model_account_id: string | null
+  model_model_id: string | null
   workspace_path: string | null
   user_instruction: string | null
   create_time: number
@@ -26,8 +27,10 @@ class ChatRepository {
   constructor(db: Database.Database) {
     this.stmts = {
       insertChat: db.prepare(`
-        INSERT INTO chats (uuid, title, model, workspace_path, user_instruction, create_time, update_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO chats (
+          uuid, title, model_account_id, model_model_id, workspace_path, user_instruction, create_time, update_time
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `),
       getAllChats: db.prepare(`
         SELECT * FROM chats ORDER BY update_time DESC
@@ -42,7 +45,9 @@ class ChatRepository {
         SELECT workspace_path FROM chats WHERE uuid = ?
       `),
       updateChat: db.prepare(`
-        UPDATE chats SET uuid = ?, title = ?, model = ?, workspace_path = ?, user_instruction = ?, create_time = ?, update_time = ?
+        UPDATE chats SET
+          uuid = ?, title = ?, model_account_id = ?, model_model_id = ?, workspace_path = ?, user_instruction = ?,
+          create_time = ?, update_time = ?
         WHERE id = ?
       `),
       deleteChat: db.prepare(`
@@ -55,7 +60,8 @@ class ChatRepository {
     const result = this.stmts.insertChat.run(
       row.uuid,
       row.title,
-      row.model,
+      row.model_account_id,
+      row.model_model_id,
       row.workspace_path,
       row.user_instruction,
       row.create_time,
@@ -85,7 +91,8 @@ class ChatRepository {
     this.stmts.updateChat.run(
       row.uuid,
       row.title,
-      row.model,
+      row.model_account_id,
+      row.model_model_id,
       row.workspace_path,
       row.user_instruction,
       row.create_time,

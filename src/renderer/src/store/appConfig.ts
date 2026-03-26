@@ -357,7 +357,14 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   },
 
   // Getter
-  getAppConfig: () => get().appConfig,
+  getAppConfig: () => {
+    const state = get()
+    return {
+      ...state.appConfig,
+      providerDefinitions: state.providerDefinitions,
+      accounts: state.accounts
+    }
+  },
 
   setProviderDefinitions: (definitions) => {
     const prevDefinitions = get().providerDefinitions

@@ -3,6 +3,7 @@ import DatabaseService from '@main/services/DatabaseService'
 import { ChatRunService } from '@main/services/chatRun'
 import { createLogger } from '@main/services/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
+import { resolveNewChatModelRef } from '@shared/services/ChatModelResolver'
 import { ScheduleEventEmitter } from './event-emitter'
 import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
 
@@ -72,7 +73,7 @@ export class SchedulerService {
       })
 
       const payload = this.parsePayload(task.payload)
-      const modelRef = payload.modelRef ?? this.resolveModelRef(chat.model)
+      const modelRef = payload.modelRef ?? chat.modelRef ?? this.resolveFallbackModelRef()
       if (!modelRef) {
         throw new Error(`No modelRef resolved for chat_uuid=${task.chat_uuid}`)
       }
@@ -161,23 +162,10 @@ export class SchedulerService {
     return {}
   }
 
-  private resolveModelRef(chatModelId?: string | null): ModelRef | undefined {
+  private resolveFallbackModelRef(): ModelRef | undefined {
     const config = DatabaseService.getConfig()
-    if (!config?.accounts?.length) return undefined
-
-    if (chatModelId) {
-      for (const account of config.accounts) {
-        const model = account.models.find(m => m.id === chatModelId)
-        if (model) {
-          return { accountId: account.id, modelId: model.id }
-        }
-      }
-    }
-
-    const account = config.accounts[0]
-    const model = account.models[0]
-    if (!account || !model) return undefined
-    return { accountId: account.id, modelId: model.id }
+    if (!config) return undefined
+    return resolveNewChatModelRef(config)
   }
 
   private emitScheduleUpdated(taskId: string): void {

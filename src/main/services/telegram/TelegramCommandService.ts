@@ -14,6 +14,8 @@ const truncateMessage = (value: string, limit = MAX_MESSAGE_LENGTH): string =>
   value.length > limit ? `${value.slice(0, limit - 1)}…` : value
 
 const isEnabledModel = (model: AccountModel): boolean => model.enabled !== false
+const isSameModelRef = (left?: ModelRef, right?: ModelRef): boolean =>
+  Boolean(left && right && left.accountId === right.accountId && left.modelId === right.modelId)
 const escapeHtml = (value: string): string =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
@@ -72,7 +74,7 @@ export class TelegramCommandService {
       hostThreadId: envelope.threadId,
       hostUserId: envelope.fromUserId,
       title: this.buildInitialChatTitle(envelope),
-      model: defaultModelRef.modelId,
+      modelRef: defaultModelRef,
       metadata: {
         chatType: envelope.chatType,
         username: envelope.username,
@@ -107,7 +109,10 @@ export class TelegramCommandService {
     const pageItems = models.slice(start, start + MODELS_PAGE_SIZE)
 
     const lines = pageItems.map((item, index) => {
-      const current = item.model.id === chat.model
+      const current = isSameModelRef(chat.modelRef, {
+        accountId: item.account.id,
+        modelId: item.model.id
+      })
         ? ' <b>(current)</b>'
         : ''
       const providerLabel = item.provider?.displayName ?? item.account.providerId
@@ -139,7 +144,9 @@ export class TelegramCommandService {
     const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
 
     if (!args.trim()) {
-      const currentLabel = this.resolveChatModelLabel(chat.model) ?? chat.model ?? 'not set'
+      const currentLabel = chat.modelRef
+        ? (this.resolveModelLabel(chat.modelRef) ?? chat.modelRef.modelId)
+        : 'not set'
       return { text: [
         `Current model: ${currentLabel}`,
         'Usage: /model <model id or model label>'
@@ -164,7 +171,10 @@ export class TelegramCommandService {
     const match = matches[0]
     DatabaseService.updateChat({
       ...chat,
-      model: match.model.id,
+      modelRef: {
+        accountId: match.account.id,
+        modelId: match.model.id
+      },
       updateTime: Date.now()
     })
 
@@ -199,7 +209,9 @@ export class TelegramCommandService {
 
   private async handleStatus(envelope: TelegramInboundEnvelope, defaultModelRef: ModelRef): Promise<TelegramCommandResponse> {
     const { chat, binding } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
-    const modelLabel = this.resolveChatModelLabel(chat.model) ?? chat.model ?? 'not set'
+    const modelLabel = chat.modelRef
+      ? (this.resolveModelLabel(chat.modelRef) ?? chat.modelRef.modelId)
+      : 'not set'
 
     return { text: [
       'Telegram chat status',
@@ -266,22 +278,6 @@ export class TelegramCommandService {
     const config = this.appConfigStore.requireConfig()
     const context = this.modelResolver.resolve(config, modelRef)
     return context ? `${context.model.label} [${context.model.type}]` : undefined
-  }
-
-  private resolveChatModelLabel(chatModelId: string | undefined): string | undefined {
-    if (!chatModelId) {
-      return undefined
-    }
-
-    const config = this.appConfigStore.requireConfig()
-    for (const account of config.accounts ?? []) {
-      const model = account.models.find((item) => item.id === chatModelId)
-      if (model) {
-        return `${model.label} [${model.type}]`
-      }
-    }
-
-    return undefined
   }
 
   private buildInitialChatTitle(envelope: TelegramInboundEnvelope): string {

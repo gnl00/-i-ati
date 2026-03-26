@@ -12,6 +12,7 @@ import { TelegramUpdateMapper } from './TelegramUpdateMapper'
 import { TelegramFileService } from './TelegramFileService'
 import { TelegramCommandService } from './TelegramCommandService'
 import { parseTelegramCommand, parseTelegramCommandCallback } from './telegram-command-parser'
+import { resolveExistingChatModelRef } from '@shared/services/ChatModelResolver'
 
 export class TelegramGatewayService {
   private static readonly IMPLEMENTATION_MARKER = 'telegram-gateway-dev-marker-2026-03-25-v2'
@@ -227,7 +228,7 @@ export class TelegramGatewayService {
     })
 
     const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, modelRef)
-    const effectiveModelRef = this.resolveModelRefForChat(chat.model, modelRef)
+    const effectiveModelRef = this.resolveModelRefForChat(chat, modelRef)
     const attachmentContext = this.bot
       ? await this.fileService.buildAttachmentContext(this.bot, envelope)
       : { mediaCtx: [], documentTextBlocks: [] }
@@ -631,22 +632,8 @@ export class TelegramGatewayService {
     })
   }
 
-  private resolveModelRefForChat(chatModelId: string | undefined, defaultModelRef: ModelRef): ModelRef {
-    if (!chatModelId) {
-      return defaultModelRef
-    }
-
+  private resolveModelRefForChat(chat: ChatEntity, defaultModelRef: ModelRef): ModelRef {
     const config = this.appConfigStore.requireConfig()
-    for (const account of config.accounts ?? []) {
-      const model = account.models.find(item => item.id === chatModelId)
-      if (model) {
-        return {
-          accountId: account.id,
-          modelId: model.id
-        }
-      }
-    }
-
-    return defaultModelRef
+    return resolveExistingChatModelRef(config, chat) ?? defaultModelRef
   }
 }

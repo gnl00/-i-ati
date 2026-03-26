@@ -81,7 +81,7 @@ export class ChatAgentAdapter {
     const finalizedChat = this.finalizeService.finalizeChatEntity(
       chatContext.chat,
       input.input.textCtx,
-      runSpec.modelContext.model.id
+      input.modelRef
     )
     new ChatEventMapper(emitter).emitChatUpdated(finalizedChat)
 

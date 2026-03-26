@@ -239,7 +239,7 @@ class MessageCompressionService {
 
       if (!strategy.shouldCompress) {
         // console.log('[Compression] No need to compress')
-        return { success: false, error: 'No need to compress' }
+        return { success: true, error: 'No need to compress' }
       }
 
       // 5. 获取需要压缩的消息

@@ -106,7 +106,10 @@ vi.mock('@main/services/DatabaseService', () => ({
       uuid: 'chat-1',
       title: 'NewChat',
       messages: [],
-      model: 'model-1',
+      modelRef: {
+        accountId: 'account-1',
+        modelId: 'model-1'
+      },
       workspacePath: './workspaces/chat-1',
       userInstruction: '',
       createTime: 1,
@@ -135,6 +138,15 @@ vi.mock('@main/services/compression-service', () => ({
 
 vi.mock('@main/services/title-service', () => ({
   generateTitle: generateTitleMock
+}))
+
+vi.mock('@main/services/logging/LogService', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }))
 }))
 
 vi.mock('@shared/prompts', () => ({

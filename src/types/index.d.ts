@@ -265,7 +265,7 @@ declare interface ChatEntity {
   title: string // 用户名
   messages: number[] // 消息 ID 列表
   msgCount?: number // 消息数量（缓存字段）
-  model?: string // 最近使用的模型
+  modelRef?: ModelRef // 最近使用的模型引用
   workspacePath?: string // 自定义工作空间路径（绝对路径）
   userInstruction?: string // Chat-level user instruction
   updateTime: number // 更新时间

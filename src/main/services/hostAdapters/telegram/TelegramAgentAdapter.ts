@@ -17,7 +17,7 @@ export class TelegramAgentAdapter {
       hostThreadId: envelope.threadId,
       hostUserId: envelope.fromUserId,
       title: this.buildInitialChatTitle(envelope),
-      model: modelRef.modelId,
+      modelRef,
       metadata: {
         chatType: envelope.chatType,
         username: envelope.username,

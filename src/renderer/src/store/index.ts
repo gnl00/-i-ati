@@ -1,6 +1,7 @@
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { messagePersistence } from '@renderer/services/messages/MessagePersistenceService'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import { resolveExistingChatModelRef, resolveNewChatModelRef, isModelRefAvailable } from '@shared/services/ChatModelResolver'
 import { create } from 'zustand'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
@@ -33,8 +34,9 @@ export type ChatState = {
 
 export type ChatAction = {
   // UI 状态更新
-  setSelectedModelRef: (ref: ModelRef) => void
+  setSelectedModelRef: (ref: ModelRef | undefined) => void
   ensureSelectedModelRef: () => ModelRef | undefined
+  syncSelectedModelRefForChat: (chat: ChatEntity | null, messages?: MessageEntity[]) => ModelRef | undefined
   setFetchState: (state: boolean) => void
   setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
   setReadStreamState: (state: boolean) => void
@@ -58,9 +60,7 @@ export type ChatAction = {
 
   // 数据操作方法（通过 IPC 与 SQLite 同步）
   loadChat: (chatId: number) => Promise<void>
-  loadMessagesByChatId: (chatId: number) => Promise<MessageEntity[]>
   loadMessagesByChatUuid: (chatUuid: string) => Promise<MessageEntity[]>
-  fetchMessagesByChatId: (chatId: number) => Promise<MessageEntity[]>
   fetchMessagesByChatUuid: (chatUuid: string) => Promise<MessageEntity[]>
   addMessage: (message: MessageEntity) => Promise<number>
   updateMessage: (message: MessageEntity) => Promise<void>
@@ -111,28 +111,30 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setSelectedModelRef: (ref) => set({ selectedModelRef: ref }),
   ensureSelectedModelRef: () => {
     const selectedModelRef = get().selectedModelRef
-    if (selectedModelRef) {
+    const appConfig = useAppConfigStore.getState().getAppConfig()
+    if (selectedModelRef && isModelRefAvailable(appConfig, selectedModelRef)) {
       return selectedModelRef
     }
 
-    const appConfigState = useAppConfigStore.getState()
-    const validDefaultModel = appConfigState.defaultModel
-      && appConfigState.resolveModelRef(appConfigState.defaultModel)
-      ? appConfigState.defaultModel
-      : undefined
-    const firstOption = appConfigState.getModelOptions()[0]
-    const fallbackModelRef = validDefaultModel ?? (firstOption
-      ? {
-        accountId: firstOption.account.id,
-        modelId: firstOption.model.id
-      }
-      : undefined)
+    const currentChat = get().currentChatUuid
+      ? get().chatList.find(item => item.uuid === get().currentChatUuid)
+      : get().chatList.find(item => item.id === get().currentChatId)
 
-    if (fallbackModelRef) {
-      set({ selectedModelRef: fallbackModelRef })
-    }
+    const resolved = currentChat
+      ? resolveExistingChatModelRef(appConfig, currentChat, get().messages)
+      : resolveNewChatModelRef(appConfig)
 
-    return fallbackModelRef
+    set({ selectedModelRef: resolved })
+    return resolved
+  },
+  syncSelectedModelRefForChat: (chat, messages) => {
+    const appConfig = useAppConfigStore.getState().getAppConfig()
+    const resolved = chat
+      ? resolveExistingChatModelRef(appConfig, chat, messages)
+      : resolveNewChatModelRef(appConfig)
+
+    set({ selectedModelRef: resolved })
+    return resolved
   },
   setFetchState: (state) => set({ fetchState: state }),
   setCurrentReqCtrl: (ctrl) => set({ currentReqCtrl: ctrl }),
@@ -207,15 +209,20 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     }
 
     // 2. 从 SQLite 加载消息
-    const messages = await messagePersistence.getMessagesByChatId(chatId)
+    if (!chat.uuid) {
+      throw new Error(`Chat missing uuid: ${chatId}`)
+    }
+    const messages = await messagePersistence.getMessagesByChatUuid(chat.uuid)
 
     // 3. 更新 Zustand state（触发 UI 更新）
     set({
       currentChatId: chat.id,
       currentChatUuid: chat.uuid,
       chatTitle: chat.title || 'NewChat',
+      userInstruction: chat.userInstruction || '',
       messages: messages
     })
+    get().syncSelectedModelRefForChat(chat, messages)
   },
 
   /**
@@ -244,16 +251,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   },
 
   /**
-   * 加载指定 chatId 的消息并更新 Zustand
-   * 数据流：SQLite → IPC → Zustand → UI
-   */
-  loadMessagesByChatId: async (chatId) => {
-    const messages = await messagePersistence.getMessagesByChatId(chatId)
-    set({ messages })
-    return messages
-  },
-
-  /**
    * 加载指定 chatUuid 的消息并更新 Zustand
    * 数据流：SQLite → IPC → Zustand → UI
    */
@@ -261,13 +258,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     const messages = await messagePersistence.getMessagesByChatUuid(chatUuid)
     set({ messages })
     return messages
-  },
-
-  /**
-   * 仅获取指定 chatId 的消息（不更新 Zustand）
-   */
-  fetchMessagesByChatId: async (chatId) => {
-    return await messagePersistence.getMessagesByChatId(chatId)
   },
 
   /**
@@ -439,16 +429,17 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
    */
   setCurrentChat: (chatId, chatUuid) => {
     const currentChatId = get().currentChatId
+    const currentChatUuid = get().currentChatUuid
     const chat = chatUuid
       ? get().chatList.find(item => item.uuid === chatUuid)
       : get().chatList.find(item => item.id === chatId)
 
     // 如果切换到不同的聊天，清空消息列表
-    if (currentChatId !== chatId) {
+    if (currentChatId !== chatId || currentChatUuid !== chatUuid) {
       set({
         currentChatId: chatId,
         currentChatUuid: chatUuid,
-        chatTitle: get().chatTitle,
+        chatTitle: chat?.title ?? get().chatTitle,
         messages: [],
         userInstruction: chat?.userInstruction ?? ''
       })

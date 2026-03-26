@@ -24,7 +24,10 @@ vi.mock('@main/services/DatabaseService', () => ({
     getChatByUuid: vi.fn((chatUuid: string) => ({
       id: 1,
       uuid: chatUuid,
-      model: 'model-1'
+      modelRef: {
+        accountId: 'account-1',
+        modelId: 'model-1'
+      }
     })),
     saveMessage: vi.fn(() => 123),
     getMessageById: vi.fn((id: number) => ({
@@ -78,6 +81,15 @@ vi.mock('@main/services/chatRun', () => ({
     execute = mockSubmit
     hasActiveRunForChat = mockHasActiveRunForChat
   }
+}))
+
+vi.mock('@main/services/logging/LogService', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }))
 }))
 
 const buildTask = (overrides: Partial<ScheduledTaskRow> = {}): ScheduledTaskRow => {

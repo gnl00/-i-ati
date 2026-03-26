@@ -12,7 +12,7 @@ export type ResolveOrCreateHostChatBindingInput = {
   hostThreadId?: string
   hostUserId?: string
   title?: string
-  model?: string
+  modelRef?: ModelRef
   metadata?: Record<string, unknown>
 }
 
@@ -49,7 +49,7 @@ export class HostChatBindingService {
       uuid: chatUuid,
       title: input.title?.trim() || 'NewChat',
       messages: [],
-      model: input.model,
+      modelRef: input.modelRef,
       workspacePath,
       createTime: now,
       updateTime: now
@@ -124,7 +124,7 @@ export class HostChatBindingService {
       uuid: chatUuid,
       title: input.title?.trim() || 'NewChat',
       messages: [],
-      model: input.model,
+      modelRef: input.modelRef,
       workspacePath,
       createTime: now,
       updateTime: now

@@ -18,7 +18,8 @@ export class ChatDataService {
       uuid: data.uuid,
       title: data.title,
       msg_count: data.msgCount ?? 0,
-      model: data.model ?? null,
+      model_account_id: data.modelRef?.accountId ?? null,
+      model_model_id: data.modelRef?.modelId ?? null,
       workspace_path: data.workspacePath ?? null,
       user_instruction: data.userInstruction ?? null,
       create_time: data.createTime ?? now,
@@ -62,7 +63,8 @@ export class ChatDataService {
       uuid: data.uuid,
       title: data.title,
       msg_count: data.msgCount ?? 0,
-      model: data.model ?? null,
+      model_account_id: data.modelRef?.accountId ?? null,
+      model_model_id: data.modelRef?.modelId ?? null,
       workspace_path: data.workspacePath ?? null,
       user_instruction: userInstruction,
       create_time: data.createTime ?? Date.now(),
@@ -97,7 +99,8 @@ export class ChatDataService {
     uuid: string
     title: string
     msg_count: number
-    model: string | null
+    model_account_id: string | null
+    model_model_id: string | null
     workspace_path: string | null
     user_instruction: string | null
     create_time: number
@@ -108,7 +111,12 @@ export class ChatDataService {
       uuid: row.uuid,
       title: row.title,
       msgCount: row.msg_count,
-      model: row.model ?? undefined,
+      modelRef: row.model_account_id && row.model_model_id
+        ? {
+          accountId: row.model_account_id,
+          modelId: row.model_model_id
+        }
+        : undefined,
       workspacePath: row.workspace_path ?? undefined,
       userInstruction: row.user_instruction ?? undefined,
       createTime: row.create_time,

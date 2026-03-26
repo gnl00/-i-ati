@@ -63,19 +63,7 @@ class AppDatabase {
   private createTables(): void {
     if (!this.db) throw new Error('Database not initialized')
 
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS chats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        uuid TEXT NOT NULL UNIQUE,
-        title TEXT NOT NULL,
-        msg_count INTEGER NOT NULL DEFAULT 0,
-        model TEXT,
-        workspace_path TEXT,
-        user_instruction TEXT,
-        create_time INTEGER NOT NULL,
-        update_time INTEGER NOT NULL
-      )
-    `)
+    this.createChatsTable()
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS chat_skills (
@@ -319,6 +307,8 @@ class AppDatabase {
       )
     `)
 
+    this.ensureChatsTableSchema()
+
     console.log('[Database] Tables created')
   }
 
@@ -377,6 +367,60 @@ class AppDatabase {
     }
 
     this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
+  }
+
+  private createChatsTable(): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        uuid TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        msg_count INTEGER NOT NULL DEFAULT 0,
+        model_account_id TEXT,
+        model_model_id TEXT,
+        workspace_path TEXT,
+        user_instruction TEXT,
+        create_time INTEGER NOT NULL,
+        update_time INTEGER NOT NULL
+      )
+    `)
+  }
+
+  private ensureChatsTableSchema(): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    const columns = this.db.prepare('PRAGMA table_info(chats)').all() as Array<{ name: string }>
+    const columnNames = new Set(columns.map(column => column.name))
+    const hasOldModelColumn = columnNames.has('model')
+    const hasModelAccountId = columnNames.has('model_account_id')
+    const hasModelModelId = columnNames.has('model_model_id')
+
+    if (!hasOldModelColumn && hasModelAccountId && hasModelModelId) {
+      return
+    }
+
+    if (!hasOldModelColumn) {
+      if (!hasModelAccountId) {
+        this.ensureColumn('chats', 'model_account_id', 'TEXT')
+      }
+      if (!hasModelModelId) {
+        this.ensureColumn('chats', 'model_model_id', 'TEXT')
+      }
+      return
+    }
+
+    this.db.exec('BEGIN IMMEDIATE')
+    try {
+      this.db.exec('ALTER TABLE chats DROP COLUMN model')
+      this.ensureColumn('chats', 'model_account_id', 'TEXT')
+      this.ensureColumn('chats', 'model_model_id', 'TEXT')
+      this.db.exec('COMMIT')
+    } catch (error) {
+      this.db.exec('ROLLBACK')
+      throw error
+    }
   }
 
 }
