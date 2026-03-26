@@ -48,6 +48,7 @@ import {
   DB_CONFIG_GET,
   DB_CONFIG_SAVE,
   DB_CONFIG_INIT,
+  EMOTION_PACKS_GET,
   TELEGRAM_GATEWAY_STATUS,
   TELEGRAM_GATEWAY_TEST,
   TELEGRAM_GATEWAY_START,
@@ -157,6 +158,11 @@ export async function invokeOpenExternal(url: string): Promise<void> {
 export async function invokeOpenPath(targetPath: string): Promise<{ success: boolean; error?: string; path?: string }> {
   const ipc = getElectronIPC()
   return await ipc.invoke(OPEN_PATH, targetPath)
+}
+
+export async function invokeEmotionPacksGet(): Promise<Array<{ name: string; source: 'builtin' | 'user' }>> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(EMOTION_PACKS_GET)
 }
 
 // ============ MCP Operations ============

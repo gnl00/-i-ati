@@ -16,6 +16,10 @@ extraResources:
     to: models
     filter:
       - '**/*'
+  - from: resources/emotions
+    to: emotions
+    filter:
+      - '**/*'
 win:
   executableName: at-i-app
 nsis:

@@ -13,6 +13,7 @@ import skillsTools from './skills_tools'
 import planTools from './plan_tools'
 import scheduleTools from './schedule_tools'
 import soulTools from './soul_tools'
+import emotionTools from './emotion_tools'
 import pluginTools from './plugin_tools'
 import telegramTools from './telegram_tools'
 import activityJournalTools from './activity_journal_tools'
@@ -32,6 +33,7 @@ export const tools = [
   ...planTools,
   ...scheduleTools,
   ...soulTools,
+  ...emotionTools,
   ...pluginTools,
   ...telegramTools,
   ...activityJournalTools,

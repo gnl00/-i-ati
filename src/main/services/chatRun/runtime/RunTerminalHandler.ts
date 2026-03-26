@@ -22,7 +22,7 @@ type HandleKernelResultArgs = {
 }
 
 export class RunTerminalHandler {
-  handleKernelResult(args: HandleKernelResultArgs): RunResult {
+  async handleKernelResult(args: HandleKernelResultArgs): Promise<RunResult> {
     const {
       input,
       kernelResult,
@@ -49,7 +49,7 @@ export class RunTerminalHandler {
     }
 
     lifecycle.emitFinalizing()
-    const finalizeResult = chatAgentAdapter.finalizeRun({
+    const finalizeResult = await chatAgentAdapter.finalizeRun({
       input,
       runSpec,
       chatContext,

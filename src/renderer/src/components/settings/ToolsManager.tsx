@@ -2,8 +2,11 @@ import { Badge } from '@renderer/components/ui/badge'
 import { SettingsInlineModelSelector } from '@renderer/components/shared/model-selector'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select'
 import { Switch } from "@renderer/components/ui/switch"
 import {
+    invokeOpenPath,
+    invokeEmotionPacksGet,
     invokeTelegramGatewayStart,
     invokeTelegramGatewayStatus,
     invokeTelegramGatewayStop,
@@ -22,6 +25,8 @@ interface ToolsManagerProps {
     setTelegramEnabled: (value: boolean) => void
     telegramBotToken: string
     setTelegramBotToken: (value: string) => void
+    emotionAssetPack: string
+    setEmotionAssetPack: (value: string) => void
     compressionEnabled: boolean
     setCompressionEnabled: (value: boolean) => void
     compressionTriggerThreshold: number
@@ -39,6 +44,8 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     setTelegramEnabled,
     telegramBotToken,
     setTelegramBotToken,
+    emotionAssetPack,
+    setEmotionAssetPack,
     compressionEnabled,
     setCompressionEnabled,
     compressionTriggerThreshold,
@@ -82,6 +89,10 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     const [telegramStarting, setTelegramStarting] = useState(false)
     const [telegramStopping, setTelegramStopping] = useState(false)
     const [showTelegramBotToken, setShowTelegramBotToken] = useState(false)
+    const [availableEmotionPacks, setAvailableEmotionPacks] = useState<Array<{ name: string; source: 'builtin' | 'user' }>>([
+        { name: 'default', source: 'builtin' }
+    ])
+    const emotionPackSectionRef = React.useRef<HTMLDivElement | null>(null)
     const modelOptions = React.useMemo(() => {
         return getModelOptions()
     }, [getModelOptions, providersRevision])
@@ -104,6 +115,12 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
         }, 3000)
 
         return () => clearInterval(timer)
+    }, [])
+
+    React.useEffect(() => {
+        void invokeEmotionPacksGet()
+            .then((packs) => setAvailableEmotionPacks(packs.length > 0 ? packs : [{ name: 'default', source: 'builtin' }]))
+            .catch(() => setAvailableEmotionPacks([{ name: 'default', source: 'builtin' }]))
     }, [])
 
     const formatTimestamp = (timestamp?: number): string | null => {
@@ -249,6 +266,66 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                 className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium'
                             />
                             <span className="text-xs font-medium text-gray-400 pr-2">items</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Emotion Pack Setting */}
+                <div ref={emotionPackSectionRef} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
+                    <div className="px-4 py-4 flex items-start gap-4">
+                        <div className="flex-1 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
+                                    Emotion Pack
+                                </Label>
+                                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-pink-600 border-pink-200 bg-pink-50 dark:bg-pink-900/20 dark:text-pink-400 dark:border-pink-800">
+                                    EMOTION
+                                </Badge>
+                            </div>
+                            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                                Choose which emotion asset pack to render in assistant badges. Custom packs are discovered at runtime from the app emotion packs directory.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50">
+                        <div className="px-4 py-2.5 flex items-center justify-between gap-4">
+                            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Active Pack</span>
+                            <div className="flex items-center gap-2">
+                                <Select value={emotionAssetPack} onValueChange={setEmotionAssetPack}>
+                                    <SelectTrigger
+                                        className="h-8 min-w-[180px] rounded-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-[12.5px]"
+                                        onPointerDown={(event) => event.stopPropagation()}
+                                        onClick={(event) => event.stopPropagation()}
+                                    >
+                                        <SelectValue placeholder="Select emotion pack" />
+                                    </SelectTrigger>
+                                    <SelectContent
+                                        className="bg-white/20 backdrop-blur-3xl dark:bg-gray-900 rounded-lg"
+                                        portalContainer={emotionPackSectionRef.current}
+                                        onPointerDown={(event) => event.stopPropagation()}
+                                        onClick={(event) => event.stopPropagation()}
+                                    >
+                                        {availableEmotionPacks.map(pack => (
+                                            <SelectItem key={pack.name} value={pack.name}>
+                                                {pack.name}{pack.source === 'user' ? ' (custom)' : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <button
+                                    type="button"
+                                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-[11px] font-medium text-gray-600 shadow-xs transition hover:text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700/60 dark:hover:text-gray-100"
+                                    onClick={async (event) => {
+                                        event.stopPropagation()
+                                        const result = await invokeOpenPath('./emotions/packs')
+                                        if (!result.success) {
+                                            toast.error(result.error || 'Failed to open emotion packs folder')
+                                        }
+                                    }}
+                                >
+                                    Open Packs Folder
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

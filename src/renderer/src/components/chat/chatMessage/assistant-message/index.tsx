@@ -34,6 +34,97 @@ function getSegmentRenderKey(segment: MessageSegment, index: number): string {
   return `${segment.type}-${index}`
 }
 
+function isEmotionToolName(name: string | undefined): boolean {
+  return name === 'emotion_report'
+}
+
+function isEmotionToolSegment(segment: MessageSegment): boolean {
+  if (segment.type !== 'toolCall') return false
+  const toolName = typeof segment.content?.toolName === 'string' ? segment.content.toolName : segment.name
+  return isEmotionToolName(toolName)
+}
+
+function getEmotionEmoji(message: ChatMessage): string | undefined {
+  const unifiedEmotionEmoji = message.emotion?.emoji?.trim()
+  if (unifiedEmotionEmoji) {
+    return unifiedEmotionEmoji
+  }
+
+  const segments = Array.isArray(message.segments) ? message.segments : []
+
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const segment = segments[i]
+    if (!isEmotionToolSegment(segment)) continue
+    if (segment.type !== 'toolCall') continue
+    if (segment.isError) continue
+
+    const result = segment.content?.result
+    const emoji = typeof result?.emoji === 'string'
+      ? result.emoji.trim()
+      : typeof segment.content?.emoji === 'string'
+        ? segment.content.emoji.trim()
+        : ''
+
+    if (emoji) return emoji
+  }
+
+  return undefined
+}
+
+function getEmotionEmojiName(message: ChatMessage): string | undefined {
+  const unifiedEmotionEmojiName = message.emotion?.emojiName?.trim()
+  if (unifiedEmotionEmojiName) {
+    return unifiedEmotionEmojiName
+  }
+
+  const segments = Array.isArray(message.segments) ? message.segments : []
+
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const segment = segments[i]
+    if (!isEmotionToolSegment(segment)) continue
+    if (segment.type !== 'toolCall') continue
+    if (segment.isError) continue
+
+    const result = segment.content?.result
+    const emojiName = typeof result?.emojiName === 'string'
+      ? result.emojiName.trim()
+      : typeof segment.content?.emojiName === 'string'
+        ? segment.content.emojiName.trim()
+        : ''
+
+    if (emojiName) return emojiName
+  }
+
+  return undefined
+}
+
+function getEmotionLabel(message: ChatMessage): string | undefined {
+  const unifiedEmotionLabel = message.emotion?.label?.trim()
+  if (unifiedEmotionLabel) {
+    return unifiedEmotionLabel
+  }
+
+  const segments = Array.isArray(message.segments) ? message.segments : []
+
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const segment = segments[i]
+    if (!isEmotionToolSegment(segment)) continue
+    if (segment.type !== 'toolCall') continue
+    if (segment.isError) continue
+
+    const result = segment.content?.result
+    const label = typeof result?.label === 'string'
+      ? result.label.trim()
+      : typeof segment.content?.label === 'string'
+        ? segment.content.label.trim()
+        : ''
+
+    if (label) return label
+  }
+
+  return undefined
+}
+
 function resolveMessageProvider(
   modelRef: ModelRef | undefined,
   providerDefinitions: ProviderDefinition[],
@@ -155,11 +246,18 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
   if (!m || m.role !== 'assistant') return null
 
+  const visibleSegments = segments.filter(segment => !isEmotionToolSegment(segment))
+  const hasVisibleToolCalls = Array.isArray(m.toolCalls)
+    && m.toolCalls.some(call => !isEmotionToolName(call.function?.name))
+  const emotionLabel = getEmotionLabel(m)
+  const emotionEmoji = getEmotionEmoji(m)
+  const emotionEmojiName = getEmotionEmojiName(m)
+
   const hasContent = typeof m.content === 'string'
     ? m.content.trim().length > 0
     : Array.isArray(m.content) && m.content.length > 0
-  const hasSegments = Array.isArray(segments) && segments.length > 0
-  const hasToolCalls = Array.isArray(m.toolCalls) && m.toolCalls.length > 0
+  const hasSegments = visibleSegments.length > 0
+  const hasToolCalls = hasVisibleToolCalls
 
   if (!shouldRenderAssistantMessageShell({
     hasContent,
@@ -226,11 +324,15 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             model={m.model}
             provider={modelProvider}
             animate={showLoadingIndicator && isLatest}
+            emotionLabel={emotionLabel}
+            emotionEmoji={emotionEmoji}
+            emotionEmojiName={emotionEmojiName}
           />
         )}
 
         {/* Segments */}
         {segments.map((segment, segIdx) => {
+          if (isEmotionToolSegment(segment)) return null
           if (!shouldRenderSegment(segIdx)) return null
 
           const key = getSegmentRenderKey(segment, segIdx)

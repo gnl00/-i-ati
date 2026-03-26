@@ -1,6 +1,8 @@
 import { extractContentFromSegments } from '@main/services/agentCore/execution'
 import type { ConversationStore } from '@main/services/agentCore/contracts'
 import DatabaseService from '@main/services/DatabaseService'
+import EmotionInferenceService from '@main/services/emotion/EmotionInferenceService'
+import { extractEmotionFromToolSegments, hasVisibleAssistantText } from '@main/services/emotion/emotion-state'
 import type { ChatRunInputState } from '../preparation'
 
 const buildUserMessage = (
@@ -99,19 +101,28 @@ export class ChatStepStore implements ConversationStore {
     return entity
   }
 
-  finalizeAssistantMessage(
+  async finalizeAssistantMessage(
     placeholder: MessageEntity,
     finalAssistantMessage: MessageEntity
-  ): number {
+  ): Promise<number> {
     const content = finalAssistantMessage.body.segments?.length
       ? extractContentFromSegments(finalAssistantMessage.body.segments)
       : finalAssistantMessage.body.content
+
+    const emotionFromTool = extractEmotionFromToolSegments(finalAssistantMessage.body)
+    const fallbackEmotion = emotionFromTool
+      ? undefined
+      : hasVisibleAssistantText(content)
+        ? await EmotionInferenceService.infer(content)
+        : null
 
     const updated: MessageEntity = {
       ...placeholder,
       body: {
         ...finalAssistantMessage.body,
         content,
+        ...(emotionFromTool ? { emotion: emotionFromTool } : {}),
+        ...(!emotionFromTool && fallbackEmotion ? { emotion: fallbackEmotion } : {}),
         typewriterCompleted: true
       }
     }

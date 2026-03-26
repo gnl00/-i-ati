@@ -79,8 +79,13 @@ declare interface IAppConfig {
   compression?: CompressionConfig
   mcp?: McpServerConfig
   telegram?: TelegramChannelConfig
+  emotion?: EmotionConfig
   version?: number
   configForUpdate?: IAppConfig
+}
+
+declare interface EmotionConfig {
+  assetPack?: string
 }
 
 declare interface TelegramChannelConfig {
@@ -295,6 +300,17 @@ declare interface MessageEntity {
   tokens?: number
 }
 
+declare interface ChatEmotionState {
+  label: string
+  emoji: string
+  emojiName?: string
+  score?: number
+  intensity?: number
+  reason?: string
+  stateText?: string
+  source: 'tool' | 'fallback'
+}
+
 declare interface ChatRunEventTrace {
   id?: number
   submissionId: string
@@ -320,7 +336,8 @@ declare interface ChatMessage extends BaseChatMessage {
   model?: string
   modelRef?: { accountId: string; modelId: string }
   typewriterCompleted?: boolean,
-  source?: string // message source, e.g. 'schedule'
+  source?: string // message source, e.g. 'schedule' | 'telegram'
+  emotion?: ChatEmotionState
   host?: ChatMessageHostMeta
   // ==================== Message Segments ====================
   // 使用segments替代原有的content、reasoning、toolCallResults字段

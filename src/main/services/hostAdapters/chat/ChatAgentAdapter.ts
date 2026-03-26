@@ -64,17 +64,17 @@ export class ChatAgentAdapter {
     return this.stepRuntimeContextMapper.map(chatContext)
   }
 
-  finalizeRun({
+  async finalizeRun({
     input,
     runSpec,
     chatContext,
     stepResult,
     emitter,
     messageManager
-  }: FinalizeRunArgs): FinalizeRunResult {
+  }: FinalizeRunArgs): Promise<FinalizeRunResult> {
     messageManager.flushPendingAssistantUpdate()
 
-    const assistantMessageId = this.finalizeService.finalizeAssistantMessage(
+    const assistantMessageId = await this.finalizeService.finalizeAssistantMessage(
       chatContext.assistantPlaceholder,
       messageManager.getLastAssistantMessage()
     )

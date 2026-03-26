@@ -22,6 +22,9 @@ export const defaultConfig: IAppConfig = {
     compressCount: 10,
     autoCompress: true
   },
+  emotion: {
+    assetPack: 'default'
+  },
   configForUpdate: {
     version: configVersion,
   }

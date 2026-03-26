@@ -56,6 +56,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [maxWebSearchItems, setMaxWebSearchItems] = useState<number>(appConfig?.tools?.maxWebSearchItems || 3)
     const [telegramEnabled, setTelegramEnabled] = useState<boolean>(appConfig?.telegram?.enabled ?? false)
     const [telegramBotToken, setTelegramBotToken] = useState<string>(appConfig?.telegram?.botToken || '')
+    const [emotionAssetPack, setEmotionAssetPack] = useState<string>(appConfig?.emotion?.assetPack || 'default')
     const [activeTab, setActiveTab] = useState<string>('provider-list')
     const previousSavedTelegramRef = useRef({
         enabled: appConfig?.telegram?.enabled ?? false,
@@ -78,6 +79,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             setCompressionKeepRecentCount(appConfig.compression.keepRecentCount || 20)
             setCompressionCompressCount(appConfig.compression.compressCount || 10)
         }
+        setEmotionAssetPack(appConfig?.emotion?.assetPack || 'default')
     }, [appConfig])
 
     useEffect(() => {
@@ -122,6 +124,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 requireMentionInGroups: appConfig.telegram?.requireMentionInGroups ?? true,
                 dmPolicy: appConfig.telegram?.dmPolicy || 'open',
                 groupPolicy: appConfig.telegram?.groupPolicy || 'open'
+            },
+            emotion: {
+                ...(appConfig.emotion || {}),
+                assetPack: emotionAssetPack || 'default'
             },
             compression: {
                 enabled: compressionEnabled,
@@ -188,6 +194,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         || streamChunkDebugEnabled !== (savedTools.streamChunkDebugEnabled ?? false)
         || telegramEnabled !== (appConfig?.telegram?.enabled ?? false)
         || telegramBotToken !== (appConfig?.telegram?.botToken ?? '')
+        || emotionAssetPack !== (appConfig?.emotion?.assetPack ?? 'default')
         || defaultModel?.accountId !== savedTools.defaultModel?.accountId
         || defaultModel?.modelId !== savedTools.defaultModel?.modelId
         || titleGenerateModel?.accountId !== savedTools.titleGenerateModel?.accountId
@@ -263,6 +270,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         setTelegramEnabled={setTelegramEnabled}
                         telegramBotToken={telegramBotToken}
                         setTelegramBotToken={setTelegramBotToken}
+                        emotionAssetPack={emotionAssetPack}
+                        setEmotionAssetPack={setEmotionAssetPack}
                         compressionEnabled={compressionEnabled}
                         setCompressionEnabled={setCompressionEnabled}
                         compressionTriggerThreshold={compressionTriggerThreshold}

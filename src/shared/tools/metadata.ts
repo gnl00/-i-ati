@@ -13,6 +13,7 @@ export type EmbeddedToolCapability =
   | 'schedule'
   | 'skill'
   | 'soul'
+  | 'emotion'
   | 'plugin'
   | 'telegram'
   | 'subagent'
@@ -272,6 +273,12 @@ export const embeddedToolMetadata: Record<string, EmbeddedToolMetadata> = {
   reset_soul: {
     capability: 'soul',
     riskLevel: 'warning',
+    mutatesWorkspace: false,
+    subagent: 'deny'
+  },
+  emotion_report: {
+    capability: 'emotion',
+    riskLevel: 'none',
     mutatesWorkspace: false,
     subagent: 'deny'
   },

@@ -81,4 +81,5 @@ export function registerSystemHandlers(): void {
       return { success: false, isDirectory: false, error: (error as Error).message }
     }
   })
+
 }

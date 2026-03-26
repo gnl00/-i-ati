@@ -6,10 +6,10 @@ export class ChatFinalizeService {
     private readonly chatSessionStore = new ChatSessionStore()
   ) {}
 
-  finalizeAssistantMessage(
+  async finalizeAssistantMessage(
     placeholder: MessageEntity,
     finalAssistantMessage: MessageEntity
-  ): number {
+  ): Promise<number> {
     return this.chatStepStore.finalizeAssistantMessage(placeholder, finalAssistantMessage)
   }
 

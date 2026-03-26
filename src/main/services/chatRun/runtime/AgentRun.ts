@@ -94,7 +94,7 @@ export class AgentRun {
       })
 
       const kernelResult = await this.services.agentRunKernel.run(() => step.loop.execute())
-      return this.terminalHandler.handleKernelResult({
+      return await this.terminalHandler.handleKernelResult({
         input: this.input,
         kernelResult,
         runSpec,

@@ -51,6 +51,7 @@ import {
   processGetSoul,
   processResetSoul
 } from '@main/tools/soul/SoulToolsProcessor'
+import { processEmotionReport } from '@main/tools/emotion/EmotionToolsProcessor'
 import {
   processListPlugins,
   processPluginInstall,
@@ -109,6 +110,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   get_soul: processGetSoul,
   edit_soul: processEditSoul,
   reset_soul: processResetSoul,
+  emotion_report: processEmotionReport,
   list_plugins: processListPlugins,
   plugin_install: processPluginInstall,
   plugin_uninstall: processPluginUninstall,
