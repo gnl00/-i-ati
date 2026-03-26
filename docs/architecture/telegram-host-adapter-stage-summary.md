@@ -1,7 +1,7 @@
 # Telegram Host Adapter Stage Summary
 
 > 这份文档记录的是 `hostAdapters/telegram` 第一阶段接通与稳定化工作的阶段性总结。
-> 当前结构以 2026-03-25 为准；Telegram transport 迁移细节另见 [telegram-gateway-grammy-migration.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/telegram-gateway-grammy-migration.md)。
+> 当前结构以 2026-03-26 为准；Telegram transport 迁移细节另见 [telegram-gateway-grammy-migration.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/telegram-gateway-grammy-migration.md)。
 
 ## 背景
 
@@ -206,6 +206,50 @@ Telegram 常用控制命令已经在 gateway 层直接处理，不再走 chat ru
 
 这一点不是 Telegram host adapter 自身的问题，但它是这轮 Telegram 接入过程中被逼出来的关键兼容性问题。
 
+### 6. grammY 的最终稳定方案不是 external，而是 bundled + net.fetch
+
+这轮后续又继续暴露了一层 Telegram transport 问题：
+
+- 把 `grammY` external 到 main runtime，能绕开早期 `getMe` 网络问题
+- 但打包产物会重新依赖：
+  - `grammy`
+  - `node-fetch`
+  - `whatwg-url`
+- 在 pnpm + electron-builder + asar 场景下，这条运行时依赖树不稳定
+
+所以当前最终收敛方案是：
+
+- `grammY` 保持 bundled
+- `TelegramGatewayService` 显式给 `Bot` 注入 Electron `net.fetch`
+- `TelegramFileService` 的文件下载也统一走 `net.fetch`
+
+这让 Telegram 链路同时满足：
+
+- 开发态 `getMe` / polling 正常
+- 打包产物不再因为 `whatwg-url` 一类传递依赖缺失而启动崩溃
+
+相关文件：
+
+- [TelegramGatewayService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramGatewayService.ts)
+- [TelegramFileService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramFileService.ts)
+- [electron.vite.config.ts](/Users/gnl/Workspace/code/-i-ati/electron.vite.config.ts)
+
+### 7. macOS GitHub CI 现已拆出 unsigned 测试轨
+
+为了避免无 Apple 证书的 CI mac 产物因为签名/runtime 策略在启动期被 dyld 拒绝，当前已经额外拆出一条测试轨：
+
+- `build:mac:ci`
+- 使用 [electron-builder.mac-ci.yml](/Users/gnl/Workspace/code/-i-ati/electron-builder.mac-ci.yml)
+- 明确关闭：
+  - `hardenedRuntime`
+  - `notarize`
+  - `gatekeeperAssess`
+
+这条轨道的定位是：
+
+- 仅供内部测试下载
+- 不等同于正式对外 release 的签名包
+
 ## 当前判断
 
 截至这一阶段，可以认为：
@@ -219,6 +263,7 @@ Telegram 常用控制命令已经在 gateway 层直接处理，不再走 chat ru
 - Telegram 接入并不是单独的 transport 工程
 - 它会放大原有 chat/runtime/request adapter 的结构问题
 - 这次排查证明 Telegram 是很有效的“跨宿主一致性测试面”
+- Telegram 也已经成为 main-process 网络栈、打包链和 SDK runtime 兼容性的测试面
 
 ## 当前边界
 

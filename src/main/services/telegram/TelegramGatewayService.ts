@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
+import { net } from 'electron'
 import { Bot } from 'grammy'
 import { ChatRunService } from '@main/services/chatRun'
 import { AppConfigStore } from '@main/services/hostAdapters/chat/config/AppConfigStore'
@@ -36,6 +37,13 @@ export class TelegramGatewayService {
   private lastMessageProcessedAt?: number
   private static readonly START_TIMEOUT_MS = 30_000
   private static readonly POLLING_START_TIMEOUT_MS = 30_000
+
+  private resolveFetch(): typeof fetch {
+    if (typeof net?.fetch === 'function') {
+      return net.fetch.bind(net) as typeof fetch
+    }
+    return fetch
+  }
 
   private toPreview(value: string, limit = 400): string {
     const normalized = value.replace(/\r\n?/g, '\n').trim()
@@ -179,7 +187,11 @@ export class TelegramGatewayService {
         return { ok: false, error: 'Telegram bot token is required' }
       }
 
-      const bot = new Bot(token)
+      const bot = new Bot(token, {
+        client: {
+          fetch: this.resolveFetch()
+        }
+      })
       const me = await this.withTimeout(
         bot.api.getMe(),
         TelegramGatewayService.START_TIMEOUT_MS,
@@ -359,7 +371,11 @@ export class TelegramGatewayService {
       marker: TelegramGatewayService.IMPLEMENTATION_MARKER,
       runId
     })
-    const bot = new Bot(botToken)
+    const bot = new Bot(botToken, {
+      client: {
+        fetch: this.resolveFetch()
+      }
+    })
     let readySettled = false
     let resolveReady: () => void = () => undefined
     let rejectReady: (error: Error) => void = () => undefined

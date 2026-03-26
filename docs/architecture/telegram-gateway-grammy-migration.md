@@ -2,6 +2,10 @@
 
 这份文档记录 Telegram gateway 从手写 Bot API client 迁移到 `grammY` 的阶段性设计与问题排查结论。
 
+> 文档状态说明：
+> 本文前半部分保留了迁移过程中的历史判断；截至 2026-03-26，最终稳定方案已经更新为：
+> **`grammY` 保持 bundled，但显式注入 Electron `net.fetch`，不再把 `grammY` external 到 main runtime。**
+
 ## 背景
 
 Telegram 集成最初使用手写 HTTP 调用：
@@ -149,7 +153,7 @@ Telegram 集成最初使用手写 HTTP 调用：
 - 成功路径：
   - `node_modules/grammy`
 
-### 关键修复
+### 当时的临时修复
 
 在 [electron.vite.config.ts](/Users/gnl/Workspace/code/-i-ati/electron.vite.config.ts) 中，把：
 
@@ -163,7 +167,7 @@ Telegram 集成最初使用手写 HTTP 调用：
 
 而不是把 `grammy` 打进 main bundle。
 
-### 修复后结果
+### 当时的结果
 
 启动日志恢复正常：
 
@@ -171,30 +175,119 @@ Telegram 集成最初使用手写 HTTP 调用：
 - `start.completed`
 - `polling.started`
 
+## 3. 为什么这个结论后来又不成立
+
+在继续推进 Telegram host adapter 和 macOS CI 打包后，又暴露了第二层问题：
+
+- 把 `grammY` external 到 main runtime 后，开发态本地运行可恢复 `getMe`
+- 但打包产物启动时，Telegram 依赖链重新回到：
+  - `grammy`
+  - `node-fetch`
+  - `whatwg-url`
+- 在 pnpm + electron-builder + asar 场景下，这条运行时依赖树并不稳定
+
+实际表现是：
+
+- GitHub CI macOS 产物安装后启动报错：
+  - `Cannot find module 'whatwg-url'`
+- 错误栈来自：
+  - `grammy -> node-fetch -> whatwg-url`
+
+这说明：
+
+- **external `grammY` 能绕过 bundled 网络问题**
+- **但会把 Telegram gateway 重新暴露给脆弱的运行时依赖树**
+- **对打包产物来说，这不是最终可接受方案**
+
+## 4. 最终稳定方案
+
+最终采用的是第三条路径：
+
+1. `grammY` 继续跟随 main bundle 打包
+2. 不再让 `grammY` 使用默认的 `node-fetch`
+3. 显式给 `grammY Bot` 注入 Electron `net.fetch`
+4. Telegram 文件下载也统一走 Electron `net.fetch`
+
+也就是：
+
+- **保留 bundled `grammY`**
+- **用 Electron 网络栈替代 `grammY` 默认的 Node fetch 路径**
+
+相关实现：
+
+- [TelegramGatewayService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramGatewayService.ts)
+- [TelegramFileService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramFileService.ts)
+- [electron.vite.config.ts](/Users/gnl/Workspace/code/-i-ati/electron.vite.config.ts)
+
+核心做法是：
+
+- `new Bot(token, { client: { fetch: net.fetch.bind(net) } })`
+- Telegram 附件下载同样优先使用 `net.fetch`
+
+这样同时解决了两类问题：
+
+1. **网络问题**
+   - bundled `grammY` 不再走默认 `node-fetch`
+   - `getMe` / long polling 走 Electron 网络栈
+
+2. **打包问题**
+   - main bundle 不再依赖 external `grammY` 的运行时依赖树
+   - 避免 `whatwg-url` 这类传递依赖缺失导致启动崩溃
+
+## 5. macOS CI 打包补充
+
+Telegram 这轮问题还顺带暴露了 macOS CI 包的另一层风险：
+
+- 无 Apple Developer ID 的 GitHub CI mac 包
+- 如果仍走带 runtime/hardened 特征的构建路径
+- 在 macOS 15 上可能因为签名策略在启动期被 dyld 拒绝
+
+因此当前还额外拆出了一条 **unsigned mac CI 测试轨**：
+
+- 使用单独的 `electron-builder.mac-ci.yml`
+- 明确关闭：
+  - `hardenedRuntime`
+  - `notarize`
+  - `gatekeeperAssess`
+- 仅作为内部测试包，不作为正式对外分发方案
+
+相关文件：
+
+- [electron-builder.mac-ci.yml](/Users/gnl/Workspace/code/-i-ati/electron-builder.mac-ci.yml)
+- [release.yml](/Users/gnl/Workspace/code/-i-ati/.github/workflows/release.yml)
+
 ## 最终结论
 
-这次 Telegram gateway 启动问题的根因不是：
+从完整迁移过程来看，Telegram gateway 的问题分成两层：
 
-- Telegram 网络
-- bot token
-- gateway 业务逻辑
+1. **bundled `grammY` 默认 fetch 路径会触发 Electron main 内的网络问题**
+2. **external `grammY` 又会把打包产物暴露给不稳定的运行时依赖树**
+
+所以当前最终结论不是：
+
+- externalize `grammY`
 
 而是：
 
-- **`grammy` 在当前 Electron main + Vite bundle 路径下的 bundled 运行行为异常**
+- **`grammY` 保持 bundled**
+- **显式注入 Electron `net.fetch`**
+- **Telegram 文件下载同样统一走 `net.fetch`**
 
-修复方式是：
+也就是说，真正要避免的不是 bundled 本身，而是：
 
-- **对 main 进程 externalize `grammy`**
-- **运行时直接使用原始 Node 版 `grammy`**
+- **让 Telegram 网络请求继续走默认 Node fetch 路径**
 
 ## 当前建议
 
 后续如果继续接第三方 SDK 到 Electron main：
 
-1. 优先避免把此类网络/协议 SDK 内联进 main bundle
-2. 对 runtime 敏感的包优先 externalize
-3. 独立最小脚本验证要保留，便于区分：
+1. 先区分问题到底出在：
+   - SDK 自身
+   - bundling
+   - 默认网络实现
+2. 对带网络栈的 SDK，优先评估是否应显式注入 Electron `net.fetch`
+3. 不要把 externalize 当成默认最终解，它更适合作为排障手段
+4. 独立最小脚本验证要保留，便于区分：
    - SDK/runtime 问题
    - 业务集成问题
 
