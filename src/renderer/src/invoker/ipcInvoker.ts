@@ -4,6 +4,7 @@
  */
 
 import type { ChatRunEvent } from '@shared/chatRun/events'
+import type { ConfigEvent } from '@shared/config/events'
 import type { PluginEvent } from '@shared/plugins/events'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import type { ScheduleEvent } from '@shared/schedule/events'
@@ -86,6 +87,7 @@ import {
   CHAT_RUN_CANCEL,
   CHAT_RUN_TOOL_CONFIRM,
   CHAT_RUN_EVENT,
+  CONFIG_EVENT,
   PLUGIN_EVENT,
   SCHEDULE_EVENT,
   CHAT_COMPRESSION_EXECUTE,
@@ -606,6 +608,7 @@ export async function invokeChatRunToolConfirm(data: {
 type ChatRunEventHandler = (event: ChatRunEvent) => void
 type PluginEventHandler = (event: PluginEvent) => void
 type ScheduleEventHandler = (event: ScheduleEvent) => void
+type ConfigEventHandler = (event: ConfigEvent) => void
 
 type ChannelRegistry<TEvent> = {
   handlers: Set<(event: TEvent) => void>
@@ -614,6 +617,7 @@ type ChannelRegistry<TEvent> = {
 
 type IpcEventRegistryStore = {
   chatRun: ChannelRegistry<ChatRunEvent>
+  config: ChannelRegistry<ConfigEvent>
   plugin: ChannelRegistry<PluginEvent>
   schedule: ChannelRegistry<ScheduleEvent>
 }
@@ -635,6 +639,7 @@ function getIpcEventRegistryStore(): IpcEventRegistryStore {
   if (!globalObject[IPC_EVENT_REGISTRY_KEY]) {
     globalObject[IPC_EVENT_REGISTRY_KEY] = {
       chatRun: createChannelRegistry<ChatRunEvent>(),
+      config: createChannelRegistry<ConfigEvent>(),
       plugin: createChannelRegistry<PluginEvent>(),
       schedule: createChannelRegistry<ScheduleEvent>()
     }
@@ -671,6 +676,19 @@ export function subscribeChatRunEvents(
   handler: ChatRunEventHandler
 ): () => void {
   return subscribeIpcEvent(CHAT_RUN_EVENT, getIpcEventRegistryStore().chatRun, handler)
+}
+
+export type {
+  ConfigEventType,
+  ConfigEventPayloads,
+  ConfigEventEnvelope,
+  ConfigEvent
+} from '@shared/config/events'
+
+export function subscribeConfigEvents(
+  handler: ConfigEventHandler
+): () => void {
+  return subscribeIpcEvent(CONFIG_EVENT, getIpcEventRegistryStore().config, handler)
 }
 
 export type {

@@ -11,7 +11,7 @@ import {
 } from '@renderer/invoker/ipcInvoker'
 import { cn } from '@renderer/lib/utils'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { LoaderCircle, Send } from 'lucide-react'
+import { Eye, EyeOff, LoaderCircle, Send } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -81,6 +81,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     const [telegramTesting, setTelegramTesting] = useState(false)
     const [telegramStarting, setTelegramStarting] = useState(false)
     const [telegramStopping, setTelegramStopping] = useState(false)
+    const [showTelegramBotToken, setShowTelegramBotToken] = useState(false)
     const modelOptions = React.useMemo(() => {
         return getModelOptions()
     }, [getModelOptions, providersRevision])
@@ -286,15 +287,44 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                         <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Bot Token</p>
                                         <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Stored in app config. Used for Telegram long polling and sendMessage requests.</p>
                                     </div>
-                                    <Input
-                                        type="password"
-                                        autoComplete="off"
-                                        spellCheck={false}
-                                        value={telegramBotToken}
-                                        onChange={(e) => setTelegramBotToken(e.target.value)}
-                                        placeholder="123456:ABC..."
-                                        className="h-9 w-[280px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono text-[12px]"
-                                    />
+                                    <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-1.5 shrink-0">
+                                        <div className="relative w-[280px]">
+                                            <Input
+                                                type={showTelegramBotToken ? 'text' : 'password'}
+                                                autoComplete="off"
+                                                spellCheck={false}
+                                                value={telegramBotToken}
+                                                onChange={(e) => setTelegramBotToken(e.target.value)}
+                                                placeholder="123456:ABC..."
+                                                className="h-8 w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs font-mono font-medium text-[12px] pr-9 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowTelegramBotToken(!showTelegramBotToken)}
+                                                className={cn(
+                                                    'absolute right-2 top-1/2 -translate-y-1/2',
+                                                    'flex items-center justify-center p-1 rounded',
+                                                    'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300',
+                                                    'hover:bg-gray-100 dark:hover:bg-gray-700/50',
+                                                    'transition-colors duration-150'
+                                                )}
+                                                tabIndex={-1}
+                                            >
+                                                <span className={cn(
+                                                    'transition-all duration-300 ease-in-out',
+                                                    showTelegramBotToken ? 'opacity-100 scale-100' : 'opacity-0 scale-75 absolute'
+                                                )}>
+                                                    <EyeOff className="w-3.5 h-3.5" />
+                                                </span>
+                                                <span className={cn(
+                                                    'transition-all duration-300 ease-in-out',
+                                                    !showTelegramBotToken ? 'opacity-100 scale-100' : 'opacity-0 scale-75 absolute'
+                                                )}>
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-2 text-[11px] leading-relaxed text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
                                     Telegram gateway uses the current <span className="font-semibold">Default Model</span>. If no default model is configured, the gateway will stay disabled even if this switch is on.

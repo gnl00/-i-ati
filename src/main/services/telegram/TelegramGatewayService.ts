@@ -124,6 +124,42 @@ export class TelegramGatewayService {
     })
   }
 
+  async startWithToken(botToken: string): Promise<void> {
+    const token = botToken.trim()
+    if (!token) {
+      throw new Error('Telegram bot token is required')
+    }
+
+    const appConfig = this.appConfigStore.requireConfig()
+    const defaultModel = appConfig.tools?.defaultModel
+
+    if (!defaultModel || !this.modelResolver.resolve(appConfig, defaultModel)) {
+      throw new Error('Default model unavailable for telegram')
+    }
+
+    if (this.running || this.starting) {
+      this.stop()
+    }
+
+    this.starting = true
+    this.lastError = undefined
+    this.lastErrorAt = undefined
+    this.startRunId += 1
+    const currentRunId = this.startRunId
+
+    this.logger.info('setup.start.queued', {
+      runId: currentRunId,
+      mode: 'polling'
+    })
+
+    await this.performStart({
+      runId: currentRunId,
+      botToken: token,
+      defaultModel,
+      awaitReady: true
+    })
+  }
+
   stop(): void {
     this.startRunId += 1
     this.starting = false
@@ -316,13 +352,54 @@ export class TelegramGatewayService {
     runId: number
     botToken: string
     defaultModel: ModelRef
+    awaitReady?: boolean
   }): Promise<void> {
-    const { runId, botToken, defaultModel } = args
+    const { runId, botToken, defaultModel, awaitReady = false } = args
     this.logger.info('perform_start.enter', {
       marker: TelegramGatewayService.IMPLEMENTATION_MARKER,
       runId
     })
     const bot = new Bot(botToken)
+    let readySettled = false
+    let resolveReady: () => void = () => undefined
+    let rejectReady: (error: Error) => void = () => undefined
+    const readyPromise = awaitReady
+      ? new Promise<void>((resolve, reject) => {
+        resolveReady = () => {
+          if (readySettled) return
+          readySettled = true
+          resolve()
+        }
+        rejectReady = (error: Error) => {
+          if (readySettled) return
+          readySettled = true
+          reject(error)
+        }
+      })
+      : null
+
+    const toError = (error: unknown): Error => {
+      return error instanceof Error ? error : new Error(String(error))
+    }
+
+    const failStart = (event: string, error: unknown): void => {
+      if (runId !== this.startRunId) {
+        rejectReady?.(new Error('Telegram startup superseded'))
+        return
+      }
+
+      const normalized = toError(error)
+      this.lastError = normalized.message
+      this.lastErrorAt = Date.now()
+      this.starting = false
+      this.running = false
+      if (this.bot === bot) {
+        this.bot = null
+      }
+      rejectReady?.(normalized)
+      this.logger.error(event, normalized)
+    }
+
     bot.catch((error) => {
       this.lastError = error.error instanceof Error
         ? error.error.message
@@ -344,6 +421,7 @@ export class TelegramGatewayService {
 
       if (runId !== this.startRunId) {
         this.logger.info('start.aborted', { runId, reason: 'superseded before getMe completion' })
+        rejectReady(new Error('Telegram startup superseded'))
         await bot.stop().catch(() => undefined)
         return
       }
@@ -366,15 +444,14 @@ export class TelegramGatewayService {
         if (runId !== this.startRunId || !this.starting || this.running) {
           return
         }
-        this.lastError = `Telegram polling startup timed out after ${TelegramGatewayService.POLLING_START_TIMEOUT_MS}ms`
-        this.lastErrorAt = Date.now()
-        this.starting = false
-        this.running = false
-        this.bot = null
+        const timeoutError = new Error(
+          `Telegram polling startup timed out after ${TelegramGatewayService.POLLING_START_TIMEOUT_MS}ms`
+        )
         this.logger.error('polling.start.timeout', {
           runId,
           timeoutMs: TelegramGatewayService.POLLING_START_TIMEOUT_MS
         })
+        failStart('polling.start.timeout', timeoutError)
         void bot.stop().catch(() => undefined)
       }, TelegramGatewayService.POLLING_START_TIMEOUT_MS)
 
@@ -384,6 +461,7 @@ export class TelegramGatewayService {
           clearTimeout(startTimeout)
           if (runId !== this.startRunId) {
             this.logger.info('start.aborted', { runId, reason: 'superseded before onStart' })
+            rejectReady(new Error('Telegram startup superseded'))
             await bot.stop().catch(() => undefined)
             return
           }
@@ -407,28 +485,23 @@ export class TelegramGatewayService {
             botUsername: this.botUsername,
             botId: this.botId
           })
+          resolveReady()
         }
       }).catch((error) => {
         clearTimeout(startTimeout)
-        if (runId !== this.startRunId) {
-          return
-        }
-        this.lastError = error instanceof Error ? error.message : String(error)
-        this.lastErrorAt = Date.now()
-        this.starting = false
-        this.running = false
-        this.logger.error('polling.failed', error)
+        failStart('polling.failed', error)
       })
+
+      if (readyPromise) {
+        await readyPromise
+      }
     } catch (error) {
       if (runId !== this.startRunId) {
         this.logger.info('start.aborted', { runId, reason: 'superseded after failure' })
+        rejectReady(new Error('Telegram startup superseded'))
         return
       }
-      this.lastError = error instanceof Error ? error.message : String(error)
-      this.lastErrorAt = Date.now()
-      this.starting = false
-      this.running = false
-      this.logger.error('start.failed', error)
+      failStart('start.failed', error)
     }
   }
 

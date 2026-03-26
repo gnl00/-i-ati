@@ -35,6 +35,7 @@ import { ChatRunEventDataService } from './database/ChatRunEventDataService'
 import { AssistantDataService } from './database/AssistantDataService'
 import { LocalPluginCatalogService, LocalPluginInstallService, RemotePluginInstallService, RemotePluginRegistryService } from './plugins'
 import { createLogger } from './logging/LogService'
+import { configEventEmitter } from './config/event-emitter'
 
 
 /**
@@ -444,6 +445,7 @@ class DatabaseService {
       this.mcpServerDataService.saveMcpServerConfig(config.mcp)
     }
     this.configDataService.saveConfig(config)
+    configEventEmitter.emitUpdated('database.saveConfig')
   }
 
   public getConfigValue(key: string): string | undefined {

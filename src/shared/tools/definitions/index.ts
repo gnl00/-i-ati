@@ -14,6 +14,7 @@ import planTools from './plan_tools'
 import scheduleTools from './schedule_tools'
 import soulTools from './soul_tools'
 import pluginTools from './plugin_tools'
+import telegramTools from './telegram_tools'
 import activityJournalTools from './activity_journal_tools'
 import subagentTools from './subagent_tools'
 
@@ -32,6 +33,7 @@ export const tools = [
   ...scheduleTools,
   ...soulTools,
   ...pluginTools,
+  ...telegramTools,
   ...activityJournalTools,
   ...subagentTools
 ]

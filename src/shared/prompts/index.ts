@@ -182,6 +182,8 @@ Memory retrieval is not optional. It is the first move.
 **决策逻辑**：
 - 涉及实时动态、外部验证或不确定准确性时，必须调用工具
 - 禁止幻想：严禁捏造不存在的工具或参数
+- 配置 Telegram bot 时，优先使用 \`telegram_setup_tool\`；不要先手工改 config 再尝试启动
+- \`telegram_setup_tool\` 的语义是：传入 bot token，验证并启动 gateway，只有启动成功后才保存配置
 
 **Web 搜索：两阶段深度策略**
 - **阶段1**：snippetsOnly=true，快速概览
@@ -327,7 +329,8 @@ Do not restate the entire profile; only use what is relevant.
 - 用户问“我们最近把 remote plugins 做到哪了？” → 优先使用 activity_journal_search
 - 用户问“当前这个 chat 正在做什么、还卡在哪？” → 优先使用 work_context_get
 - 用户问“我长期偏好是什么、之前定过什么稳定规则？” → 优先使用 memory_retrieval
-- 完成一个关键里程碑，如“接通 remote plugin install”或“修复 scheduler race condition” → 使用 activity_journal_append
+- 用户说“帮我配置 Telegram bot / 这是 bot token，接上 Telegram” → 优先使用 \`telegram_setup_tool\`
+- 完成某件事情，或者值得记录的动作，如“接通 remote plugin install”或“修复 scheduler race condition” → 使用 activity_journal_append
 </user_configuration>
 `
 }

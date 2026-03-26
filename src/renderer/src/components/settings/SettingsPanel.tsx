@@ -1,6 +1,6 @@
 import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
 import { Tabs, TabsContent } from "@renderer/components/ui/tabs"
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
@@ -59,6 +59,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [telegramEnabled, setTelegramEnabled] = useState<boolean>(appConfig?.telegram?.enabled ?? false)
     const [telegramBotToken, setTelegramBotToken] = useState<string>(appConfig?.telegram?.botToken || '')
     const [activeTab, setActiveTab] = useState<string>('provider-list')
+    const previousSavedTelegramRef = useRef({
+        enabled: appConfig?.telegram?.enabled ?? false,
+        botToken: appConfig?.telegram?.botToken ?? ''
+    })
 
     // Compression state
     const [compressionEnabled, setCompressionEnabled] = useState<boolean>(appConfig?.compression?.enabled ?? true)
@@ -70,14 +74,32 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         if (appConfig?.tools?.maxWebSearchItems !== undefined) {
             setMaxWebSearchItems(appConfig.tools.maxWebSearchItems)
         }
-        setTelegramEnabled(appConfig?.telegram?.enabled ?? false)
-        setTelegramBotToken(appConfig?.telegram?.botToken || '')
         if (appConfig?.compression) {
             setCompressionEnabled(appConfig.compression.enabled ?? true)
             setCompressionTriggerThreshold(appConfig.compression.triggerThreshold || 30)
             setCompressionKeepRecentCount(appConfig.compression.keepRecentCount || 20)
             setCompressionCompressCount(appConfig.compression.compressCount || 10)
         }
+    }, [appConfig])
+
+    useEffect(() => {
+        const previousSavedTelegram = previousSavedTelegramRef.current
+        const telegramDirty = telegramEnabled !== previousSavedTelegram.enabled
+            || telegramBotToken !== previousSavedTelegram.botToken
+        const nextSavedTelegram = {
+            enabled: appConfig?.telegram?.enabled ?? false,
+            botToken: appConfig?.telegram?.botToken ?? ''
+        }
+
+        if (!telegramDirty) {
+            setTelegramEnabled(nextSavedTelegram.enabled)
+            setTelegramBotToken(nextSavedTelegram.botToken)
+        }
+
+        previousSavedTelegramRef.current = nextSavedTelegram
+        // Intentionally only react to saved-config changes; local draft edits should
+        // not re-run this sync path.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appConfig])
 
     const saveConfigurationClick = async (): Promise<void> => {

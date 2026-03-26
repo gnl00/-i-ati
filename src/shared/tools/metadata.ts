@@ -14,6 +14,7 @@ export type EmbeddedToolCapability =
   | 'skill'
   | 'soul'
   | 'plugin'
+  | 'telegram'
   | 'subagent'
   | 'registry'
 
@@ -290,6 +291,12 @@ export const embeddedToolMetadata: Record<string, EmbeddedToolMetadata> = {
     capability: 'plugin',
     riskLevel: 'dangerous',
     mutatesWorkspace: true,
+    subagent: 'deny'
+  },
+  telegram_setup_tool: {
+    capability: 'telegram',
+    riskLevel: 'warning',
+    mutatesWorkspace: false,
     subagent: 'deny'
   },
   activity_journal_append: {

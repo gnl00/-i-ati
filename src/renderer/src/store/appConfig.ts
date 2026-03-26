@@ -7,6 +7,7 @@ import { defaultConfig } from '../config'
 // Initialization tracking
 let configInitialized = false
 let configInitPromise: Promise<void> | null = null
+let configEventsSubscribed = false
 let pluginEventsSubscribed = false
 const logger = createRendererLogger('AppConfigStore')
 
@@ -209,6 +210,7 @@ type AppConfigAction = {
   _setLoadedPlugins: (plugins: PluginEntity[]) => void
   _setLoadedRemotePlugins: (plugins: RemotePluginCatalogItem[]) => void
   setAppConfig: (config: IAppConfig) => Promise<void>
+  refreshAppConfig: () => Promise<void>
   getAppConfig: () => IAppConfig
 
   setProviderDefinitions: (definitions: ProviderDefinition[]) => void
@@ -354,6 +356,15 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       streamChunkDebugEnabled: nextConfig.tools?.streamChunkDebugEnabled ?? false,
       compression: nextConfig.compression
     })
+  },
+
+  refreshAppConfig: async () => {
+    const { getConfig } = await import('../db/ConfigRepository')
+    const loadedConfig = await getConfig()
+    if (!loadedConfig) {
+      return
+    }
+    get()._setAppConfig(loadedConfig)
   },
 
   // Getter
@@ -731,13 +742,22 @@ export const initializeAppConfig = async (): Promise<void> => {
       })
       const store = useAppConfigStore.getState()
       store._setAppConfig(loadedConfig)
-      if (!pluginEventsSubscribed) {
-        const { subscribePluginEvents } = await import('../invoker/ipcInvoker')
-        subscribePluginEvents((event) => {
-          if (event.type !== 'updated') return
-          useAppConfigStore.getState()._setLoadedPlugins(event.payload.plugins)
-        })
-        pluginEventsSubscribed = true
+      if (!configEventsSubscribed || !pluginEventsSubscribed) {
+        const { subscribeConfigEvents, subscribePluginEvents } = await import('../invoker/ipcInvoker')
+        if (!configEventsSubscribed) {
+          subscribeConfigEvents((event) => {
+            if (event.type !== 'updated') return
+            void useAppConfigStore.getState().refreshAppConfig()
+          })
+          configEventsSubscribed = true
+        }
+        if (!pluginEventsSubscribed) {
+          subscribePluginEvents((event) => {
+            if (event.type !== 'updated') return
+            useAppConfigStore.getState()._setLoadedPlugins(event.payload.plugins)
+          })
+          pluginEventsSubscribed = true
+        }
       }
       configInitialized = true
       logger.info('config.bootstrap_completed')
