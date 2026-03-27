@@ -6,7 +6,7 @@
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="script-src 'self' * 'unsafe-inline' 'unsafe-eval'; style-src 'self' * 'unsafe-inline'; img-src * 'self' data: emotion-asset:"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: emotion-asset: http: https:; font-src 'self' data:; connect-src 'self' ws: wss: http: https:; frame-src 'self' blob: data: http://localhost:* https://localhost:*; worker-src 'self' blob:; media-src 'self' data: blob: http: https:"
     />
   </head>
 
