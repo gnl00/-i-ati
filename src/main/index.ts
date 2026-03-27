@@ -5,7 +5,7 @@ import { destroyWindowPool, getWindowPool } from './tools/webTools/BrowserWindow
 import { cleanupDevServers } from './tools/devServer/DevServerProcessor'
 import { initializeMainEmbeddedTools } from './tools'
 import { mainIPCSetup as ipcSetup } from './main-ipc'
-import { createWindow } from './main-window'
+import { createWindow, getMainWindow, setMainWindowAppQuitting } from './main-window'
 import DatabaseService from './services/DatabaseService'
 import MemoryService from './services/memory/MemoryService'
 import { SkillService } from './services/skills/SkillService'
@@ -41,6 +41,22 @@ protocol.registerSchemesAsPrivileged([
 
 let rendererReadyMarked = false
 let rendererSummaryScheduled = false
+let appCleanupDone = false
+
+const cleanupAppServices = (): void => {
+  if (appCleanupDone) {
+    return
+  }
+
+  appCleanupDone = true
+  globalShortcut.unregisterAll()
+  mcpRuntimeService.disconnectAll()
+  destroyWindowPool()
+  cleanupDevServers()
+  schedulerService.stop()
+  telegramGatewayService.stop()
+}
+
 ipcMain.on(STARTUP_RENDERER_READY, () => {
   if (rendererReadyMarked) return
   rendererReadyMarked = true
@@ -144,12 +160,27 @@ app.whenReady().then(async () => {
   })
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    const existingWindow = getMainWindow()
+    if (existingWindow) {
+      if (existingWindow.isMinimized()) {
+        existingWindow.restore()
+      }
+      return
+    }
+
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
   })
 }).catch((error) => {
   console.error('[App] Failed during app.whenReady bootstrap:', error)
+})
+
+app.on('before-quit', () => {
+  setMainWindowAppQuitting(true)
+  // Window hiding on macOS should not tear down long-lived services.
+  // Only stop background services when the app is actually quitting.
+  cleanupAppServices()
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -159,14 +190,6 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
-  globalShortcut.unregisterAll()
-  mcpRuntimeService.disconnectAll()
-  // Clean up window pool
-  destroyWindowPool()
-  // Clean up development servers
-  cleanupDevServers()
-  schedulerService.stop()
-  telegramGatewayService.stop()
 })
 
 // In this file you can include the rest of your app"s specific main process

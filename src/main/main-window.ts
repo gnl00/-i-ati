@@ -1,17 +1,41 @@
-import { shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import icon from '../../build/icon.png?asset'
 
-let mainWindow: BrowserWindow
+let mainWindow: BrowserWindow | null = null
 let onWindowCreatedCallback: ((window: BrowserWindow) => void) | null = null
+let appQuitting = false
+
+function getMainWindow(): BrowserWindow | null {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return null
+  }
+
+  return mainWindow
+}
+
+function setMainWindowAppQuitting(quitting: boolean): void {
+  appQuitting = quitting
+}
 
 function createWindow(onCreated?: (window: BrowserWindow) => void): void {
   if (onCreated) {
     onWindowCreatedCallback = onCreated
   }
+
+  const existingWindow = getMainWindow()
+  if (existingWindow) {
+    if (existingWindow.isMinimized()) {
+      existingWindow.restore()
+    }
+    existingWindow.show()
+    existingWindow.focus()
+    return
+  }
+
   // Create the browser window.
-  mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 770,
     height: 850,
     show: false,
@@ -27,9 +51,25 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
       webSecurity: false
     }
   })
+  mainWindow = window
 
-  mainWindow.on('ready-to-show', async () => {
-    mainWindow.show()
+  window.on('ready-to-show', async () => {
+    window.show()
+  })
+
+  window.on('close', (event) => {
+    if (process.platform === 'darwin' && !appQuitting) {
+      event.preventDefault()
+      // On macOS, treat the red close button as "hide app" so Dock re-activation
+      // can restore the app via the native unhide flow instead of recreating UI state.
+      app.hide()
+    }
+  })
+
+  window.on('closed', () => {
+    if (mainWindow === window) {
+      mainWindow = null
+    }
   })
 
   // 监听 new-window 事件
@@ -50,7 +90,7 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
   //   console.log('on-focus')
   // })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -63,52 +103,59 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    window.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
   if (onWindowCreatedCallback) {
-    onWindowCreatedCallback(mainWindow)
+    onWindowCreatedCallback(window)
   }
 
   // @ts-ignore
   if (import.meta.env.MODE === 'development') {
-    mainWindow.webContents.openDevTools({ mode: 'right' })
+    window.webContents.openDevTools({ mode: 'right' })
   }
 }
 
 const pinWindow = (pin: boolean): void => {
-  mainWindow.setAlwaysOnTop(pin, 'floating')
+  getMainWindow()?.setAlwaysOnTop(pin, 'floating')
 }
 
 const getWinPosition = (): number[] => {
-  return mainWindow.getPosition()
+  return getMainWindow()?.getPosition() ?? [0, 0]
 }
 
 const setWinPosition = ({x, y, animation= true}): void => {
-  mainWindow.setPosition(x, y, animation)
+  getMainWindow()?.setPosition(x, y, animation)
 }
 
 const windowsMinimize = () => {
-  mainWindow.minimize()
+  getMainWindow()?.minimize()
 }
 
 const windowsMaximize = () => {
-  if (mainWindow.isMaximized()) {
-    mainWindow.unmaximize()
+  const window = getMainWindow()
+  if (!window) {
+    return
+  }
+
+  if (window.isMaximized()) {
+    window.unmaximize()
   } else {
-    mainWindow.maximize()
+    window.maximize()
   }
 }
 
 const windowsClose = () => {
-  mainWindow.close()
+  getMainWindow()?.close()
 }
 
 export {
   mainWindow,
+  getMainWindow,
   createWindow,
+  setMainWindowAppQuitting,
   pinWindow,
   getWinPosition,
   setWinPosition,
