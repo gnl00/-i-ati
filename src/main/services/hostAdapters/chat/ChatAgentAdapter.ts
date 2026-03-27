@@ -101,4 +101,15 @@ export class ChatAgentAdapter {
       }
     }
   }
+
+  async abortRun({
+    chatContext,
+    messageManager
+  }: Pick<FinalizeRunArgs, 'chatContext' | 'messageManager'>): Promise<void> {
+    messageManager.flushPendingAssistantUpdate()
+    await this.finalizeService.settleAbortedAssistantMessage(
+      chatContext.assistantPlaceholder,
+      messageManager.getLastAssistantMessage()
+    )
+  }
 }

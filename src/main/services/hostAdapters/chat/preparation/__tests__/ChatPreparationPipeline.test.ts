@@ -23,6 +23,7 @@ vi.mock('@main/services/DatabaseService', () => ({
     getChatByUuid: vi.fn(),
     getMessagesByChatId: vi.fn(),
     getMessagesByChatUuid: vi.fn(),
+    getEmotionStateByChatId: vi.fn(() => undefined),
     saveMessage: vi.fn(),
     saveChat: vi.fn(),
     updateChat: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock('@shared/services/skills/SkillPromptBuilder', () => ({
 
 vi.mock('@shared/prompts', () => ({
   systemPrompt: vi.fn(() => 'system prompt'),
+  buildEmotionSystemPrompt: vi.fn((summary?: string) => summary ? `emotion prompt\n${summary}` : 'emotion prompt'),
   buildUserInstructionPrompt: vi.fn((prompt?: string) => prompt ? `<user_instruction>\n${prompt}\n</user_instruction>` : '')
 }))
 
@@ -122,8 +124,8 @@ describe('ChatPreparationPipeline', () => {
     ;(DatabaseService.getConfig as any).mockReturnValue(config)
     ;(DatabaseService.getChatById as any).mockReturnValue(chatEntity)
     ;(DatabaseService.getChatByUuid as any).mockReturnValue(undefined)
-    ;(DatabaseService.getMessagesByChatId as any).mockReturnValue(historyMessages)
-    ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue([])
+    ;(DatabaseService.getMessagesByChatId as any).mockReturnValue([])
+    ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue(historyMessages)
     ;(DatabaseService.saveMessage as any)
       .mockReturnValueOnce(101)
       .mockReturnValueOnce(102)

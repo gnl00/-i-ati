@@ -36,6 +36,10 @@ export class RunTerminalHandler {
     const lifecycle = new RunLifecycleEventMapper(emitter)
 
     if (kernelResult.state === 'aborted') {
+      await chatAgentAdapter.abortRun({
+        chatContext,
+        messageManager
+      })
       lifecycle.emitAborted()
       return { state: 'aborted' }
     }

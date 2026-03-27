@@ -5,6 +5,48 @@ import { resolveExistingChatModelRef, resolveNewChatModelRef, isModelRefAvailabl
 import { create } from 'zustand'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
+function hasAssistantPayload(message: ChatMessage): boolean {
+  const hasContent = typeof message.content === 'string'
+    ? message.content.trim().length > 0
+    : Array.isArray(message.content) && message.content.length > 0
+
+  const hasSegments = Array.isArray(message.segments) && message.segments.length > 0
+  const hasToolCalls = Array.isArray(message.toolCalls) && message.toolCalls.length > 0
+
+  return hasContent || hasSegments || hasToolCalls
+}
+
+function isCompletedEmptyAssistantPlaceholder(message: MessageEntity): boolean {
+  return message.body.role === 'assistant'
+    && Boolean(message.body.typewriterCompleted)
+    && !hasAssistantPayload(message.body)
+}
+
+async function trimTrailingCompletedEmptyAssistantPlaceholders(
+  messages: MessageEntity[]
+): Promise<MessageEntity[]> {
+  const trimmed = [...messages]
+  const staleIds: number[] = []
+
+  while (trimmed.length > 0) {
+    const last = trimmed[trimmed.length - 1]
+    if (!isCompletedEmptyAssistantPlaceholder(last)) {
+      break
+    }
+
+    if (last.id) {
+      staleIds.push(last.id)
+    }
+    trimmed.pop()
+  }
+
+  for (const id of staleIds) {
+    await messagePersistence.deleteMessage(id)
+  }
+
+  return trimmed
+}
+
 export type ChatState = {
   // Chat data
   selectedModelRef: ModelRef | undefined
@@ -65,6 +107,7 @@ export type ChatAction = {
   updateMessage: (message: MessageEntity) => Promise<void>
   patchMessageUiState: (id: number, uiState: { typewriterCompleted?: boolean }) => Promise<void>
   deleteMessage: (messageId: number) => Promise<void>
+  settleLatestAssistantAfterAbort: () => Promise<void>
   upsertMessage: (message: MessageEntity) => void
   updateLastAssistantMessageWithError: (error: Error) => Promise<number | undefined>
   clearMessages: () => void
@@ -208,7 +251,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     if (!chat.uuid) {
       throw new Error(`Chat missing uuid: ${chatId}`)
     }
-    const messages = await messagePersistence.getMessagesByChatUuid(chat.uuid)
+    const messages = await trimTrailingCompletedEmptyAssistantPlaceholders(
+      await messagePersistence.getMessagesByChatUuid(chat.uuid)
+    )
 
     // 3. 更新 Zustand state（触发 UI 更新）
     set({
@@ -251,7 +296,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
    * 数据流：SQLite → IPC → Zustand → UI
    */
   loadMessagesByChatUuid: async (chatUuid) => {
-    const messages = await messagePersistence.getMessagesByChatUuid(chatUuid)
+    const messages = await trimTrailingCompletedEmptyAssistantPlaceholders(
+      await messagePersistence.getMessagesByChatUuid(chatUuid)
+    )
     set({ messages })
     return messages
   },
@@ -260,7 +307,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
    * 仅获取指定 chatUuid 的消息（不更新 Zustand）
    */
   fetchMessagesByChatUuid: async (chatUuid) => {
-    return await messagePersistence.getMessagesByChatUuid(chatUuid)
+    return await trimTrailingCompletedEmptyAssistantPlaceholders(
+      await messagePersistence.getMessagesByChatUuid(chatUuid)
+    )
   },
 
   /**
@@ -314,6 +363,32 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     set((prevState) => ({
       messages: prevState.messages.filter(m => m.id !== messageId)
     }))
+  },
+
+  settleLatestAssistantAfterAbort: async () => {
+    const messages = get().messages
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find(msg => msg.body.role === 'assistant')
+
+    if (!lastAssistantMessage) {
+      return
+    }
+
+    if (!hasAssistantPayload(lastAssistantMessage.body)) {
+      if (lastAssistantMessage.id) {
+        await get().deleteMessage(lastAssistantMessage.id)
+      } else {
+        set((prevState) => ({
+          messages: prevState.messages.filter(message => message !== lastAssistantMessage)
+        }))
+      }
+      return
+    }
+
+    if (lastAssistantMessage.id && !lastAssistantMessage.body.typewriterCompleted) {
+      await get().patchMessageUiState(lastAssistantMessage.id, { typewriterCompleted: true })
+    }
   },
 
   /**

@@ -145,6 +145,32 @@ export class ChatStepStore implements ConversationStore {
     return updated.id || -1
   }
 
+  async settleAbortedAssistantMessage(
+    placeholder: MessageEntity,
+    lastAssistantMessage: MessageEntity
+  ): Promise<number | undefined> {
+    if (this.hasPersistableAssistantPayload(lastAssistantMessage.body)) {
+      return this.finalizeAssistantMessage(placeholder, lastAssistantMessage)
+    }
+
+    if (placeholder.id) {
+      DatabaseService.deleteMessage(placeholder.id)
+    }
+
+    return undefined
+  }
+
+  private hasPersistableAssistantPayload(message: ChatMessage): boolean {
+    const hasContent = typeof message.content === 'string'
+      ? message.content.trim().length > 0
+      : Array.isArray(message.content) && message.content.length > 0
+
+    const hasSegments = Array.isArray(message.segments) && message.segments.length > 0
+    const hasToolCalls = Array.isArray(message.toolCalls) && message.toolCalls.length > 0
+
+    return hasContent || hasSegments || hasToolCalls
+  }
+
   private attachMessageToChat(chatEntity: ChatEntity, messageId?: number): void {
     if (messageId == null) {
       return

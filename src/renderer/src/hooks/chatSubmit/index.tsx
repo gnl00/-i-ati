@@ -239,8 +239,11 @@ function useChatSubmitV2() {
       }
 
       if (event.type === 'run.aborted') {
-        resetUiState()
-        cleanupActiveRun()
+        void (async () => {
+          await useChatStore.getState().settleLatestAssistantAfterAbort()
+          resetUiState()
+          cleanupActiveRun()
+        })()
       }
     })
   }

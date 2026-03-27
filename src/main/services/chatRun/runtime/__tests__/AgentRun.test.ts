@@ -278,6 +278,7 @@ describe('AgentRun', () => {
           chatId: prepared.chatContext.chat.id,
           chatUuid: prepared.chatContext.chat.uuid
         })),
+        abortRun: vi.fn(async () => undefined),
         finalizeRun: vi.fn()
       },
       postRunJobService: {
