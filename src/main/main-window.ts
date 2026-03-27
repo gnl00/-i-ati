@@ -45,8 +45,8 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
     icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      // Currently, electron-vite not support nodeIntegration. 
+      // Keep the renderer sandboxed and expose only the preload bridge surface.
+      sandbox: true,
       contextIsolation: true,
       webSecurity: false
     }

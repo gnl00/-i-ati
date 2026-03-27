@@ -29,7 +29,6 @@
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
-    "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@mantine/hooks": "^7.15.3",
     "@modelcontextprotocol/sdk": "^1.17.0",
