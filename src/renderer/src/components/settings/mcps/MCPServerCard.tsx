@@ -1,6 +1,7 @@
 import React from 'react'
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
 import { cn } from '@renderer/lib/utils'
+import type { RegistryServerItem } from './MCPServersManager.types'
 import {
   AlertCircle,
   Check,
@@ -11,46 +12,52 @@ import {
   SquareTerminal
 } from 'lucide-react'
 
-type RepositoryInfo = {
-  url?: string
-  source?: string
+type RuntimeStatus = 'connected' | 'connecting' | 'error' | 'idle'
+
+interface MCPServerCardBaseProps {
+  animationDelay?: number
+  runtimeStatus?: RuntimeStatus
+  runtimeError?: string
+  toolCount?: number
+  onUninstall?: () => void
+}
+
+interface RegistryMCPServerCardProps extends MCPServerCardBaseProps {
+  mode: 'registry'
+  item: RegistryServerItem
+  installed?: boolean
+  onInstall?: () => void
+}
+
+interface InstalledServerCardMetadata {
+  description?: string
+  version?: string
+}
+
+interface InstalledMCPServerCardProps extends MCPServerCardBaseProps {
+  mode: 'installed'
+  name: string
+  config: LocalMcpServerConfig
+  metadata?: InstalledServerCardMetadata
+  onCopyConfig?: () => void
 }
 
 export type MCPServerCardMode = 'registry' | 'installed'
-
-export interface MCPServerCardProps {
-  mode: MCPServerCardMode
-  name: string
-  title?: string
-  description?: string
-  version?: string
-  iconUrl?: string
-  connectionType?: string
-  repository?: RepositoryInfo
-  installed?: boolean
-  configDisplay?: string
-  onInstall?: () => void
-  onUninstall?: () => void
-  onCopyConfig?: () => void
-  animationDelay?: number
-  runtimeStatus?: 'connected' | 'connecting' | 'error' | 'idle'
-  runtimeError?: string
-  toolCount?: number
-}
+export type MCPServerCardProps = RegistryMCPServerCardProps | InstalledMCPServerCardProps
 
 const getConnectionTone = (connectionType?: string): string => {
-  if (!connectionType) return 'bg-slate-100/80 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300'
-  if (connectionType === 'sse') return 'bg-sky-50/90 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
-  if (connectionType === 'npm') return 'bg-amber-50/90 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-  if (connectionType === 'STDIO') return 'bg-violet-50/90 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300'
-  if (connectionType === 'streamableHttp') return 'bg-emerald-50/90 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-  return 'bg-slate-100/80 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300'
+  if (!connectionType) return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+  if (connectionType === 'sse') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-200'
+  if (connectionType === 'npm') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-200'
+  if (connectionType === 'STDIO') return 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200'
+  if (connectionType === 'streamableHttp') return 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-200'
+  return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
 }
 
 const getRuntimeMeta = (
-  mode: MCPServerCardProps['mode'],
+  mode: MCPServerCardMode,
   isInstalled: boolean,
-  runtimeStatus: MCPServerCardProps['runtimeStatus']
+  runtimeStatus: RuntimeStatus
 ): {
   label: string
   tone: string
@@ -60,9 +67,9 @@ const getRuntimeMeta = (
   if (mode === 'registry' && !isInstalled) {
     return {
       label: 'Available',
-      tone: 'text-sky-700 dark:text-sky-300',
+      tone: 'text-blue-600 dark:text-blue-300',
       icon: <PackageOpen className="h-2.5 w-2.5" />,
-      background: 'bg-sky-50/90 dark:bg-sky-950/40'
+      background: 'bg-blue-50 dark:bg-blue-900/40'
     }
   }
 
@@ -72,65 +79,82 @@ const getRuntimeMeta = (
         label: 'Connected',
         tone: 'text-emerald-600 dark:text-emerald-400',
         icon: <Plug className="h-2.5 w-2.5" />,
-        background: 'bg-emerald-50/90 dark:bg-emerald-950/40'
+        background: 'bg-emerald-50 dark:bg-emerald-900/40'
       }
     case 'connecting':
       return {
         label: 'Connecting',
         tone: 'text-amber-600 dark:text-amber-400',
         icon: <Loader2 className="h-2.5 w-2.5 animate-spin" />,
-        background: 'bg-amber-50/90 dark:bg-amber-950/40'
+        background: 'bg-amber-50 dark:bg-amber-900/40'
       }
     case 'error':
       return {
         label: 'Failed',
-        tone: 'text-rose-600 dark:text-rose-400',
+        tone: 'text-red-600 dark:text-red-400',
         icon: <AlertCircle className="h-2.5 w-2.5" />,
-        background: 'bg-rose-50/90 dark:bg-rose-950/40'
+        background: 'bg-red-50 dark:bg-red-900/40'
       }
     default:
       return {
         label: 'Idle',
         tone: 'text-slate-500 dark:text-slate-400',
         icon: <PackageOpen className="h-2.5 w-2.5" />,
-        background: 'bg-slate-100/80 dark:bg-slate-800/80'
+        background: 'bg-slate-100 dark:bg-slate-800'
       }
   }
 }
 
-const MCPServerCard: React.FC<MCPServerCardProps> = ({
-  mode,
-  name,
-  title,
-  description,
-  version,
-  iconUrl,
-  connectionType,
-  repository,
-  installed,
-  configDisplay,
-  onInstall,
-  onUninstall,
-  onCopyConfig,
-  animationDelay,
-  runtimeStatus = 'idle',
-  runtimeError,
-  toolCount
-}) => {
-  const displayName = (title || name).substring((title || name).indexOf('/') + 1)
-  const isInstalled = mode === 'installed' || Boolean(installed)
+const getDisplayName = (name: string, title?: string): string => {
+  const displayName = title || name
+  const slashIndex = displayName.indexOf('/')
+  return slashIndex >= 0 ? displayName.substring(slashIndex + 1) : displayName
+}
+
+const getRegistryConnectionType = (item: RegistryServerItem): string | undefined => {
+  return item.server.remotes?.[0]?.type || item.server.packages?.[0]?.registryType
+}
+
+const getInstalledConnectionType = (config: LocalMcpServerConfig): string | undefined => {
+  return config.type || (config.command ? 'STDIO' : 'GENERIC')
+}
+
+const getInstalledConfigDisplay = (config: LocalMcpServerConfig): string | undefined => {
+  return config.url || (config.command ? `${config.command} ${config.args?.join(' ') || ''}` : undefined)
+}
+
+const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
+  const {
+    mode,
+    animationDelay,
+    runtimeError,
+    toolCount,
+    runtimeStatus = 'idle'
+  } = props
+
+  const isInstalled = mode === 'installed' || Boolean(props.installed)
   const runtimeMeta = getRuntimeMeta(mode, isInstalled, runtimeStatus)
+
+  const name = mode === 'registry' ? props.item.server.name : props.name
+  const displayName = mode === 'registry'
+    ? getDisplayName(props.item.server.name, props.item.server.title)
+    : getDisplayName(props.name)
+  const description = mode === 'registry' ? props.item.server.description : props.metadata?.description
+  const version = mode === 'registry' ? props.item.server.version : props.metadata?.version
+  const connectionType = mode === 'registry'
+    ? getRegistryConnectionType(props.item)
+    : getInstalledConnectionType(props.config)
+  const repository = mode === 'registry' ? props.item.server.repository : undefined
+  const iconUrl = mode === 'registry' ? props.item.server.icons?.[0]?.src : undefined
+  const configDisplay = mode === 'installed' ? getInstalledConfigDisplay(props.config) : undefined
 
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-[18px] border transition-all duration-300',
-        'bg-white/72 shadow-xs backdrop-blur-xl',
-        'dark:bg-slate-950/55 dark:shadow-[0_14px_44px_-28px_rgba(2,6,23,0.78)]',
-        'border-white/70 dark:border-white/10',
-        'hover:-translate-y-0.5 hover:shadow-sm',
-        mode === 'installed' && 'ring-1 ring-emerald-500/10 dark:ring-emerald-400/10',
-        installed && mode === 'registry' && 'opacity-75 hover:opacity-100'
+        'group relative overflow-hidden rounded-xl border transition-all duration-300',
+        'bg-white dark:bg-slate-950',
+        'border-slate-100 dark:border-slate-800',
+        'hover:-translate-y-0.5 hover:shadow-xs'
       )}
       style={animationDelay !== undefined ? {
         animationDelay: `${animationDelay}ms`,
@@ -138,16 +162,14 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
         opacity: 0
       } : undefined}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-linear-to-br from-white/55 via-white/10 to-transparent dark:from-white/10 dark:via-white/3 dark:to-transparent" />
-
       <div className="relative flex h-full flex-col gap-2.5 p-3">
         <div className="flex items-start gap-2.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/70 bg-white/75 shadow-sm dark:border-white/10 dark:bg-slate-900/75">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 select-none">
             {mode === 'registry' && iconUrl ? (
               <img
                 src={iconUrl}
                 alt=""
-                className="h-5.5 w-5.5 rounded-lg object-cover opacity-95"
+                className="h-9 w-9 rounded-lg object-cover opacity-95"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                   const parent = e.currentTarget.parentElement
@@ -161,7 +183,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                 }}
               />
             ) : (
-              <span className="text-[13px] font-semibold uppercase text-slate-600 dark:text-slate-300">
+              <span className="text-md font-semibold uppercase text-slate-600 dark:text-slate-300">
                 {displayName.charAt(0)}
               </span>
             )}
@@ -175,7 +197,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                     {displayName}
                   </h4>
                   {version && (
-                    <span className="shrink-0 rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-500 dark:bg-slate-800/85 dark:text-slate-400">
+                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                       v{version}
                     </span>
                   )}
@@ -187,7 +209,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
 
               <div className="shrink-0">
                 {mode === 'registry' && isInstalled ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50/90 px-2 py-0.75 text-[9.5px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.75 text-[9.5px] font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
                     <Check className="h-2.5 w-2.5" />
                     Added
                   </span>
@@ -216,7 +238,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                 </span>
               )}
               {typeof toolCount === 'number' && isInstalled && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-slate-100/70 px-2 py-0.75 text-[9.5px] font-medium text-slate-500 dark:bg-slate-800/70 dark:text-slate-400">
+                <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.75 text-[9.5px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                   <SquareTerminal className="h-2.5 w-2.5" />
                   {toolCount} tools
                 </span>
@@ -232,12 +254,12 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
         )}
 
         {runtimeStatus === 'error' && runtimeError && (
-          <p className="rounded-xl bg-rose-50/90 px-2.5 py-2 text-[10.5px] leading-relaxed text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
+          <p className="rounded-lg bg-red-50 px-2.5 py-2 text-[10.5px] leading-relaxed text-red-600 dark:bg-red-900/40 dark:text-red-300">
             {runtimeError}
           </p>
         )}
 
-        <div className="mt-auto flex items-center justify-between gap-2.5 border-t border-slate-200/60 pt-2.5 dark:border-white/10">
+        <div className="mt-auto flex items-center justify-between gap-2.5 border-t border-slate-200 pt-3 dark:border-slate-800">
           <div className="min-w-0 flex-1">
             {mode === 'registry' && repository?.url ? (
               <a
@@ -268,7 +290,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
             {mode === 'registry' ? (
               isInstalled ? (
                 <InlineDeleteConfirm
-                  onConfirm={async () => { onUninstall?.() }}
+                  onConfirm={async () => { props.onUninstall?.() }}
                   ariaLabel="Remove server"
                   title="Remove server"
                   idleLabel="Remove"
@@ -278,8 +300,8 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                 />
               ) : (
                 <button
-                  onClick={onInstall}
-                  className="h-7 rounded-lg bg-slate-950 px-3 text-[10.5px] font-medium text-white transition-all duration-150 hover:bg-slate-800 active:scale-[0.97] dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                  onClick={props.onInstall}
+                  className="h-7 rounded-md bg-black px-3 text-[10.5px] font-medium text-white transition-all duration-150 hover:bg-black/70 active:scale-[0.97] dark:bg-blue-900 dark:hover:bg-blue-800"
                 >
                   Install
                 </button>
@@ -287,7 +309,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
             ) : (
               <>
                 <button
-                  onClick={onCopyConfig}
+                  onClick={props.onCopyConfig}
                   className="h-7 rounded-lg px-2.5 text-[10.5px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   title="Copy JSON configuration"
                 >
@@ -295,7 +317,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({
                 </button>
 
                 <InlineDeleteConfirm
-                  onConfirm={async () => { onUninstall?.() }}
+                  onConfirm={async () => { props.onUninstall?.() }}
                   ariaLabel="Remove server"
                   title="Remove server"
                   idleLabel="Remove"

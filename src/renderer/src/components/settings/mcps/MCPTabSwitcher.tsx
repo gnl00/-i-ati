@@ -86,7 +86,7 @@ const MCPTabSwitcher: React.FC<MCPTabSwitcherProps> = ({
         <div
           className={cn(
             'absolute top-1 bottom-1 rounded-[14px] border',
-            'border-white/70 bg-white shadow-[0_10px_24px_-18px_rgba(15,23,42,0.55)]',
+            'border-slate-100 bg-white/5 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.55)]',
             'dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_10px_24px_-18px_rgba(2,6,23,0.9)]',
             'transition-[transform,width] duration-200 ease-[cubic-bezier(0.2,0.8,0.2,1)]'
           )}

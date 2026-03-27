@@ -39,6 +39,47 @@ const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const API_BASE_URL = 'https://registry.modelcontextprotocol.io/v0.1/servers'
 const REGISTRY_PAGE_SIZE = 15
 
+type MCPServersTabValue = 'registry' | 'local'
+
+interface MCPServersTabContentProps {
+  value: MCPServersTabValue
+  empty?: boolean
+  loading?: boolean
+  loadingState?: React.ReactNode
+  emptyState?: React.ReactNode
+  contentClassName?: string
+  children?: React.ReactNode
+}
+
+const MCPServersTabContent: React.FC<MCPServersTabContentProps> = ({
+  value,
+  empty = false,
+  loading = false,
+  loadingState,
+  emptyState,
+  contentClassName,
+  children
+}) => {
+  return (
+    <TabsContent
+      value={value}
+      className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 pb-1 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
+    >
+      <div className="flex-1 min-h-0 overflow-y-auto -mx-4 px-4 pt-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+        {loading ? (
+          loadingState
+        ) : empty ? (
+          emptyState
+        ) : (
+          <div className={cn('pb-6', contentClassName)}>
+            {children}
+          </div>
+        )}
+      </div>
+    </TabsContent>
+  )
+}
+
 // Content props (without drawer-specific props)
 export interface MCPServersManagerContentProps {
   mcpServerConfig: McpServerConfig
@@ -51,7 +92,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   setMcpServerConfig
 }) => {
   // State
-  const [activeTab, setActiveTab] = useState<'registry' | 'local'>('local')
+  const [activeTab, setActiveTab] = useState<MCPServersTabValue>('local')
   const [isFetching, setIsFetching] = useState(false)
   const [registryServers, setRegistryServers] = useState<RegistryServerItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -256,9 +297,77 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
     return 'idle'
   }
 
+  const installedServers = Object.entries(mcpServerConfig.mcpServers || {})
+  const shouldShowRegistryLoading = (isFetching && registryServers.length === 0) || isSearching
+  const isRegistryEmpty = filteredServers.length === 0
+  const isInstalledEmpty = installedServers.length === 0
+
+  const registryLoadingState = (
+    <div className="flex flex-col items-center justify-center h-64 gap-3">
+      <div className="relative h-9 w-9 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-800 border-t-gray-600 dark:border-t-gray-400 animate-spin" />
+        <Globe className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+      </div>
+      <p className="text-[12px] font-medium text-gray-400 dark:text-gray-500">
+        {isSearching ? 'Searching registry…' : 'Connecting to registry…'}
+      </p>
+    </div>
+  )
+
+  const registryEmptyState = (
+    <div className="flex flex-col items-center justify-center h-64 gap-2.5">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+      </div>
+      <div className="space-y-0.5 text-center">
+        <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No results matched your search</p>
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="text-[11.5px] text-gray-400 dark:text-gray-500 underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            Clear search
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
+  const installedEmptyState = (
+    <div className="flex flex-col items-center justify-center h-full gap-2.5 pb-10">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xs">
+        <Server className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+      </div>
+      <div className="space-y-1 text-center">
+        <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 tracking-tight">No servers installed</p>
+        <p className="text-[12px] text-gray-400 dark:text-gray-500 max-w-[260px] leading-relaxed">
+          Browse the registry or paste a JSON config to get started.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 mt-1">
+        <button
+          onClick={() => setActiveTab('registry')}
+          className="h-8 px-4 rounded-md text-[12px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10"
+        >
+          Browse Registry
+        </button>
+        <button
+          onClick={() => setEditMode('json')}
+          className="h-8 px-4 rounded-md text-[12px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-150"
+        >
+          Add Manually
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="flex flex-col h-full bg-gray-50/50 dark:bg-neutral-950/30">
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col overflow-hidden">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as MCPServersTabValue)}
+        className="flex-1 flex flex-col overflow-hidden"
+      >
 
         {/* ── Tab bar + toolbar ─────────────────────────────────── */}
         <div className="flex items-center justify-between mx-4 mt-4 mb-0">
@@ -323,205 +432,140 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
         </div>
 
         {/* ── Registry tab ─────────────────────────────────────── */}
-        <TabsContent value="registry" className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300">
-          <div className="flex-1 overflow-y-auto -mx-4 px-4 pt-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-            {(isFetching && registryServers.length === 0) || isSearching ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-3">
-                <div className="relative h-9 w-9 flex items-center justify-center">
-                  <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-800 border-t-gray-600 dark:border-t-gray-400 animate-spin" />
-                  <Globe className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                </div>
-                <p className="text-[12px] font-medium text-gray-400 dark:text-gray-500">
-                  {isSearching ? 'Searching registry…' : 'Connecting to registry…'}
-                </p>
-              </div>
-            ) : filteredServers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                  <Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                </div>
-                <div className="space-y-0.5 text-center">
-                  <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No results matched your search</p>
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="text-[11.5px] text-gray-400 dark:text-gray-500 underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                    >
-                      Clear search
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3 pb-6">
-                {filteredServers.map((item, idx) => {
-                  const installed = isInstalled(item.server.name)
-                  const connectionType = item.server.remotes?.[0]?.type || item.server.packages?.[0]?.registryType
+        <MCPServersTabContent
+          value="registry"
+          loading={shouldShowRegistryLoading}
+          loadingState={registryLoadingState}
+          empty={isRegistryEmpty}
+          emptyState={registryEmptyState}
+          contentClassName="space-y-1.5"
+        >
+          {filteredServers.map((item, idx) => {
+            const installed = isInstalled(item.server.name)
 
-                  return (
-                    <MCPServerCard
-                      key={`${item.server.name}-${idx}`}
-                      mode="registry"
-                      name={item.server.name}
-                      title={item.server.title}
-                      description={item.server.description}
-                      version={item.server.version}
-                      iconUrl={item.server.icons?.[0]?.src}
-                      connectionType={connectionType}
-                      repository={item.server.repository}
-                      installed={installed}
-                      runtimeStatus={installed ? getRuntimeStatus(item.server.name) : 'idle'}
-                      runtimeError={lastErrorByServer[item.server.name]}
-                      toolCount={availableMcpTools.get(item.server.name)?.length}
-                      onInstall={() => handleInstallServer(item)}
-                      animationDelay={idx * 50}
-                    />
-                  )
-                })}
+            return (
+              <MCPServerCard
+                key={`${item.server.name}-${idx}`}
+                mode="registry"
+                item={item}
+                installed={installed}
+                runtimeStatus={installed ? getRuntimeStatus(item.server.name) : 'idle'}
+                runtimeError={lastErrorByServer[item.server.name]}
+                toolCount={availableMcpTools.get(item.server.name)?.length}
+                onInstall={() => handleInstallServer(item)}
+                animationDelay={idx * 50}
+              />
+            )
+          })}
 
-                {!searchQuery && hasMore && (
-                  <div className="flex justify-center pt-4 pb-2">
-                    <button
-                      onClick={loadMore}
-                      disabled={isFetching}
-                      className="h-8 px-5 flex items-center gap-2 rounded-lg text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/60 border border-gray-200 dark:border-gray-700/60 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
-                    >
-                      {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
-                      {isFetching ? 'Loading…' : 'Load more'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </TabsContent>
+          {!searchQuery && hasMore && (
+            <div className="flex justify-center pt-4 pb-2">
+              <button
+                onClick={loadMore}
+                disabled={isFetching}
+                className="h-8 px-5 flex items-center gap-2 rounded-lg text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/60 border border-gray-200 dark:border-gray-700/60 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
+              >
+                {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                {isFetching ? 'Loading…' : 'Load more'}
+              </button>
+            </div>
+          )}
+        </MCPServersTabContent>
 
         {/* ── Local / Installed tab ─────────────────────────────── */}
-        <TabsContent value="local" className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 pb-4 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300">
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-transparent mt-4">
-            {editMode === 'visual' ? (
-              <div className="overflow-hidden h-full flex flex-col">
-                {Object.keys(mcpServerConfig.mcpServers || {}).length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-2.5 pb-10">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xs">
-                      <Server className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                    </div>
-                    <div className="space-y-1 text-center">
-                      <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 tracking-tight">No servers installed</p>
-                      <p className="text-[12px] text-gray-400 dark:text-gray-500 max-w-[260px] leading-relaxed">
-                        Browse the registry or paste a JSON config to get started.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <button
-                        onClick={() => setActiveTab('registry')}
-                        className="h-8 px-4 rounded-md text-[12px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10"
-                      >
-                        Browse Registry
-                      </button>
-                      <button
-                        onClick={() => setEditMode('json')}
-                        className="h-8 px-4 rounded-md text-[12px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-150"
-                      >
-                        Add Manually
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent -mx-4 px-4">
-                    <div className="grid grid-cols-1 gap-3 pb-6">
-                      {Object.entries(mcpServerConfig.mcpServers || {}).map(([name, config], index) => {
-                        const serverType = config.type || (config.command ? 'STDIO' : 'GENERIC')
-                        const configDisplay = config.url || (config.command && `${config.command} ${config.args?.join(' ') || ''}`)
-                        const fallbackDescription =
-                          config.description ||
-                          registryServers.find((item) => item.server.name === name)?.server.description ||
-                          searchResults.find((item) => item.server.name === name)?.server.description ||
-                          serversCache?.servers.find((item) => item.server.name === name)?.server.description
-                        const fallbackVersion =
-                          config.version ||
-                          registryServers.find((item) => item.server.name === name)?.server.version ||
-                          searchResults.find((item) => item.server.name === name)?.server.version ||
-                          serversCache?.servers.find((item) => item.server.name === name)?.server.version
+        <MCPServersTabContent
+          value="local"
+          empty={editMode === 'visual' && isInstalledEmpty}
+          emptyState={installedEmptyState}
+          contentClassName={editMode === 'visual' ? 'grid grid-cols-1 gap-3' : 'h-full flex flex-col gap-3'}
+        >
+          {editMode === 'visual' ? (
+            installedServers.map(([name, config], index) => {
+              const fallbackDescription =
+                config.description ||
+                registryServers.find((item) => item.server.name === name)?.server.description ||
+                searchResults.find((item) => item.server.name === name)?.server.description ||
+                serversCache?.servers.find((item) => item.server.name === name)?.server.description
+              const fallbackVersion =
+                config.version ||
+                registryServers.find((item) => item.server.name === name)?.server.version ||
+                searchResults.find((item) => item.server.name === name)?.server.version ||
+                serversCache?.servers.find((item) => item.server.name === name)?.server.version
 
-                        return (
-                          <MCPServerCard
-                            key={name}
-                            mode="installed"
-                            name={name}
-                            description={fallbackDescription}
-                            version={fallbackVersion}
-                            connectionType={serverType}
-                            configDisplay={configDisplay || undefined}
-                            runtimeStatus={getRuntimeStatus(name)}
-                            runtimeError={lastErrorByServer[name]}
-                            toolCount={availableMcpTools.get(name)?.length}
-                            onCopyConfig={() => {
-                              navigator.clipboard.writeText(JSON.stringify(config, null, 2))
-                              toast.success('Configuration copied to clipboard')
-                            }}
-                            onUninstall={() => handleUninstallServer(name)}
-                            animationDelay={index * 50}
-                          />
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
+              return (
+                <MCPServerCard
+                  key={name}
+                  mode="installed"
+                  name={name}
+                  config={config}
+                  metadata={{
+                    description: fallbackDescription,
+                    version: fallbackVersion
+                  }}
+                  runtimeStatus={getRuntimeStatus(name)}
+                  runtimeError={lastErrorByServer[name]}
+                  toolCount={availableMcpTools.get(name)?.length}
+                  onCopyConfig={() => {
+                    navigator.clipboard.writeText(JSON.stringify(config, null, 2))
+                    toast.success('Configuration copied to clipboard')
+                  }}
+                  onUninstall={() => handleUninstallServer(name)}
+                  animationDelay={index * 50}
+                />
+              )
+            })
+          ) : (
+            <>
+              <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-xs bg-white dark:bg-gray-900/60 relative">
+                <CodeMirror
+                  value={configJson}
+                  height="100%"
+                  extensions={[json()]}
+                  onChange={(value) => handleJsonConfigChange(value)}
+                  theme="dark"
+                  basicSetup={{
+                    lineNumbers: true,
+                    highlightActiveLineGutter: true,
+                    highlightSpecialChars: true,
+                    foldGutter: true,
+                    drawSelection: true,
+                    dropCursor: true,
+                    allowMultipleSelections: true,
+                    indentOnInput: true,
+                    syntaxHighlighting: true,
+                    bracketMatching: true,
+                    closeBrackets: true,
+                    autocompletion: true,
+                    rectangularSelection: true,
+                    crosshairCursor: true,
+                    highlightActiveLine: true,
+                    highlightSelectionMatches: true,
+                    closeBracketsKeymap: true,
+                    defaultKeymap: true,
+                    searchKeymap: true,
+                    historyKeymap: true,
+                    foldKeymap: true,
+                    completionKeymap: true,
+                    lintKeymap: true
+                  }}
+                  style={{
+                    fontFamily: 'JetBrains Mono, Fira Code, ui-monospace, monospace',
+                    fontSize: '13px',
+                    height: '100%'
+                  }}
+                />
               </div>
-            ) : (
-              <div className="h-full overflow-hidden flex flex-col gap-3">
-                <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-xs bg-white dark:bg-gray-900/60 relative">
-                  <CodeMirror
-                    value={configJson}
-                    height="100%"
-                    extensions={[json()]}
-                    onChange={(value) => handleJsonConfigChange(value)}
-                    theme="dark"
-                    basicSetup={{
-                      lineNumbers: true,
-                      highlightActiveLineGutter: true,
-                      highlightSpecialChars: true,
-                      foldGutter: true,
-                      drawSelection: true,
-                      dropCursor: true,
-                      allowMultipleSelections: true,
-                      indentOnInput: true,
-                      syntaxHighlighting: true,
-                      bracketMatching: true,
-                      closeBrackets: true,
-                      autocompletion: true,
-                      rectangularSelection: true,
-                      crosshairCursor: true,
-                      highlightActiveLine: true,
-                      highlightSelectionMatches: true,
-                      closeBracketsKeymap: true,
-                      defaultKeymap: true,
-                      searchKeymap: true,
-                      historyKeymap: true,
-                      foldKeymap: true,
-                      completionKeymap: true,
-                      lintKeymap: true
-                    }}
-                    style={{
-                      fontFamily: 'JetBrains Mono, Fira Code, ui-monospace, monospace',
-                      fontSize: '13px',
-                      height: '100%'
-                    }}
-                  />
-                </div>
 
-                <div className="shrink-0 flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/40">
-                  <div className="flex items-center gap-2">
-                    <Code className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">JSON Edit Mode</span>
-                  </div>
-                  <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Auto-saved</span>
+              <div className="shrink-0 flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/40">
+                <div className="flex items-center gap-2">
+                  <Code className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                  <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">JSON Edit Mode</span>
                 </div>
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Auto-saved</span>
               </div>
-            )}
-          </div>
-        </TabsContent>
+            </>
+          )}
+        </MCPServersTabContent>
       </Tabs>
     </div>
   )
