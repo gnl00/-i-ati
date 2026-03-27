@@ -5,13 +5,12 @@ import { ChatRunService } from '@main/services/chatRun'
 import { AppConfigStore } from '@main/services/hostAdapters/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/services/hostAdapters/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/services/hostAdapters/telegram'
-import { extractContentFromSegments } from '@main/services/agentCore/execution'
 import DatabaseService from '@main/services/DatabaseService'
 import { createLogger } from '@main/services/logging/LogService'
-import { formatTelegramRichText } from './telegram-rich-text'
 import { TelegramUpdateMapper } from './TelegramUpdateMapper'
 import { TelegramFileService } from './TelegramFileService'
 import { TelegramCommandService } from './TelegramCommandService'
+import { TelegramRunResponder } from './TelegramRunResponder'
 import { parseTelegramCommand, parseTelegramCommandCallback } from './telegram-command-parser'
 import { resolveExistingChatModelRef } from '@shared/services/ChatModelResolver'
 
@@ -311,42 +310,17 @@ export class TelegramGatewayService {
       attachmentTextBlocks: attachmentContext.documentTextBlocks
     })
 
-    const result = await this.chatRunService.execute(input)
-    const assistantMessage = result.assistantMessageId
-      ? DatabaseService.getMessageById(result.assistantMessageId)
-      : undefined
-    const replyText = this.extractReplyText(assistantMessage)
-
-    if (replyText && this.bot) {
-      const formattedReply = formatTelegramRichText(replyText)
-      this.logger.info('reply.prepared', {
-        updateId: envelope.updateId,
-        chatId: envelope.chatId,
-        chatUuid: chat.uuid,
-        parseMode: formattedReply.parseMode ?? 'plain',
-        replyPreview: this.toPreview(replyText),
-        formattedPreview: this.toPreview(formattedReply.text)
+    const responder = this.bot
+      ? new TelegramRunResponder({
+        bot: this.bot,
+        envelope,
+        logger: this.logger
       })
-      const sent = await this.bot.api.sendMessage(Number(envelope.chatId), formattedReply.text, {
-        ...(formattedReply.parseMode ? { parse_mode: formattedReply.parseMode } : {}),
-        ...(envelope.threadId ? { message_thread_id: Number(envelope.threadId) } : {}),
-        ...(envelope.messageId ? { reply_parameters: { message_id: Number(envelope.messageId) } } : {})
-      })
+      : null
 
-      if (assistantMessage) {
-        DatabaseService.updateMessage({
-          ...assistantMessage,
-          body: {
-            ...assistantMessage.body,
-            source: 'telegram',
-            host: this.adapter.buildOutboundHostMeta({
-              envelope,
-              sentMessageId: String(sent.message_id)
-            })
-          }
-        })
-      }
-    }
+    await this.chatRunService.execute(input, {
+      ...(responder ? { eventSinks: [responder] } : {})
+    })
 
     if (binding.id) {
       DatabaseService.updateChatHostBindingLastMessage(binding.id, envelope.messageId)
@@ -521,25 +495,6 @@ export class TelegramGatewayService {
     }
   }
 
-  private extractReplyText(message?: MessageEntity): string {
-    if (!message) {
-      return ''
-    }
-
-    const fromSegments = message.body.segments?.length
-      ? extractContentFromSegments(message.body.segments)
-      : ''
-    const fromContent = typeof message.body.content === 'string'
-      ? message.body.content
-      : ''
-    const toolNames = this.extractToolNames(message)
-    const toolsSummary = toolNames.length > 0
-      ? `\n\n**Agent activity**\n${toolNames.map(name => `- ${name}`).join('\n')}`
-      : ''
-
-    return `${(fromSegments || fromContent || '').trim()}${toolsSummary}`.trim()
-  }
-
   private shouldHandleEnvelope(envelope: TelegramInboundEnvelope): boolean {
     const config = this.appConfigStore.requireConfig().telegram
     if (!config?.enabled) {
@@ -580,25 +535,6 @@ export class TelegramGatewayService {
     }
 
     return config.groupPolicy !== 'disabled'
-  }
-
-  private extractToolNames(message: MessageEntity): string[] {
-    const toolNames = new Set<string>()
-
-    message.body.toolCalls?.forEach(toolCall => {
-      const name = toolCall.function?.name?.trim()
-      if (name) {
-        toolNames.add(name)
-      }
-    })
-
-    message.body.segments?.forEach(segment => {
-      if (segment.type === 'toolCall' && typeof segment.name === 'string' && segment.name.trim()) {
-        toolNames.add(segment.name.trim())
-      }
-    })
-
-    return Array.from(toolNames)
   }
 
   private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {

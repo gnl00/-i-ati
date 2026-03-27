@@ -13,10 +13,17 @@ export type ChatRunEventMeta = {
   chatUuid?: string
 }
 
+export interface ChatRunEventSink {
+  handleEvent(event: ChatRunEventEnvelope): void | Promise<void>
+}
+
 export class ChatRunEventEmitter {
   private sequence = 0
 
-  constructor(private readonly meta: ChatRunEventMeta) {}
+  constructor(
+    private readonly meta: ChatRunEventMeta,
+    private readonly sinks: ChatRunEventSink[] = []
+  ) {}
 
   setChatMeta(chat: { chatId?: number; chatUuid?: string }): void {
     this.meta.chatId = chat.chatId
@@ -50,19 +57,39 @@ export class ChatRunEventEmitter {
     }
 
     if (!mainWindow || mainWindow.isDestroyed()) {
+      this.dispatchToSinks(envelope)
       return
     }
 
     mainWindow.webContents.send(CHAT_RUN_EVENT, envelope)
+    this.dispatchToSinks(envelope)
+  }
+
+  private dispatchToSinks(envelope: ChatRunEventEnvelope): void {
+    for (const sink of this.sinks) {
+      try {
+        const result = sink.handleEvent(envelope)
+        if (result && typeof result.then === 'function') {
+          void result.catch((error) => {
+            console.warn('[ChatRunEventEmitter] Sink failed to handle event', error)
+          })
+        }
+      } catch (error) {
+        console.warn('[ChatRunEventEmitter] Sink failed to handle event', error)
+      }
+    }
   }
 }
 
 export class ChatRunEventEmitterFactory {
-  create(meta: ChatRunEventMeta): ChatRunEventEmitter {
-    return new ChatRunEventEmitter(meta)
+  create(meta: ChatRunEventMeta, sinks: ChatRunEventSink[] = []): ChatRunEventEmitter {
+    return new ChatRunEventEmitter(meta, sinks)
   }
 
-  createOptional(meta: Partial<ChatRunEventMeta> & { submissionId?: string }): ChatRunEventEmitter | null {
+  createOptional(
+    meta: Partial<ChatRunEventMeta> & { submissionId?: string },
+    sinks: ChatRunEventSink[] = []
+  ): ChatRunEventEmitter | null {
     if (!meta.submissionId) {
       return null
     }
@@ -71,6 +98,6 @@ export class ChatRunEventEmitterFactory {
       submissionId: meta.submissionId,
       chatId: meta.chatId,
       chatUuid: meta.chatUuid
-    })
+    }, sinks)
   }
 }

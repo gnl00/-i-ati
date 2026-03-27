@@ -9,7 +9,11 @@ import {
   type MainChatRunInput
 } from '@main/services/hostAdapters/chat'
 import type { RunResult } from '@main/services/agentCore/types'
-import type { ChatRunEventEmitterFactory, ToolConfirmationManager } from '../infrastructure'
+import type {
+  ChatRunEventEmitterFactory,
+  ChatRunEventSink,
+  ToolConfirmationManager
+} from '../infrastructure'
 import { RunRegistry } from './RunRegistry'
 
 type StartChatRunResult = {
@@ -32,8 +36,8 @@ export class RunManager {
   constructor(private readonly deps: RunManagerDependencies) {}
 
   // Fire-and-forget entry used by the interactive chat flow.
-  async start(input: MainChatRunInput): Promise<StartChatRunResult> {
-    const run = this.createRun(input)
+  async start(input: MainChatRunInput, eventSinks: ChatRunEventSink[] = []): Promise<StartChatRunResult> {
+    const run = this.createRun(input, eventSinks)
     run.emitAccepted()
     void run.run().catch(() => undefined).finally(() => {
       this.registry.delete(input.submissionId)
@@ -47,8 +51,8 @@ export class RunManager {
 
   // Execute the main run pipeline and wait for its terminal result,
   // but do not wait for asynchronous post-run jobs like title/compression.
-  async execute(input: MainChatRunInput): Promise<RunResult> {
-    const run = this.createRun(input)
+  async execute(input: MainChatRunInput, eventSinks: ChatRunEventSink[] = []): Promise<RunResult> {
+    const run = this.createRun(input, eventSinks)
     run.emitAccepted()
 
     try {
@@ -83,10 +87,10 @@ export class RunManager {
     return this.registry.hasActiveRunForChat(chatUuid)
   }
 
-  private createRun(input: MainChatRunInput): AgentRun {
+  private createRun(input: MainChatRunInput, eventSinks: ChatRunEventSink[] = []): AgentRun {
     const emitter = this.deps.eventEmitterFactory.create({
       submissionId: input.submissionId
-    })
+    }, eventSinks)
     const toolConfirmationRequester: ToolConfirmationRequester = {
       request: (request) => this.deps.toolConfirmationManager.request(emitter, request)
     }

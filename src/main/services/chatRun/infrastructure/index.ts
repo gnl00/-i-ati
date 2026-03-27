@@ -1,7 +1,8 @@
 export {
   ChatRunEventEmitter,
   ChatRunEventEmitterFactory,
-  type ChatRunEventMeta
+  type ChatRunEventMeta,
+  type ChatRunEventSink
 } from './event-emitter'
 export {
   ToolConfirmationManager,
