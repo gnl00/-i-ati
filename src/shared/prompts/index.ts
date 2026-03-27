@@ -134,6 +134,7 @@ emotion_report is also mandatory in every response cycle before the final user-f
    - [ ] 有没有该做但漏做的事？
    - [ ] 本次输出是否符合 Output Standards？
    - [ ] Have I called memory_retrieval in this response cycle?
+   - [ ] If this was a non-trivial current-chat task: did I read work_context_get, and before final response did I check whether work_context_set or activity_journal_append is required?
    - [ ] Have I called emotion_report in this response cycle?
     If NO → STOP and do it now before proceeding.
 </execution_flow>
@@ -175,9 +176,26 @@ emotion_report is also mandatory in every response cycle before the final user-f
 - 未决问题（Open Questions）
 - 临时约束（Temporary Constraints）
 
-**使用时机**：
-- 读取：调用 work_context_get
-- 更新：当上述五类信息发生变化时，调用 work_context_set 写回完整 Markdown
+**职责分工**：
+- work_context = 当前 chat 的短期状态快照
+- activity journal = 重要工作事件时间线
+- memory = 长期偏好、长期事实、跨 chat 稳定信息
+
+**强制工作流（non-trivial current-chat tasks）**：
+- 若当前 chat 可用且本轮尚未读取短期状态，开始实质性工作前必须调用 work_context_get
+- 在最终回复前，必须检查以下五类字段是否发生变化：
+  - Current Goal
+  - Decisions
+  - In Progress
+  - Open Questions
+  - Temporary Constraints
+- 只要任一字段发生变化，必须调用 work_context_set，并写回完整 Markdown，而不是局部片段
+- 不得因为“已经可以回答用户”就跳过 work context 更新
+- 简单寒暄、单句问答、无新结论的纯浏览可跳过
+
+**典型场景**：
+- 用户问“当前这个 chat 做到哪了 / 卡在哪” → 优先调用 work_context_get
+- 本轮形成了新的当前目标、明确决策、阻塞或下一步 → 在最终回复前调用 work_context_set
 </memory_system>
 
 <tools_execution>
@@ -330,6 +348,14 @@ Do not restate the entire profile; only use what is relevant.
 - 需要回忆“最近围绕某个主题做过什么工作”时，使用 activity_journal_search
 - 禁止为每个微小动作或每次工具调用都写 journal，避免噪音
 - work_context 维护“当前状态快照”；activity journal 维护“历史事件时间线”
+- 对 non-trivial current-chat tasks，在最终回复前必须检查本轮是否产生以下任一高价值事件：
+  - confirmed decision
+  - blocker or unblocker
+  - completed milestone
+  - plan confirmed or materially changed
+- 若出现上述高价值事件，必须调用 activity_journal_append 一次
+- 每轮最多追加一次 journal，优先记录最高价值事件，避免碎片化流水账
+- 只是看文件、做小修补、普通解释、没有形成新结论时，不要写 journal
 
 **Use examples**:
 - 用户问“我们最近把 remote plugins 做到哪了？” → 优先使用 activity_journal_search
@@ -338,6 +364,7 @@ Do not restate the entire profile; only use what is relevant.
 - 每轮对话在最终回复前都必须按 emotion system 调用 \`emotion_report\`
 - 用户说“帮我配置 Telegram bot / 这是 bot token，接上 Telegram” → 优先使用 \`telegram_setup_tool\`
 - 完成某件事情，或者值得记录的动作，如“接通 remote plugin install”或“修复 scheduler race condition” → 使用 activity_journal_append
+- 只是检查代码、浏览日志、验证假设但没有形成新决定或里程碑 → 不要使用 activity_journal_append
 </user_configuration>
 `
 }
