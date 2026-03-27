@@ -38,6 +38,7 @@ import MCPTabSwitcher from './MCPTabSwitcher'
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const API_BASE_URL = 'https://registry.modelcontextprotocol.io/v0.1/servers'
 const REGISTRY_PAGE_SIZE = 15
+const MCP_CLIPBOARD_EXAMPLE = '{"mcpServers":{"my-server":{"command":"npx","args":["-y","@scope/server"]}}}'
 
 type MCPServersTabValue = 'registry' | 'local'
 
@@ -238,17 +239,36 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   const handleAddFromClipboard = async (): Promise<void> => {
     try {
       const text = await navigator.clipboard.readText()
-      const parsed = JSON.parse(text)
-      const servers = parsed?.mcpServers
-      if (!servers || typeof servers !== 'object') {
-        toast.error('Clipboard JSON must include "mcpServers" object')
+      let parsed: unknown
+
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        toast.error(`Expected Json format: ${MCP_CLIPBOARD_EXAMPLE}`)
         return
       }
+
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        toast.error(`Expected Json format: ${MCP_CLIPBOARD_EXAMPLE}`)
+        return
+      }
+
+      const servers = (parsed as { mcpServers?: unknown }).mcpServers
+      if (!servers || typeof servers !== 'object' || Array.isArray(servers)) {
+        toast.error(`Expected Json format: \n${MCP_CLIPBOARD_EXAMPLE}`)
+        return
+      }
+
+      if (Object.keys(servers as Record<string, unknown>).length === 0) {
+        toast.error(`Expected Json format: \n${MCP_CLIPBOARD_EXAMPLE}`)
+        return
+      }
+
       setMcpServerConfig({
         ...mcpServerConfig,
-        mcpServers: { ...(mcpServerConfig.mcpServers || {}), ...servers }
+        mcpServers: { ...(mcpServerConfig.mcpServers || {}), ...(servers as Record<string, LocalMcpServerConfig>) }
       })
-      toast.success('MCP servers imported from clipboard')
+      toast.success('Imported from clipboard')
     } catch (error: any) {
       toast.error(`Failed to import from clipboard: ${error.message}`)
     }
