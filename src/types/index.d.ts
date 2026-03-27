@@ -303,12 +303,41 @@ declare interface MessageEntity {
 declare interface ChatEmotionState {
   label: string
   emoji: string
-  emojiName?: string
   score?: number
   intensity?: number
   reason?: string
   stateText?: string
   source: 'tool' | 'fallback'
+}
+
+declare interface EmotionStateEntry {
+  label: string
+  intensity: number
+  updatedAt: number
+}
+
+declare interface EmotionAccumulatedEntry {
+  label: string
+  description: string
+  intensity: number
+  decay: number
+  updatedAt: number
+}
+
+declare interface EmotionStateHistoryEntry {
+  label: string
+  intensity: number
+  timestamp: number
+  source: ChatEmotionState['source']
+}
+
+declare interface EmotionStateSnapshot {
+  current: EmotionStateEntry
+  background: EmotionStateEntry & {
+    driftFactor: number
+  }
+  accumulated: EmotionAccumulatedEntry[]
+  history: EmotionStateHistoryEntry[]
 }
 
 declare interface ChatRunEventTrace {

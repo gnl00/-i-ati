@@ -15,6 +15,7 @@ import { ChatRepository } from '../db/repositories/ChatRepository'
 import { ChatHostBindingRepository } from '../db/repositories/ChatHostBindingRepository'
 import { ChatSkillRepository } from '../db/repositories/ChatSkillRepository'
 import { MessageRepository } from '../db/repositories/MessageRepository'
+import { EmotionStateRepository } from '../db/repositories/EmotionStateRepository'
 import { CompressedSummaryRepository } from '../db/repositories/CompressedSummaryRepository'
 import { ChatRunEventRepository } from '../db/repositories/ChatRunEventRepository'
 import { AssistantRepository } from '../db/repositories/AssistantRepository'
@@ -27,6 +28,7 @@ import { ScheduledTaskDataService } from './database/ScheduledTaskDataService'
 import { ChatDataService } from './database/ChatDataService'
 import { ChatHostBindingDataService } from './database/ChatHostBindingDataService'
 import { MessageDataService } from './database/MessageDataService'
+import { EmotionStateDataService } from './database/EmotionStateDataService'
 import { ConfigDataService } from './database/ConfigDataService'
 import { McpServerDataService } from './database/McpServerDataService'
 import { PluginDataService } from './database/PluginDataService'
@@ -58,6 +60,7 @@ class DatabaseService {
   private chatHostBindingRepo?: ChatHostBindingRepository
   private chatSkillRepo?: ChatSkillRepository
   private messageRepo?: MessageRepository
+  private emotionStateRepo?: EmotionStateRepository
   private summaryRepo?: CompressedSummaryRepository
   private runEventRepo?: ChatRunEventRepository
   private assistantRepo?: AssistantRepository
@@ -66,6 +69,7 @@ class DatabaseService {
   private chatDataService?: ChatDataService
   private chatHostBindingDataService?: ChatHostBindingDataService
   private messageDataService?: MessageDataService
+  private emotionStateDataService?: EmotionStateDataService
   private planDataService?: TaskPlanDataService
   private scheduledTaskDataService?: ScheduledTaskDataService
   private configDataService?: ConfigDataService
@@ -115,6 +119,7 @@ class DatabaseService {
       this.chatHostBindingRepo = new ChatHostBindingRepository(this.db)
       this.chatSkillRepo = new ChatSkillRepository(this.db)
       this.messageRepo = new MessageRepository(this.db)
+      this.emotionStateRepo = new EmotionStateRepository(this.db)
       this.summaryRepo = new CompressedSummaryRepository(this.db)
       this.runEventRepo = new ChatRunEventRepository(this.db)
       this.assistantRepo = new AssistantRepository(this.db)
@@ -132,6 +137,10 @@ class DatabaseService {
       this.messageDataService = new MessageDataService({
         hasDb: () => Boolean(this.db),
         getMessageRepo: () => this.messageRepo
+      })
+      this.emotionStateDataService = new EmotionStateDataService({
+        hasDb: () => Boolean(this.db),
+        getEmotionStateRepo: () => this.emotionStateRepo
       })
       this.planDataService = new TaskPlanDataService({
         hasDb: () => Boolean(this.db),
@@ -318,6 +327,26 @@ class DatabaseService {
   public updateMessage(data: MessageEntity): void {
     if (!this.messageDataService) throw new Error('Message data service not initialized')
     this.messageDataService.updateMessage(data)
+  }
+
+  public getEmotionStateByChatId(chatId: number): EmotionStateSnapshot | undefined {
+    if (!this.emotionStateDataService) throw new Error('Emotion state data service not initialized')
+    return this.emotionStateDataService.getEmotionStateByChatId(chatId)
+  }
+
+  public getEmotionStateByChatUuid(chatUuid: string): EmotionStateSnapshot | undefined {
+    if (!this.emotionStateDataService) throw new Error('Emotion state data service not initialized')
+    return this.emotionStateDataService.getEmotionStateByChatUuid(chatUuid)
+  }
+
+  public upsertEmotionState(chatId: number, chatUuid: string, state: EmotionStateSnapshot): void {
+    if (!this.emotionStateDataService) throw new Error('Emotion state data service not initialized')
+    this.emotionStateDataService.upsertEmotionState(chatId, chatUuid, state)
+  }
+
+  public deleteEmotionState(chatId: number): void {
+    if (!this.emotionStateDataService) throw new Error('Emotion state data service not initialized')
+    this.emotionStateDataService.deleteEmotionState(chatId)
   }
 
   public patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {

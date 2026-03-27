@@ -3,7 +3,13 @@ import path from 'node:path'
 import { app, protocol } from 'electron'
 import { createLogger } from '@main/services/logging/LogService'
 import { EMOTION_ASSET_PROTOCOL } from '@shared/emotion/constants'
-import { EMOTION_LABELS, type EmotionLabel, normalizeEmotionLabel } from '@shared/emotion/emotionAssetCatalog'
+import {
+  EMOTION_LABELS,
+  type EmotionLabel,
+  clampEmotionIntensity,
+  normalizeEmotionLabel,
+  pickVariantIndexFromIntensity
+} from '@shared/emotion/emotionAssetCatalog'
 
 const logger = createLogger('EmotionAssetService')
 
@@ -32,12 +38,19 @@ async function exists(targetPath: string): Promise<boolean> {
   }
 }
 
-async function hasFiles(directoryPath: string): Promise<boolean> {
+async function listNumericVariants(directoryPath: string): Promise<number[]> {
   try {
     const entries = await fs.readdir(directoryPath, { withFileTypes: true })
-    return entries.some(entry => entry.isFile() && /\.webp$/i.test(entry.name))
+    return entries
+      .filter(entry => entry.isFile())
+      .map((entry) => {
+        const match = entry.name.match(/^(\d+)\.webp$/i)
+        return match ? Number.parseInt(match[1], 10) : NaN
+      })
+      .filter((value) => Number.isInteger(value) && value > 0)
+      .sort((a, b) => a - b)
   } catch {
-    return false
+    return []
   }
 }
 
@@ -74,7 +87,7 @@ export class EmotionAssetService {
   private async isPackComplete(packRoot: string): Promise<boolean> {
     for (const label of EMOTION_LABELS) {
       const labelDir = path.join(packRoot, label)
-      if (!(await hasFiles(labelDir))) {
+      if ((await listNumericVariants(labelDir)).length === 0) {
         return false
       }
     }
@@ -134,13 +147,13 @@ export class EmotionAssetService {
   async resolveAssetPath(
     packName: string | undefined,
     label: string | undefined,
-    emojiName: string | undefined
+    intensity: number | undefined
   ): Promise<string | undefined> {
     const normalizedPackName = normalizePackName(packName) || 'default'
     const normalizedLabel = normalizeEmotionLabel(label)
-    const normalizedEmojiName = emojiName?.trim()
+    const normalizedIntensity = clampEmotionIntensity(intensity)
 
-    if (!normalizedLabel || !normalizedEmojiName) {
+    if (!normalizedLabel) {
       return undefined
     }
 
@@ -157,10 +170,17 @@ export class EmotionAssetService {
       }
     }
 
-    const fileName = `${normalizedEmojiName}.webp`
     for (const packRoot of packRoots) {
-      const candidatePath = path.join(packRoot, normalizedLabel, fileName)
-      if (await exists(candidatePath)) {
+      const variants = await listNumericVariants(path.join(packRoot, normalizedLabel))
+      if (variants.length === 0) {
+        continue
+      }
+
+      const variantIndex = pickVariantIndexFromIntensity(variants.length, normalizedIntensity)
+      const resolvedVariant = variants[Math.min(variantIndex - 1, variants.length - 1)]
+      const candidatePath = path.join(packRoot, normalizedLabel, `${resolvedVariant}.webp`)
+
+      if (resolvedVariant && await exists(candidatePath)) {
         return candidatePath
       }
     }
@@ -171,17 +191,17 @@ export class EmotionAssetService {
   buildAssetUrl(
     packName: string | undefined,
     label: EmotionLabel | string | undefined,
-    emojiName: string | undefined
+    intensity: number | undefined
   ): string | undefined {
     const normalizedPackName = normalizePackName(packName) || 'default'
     const normalizedLabel = normalizeEmotionLabel(label)
-    const normalizedEmojiName = emojiName?.trim()
+    const normalizedIntensity = clampEmotionIntensity(intensity)
 
-    if (!normalizedLabel || !normalizedEmojiName) {
+    if (!normalizedLabel) {
       return undefined
     }
 
-    return `${EMOTION_ASSET_PROTOCOL}://${encodeURIComponent(normalizedPackName)}/${encodeURIComponent(normalizedLabel)}/${encodeURIComponent(normalizedEmojiName)}.webp`
+    return `${EMOTION_ASSET_PROTOCOL}://${encodeURIComponent(normalizedPackName)}/${encodeURIComponent(normalizedLabel)}/${normalizedIntensity}.webp`
   }
 
   async registerProtocol(): Promise<void> {
@@ -195,8 +215,11 @@ export class EmotionAssetService {
         const packName = decodeURIComponent(url.hostname)
         const [, rawLabel = '', rawFileName = ''] = url.pathname.split('/')
         const label = decodeURIComponent(rawLabel)
-        const emojiName = decodeURIComponent(rawFileName).replace(/\.webp$/i, '')
-        const assetPath = await this.resolveAssetPath(packName, label, emojiName)
+        const intensity = Number.parseInt(
+          decodeURIComponent(rawFileName).replace(/\.webp$/i, ''),
+          10
+        )
+        const assetPath = await this.resolveAssetPath(packName, label, intensity)
 
         if (!assetPath) {
           return new Response('Not Found', { status: 404 })

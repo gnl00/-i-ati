@@ -71,33 +71,6 @@ function getEmotionEmoji(message: ChatMessage): string | undefined {
   return undefined
 }
 
-function getEmotionEmojiName(message: ChatMessage): string | undefined {
-  const unifiedEmotionEmojiName = message.emotion?.emojiName?.trim()
-  if (unifiedEmotionEmojiName) {
-    return unifiedEmotionEmojiName
-  }
-
-  const segments = Array.isArray(message.segments) ? message.segments : []
-
-  for (let i = segments.length - 1; i >= 0; i -= 1) {
-    const segment = segments[i]
-    if (!isEmotionToolSegment(segment)) continue
-    if (segment.type !== 'toolCall') continue
-    if (segment.isError) continue
-
-    const result = segment.content?.result
-    const emojiName = typeof result?.emojiName === 'string'
-      ? result.emojiName.trim()
-      : typeof segment.content?.emojiName === 'string'
-        ? segment.content.emojiName.trim()
-        : ''
-
-    if (emojiName) return emojiName
-  }
-
-  return undefined
-}
-
 function getEmotionLabel(message: ChatMessage): string | undefined {
   const unifiedEmotionLabel = message.emotion?.label?.trim()
   if (unifiedEmotionLabel) {
@@ -120,6 +93,32 @@ function getEmotionLabel(message: ChatMessage): string | undefined {
         : ''
 
     if (label) return label
+  }
+
+  return undefined
+}
+
+function getEmotionIntensity(message: ChatMessage): number | undefined {
+  if (typeof message.emotion?.intensity === 'number') {
+    return message.emotion.intensity
+  }
+
+  const segments = Array.isArray(message.segments) ? message.segments : []
+
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const segment = segments[i]
+    if (!isEmotionToolSegment(segment)) continue
+    if (segment.type !== 'toolCall') continue
+    if (segment.isError) continue
+
+    const result = segment.content?.result
+    const intensity = typeof result?.intensity === 'number'
+      ? result.intensity
+      : typeof segment.content?.intensity === 'number'
+        ? segment.content.intensity
+        : undefined
+
+    if (typeof intensity === 'number') return intensity
   }
 
   return undefined
@@ -251,7 +250,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     && m.toolCalls.some(call => !isEmotionToolName(call.function?.name))
   const emotionLabel = getEmotionLabel(m)
   const emotionEmoji = getEmotionEmoji(m)
-  const emotionEmojiName = getEmotionEmojiName(m)
+  const emotionIntensity = getEmotionIntensity(m)
 
   const hasContent = typeof m.content === 'string'
     ? m.content.trim().length > 0
@@ -326,7 +325,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
             animate={showLoadingIndicator && isLatest}
             emotionLabel={emotionLabel}
             emotionEmoji={emotionEmoji}
-            emotionEmojiName={emotionEmojiName}
+            emotionIntensity={emotionIntensity}
           />
         )}
 

@@ -47,7 +47,8 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
       baseUrl: req.baseUrl,
       adapterPluginId,
       endpoint,
-      stream: req.stream ?? true
+      stream: req.stream ?? true,
+      // body: JSON.stringify(requestBody)
     })
 
     const fetchResponse = await fetch(endpoint, {

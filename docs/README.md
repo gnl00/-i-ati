@@ -38,6 +38,8 @@
   - [telegram-host-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/telegram-host-adapter-stage-summary.md)
 - Emotion 系统阶段总结：
   - [emotion-system-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/emotion-system-stage-summary.md)
+- Emotion 系统目标设计：
+  - [emotion-system-design.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/emotion-system-design.md)
 - 本轮阶段总结：
   - [agent-core-chat-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/agent-core-chat-adapter-stage-summary.md)
 - chat 事件协议：

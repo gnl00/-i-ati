@@ -2,7 +2,11 @@ import { extractContentFromSegments } from '@main/services/agentCore/execution'
 import type { ConversationStore } from '@main/services/agentCore/contracts'
 import DatabaseService from '@main/services/DatabaseService'
 import EmotionInferenceService from '@main/services/emotion/EmotionInferenceService'
-import { extractEmotionFromToolSegments, hasVisibleAssistantText } from '@main/services/emotion/emotion-state'
+import {
+  buildNextEmotionStateSnapshot,
+  extractEmotionToolStateFromSegments,
+  hasVisibleAssistantText
+} from '@main/services/emotion/emotion-state'
 import type { ChatRunInputState } from '../preparation'
 
 const buildUserMessage = (
@@ -109,7 +113,8 @@ export class ChatStepStore implements ConversationStore {
       ? extractContentFromSegments(finalAssistantMessage.body.segments)
       : finalAssistantMessage.body.content
 
-    const emotionFromTool = extractEmotionFromToolSegments(finalAssistantMessage.body)
+    const emotionToolState = extractEmotionToolStateFromSegments(finalAssistantMessage.body)
+    const emotionFromTool = emotionToolState?.emotion
     const fallbackEmotion = emotionFromTool
       ? undefined
       : hasVisibleAssistantText(content)
@@ -128,6 +133,15 @@ export class ChatStepStore implements ConversationStore {
     }
 
     DatabaseService.updateMessage(updated)
+
+    if (updated.chatId && updated.chatUuid && updated.body.emotion) {
+      const previousState = DatabaseService.getEmotionStateByChatId(updated.chatId)
+      const nextState = buildNextEmotionStateSnapshot(previousState, updated.body.emotion, {
+        accumulated: emotionToolState?.accumulated
+      })
+      DatabaseService.upsertEmotionState(updated.chatId, updated.chatUuid, nextState)
+    }
+
     return updated.id || -1
   }
 

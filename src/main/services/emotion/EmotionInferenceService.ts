@@ -43,7 +43,9 @@ class EmotionInferenceService {
 
     try {
       const result = await this.classifier(input, { top_k: 1 })
-      const top = Array.isArray(result) ? result[0] as TextClassificationResult | undefined : result as TextClassificationResult | undefined
+      const top = Array.isArray(result)
+        ? result[0] as TextClassificationResult | undefined
+        : result as TextClassificationResult | undefined
       const label = top?.label?.trim()
 
       if (!label) {

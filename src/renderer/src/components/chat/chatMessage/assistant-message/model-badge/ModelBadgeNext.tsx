@@ -11,7 +11,7 @@ interface ModelBadgeNextProps {
   animate?: boolean
   emotionLabel?: string
   emotionEmoji?: string
-  emotionEmojiName?: string
+  emotionIntensity?: number
 }
 
 export const ModelBadgeNext: React.FC<ModelBadgeNextProps> = ({
@@ -20,17 +20,17 @@ export const ModelBadgeNext: React.FC<ModelBadgeNextProps> = ({
   animate = false,
   emotionLabel,
   emotionEmoji,
-  emotionEmojiName
+  emotionIntensity
 }) => {
   const emotionAssetPack = useAppConfigStore(state => state.appConfig.emotion?.assetPack || 'default')
   const [assetFailed, setAssetFailed] = React.useState(false)
-  const emotionAssetUrl = getEmotionAssetUrl(emotionAssetPack, emotionLabel, emotionEmojiName)
+  const emotionAssetUrl = getEmotionAssetUrl(emotionAssetPack, emotionLabel, emotionIntensity)
   const shouldRenderAsset = Boolean(emotionAssetUrl) && !assetFailed
-  const emotionKey = emotionEmojiName || emotionEmoji || ''
+  const emotionKey = `${emotionLabel || ''}:${emotionIntensity || ''}:${emotionEmoji || ''}`
 
   React.useEffect(() => {
     setAssetFailed(false)
-  }, [emotionAssetUrl, emotionEmojiName, emotionEmoji])
+  }, [emotionAssetUrl, emotionIntensity, emotionEmoji])
 
   return (
     <div
@@ -68,7 +68,7 @@ export const ModelBadgeNext: React.FC<ModelBadgeNextProps> = ({
               'origin-center will-change-transform'
             )}
             aria-label="emotion"
-            title={emotionEmojiName ? `Current emotion: ${emotionEmojiName}` : 'Current emotion'}
+            title={emotionLabel ? `Current emotion: ${emotionLabel}` : 'Current emotion'}
           >
             {shouldRenderAsset ? (
               <img
