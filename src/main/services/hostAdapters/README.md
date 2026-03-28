@@ -10,7 +10,7 @@
 
 - `agentCore`
   - 通用 agent 内核
-  - 负责 run、execution、tools、artifacts、contracts
+  - 负责 run、execution、tools、artifacts、ports
 - `hostAdapters`
   - 宿主适配层
   - 负责把宿主世界映射到 `agentCore`

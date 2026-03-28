@@ -1,4 +1,4 @@
-import type { AgentMessageEventSink, ConversationStore } from '@main/services/agentCore/contracts'
+import type { AgentMessageEventSink, ConversationStore } from '@main/services/agentCore/ports'
 import type { AgentStepMessageManager } from '@main/services/agentCore/execution'
 import type { StepArtifact } from '@main/services/agentCore/types'
 import { ChatStepStore } from '../persistence'

@@ -1,5 +1,6 @@
 export * from './types'
 export * from './errors'
+export * from './ports'
 export * from './execution'
 export * from './run-kernel'
 export * from './tools'

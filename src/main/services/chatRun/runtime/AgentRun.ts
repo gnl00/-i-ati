@@ -1,4 +1,4 @@
-import type { ToolConfirmationRequester } from '@main/services/agentCore/contracts'
+import type { ToolConfirmationRequester } from '@main/services/agentCore/ports'
 import { AbortError } from './errors'
 import { AgentRunKernel } from '@main/services/agentCore/run-kernel'
 import {

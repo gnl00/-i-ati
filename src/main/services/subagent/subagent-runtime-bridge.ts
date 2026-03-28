@@ -1,7 +1,7 @@
 import type {
   ToolConfirmationRequest,
   ToolConfirmationRequester
-} from '@main/services/agentCore/contracts'
+} from '@main/services/agentCore/ports'
 import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import type { SubagentRecord } from '@tools/subagent/index.d'

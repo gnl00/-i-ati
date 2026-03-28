@@ -1,5 +1,5 @@
 import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
-import type { AgentStepEventListener } from '@main/services/agentCore/contracts'
+import type { AgentStepEventListener } from '@main/services/agentCore/ports'
 import type { ToolExecutionProgress } from '@main/services/agentCore/tools'
 import type { ToolCall } from '@main/services/agentCore/types'
 import { serializeError } from '@main/services/serializeError'

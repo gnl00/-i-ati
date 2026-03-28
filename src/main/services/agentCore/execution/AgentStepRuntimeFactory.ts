@@ -1,4 +1,4 @@
-import type { AgentStepEventListener, ToolConfirmationRequester } from '../contracts'
+import type { AgentStepEventListener, ToolConfirmationRequester } from '../ports'
 import type { IToolExecutor } from '../tools'
 import { AgentStepLoop, type AgentStepMessageManager } from './AgentStepLoop'
 import type { RunSpec } from '../types'

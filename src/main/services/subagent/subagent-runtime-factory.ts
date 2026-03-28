@@ -8,7 +8,7 @@ import type {
   AgentStepEventListener,
   ConversationStore,
   ToolConfirmationRequester
-} from '@main/services/agentCore/contracts'
+} from '@main/services/agentCore/ports'
 import type { ToolExecutionProgress } from '@main/services/agentCore/tools'
 import type { RunSpec } from '@main/services/agentCore/types'
 import { extractContentFromSegments } from '@main/services/agentCore/execution/parser/segment-content'

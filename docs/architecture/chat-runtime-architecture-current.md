@@ -289,5 +289,5 @@ AgentRun completed
 ## 后续建议
 
 - 评估 `ChatAgentAdapter` 是否进一步拆成更薄的 `prepare / step-context / finalize` facade
-- 进一步扩展 `agentCore/contracts`，让 core 依赖更稳定地面向 contract 而不是 concrete 实现
+- 进一步扩展 `agentCore/ports`，让 core 依赖更稳定地面向 port 而不是 concrete 实现
 - 等 shell/runtime 边界进一步稳定后，再决定 `chatRun/runtime` 中是否还有内容可继续下沉到 `agentCore`

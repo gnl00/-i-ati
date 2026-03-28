@@ -2,7 +2,7 @@ import type {
   AgentMessageEventSink,
   AgentStepEventListener,
   ToolConfirmationRequester
-} from '@main/services/agentCore/contracts'
+} from '@main/services/agentCore/ports'
 import type { RunSpec } from '@main/services/agentCore/types'
 import { ToolExecutor } from '@main/services/agentCore/tools'
 import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'

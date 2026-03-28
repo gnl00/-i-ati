@@ -1,5 +1,5 @@
 import { AbortError } from './errors'
-import type { ToolConfirmationRequester } from '@main/services/agentCore/contracts'
+import type { ToolConfirmationRequester } from '@main/services/agentCore/ports'
 import { AgentRunKernel } from '@main/services/agentCore/run-kernel'
 import { AgentRun } from './AgentRun'
 import { PostRunJobService } from '@main/services/chatPostRun'

@@ -58,18 +58,20 @@
 
 这个命名更准确地表达了它是 run 级内核，而不是泛化的 run 子域。
 
-### 4. 第一批 core contracts 落地
+### 4. 第一批 core ports 落地
 
 新增：
 
-- [ToolConfirmationRequester.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/contracts/ToolConfirmationRequester.ts)
-- [AgentEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/contracts/AgentEventMapper.ts)
-- [ConversationStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/contracts/ConversationStore.ts)
+- [ToolConfirmationRequester.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports/ToolConfirmationRequester.ts)
+- [AgentStepEventListener.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports/AgentStepEventListener.ts)
+- [AgentMessageEventSink.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports/AgentMessageEventSink.ts)
+- [ConversationStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports/ConversationStore.ts)
 
 这一轮不是为了“抽象而抽象”，而是先把最稳定的外部依赖接口化：
 
 - 工具确认
-- 事件映射
+- step 运行事件监听
+- 消息事件下沉出口
 - 对话持久化
 
 ### 5. chat step 上下文被收窄
@@ -175,7 +177,7 @@
 - [execution](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution)
 - [tools](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/tools)
 - [types](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/types)
-- [contracts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/contracts)
+- [ports](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports)
 
 ### `hostAdapters/chat`
 
@@ -229,7 +231,7 @@
    - 继续向 run shell 收缩
    - 让更多 run lifecycle 逻辑下沉到 `agentCore/run-kernel`
 
-3. `agentCore/contracts` 是否要继续补：
+3. `agentCore/ports` 是否要继续补：
    - model execution
    - run trace writer
    - 更明确的 run-state / event mapping 边界
