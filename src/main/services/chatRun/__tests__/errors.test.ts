@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DuplicateSubmissionIdError } from '../errors'
+import { DuplicateSubmissionIdError } from '../runtime/errors'
 
 describe('DuplicateSubmissionIdError', () => {
   it('exposes stable code and message for renderer handling', () => {

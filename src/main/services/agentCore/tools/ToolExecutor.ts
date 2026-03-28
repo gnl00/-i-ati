@@ -4,8 +4,8 @@ import { embeddedToolsRegistry } from '@tools/registry'
 import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 import { v4 as uuidv4 } from 'uuid'
 import type { ToolCallProps } from '../types'
-import { AbortError, ToolExecutionError } from '@main/services/chatRun/errors'
-import { normalizeToolArgs } from '@main/services/chatRun/utils'
+import { AbortError, ToolExecutionError } from '../errors'
+import { normalizeToolArgs } from '../utils'
 import type {
   IToolExecutor,
   ToolExecutorConfig,

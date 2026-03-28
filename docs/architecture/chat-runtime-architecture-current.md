@@ -53,12 +53,6 @@ src/main/services/
     infrastructure/
     runtime/
     index.ts
-    errors.ts
-    logger.ts
-    types.ts
-    utils.ts
-    streaming/
-      executor/
 
   chatPostRun/
     PostRunJobService.ts
@@ -185,10 +179,6 @@ src/main/services/
 
 - shell runtime orchestration
 - emitter / confirmation infrastructure
-- 一组仍待清理的 legacy 辅助文件：
-  - [streaming/executor/](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/streaming/executor)
-  - [logger.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/logger.ts)
-  - [errors.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/errors.ts)
 
 所以 `chatRun` 当前更像 shell 层，而不是 chat adapter 本体。
 
@@ -292,10 +282,6 @@ AgentRun completed
 
 当前仍然没有完全收干净的部分：
 
-- `chatRun/streaming/executor`
-  - 已无主路径引用，属于待清理 legacy 目录
-- `chatRun/logger.ts` / `chatRun/errors.ts`
-  - 仍带有 shell 历史包袱
 - `agentCore/mapping`
   - 目录已预留，但内部边界还未真正展开
 
@@ -309,6 +295,5 @@ AgentRun completed
 ## 后续建议
 
 - 评估 `ChatAgentAdapter` 是否进一步拆成更薄的 `prepare / step-context / finalize` facade
-- 继续清理 `chatRun/streaming/executor` 这类已无主路径引用的 legacy 目录
 - 进一步扩展 `agentCore/contracts`，让 core 依赖更稳定地面向 contract 而不是 concrete 实现
 - 等 shell/runtime 边界进一步稳定后，再决定 `chatRun/runtime` 中是否还有内容可继续下沉到 `agentCore`

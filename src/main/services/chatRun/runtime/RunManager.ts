@@ -1,4 +1,4 @@
-import { AbortError } from '../errors'
+import { AbortError } from './errors'
 import type { ToolConfirmationRequester } from '@main/services/agentCore/contracts'
 import { AgentRunKernel } from '@main/services/agentCore/run-kernel'
 import { AgentRun } from './AgentRun'

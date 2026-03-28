@@ -1,4 +1,4 @@
-import { DuplicateSubmissionIdError } from '../errors'
+import { DuplicateSubmissionIdError } from './errors'
 import { AgentRun } from './AgentRun'
 
 export class RunRegistry {

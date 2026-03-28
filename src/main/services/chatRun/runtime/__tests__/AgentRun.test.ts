@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHAT_RUN_EVENTS, CHAT_RUN_STATES } from '@shared/chatRun/events'
-import { AbortError } from '../../errors'
+import { AbortError } from '@main/services/agentCore/errors'
 
 const {
   assistantStepExecuteMock,

@@ -1,5 +1,5 @@
 import type { ToolConfirmationRequester } from '@main/services/agentCore/contracts'
-import { AbortError } from '../errors'
+import { AbortError } from './errors'
 import { AgentRunKernel } from '@main/services/agentCore/run-kernel'
 import {
   ChatAgentAdapter,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { DuplicateSubmissionIdError } from '../../errors'
+import { DuplicateSubmissionIdError } from '../errors'
 import { RunRegistry } from '../RunRegistry'
 
 describe('RunRegistry', () => {

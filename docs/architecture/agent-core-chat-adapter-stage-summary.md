@@ -125,7 +125,7 @@
 - [errors.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/parser/errors.ts)
 - [logger.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/parser/logger.ts)
 
-这样 parser 不再依赖 `chatRun/errors` 里的 parser error，也不再依赖 `chatRun/logger`。
+这样 parser 不再依赖 `chatRun/errors` 里的 parser error，也不再依赖旧的 `chatRun` logger 包袱。
 
 ### 8. `segment-content` 与 chat-side helper 分离
 

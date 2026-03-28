@@ -224,6 +224,33 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).toHaveBeenCalledTimes(1)
   })
 
+  it('returns an aborted error result when confirmation is rejected', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'Denied by reviewer'
+    }))
+    const executor = new ToolExecutor({
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-8b',
+      function: 'plan_create',
+      args: JSON.stringify({
+        goal: 'Ship feature',
+        steps: []
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+    expect(result.content).toBeNull()
+    expect(result.error?.name).toBe('AbortError')
+    expect(result.error?.message).toContain('Denied by reviewer')
+  })
+
   it('passes confirmation source metadata to manual reviews', async () => {
     handlerMock.mockClear()
     assessExecuteCommandReviewMock.mockReturnValueOnce({

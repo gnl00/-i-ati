@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DuplicateSubmissionIdError } from '../../errors'
+import { DuplicateSubmissionIdError } from '../errors'
 
 const {
   emitAcceptedMock,
