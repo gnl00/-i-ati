@@ -12,7 +12,10 @@ type TextClassificationResult = {
   score: number
 }
 
-class EmotionInferenceService {
+const DEFAULT_MAX_INPUT_TOKENS = 512
+const SUSPICIOUS_TOKENIZER_LIMIT = 100_000
+
+export class EmotionInferenceService {
   private static instance: EmotionInferenceService
   private classifier: any = null
   private readonly modelPath: string
@@ -90,8 +93,38 @@ class EmotionInferenceService {
       this.MODEL_NAME,
       { quantized: false }
     )
+    this.configureTokenizerLimit()
 
     this.isInitialized = true
+  }
+
+  private configureTokenizerLimit(): void {
+    const tokenizer = this.classifier?.tokenizer
+    if (!tokenizer) {
+      return
+    }
+
+    const modelLimit = Number(this.classifier?.model?.config?.max_position_embeddings)
+    const tokenizerLimit = Number(tokenizer.model_max_length)
+    const resolvedLimit = this.resolveMaxInputTokens(modelLimit, tokenizerLimit)
+
+    tokenizer.model_max_length = resolvedLimit
+  }
+
+  private resolveMaxInputTokens(modelLimit: number, tokenizerLimit: number): number {
+    if (Number.isFinite(modelLimit) && modelLimit > 0) {
+      return modelLimit
+    }
+
+    if (
+      Number.isFinite(tokenizerLimit)
+      && tokenizerLimit > 0
+      && tokenizerLimit <= SUSPICIOUS_TOKENIZER_LIMIT
+    ) {
+      return tokenizerLimit
+    }
+
+    return DEFAULT_MAX_INPUT_TOKENS
   }
 }
 
