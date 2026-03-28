@@ -12,7 +12,6 @@ import {
   Monitor,
   Play,
   RotateCw,
-  StopCircle,
   Terminal
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -222,7 +221,7 @@ export const ArtifactsPreviewTab: React.FC<{
     return (
       <>
         {/* State 1: Idle - Show ready message */}
-        {(devServer.devServerStatus === 'idle' || devServer.devServerStatus === 'stopped') && (
+        {devServer.devServerStatus === 'idle' && (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="flex flex-col items-center gap-6 max-w-md">
               <button
@@ -439,7 +438,6 @@ const PreviewShell: React.FC<{
   onStop?: () => void
   children: React.ReactNode
 }> = ({ address, statusDot, onReload, onOpenExternal, onStop, children }) => {
-  const dotColor = statusDot === 'running' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'
   const badgeText = statusDot === 'running' ? 'LIVE' : 'STATIC'
   const badgeClass = statusDot === 'running'
     ? 'bg-emerald-100 py-0 text-emerald-700 border-emerald-200/70 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50'
@@ -450,9 +448,20 @@ const PreviewShell: React.FC<{
       <div className="flex-1 flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xs">
         <div className="h-9 flex items-center gap-3 px-3 bg-gray-50 dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 shrink-0">
           <div className="flex gap-1">
-            <div className={cn("w-2 h-2 rounded-full", dotColor, statusDot === 'running' && 'animate-pulse')} />
-            <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
-            <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />
+            {onStop ? (
+              <button
+                type="button"
+                onClick={onStop}
+                title="Stop server"
+                className="group/dot flex h-2 w-2 items-center justify-center rounded-full"
+              >
+                <div className="h-2 w-2 rounded-full bg-red-500 transition-colors group-hover/dot:bg-red-600 group-hover/dot:scale-115 dark:bg-red-400 dark:group-hover/dot:bg-red-300" />
+              </button>
+            ) : (
+              <div className={cn("w-2 h-2 rounded-full", statusDot === 'running' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700')} />
+            )}
+            <div className="w-2 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="w-2 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
           </div>
           <div className="flex-1 h-5.5 flex items-center px-2 gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-gray-400">
             <Globe className="w-2.5 h-2.5 text-green-500" />
@@ -499,17 +508,6 @@ const PreviewShell: React.FC<{
                 <RefreshCw className="w-3 h-3" />
               </Button>
             )} */}
-            {onStop && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-red-300 hover:text-red-500"
-                onClick={onStop}
-                title="Stop server"
-              >
-                <StopCircle className="w-3 h-3" />
-              </Button>
-            )}
           </div>
         </div>
         {children}

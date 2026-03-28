@@ -11,7 +11,7 @@ import {
   invokeGetDevServerStatus
 } from '@renderer/tools/devServer/renderer/DevServerInvoker'
 
-export type DevServerStatus = 'idle' | 'starting' | 'running' | 'error' | 'stopped'
+export type DevServerStatus = 'idle' | 'starting' | 'running' | 'error'
 
 interface UseDevServerReturn {
   hasPreviewSh: boolean
@@ -245,11 +245,11 @@ export function useDevServer(): UseDevServerReturn {
       const status = devServerStatusRef.current
       console.log('[useDevServer] Cleanup triggered - chatUuid:', chatUuid, 'status:', status)
 
-      if (chatUuid && status !== 'idle' && status !== 'stopped') {
+      if (chatUuid && status !== 'idle') {
         console.log('[useDevServer] Component unmounting or workspace changed, stopping dev server for:', chatUuid)
 
         // Immediately update store to prevent re-mounting issues
-        setDevServerStatus(chatUuid, 'stopped')
+        setDevServerStatus(chatUuid, 'idle')
         setDevServerPort(chatUuid, null)
         setDevServerError(chatUuid, null)
 

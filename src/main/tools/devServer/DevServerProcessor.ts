@@ -3,10 +3,11 @@
  * Manages development server processes for workspace preview
  */
 
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, type ChildProcess, execFileSync } from 'child_process'
 import { existsSync, readdirSync, readFileSync, type Dirent } from 'fs'
-import { isAbsolute, join, resolve } from 'path'
+import { request as httpRequest } from 'http'
 import { app } from 'electron'
+import { isAbsolute, join, resolve } from 'path'
 import type {
   CheckPreviewShArgs,
   CheckPreviewShResponse,
@@ -18,27 +19,27 @@ import type {
   GetDevServerStatusResponse,
   GetDevServerLogsArgs,
   GetDevServerLogsResponse,
-  DevServerProcess
+  DevServerStatus
 } from '@tools/devServer/index.d'
 
-// ============================================
-// Constants
-// ============================================
-
 const MAX_LOGS = 50
-const GRACEFUL_SHUTDOWN_TIMEOUT = 5000 // 5 seconds
+const GRACEFUL_SHUTDOWN_TIMEOUT = 5000
+const FORCE_KILL_TIMEOUT = 2000
 const DEFAULT_WORKSPACE_NAME = 'tmp'
+const PORT_PROBE_START = 5174
+const PORT_PROBE_COUNT = 32
+const PORT_PROBE_TIMEOUT = 800
+const PORT_PROBE_INTERVAL = 500
+const PORT_PROBE_MAX_ATTEMPTS = 60
 
-// Port detection patterns - only match actual server URLs
 const PORT_PATTERNS = [
-  /Local:\s+https?:\/\/(?:localhost|127\.0\.0\.1):(\d+)/i, // Vite: "Local:   http://localhost:5174/"
-  /https?:\/\/(?:localhost|127\.0\.0\.1):(\d+)/i, // Any URL: "http://localhost:3000"
-  /server running (?:on|at) https?:\/\/.*?:(\d+)/i, // "server running at http://..."
+  /Local:\s+https?:\/\/(?:localhost|127\.0\.0\.1):(\d+)/i,
+  /https?:\/\/(?:localhost|127\.0\.0\.1):(\d+)/i,
+  /server running (?:on|at) https?:\/\/.*?:(\d+)/i
 ]
 
-// Error detection patterns
 const ERROR_PATTERNS = [
-  /EADDRINUSE/i, // Port already in use
+  /EADDRINUSE/i,
   /address already in use/i,
   /Error:/i,
   /ERROR/,
@@ -46,12 +47,44 @@ const ERROR_PATTERNS = [
   /failed/i
 ]
 
-// ============================================
-// DevServerProcessManager Class
-// ============================================
+type StartupMode = 'preview-script' | 'node-dev'
+
+interface StartupStrategy {
+  mode: StartupMode
+  cwd: string
+  command: string
+  args: string[]
+  detached: boolean
+  description: string
+}
+
+interface InternalDevServerProcess {
+  chatUuid: string
+  process: ChildProcess
+  status: DevServerStatus
+  port: number | null
+  logs: string[]
+  error: string | null
+  startTime: number
+  stdoutBuffer: string
+  stderrBuffer: string
+  candidatePorts: Set<number>
+  stopping: boolean
+  shutdownTimer: NodeJS.Timeout | null
+  readinessProbe: Promise<void> | null
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function stripAnsi(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/\x1b\[[0-9;]*m/g, '')
+}
 
 class DevServerProcessManager {
-  private processes = new Map<string, DevServerProcess>()
+  private processes = new Map<string, InternalDevServerProcess>()
 
   private normalizeWorkspacePath(workspacePath: string, chatUuid?: string): string {
     const userDataPath = app.getPath('userData')
@@ -76,72 +109,28 @@ class DevServerProcessManager {
     return resolve(join(userDataPath, clean))
   }
 
-  /**
-   * Get workspace path for a chatUuid
-   */
   private getWorkspacePath(chatUuid: string, customWorkspacePath?: string): string {
     if (customWorkspacePath) {
       return this.normalizeWorkspacePath(customWorkspacePath, chatUuid)
     }
+
     const userDataPath = app.getPath('userData')
     return join(userDataPath, 'workspaces', chatUuid)
   }
 
-  /**
-   * Get preview.sh path for a chatUuid
-   */
-  private getPreviewShPath(chatUuid: string, customWorkspacePath?: string): string {
-    return join(this.getWorkspacePath(chatUuid, customWorkspacePath), 'preview.sh')
+  private getPreviewScriptCandidates(chatUuid: string, customWorkspacePath?: string): string[] {
+    const workspacePath = this.getWorkspacePath(chatUuid, customWorkspacePath)
+    const candidates = process.platform === 'win32'
+      ? ['preview.cmd', 'preview.bat', 'preview.sh']
+      : ['preview.sh']
+
+    return candidates
+      .map((fileName) => join(workspacePath, fileName))
+      .filter((filePath) => existsSync(filePath))
   }
 
-  /**
-   * Check if preview.sh exists for a workspace
-   */
   checkPreviewSh(chatUuid: string, customWorkspacePath?: string): boolean {
-    const previewShPath = this.getPreviewShPath(chatUuid, customWorkspacePath)
-    return existsSync(previewShPath)
-  }
-
-  /**
-   * Extract port number from process output
-   */
-  private extractPort(output: string): number | null {
-    // Remove ANSI escape codes (color codes) that might interfere with pattern matching
-    // eslint-disable-next-line no-control-regex
-    const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '')
-
-    console.log('[DevServer] Original output:', output.substring(0, 100))
-    console.log('[DevServer] Cleaned output:', cleanOutput.substring(0, 100))
-
-    for (const pattern of PORT_PATTERNS) {
-      const match = cleanOutput.match(pattern)
-      if (match && match[1]) {
-        const port = parseInt(match[1], 10)
-        if (port > 0 && port < 65536) {
-          console.log(`[DevServer] ✅ Port extracted: ${port} using pattern: ${pattern}`)
-          return port
-        }
-      }
-    }
-    console.log('[DevServer] No port found in output')
-    return null
-  }
-
-  /**
-   * Check if output contains error patterns
-   */
-  private containsError(output: string): boolean {
-    return ERROR_PATTERNS.some(pattern => pattern.test(output))
-  }
-
-  /**
-   * Add log line to process logs (keep last MAX_LOGS lines)
-   */
-  private addLog(proc: DevServerProcess, line: string): void {
-    proc.logs.push(line)
-    if (proc.logs.length > MAX_LOGS) {
-      proc.logs.shift()
-    }
+    return this.getPreviewScriptCandidates(chatUuid, customWorkspacePath).length > 0
   }
 
   private findNodeProjectDir(workspacePath: string, maxDepth: number = 3): string | null {
@@ -171,11 +160,9 @@ class DevServerProcessManager {
 
         const childPath = join(dirPath, entryName)
         const packagePath = join(childPath, 'package.json')
-        if (existsSync(packagePath)) {
-          if (depth < bestDepth) {
-            bestPath = childPath
-            bestDepth = depth
-          }
+        if (existsSync(packagePath) && depth < bestDepth) {
+          bestPath = childPath
+          bestDepth = depth
         }
 
         walk(childPath, depth + 1)
@@ -196,183 +183,423 @@ class DevServerProcessManager {
     }
   }
 
-  /**
-   * Start development server for a workspace
-   */
+  private hasInstalledDependencies(projectDir: string): boolean {
+    return existsSync(join(projectDir, 'node_modules'))
+  }
+
+  private resolveStartupStrategy(chatUuid: string, customWorkspacePath?: string): StartupStrategy | null {
+    const workspacePath = this.getWorkspacePath(chatUuid, customWorkspacePath)
+    const previewScripts = this.getPreviewScriptCandidates(chatUuid, customWorkspacePath)
+
+    const previewScriptPath = process.platform === 'win32'
+      ? previewScripts.find((filePath) => /\.(cmd|bat)$/i.test(filePath)) ?? null
+      : previewScripts[0] ?? null
+
+    if (previewScriptPath) {
+      if (process.platform === 'win32') {
+        return {
+          mode: 'preview-script',
+          cwd: workspacePath,
+          command: 'cmd.exe',
+          args: ['/d', '/s', '/c', `"${previewScriptPath}"`],
+          detached: false,
+          description: previewScriptPath
+        }
+      }
+
+      return {
+        mode: 'preview-script',
+        cwd: workspacePath,
+        command: 'bash',
+        args: [previewScriptPath],
+        detached: true,
+        description: previewScriptPath
+      }
+    }
+
+    const nodeProjectDir = this.findNodeProjectDir(workspacePath)
+    if (!nodeProjectDir || !this.hasDevScript(nodeProjectDir)) {
+      return null
+    }
+
+    const commandLine = this.hasInstalledDependencies(nodeProjectDir)
+      ? 'npm run dev'
+      : 'npm install && npm run dev'
+
+    if (process.platform === 'win32') {
+      return {
+        mode: 'node-dev',
+        cwd: nodeProjectDir,
+        command: 'cmd.exe',
+        args: ['/d', '/s', '/c', commandLine],
+        detached: false,
+        description: commandLine
+      }
+    }
+
+    return {
+      mode: 'node-dev',
+      cwd: nodeProjectDir,
+      command: 'bash',
+      args: ['-lc', commandLine],
+      detached: true,
+      description: commandLine
+    }
+  }
+
+  private extractPortCandidates(output: string): number[] {
+    const candidates: number[] = []
+    const cleanOutput = stripAnsi(output)
+
+    for (const pattern of PORT_PATTERNS) {
+      const match = cleanOutput.match(pattern)
+      if (!match?.[1]) continue
+
+      const port = parseInt(match[1], 10)
+      if (port > 0 && port < 65536) {
+        candidates.push(port)
+      }
+    }
+
+    return Array.from(new Set(candidates))
+  }
+
+  private containsError(output: string): boolean {
+    return ERROR_PATTERNS.some((pattern) => pattern.test(output))
+  }
+
+  private pushLog(proc: InternalDevServerProcess, line: string): void {
+    proc.logs.push(line)
+    while (proc.logs.length > MAX_LOGS) {
+      proc.logs.shift()
+    }
+  }
+
+  private processOutputChunk(
+    proc: InternalDevServerProcess,
+    source: 'stdout' | 'stderr',
+    chunk: string
+  ): void {
+    const property = source === 'stdout' ? 'stdoutBuffer' : 'stderrBuffer'
+    proc[property] += chunk
+
+    const lines = proc[property].split(/\r?\n/)
+    proc[property] = lines.pop() ?? ''
+
+    for (const rawLine of lines) {
+      this.handleOutputLine(proc, source, rawLine)
+    }
+  }
+
+  private flushOutputBuffer(proc: InternalDevServerProcess, source: 'stdout' | 'stderr'): void {
+    const property = source === 'stdout' ? 'stdoutBuffer' : 'stderrBuffer'
+    const line = proc[property].trim()
+    if (line) {
+      this.handleOutputLine(proc, source, line)
+    }
+    proc[property] = ''
+  }
+
+  private handleOutputLine(
+    proc: InternalDevServerProcess,
+    source: 'stdout' | 'stderr',
+    rawLine: string
+  ): void {
+    const cleanLine = stripAnsi(rawLine).replace(/\r/g, '').trim()
+    if (!cleanLine) {
+      return
+    }
+
+    const logLine = source === 'stderr' ? `[stderr] ${cleanLine}` : cleanLine
+    this.pushLog(proc, logLine)
+
+    if (source === 'stderr') {
+      console.error(`[DevServer:${proc.chatUuid}] ${cleanLine}`)
+    } else {
+      console.log(`[DevServer:${proc.chatUuid}] ${cleanLine}`)
+    }
+
+    for (const port of this.extractPortCandidates(cleanLine)) {
+      proc.candidatePorts.add(port)
+      if (proc.port !== port) {
+        proc.port = port
+      }
+    }
+
+    if (!proc.stopping && this.containsError(cleanLine)) {
+      proc.status = 'error'
+      proc.error = cleanLine
+    }
+  }
+
+  private async probeHttpPort(port: number): Promise<string | null> {
+    const hosts = ['127.0.0.1', 'localhost']
+
+    for (const host of hosts) {
+      const reachable = await new Promise<boolean>((resolve) => {
+        const req = httpRequest(
+          {
+            host,
+            port,
+            path: '/',
+            method: 'GET',
+            timeout: PORT_PROBE_TIMEOUT
+          },
+          (res) => {
+            res.resume()
+            resolve(true)
+          }
+        )
+
+        req.on('timeout', () => {
+          req.destroy()
+          resolve(false)
+        })
+
+        req.on('error', () => {
+          resolve(false)
+        })
+
+        req.end()
+      })
+
+      if (reachable) {
+        return host
+      }
+    }
+
+    return null
+  }
+
+  private buildProbeCandidates(proc: InternalDevServerProcess): number[] {
+    const candidates: number[] = []
+
+    if (proc.port) {
+      candidates.push(proc.port)
+    }
+
+    for (const port of proc.candidatePorts) {
+      candidates.push(port)
+    }
+
+    for (let port = PORT_PROBE_START; port < PORT_PROBE_START + PORT_PROBE_COUNT; port++) {
+      candidates.push(port)
+    }
+
+    return Array.from(new Set(candidates))
+  }
+
+  private async monitorServerReadiness(proc: InternalDevServerProcess): Promise<void> {
+    for (let attempt = 0; attempt < PORT_PROBE_MAX_ATTEMPTS; attempt++) {
+      if (this.processes.get(proc.chatUuid) !== proc) return
+      if (proc.stopping || proc.status === 'error' || proc.status === 'running') return
+
+      for (const port of this.buildProbeCandidates(proc)) {
+        const reachableHost = await this.probeHttpPort(port)
+        if (reachableHost) {
+          proc.port = port
+          proc.status = 'running'
+          proc.error = null
+          this.pushLog(proc, `[system] Dev server reachable at http://${reachableHost}:${port}`)
+          console.log(`[DevServer:${proc.chatUuid}] ✅ HTTP probe succeeded at http://${reachableHost}:${port}`)
+          return
+        }
+      }
+
+      await sleep(PORT_PROBE_INTERVAL)
+    }
+  }
+
+  private clearShutdownTimer(proc: InternalDevServerProcess): void {
+    if (proc.shutdownTimer) {
+      clearTimeout(proc.shutdownTimer)
+      proc.shutdownTimer = null
+    }
+  }
+
+  private async waitForProcessExit(childProcess: ChildProcess, timeoutMs: number): Promise<boolean> {
+    if (childProcess.exitCode !== null || childProcess.signalCode !== null) {
+      return true
+    }
+
+    return new Promise((resolve) => {
+      let settled = false
+      const settle = (value: boolean) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        childProcess.removeListener('exit', onExit)
+        childProcess.removeListener('close', onClose)
+        resolve(value)
+      }
+
+      const onExit = () => settle(true)
+      const onClose = () => settle(true)
+      const timer = setTimeout(() => settle(false), timeoutMs)
+
+      childProcess.once('exit', onExit)
+      childProcess.once('close', onClose)
+    })
+  }
+
+  private cleanupProcessRecord(chatUuid: string, proc: InternalDevServerProcess): void {
+    this.clearShutdownTimer(proc)
+    this.flushOutputBuffer(proc, 'stdout')
+    this.flushOutputBuffer(proc, 'stderr')
+
+    if (this.processes.get(chatUuid) === proc) {
+      this.processes.delete(chatUuid)
+    }
+  }
+
+  private killProcessTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): void {
+    try {
+      console.log(`[DevServer] Killing process tree for PID ${pid} with signal ${signal}`)
+
+      if (process.platform === 'win32') {
+        execFileSync('taskkill', ['/pid', String(pid), '/T', '/F'])
+        return
+      }
+
+      try {
+        process.kill(-pid, signal)
+      } catch {
+        process.kill(pid, signal)
+      }
+    } catch (error) {
+      console.error(`[DevServer] Error killing process tree:`, error)
+    }
+  }
+
+  private async stopProcess(chatUuid: string, proc: InternalDevServerProcess): Promise<void> {
+    if (proc.stopping) {
+      return
+    }
+
+    proc.stopping = true
+    proc.port = null
+    proc.error = null
+    this.clearShutdownTimer(proc)
+
+    const pid = proc.process.pid
+    if (!pid) {
+      this.cleanupProcessRecord(chatUuid, proc)
+      return
+    }
+
+    this.killProcessTree(pid, 'SIGTERM')
+    proc.shutdownTimer = setTimeout(() => {
+      if (proc.process.exitCode === null && proc.process.signalCode === null) {
+        console.log(`[DevServer:${chatUuid}] Forcing kill after timeout`)
+        this.killProcessTree(pid, 'SIGKILL')
+      }
+    }, GRACEFUL_SHUTDOWN_TIMEOUT)
+
+    const exitedGracefully = await this.waitForProcessExit(proc.process, GRACEFUL_SHUTDOWN_TIMEOUT)
+    if (!exitedGracefully) {
+      this.killProcessTree(pid, 'SIGKILL')
+      await this.waitForProcessExit(proc.process, FORCE_KILL_TIMEOUT)
+    }
+
+    this.cleanupProcessRecord(chatUuid, proc)
+  }
+
   async startDevServer(chatUuid: string, customWorkspacePath?: string): Promise<StartDevServerResponse> {
     try {
-      // Check if already running
       const existing = this.processes.get(chatUuid)
-      if (existing && existing.status !== 'stopped' && existing.status !== 'error') {
+      if (existing && !existing.stopping && existing.status !== 'error') {
         return {
           success: false,
           error: 'Development server is already running or starting'
         }
       }
 
-      // If there's an existing process in error state, kill it first
-      if (existing && existing.status === 'error') {
-        console.log(`[DevServer] Cleaning up previous process in error state for ${chatUuid}`)
-        try {
-          const pid = existing.process.pid
-          if (pid) {
-            this.killProcessTree(pid, 'SIGTERM')
-            setTimeout(() => {
-              if (!existing.process.killed) {
-                this.killProcessTree(pid, 'SIGKILL')
-              }
-            }, 1000)
-          }
-        } catch (err) {
-          console.error(`[DevServer] Error killing previous process:`, err)
-        }
-        this.processes.delete(chatUuid)
+      if (existing) {
+        await this.stopProcess(chatUuid, existing)
       }
 
-      // Resolve workspace path
       const workspacePath = this.getWorkspacePath(chatUuid, customWorkspacePath)
+      const strategy = this.resolveStartupStrategy(chatUuid, customWorkspacePath)
 
-      // Check startup strategy
-      const previewShPath = this.getPreviewShPath(chatUuid, customWorkspacePath)
-      const hasPreviewSh = existsSync(previewShPath)
-      let startCwd = workspacePath
-      let startCommand: string[] = [previewShPath]
-      let startMode: 'preview.sh' | 'node-dev' = 'preview.sh'
-
-      if (!hasPreviewSh) {
-        const nodeProjectDir = this.findNodeProjectDir(workspacePath)
-        if (!nodeProjectDir) {
-          return {
-            success: false,
-            error: 'preview.sh not found in workspace and no Node project (package.json) was detected'
-          }
+      if (!strategy) {
+        return {
+          success: false,
+          error: 'preview script not found in workspace and no Node project with "scripts.dev" was detected'
         }
-
-        if (!this.hasDevScript(nodeProjectDir)) {
-          return {
-            success: false,
-            error: `preview.sh not found and "scripts.dev" is missing in ${nodeProjectDir}/package.json`
-          }
-        }
-
-        startMode = 'node-dev'
-        startCwd = nodeProjectDir
-        startCommand = ['-lc', 'npm install && npm run dev']
       }
 
       console.log(`[DevServer] Starting server for workspace: ${chatUuid}`)
-      if (startMode === 'preview.sh') {
-        console.log(`[DevServer] Startup mode: preview.sh`)
-        console.log(`[DevServer] Script path: ${previewShPath}`)
-      } else {
-        console.log(`[DevServer] Startup mode: node-dev`)
-        console.log(`[DevServer] Command: npm install && npm run dev`)
-      }
-      console.log(`[DevServer] Working directory: ${startCwd}`)
+      console.log(`[DevServer] Startup mode: ${strategy.mode}`)
+      console.log(`[DevServer] Command: ${strategy.description}`)
+      console.log(`[DevServer] Working directory: ${strategy.cwd || workspacePath}`)
 
-      // Spawn the process
-      // Note: Do NOT use shell: true here, as it causes issues with paths containing spaces
-      // Use detached: true on Unix to create a new process group, making it easier to kill all children
-      const childProcess: ChildProcess = spawn('bash', startCommand, {
-        cwd: startCwd,
+      const childProcess = spawn(strategy.command, strategy.args, {
+        cwd: strategy.cwd,
         env: {
           ...process.env,
-          FORCE_COLOR: '0', // Disable color codes in output
+          BROWSER: 'none',
+          FORCE_COLOR: '0',
           NODE_ENV: 'development'
         },
-        // On Unix, detached creates a new process group
-        // On Windows, this is handled differently
-        detached: process.platform !== 'win32'
+        detached: strategy.detached
       })
 
-      // Create process record
-      const devServerProcess: DevServerProcess = {
+      const proc: InternalDevServerProcess = {
         chatUuid,
         process: childProcess,
         status: 'starting',
         port: null,
         logs: [],
         error: null,
-        startTime: Date.now()
+        startTime: Date.now(),
+        stdoutBuffer: '',
+        stderrBuffer: '',
+        candidatePorts: new Set<number>(),
+        stopping: false,
+        shutdownTimer: null,
+        readinessProbe: null
       }
 
-      this.processes.set(chatUuid, devServerProcess)
+      this.processes.set(chatUuid, proc)
 
-      // Handle stdout
       childProcess.stdout?.on('data', (data: Buffer) => {
-        const output = data.toString()
-        console.log(`[DevServer:${chatUuid}] stdout:`, output)
-
-        this.addLog(devServerProcess, output)
-
-        // Try to extract port - always update if found (last valid port wins)
-        const port = this.extractPort(output)
-        if (port) {
-          if (devServerProcess.port && devServerProcess.port !== port) {
-            console.log(`[DevServer:${chatUuid}] ✅ Port updated: ${port} [replaced ${devServerProcess.port}]`)
-          } else {
-            console.log(`[DevServer:${chatUuid}] ✅ Port detected: ${port}`)
-          }
-          devServerProcess.port = port
-          devServerProcess.status = 'running'
-        }
-
-        // Check for errors
-        if (this.containsError(output)) {
-          console.error(`[DevServer:${chatUuid}] Error detected in output:`, output)
-          devServerProcess.status = 'error'
-          devServerProcess.error = output.trim()
-        }
+        this.processOutputChunk(proc, 'stdout', data.toString())
       })
 
-      // Handle stderr
       childProcess.stderr?.on('data', (data: Buffer) => {
-        const output = data.toString()
-        console.error(`[DevServer:${chatUuid}] stderr:`, output)
-
-        this.addLog(devServerProcess, `[stderr] ${output}`)
-
-        // Try to extract port from stderr (some servers output to stderr)
-        const port = this.extractPort(output)
-        if (port) {
-          if (devServerProcess.port && devServerProcess.port !== port) {
-            console.log(`[DevServer:${chatUuid}] ✅ Port updated from stderr: ${port} [replaced ${devServerProcess.port}]`)
-          } else {
-            console.log(`[DevServer:${chatUuid}] ✅ Port detected in stderr: ${port}`)
-          }
-          devServerProcess.port = port
-          devServerProcess.status = 'running'
-        }
-
-        // Check for errors
-        if (this.containsError(output)) {
-          console.error(`[DevServer:${chatUuid}] Error detected in stderr:`, output)
-          devServerProcess.status = 'error'
-          devServerProcess.error = output.trim()
-        }
+        this.processOutputChunk(proc, 'stderr', data.toString())
       })
 
-      // Handle process exit
       childProcess.on('exit', (code, signal) => {
+        this.flushOutputBuffer(proc, 'stdout')
+        this.flushOutputBuffer(proc, 'stderr')
+        this.clearShutdownTimer(proc)
+
         console.log(`[DevServer:${chatUuid}] Process exited with code ${code}, signal ${signal}`)
 
-        if (devServerProcess.status !== 'stopped') {
-          devServerProcess.status = 'error'
-          devServerProcess.error = `Process exited unexpectedly with code ${code}`
-          this.addLog(devServerProcess, `Process exited with code ${code}`)
+        if (proc.stopping) {
+          this.cleanupProcessRecord(chatUuid, proc)
+          return
+        }
+
+        proc.status = 'error'
+        proc.error = `Process exited unexpectedly with code ${code ?? 'null'}`
+        this.pushLog(proc, `Process exited with code ${code ?? 'null'} signal ${signal ?? 'null'}`)
+      })
+
+      childProcess.on('error', (err) => {
+        proc.status = 'error'
+        proc.error = err.message
+        this.pushLog(proc, `[system] Process error: ${err.message}`)
+      })
+
+      proc.readinessProbe = this.monitorServerReadiness(proc).catch((error) => {
+        if (!proc.stopping && proc.status !== 'error') {
+          proc.status = 'error'
+          proc.error = error instanceof Error ? error.message : String(error)
+          this.pushLog(proc, `[system] Readiness probe failed: ${proc.error}`)
         }
       })
-
-      // Handle process errors
-      childProcess.on('error', (err) => {
-        console.error(`[DevServer:${chatUuid}] Process error:`, err)
-        devServerProcess.status = 'error'
-        devServerProcess.error = err.message
-        this.addLog(devServerProcess, `Process error: ${err.message}`)
-      })
-
-      console.log(`[DevServer:${chatUuid}] Process spawned successfully, waiting for port detection...`)
-      console.log(`[DevServer:${chatUuid}] Logs will be captured and analyzed for port information`)
 
       return {
         success: true,
@@ -387,82 +614,17 @@ class DevServerProcessManager {
     }
   }
 
-  /**
-   * Kill process tree recursively
-   */
-  private killProcessTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): void {
-    try {
-      // On Unix systems, kill the entire process group by using negative PID
-      // This ensures all child processes (npm, vite, etc.) are killed
-      console.log(`[DevServer] Killing process tree for PID ${pid} with signal ${signal}`)
-
-      if (process.platform === 'win32') {
-        // Windows: use taskkill to kill process tree
-        require('child_process').execSync(`taskkill /pid ${pid} /T /F`)
-      } else {
-        // Unix: kill process group (-pid kills all processes in the group)
-        try {
-          process.kill(-pid, signal)
-          console.log(`[DevServer] Successfully killed process group -${pid}`)
-        } catch (err) {
-          // If process group kill fails, try killing the process directly
-          console.log(`[DevServer] Process group kill failed, trying direct kill`)
-          process.kill(pid, signal)
-        }
-      }
-    } catch (error) {
-      console.error(`[DevServer] Error killing process tree:`, error)
-    }
-  }
-
-  /**
-   * Stop development server for a workspace
-   */
   async stopDevServer(chatUuid: string): Promise<StopDevServerResponse> {
     try {
       const proc = this.processes.get(chatUuid)
-
       if (!proc) {
         return {
-          success: false,
-          error: 'No development server found for this workspace'
-        }
-      }
-
-      if (proc.status === 'stopped') {
-        return {
           success: true,
-          message: 'Development server already stopped'
+          message: 'Development server already idle'
         }
       }
 
-      console.log(`[DevServer] Stopping server for workspace: ${chatUuid}`)
-
-      const childProcess = proc.process
-      const pid = childProcess.pid
-
-      if (!pid) {
-        console.error(`[DevServer] No PID found for process`)
-        return {
-          success: false,
-          error: 'No PID found for process'
-        }
-      }
-
-      // Try graceful shutdown first - kill entire process tree
-      this.killProcessTree(pid, 'SIGTERM')
-      proc.status = 'stopped'
-
-      // Force kill after timeout
-      setTimeout(() => {
-        if (!childProcess.killed) {
-          console.log(`[DevServer:${chatUuid}] Forcing kill after timeout`)
-          this.killProcessTree(pid, 'SIGKILL')
-        }
-      }, GRACEFUL_SHUTDOWN_TIMEOUT)
-
-      // Clean up process record
-      this.processes.delete(chatUuid)
+      await this.stopProcess(chatUuid, proc)
 
       return {
         success: true,
@@ -477,12 +639,8 @@ class DevServerProcessManager {
     }
   }
 
-  /**
-   * Get development server status
-   */
   getStatus(chatUuid: string): GetDevServerStatusResponse {
     const proc = this.processes.get(chatUuid)
-
     if (!proc) {
       return {
         success: true,
@@ -495,19 +653,15 @@ class DevServerProcessManager {
 
     return {
       success: true,
-      status: proc.status,
-      port: proc.port,
-      logs: [...proc.logs], // Return copy
-      error: proc.error
+      status: proc.stopping ? 'idle' : proc.status,
+      port: proc.stopping ? null : proc.port,
+      logs: [...proc.logs],
+      error: proc.stopping ? null : proc.error
     }
   }
 
-  /**
-   * Get development server logs
-   */
   getLogs(chatUuid: string, limit: number = MAX_LOGS): GetDevServerLogsResponse {
     const proc = this.processes.get(chatUuid)
-
     if (!proc) {
       return {
         success: true,
@@ -515,55 +669,23 @@ class DevServerProcessManager {
       }
     }
 
-    const logs = proc.logs.slice(-limit)
-
     return {
       success: true,
-      logs
+      logs: proc.logs.slice(-limit)
     }
   }
 
-  /**
-   * Stop all development servers
-   */
   stopAll(): void {
-    console.log(`[DevServer] Stopping all development servers...`)
-
+    console.log('[DevServer] Stopping all development servers...')
     for (const [chatUuid, proc] of this.processes.entries()) {
-      try {
-        if (proc.status !== 'stopped') {
-          console.log(`[DevServer] Stopping server for ${chatUuid}`)
-          const pid = proc.process.pid
-
-          if (pid) {
-            this.killProcessTree(pid, 'SIGTERM')
-
-            setTimeout(() => {
-              if (!proc.process.killed) {
-                this.killProcessTree(pid, 'SIGKILL')
-              }
-            }, GRACEFUL_SHUTDOWN_TIMEOUT)
-          }
-        }
-      } catch (error) {
+      void this.stopProcess(chatUuid, proc).catch((error) => {
         console.error(`[DevServer] Error stopping server for ${chatUuid}:`, error)
-      }
+      })
     }
-
-    this.processes.clear()
-    console.log(`[DevServer] All servers stopped`)
   }
 }
 
-// ============================================
-// Singleton Instance
-// ============================================
-
 const devServerManager = new DevServerProcessManager()
-
-// ============================================
-// IPC Handler Functions
-// ============================================
 
 export async function processCheckPreviewSh(
   args: CheckPreviewShArgs
@@ -581,7 +703,7 @@ export async function processCheckPreviewSh(
     return {
       success: false,
       exists: false,
-      error: error.message || 'Failed to check preview.sh'
+      error: error.message || 'Failed to check preview script'
     }
   }
 }
@@ -607,8 +729,7 @@ export async function processGetDevServerStatus(
 export async function processGetDevServerLogs(
   args: GetDevServerLogsArgs
 ): Promise<GetDevServerLogsResponse> {
-  const { chatUuid, limit } = args
-  return devServerManager.getLogs(chatUuid, limit)
+  return devServerManager.getLogs(args.chatUuid, args.limit)
 }
 
 export function cleanupDevServers(): void {

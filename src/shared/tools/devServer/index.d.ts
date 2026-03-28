@@ -7,17 +7,7 @@
 // DevServer Status Types
 // ============================================
 
-export type DevServerStatus = 'idle' | 'starting' | 'running' | 'error' | 'stopped'
-
-export interface DevServerProcess {
-  chatUuid: string
-  process: any // ChildProcess
-  status: DevServerStatus
-  port: number | null
-  logs: string[]
-  error: string | null
-  startTime: number
-}
+export type DevServerStatus = 'idle' | 'starting' | 'running' | 'error'
 
 // ============================================
 // IPC Request/Response Interfaces
