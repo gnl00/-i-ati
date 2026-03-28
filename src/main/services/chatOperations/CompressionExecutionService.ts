@@ -1,8 +1,8 @@
 import { compressionService } from '@main/services/compression-service'
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
+import { serializeError } from '@main/services/serializeError'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import type { ChatCompressionExecuteInput } from './types'
-import { createOptionalChatRunEmitter, serializeError } from './utils'
 
 export class CompressionExecutionService {
   constructor(
@@ -10,7 +10,7 @@ export class CompressionExecutionService {
   ) {}
 
   async execute(data: ChatCompressionExecuteInput): Promise<CompressionResult> {
-    const emitter = createOptionalChatRunEmitter(this.emitterFactory, data)
+    const emitter = this.emitterFactory.createOptional(data)
 
     emitter?.emit(CHAT_RUN_EVENTS.COMPRESSION_STARTED, {
       chatId: data.chatId,

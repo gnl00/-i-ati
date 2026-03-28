@@ -1,8 +1,8 @@
 import { generateTitle } from '@main/services/title-service'
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
+import { serializeError } from '@main/services/serializeError'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import type { ChatTitleGenerateInput } from './types'
-import { createOptionalChatRunEmitter, serializeError } from './utils'
 
 export class TitleGenerationService {
   constructor(
@@ -10,7 +10,7 @@ export class TitleGenerationService {
   ) {}
 
   async generate(data: ChatTitleGenerateInput): Promise<{ title: string }> {
-    const emitter = createOptionalChatRunEmitter(this.emitterFactory, data)
+    const emitter = this.emitterFactory.createOptional(data)
 
     emitter?.emit(CHAT_RUN_EVENTS.TITLE_GENERATE_STARTED, {
       model: data.model,

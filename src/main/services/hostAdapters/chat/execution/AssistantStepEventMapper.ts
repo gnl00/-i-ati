@@ -2,10 +2,10 @@ import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
 import type { AgentStepEventListener } from '@main/services/agentCore/contracts'
 import type { ToolExecutionProgress } from '@main/services/agentCore/tools'
 import type { ToolCall } from '@main/services/agentCore/types'
+import { serializeError } from '@main/services/serializeError'
 import {
   CHAT_RUN_EVENTS,
-  CHAT_RUN_STATES,
-  type SerializedError
+  CHAT_RUN_STATES
 } from '@shared/chatRun/events'
 
 export class AssistantStepEventMapper implements AgentStepEventListener {
@@ -45,24 +45,7 @@ export class AssistantStepEventMapper implements AgentStepEventListener {
 
     this.emitter.emit(CHAT_RUN_EVENTS.TOOL_EXEC_FAILED, {
       toolCallId: progress.id,
-      error: this.serializeError(progress.result?.error || new Error('Tool execution failed'))
+      error: serializeError(progress.result?.error || new Error('Tool execution failed'))
     })
-  }
-  private serializeError(error: any, depth: number = 0): SerializedError {
-    const serialized: SerializedError = {
-      name: error?.name || 'Error',
-      message: error?.message || 'Unknown error',
-      stack: error?.stack as string | undefined,
-      code: typeof error?.code === 'string' ? error.code : undefined
-    }
-
-    if (depth >= 3 || !error?.cause) {
-      return serialized
-    }
-
-    return {
-      ...serialized,
-      cause: this.serializeError(error.cause, depth + 1)
-    }
   }
 }

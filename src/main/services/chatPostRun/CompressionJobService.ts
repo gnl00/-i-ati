@@ -1,7 +1,8 @@
 import { compressionService } from '@main/services/compression-service'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
-import { createPostRunEmitter, serializeError } from './utils'
+import { serializeError } from '@main/services/serializeError'
+import { createPostRunEmitter } from './utils'
 import type { PostRunJobInput } from './types'
 
 export class CompressionJobService {

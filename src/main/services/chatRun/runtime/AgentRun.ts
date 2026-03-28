@@ -8,10 +8,10 @@ import {
 } from '@main/services/hostAdapters/chat'
 import type { ChatRunEventEmitter } from '../infrastructure'
 import { PostRunJobService } from '@main/services/chatPostRun'
-import type { SerializedError } from '@shared/chatRun/events'
 import type { RunResult } from '@main/services/agentCore/types'
 import { RunLifecycleEventMapper } from './RunLifecycleEventMapper'
 import { RunTerminalHandler } from './RunTerminalHandler'
+import { serializeError } from '@main/services/serializeError'
 
 export type AgentRunServices = {
   agentRunKernel: AgentRunKernel
@@ -42,24 +42,6 @@ export class AgentRun {
     this.chatUuid = input.chatUuid
     this.emitter = runtime.emitter
     this.lifecycle = new RunLifecycleEventMapper(runtime.emitter)
-  }
-
-  private serializeError(error: any, depth: number = 0): SerializedError {
-    const serialized: SerializedError = {
-      name: error?.name || 'Error',
-      message: error?.message || 'Unknown error',
-      stack: error?.stack as string | undefined,
-      code: typeof error?.code === 'string' ? error.code : undefined
-    }
-
-    if (depth >= 3 || !error?.cause) {
-      return serialized
-    }
-
-    return {
-      ...serialized,
-      cause: this.serializeError(error.cause, depth + 1)
-    }
   }
 
   emitAccepted(): void {
@@ -112,7 +94,7 @@ export class AgentRun {
         }
       }
 
-      const serializedError = this.serializeError(error)
+      const serializedError = serializeError(error)
       this.lifecycle.emitFailed(serializedError)
       return {
         state: 'failed',

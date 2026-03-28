@@ -2,12 +2,13 @@ import { generateTitle } from '@main/services/title-service'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
 import { createLogger } from '@main/services/logging/LogService'
+import { serializeError } from '@main/services/serializeError'
 import {
   ChatEventMapper,
   ChatModelContextResolver,
   ChatSessionStore
 } from '@main/services/hostAdapters/chat'
-import { createPostRunEmitter, serializeError } from './utils'
+import { createPostRunEmitter } from './utils'
 import type { PostRunJobInput } from './types'
 
 export class TitleJobService {
