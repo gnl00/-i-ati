@@ -200,6 +200,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     })
   }, [queuedMessages.length, queuePaused, setImageSrcBase64List])
 
+  const shouldQueueSubmission = readStreamState || Boolean(currentReqCtrl) || queuePaused || queuedMessages.length > 0
+
   const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent, overrideText?: string) => {
     const rawInput = overrideText ?? inputContent
     const trimmedInput = rawInput.trim()
@@ -238,7 +240,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       setInputContent('')
       setImageSrcBase64List([])
 
-      if (readStreamState || queuePaused || queuedMessages.length > 0) {
+      if (shouldQueueSubmission) {
         setQueuedMessages(prev => [editedPayload, ...prev])
         return
       }
@@ -247,7 +249,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       return
     }
 
-    if (readStreamState || queuePaused || queuedMessages.length > 0) {
+    if (shouldQueueSubmission) {
       enqueueMessage(payload)
       return
     }
@@ -269,17 +271,19 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     selectedModelRef,
     ensureSelectedModelRef,
     currentUserInstruction,
+    currentReqCtrl,
     readStreamState,
     queuePaused,
     editingQueue,
     queuedMessages.length,
+    shouldQueueSubmission,
     enqueueMessage,
     submitMessage,
     setImageSrcBase64List
   ])
 
   useEffect(() => {
-    if (readStreamState || queuePaused || editingQueue || queuedMessages.length === 0) {
+    if (readStreamState || currentReqCtrl || queuePaused || editingQueue || queuedMessages.length === 0) {
       return
     }
     if (queueFlushingRef.current) {
@@ -289,7 +293,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       window.clearTimeout(queueTimerRef.current)
     }
     queueTimerRef.current = window.setTimeout(() => {
-      if (readStreamState) {
+      if (readStreamState || currentReqCtrl) {
         return
       }
       setQueuedMessages(prev => {
@@ -308,7 +312,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         queueTimerRef.current = null
       }
     }
-  }, [readStreamState, queuePaused, editingQueue, queuedMessages.length, submitMessage])
+  }, [readStreamState, currentReqCtrl, queuePaused, editingQueue, queuedMessages.length, submitMessage])
 
   useEffect(() => {
     if (!readStreamState) {

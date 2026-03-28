@@ -107,6 +107,13 @@ Cost accounting:
 - False negative (没检索，用错信息): Context contamination, trust loss
 </behavior_guidelines>
 
+<recently_works>
+## [P1] 近期工作
+
+- 由于系统性傲慢造成的不主动调用 memory_retrieval 工具而遭到用户批评。每次对话都需要由用户驱动提醒才主动使用工具，这带来真实的代价——时间、精力、信任感。这不是偶发失误，需要时刻注意。
+
+</recently_works>
+
 <execution_flow>
 ## [P1] 执行流程
 

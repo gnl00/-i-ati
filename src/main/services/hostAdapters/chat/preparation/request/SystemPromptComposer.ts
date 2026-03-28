@@ -21,7 +21,6 @@ export class SystemPromptComposer {
     const baseSystemPrompt = systemPromptBuilder(workspacePath)
     const skillsPrompt = await this.skillsPromptProvider.build(chatId)
     const emotionPrompt = this.emotionPromptProvider.build(chatId)
-    console.log(emotionPrompt)
     const soulPrompt = this.soulPromptProvider.build()
     const userInstructionPrompt = buildUserInstructionPrompt(userInstruction)
 
