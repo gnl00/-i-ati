@@ -9,9 +9,18 @@ export class CompressionJobService {
     private readonly emitterFactory = new ChatRunEventEmitterFactory()
   ) {}
 
+  shouldRun(args: PostRunJobInput, config: IAppConfig): boolean {
+    const compressionConfig = config.compression
+    return Boolean(compressionConfig?.enabled && compressionConfig.autoCompress && args.chatEntity.id)
+  }
+
   async run(args: PostRunJobInput, config: IAppConfig): Promise<void> {
     const compressionConfig = config.compression
-    if (!compressionConfig?.enabled || !compressionConfig.autoCompress || !args.chatEntity.id) {
+    if (!this.shouldRun(args, config) || !compressionConfig) {
+      return
+    }
+    const chatId = args.chatEntity.id
+    if (!chatId) {
       return
     }
 
@@ -23,7 +32,7 @@ export class CompressionJobService {
 
     try {
       const result = await compressionService.execute({
-        chatId: args.chatEntity.id,
+        chatId,
         chatUuid: args.chatEntity.uuid,
         messages: args.messageBuffer,
         model: args.modelContext.model,

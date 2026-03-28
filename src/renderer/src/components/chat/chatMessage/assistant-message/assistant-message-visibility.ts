@@ -4,8 +4,7 @@ export interface AssistantMessageVisibilityInput {
   hasToolCalls: boolean
   isCommandConfirmPending: boolean
   isLatest: boolean
-  readStreamState: boolean
-  showLoadingIndicator: boolean
+  isResponseActive: boolean
 }
 
 export function shouldRenderAssistantMessageShell(
@@ -17,8 +16,7 @@ export function shouldRenderAssistantMessageShell(
     hasToolCalls,
     isCommandConfirmPending,
     isLatest,
-    readStreamState,
-    showLoadingIndicator,
+    isResponseActive,
   } = input
 
   if (hasContent || hasSegments || !hasToolCalls) {
@@ -29,7 +27,7 @@ export function shouldRenderAssistantMessageShell(
     return true
   }
 
-  if (isLatest && (readStreamState || showLoadingIndicator)) {
+  if (isLatest && isResponseActive) {
     return true
   }
 

@@ -217,10 +217,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   onCopyClick,
   onTypingChange
 }) => {
-  const showLoadingIndicator = useChatStore(state => state.showLoadingIndicator)
+  const runPhase = useChatStore(state => state.runPhase)
   const messages = useChatStore(state => state.messages)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
-  const readStreamState = useChatStore(state => state.readStreamState)
   const providerDefinitions = useAppConfigStore(state => state.providerDefinitions)
   const accounts = useAppConfigStore(state => state.accounts)
   const { onSubmit: handleChatSubmit } = useChatSubmit()
@@ -257,6 +256,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     : Array.isArray(m.content) && m.content.length > 0
   const hasSegments = visibleSegments.length > 0
   const hasToolCalls = hasVisibleToolCalls
+  const isRunBusy = runPhase !== 'idle'
+  const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
+  const isStreaming = runPhase === 'streaming'
 
   if (!shouldRenderAssistantMessageShell({
     hasContent,
@@ -264,8 +266,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     hasToolCalls,
     isCommandConfirmPending,
     isLatest,
-    readStreamState,
-    showLoadingIndicator
+    isResponseActive: isAssistantResponseActive
   })) {
     return null
   }
@@ -275,7 +276,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     ((pendingToolConfirm?.args as { command?: string } | undefined)?.command ?? '')
 
   const handleRegenerate = () => {
-    if (readStreamState) {
+    if (isRunBusy) {
       toast.warning('Please wait for current response to finish')
       return
     }
@@ -322,7 +323,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
           <ModelBadgeNext
             model={m.model}
             provider={modelProvider}
-            animate={showLoadingIndicator && isLatest}
+            animate={isAssistantResponseActive && isLatest}
             emotionLabel={emotionLabel}
             emotionEmoji={emotionEmoji}
             emotionIntensity={emotionIntensity}
@@ -384,7 +385,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
                 key={key}
                 segment={segment}
                 nextSegmentTimestamp={nextSegmentTimestamp}
-                isStreaming={isLatest && showLoadingIndicator && segIdx === segments.length - 1}
+                isStreaming={isLatest && isStreaming && segIdx === segments.length - 1}
               />
             )
           } else if (segment.type === 'toolCall') {

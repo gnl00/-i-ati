@@ -30,14 +30,14 @@ export function useMessageTypewriter(
   props: UseMessageTypewriterProps
 ): UseMessageTypewriterReturn {
   const { index, message: m, isLatest, onTypingChange } = props
-  const readStreamState = useChatStore(state => state.readStreamState)
+  const runPhase = useChatStore(state => state.runPhase)
   const upsertMessage = useChatStore(state => state.upsertMessage)
   const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
   const setForceCompleteTypewriter = useChatStore(state => state.setForceCompleteTypewriter)
 
   const segments = m.segments || []
   const enabled = m.role === 'assistant' && isLatest && !m.typewriterCompleted
-  const isStreaming = readStreamState && isLatest
+  const isStreaming = runPhase === 'streaming' && isLatest
   const typingDebounceRef = useRef<number | null>(null)
 
   const handleTypingChange = useCallback(() => {

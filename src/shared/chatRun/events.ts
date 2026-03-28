@@ -38,6 +38,7 @@ export const CHAT_RUN_EVENTS = {
   RUN_COMPLETED: 'run.completed',
   RUN_FAILED: 'run.failed',
   RUN_ABORTED: 'run.aborted',
+  POST_RUN_PLAN: 'post_run.plan',
   CHAT_READY: 'chat.ready',
   MESSAGES_LOADED: 'messages.loaded',
   MESSAGE_CREATED: 'message.created',
@@ -66,6 +67,10 @@ export type ChatRunEventPayloads = {
   'run.completed': { assistantMessageId: number; usage?: ITokenUsage }
   'run.failed': { error: SerializedError | Error }
   'run.aborted': { reason?: string }
+  'post_run.plan': {
+    title: 'pending' | 'skipped'
+    compression: 'pending' | 'skipped'
+  }
   'chat.ready': {
     chatEntity: ChatEntity
     workspacePath: string

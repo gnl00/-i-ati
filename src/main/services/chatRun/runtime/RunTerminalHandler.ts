@@ -61,9 +61,11 @@ export class RunTerminalHandler {
       emitter,
       messageManager
     })
+    const postRunPlan = postRunJobService.getPlan(finalizeResult.postRunInput)
     const assistantMessageId = finalizeResult.runResult.assistantMessageId ?? -1
+    postRunJobService.emitPlan(finalizeResult.postRunInput, postRunPlan)
     lifecycle.emitCompleted(assistantMessageId, finalizeResult.runResult.usage)
-    void postRunJobService.run(finalizeResult.postRunInput)
+    void postRunJobService.run(finalizeResult.postRunInput, postRunPlan)
 
     return finalizeResult.runResult
   }

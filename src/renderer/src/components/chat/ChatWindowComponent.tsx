@@ -51,9 +51,10 @@ const ChatWindowComponent: React.FC = () => {
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
-  const readStreamState = useChatStore(state => state.readStreamState)
+  const runPhase = useChatStore(state => state.runPhase)
   const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
   const upsertMessage = useChatStore(state => state.upsertMessage)
+  const isRunStreaming = runPhase === 'streaming'
 
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const {
@@ -98,7 +99,7 @@ const ChatWindowComponent: React.FC = () => {
       !isLatest ||
       !hasSegments
 
-    if (!readStreamState && lastAssistantMessage && !shouldSkipTypewriter) {
+    if (!isRunStreaming && lastAssistantMessage && !shouldSkipTypewriter) {
       const updatedMessage: MessageEntity = {
         ...lastAssistantMessage,
         body: {
@@ -112,7 +113,7 @@ const ChatWindowComponent: React.FC = () => {
       }
     }
     scrollToBottom(true)
-  }, [messages, readStreamState, scrollToBottom, patchMessageUiState, upsertMessage, lastMessageIndex])
+  }, [messages, isRunStreaming, scrollToBottom, patchMessageUiState, upsertMessage, lastMessageIndex])
 
   
 

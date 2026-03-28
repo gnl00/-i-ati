@@ -19,21 +19,32 @@ export class TitleJobService {
     private readonly chatModelContextResolver = new ChatModelContextResolver()
   ) {}
 
-  async run(args: PostRunJobInput, config: IAppConfig): Promise<void> {
+  shouldRun(args: PostRunJobInput, config: IAppConfig): boolean {
     if (!config.tools?.titleGenerateEnabled) {
-      this.logger.debug('title.job.skipped.disabled', {
-        chatUuid: args.chatEntity.uuid,
-        chatId: args.chatEntity.id
-      })
-      return
+      return false
     }
 
     if (args.chatEntity.title && args.chatEntity.title !== 'NewChat') {
-      this.logger.debug('title.job.skipped.existing_title', {
-        chatUuid: args.chatEntity.uuid,
-        chatId: args.chatEntity.id,
-        currentTitle: args.chatEntity.title
-      })
+      return false
+    }
+
+    return true
+  }
+
+  async run(args: PostRunJobInput, config: IAppConfig): Promise<void> {
+    if (!this.shouldRun(args, config)) {
+      if (!config.tools?.titleGenerateEnabled) {
+        this.logger.debug('title.job.skipped.disabled', {
+          chatUuid: args.chatEntity.uuid,
+          chatId: args.chatEntity.id
+        })
+      } else {
+        this.logger.debug('title.job.skipped.existing_title', {
+          chatUuid: args.chatEntity.uuid,
+          chatId: args.chatEntity.id,
+          currentTitle: args.chatEntity.title
+        })
+      }
       return
     }
 

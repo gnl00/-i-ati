@@ -7,7 +7,7 @@ import {
   TooltipTrigger
 } from "@renderer/components/ui/tooltip"
 import { cn } from '@renderer/lib/utils'
-import { useChatStore } from '@renderer/store/chatStore'
+import { useChatStore, type ChatRunPhase } from '@renderer/store/chatStore'
 import { useAssistantStore } from '@renderer/store/assistant'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
@@ -24,7 +24,7 @@ import { toast } from 'sonner'
 
 interface ChatInputActionsProps {
   artifacts: boolean
-  currentReqCtrl: AbortController | undefined
+  runPhase: ChatRunPhase
   toggleArtifacts: (state: boolean) => void
   setArtifactsPanel: (open: boolean) => void
   onNewChat: () => void
@@ -35,7 +35,7 @@ interface ChatInputActionsProps {
 
 const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   artifacts,
-  currentReqCtrl,
+  runPhase,
   toggleArtifacts,
   setArtifactsPanel,
   onNewChat,
@@ -43,7 +43,8 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   onCancel,
   workspacePathToSelect
 }) => {
-  const readStreamState = useChatStore(state => state.readStreamState)
+  const canCancelRun = runPhase === 'submitting' || runPhase === 'streaming'
+  const isCancelling = runPhase === 'cancelling'
   const messages = useChatStore(state => state.messages)
   const { setCurrentAssistant } = useAssistantStore()
   const {
@@ -158,20 +159,9 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   }, [workspacePathToSelect])
 
   const handleStopClick = () => {
-    // console.log('[onStopClick] Triggered, currentReqCtrl:', currentReqCtrl)
-
     if (onCancel) {
       onCancel()
-      return
-    }
-
-    if (!currentReqCtrl) {
-      return
-    }
-
-    try {
-      currentReqCtrl.abort()
-    } catch (error) {
+    } else {
       toast.error('Failed to stop request')
     }
   }
@@ -351,7 +341,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 
         {/* Submit/Stop Button */}
         <div className='absolute right-0 bottom-0'>
-          {!readStreamState ? (
+          {!canCancelRun && !isCancelling ? (
             <Button
               onClick={onSubmit}
               variant={'default'}
@@ -382,29 +372,32 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
             <Button
               variant={'destructive'}
               size={'sm'}
+              disabled={isCancelling}
               className={cn(
                 'group relative rounded-full h-8 px-3',
                 'bg-linear-to-br from-red-500 to-red-600 dark:from-red-600 dark:to-red-700',
                 'border border-red-400/50 dark:border-red-500/50',
                 'shadow-lg shadow-red-500/25 dark:shadow-red-600/30',
-                'hover:shadow-xl hover:shadow-red-500/40 dark:hover:shadow-red-600/50',
-                'hover:scale-105 active:scale-95',
+                !isCancelling && 'hover:shadow-xl hover:shadow-red-500/40 dark:hover:shadow-red-600/50 hover:scale-105 active:scale-95',
                 'transition-all duration-300 ease-out',
                 'overflow-hidden',
-                'animate-[breathe_2s_ease-in-out_infinite]'
+                !isCancelling && 'animate-[breathe_2s_ease-in-out_infinite]',
+                isCancelling && 'cursor-wait opacity-75'
               )}
               onClick={handleStopClick}
               style={{
-                animation: 'breathe 2s ease-in-out infinite'
+                animation: isCancelling ? 'none' : 'breathe 2s ease-in-out infinite'
               }}
             >
               {/* Pulsing glow effect */}
-              <div className="absolute inset-0 bg-red-400/20 animate-[pulse_1.5s_ease-in-out_infinite]" />
+              {!isCancelling && (
+                <div className="absolute inset-0 bg-red-400/20 animate-[pulse_1.5s_ease-in-out_infinite]" />
+              )}
 
               {/* Icon and text */}
               <div className="relative flex items-center gap-1.5">
                 <StopIcon className="w-4 h-4 text-white group-hover:scale-110 transition-transform duration-200" />
-                <span className="text-white text-xs font-medium">Stop</span>
+                <span className="text-white text-xs font-medium">{isCancelling ? 'Stopping' : 'Stop'}</span>
               </div>
             </Button>
           )}

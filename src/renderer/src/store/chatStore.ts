@@ -5,6 +5,14 @@ import { resolveExistingChatModelRef, resolveNewChatModelRef, isModelRefAvailabl
 import { create } from 'zustand'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
+export type ChatRunPhase = 'idle' | 'submitting' | 'streaming' | 'post_run' | 'cancelling'
+export type PostRunJobStatus = 'idle' | 'pending' | 'failed'
+export type PostRunJobsState = {
+  title: PostRunJobStatus
+  compression: PostRunJobStatus
+}
+export type ChatRunOutcome = 'idle' | 'completed' | 'failed' | 'aborted'
+
 function hasAssistantPayload(message: ChatMessage): boolean {
   const hasContent = typeof message.content === 'string'
     ? message.content.trim().length > 0
@@ -58,10 +66,9 @@ export type ChatState = {
   chatList: ChatEntity[]
   userInstruction: string
   // Request state
-  fetchState: boolean
-  currentReqCtrl: AbortController | undefined
-  readStreamState: boolean
-  showLoadingIndicator: boolean
+  runPhase: ChatRunPhase
+  postRunJobs: PostRunJobsState
+  lastRunOutcome: ChatRunOutcome
   // Feature toggles
   webSearchEnable: boolean
   webSearchProcessing: boolean
@@ -70,7 +77,6 @@ export type ChatState = {
   artifactsActiveTab: string
   // Typewriter control
   forceCompleteTypewriter: (() => void) | null
-  lastMsgStatus: boolean
 }
 
 export type ChatAction = {
@@ -78,10 +84,10 @@ export type ChatAction = {
   setSelectedModelRef: (ref: ModelRef | undefined) => void
   ensureSelectedModelRef: () => ModelRef | undefined
   syncSelectedModelRefForChat: (chat: ChatEntity | null, messages?: MessageEntity[]) => ModelRef | undefined
-  setFetchState: (state: boolean) => void
-  setCurrentReqCtrl: (ctrl: AbortController | undefined) => void
-  setReadStreamState: (state: boolean) => void
-  setShowLoadingIndicator: (show: boolean) => void
+  setRunPhase: (phase: ChatRunPhase) => void
+  setPostRunJobState: (job: keyof PostRunJobsState, state: PostRunJobStatus) => void
+  resetPostRunJobs: () => void
+  setLastRunOutcome: (outcome: ChatRunOutcome) => void
   toggleWebSearch: (state: boolean) => void
   setWebSearchProcessState: (state: boolean) => void
   toggleArtifacts: (state: boolean) => void
@@ -90,7 +96,6 @@ export type ChatAction = {
   setArtifactsActiveTab: (tab: string) => void
   setImageSrcBase64List: (imgs: ClipbordImg[]) => void
   setForceCompleteTypewriter: (fn: (() => void) | null) => void
-  setLastMsgStatus: (state: boolean) => void
   setChatTitle: (title: string) => void
   setChatList: (list: ChatEntity[]) => void
   updateChatList: (chatEntity: ChatEntity) => void
@@ -129,10 +134,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   userInstruction: '',
 
   // Request state
-  fetchState: false,
-  currentReqCtrl: undefined,
-  readStreamState: false,
-  showLoadingIndicator: false,
+  runPhase: 'idle',
+  postRunJobs: { title: 'idle', compression: 'idle' },
+  lastRunOutcome: 'idle',
 
   // Feature toggles
   webSearchEnable: false,
@@ -143,7 +147,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
 
   // Typewriter control
   forceCompleteTypewriter: null,
-  lastMsgStatus: false,
 
   // ============ UI 状态更新方法 ============
 
@@ -175,10 +178,20 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     set({ selectedModelRef: resolved })
     return resolved
   },
-  setFetchState: (state) => set({ fetchState: state }),
-  setCurrentReqCtrl: (ctrl) => set({ currentReqCtrl: ctrl }),
-  setReadStreamState: (state) => set({ readStreamState: state }),
-  setShowLoadingIndicator: (show) => set({ showLoadingIndicator: show }),
+  setRunPhase: (phase) => set({ runPhase: phase }),
+  setPostRunJobState: (job, state) => set((prevState) => ({
+    postRunJobs: {
+      ...prevState.postRunJobs,
+      [job]: state
+    }
+  })),
+  resetPostRunJobs: () => set({
+    postRunJobs: {
+      title: 'idle',
+      compression: 'idle'
+    }
+  }),
+  setLastRunOutcome: (outcome) => set({ lastRunOutcome: outcome }),
   toggleWebSearch: (state) => set({ webSearchEnable: state }),
   setWebSearchProcessState: (state) => set({ webSearchProcessing: state }),
   toggleArtifacts: (state) => set({ artifacts: state }),
@@ -187,7 +200,6 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setArtifactsActiveTab: (tab) => set({ artifactsActiveTab: tab }),
   setImageSrcBase64List: (imgs) => set({ imageSrcBase64List: imgs }),
   setForceCompleteTypewriter: (fn) => set({ forceCompleteTypewriter: fn }),
-  setLastMsgStatus: (state) => set({ lastMsgStatus: state }),
   setChatTitle: (title) => set({ chatTitle: title }),
   setChatList: (list) => set({ chatList: list }),
   updateChatList: (chatEntity) => {

@@ -27,8 +27,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   // Only subscribe to specific state slices instead of the entire store
   const imageSrcBase64List = useChatStore(state => state.imageSrcBase64List)
   const setImageSrcBase64List = useChatStore(state => state.setImageSrcBase64List)
-  const currentReqCtrl = useChatStore(state => state.currentReqCtrl)
-  const readStreamState = useChatStore(state => state.readStreamState)
+  const runPhase = useChatStore(state => state.runPhase)
   const messages = useChatStore(state => state.messages)
   const currentChatId = useChatStore(state => state.currentChatId)
   const currentChatUuid = useChatStore(state => state.currentChatUuid)
@@ -200,7 +199,8 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     })
   }, [queuedMessages.length, queuePaused, setImageSrcBase64List])
 
-  const shouldQueueSubmission = readStreamState || Boolean(currentReqCtrl) || queuePaused || queuedMessages.length > 0
+  const isRunBusy = runPhase !== 'idle'
+  const shouldQueueSubmission = isRunBusy || queuePaused || queuedMessages.length > 0
 
   const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent, overrideText?: string) => {
     const rawInput = overrideText ?? inputContent
@@ -271,8 +271,6 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     selectedModelRef,
     ensureSelectedModelRef,
     currentUserInstruction,
-    currentReqCtrl,
-    readStreamState,
     queuePaused,
     editingQueue,
     queuedMessages.length,
@@ -283,7 +281,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   ])
 
   useEffect(() => {
-    if (readStreamState || currentReqCtrl || queuePaused || editingQueue || queuedMessages.length === 0) {
+    if (isRunBusy || queuePaused || editingQueue || queuedMessages.length === 0) {
       return
     }
     if (queueFlushingRef.current) {
@@ -293,7 +291,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
       window.clearTimeout(queueTimerRef.current)
     }
     queueTimerRef.current = window.setTimeout(() => {
-      if (readStreamState || currentReqCtrl) {
+      if (useChatStore.getState().runPhase !== 'idle') {
         return
       }
       setQueuedMessages(prev => {
@@ -312,16 +310,16 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         queueTimerRef.current = null
       }
     }
-  }, [readStreamState, currentReqCtrl, queuePaused, editingQueue, queuedMessages.length, submitMessage])
+  }, [isRunBusy, queuePaused, editingQueue, queuedMessages.length, submitMessage])
 
   useEffect(() => {
-    if (!readStreamState) {
+    if (!isRunBusy) {
       queueFlushingRef.current = false
     }
-  }, [readStreamState])
+  }, [isRunBusy])
 
   useEffect(() => {
-    if (readStreamState) {
+    if (isRunBusy) {
       return
     }
     const lastAssistant = [...messages].reverse().find(msg => msg.body.role === 'assistant')
@@ -329,7 +327,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     if (hasError) {
       setQueuePaused(true)
     }
-  }, [messages, readStreamState])
+  }, [messages, isRunBusy])
 
   useEffect(() => {
     setQueuedMessages([])
@@ -504,7 +502,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         <div
           className={cn(
             'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out bg-transparent',
-            readStreamState && 'opacity-80'
+            isRunBusy && 'opacity-80'
           )}
         >
           <ChatInputToolbar
@@ -608,7 +606,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
 
         <ChatInputActions
           artifacts={artifacts}
-          currentReqCtrl={currentReqCtrl}
+          runPhase={runPhase}
           toggleArtifacts={toggleArtifacts}
           setArtifactsPanel={setArtifactsPanel}
           onNewChat={startNewChat}

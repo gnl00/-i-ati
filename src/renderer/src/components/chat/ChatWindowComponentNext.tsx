@@ -52,12 +52,13 @@ const ChatWindowComponentNext: React.FC = () => {
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
-  const readStreamState = useChatStore(state => state.readStreamState)
+  const runPhase = useChatStore(state => state.runPhase)
   const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
   const upsertMessage = useChatStore(state => state.upsertMessage)
   const onUserScrollIntentRef = useRef<(() => void) | null>(null)
   const onUserScrollUpIntentRef = useRef<(() => void) | null>(null)
 
+  const isRunStreaming = runPhase === 'streaming'
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const streamingFollowEnabledRef = useRef<boolean>(true)
   const setStreamingFollowEnabled = useCallback((enabled: boolean) => {
@@ -77,7 +78,7 @@ const ChatWindowComponentNext: React.FC = () => {
     onUserScrollIntentRef,
     onUserScrollUpIntentRef,
     onLatestVisibleChange: (visible) => {
-      if (visible && readStreamState) {
+      if (visible && isRunStreaming) {
         setStreamingFollowEnabled(true)
       }
     }
@@ -241,7 +242,7 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [measureSpacer])
 
   const requestTopAnchorLock = useCallback(() => {
-    if (!readStreamState) return
+    if (!isRunStreaming) return
     if (!streamingFollowEnabledRef.current) return
     if (autoTopAnchorIndex < 0) return
     if (topAnchorLockRafRef.current) return
@@ -250,30 +251,30 @@ const ChatWindowComponentNext: React.FC = () => {
       topAnchorLockRafRef.current = 0
       scrollToMessageIndex(autoTopAnchorIndex, false, 'start')
     })
-  }, [autoTopAnchorIndex, readStreamState, scrollToMessageIndex])
+  }, [autoTopAnchorIndex, isRunStreaming, scrollToMessageIndex])
 
   useEffect(() => {
-    if (readStreamState) {
+    if (isRunStreaming) {
       setStreamingFollowEnabled(true)
     }
-  }, [readStreamState, setStreamingFollowEnabled])
+  }, [isRunStreaming, setStreamingFollowEnabled])
 
   useEffect(() => {
     onUserScrollIntentRef.current = () => {
-      if (!readStreamState) return
+      if (!isRunStreaming) return
       setStreamingFollowEnabled(false)
     }
 
     return () => {
       onUserScrollIntentRef.current = null
     }
-  }, [readStreamState, setStreamingFollowEnabled])
+  }, [isRunStreaming, setStreamingFollowEnabled])
 
   useEffect(() => {
     onUserScrollUpIntentRef.current = () => {
       const container = scrollParentRef.current
       if (!container) return
-      if (readStreamState) return
+      if (isRunStreaming) return
 
       const latestMetrics = getLatestMessageMetrics()
       if (!latestMetrics) return
@@ -292,7 +293,7 @@ const ChatWindowComponentNext: React.FC = () => {
     return () => {
       onUserScrollUpIntentRef.current = null
     }
-  }, [getLatestMessageMetrics, messages.length, readStreamState, scrollParentRef, setStreamingFollowEnabled])
+  }, [getLatestMessageMetrics, messages.length, isRunStreaming, scrollParentRef, setStreamingFollowEnabled])
 
   const handleJumpToLatestClick = useCallback(() => {
     const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
@@ -308,7 +309,7 @@ const ChatWindowComponentNext: React.FC = () => {
       !isLatest ||
       !hasSegments
 
-    if (!readStreamState && lastAssistantMessage && !shouldSkipTypewriter) {
+    if (!isRunStreaming && lastAssistantMessage && !shouldSkipTypewriter) {
       const updatedMessage: MessageEntity = {
         ...lastAssistantMessage,
         body: {
@@ -328,7 +329,7 @@ const ChatWindowComponentNext: React.FC = () => {
     setStreamingFollowEnabled(true)
     // Button targets the latest message (confirmed behavior).
     scrollToMessageIndex(latestMessageIndex, true, 'end')
-  }, [latestMessageIndex, messages, readStreamState, scrollToMessageIndex, setStreamingFollowEnabled, patchMessageUiState, upsertMessage, lastMessageIndex])
+  }, [latestMessageIndex, messages, isRunStreaming, scrollToMessageIndex, setStreamingFollowEnabled, patchMessageUiState, upsertMessage, lastMessageIndex])
 
   
 
@@ -398,14 +399,14 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [latestAssistantTextSignature, requestSpacerMeasurement])
 
   useEffect(() => {
-    if (readStreamState) return
+    if (isRunStreaming) return
     requestSpacerMeasurement()
-  }, [readStreamState, requestSpacerMeasurement])
+  }, [isRunStreaming, requestSpacerMeasurement])
 
   useEffect(() => {
-    if (!readStreamState) return
+    if (!isRunStreaming) return
     requestTopAnchorLock()
-  }, [latestAssistantNonTextSignature, readStreamState, requestTopAnchorLock])
+  }, [latestAssistantNonTextSignature, isRunStreaming, requestTopAnchorLock])
 
   useEffect(() => {
     const container = scrollParentRef.current

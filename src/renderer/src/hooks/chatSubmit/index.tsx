@@ -7,6 +7,8 @@ import { CHAT_RUN_EVENTS, type ChatRunEvent, type SerializedError } from '@share
 import toolsDefinitions from '@tools/definitions'
 import { toast } from 'sonner'
 
+const ABORT_FALLBACK_TIMEOUT_MS = 3000
+
 function useChatSubmitV2() {
   const chatStore = useChatStore()
 
@@ -16,51 +18,42 @@ function useChatSubmitV2() {
   const lastErrorMessageRef = useRef<{ id: number; chatUuid: string | null } | null>(null)
   const clearedErrorMessageIdsRef = useRef<Set<number>>(new Set())
   const runCompletedRef = useRef(false)
-  const titleJobPendingRef = useRef(false)
-  const compressionJobPendingRef = useRef(false)
-  const deferredCleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const preCancelRunPhaseRef = useRef<'submitting' | 'streaming' | 'post_run' | null>(null)
+  const abortFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const resetUiState = () => {
-    chatStore.setCurrentReqCtrl(undefined)
-    chatStore.setReadStreamState(false)
-    chatStore.setFetchState(false)
-    chatStore.setShowLoadingIndicator(false)
-    chatStore.setLastMsgStatus(false)
+  const resetRunLifecycle = (outcome: 'idle' | 'completed' | 'failed' | 'aborted' = 'idle') => {
+    chatStore.setRunPhase('idle')
+    chatStore.resetPostRunJobs()
+    chatStore.setLastRunOutcome(outcome)
   }
 
   const cleanupActiveRun = () => {
-    if (deferredCleanupTimerRef.current) {
-      clearTimeout(deferredCleanupTimerRef.current)
-      deferredCleanupTimerRef.current = null
+    if (abortFallbackTimerRef.current) {
+      clearTimeout(abortFallbackTimerRef.current)
+      abortFallbackTimerRef.current = null
     }
     unsubscribeRef.current?.()
     unsubscribeRef.current = null
     activeSubmissionIdRef.current = null
     activeAbortControllerRef.current = null
     runCompletedRef.current = false
-    titleJobPendingRef.current = false
-    compressionJobPendingRef.current = false
-    chatStore.setCurrentReqCtrl(undefined)
+    preCancelRunPhaseRef.current = null
+  }
+
+  const hasPendingPostRunJobs = () => {
+    const { postRunJobs } = useChatStore.getState()
+    return postRunJobs.title === 'pending' || postRunJobs.compression === 'pending'
   }
 
   const maybeCleanupAfterBackgroundJobs = () => {
     if (!runCompletedRef.current) {
       return
     }
-    if (titleJobPendingRef.current || compressionJobPendingRef.current) {
+    if (hasPendingPostRunJobs()) {
       return
     }
+    resetRunLifecycle('completed')
     cleanupActiveRun()
-  }
-
-  const scheduleDeferredCleanup = () => {
-    if (deferredCleanupTimerRef.current) {
-      clearTimeout(deferredCleanupTimerRef.current)
-    }
-    deferredCleanupTimerRef.current = setTimeout(() => {
-      deferredCleanupTimerRef.current = null
-      maybeCleanupAfterBackgroundJobs()
-    }, 8000)
   }
 
   const normalizeError = (error: SerializedError | Error): Error => {
@@ -154,6 +147,9 @@ function useChatSubmitV2() {
         event.type === CHAT_RUN_EVENTS.MESSAGE_UPDATED
       ) {
         const { message } = event.payload
+        if (message.body.role === 'assistant' && useChatStore.getState().runPhase === 'submitting') {
+          chatStore.setRunPhase('streaming')
+        }
         if (message.id && clearedErrorMessageIdsRef.current.has(message.id)) {
           return
         }
@@ -170,18 +166,21 @@ function useChatSubmitV2() {
       }
 
       if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_STARTED) {
-        titleJobPendingRef.current = true
+        chatStore.setPostRunJobState('title', 'pending')
+        if (runCompletedRef.current) {
+          chatStore.setRunPhase('post_run')
+        }
         return
       }
 
       if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_COMPLETED) {
-        titleJobPendingRef.current = false
+        chatStore.setPostRunJobState('title', 'idle')
         maybeCleanupAfterBackgroundJobs()
         return
       }
 
       if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_FAILED) {
-        titleJobPendingRef.current = false
+        chatStore.setPostRunJobState('title', 'failed')
         toast.warning('Title generation failed', {
           description: getTitleFailureDescription(event.payload.error)
         })
@@ -190,20 +189,23 @@ function useChatSubmitV2() {
       }
 
       if (event.type === CHAT_RUN_EVENTS.COMPRESSION_STARTED) {
-        compressionJobPendingRef.current = true
+        chatStore.setPostRunJobState('compression', 'pending')
+        if (runCompletedRef.current) {
+          chatStore.setRunPhase('post_run')
+        }
         return
       }
 
       if (
         event.type === CHAT_RUN_EVENTS.COMPRESSION_COMPLETED
       ) {
-        compressionJobPendingRef.current = false
+        chatStore.setPostRunJobState('compression', 'idle')
         maybeCleanupAfterBackgroundJobs()
         return
       }
 
       if (event.type === CHAT_RUN_EVENTS.COMPRESSION_FAILED) {
-        compressionJobPendingRef.current = false
+        chatStore.setPostRunJobState('compression', 'failed')
         toast.warning('Message compression failed', {
           description: getTitleFailureDescription(event.payload.error)
         })
@@ -211,19 +213,36 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === 'run.completed') {
-        void clearPreviousErrorMessage()
-        chatStore.setFetchState(false)
-        chatStore.setShowLoadingIndicator(false)
-        chatStore.setLastMsgStatus(true)
-        chatStore.setReadStreamState(false)
-        runCompletedRef.current = true
-        scheduleDeferredCleanup()
+      if (event.type === CHAT_RUN_EVENTS.POST_RUN_PLAN) {
+        const { title, compression } = event.payload
+        chatStore.setPostRunJobState('title', title === 'pending' ? 'pending' : 'idle')
+        chatStore.setPostRunJobState('compression', compression === 'pending' ? 'pending' : 'idle')
+
+        if (runCompletedRef.current) {
+          if (title === 'pending' || compression === 'pending') {
+            chatStore.setRunPhase('post_run')
+          } else {
+            maybeCleanupAfterBackgroundJobs()
+          }
+        }
         return
       }
 
-      if (event.type === 'run.failed') {
+      if (event.type === CHAT_RUN_EVENTS.RUN_COMPLETED) {
+        void clearPreviousErrorMessage()
+        runCompletedRef.current = true
+        chatStore.setLastRunOutcome('completed')
+        if (hasPendingPostRunJobs()) {
+          chatStore.setRunPhase('post_run')
+        } else {
+          maybeCleanupAfterBackgroundJobs()
+        }
+        return
+      }
+
+      if (event.type === CHAT_RUN_EVENTS.RUN_FAILED) {
         void (async () => {
+          chatStore.setLastRunOutcome('failed')
           const error = normalizeError(event.payload.error)
           const errorMessageId = await useChatStore.getState().updateLastAssistantMessageWithError(error)
           if (errorMessageId) {
@@ -232,16 +251,17 @@ function useChatSubmitV2() {
               chatUuid: useChatStore.getState().currentChatUuid
             }
           }
-          resetUiState()
+          resetRunLifecycle('failed')
           cleanupActiveRun()
         })()
         return
       }
 
-      if (event.type === 'run.aborted') {
+      if (event.type === CHAT_RUN_EVENTS.RUN_ABORTED) {
         void (async () => {
+          chatStore.setLastRunOutcome('aborted')
           await useChatStore.getState().settleLatestAssistantAfterAbort()
-          resetUiState()
+          resetRunLifecycle('aborted')
           cleanupActiveRun()
         })()
       }
@@ -311,11 +331,9 @@ function useChatSubmitV2() {
     activeAbortControllerRef.current = controller
     bindRunEvents(submissionId)
 
-    chatStore.setCurrentReqCtrl(controller)
-    chatStore.setReadStreamState(true)
-    chatStore.setFetchState(true)
-    chatStore.setShowLoadingIndicator(true)
-    chatStore.setLastMsgStatus(false)
+    chatStore.resetPostRunJobs()
+    chatStore.setLastRunOutcome('idle')
+    chatStore.setRunPhase('submitting')
 
     try {
       await invokeChatRunStart({
@@ -334,7 +352,7 @@ function useChatSubmitV2() {
         chatUuid: state.currentChatUuid ?? undefined
       })
     } catch (error) {
-      resetUiState()
+      resetRunLifecycle()
       cleanupActiveRun()
       throw error
     }
@@ -343,18 +361,37 @@ function useChatSubmitV2() {
   const cancel = () => {
     const submissionId = activeSubmissionIdRef.current
     if (!submissionId) {
-      resetUiState()
+      resetRunLifecycle()
       return
     }
+
+    if (useChatStore.getState().runPhase === 'cancelling') {
+      return
+    }
+
+    const currentPhase = useChatStore.getState().runPhase
+    preCancelRunPhaseRef.current =
+      currentPhase === 'submitting' || currentPhase === 'streaming' || currentPhase === 'post_run'
+        ? currentPhase
+        : null
 
     if (activeAbortControllerRef.current && !activeAbortControllerRef.current.signal.aborted) {
       activeAbortControllerRef.current.abort()
     } else {
       void invokeChatRunCancel({ submissionId, reason: 'user_cancelled' })
     }
-
-    resetUiState()
-    cleanupActiveRun()
+    chatStore.setRunPhase('cancelling')
+    if (abortFallbackTimerRef.current) {
+      clearTimeout(abortFallbackTimerRef.current)
+    }
+    abortFallbackTimerRef.current = setTimeout(() => {
+      abortFallbackTimerRef.current = null
+      const fallbackPhase = preCancelRunPhaseRef.current
+      if (fallbackPhase && useChatStore.getState().runPhase === 'cancelling') {
+        chatStore.setRunPhase(fallbackPhase)
+      }
+      toast.warning('Cancellation is taking longer than expected')
+    }, ABORT_FALLBACK_TIMEOUT_MS)
   }
 
   return { onSubmit, cancel }

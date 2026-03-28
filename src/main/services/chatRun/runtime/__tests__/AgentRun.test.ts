@@ -119,6 +119,10 @@ describe('AgentRun', () => {
 
   it('completes the run and does not wait for post-run jobs', async () => {
     const postRunDeferred = createDeferred<void>()
+    const postRunPlan = {
+      title: 'skipped',
+      compression: 'skipped'
+    } as const
     const assistantStepFactory = {
       create: vi.fn(() => ({
         loop: {
@@ -174,6 +178,8 @@ describe('AgentRun', () => {
         }))
       },
       postRunJobService: {
+        getPlan: vi.fn(() => postRunPlan),
+        emitPlan: vi.fn(),
         run: vi.fn(() => postRunDeferred.promise)
       }
     } as any
@@ -196,7 +202,20 @@ describe('AgentRun', () => {
     expect(services.chatAgentAdapter.prepareRun).toHaveBeenCalledTimes(1)
     expect(assistantStepFactory.create).toHaveBeenCalledTimes(1)
     expect(services.chatAgentAdapter.finalizeRun).toHaveBeenCalledTimes(1)
+    expect(services.postRunJobService.getPlan).toHaveBeenCalledTimes(1)
+    expect(services.postRunJobService.emitPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        submissionId: input.submissionId
+      }),
+      postRunPlan
+    )
     expect(services.postRunJobService.run).toHaveBeenCalledTimes(1)
+    expect(services.postRunJobService.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        submissionId: input.submissionId
+      }),
+      postRunPlan
+    )
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_RUN_EVENTS.RUN_COMPLETED, {
       assistantMessageId: 102,
       usage: undefined

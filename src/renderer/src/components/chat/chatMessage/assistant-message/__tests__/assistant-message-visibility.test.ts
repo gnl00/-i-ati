@@ -9,8 +9,7 @@ describe('shouldRenderAssistantMessageShell', () => {
       hasToolCalls: false,
       isCommandConfirmPending: false,
       isLatest: false,
-      readStreamState: false,
-      showLoadingIndicator: false,
+      isResponseActive: false,
     })).toBe(true)
   })
 
@@ -21,8 +20,7 @@ describe('shouldRenderAssistantMessageShell', () => {
       hasToolCalls: true,
       isCommandConfirmPending: false,
       isLatest: false,
-      readStreamState: false,
-      showLoadingIndicator: false,
+      isResponseActive: false,
     })).toBe(true)
   })
 
@@ -33,44 +31,40 @@ describe('shouldRenderAssistantMessageShell', () => {
       hasToolCalls: true,
       isCommandConfirmPending: true,
       isLatest: true,
-      readStreamState: false,
-      showLoadingIndicator: true,
+      isResponseActive: true,
     })).toBe(true)
   })
 
-  it('keeps a latest tool-only shell visible after accept while the run is still active', () => {
+  it('keeps a latest tool-only shell visible after accept while the response is still active', () => {
     expect(shouldRenderAssistantMessageShell({
       hasContent: false,
       hasSegments: false,
       hasToolCalls: true,
       isCommandConfirmPending: false,
       isLatest: true,
-      readStreamState: true,
-      showLoadingIndicator: true,
+      isResponseActive: true,
     })).toBe(true)
   })
 
-  it('keeps a latest tool-only shell visible when loading indicator remains active', () => {
+  it('keeps a latest tool-only shell visible while the response remains active', () => {
     expect(shouldRenderAssistantMessageShell({
       hasContent: false,
       hasSegments: false,
       hasToolCalls: true,
       isCommandConfirmPending: false,
       isLatest: true,
-      readStreamState: false,
-      showLoadingIndicator: true,
+      isResponseActive: true,
     })).toBe(true)
   })
 
-  it('hides a completed tool-only shell once no confirmation or active run remains', () => {
+  it('hides a completed tool-only shell once no confirmation or active response remains', () => {
     expect(shouldRenderAssistantMessageShell({
       hasContent: false,
       hasSegments: false,
       hasToolCalls: true,
       isCommandConfirmPending: false,
       isLatest: true,
-      readStreamState: false,
-      showLoadingIndicator: false,
+      isResponseActive: false,
     })).toBe(false)
   })
 })

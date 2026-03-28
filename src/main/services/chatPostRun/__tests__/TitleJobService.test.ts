@@ -67,6 +67,12 @@ vi.mock('@main/services/logging/LogService', () => ({
   }))
 }))
 
+vi.mock('electron', () => ({
+  app: {
+    isPackaged: false
+  }
+}))
+
 import { TitleJobService } from '../TitleJobService'
 
 const args = {
