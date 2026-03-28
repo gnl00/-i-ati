@@ -32,7 +32,6 @@ src/main/services/
     contracts/
     execution/
       parser/
-    mapping/
     run-kernel/
     tools/
     types/
@@ -279,11 +278,6 @@ AgentRun completed
   - 明确是显式 use case
 - `chatRun`
   - 明确是 shell/runtime orchestration
-
-当前仍然没有完全收干净的部分：
-
-- `agentCore/mapping`
-  - 目录已预留，但内部边界还未真正展开
 
 所以目前的状态是：
 
