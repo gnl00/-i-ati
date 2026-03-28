@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn(async () => undefined),
+  readFile: vi.fn(async () => '---\nname: ""\npreferredAddress: ""\nbasicInfo: ""\npreferences: ""\nupdatedAt: 0\n---\n'),
+  writeFile: vi.fn(async () => undefined),
+  rename: vi.fn(async () => undefined),
   default: {
-    mkdir: vi.fn(async () => undefined)
+    mkdir: vi.fn(async () => undefined),
+    readFile: vi.fn(async () => '---\nname: ""\npreferredAddress: ""\nbasicInfo: ""\npreferences: ""\nupdatedAt: 0\n---\n'),
+    writeFile: vi.fn(async () => undefined),
+    rename: vi.fn(async () => undefined)
   }
 }))
 
@@ -47,6 +54,7 @@ vi.mock('@shared/services/skills/SkillPromptBuilder', () => ({
 vi.mock('@shared/prompts', () => ({
   systemPrompt: vi.fn(() => 'system prompt'),
   buildEmotionSystemPrompt: vi.fn((summary?: string) => summary ? `emotion prompt\n${summary}` : 'emotion prompt'),
+  buildUserInfoPrompt: vi.fn(() => 'user info prompt'),
   buildUserInstructionPrompt: vi.fn((prompt?: string) => prompt ? `<user_instruction>\n${prompt}\n</user_instruction>` : '')
 }))
 

@@ -5,9 +5,11 @@ import {
 import { EmotionPromptProvider } from './EmotionPromptProvider'
 import { SoulPromptProvider } from './SoulPromptProvider'
 import { SkillsPromptProvider } from './SkillsPromptProvider'
+import { UserInfoPromptProvider } from './UserInfoPromptProvider'
 
 export class SystemPromptComposer {
   constructor(
+    private readonly userInfoPromptProvider = new UserInfoPromptProvider(),
     private readonly skillsPromptProvider = new SkillsPromptProvider(),
     private readonly emotionPromptProvider = new EmotionPromptProvider(),
     private readonly soulPromptProvider = new SoulPromptProvider()
@@ -19,6 +21,7 @@ export class SystemPromptComposer {
     userInstruction?: string
   ): Promise<string[]> {
     const baseSystemPrompt = systemPromptBuilder(workspacePath)
+    const userInfoPrompt = await this.userInfoPromptProvider.build()
     const skillsPrompt = await this.skillsPromptProvider.build(chatId)
     const emotionPrompt = this.emotionPromptProvider.build(chatId)
     const soulPrompt = this.soulPromptProvider.build()
@@ -26,6 +29,7 @@ export class SystemPromptComposer {
 
     const composedSystemPrompt = [
       baseSystemPrompt,
+      userInfoPrompt,
       skillsPrompt,
       emotionPrompt,
       soulPrompt,

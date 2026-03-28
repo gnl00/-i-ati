@@ -59,6 +59,10 @@ import {
 } from '@main/tools/plugins/PluginToolsProcessor'
 import { processTelegramSetupTool } from '@main/tools/telegram/TelegramToolsProcessor'
 import {
+  processUserInfoGet,
+  processUserInfoSet
+} from '@main/tools/userInfo/UserInfoToolsProcessor'
+import {
   processActivityJournalAppend,
   processActivityJournalList,
   processActivityJournalSearch
@@ -115,6 +119,8 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   plugin_install: processPluginInstall,
   plugin_uninstall: processPluginUninstall,
   telegram_setup_tool: processTelegramSetupTool,
+  user_info_get: processUserInfoGet,
+  user_info_set: processUserInfoSet,
   activity_journal_append: processActivityJournalAppend,
   activity_journal_list: processActivityJournalList,
   activity_journal_search: processActivityJournalSearch,

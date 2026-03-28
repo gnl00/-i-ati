@@ -16,6 +16,7 @@ import soulTools from './soul_tools'
 import emotionTools from './emotion_tools'
 import pluginTools from './plugin_tools'
 import telegramTools from './telegram_tools'
+import userInfoTools from './user_info_tools'
 import activityJournalTools from './activity_journal_tools'
 import subagentTools from './subagent_tools'
 
@@ -36,6 +37,7 @@ export const tools = [
   ...emotionTools,
   ...pluginTools,
   ...telegramTools,
+  ...userInfoTools,
   ...activityJournalTools,
   ...subagentTools
 ]

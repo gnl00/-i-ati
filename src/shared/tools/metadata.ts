@@ -14,6 +14,7 @@ export type EmbeddedToolCapability =
   | 'skill'
   | 'soul'
   | 'emotion'
+  | 'user_info'
   | 'plugin'
   | 'telegram'
   | 'subagent'
@@ -302,6 +303,18 @@ export const embeddedToolMetadata: Record<string, EmbeddedToolMetadata> = {
   },
   telegram_setup_tool: {
     capability: 'telegram',
+    riskLevel: 'warning',
+    mutatesWorkspace: false,
+    subagent: 'deny'
+  },
+  user_info_get: {
+    capability: 'user_info',
+    riskLevel: 'none',
+    mutatesWorkspace: false,
+    subagent: 'deny'
+  },
+  user_info_set: {
+    capability: 'user_info',
     riskLevel: 'warning',
     mutatesWorkspace: false,
     subagent: 'deny'

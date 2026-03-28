@@ -88,6 +88,14 @@ declare interface EmotionConfig {
   assetPack?: string
 }
 
+declare interface UserInfo {
+  name?: string
+  preferredAddress?: string
+  basicInfo?: string
+  preferences?: string
+  updatedAt?: number
+}
+
 declare interface TelegramChannelConfig {
   enabled?: boolean
   botToken?: string

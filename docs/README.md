@@ -40,6 +40,8 @@
   - [emotion-system-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/emotion-system-stage-summary.md)
 - Emotion 系统目标设计：
   - [emotion-system-design.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/emotion-system-design.md)
+- User Info 系统：
+  - [user-info-system.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/user-info-system.md)
 - 本轮阶段总结：
   - [agent-core-chat-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/agent-core-chat-adapter-stage-summary.md)
 - chat 事件协议：
