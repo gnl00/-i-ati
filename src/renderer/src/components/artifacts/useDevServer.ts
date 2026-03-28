@@ -42,7 +42,7 @@ export function useDevServer(): UseDevServerReturn {
 
   // Local state
   const [hasPreviewSh, setHasPreviewSh] = useState(false)
-  const [showErrorLogs, setShowErrorLogs] = useState(false)
+  const [showErrorLogs, setShowErrorLogs] = useState(true)
 
   const currentWorkspacePath = useMemo(() => {
     return getChatWorkspacePath({ chatUuid: chatUuid ?? undefined, chatList })
