@@ -16,6 +16,7 @@ import { ChatHostBindingRepository } from '../db/repositories/ChatHostBindingRep
 import { ChatSkillRepository } from '../db/repositories/ChatSkillRepository'
 import { MessageRepository } from '../db/repositories/MessageRepository'
 import { EmotionStateRepository } from '../db/repositories/EmotionStateRepository'
+import { WorkContextRepository } from '../db/repositories/WorkContextRepository'
 import { CompressedSummaryRepository } from '../db/repositories/CompressedSummaryRepository'
 import { ChatRunEventRepository } from '../db/repositories/ChatRunEventRepository'
 import { AssistantRepository } from '../db/repositories/AssistantRepository'
@@ -29,6 +30,7 @@ import { ChatDataService } from './database/ChatDataService'
 import { ChatHostBindingDataService } from './database/ChatHostBindingDataService'
 import { MessageDataService } from './database/MessageDataService'
 import { EmotionStateDataService } from './database/EmotionStateDataService'
+import { WorkContextDataService } from './database/WorkContextDataService'
 import { ConfigDataService } from './database/ConfigDataService'
 import { McpServerDataService } from './database/McpServerDataService'
 import { PluginDataService } from './database/PluginDataService'
@@ -61,6 +63,7 @@ class DatabaseService {
   private chatSkillRepo?: ChatSkillRepository
   private messageRepo?: MessageRepository
   private emotionStateRepo?: EmotionStateRepository
+  private workContextRepo?: WorkContextRepository
   private summaryRepo?: CompressedSummaryRepository
   private runEventRepo?: ChatRunEventRepository
   private assistantRepo?: AssistantRepository
@@ -70,6 +73,7 @@ class DatabaseService {
   private chatHostBindingDataService?: ChatHostBindingDataService
   private messageDataService?: MessageDataService
   private emotionStateDataService?: EmotionStateDataService
+  private workContextDataService?: WorkContextDataService
   private planDataService?: TaskPlanDataService
   private scheduledTaskDataService?: ScheduledTaskDataService
   private configDataService?: ConfigDataService
@@ -120,6 +124,7 @@ class DatabaseService {
       this.chatSkillRepo = new ChatSkillRepository(this.db)
       this.messageRepo = new MessageRepository(this.db)
       this.emotionStateRepo = new EmotionStateRepository(this.db)
+      this.workContextRepo = new WorkContextRepository(this.db)
       this.summaryRepo = new CompressedSummaryRepository(this.db)
       this.runEventRepo = new ChatRunEventRepository(this.db)
       this.assistantRepo = new AssistantRepository(this.db)
@@ -141,6 +146,10 @@ class DatabaseService {
       this.emotionStateDataService = new EmotionStateDataService({
         hasDb: () => Boolean(this.db),
         getEmotionStateRepo: () => this.emotionStateRepo
+      })
+      this.workContextDataService = new WorkContextDataService({
+        hasDb: () => Boolean(this.db),
+        getWorkContextRepo: () => this.workContextRepo
       })
       this.planDataService = new TaskPlanDataService({
         hasDb: () => Boolean(this.db),
@@ -347,6 +356,26 @@ class DatabaseService {
   public deleteEmotionState(chatId: number): void {
     if (!this.emotionStateDataService) throw new Error('Emotion state data service not initialized')
     this.emotionStateDataService.deleteEmotionState(chatId)
+  }
+
+  public getWorkContextByChatId(chatId: number): import('./database/WorkContextDataService').WorkContextRecord | undefined {
+    if (!this.workContextDataService) throw new Error('Work context data service not initialized')
+    return this.workContextDataService.getWorkContextByChatId(chatId)
+  }
+
+  public getWorkContextByChatUuid(chatUuid: string): import('./database/WorkContextDataService').WorkContextRecord | undefined {
+    if (!this.workContextDataService) throw new Error('Work context data service not initialized')
+    return this.workContextDataService.getWorkContextByChatUuid(chatUuid)
+  }
+
+  public upsertWorkContext(chatId: number, chatUuid: string, content: string): import('./database/WorkContextDataService').WorkContextRecord {
+    if (!this.workContextDataService) throw new Error('Work context data service not initialized')
+    return this.workContextDataService.upsertWorkContext(chatId, chatUuid, content)
+  }
+
+  public deleteWorkContext(chatId: number): void {
+    if (!this.workContextDataService) throw new Error('Work context data service not initialized')
+    this.workContextDataService.deleteWorkContext(chatId)
   }
 
   public patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {

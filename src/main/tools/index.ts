@@ -19,10 +19,12 @@ import { processWebFetch, processWebSearch } from '@main/tools/webTools/WebTools
 import {
   processMemoryRetrieval,
   processMemorySave,
-  processMemoryUpdate,
+  processMemoryUpdate
+} from '@main/tools/memory/MemoryToolsProcessor'
+import {
   processWorkContextGet,
   processWorkContextSet
-} from '@main/tools/memory/MemoryToolsProcessor'
+} from '@main/tools/workContext/WorkContextToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import {
   processInstallSkill,

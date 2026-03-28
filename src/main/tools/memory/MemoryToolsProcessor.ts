@@ -1,14 +1,8 @@
-import { app } from 'electron'
-import path from 'path'
-import * as fs from 'fs/promises'
-import { existsSync } from 'fs'
 import MemoryService from '@main/services/memory/MemoryService'
 import type {
   MemoryRetrievalResponse,
   MemorySaveResponse,
-  MemoryUpdateResponse,
-  WorkContextGetResponse,
-  WorkContextSetResponse
+  MemoryUpdateResponse
 } from '@tools/memory/index.d'
 
 interface MemoryRetrievalArgs {
@@ -36,61 +30,6 @@ interface MemoryUpdateArgs {
   metadata?: Record<string, any> | null
   role?: 'user' | 'assistant' | 'system'
   timestamp?: number
-}
-
-interface WorkContextGetArgs {
-  chat_uuid?: string
-}
-
-interface WorkContextSetArgs {
-  content: string
-  chat_uuid?: string
-}
-
-const WORK_CONTEXT_ROOT = 'memories'
-const WORK_CONTEXT_FILE = 'current.md'
-const WORK_CONTEXT_TEMPLATE = `# Work Context
-
-## Current Goal
-
-## Decisions
-
-## In Progress
-
-## Open Questions
-
-## Temporary Constraints
-
-## Last Updated
-`
-
-const resolveWorkContextFilePath = (chatUuid: string): string => {
-  return path.join(app.getPath('userData'), WORK_CONTEXT_ROOT, chatUuid, 'working', WORK_CONTEXT_FILE)
-}
-
-const normalizeWorkContextContent = (content: string): string => {
-  return content
-    .replace(/\r\n/g, '\n')
-    .split('\n')
-    .map(line => line.trimEnd())
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-const readWorkContextFile = async (filePath: string): Promise<string> => {
-  if (!existsSync(filePath)) {
-    return ''
-  }
-  return await fs.readFile(filePath, 'utf-8')
-}
-
-const atomicWriteTextFile = async (filePath: string, content: string): Promise<void> => {
-  const dir = path.dirname(filePath)
-  await fs.mkdir(dir, { recursive: true })
-  const tmpFilePath = `${filePath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  await fs.writeFile(tmpFilePath, content, 'utf-8')
-  await fs.rename(tmpFilePath, filePath)
 }
 
 /**
@@ -227,112 +166,6 @@ export async function processMemoryUpdate(
     return {
       success: false,
       message: `Failed to update memory: ${message}`
-    }
-  }
-}
-
-export async function processWorkContextGet(
-  args: WorkContextGetArgs
-): Promise<WorkContextGetResponse> {
-  try {
-    if (!args.chat_uuid) {
-      return {
-        success: false,
-        content: WORK_CONTEXT_TEMPLATE,
-        exists: false,
-        message: 'chat_uuid is required. Returned work context template content.'
-      }
-    }
-
-    const filePath = resolveWorkContextFilePath(args.chat_uuid)
-    const exists = existsSync(filePath)
-    const rawContent = exists ? await readWorkContextFile(filePath) : WORK_CONTEXT_TEMPLATE
-
-    return {
-      success: true,
-      chat_uuid: args.chat_uuid,
-      content: rawContent,
-      exists,
-      file_path: filePath,
-      message: exists ? 'Work context loaded.' : 'Work context not found. Returned template.'
-    }
-  } catch (error) {
-    console.error('[MemoryTools] Failed to get work context:', error)
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      success: false,
-      content: WORK_CONTEXT_TEMPLATE,
-      exists: false,
-      message: `Failed to get work context: ${message}`
-    }
-  }
-}
-
-export async function processWorkContextSet(
-  args: WorkContextSetArgs
-): Promise<WorkContextSetResponse> {
-  try {
-    if (!args.chat_uuid) {
-      return {
-        success: false,
-        updated: false,
-        skipped: false,
-        message: 'chat_uuid is required. Nothing written.'
-      }
-    }
-    if (!Object.prototype.hasOwnProperty.call(args, 'content')) {
-      return {
-        success: false,
-        updated: false,
-        skipped: false,
-        message: 'missing required param: content'
-      }
-    }
-    if (typeof args.content !== 'string') {
-      return {
-        success: false,
-        updated: false,
-        skipped: false,
-        message: 'invalid param type: content (expected string)'
-      }
-    }
-
-    const filePath = resolveWorkContextFilePath(args.chat_uuid)
-    const previousRaw = await readWorkContextFile(filePath)
-    const previousNormalized = normalizeWorkContextContent(previousRaw)
-    const normalizedInput = normalizeWorkContextContent(args.content)
-    const nextNormalized = normalizedInput || normalizeWorkContextContent(WORK_CONTEXT_TEMPLATE)
-
-    if (previousNormalized === nextNormalized) {
-      return {
-        success: true,
-        chat_uuid: args.chat_uuid,
-        updated: false,
-        skipped: true,
-        file_path: filePath,
-        message: 'Work context unchanged. Skipped write.'
-      }
-    }
-
-    const contentToWrite = nextNormalized.replace(/\r\n/g, '\n').trimEnd()
-    await atomicWriteTextFile(filePath, `${contentToWrite}\n`)
-
-    return {
-      success: true,
-      chat_uuid: args.chat_uuid,
-      updated: true,
-      skipped: false,
-      file_path: filePath,
-      message: 'Work context updated.'
-    }
-  } catch (error) {
-    console.error('[MemoryTools] Failed to set work context:', error)
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      success: false,
-      updated: false,
-      skipped: false,
-      message: `Failed to set work context: ${message}`
     }
   }
 }
