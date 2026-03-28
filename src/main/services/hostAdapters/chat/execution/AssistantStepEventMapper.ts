@@ -1,5 +1,5 @@
 import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
-import type { AgentEventMapper } from '@main/services/agentCore/contracts'
+import type { AgentStepEventListener } from '@main/services/agentCore/contracts'
 import type { ToolExecutionProgress } from '@main/services/agentCore/tools'
 import type { ToolCall } from '@main/services/agentCore/types'
 import {
@@ -8,7 +8,7 @@ import {
   type SerializedError
 } from '@shared/chatRun/events'
 
-export class AssistantStepEventMapper implements AgentEventMapper {
+export class AssistantStepEventMapper implements AgentStepEventListener {
   constructor(private readonly emitter: ChatRunEventEmitter) {}
 
   handlePhaseChange(phase: 'receiving' | 'toolCall'): void {
@@ -48,18 +48,6 @@ export class AssistantStepEventMapper implements AgentEventMapper {
       error: this.serializeError(progress.result?.error || new Error('Tool execution failed'))
     })
   }
-
-  emitMessageUpdated(message: MessageEntity): void {
-    this.emitter.emit(CHAT_RUN_EVENTS.MESSAGE_UPDATED, { message })
-  }
-
-  emitToolResultAttached(toolCallId: string, message: MessageEntity): void {
-    this.emitter.emit(CHAT_RUN_EVENTS.TOOL_RESULT_ATTACHED, {
-      toolCallId,
-      message
-    })
-  }
-
   private serializeError(error: any, depth: number = 0): SerializedError {
     const serialized: SerializedError = {
       name: error?.name || 'Error',

@@ -3,7 +3,12 @@ import { AgentRunKernel } from '@main/services/agentCore/run-kernel'
 import { AgentStepRuntimeFactory } from '@main/services/agentCore/execution'
 import { ChunkParser } from '@main/services/agentCore/execution/parser'
 import { ToolExecutor } from '@main/services/agentCore/tools'
-import type { AgentEventMapper, ConversationStore, ToolConfirmationRequester } from '@main/services/agentCore/contracts'
+import type {
+  AgentMessageEventSink,
+  AgentStepEventListener,
+  ConversationStore,
+  ToolConfirmationRequester
+} from '@main/services/agentCore/contracts'
 import type { ToolExecutionProgress } from '@main/services/agentCore/tools'
 import type { RunSpec } from '@main/services/agentCore/types'
 import { extractContentFromSegments } from '@main/services/agentCore/execution/parser/segment-content'
@@ -30,7 +35,7 @@ const SUBAGENT_APPROVAL_POLICY: ResolvedAgentApprovalPolicy = {
   mode: 'relaxed'
 }
 
-class SubagentEventCollector implements AgentEventMapper {
+class SubagentEventCollector implements AgentStepEventListener {
   readonly toolsUsed = new Set<string>()
   readonly filesTouched = new Set<string>()
 
@@ -50,11 +55,6 @@ class SubagentEventCollector implements AgentEventMapper {
       }
     }
   }
-
-  emitMessageUpdated(_message: MessageEntity): void {}
-
-  emitToolResultAttached(_toolCallId: string, _message: MessageEntity): void {}
-
   buildArtifacts(): SubagentArtifacts {
     return {
       tools_used: Array.from(this.toolsUsed),
@@ -84,6 +84,11 @@ const denyConfirmationRequester: ToolConfirmationRequester = {
       reason: 'Subagent confirmation flow is not enabled in phase one.'
     }
   }
+}
+
+const noopMessageEventSink: AgentMessageEventSink = {
+  emitMessageUpdated() {},
+  emitToolResultAttached() {}
 }
 
 export class SubagentRuntimeFactory {
@@ -154,7 +159,7 @@ export class SubagentRuntimeFactory {
     const messageManager = new AssistantStepMessageManagerImpl(
       messageEntities,
       request,
-      eventCollector,
+      noopMessageEventSink,
       undefined,
       input.chatUuid,
       new InMemoryConversationStore()
@@ -176,7 +181,7 @@ export class SubagentRuntimeFactory {
       signal: signalController.signal,
       parser: new ChunkParser(),
       messageManager,
-      eventMapper: eventCollector,
+      eventListener: eventCollector,
       toolExecutor,
       toolConfirmationRequester: confirmationRequester
     })

@@ -1,3 +1,4 @@
 export * from './ToolConfirmationRequester'
-export * from './AgentEventMapper'
+export * from './AgentStepEventListener'
+export * from './AgentMessageEventSink'
 export * from './ConversationStore'

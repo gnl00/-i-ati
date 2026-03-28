@@ -1,7 +1,8 @@
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
+import type { AgentMessageEventSink } from '@main/services/agentCore/contracts'
 
-export class ChatEventMapper {
+export class ChatEventMapper implements AgentMessageEventSink {
   constructor(private readonly emitter: ChatRunEventEmitter) {}
 
   emitChatReady(chatEntity: ChatEntity, workspacePath: string): void {

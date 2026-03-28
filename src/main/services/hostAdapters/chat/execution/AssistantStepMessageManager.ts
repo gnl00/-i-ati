@@ -1,4 +1,4 @@
-import type { AgentEventMapper, ConversationStore } from '@main/services/agentCore/contracts'
+import type { AgentMessageEventSink, ConversationStore } from '@main/services/agentCore/contracts'
 import type { AgentStepMessageManager } from '@main/services/agentCore/execution'
 import type { StepArtifact } from '@main/services/agentCore/types'
 import { ChatStepStore } from '../persistence'
@@ -129,7 +129,7 @@ export class AssistantStepMessageManagerImpl implements AgentStepMessageManager 
   constructor(
     private readonly messageEntities: MessageEntity[],
     private readonly request: IUnifiedRequest,
-    private readonly messageProjection: AgentEventMapper,
+    private readonly messageEvents: AgentMessageEventSink,
     private readonly chatId?: number,
     private readonly chatUuid?: string,
     private readonly chatStepStore: ConversationStore = new ChatStepStore()
@@ -163,7 +163,7 @@ export class AssistantStepMessageManagerImpl implements AgentStepMessageManager 
       segments: updated.body.segments || [],
       toolCalls: updated.body.toolCalls
     })
-    this.messageProjection.emitMessageUpdated(updated)
+    this.messageEvents.emitMessageUpdated(updated)
   }
 
   getLastAssistantMessage(): MessageEntity {
@@ -217,7 +217,7 @@ export class AssistantStepMessageManagerImpl implements AgentStepMessageManager 
         messageId: entity.id,
         message: entity.body
       })
-      this.messageProjection.emitToolResultAttached(toolMsg.toolCallId || '', entity)
+      this.messageEvents.emitToolResultAttached(toolMsg.toolCallId || '', entity)
       this.messageEntities.push(entity)
     } catch (error) {
       console.warn('[ChatRun] Failed to persist tool result message', error)

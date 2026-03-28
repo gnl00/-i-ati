@@ -1,4 +1,4 @@
-import type { AgentEventMapper, ToolConfirmationRequester } from '../contracts'
+import type { AgentStepEventListener, ToolConfirmationRequester } from '../contracts'
 import type { IToolExecutor } from '../tools'
 import { AgentStepLoop, type AgentStepMessageManager } from './AgentStepLoop'
 import type { RunSpec } from '../types'
@@ -9,7 +9,7 @@ export type AgentStepRuntimeFactoryInput = {
   signal: AbortSignal
   parser: ChunkParser
   messageManager: AgentStepMessageManager
-  eventMapper: AgentEventMapper
+  eventListener: AgentStepEventListener
   toolExecutor: IToolExecutor
   toolConfirmationRequester: ToolConfirmationRequester
 }
@@ -21,7 +21,7 @@ export class AgentStepRuntimeFactory {
       signal,
       parser,
       messageManager,
-      eventMapper,
+      eventListener,
       toolExecutor,
       toolConfirmationRequester
     } = input
@@ -41,10 +41,10 @@ export class AgentStepRuntimeFactory {
         toolConfirmationHandler: (requestConfirmation) =>
           toolConfirmationRequester.request(requestConfirmation),
         onPhaseChange: (phase) => {
-          eventMapper.handlePhaseChange(phase)
+          eventListener.handlePhaseChange(phase)
         },
         onToolCallsDetected: (toolCalls) => {
-          eventMapper.handleToolCallsDetected(toolCalls)
+          eventListener.handleToolCallsDetected(toolCalls)
         },
         toolService: {
           execute: async (toolCalls) => {

@@ -1,5 +1,6 @@
 import type {
-  AgentEventMapper,
+  AgentMessageEventSink,
+  AgentStepEventListener,
   ToolConfirmationRequester
 } from '@main/services/agentCore/contracts'
 import type { RunSpec } from '@main/services/agentCore/types'
@@ -7,7 +8,10 @@ import { ToolExecutor } from '@main/services/agentCore/tools'
 import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
 import { ChunkParser, AgentStepLoop, AgentStepRuntimeFactory } from '@main/services/agentCore/execution'
 import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
-import type { ChatStepRuntimeContext } from '../mapping'
+import {
+  ChatEventMapper,
+  type ChatStepRuntimeContext
+} from '../mapping'
 import {
   AssistantStepMessageManagerImpl,
   type AssistantStepMessageManagerImplLike
@@ -38,12 +42,13 @@ export class AssistantStepFactory {
       requester: toolConfirmationRequester,
       emitter
     })
-    const eventMapper: AgentEventMapper = new AssistantStepEventMapper(emitter)
+    const eventListener: AgentStepEventListener = new AssistantStepEventMapper(emitter)
+    const messageEvents: AgentMessageEventSink = new ChatEventMapper(emitter)
     const parser = new ChunkParser()
     const messageManager = new AssistantStepMessageManagerImpl(
       stepContext.messageEntities,
       runSpec.request,
-      eventMapper,
+      messageEvents,
       stepContext.chatId,
       stepContext.chatUuid
     )
@@ -60,7 +65,7 @@ export class AssistantStepFactory {
       requestConfirmation: (requestConfirmation) =>
         toolConfirmationRequester.request(requestConfirmation),
       onProgress: (progress) => {
-        eventMapper.handleToolExecutionProgress(progress)
+        eventListener.handleToolExecutionProgress(progress)
       }
     })
 
@@ -69,7 +74,7 @@ export class AssistantStepFactory {
       signal,
       parser,
       messageManager,
-      eventMapper,
+      eventListener,
       toolExecutor,
       toolConfirmationRequester
     })
