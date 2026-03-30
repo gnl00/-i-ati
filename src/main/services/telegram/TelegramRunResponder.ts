@@ -23,6 +23,7 @@ export class TelegramRunResponder {
   private readonly logger?: TelegramRunResponderArgs['logger']
   private latestText = ''
   private latestAssistantMessage?: MessageEntity
+  private stickyPreviewText = ''
   private sentMessageId?: number
   private lastSentText = ''
   private finalized = false
@@ -64,7 +65,7 @@ export class TelegramRunResponder {
         }
 
         this.latestAssistantMessage = message
-        const nextText = this.extractText(message)
+        const nextText = this.composeTransportText(this.extractText(message))
         if (!nextText || nextText === this.latestText) {
           return
         }
@@ -81,7 +82,7 @@ export class TelegramRunResponder {
         }
 
         this.latestAssistantMessage = message
-        const nextText = this.extractText(message)
+        const nextText = this.composeTransportText(this.extractText(message))
         if (!nextText || nextText === this.latestText) {
           return
         }
@@ -92,6 +93,7 @@ export class TelegramRunResponder {
       }
 
       case CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED:
+        this.captureStickyPreviewBase()
         return
 
       case CHAT_RUN_EVENTS.RUN_COMPLETED:
@@ -158,6 +160,9 @@ export class TelegramRunResponder {
       this.sentMessageId = sent.message_id
       this.lastSentText = text
       this.finalRenderCommitted = args.final
+      if (args.final) {
+        this.consumeStickyPreviewIfRendered(text)
+      }
       this.attachSentMessageId()
       this.logger?.info?.('telegram.run_responder.message_sent', {
         updateId: this.envelope.updateId,
@@ -180,6 +185,7 @@ export class TelegramRunResponder {
       })
       this.lastSentText = text
       this.finalRenderCommitted = true
+      this.consumeStickyPreviewIfRendered(text)
       return
     }
 
@@ -228,6 +234,59 @@ export class TelegramRunResponder {
       : ''
 
     return (fromSegments || fromContent || '').trim()
+  }
+
+  private captureStickyPreviewBase(): void {
+    if (this.finalized) {
+      return
+    }
+
+    const candidate = this.lastSentText.trim()
+    if (!candidate) {
+      return
+    }
+
+    this.stickyPreviewText = candidate
+  }
+
+  private composeTransportText(nextText: string): string {
+    const normalized = nextText.trim()
+    if (!normalized) {
+      return ''
+    }
+
+    if (!this.shouldUseStickyPreview(normalized)) {
+      this.stickyPreviewText = ''
+      return normalized
+    }
+
+    return `${this.stickyPreviewText}${normalized}`
+  }
+
+  private shouldUseStickyPreview(nextText: string): boolean {
+    if (!this.stickyPreviewText) {
+      return false
+    }
+
+    if (nextText.startsWith(this.stickyPreviewText)) {
+      return false
+    }
+
+    return this.isAppendableTailText(nextText)
+  }
+
+  private consumeStickyPreviewIfRendered(text: string): void {
+    if (!this.stickyPreviewText) {
+      return
+    }
+
+    if (text.startsWith(this.stickyPreviewText) || text === this.stickyPreviewText) {
+      this.stickyPreviewText = ''
+    }
+  }
+
+  private isAppendableTailText(text: string): boolean {
+    return text.length <= 8 && !/[\p{L}\p{N}]/u.test(text)
   }
 
   private attachSentMessageId(): void {

@@ -43,7 +43,9 @@ export class AssistantStepAssembler {
 
   commitToolCycle(snapshot: AssistantCycleSnapshot): AssistantStepView {
     const visibleSegments = snapshot.segments.filter(segment => (
-      segment.type === 'reasoning' || segment.type === 'toolCall' || segment.type === 'error'
+      segment.type === 'reasoning' ||
+      segment.type === 'toolCall' ||
+      segment.type === 'error'
     ))
 
     const carryoverSegments = this.getCommittedPersistentSegments().filter((segment) => {
@@ -97,7 +99,9 @@ export class AssistantStepAssembler {
 
   private getCommittedPersistentSegments(): MessageSegment[] {
     return (this.committedBody.segments || []).filter(segment => (
-      segment.type === 'reasoning' || segment.type === 'toolCall' || segment.type === 'error'
+      segment.type === 'reasoning' ||
+      segment.type === 'toolCall' ||
+      segment.type === 'error'
     ))
   }
 

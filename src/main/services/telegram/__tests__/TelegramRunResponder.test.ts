@@ -23,6 +23,23 @@ const createAssistantMessage = (text: string): MessageEntity => ({
   }
 })
 
+const createAssistantMessageWithSegments = (segments: MessageSegment[], content = ''): MessageEntity => ({
+  id: 102,
+  chatId: 1,
+  chatUuid: 'chat-1',
+  body: {
+    role: 'assistant',
+    content,
+    segments,
+    host: {
+      type: 'telegram',
+      direction: 'outbound',
+      peerId: '123',
+      peerType: 'private'
+    }
+  }
+})
+
 const createEvent = <T extends keyof import('@shared/chatRun/events').ChatRunEventPayloads>(
   type: T,
   payload: import('@shared/chatRun/events').ChatRunEventPayloads[T]
@@ -138,5 +155,184 @@ describe('TelegramRunResponder', () => {
     await vi.advanceTimersByTimeAsync(400)
 
     expect(editMessageText).toHaveBeenCalledWith(123, 88, 'Preview hello world', {})
+  })
+
+  it('keeps previously sent preview text when a later cycle only emits a short follow-up', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 99 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 3,
+        messageId: '57',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('First cycle answer')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(sendMessage).toHaveBeenCalledWith(123, 'First cycle answer', {
+      reply_parameters: { message_id: 57 }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: createAssistantMessageWithSegments([
+        {
+          type: 'toolCall',
+          name: 'emotion_report',
+          timestamp: 2,
+          toolCallId: 'tool-1',
+          content: {
+            toolName: 'emotion_report',
+            status: 'success',
+            result: { ok: true }
+          }
+        }
+      ])
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessageWithSegments([
+        {
+          type: 'text',
+          content: '👍',
+          timestamp: 3
+        }
+      ])
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenCalledWith(123, 99, 'First cycle answer👍', {})
+  })
+
+  it('replaces previously sent preview text when the later cycle produces a substantive new answer', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 100 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 4,
+        messageId: '58',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('First cycle answer')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('A much longer replacement answer')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenCalledWith(123, 100, 'A much longer replacement answer', {})
+  })
+
+  it('treats short natural-language follow-ups as replacements instead of appending them', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 101 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 5,
+        messageId: '59',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('First cycle answer')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('不是这个')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenCalledWith(123, 101, '不是这个', {})
+  })
+
+  it('treats short non-CJK natural-language follow-ups as replacements instead of appending them', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 102 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 6,
+        messageId: '60',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('First cycle answer')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('だめ')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenCalledWith(123, 102, 'だめ', {})
   })
 })
