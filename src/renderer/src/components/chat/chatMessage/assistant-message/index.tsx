@@ -14,10 +14,21 @@ import { ModelBadgeNext } from './model-badge/ModelBadgeNext'
 import { TextSegment } from './segments/TextSegment'
 import { ReasoningSegmentNext } from './segments/ReasoningSegmentNext'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { shouldRenderAssistantMessageShell } from './assistant-message-visibility'
+import {
+  shouldRenderAssistantMessageShell,
+  shouldShowAssistantMessageOperations
+} from './assistant-message-visibility'
 
 function getStreamingTextRenderMode(): 'markdown' | 'switch' {
   return (globalThis as any).__STREAMING_TEXT_RENDER_MODE ?? 'switch'
+}
+
+const EMPTY_PREVIEW_MESSAGE: ChatMessage = {
+  role: 'assistant',
+  content: '',
+  segments: [],
+  source: 'stream_preview',
+  typewriterCompleted: true
 }
 
 function getSegmentRenderKey(segment: MessageSegment, index: number): string {
@@ -141,6 +152,7 @@ function resolveMessageProvider(
 export interface AssistantMessageProps {
   index: number
   message: ChatMessage
+  previewMessage?: ChatMessage
   isLatest: boolean
   isHovered: boolean
   onHover: (hovered: boolean) => void
@@ -211,6 +223,7 @@ const getAssistantCopyContent = (message: ChatMessage): string => {
 export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   index,
   message: m,
+  previewMessage,
   isLatest,
   isHovered,
   onHover,
@@ -229,32 +242,50 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const confirm = useToolConfirmationStore(state => state.confirm)
   const cancel = useToolConfirmationStore(state => state.cancel)
   const isCommandConfirmPending = isLatest && pendingToolConfirm?.name === 'execute_command'
+  const isOverlayPreview = Boolean(previewMessage)
+  const badgeMessage: ChatMessage = previewMessage
+    ? {
+        ...m,
+        ...previewMessage,
+        emotion: previewMessage.emotion ?? m.emotion,
+        segments: [...(m.segments || []), ...(previewMessage.segments || [])]
+      }
+    : m
 
-  const {
-    segments,
-    getSegmentVisibleLength,
-    getVisibleTokens,
-    shouldRenderSegment,
-  } = useMessageTypewriter({
+  const committedTypewriter = useMessageTypewriter({
     index,
     message: m,
+    isLatest,
+    onTypingChange
+  })
+  const previewTypewriter = useMessageTypewriter({
+    index,
+    message: previewMessage ?? EMPTY_PREVIEW_MESSAGE,
     isLatest,
     onTypingChange
   })
 
   if (!m || m.role !== 'assistant') return null
 
-  const visibleSegments = segments.filter(segment => !isEmotionToolSegment(segment))
-  const hasVisibleToolCalls = Array.isArray(m.toolCalls)
-    && m.toolCalls.some(call => !isEmotionToolName(call.function?.name))
-  const emotionLabel = getEmotionLabel(m)
-  const emotionEmoji = getEmotionEmoji(m)
-  const emotionIntensity = getEmotionIntensity(m)
+  const committedVisibleSegments = committedTypewriter.segments.filter(segment => !isEmotionToolSegment(segment))
+  const previewVisibleSegments = isOverlayPreview
+    ? previewTypewriter.segments.filter(segment => !isEmotionToolSegment(segment))
+    : []
+  const visibleSegments = [...committedVisibleSegments, ...previewVisibleSegments]
+  const hasVisibleToolCalls = Array.isArray((previewMessage ?? m).toolCalls)
+    && (previewMessage ?? m).toolCalls!.some(call => !isEmotionToolName(call.function?.name))
+  const emotionLabel = getEmotionLabel(badgeMessage)
+  const emotionEmoji = getEmotionEmoji(badgeMessage)
+  const emotionIntensity = getEmotionIntensity(badgeMessage)
 
-  const hasContent = typeof m.content === 'string'
+  const hasCommittedContent = typeof m.content === 'string'
     ? m.content.trim().length > 0
     : Array.isArray(m.content) && m.content.length > 0
-  const hasSegments = visibleSegments.length > 0
+  const hasPreviewContent = typeof previewMessage?.content === 'string'
+    ? previewMessage.content.trim().length > 0
+    : Array.isArray(previewMessage?.content) && previewMessage.content.length > 0
+  const hasContent = hasCommittedContent || hasPreviewContent
+  const hasSegments = committedVisibleSegments.length > 0 || previewVisibleSegments.length > 0 || visibleSegments.length > 0
   const hasToolCalls = hasVisibleToolCalls
   const isRunBusy = runPhase !== 'idle'
   const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
@@ -304,7 +335,87 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     void handleChatSubmit(payload.text, payload.images, {})
   }
 
-  const modelProvider = resolveMessageProvider(m.modelRef, providerDefinitions, accounts)
+  const modelProvider = resolveMessageProvider((previewMessage ?? m).modelRef, providerDefinitions, accounts)
+  const badgeModel = (previewMessage ?? m).model
+
+  const renderSegment = (
+    segment: MessageSegment,
+    segIdx: number,
+    layer: 'committed' | 'preview'
+  ) => {
+    if (isEmotionToolSegment(segment)) return null
+    const key = `${layer}-${getSegmentRenderKey(segment, segIdx)}`
+    const typewriter = layer === 'preview' ? previewTypewriter : committedTypewriter
+    const isTypedLayer = layer === 'preview' || !isOverlayPreview
+    const sourceSegments = layer === 'preview' ? previewTypewriter.segments : committedTypewriter.segments
+
+    if (isTypedLayer && !typewriter.shouldRenderSegment(segIdx)) return null
+
+    if (segment.type === 'text') {
+      const visibleTokenCount = isTypedLayer ? typewriter.getSegmentVisibleLength(segIdx) : Infinity
+      const isTyping = visibleTokenCount !== Infinity
+      const visibleTokens = isTyping ? typewriter.getVisibleTokens(segIdx) : undefined
+      const hasCode = segment.content.includes('```') || segment.content.includes('`')
+
+      if (hasCode) {
+        const visibleText = visibleTokens ? visibleTokens.join('') : undefined
+        return <TextSegment key={key} segment={segment} visibleText={visibleText} animateOnChange={false} />
+      }
+
+      const mode = getStreamingTextRenderMode()
+      if (mode === 'markdown') {
+        const visibleText = visibleTokens ? visibleTokens.join('') : undefined
+        return (
+          <TextSegment
+            key={key}
+            segment={segment}
+            visibleText={visibleText}
+            animateOnChange={isTyping}
+            transitionKey={visibleText}
+          />
+        )
+      }
+
+      const proseClassName =
+        'prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300'
+      return (
+        <StreamingMarkdownSwitch
+          key={key}
+          text={segment.content}
+          visibleTokens={visibleTokens}
+          isTyping={isTyping}
+          className={proseClassName}
+        />
+      )
+    }
+
+    if (segment.type === 'reasoning') {
+      const nextSegment = sourceSegments[segIdx + 1]
+      const nextSegmentTimestamp =
+        nextSegment && 'timestamp' in nextSegment && typeof nextSegment.timestamp === 'number'
+          ? nextSegment.timestamp
+          : undefined
+
+      return (
+        <ReasoningSegmentNext
+          key={key}
+          segment={segment}
+          nextSegmentTimestamp={nextSegmentTimestamp}
+          isStreaming={isTypedLayer && isLatest && isStreaming && segIdx === sourceSegments.length - 1}
+        />
+      )
+    }
+
+    if (segment.type === 'toolCall') {
+      return <ToolCallResultNextOutput key={key} toolCall={segment} index={index} />
+    }
+
+    if (segment.type === 'error') {
+      return <ErrorMessage key={key} error={segment.error} />
+    }
+
+    return null
+  }
 
   return (
     <div
@@ -319,9 +430,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     >
       <div>
         {/* Model Badge */}
-        {m.model && (
+        {badgeModel && (
           <ModelBadgeNext
-            model={m.model}
+            model={badgeModel}
             provider={modelProvider}
             animate={isAssistantResponseActive && isLatest}
             emotionLabel={emotionLabel}
@@ -331,70 +442,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         )}
 
         {/* Segments */}
-        {segments.map((segment, segIdx) => {
-          if (isEmotionToolSegment(segment)) return null
-          if (!shouldRenderSegment(segIdx)) return null
-
-          const key = getSegmentRenderKey(segment, segIdx)
-
-          if (segment.type === 'text') {
-            const visibleTokenCount = getSegmentVisibleLength(segIdx)
-            const isTyping = visibleTokenCount !== Infinity
-            const visibleTokens = isTyping ? getVisibleTokens(segIdx) : undefined
-            const hasCode = segment.content.includes('```') || segment.content.includes('`')
-
-            if (hasCode) {
-              const visibleText = visibleTokens ? visibleTokens.join('') : undefined
-              return <TextSegment key={key} segment={segment} visibleText={visibleText} animateOnChange={false} />
-            }
-
-            const mode = getStreamingTextRenderMode()
-            if (mode === 'markdown') {
-              const visibleText = visibleTokens ? visibleTokens.join('') : undefined
-              return (
-                <TextSegment
-                  key={key}
-                  segment={segment}
-                  visibleText={visibleText}
-                  animateOnChange={isTyping}
-                  transitionKey={visibleText}
-                />
-              )
-            }
-
-            const proseClassName =
-              "prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300"
-            return (
-              <StreamingMarkdownSwitch
-                key={key}
-                text={segment.content}
-                visibleTokens={visibleTokens}
-                isTyping={isTyping}
-                className={proseClassName}
-              />
-            )
-          } else if (segment.type === 'reasoning') {
-            const nextSegment = segments[segIdx + 1]
-            const nextSegmentTimestamp =
-              nextSegment && 'timestamp' in nextSegment && typeof nextSegment.timestamp === 'number'
-                ? nextSegment.timestamp
-                : undefined
-
-            return (
-              <ReasoningSegmentNext
-                key={key}
-                segment={segment}
-                nextSegmentTimestamp={nextSegmentTimestamp}
-                isStreaming={isLatest && isStreaming && segIdx === segments.length - 1}
-              />
-            )
-          } else if (segment.type === 'toolCall') {
-            return <ToolCallResultNextOutput key={key} toolCall={segment} index={index} />
-          } else if (segment.type === 'error') {
-            return <ErrorMessage key={key} error={segment.error} />
-          }
-          return null
-        })}
+        {committedVisibleSegments.map((segment, segIdx) => renderSegment(segment, segIdx, 'committed'))}
+        {previewVisibleSegments.map((segment, segIdx) => renderSegment(segment, segIdx, 'preview'))}
 
         {/* Command Confirmation */}
         {isCommandConfirmPending && (
@@ -415,18 +464,23 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
       </div>
 
       {/* Operations */}
-      <MessageOperations
-        message={m}
-        type="assistant"
-        isHovered={isHovered}
-        showRegenerate={isLatest}
-        onCopyClick={() => onCopyClick(getAssistantCopyContent(m))}
-        onRegenerateClick={handleRegenerate}
-        onEditClick={() => {
-          // TODO: 实现编辑助手消息功能
-          console.log('Edit assistant message:', index)
-        }}
-      />
+      {shouldShowAssistantMessageOperations({
+        messageSource: m.source,
+        hasPreviewMessage: isOverlayPreview
+      }) && (
+        <MessageOperations
+          message={m}
+          type="assistant"
+          isHovered={isHovered}
+          showRegenerate={isLatest}
+          onCopyClick={() => onCopyClick(getAssistantCopyContent(previewMessage ?? m))}
+          onRegenerateClick={handleRegenerate}
+          onEditClick={() => {
+            // TODO: 实现编辑助手消息功能
+            console.log('Edit assistant message:', index)
+          }}
+        />
+      )}
     </div>
   )
 })

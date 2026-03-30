@@ -1,14 +1,17 @@
 import type { AgentStepEventListener, ToolConfirmationRequester } from '../ports'
 import type { IToolExecutor } from '../tools'
-import { AgentStepLoop, type AgentStepMessageManager } from './AgentStepLoop'
+import { AgentStepLoop } from './AgentStepLoop'
 import type { RunSpec } from '../types'
 import type { ChunkParser } from './parser'
+import type { RequestHistory } from './RequestHistory'
+import type { AgentStepCommitter } from './AgentStepCommitter'
 
 export type AgentStepRuntimeFactoryInput = {
   runSpec: RunSpec
   signal: AbortSignal
   parser: ChunkParser
-  messageManager: AgentStepMessageManager
+  requestHistory: RequestHistory
+  stepCommitter: AgentStepCommitter
   eventListener: AgentStepEventListener
   toolExecutor: IToolExecutor
   toolConfirmationRequester: ToolConfirmationRequester
@@ -20,7 +23,8 @@ export class AgentStepRuntimeFactory {
       runSpec,
       signal,
       parser,
-      messageManager,
+      requestHistory,
+      stepCommitter,
       eventListener,
       toolExecutor,
       toolConfirmationRequester
@@ -35,7 +39,8 @@ export class AgentStepRuntimeFactory {
       },
       {
         parser,
-        messageManager,
+        requestHistory,
+        stepCommitter,
         beforeFetch: () => {},
         afterFetch: () => {},
         toolConfirmationHandler: (requestConfirmation) =>

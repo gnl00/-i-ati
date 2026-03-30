@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { shouldRenderAssistantMessageShell } from '../assistant-message-visibility'
+import {
+  isAssistantStreamPreviewMessage,
+  shouldRenderAssistantMessageShell,
+  shouldShowAssistantMessageOperations
+} from '../assistant-message-visibility'
 
 describe('shouldRenderAssistantMessageShell', () => {
   it('renders messages with content', () => {
@@ -66,5 +70,38 @@ describe('shouldRenderAssistantMessageShell', () => {
       isLatest: true,
       isResponseActive: false,
     })).toBe(false)
+  })
+
+  it('treats a standalone stream preview row as preview state', () => {
+    expect(isAssistantStreamPreviewMessage({
+      messageSource: 'stream_preview',
+      hasPreviewMessage: false
+    })).toBe(true)
+    expect(shouldShowAssistantMessageOperations({
+      messageSource: 'stream_preview',
+      hasPreviewMessage: false
+    })).toBe(false)
+  })
+
+  it('treats an overlay preview as preview state', () => {
+    expect(isAssistantStreamPreviewMessage({
+      messageSource: undefined,
+      hasPreviewMessage: true
+    })).toBe(true)
+    expect(shouldShowAssistantMessageOperations({
+      messageSource: undefined,
+      hasPreviewMessage: true
+    })).toBe(false)
+  })
+
+  it('keeps operations enabled for committed assistant rows', () => {
+    expect(isAssistantStreamPreviewMessage({
+      messageSource: undefined,
+      hasPreviewMessage: false
+    })).toBe(false)
+    expect(shouldShowAssistantMessageOperations({
+      messageSource: undefined,
+      hasPreviewMessage: false
+    })).toBe(true)
   })
 })

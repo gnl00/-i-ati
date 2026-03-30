@@ -60,7 +60,7 @@ export type StepResult = {
   usage?: ITokenUsage
   completed: boolean
   finishReason?: string
-  messages: ChatMessage[]
+  requestHistoryMessages: ChatMessage[]
   artifacts: StepArtifact[]
 }
 

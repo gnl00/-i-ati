@@ -2,33 +2,20 @@ import { unifiedChatRequest } from '@main/request/index'
 import { createLogger } from '@main/services/logging/LogService'
 import { AbortError } from '../errors'
 import { formatWebSearchForLLM, normalizeToolArgs } from '../utils'
-import type { ChunkParser, ParseResult, SegmentDelta } from './parser'
-import { SegmentBuilder } from './parser'
-import { extractContentFromSegments } from './parser/segment-content'
+import type { ChunkParser, ParseResult } from './parser'
 import { ToolExecutor } from '../tools'
 import type {
   ToolExecutionProgress,
   ToolExecutionResult,
   ToolExecutorConfig
 } from '../tools'
-import type { StepArtifact, StepResult, ToolCall } from '../types'
+import type { StepResult, ToolCall } from '../types'
+import type { RequestHistory } from './RequestHistory'
+import type { AgentStepCommitter } from './AgentStepCommitter'
+import { AssistantCycleBuffer } from './AssistantCycleBuffer'
 
 export interface AgentStepToolService {
   execute(toolCalls: ToolCall[]): Promise<ToolExecutionResult[]>
-}
-
-export interface AgentStepMessageManager {
-  rebuildRequestMessages(): void
-  updateLastAssistantMessage(updater: (message: MessageEntity) => MessageEntity): void
-  getLastAssistantMessage(): MessageEntity
-  appendSegmentToLastMessage(segment: MessageSegment): void
-  setLastUsage(usage: ITokenUsage): void
-  getLastUsage(): ITokenUsage | undefined
-  addToolCallMessage(toolCalls: IToolCall[], content: string): Promise<void>
-  addToolResultMessage(toolMsg: ChatMessage): Promise<void>
-  flushPendingAssistantUpdate(): void
-  getRequestMessages(): ChatMessage[]
-  getArtifacts(): StepArtifact[]
 }
 
 export interface AgentStepInput {
@@ -40,7 +27,8 @@ export interface AgentStepInput {
 
 export interface AgentStepRuntime {
   parser: ChunkParser
-  messageManager: AgentStepMessageManager
+  requestHistory: RequestHistory
+  stepCommitter: AgentStepCommitter
   beforeFetch: () => void
   afterFetch: () => void
   toolService?: AgentStepToolService
@@ -81,11 +69,11 @@ const parseToolArgsForSegment = (args: string): unknown => {
 
 export class AgentStepLoop {
   private readonly request: IUnifiedRequest
-  private readonly modelName: string
   private readonly chatUuid?: string
   private readonly signal: AbortSignal
   private readonly parser: ChunkParser
-  private readonly messageManager: AgentStepMessageManager
+  private readonly requestHistory: RequestHistory
+  private readonly stepCommitter: AgentStepCommitter
   private readonly beforeFetch: () => void
   private readonly afterFetch: () => void
   private readonly toolService?: AgentStepToolService
@@ -95,16 +83,17 @@ export class AgentStepLoop {
   private readonly onToolCallsDetected?: (toolCalls: ToolCall[]) => void
   private readonly onToolCallsFlushed?: (toolCalls: IToolCall[]) => void
   private readonly logger = createLogger('AgentStepLoop')
+  private readonly cycleBuffer = new AssistantCycleBuffer()
   private toolCallIds = new Set<string>()
   private tools: ToolCall[] = []
 
   constructor(input: AgentStepInput, runtime: AgentStepRuntime) {
     this.request = input.request as IUnifiedRequest
-    this.modelName = input.modelName
     this.chatUuid = input.chatUuid
     this.signal = input.signal
     this.parser = runtime.parser
-    this.messageManager = runtime.messageManager
+    this.requestHistory = runtime.requestHistory
+    this.stepCommitter = runtime.stepCommitter
     this.beforeFetch = runtime.beforeFetch
     this.afterFetch = runtime.afterFetch
     this.toolService = runtime.toolService
@@ -125,7 +114,7 @@ export class AgentStepLoop {
     let hasExecutedTools = false
 
     while (cycleCount < MAX_CYCLES) {
-      cycleCount++
+      cycleCount += 1
       hasExecutedTools = await this.executeSingleCycle()
 
       if (hasExecutedTools) {
@@ -143,15 +132,18 @@ export class AgentStepLoop {
     }
 
     return {
-      usage: this.messageManager.getLastUsage(),
+      usage: this.stepCommitter.getLastUsage(),
       completed,
       finishReason: completed ? 'completed' : 'max_cycles',
-      messages: this.messageManager.getRequestMessages(),
-      artifacts: this.messageManager.getArtifacts()
+      requestHistoryMessages: this.requestHistory.getMessages(),
+      artifacts: this.stepCommitter.getArtifacts()
     }
   }
 
   private async executeSingleCycle(): Promise<boolean> {
+    this.stepCommitter.beginCycle()
+    this.stepCommitter.clearStreamPreview()
+    this.cycleBuffer.reset()
     this.onPhaseChange?.('receiving')
     await this.sendRequest()
 
@@ -163,6 +155,18 @@ export class AgentStepLoop {
       return true
     }
 
+    const snapshot = this.cycleBuffer.snapshot()
+    if (snapshot.segments.length > 0 || (snapshot.toolCalls?.length ?? 0) > 0) {
+      this.stepCommitter.commitFinalCycle(snapshot)
+      this.stepCommitter.clearStreamPreview()
+      this.requestHistory.appendAssistantCycle({
+        role: 'assistant',
+        content: snapshot.content,
+        segments: snapshot.segments,
+        toolCalls: snapshot.toolCalls
+      })
+    }
+
     return false
   }
 
@@ -172,7 +176,7 @@ export class AgentStepLoop {
 
   private async sendRequest(): Promise<void> {
     try {
-      this.messageManager.rebuildRequestMessages()
+      this.requestHistory.syncRequest(this.request)
 
       const response = await unifiedChatRequest(
         this.request,
@@ -208,24 +212,11 @@ export class AgentStepLoop {
   }
 
   private processNonStreamingResponse(resp: IUnifiedResponse): void {
-    this.messageManager.updateLastAssistantMessage((last) => ({
-      ...last,
-      body: {
-        ...last.body,
-        role: 'assistant',
-        model: this.modelName,
-        content: resp.content,
-        segments: [{
-          type: 'text',
-          content: resp.content,
-          timestamp: Date.now()
-        }],
-        typewriterCompleted: false
-      }
-    }))
+    this.cycleBuffer.setContent(resp.content)
+    this.stepCommitter.updateStreamPreview(this.cycleBuffer.snapshot())
 
     if (resp.usage) {
-      this.messageManager.setLastUsage(resp.usage)
+      this.stepCommitter.setLastUsage(resp.usage)
     }
   }
 
@@ -233,52 +224,14 @@ export class AgentStepLoop {
     const result = this.parser.parse(chunk, this.tools)
 
     if (chunk.usage) {
-      this.messageManager.setLastUsage(chunk.usage)
+      this.stepCommitter.setLastUsage(chunk.usage)
     }
 
     this.tools = result.toolCalls
     this.emitDetectedToolCalls(result.toolCalls)
-    this.applyParseResult(result)
+    this.cycleBuffer.applyParseResult(result)
+    this.stepCommitter.updateStreamPreview(this.cycleBuffer.snapshot())
     this.onChunk?.(result)
-  }
-
-  private applyParseResult(result: ParseResult): void {
-    const segmentBuilder = new SegmentBuilder()
-    const lastMessage = this.messageManager.getLastAssistantMessage()
-
-    if (!lastMessage.body.segments) {
-      lastMessage.body.segments = []
-    }
-
-    let segments = [...(lastMessage.body.segments || [])]
-
-    const orderedSegmentDeltas: SegmentDelta[] =
-      result.segmentDeltas.length > 0
-        ? result.segmentDeltas
-        : [
-            ...(result.reasoningDelta
-              ? ([{ type: 'reasoning', content: result.reasoningDelta }] as SegmentDelta[])
-              : []),
-            ...(result.contentDelta
-              ? ([{ type: 'text', content: result.contentDelta }] as SegmentDelta[])
-              : [])
-          ]
-
-    for (const segmentDelta of orderedSegmentDeltas) {
-      if (!segmentDelta.content.trim()) {
-        continue
-      }
-
-      segments = segmentBuilder.appendSegment(segments, segmentDelta.content, segmentDelta.type)
-    }
-
-    this.messageManager.updateLastAssistantMessage(msg => ({
-      ...msg,
-      body: {
-        ...msg.body,
-        segments
-      }
-    }))
   }
 
   private async flushToolCallPlaceholder(): Promise<void> {
@@ -286,9 +239,6 @@ export class AgentStepLoop {
     if (pendingTools.length === 0) {
       return
     }
-
-    const lastAssistantMessage = this.messageManager.getLastAssistantMessage()
-    const content = extractContentFromSegments(lastAssistantMessage.body.segments)
 
     const toolCalls = pendingTools.map(tc => ({
       id: tc.id,
@@ -299,8 +249,18 @@ export class AgentStepLoop {
       }
     }))
 
+    this.cycleBuffer.setToolCalls(toolCalls)
+    const snapshot = this.cycleBuffer.snapshot()
+
     this.onToolCallsFlushed?.(toolCalls)
-    await this.messageManager.addToolCallMessage(toolCalls, content)
+    this.stepCommitter.commitToolOnlyCycle(snapshot)
+    this.stepCommitter.clearStreamPreview()
+    this.requestHistory.appendAssistantCycle({
+      role: 'assistant',
+      content: snapshot.content,
+      segments: snapshot.segments,
+      toolCalls: snapshot.toolCalls
+    })
   }
 
   private async executeToolCalls(): Promise<void> {
@@ -333,6 +293,7 @@ export class AgentStepLoop {
         await this.handleToolFailure(result)
       }
     }
+
   }
 
   private async handleToolSuccess(result: ToolExecutionResult): Promise<void> {
@@ -346,7 +307,7 @@ export class AgentStepLoop {
       segments: []
     }
 
-    this.messageManager.appendSegmentToLastMessage({
+    this.cycleBuffer.appendToolResultSegment({
       type: 'toolCall',
       name: result.name,
       content: {
@@ -361,7 +322,9 @@ export class AgentStepLoop {
       toolCallIndex: result.index
     })
 
-    await this.messageManager.addToolResultMessage(toolFunctionMessage)
+    this.syncCurrentCycleSnapshot()
+    await this.stepCommitter.commitToolResult(toolFunctionMessage)
+    this.requestHistory.appendToolResult(toolFunctionMessage)
   }
 
   private async handleToolFailure(result: ToolExecutionResult): Promise<void> {
@@ -382,7 +345,7 @@ export class AgentStepLoop {
       segments: []
     }
 
-    this.messageManager.appendSegmentToLastMessage({
+    this.cycleBuffer.appendToolResultSegment({
       type: 'toolCall',
       name: result.name,
       content: {
@@ -397,7 +360,14 @@ export class AgentStepLoop {
       toolCallIndex: result.index
     })
 
-    await this.messageManager.addToolResultMessage(toolFunctionMessage)
+    this.syncCurrentCycleSnapshot()
+    await this.stepCommitter.commitToolResult(toolFunctionMessage)
+    this.requestHistory.appendToolResult(toolFunctionMessage)
+  }
+
+  private syncCurrentCycleSnapshot(): void {
+    const snapshot = this.cycleBuffer.snapshot()
+    this.stepCommitter.commitToolOnlyCycle(snapshot)
   }
 
   private emitDetectedToolCalls(toolCalls: ToolCall[]): void {

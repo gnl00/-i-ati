@@ -14,9 +14,8 @@ type HandleKernelResultArgs = {
   emitter: ChatRunEventEmitter
   chatAgentAdapter: ChatAgentAdapter
   postRunJobService: PostRunJobService
-  messageManager: {
-    flushPendingAssistantUpdate(): void
-    getLastAssistantMessage(): MessageEntity
+  stepCommitter: {
+    getFinalAssistantMessage(): MessageEntity
     getLastUsage(): ITokenUsage | undefined
   }
 }
@@ -31,14 +30,14 @@ export class RunTerminalHandler {
       emitter,
       chatAgentAdapter,
       postRunJobService,
-      messageManager
+      stepCommitter
     } = args
     const lifecycle = new RunLifecycleEventMapper(emitter)
 
     if (kernelResult.state === 'aborted') {
       await chatAgentAdapter.abortRun({
         chatContext,
-        messageManager
+        stepCommitter
       })
       lifecycle.emitAborted()
       return { state: 'aborted' }
@@ -59,11 +58,13 @@ export class RunTerminalHandler {
       chatContext,
       stepResult: kernelResult.stepResult,
       emitter,
-      messageManager
+      stepCommitter
     })
     const postRunPlan = postRunJobService.getPlan(finalizeResult.postRunInput)
     const assistantMessageId = finalizeResult.runResult.assistantMessageId ?? -1
-    postRunJobService.emitPlan(finalizeResult.postRunInput, postRunPlan)
+    if (postRunPlan) {
+      postRunJobService.emitPlan(finalizeResult.postRunInput, postRunPlan)
+    }
     lifecycle.emitCompleted(assistantMessageId, finalizeResult.runResult.usage)
     void postRunJobService.run(finalizeResult.postRunInput, postRunPlan)
 

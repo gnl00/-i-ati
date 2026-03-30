@@ -108,4 +108,60 @@ describe('ChatAgentAdapter', () => {
       chatUuid: prepared.chatContext.chat.uuid
     })
   })
+
+  it('emits final assistant message update after finalizeRun', async () => {
+    const adapter = new ChatAgentAdapter(preparationPipeline as any, finalizeService as any)
+    const finalizedAssistantMessage = {
+      id: 102,
+      body: {
+        role: 'assistant',
+        content: 'hello',
+        emotion: {
+          label: 'happiness',
+          emoji: '😊'
+        },
+        typewriterCompleted: true
+      }
+    }
+    const finalizedChat = {
+      ...prepared.chatContext.chat,
+      title: 'hello'
+    }
+
+    finalizeService.finalizeAssistantMessage.mockResolvedValue(finalizedAssistantMessage)
+    finalizeService.finalizeChatEntity.mockReturnValue(finalizedChat)
+
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const result = await adapter.finalizeRun({
+      input: {
+        submissionId: 'submission-1',
+        input: { textCtx: 'hi' },
+        modelRef: { modelId: 'model-1', accountId: 'account-1' }
+      } as any,
+      runSpec: prepared.runSpec as any,
+      chatContext: prepared.chatContext as any,
+      stepResult: {
+        completed: true,
+        finishReason: 'completed',
+        requestHistoryMessages: [],
+        artifacts: []
+      },
+      emitter,
+      stepCommitter: {
+        getFinalAssistantMessage: () => finalizedAssistantMessage as any,
+        getLastUsage: () => undefined
+      }
+    })
+
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: finalizedAssistantMessage
+    })
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RUN_EVENTS.CHAT_UPDATED, {
+      chatEntity: finalizedChat
+    })
+    expect(result.runResult.assistantMessageId).toBe(102)
+  })
 })

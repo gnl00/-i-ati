@@ -9,7 +9,7 @@ describe('AgentRunKernel', () => {
       completed: true,
       finishReason: 'completed',
       usage: undefined,
-      messages: [],
+      requestHistoryMessages: [],
       artifacts: []
     }))
 
@@ -19,7 +19,7 @@ describe('AgentRunKernel', () => {
         completed: true,
         finishReason: 'completed',
         usage: undefined,
-        messages: [],
+        requestHistoryMessages: [],
         artifacts: []
       }
     })

@@ -1,10 +1,12 @@
 export {
   AgentStepLoop,
   type AgentStepInput,
-  type AgentStepMessageManager,
   type AgentStepRuntime,
   type AgentStepToolService
 } from './AgentStepLoop'
+export { type RequestHistory } from './RequestHistory'
+export { type AgentStepCommitter } from './AgentStepCommitter'
+export { AssistantCycleBuffer, type AssistantCycleSnapshot } from './AssistantCycleBuffer'
 export {
   AgentStepRuntimeFactory,
   type AgentStepRuntimeFactoryInput

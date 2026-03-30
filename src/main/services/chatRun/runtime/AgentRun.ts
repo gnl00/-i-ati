@@ -84,7 +84,7 @@ export class AgentRun {
         emitter: this.emitter,
         chatAgentAdapter: this.services.chatAgentAdapter,
         postRunJobService: this.services.postRunJobService,
-        messageManager: step.messageManager
+        stepCommitter: step.stepCommitter
       })
     } catch (error: any) {
       if (error instanceof AbortError || error?.name === 'AbortError') {

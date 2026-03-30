@@ -98,4 +98,45 @@ describe('TelegramRunResponder', () => {
       parse_mode: 'HTML'
     })
   })
+
+  it('prefers stream preview updates for live telegram edits before committed assistant updates arrive', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 88 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 2,
+        messageId: '56',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('Preview hello')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(sendMessage).toHaveBeenCalledWith(123, 'Preview hello', {
+      reply_parameters: { message_id: 56 }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: createAssistantMessage('Preview hello world')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenCalledWith(123, 88, 'Preview hello world', {})
+  })
 })

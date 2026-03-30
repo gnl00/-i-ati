@@ -9,7 +9,7 @@ export class ChatFinalizeService {
   async finalizeAssistantMessage(
     placeholder: MessageEntity,
     finalAssistantMessage: MessageEntity
-  ): Promise<number> {
+  ): Promise<MessageEntity> {
     return this.chatStepStore.finalizeAssistantMessage(placeholder, finalAssistantMessage)
   }
 

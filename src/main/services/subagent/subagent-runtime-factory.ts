@@ -12,7 +12,7 @@ import type {
 import type { ToolExecutionProgress } from '@main/services/agentCore/tools'
 import type { RunSpec } from '@main/services/agentCore/types'
 import { extractContentFromSegments } from '@main/services/agentCore/execution/parser/segment-content'
-import { AssistantStepMessageManagerImpl } from '@main/services/hostAdapters/chat'
+import { ChatRequestHistory, ChatStepCommitter } from '@main/services/hostAdapters/chat'
 import { AppConfigStore, ChatModelContextResolver } from '@main/services/hostAdapters/chat'
 import { SystemPromptComposer } from '@main/services/hostAdapters/chat/preparation/request/SystemPromptComposer'
 import { embeddedToolsRegistry } from '@tools/registry'
@@ -88,6 +88,8 @@ const denyConfirmationRequester: ToolConfirmationRequester = {
 
 const noopMessageEventSink: AgentMessageEventSink = {
   emitMessageUpdated() {},
+  emitStreamPreviewUpdated() {},
+  emitStreamPreviewCleared() {},
   emitToolResultAttached() {}
 }
 
@@ -156,13 +158,13 @@ export class SubagentRuntimeFactory {
       },
       requestConfirmation: (request) => confirmationRequester.request(request)
     })
-    const messageManager = new AssistantStepMessageManagerImpl(
+    const requestHistory = new ChatRequestHistory(request.messages)
+    const stepCommitter = new ChatStepCommitter(
       messageEntities,
-      request,
       noopMessageEventSink,
+      new InMemoryConversationStore(),
       undefined,
-      input.chatUuid,
-      new InMemoryConversationStore()
+      input.chatUuid
     )
 
     const runSpec: RunSpec = {
@@ -180,7 +182,8 @@ export class SubagentRuntimeFactory {
       runSpec,
       signal: signalController.signal,
       parser: new ChunkParser(),
-      messageManager,
+      requestHistory,
+      stepCommitter,
       eventListener: eventCollector,
       toolExecutor,
       toolConfirmationRequester: confirmationRequester
@@ -196,7 +199,7 @@ export class SubagentRuntimeFactory {
       throw new Error('Subagent run aborted')
     }
 
-    const finalAssistant = messageManager.getLastAssistantMessage().body
+    const finalAssistant = stepCommitter.getFinalAssistantMessage().body
     const summary = extractContentFromSegments(finalAssistant.segments)
       || (typeof finalAssistant.content === 'string' ? finalAssistant.content : '')
 

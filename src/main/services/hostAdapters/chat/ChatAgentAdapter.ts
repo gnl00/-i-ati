@@ -11,9 +11,8 @@ type FinalizeRunArgs = {
   chatContext: RunPreparationResult['chatContext']
   stepResult: StepResult
   emitter: ChatRunEventEmitter
-  messageManager: {
-    flushPendingAssistantUpdate(): void
-    getLastAssistantMessage(): MessageEntity
+  stepCommitter: {
+    getFinalAssistantMessage(): MessageEntity
     getLastUsage(): ITokenUsage | undefined
   }
 }
@@ -70,26 +69,26 @@ export class ChatAgentAdapter {
     chatContext,
     stepResult,
     emitter,
-    messageManager
+    stepCommitter
   }: FinalizeRunArgs): Promise<FinalizeRunResult> {
-    messageManager.flushPendingAssistantUpdate()
-
-    const assistantMessageId = await this.finalizeService.finalizeAssistantMessage(
+    const updatedAssistantMessage = await this.finalizeService.finalizeAssistantMessage(
       chatContext.assistantPlaceholder,
-      messageManager.getLastAssistantMessage()
+      stepCommitter.getFinalAssistantMessage()
     )
     const finalizedChat = this.finalizeService.finalizeChatEntity(
       chatContext.chat,
       input.input.textCtx,
       input.modelRef
     )
-    new ChatEventMapper(emitter).emitChatUpdated(finalizedChat)
+    const chatEventMapper = new ChatEventMapper(emitter)
+    chatEventMapper.emitMessageUpdated(updatedAssistantMessage)
+    chatEventMapper.emitChatUpdated(finalizedChat)
 
     return {
       runResult: {
         userMessageId: chatContext.createdMessages[0]?.id,
-        assistantMessageId,
-        usage: stepResult.usage ?? messageManager.getLastUsage(),
+        assistantMessageId: updatedAssistantMessage.id,
+        usage: stepResult.usage ?? stepCommitter.getLastUsage(),
         state: 'completed'
       },
       postRunInput: {
@@ -104,12 +103,11 @@ export class ChatAgentAdapter {
 
   async abortRun({
     chatContext,
-    messageManager
-  }: Pick<FinalizeRunArgs, 'chatContext' | 'messageManager'>): Promise<void> {
-    messageManager.flushPendingAssistantUpdate()
+    stepCommitter
+  }: Pick<FinalizeRunArgs, 'chatContext' | 'stepCommitter'>): Promise<void> {
     await this.finalizeService.settleAbortedAssistantMessage(
       chatContext.assistantPlaceholder,
-      messageManager.getLastAssistantMessage()
+      stepCommitter.getFinalAssistantMessage()
     )
   }
 }

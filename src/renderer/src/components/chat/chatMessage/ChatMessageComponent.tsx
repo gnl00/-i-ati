@@ -8,6 +8,7 @@ import { Send, Timer } from 'lucide-react'
 interface ChatMessageComponentProps {
   index: number
   message: ChatMessage
+  previewMessage?: ChatMessage
   isLatest: boolean
   onTypingChange?: () => void
 }
@@ -19,6 +20,7 @@ interface ChatMessageComponentProps {
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
   index,
   message,
+  previewMessage,
   isLatest,
   onTypingChange
 }) => {
@@ -72,6 +74,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
         <AssistantMessage
           index={index}
           message={message}
+          previewMessage={previewMessage}
           isLatest={isLatest}
           isHovered={hoverState.assistantMessageHovered}
           onHover={hoverState.onMouseHoverAssistantMsg}
@@ -99,6 +102,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
     <AssistantMessage
       index={index}
       message={message}
+      previewMessage={previewMessage}
       isLatest={isLatest}
       isHovered={hoverState.assistantMessageHovered}
       onHover={hoverState.onMouseHoverAssistantMsg}

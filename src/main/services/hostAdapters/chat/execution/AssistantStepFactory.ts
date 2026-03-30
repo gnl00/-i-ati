@@ -12,15 +12,14 @@ import {
   ChatEventMapper,
   type ChatStepRuntimeContext
 } from '../mapping'
-import {
-  AssistantStepMessageManagerImpl,
-  type AssistantStepMessageManagerImplLike
-} from './AssistantStepMessageManager'
+import { ChatStepStore } from '../persistence'
+import { ChatRequestHistory } from './ChatRequestHistory'
+import { ChatStepCommitter } from './ChatStepCommitter'
 import { AssistantStepEventMapper } from './AssistantStepEventMapper'
 
 export type AssistantStepHandle = {
   loop: AgentStepLoop
-  messageManager: AssistantStepMessageManagerImplLike
+  stepCommitter: Pick<ChatStepCommitter, 'getFinalAssistantMessage' | 'getLastUsage'>
 }
 
 export type AssistantStepFactoryInput = {
@@ -45,10 +44,11 @@ export class AssistantStepFactory {
     const eventListener: AgentStepEventListener = new AssistantStepEventMapper(emitter)
     const messageEvents: AgentMessageEventSink = new ChatEventMapper(emitter)
     const parser = new ChunkParser()
-    const messageManager = new AssistantStepMessageManagerImpl(
+    const requestHistory = new ChatRequestHistory(runSpec.request.messages)
+    const stepCommitter = new ChatStepCommitter(
       stepContext.messageEntities,
-      runSpec.request,
       messageEvents,
+      new ChatStepStore(),
       stepContext.chatId,
       stepContext.chatUuid
     )
@@ -73,7 +73,8 @@ export class AssistantStepFactory {
       runSpec,
       signal,
       parser,
-      messageManager,
+      requestHistory,
+      stepCommitter,
       eventListener,
       toolExecutor,
       toolConfirmationRequester
@@ -81,7 +82,7 @@ export class AssistantStepFactory {
 
     return {
       loop,
-      messageManager
+      stepCommitter
     }
   }
 }

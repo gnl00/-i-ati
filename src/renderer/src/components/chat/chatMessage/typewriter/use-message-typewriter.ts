@@ -36,6 +36,7 @@ export function useMessageTypewriter(
   const setForceCompleteTypewriter = useChatStore(state => state.setForceCompleteTypewriter)
 
   const segments = m.segments || []
+  const isStreamPreview = m.source === 'stream_preview'
   const enabled = m.role === 'assistant' && isLatest && !m.typewriterCompleted
   const isStreaming = runPhase === 'streaming' && isLatest
   const typingDebounceRef = useRef<number | null>(null)
@@ -74,6 +75,9 @@ export function useMessageTypewriter(
       onAllComplete: async () => {
         // Mark typewriter as completed when all segments are done
         if (!m.typewriterCompleted) {
+          if (isStreamPreview) {
+            return
+          }
           const messageEntity = useChatStore.getState().messages[index]
           if (!messageEntity) return
           if (messageEntity.id == null) {

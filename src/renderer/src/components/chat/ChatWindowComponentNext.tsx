@@ -21,10 +21,11 @@ import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotificatio
 const ChatMessageRow: React.FC<{
   messageIndex: number
   message: MessageEntity
+  previewMessage?: ChatMessage
   lastAssistantIndex: number
   lastMessageIndex: number
   onTypingChange?: () => void
-}> = memo(({ messageIndex, message, lastAssistantIndex, lastMessageIndex, onTypingChange }) => {
+}> = memo(({ messageIndex, message, previewMessage, lastAssistantIndex, lastMessageIndex, onTypingChange }) => {
   const isLatest = message.body.role === 'assistant'
     ? messageIndex === lastAssistantIndex
     : messageIndex === lastMessageIndex
@@ -32,6 +33,7 @@ const ChatMessageRow: React.FC<{
   return (
     <ChatMessageComponent
       message={message.body}
+      previewMessage={previewMessage}
       index={messageIndex}
       isLatest={isLatest}
       onTypingChange={onTypingChange}
@@ -41,14 +43,7 @@ const ChatMessageRow: React.FC<{
 
 const ChatWindowComponentNext: React.FC = () => {
   const messages = useChatStore(state => state.messages)
-  const lastAssistantIndex = useChatStore(state => {
-    for (let i = state.messages.length - 1; i >= 0; i--) {
-      if (state.messages[i].body.role === 'assistant') {
-        return i
-      }
-    }
-    return -1
-  })
+  const streamPreviewMessage = useChatStore(state => state.streamPreviewMessage)
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
@@ -57,6 +52,23 @@ const ChatWindowComponentNext: React.FC = () => {
   const upsertMessage = useChatStore(state => state.upsertMessage)
   const onUserScrollIntentRef = useRef<(() => void) | null>(null)
   const onUserScrollUpIntentRef = useRef<(() => void) | null>(null)
+  const committedLastAssistantIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].body.role === 'assistant') {
+        return i
+      }
+    }
+    return -1
+  }, [messages])
+  const previewStandalone = Boolean(streamPreviewMessage) && committedLastAssistantIndex < 0
+  const previewRenderIndex = streamPreviewMessage
+    ? (previewStandalone ? messages.length : committedLastAssistantIndex)
+    : -1
+  const displayMessages = useMemo(
+    () => (previewStandalone && streamPreviewMessage ? [...messages, streamPreviewMessage] : messages),
+    [messages, previewStandalone, streamPreviewMessage]
+  )
+  const lastAssistantIndex = previewRenderIndex >= 0 ? previewRenderIndex : committedLastAssistantIndex
 
   const isRunStreaming = runPhase === 'streaming'
   const inputAreaRef = useRef<HTMLDivElement>(null)
@@ -72,8 +84,8 @@ const ChatWindowComponentNext: React.FC = () => {
     scrollToMessageIndex,
     onRangeChanged
   } = useScrollManagerTop({
-    messages,
-    messagesLength: messages.length,
+    messages: displayMessages,
+    messagesLength: displayMessages.length,
     chatUuid,
     onUserScrollIntentRef,
     onUserScrollUpIntentRef,
@@ -84,7 +96,7 @@ const ChatWindowComponentNext: React.FC = () => {
     }
   })
 
-  const lastMessageIndex = messages.length - 1
+  const lastMessageIndex = displayMessages.length - 1
 
   // Welcome page state
   const [showWelcome, setShowWelcome] = useState<boolean>(true)
@@ -105,21 +117,28 @@ const ChatWindowComponentNext: React.FC = () => {
     ? [pendingPlanReview.plan, ...activePlans]
     : activePlans
 
-  const autoTopAnchorIndex = resolveAnchorIndex(messages, 'latestUserForAutoTop')
-  const latestMessageIndex = resolveAnchorIndex(messages, 'latestMessage')
+  const autoTopAnchorIndex = resolveAnchorIndex(displayMessages, 'latestUserForAutoTop')
+  const latestMessageIndex = resolveAnchorIndex(displayMessages, 'latestMessage')
+  const renderedLatestAssistant = useMemo(() => {
+    if (lastAssistantIndex < 0) return undefined
+    if (streamPreviewMessage && previewRenderIndex === lastAssistantIndex) {
+      return streamPreviewMessage
+    }
+    return displayMessages[lastAssistantIndex]
+  }, [displayMessages, lastAssistantIndex, previewRenderIndex, streamPreviewMessage])
   const latestAssistantTextSignature = useMemo(() => {
-    if (lastAssistantIndex < 0) return ''
-    const latestAssistant = messages[lastAssistantIndex]
+    if (!renderedLatestAssistant) return ''
+    const latestAssistant = renderedLatestAssistant
     const segments = latestAssistant?.body?.segments ?? []
 
     return segments
       .filter((segment): segment is TextSegment => segment.type === 'text')
       .map((segment) => `${segment.timestamp}:${segment.content.length}`)
       .join('|')
-  }, [lastAssistantIndex, messages])
+  }, [renderedLatestAssistant])
   const latestAssistantNonTextSignature = useMemo(() => {
-    if (lastAssistantIndex < 0) return ''
-    const latestAssistant = messages[lastAssistantIndex]
+    if (!renderedLatestAssistant) return ''
+    const latestAssistant = renderedLatestAssistant
     const segments = latestAssistant?.body?.segments ?? []
 
     return segments
@@ -144,7 +163,7 @@ const ChatWindowComponentNext: React.FC = () => {
       })
       .filter(Boolean)
       .join('|')
-  }, [lastAssistantIndex, messages])
+  }, [renderedLatestAssistant])
 
   const readVirtuosoState = useCallback((): StateSnapshot | null => {
     let snapshot: StateSnapshot | null = null
@@ -296,10 +315,8 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [getLatestMessageMetrics, messages.length, isRunStreaming, scrollParentRef, setStreamingFollowEnabled])
 
   const handleJumpToLatestClick = useCallback(() => {
-    const lastAssistantIndex = [...messages].reverse().findIndex(m => m.body?.role === 'assistant')
-    const lastAssistantMessage =
-      lastAssistantIndex >= 0 ? messages[messages.length - 1 - lastAssistantIndex] : undefined
-    const isLatest = Boolean(lastMessageIndex === messages.length - 1)
+    const lastAssistantMessage = renderedLatestAssistant
+    const isLatest = Boolean(lastMessageIndex === displayMessages.length - 1)
     const typewriterCompleted = Boolean(lastAssistantMessage?.body?.typewriterCompleted)
     const segments = lastAssistantMessage?.body?.segments ?? []
     const hasSegments = Array.isArray(segments) && segments.length > 0
@@ -329,7 +346,7 @@ const ChatWindowComponentNext: React.FC = () => {
     setStreamingFollowEnabled(true)
     // Button targets the latest message (confirmed behavior).
     scrollToMessageIndex(latestMessageIndex, true, 'end')
-  }, [latestMessageIndex, messages, isRunStreaming, scrollToMessageIndex, setStreamingFollowEnabled, patchMessageUiState, upsertMessage, lastMessageIndex])
+  }, [renderedLatestAssistant, displayMessages.length, latestMessageIndex, isRunStreaming, scrollToMessageIndex, setStreamingFollowEnabled, patchMessageUiState, upsertMessage, lastMessageIndex, messages.length])
 
   
 
@@ -514,7 +531,7 @@ const ChatWindowComponentNext: React.FC = () => {
               </AnimatePresence>
               <Virtuoso
                 ref={virtuosoRef}
-                data={messages}
+                data={displayMessages}
                 className="h-full w-full"
                 customScrollParent={scrollParentRef.current ?? undefined}
                 totalListHeightChanged={() => {
@@ -531,6 +548,11 @@ const ChatWindowComponentNext: React.FC = () => {
                     <ChatMessageRow
                       messageIndex={index}
                       message={message}
+                      previewMessage={
+                        streamPreviewMessage && previewRenderIndex === index && !previewStandalone
+                          ? streamPreviewMessage.body
+                          : undefined
+                      }
                       lastAssistantIndex={lastAssistantIndex}
                       lastMessageIndex={lastMessageIndex}
                       onTypingChange={handleLatestAssistantTyping}

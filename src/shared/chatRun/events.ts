@@ -43,6 +43,8 @@ export const CHAT_RUN_EVENTS = {
   MESSAGES_LOADED: 'messages.loaded',
   MESSAGE_CREATED: 'message.created',
   MESSAGE_UPDATED: 'message.updated',
+  STREAM_PREVIEW_UPDATED: 'stream.preview.updated',
+  STREAM_PREVIEW_CLEARED: 'stream.preview.cleared',
   TOOL_CALL_DETECTED: 'tool.call.detected',
   TOOL_EXEC_REQUIRES_CONFIRMATION: 'tool.exec.requires_confirmation',
   TOOL_EXEC_STARTED: 'tool.exec.started',
@@ -78,6 +80,8 @@ export type ChatRunEventPayloads = {
   'messages.loaded': { messages: MessageEntity[] }
   'message.created': { message: MessageEntity }
   'message.updated': { message: MessageEntity }
+  'stream.preview.updated': { message: MessageEntity }
+  'stream.preview.cleared': {}
   'tool.call.detected': { toolCall: ChatRunToolCall }
   'tool.exec.requires_confirmation': {
     toolCallId: string

@@ -108,7 +108,7 @@ export class ChatStepStore implements ConversationStore {
   async finalizeAssistantMessage(
     placeholder: MessageEntity,
     finalAssistantMessage: MessageEntity
-  ): Promise<number> {
+  ): Promise<MessageEntity> {
     const content = finalAssistantMessage.body.segments?.length
       ? extractContentFromSegments(finalAssistantMessage.body.segments)
       : finalAssistantMessage.body.content
@@ -142,7 +142,7 @@ export class ChatStepStore implements ConversationStore {
       DatabaseService.upsertEmotionState(updated.chatId, updated.chatUuid, nextState)
     }
 
-    return updated.id || -1
+    return updated
   }
 
   async settleAbortedAssistantMessage(
@@ -150,7 +150,8 @@ export class ChatStepStore implements ConversationStore {
     lastAssistantMessage: MessageEntity
   ): Promise<number | undefined> {
     if (this.hasPersistableAssistantPayload(lastAssistantMessage.body)) {
-      return this.finalizeAssistantMessage(placeholder, lastAssistantMessage)
+      const updated = await this.finalizeAssistantMessage(placeholder, lastAssistantMessage)
+      return updated.id
     }
 
     if (placeholder.id) {

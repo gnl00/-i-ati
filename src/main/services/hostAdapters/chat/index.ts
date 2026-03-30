@@ -3,7 +3,8 @@ export { AppConfigStore, ChatModelContextResolver } from './config'
 export {
   AssistantStepFactory,
   AssistantStepEventMapper,
-  AssistantStepMessageManagerImpl
+  ChatRequestHistory,
+  ChatStepCommitter
 } from './execution'
 export { ChatEventMapper, ChatStepRuntimeContextMapper } from './mapping'
 export type { ChatStepRuntimeContext } from './mapping'

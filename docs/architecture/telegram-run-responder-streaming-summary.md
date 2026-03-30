@@ -105,6 +105,12 @@
 - `message.updated`
   - 提取 assistant 文本
   - 节流发送或编辑 Telegram 消息
+- `stream.preview.updated`
+  - 提取当前 cycle 的实时预览文本
+  - 在 committed message 到位前作为 Telegram 流式正文来源
+- `stream.preview.cleared`
+  - 结束 preview 态
+  - 不主动清空 Telegram 正文，等待 committed update 接管
 - `run.completed`
   - flush 最终文本
   - 做 final rich-text edit
@@ -120,6 +126,7 @@
 - 通用 `sendMessage + editMessageText`
 - 不区分 private chat / group chat
 - 不依赖 draft transport
+- committed / preview 双语义消费
 
 行为细节：
 
@@ -127,7 +134,9 @@
    - `sendMessage(...)`
    - 保留返回的 `message_id`
 2. 后续流式更新：
-   - 节流 `editMessageText(...)`
+   - `stream.preview.updated` 优先驱动 Telegram 文本
+   - committed `message.updated` 作为正式 transcript 接管
+   - 统一节流 `editMessageText(...)`
 3. `run.completed` 时：
    - 最终文本经 `formatTelegramRichText(...)`
    - 再做一次 final edit
@@ -200,6 +209,13 @@
 - Telegram typing / chat action 提示
 - tool phase 专门的 Telegram 状态展示
 - Telegram 端专门的失败提示 message
+
+但在 assistant step 组装重构后，Telegram 已正式接入 preview 事件消费：
+
+- `message.updated`
+  - committed transcript
+- `stream.preview.updated`
+  - transient preview
 
 ## 测试与验证
 

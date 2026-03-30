@@ -138,6 +138,7 @@ function useChatSubmitV2() {
       }
 
       if (event.type === CHAT_RUN_EVENTS.MESSAGES_LOADED) {
+        chatStore.clearStreamPreviewMessage()
         chatStore.setMessages(event.payload.messages)
         return
       }
@@ -154,6 +155,19 @@ function useChatSubmitV2() {
           return
         }
         useChatStore.getState().upsertMessage(message)
+        if (message.body.role === 'assistant') {
+          chatStore.clearStreamPreviewMessage()
+        }
+        return
+      }
+
+      if (event.type === CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED) {
+        chatStore.setStreamPreviewMessage(event.payload.message)
+        return
+      }
+
+      if (event.type === CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED) {
+        chatStore.clearStreamPreviewMessage()
         return
       }
 
@@ -231,6 +245,7 @@ function useChatSubmitV2() {
       if (event.type === CHAT_RUN_EVENTS.RUN_COMPLETED) {
         void clearPreviousErrorMessage()
         runCompletedRef.current = true
+        chatStore.clearStreamPreviewMessage()
         chatStore.setLastRunOutcome('completed')
         if (hasPendingPostRunJobs()) {
           chatStore.setRunPhase('post_run')
@@ -242,6 +257,7 @@ function useChatSubmitV2() {
 
       if (event.type === CHAT_RUN_EVENTS.RUN_FAILED) {
         void (async () => {
+          chatStore.clearStreamPreviewMessage()
           chatStore.setLastRunOutcome('failed')
           const error = normalizeError(event.payload.error)
           const errorMessageId = await useChatStore.getState().updateLastAssistantMessageWithError(error)
@@ -259,6 +275,7 @@ function useChatSubmitV2() {
 
       if (event.type === CHAT_RUN_EVENTS.RUN_ABORTED) {
         void (async () => {
+          chatStore.clearStreamPreviewMessage()
           chatStore.setLastRunOutcome('aborted')
           await useChatStore.getState().settleLatestAssistantAfterAbort()
           resetRunLifecycle('aborted')

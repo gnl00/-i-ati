@@ -33,3 +33,20 @@ export function shouldRenderAssistantMessageShell(
 
   return false
 }
+
+export interface AssistantMessagePreviewStateInput {
+  messageSource?: ChatMessage['source']
+  hasPreviewMessage: boolean
+}
+
+export function isAssistantStreamPreviewMessage(
+  input: AssistantMessagePreviewStateInput
+): boolean {
+  return input.hasPreviewMessage || input.messageSource === 'stream_preview'
+}
+
+export function shouldShowAssistantMessageOperations(
+  input: AssistantMessagePreviewStateInput
+): boolean {
+  return !isAssistantStreamPreviewMessage(input)
+}

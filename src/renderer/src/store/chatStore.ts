@@ -59,6 +59,7 @@ export type ChatState = {
   // Chat data
   selectedModelRef: ModelRef | undefined
   messages: MessageEntity[]
+  streamPreviewMessage: MessageEntity | null
   imageSrcBase64List: ClipbordImg[]
   currentChatId: number | null
   currentChatUuid: string | null
@@ -120,12 +121,15 @@ export type ChatAction = {
 
   // 向后兼容的方法（内部会调用上面新的数据操作方法）
   setMessages: (msgs: MessageEntity[]) => void
+  setStreamPreviewMessage: (message: MessageEntity | null) => void
+  clearStreamPreviewMessage: () => void
 }
 
 export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   // Chat state
   selectedModelRef: undefined,
   messages: [],
+  streamPreviewMessage: null,
   imageSrcBase64List: [],
   currentChatId: null,
   currentChatUuid: null,
@@ -228,6 +232,8 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setChatId: (chatId) => set({ currentChatId: chatId }),
   setChatUuid: (chatUuid) => set({ currentChatUuid: chatUuid }),
   setUserInstruction: (value) => set({ userInstruction: value }),
+  setStreamPreviewMessage: (message) => set({ streamPreviewMessage: message }),
+  clearStreamPreviewMessage: () => set({ streamPreviewMessage: null }),
   updateWorkspacePath: async (workspacePath) => {
     const state = get()
     const chatId = state.currentChatId ?? undefined
@@ -273,7 +279,8 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       currentChatUuid: chat.uuid,
       chatTitle: chat.title || 'NewChat',
       userInstruction: chat.userInstruction || '',
-      messages: messages
+      messages: messages,
+      streamPreviewMessage: null
     })
     get().syncSelectedModelRefForChat(chat, messages)
   },
@@ -311,7 +318,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
     const messages = await trimTrailingCompletedEmptyAssistantPlaceholders(
       await messagePersistence.getMessagesByChatUuid(chatUuid)
     )
-    set({ messages })
+    set({ messages, streamPreviewMessage: null })
     return messages
   },
 
@@ -505,7 +512,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   /**
    * 清空消息列表
    */
-  clearMessages: () => set({ messages: [] }),
+  clearMessages: () => set({ messages: [], streamPreviewMessage: null }),
 
   /**
    * 设置当前聊天
@@ -524,6 +531,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
         currentChatUuid: chatUuid,
         chatTitle: chat?.title ?? get().chatTitle,
         messages: [],
+        streamPreviewMessage: null,
         userInstruction: chat?.userInstruction ?? ''
       })
     } else {
@@ -541,7 +549,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
    * 向后兼容的 setMessages 方法
    * 注意：新代码应使用 loadChat、addMessage 等方法
    */
-  setMessages: (msgs) => set({ messages: msgs })
+  setMessages: (msgs) => set({ messages: msgs, streamPreviewMessage: null })
 }))
 
 // 导出类型，供其他文件使用

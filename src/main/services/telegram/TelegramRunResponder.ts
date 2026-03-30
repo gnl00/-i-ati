@@ -74,6 +74,26 @@ export class TelegramRunResponder {
         return
       }
 
+      case CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED: {
+        const { message } = event.payload as ChatRunEventPayloads['stream.preview.updated']
+        if (message.body.role !== 'assistant') {
+          return
+        }
+
+        this.latestAssistantMessage = message
+        const nextText = this.extractText(message)
+        if (!nextText || nextText === this.latestText) {
+          return
+        }
+
+        this.latestText = nextText
+        this.scheduleFlush()
+        return
+      }
+
+      case CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED:
+        return
+
       case CHAT_RUN_EVENTS.RUN_COMPLETED:
         this.finalized = true
         this.clearScheduledFlush()

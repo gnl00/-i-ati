@@ -28,6 +28,14 @@ export class ChatEventMapper implements AgentMessageEventSink {
     this.emitter.emit(CHAT_RUN_EVENTS.MESSAGE_UPDATED, { message })
   }
 
+  emitStreamPreviewUpdated(message: MessageEntity): void {
+    this.emitter.emit(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, { message })
+  }
+
+  emitStreamPreviewCleared(): void {
+    this.emitter.emit(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {})
+  }
+
   emitToolResultAttached(toolCallId: string, message: MessageEntity): void {
     this.emitter.emit(CHAT_RUN_EVENTS.TOOL_RESULT_ATTACHED, {
       toolCallId,
