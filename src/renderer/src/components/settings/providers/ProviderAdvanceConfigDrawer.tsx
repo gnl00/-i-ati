@@ -14,7 +14,7 @@ type ProviderAdvanceConfigDrawerProps = {
   trigger: React.ReactNode
 }
 
-const FORBIDDEN_OVERRIDE_KEYS = new Set(['stream', 'messages', 'tools', 'model'])
+const FORBIDDEN_OVERRIDE_KEYS = new Set(['messages', 'tools', 'model'])
 
 const isPlainObject = (value: any): value is Record<string, any> => {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)

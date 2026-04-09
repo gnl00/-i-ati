@@ -58,7 +58,7 @@ describe('TelegramRunResponder', () => {
     vi.useFakeTimers()
   })
 
-  it('streams assistant message updates and finalizes with rich text edit', async () => {
+  it('streams assistant message updates and finalizes with plain-text edit', async () => {
     const sendMessage = vi.fn(async () => ({ message_id: 77 }))
     const editMessageText = vi.fn(async () => true)
     const responder = new TelegramRunResponder({
@@ -111,9 +111,7 @@ describe('TelegramRunResponder', () => {
       assistantMessageId: 102
     }))
 
-    expect(editMessageText).toHaveBeenNthCalledWith(2, 123, 77, '<b>Hello</b> world', {
-      parse_mode: 'HTML'
-    })
+    expect(editMessageText).toHaveBeenNthCalledWith(2, 123, 77, '**Hello** world', {})
   })
 
   it('prefers stream preview updates for live telegram edits before committed assistant updates arrive', async () => {
@@ -222,6 +220,68 @@ describe('TelegramRunResponder', () => {
     expect(editMessageText).toHaveBeenCalledWith(123, 99, 'First cycle answer👍', {})
   })
 
+  it('keeps tool output in place and appends a short follow-up after it', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 109 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 10,
+        messageId: '64',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('First cycle answer')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: createAssistantMessageWithSegments([
+        {
+          type: 'text',
+          content: 'First cycle answer',
+          timestamp: 1
+        },
+        {
+          type: 'toolCall',
+          name: 'memory_retrieval',
+          timestamp: 2,
+          toolCallId: 'tool-1',
+          content: {
+            toolName: 'memory_retrieval',
+            status: 'success',
+            result: { ok: true }
+          }
+        }
+      ])
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenCalledWith(123, 109, 'First cycle answer\n\n> tool memory retrieval done', {})
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('👍')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenLastCalledWith(123, 109, 'First cycle answer\n\n> tool memory retrieval done\n👍', {})
+  })
+
   it('replaces previously sent preview text when the later cycle produces a substantive new answer', async () => {
     const sendMessage = vi.fn(async () => ({ message_id: 100 }))
     const editMessageText = vi.fn(async () => true)
@@ -258,6 +318,81 @@ describe('TelegramRunResponder', () => {
     await vi.advanceTimersByTimeAsync(400)
 
     expect(editMessageText).toHaveBeenCalledWith(123, 100, 'A much longer replacement answer', {})
+  })
+
+  it('keeps previously sent preview text when an emotion-only tool cycle is followed by a substantive next answer', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 110 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 11,
+        messageId: '65',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('待几天？有具体想逛的地方没，还是随便转？')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: createAssistantMessageWithSegments([
+        {
+          type: 'toolCall',
+          name: 'emotion_report',
+          timestamp: 2,
+          toolCallId: 'tool-1',
+          content: {
+            toolName: 'emotion_report',
+            status: 'success',
+            result: {
+              success: true,
+              label: 'happiness',
+              emoji: '😄'
+            }
+          }
+        }
+      ])
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+      message: createAssistantMessage('成都这几天天气应该不错，美食街人多，记得带好手机钱包。')
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenLastCalledWith(
+      123,
+      110,
+      '待几天？有具体想逛的地方没，还是随便转？成都这几天天气应该不错，美食街人多，记得带好手机钱包。',
+      {}
+    )
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.RUN_COMPLETED, {
+      assistantMessageId: 102
+    }))
+
+    expect(editMessageText).toHaveBeenLastCalledWith(
+      123,
+      110,
+      '待几天？有具体想逛的地方没，还是随便转？成都这几天天气应该不错，美食街人多，记得带好手机钱包。',
+      {}
+    )
   })
 
   it('treats short natural-language follow-ups as replacements instead of appending them', async () => {
@@ -334,5 +469,183 @@ describe('TelegramRunResponder', () => {
     await vi.advanceTimersByTimeAsync(400)
 
     expect(editMessageText).toHaveBeenCalledWith(123, 102, 'だめ', {})
+  })
+
+  it('renders non-emotion tool calls as a quoted footer in telegram output', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 103 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 7,
+        messageId: '61',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: createAssistantMessageWithSegments([
+        {
+          type: 'text',
+          content: 'Looking it up',
+          timestamp: 1
+        },
+        {
+          type: 'toolCall',
+          name: 'memory_retrieval',
+          timestamp: 2,
+          toolCallId: 'tool-1',
+          content: {
+            toolName: 'memory_retrieval',
+            status: 'success',
+            result: { ok: true }
+          }
+        }
+      ])
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(sendMessage).toHaveBeenCalledWith(123, 'Looking it up\n\n> tool memory retrieval done', {
+      reply_parameters: { message_id: 61 }
+    })
+  })
+
+  it('does not render emotion_report tool calls in telegram output footer', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 104 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 8,
+        messageId: '62',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: createAssistantMessageWithSegments([
+        {
+          type: 'text',
+          content: 'Hi there',
+          timestamp: 1
+        },
+        {
+          type: 'toolCall',
+          name: 'emotion_report',
+          timestamp: 2,
+          toolCallId: 'tool-1',
+          content: {
+            toolName: 'emotion_report',
+            status: 'success',
+            result: {
+              success: true,
+              label: 'happiness',
+              emoji: '😄',
+              stateText: '心情不错'
+            }
+          }
+        }
+      ])
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(sendMessage).toHaveBeenCalledWith(123, 'Hi there', {
+      reply_parameters: { message_id: 62 }
+    })
+  })
+
+  it('updates telegram text when only the tool footer status changes', async () => {
+    const sendMessage = vi.fn(async () => ({ message_id: 105 }))
+    const editMessageText = vi.fn(async () => true)
+    const responder = new TelegramRunResponder({
+      bot: {
+        api: {
+          sendMessage,
+          editMessageText
+        }
+      } as any,
+      envelope: {
+        updateId: 9,
+        messageId: '63',
+        chatId: '123',
+        chatType: 'private',
+        text: 'hello',
+        media: [],
+        isMentioned: false,
+        replyToBot: false,
+        receivedAt: Date.now()
+      }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: createAssistantMessageWithSegments([
+        {
+          type: 'text',
+          content: 'Looking it up',
+          timestamp: 1
+        },
+        {
+          type: 'toolCall',
+          name: 'memory_retrieval',
+          timestamp: 2,
+          toolCallId: 'tool-1',
+          content: {
+            toolName: 'memory_retrieval',
+            status: 'running'
+          }
+        }
+      ])
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(sendMessage).toHaveBeenCalledWith(123, 'Looking it up\n\n> tool memory retrieval running', {
+      reply_parameters: { message_id: 63 }
+    })
+
+    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+      message: createAssistantMessageWithSegments([
+        {
+          type: 'text',
+          content: 'Looking it up',
+          timestamp: 1
+        },
+        {
+          type: 'toolCall',
+          name: 'memory_retrieval',
+          timestamp: 2,
+          toolCallId: 'tool-1',
+          content: {
+            toolName: 'memory_retrieval',
+            status: 'success',
+            result: { ok: true }
+          }
+        }
+      ])
+    }))
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(editMessageText).toHaveBeenCalledWith(123, 105, 'Looking it up\n\n> tool memory retrieval done', {})
   })
 })
