@@ -80,14 +80,10 @@ export class TelegramRunResponder {
         }
 
         this.latestAssistantMessage = message
-        const visibleToolBlocks = this.extractVisibleToolBlocks(message)
-        if (visibleToolBlocks.length > 0) {
-          if (this.activePreviewText.trim()) {
-            this.promoteActivePreviewToCommitted()
-          } else if (this.committedBlocks.length === 0) {
-            this.appendCommittedText(this.extractText(message))
-          }
-          this.syncToolBlocks(visibleToolBlocks)
+        const committedBlocks = this.extractCommittedBlocks(message)
+        if (committedBlocks.length > 0) {
+          this.replaceCommittedBlocks(committedBlocks)
+          this.activePreviewText = ''
           const nextText = this.renderTransportText()
           if (!nextText || nextText === this.latestText) {
             return
@@ -135,7 +131,9 @@ export class TelegramRunResponder {
         this.clearScheduledFlush()
         const hadActivePreview = this.activePreviewText.trim().length > 0
         this.promoteActivePreviewToCommitted()
-        this.syncFinalCommittedText({ preferCommittedText: hadActivePreview })
+        if (!hadActivePreview) {
+          this.syncCommittedBlocksFromLatestAssistantMessage()
+        }
         this.latestText = this.renderTransportText()
         await this.flushLatestText({ final: true })
         return
@@ -252,11 +250,11 @@ export class TelegramRunResponder {
     )
   }
 
-  private extractText(message: MessageEntity): string {
-    const fromSegments = message.body.segments?.length
+  private extractText(message?: MessageEntity): string {
+    const fromSegments = message?.body.segments?.length
       ? extractContentFromSegments(message.body.segments)
       : ''
-    const fromContent = typeof message.body.content === 'string'
+    const fromContent = typeof message?.body.content === 'string'
       ? message.body.content
       : ''
 
@@ -410,23 +408,50 @@ export class TelegramRunResponder {
     return text.length <= 8 && !/[\p{L}\p{N}]/u.test(text)
   }
 
-  private extractVisibleToolBlocks(message?: MessageEntity): TelegramRenderBlock[] {
+  private extractCommittedBlocks(message?: MessageEntity): TelegramRenderBlock[] {
     const segments = message?.body.segments
-    if (!segments?.length) {
+    if (segments?.length) {
+      const blocks: TelegramRenderBlock[] = []
+      let textBlockIndex = 0
+
+      segments.forEach((segment, index) => {
+        if (segment.type === 'text') {
+          const text = segment.content.trim()
+          if (!text) return
+          blocks.push({
+            kind: 'text',
+            key: segment.segmentId || `text:${textBlockIndex++}:${index}`,
+            text
+          })
+          return
+        }
+
+        if (segment.type === 'toolCall' && !this.shouldHideToolFooter(segment)) {
+          const text = this.formatToolFooterLine(segment)
+          if (!text) return
+          blocks.push({
+            kind: 'tool',
+            key: `tool:${segment.toolCallId || segment.name || index}`,
+            text
+          })
+        }
+      })
+
+      if (blocks.length > 0) {
+        return blocks
+      }
+    }
+
+    const fallbackText = this.extractText(message)
+    if (!fallbackText) {
       return []
     }
 
-    return segments
-      .filter((segment): segment is ToolCallSegment => (
-        segment.type === 'toolCall' &&
-        !this.shouldHideToolFooter(segment)
-      ))
-      .map((segment, index) => ({
-        kind: 'tool' as const,
-        key: `tool:${segment.toolCallId || segment.name || index}`,
-        text: this.formatToolFooterLine(segment)
-      }))
-      .filter((block) => block.text.length > 0)
+    return [{
+      kind: 'text',
+      key: 'text:fallback',
+      text: fallbackText
+    }]
   }
 
   private promoteActivePreviewToCommitted(): void {
@@ -457,39 +482,16 @@ export class TelegramRunResponder {
     })
   }
 
-  private syncToolBlocks(blocks: TelegramRenderBlock[]): void {
-    for (const block of blocks) {
-      const existing = this.committedBlocks.find(entry => entry.key === block.key)
-      if (existing) {
-        existing.text = block.text
-        continue
-      }
-
-      this.committedBlocks.push(block)
-    }
+  private replaceCommittedBlocks(blocks: TelegramRenderBlock[]): void {
+    this.committedBlocks.splice(0, this.committedBlocks.length, ...blocks.map(block => ({ ...block })))
   }
 
-  private syncFinalCommittedText(options: { preferCommittedText?: boolean } = {}): void {
-    const finalText = this.latestAssistantMessage ? this.extractText(this.latestAssistantMessage).trim() : ''
-    if (!finalText) {
+  private syncCommittedBlocksFromLatestAssistantMessage(): void {
+    const blocks = this.extractCommittedBlocks(this.latestAssistantMessage)
+    if (blocks.length === 0) {
       return
     }
-
-    const lastBlock = this.committedBlocks[this.committedBlocks.length - 1]
-    if (options.preferCommittedText && lastBlock?.kind === 'text' && lastBlock.text.trim().length > 0) {
-      return
-    }
-
-    if (lastBlock?.kind === 'text') {
-      lastBlock.text = finalText
-      return
-    }
-
-    this.committedBlocks.push({
-      kind: 'text',
-      key: `text:${this.committedBlocks.length}`,
-      text: finalText
-    })
+    this.replaceCommittedBlocks(blocks)
   }
 
   private renderTransportText(): string {
