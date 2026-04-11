@@ -15,14 +15,14 @@
 import type { ToolBatch } from './ToolBatch'
 import type { ToolDispatchOutcome } from './ToolDispatchOutcome'
 import type { AgentEventEmitter } from '../events/AgentEventEmitter'
-import { ToolExecutor } from '@main/services/agentCore/tools/ToolExecutor'
-import type { ToolCallProps } from '@main/services/agentCore/types'
+import { ToolExecutor } from '@main/services/agent/tools'
+import type { ToolCallProps } from '@main/services/agent/contracts'
 import type {
   ToolResultFact,
   ToolDeniedFact,
   ToolFailureFact
 } from './ToolResultFact'
-import type { ToolExecutionResult } from '@main/services/agentCore/tools/types'
+import type { ToolExecutionResult } from '@main/services/agent/tools'
 import type { RuntimeClock } from '../loop/RuntimeClock'
 
 export interface ToolExecutorDispatcher {

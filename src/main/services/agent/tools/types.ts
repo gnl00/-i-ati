@@ -1,4 +1,4 @@
-import type { ToolCallProps } from '../types'
+import type { ToolCallProps } from '@main/services/agent/contracts'
 import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 
 export interface ToolExecutionResult {

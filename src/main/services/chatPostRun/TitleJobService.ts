@@ -3,11 +3,9 @@ import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
 import { createLogger } from '@main/services/logging/LogService'
 import { serializeError } from '@main/services/serializeError'
-import {
-  ChatEventMapper,
-  ChatModelContextResolver,
-  ChatSessionStore
-} from '@main/services/hostAdapters/chat'
+import { ChatModelContextResolver } from '@main/services/hostAdapters/chat/config/ChatModelContextResolver'
+import { ChatEventMapper } from '@main/services/hostAdapters/chat/mapping/ChatEventMapper'
+import { ChatSessionStore } from '@main/services/hostAdapters/chat/persistence/ChatSessionStore'
 import { createPostRunEmitter } from './utils'
 import type { PostRunJobInput } from './types'
 

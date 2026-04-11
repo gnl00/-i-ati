@@ -1,25 +1,19 @@
-import type { ToolConfirmationRequester } from '@main/services/agentCore/ports'
+import type { ToolConfirmationRequester } from '@main/services/agent/contracts'
 import { AbortError } from './errors'
-import { AgentRunKernel } from '@main/services/agentCore/run-kernel'
-import {
-  ChatAgentAdapter,
-  AssistantStepFactory,
-  type MainChatRunInput
-} from '@main/services/hostAdapters/chat'
+import { ChatAgentAdapter } from '@main/services/hostAdapters/chat/ChatAgentAdapter'
+import type { MainChatRunInput } from '@main/services/hostAdapters/chat/preparation/types'
 import type { ChatRunEventEmitter } from '../infrastructure'
 import { PostRunJobService } from '@main/services/chatPostRun'
-import type { RunResult } from '@main/services/agentCore/types'
+import type { RunResult } from '@main/services/agent/contracts'
 import { RunLifecycleEventMapper } from './RunLifecycleEventMapper'
 import { RunTerminalHandler } from './RunTerminalHandler'
 import { serializeError } from '@main/services/serializeError'
-import type { MainAgentNextRuntimeRunner } from './next'
+import type { MainAgentRuntimeRunner } from './MainAgentRuntimeRunner'
 
 export type AgentRunServices = {
-  agentRunKernel: AgentRunKernel
-  assistantStepFactory: AssistantStepFactory
+  mainAgentRuntimeRunner: MainAgentRuntimeRunner
   chatAgentAdapter: ChatAgentAdapter
   postRunJobService: PostRunJobService
-  mainAgentNextRuntimeRunner?: MainAgentNextRuntimeRunner
 }
 
 export type AgentRunRuntime = {
@@ -68,47 +62,23 @@ export class AgentRun {
         chatUuid: runSpec.runtimeContext.chatUuid
       })
 
-      if (this.services.mainAgentNextRuntimeRunner) {
-        const nextResult = await this.services.mainAgentNextRuntimeRunner.run({
-          runInput: this.input,
-          prepared: { runSpec, chatContext },
-          emitter: this.emitter,
-          signal: this.controller.signal,
-          toolConfirmationRequester: this.runtime.toolConfirmationRequester
-        })
-
-        return await this.terminalHandler.handleKernelResult({
-          input: this.input,
-          kernelResult: nextResult.kernelResult,
-          runSpec,
-          chatContext,
-          emitter: this.emitter,
-          chatAgentAdapter: this.services.chatAgentAdapter,
-          postRunJobService: this.services.postRunJobService,
-          stepCommitter: nextResult.uiAdapter
-        })
-      }
-
-      const stepContext = this.services.chatAgentAdapter.createStepRuntimeContext(chatContext)
-
-      const step = this.services.assistantStepFactory.create({
-        runSpec,
-        stepContext,
-        signal: this.controller.signal,
+      const runResult = await this.services.mainAgentRuntimeRunner.run({
+        runInput: this.input,
+        prepared: { runSpec, chatContext },
         emitter: this.emitter,
+        signal: this.controller.signal,
         toolConfirmationRequester: this.runtime.toolConfirmationRequester
       })
 
-      const kernelResult = await this.services.agentRunKernel.run(() => step.loop.execute())
-      return await this.terminalHandler.handleKernelResult({
+      return await this.terminalHandler.handleRuntimeResult({
         input: this.input,
-        kernelResult,
+        runtimeResult: runResult.runtimeResult,
         runSpec,
         chatContext,
         emitter: this.emitter,
         chatAgentAdapter: this.services.chatAgentAdapter,
         postRunJobService: this.services.postRunJobService,
-        stepCommitter: step.stepCommitter
+        stepCommitter: runResult.stepCommitter
       })
     } catch (error: any) {
       if (error instanceof AbortError || error?.name === 'AbortError') {

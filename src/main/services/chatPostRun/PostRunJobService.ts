@@ -1,6 +1,6 @@
 import { ChatRunEventEmitterFactory } from '@main/services/chatRun/infrastructure'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
-import { AppConfigStore } from '@main/services/hostAdapters/chat'
+import { AppConfigStore } from '@main/services/hostAdapters/chat/config/AppConfigStore'
 import { CompressionJobService } from './CompressionJobService'
 import { TitleJobService } from './TitleJobService'
 import type { PostRunJobInput } from './types'

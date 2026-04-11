@@ -1,9 +1,9 @@
-import type { AgentRunKernelResult } from '@main/services/agentCore/run-kernel'
-import type { StepArtifact, StepResult } from '@main/services/agentCore/types'
+import type { StepArtifact, StepResult } from '@main/services/agent/contracts'
 import type { AgentLoopResult } from '@main/services/next/loop/AgentLoopResult'
 import { partsToUnifiedContent } from '@main/services/next/runtime/model/ExecutableRequestAdapter'
 import type { AgentTranscriptSnapshot } from '@main/services/next/transcript/AgentTranscript'
 import { serializeError } from '@main/services/serializeError'
+import type { MainAgentRuntimeTerminalResult } from '../MainAgentRuntimeResult'
 
 const transcriptToMessages = (transcript: AgentTranscriptSnapshot): ChatMessage[] => (
   transcript.records.map((record) => {
@@ -48,11 +48,11 @@ export interface AgentRunCompletionAdapterInput {
 }
 
 export interface AgentRunCompletionAdapter {
-  adapt(input: AgentRunCompletionAdapterInput): AgentRunKernelResult
+  adapt(input: AgentRunCompletionAdapterInput): MainAgentRuntimeTerminalResult
 }
 
 export class DefaultAgentRunCompletionAdapter implements AgentRunCompletionAdapter {
-  adapt(input: AgentRunCompletionAdapterInput): AgentRunKernelResult {
+  adapt(input: AgentRunCompletionAdapterInput): MainAgentRuntimeTerminalResult {
     if (input.result.status === 'completed') {
       const stepResult: StepResult = {
         usage: input.result.usage ?? input.result.finalStep.usage,

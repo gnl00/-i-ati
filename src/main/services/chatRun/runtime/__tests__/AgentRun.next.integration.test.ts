@@ -141,7 +141,7 @@ describe('AgentRun next integration', () => {
       ]))
     }
 
-    const mainAgentNextRuntimeRunner = new DefaultMainAgentNextRuntimeRunner(undefined, undefined, {
+    const mainAgentRuntimeRunner = new DefaultMainAgentNextRuntimeRunner(undefined, undefined, {
       modelStreamExecutor
     })
 
@@ -166,16 +166,9 @@ describe('AgentRun next integration', () => {
     }))
 
     const services = {
-      agentRunKernel: {
-        run: vi.fn()
-      },
-      assistantStepFactory: {
-        create: vi.fn()
-      },
-      mainAgentNextRuntimeRunner,
+      mainAgentRuntimeRunner,
       chatAgentAdapter: {
         prepareRun: vi.fn(async () => prepared),
-        createStepRuntimeContext: vi.fn(),
         abortRun: vi.fn(),
         finalizeRun
       },
@@ -212,7 +205,5 @@ describe('AgentRun next integration', () => {
         })
       })
     )
-    expect(services.agentRunKernel.run).not.toHaveBeenCalled()
-    expect(services.assistantStepFactory.create).not.toHaveBeenCalled()
   })
 })

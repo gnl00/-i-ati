@@ -13,7 +13,7 @@
 
 典型表现：
 
-- `agentCore/execution` 里的 loop 需要关心“最后一条 assistant message”
+- 旧 loop 已移除；对应复杂度现在应只在 `next` / host adapter 边界里被显式建模
 - runtime 中间状态会直接影响 chat transcript 的可见内容
 - 多轮 tool cycle 很容易污染同一条 assistant message
 

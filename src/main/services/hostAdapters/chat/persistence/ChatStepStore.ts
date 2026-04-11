@@ -1,5 +1,5 @@
-import { extractContentFromSegments } from '@main/services/agentCore/execution'
-import type { ConversationStore } from '@main/services/agentCore/ports'
+import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
+import type { ConversationStore } from '@main/services/agent/contracts'
 import DatabaseService from '@main/services/DatabaseService'
 import EmotionInferenceService from '@main/services/emotion/EmotionInferenceService'
 import {

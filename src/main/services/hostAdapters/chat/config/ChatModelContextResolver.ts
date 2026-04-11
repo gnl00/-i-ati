@@ -1,4 +1,4 @@
-import type { ChatRunModelContext } from '@main/services/agentCore/types'
+import type { ChatRunModelContext } from '@main/services/agent/contracts'
 
 export class ChatModelContextResolver {
   resolve(config: IAppConfig, modelRef: ModelRef): ChatRunModelContext | null {

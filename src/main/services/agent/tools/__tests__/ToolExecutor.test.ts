@@ -92,6 +92,30 @@ describe('ToolExecutor runtime context', () => {
     expect(callArgs.chat_uuid).toBe('chat-runtime')
   })
 
+  it('normalizes escaped tool arguments before execution', async () => {
+    handlerMock.mockClear()
+    const executor = new ToolExecutor()
+
+    await executor.execute([{
+      id: 'call-3b',
+      function: 'execute_command',
+      args: JSON.stringify({
+        command: 'printf "hello\\\\nworld"',
+        execution_reason: 'Check escaping',
+        possible_risk: 'Low risk',
+        risk_score: 0,
+        metadata: {
+          note: 'line1\\nline2'
+        }
+      })
+    } as any])
+
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    const callArgs = handlerMock.mock.calls[0][0]
+    expect(callArgs.command).toContain('\n')
+    expect(callArgs.metadata.note).toBe('line1\nline2')
+  })
+
   it('overrides chat_uuid for activity journal tools from runtime context', async () => {
     handlerMock.mockClear()
     const executor = new ToolExecutor({

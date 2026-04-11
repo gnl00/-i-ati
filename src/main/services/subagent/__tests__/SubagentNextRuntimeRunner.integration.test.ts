@@ -6,7 +6,7 @@ import { subagentRuntimeBridge } from '../subagent-runtime-bridge'
 
 const executeMock = vi.fn()
 
-vi.mock('@main/services/agentCore/tools/ToolExecutor', () => ({
+vi.mock('@main/services/agent/tools/ToolExecutor', () => ({
   ToolExecutor: class {
     constructor(private readonly config: any) {}
 

@@ -32,8 +32,8 @@ export function hasContentInSegments(
   }
 
   return segments.some(seg =>
-    (seg.type === 'text' || seg.type === 'reasoning') &&
-    seg.content &&
-    seg.content.trim().length > 0
+    (seg.type === 'text' || seg.type === 'reasoning')
+    && seg.content
+    && seg.content.trim().length > 0
   )
 }

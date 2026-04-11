@@ -3,15 +3,15 @@ import { assessExecuteCommandReview } from '@main/tools/command/risk'
 import { embeddedToolsRegistry } from '@tools/registry'
 import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 import { v4 as uuidv4 } from 'uuid'
-import type { ToolCallProps } from '../types'
-import { AbortError, ToolExecutionError } from '../errors'
-import { normalizeToolArgs } from '../utils'
+import type { ToolCallProps } from '@main/services/agent/contracts'
+import { AbortError, ToolExecutionError } from '@main/services/agent/contracts'
 import type {
   IToolExecutor,
   ToolExecutorConfig,
   ToolExecutionProgress,
   ToolExecutionResult
 } from './types'
+import { normalizeToolArgs } from './utils'
 
 const DEFAULT_CONFIG = {
   maxConcurrency: 3

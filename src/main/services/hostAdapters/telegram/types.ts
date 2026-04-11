@@ -1,4 +1,4 @@
-import type { MainChatRunInput } from '@main/services/hostAdapters/chat'
+import type { MainChatRunInput } from '@main/services/hostAdapters/chat/preparation/types'
 
 export type TelegramPeerType = 'private' | 'group' | 'supergroup' | 'channel'
 

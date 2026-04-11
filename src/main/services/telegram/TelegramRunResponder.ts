@@ -1,5 +1,5 @@
 import type { Bot } from 'grammy'
-import { extractContentFromSegments } from '@main/services/agentCore/execution/parser/segment-content'
+import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
 import type { TelegramInboundEnvelope } from '@main/services/hostAdapters/telegram'
 import type { ChatRunEventEnvelope, ChatRunEventPayloads } from '@shared/chatRun/events'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'

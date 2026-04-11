@@ -1,6 +1,5 @@
-import type { ToolConfirmationRequester } from '@main/services/agentCore/ports'
-import { ToolExecutor } from '@main/services/agentCore/tools'
-import type { ToolCallProps } from '@main/services/agentCore/types'
+import { ToolExecutor } from '@main/services/agent/tools'
+import type { ToolCallProps } from '@main/services/agent/contracts'
 import { DefaultAgentEventBus } from '@main/services/next/events/AgentEventBus'
 import { DefaultNextAgentRuntime } from '@main/services/next/runtime/NextAgentRuntime'
 import { DefaultAgentLoopDependenciesFactory } from '@main/services/next/runtime/AgentLoopDependenciesFactory'
@@ -9,9 +8,7 @@ import { DefaultInitialTranscriptMaterializer } from '@main/services/next/transc
 import { DefaultUserRecordMaterializer } from '@main/services/next/transcript/UserRecordMaterializer'
 import { DefaultToolBatchAssembler } from '@main/services/next/tools/ToolBatchAssembler'
 import { DefaultAgentLoop } from '@main/services/next/loop/AgentLoop'
-import type { AgentRunKernelResult } from '@main/services/agentCore/run-kernel'
-import type { MainChatRunInput, RunPreparationResult } from '@main/services/hostAdapters/chat'
-import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
+import type { RunPreparationResult } from '@main/services/hostAdapters/chat/preparation/types'
 import type { ModelStreamExecutor } from '@main/services/next/runtime/model/ModelStreamExecutor'
 import {
   AgentUiAdapter,
@@ -19,6 +16,11 @@ import {
   MainAgentLoopInputBootstrapper
 } from '@main/services/hostAdapters/chat/next'
 import { DefaultAgentRunCompletionAdapter } from './AgentRunCompletionAdapter'
+import type {
+  MainAgentRuntimeRunner,
+  MainAgentRuntimeRunnerInput,
+  MainAgentRuntimeRunResult
+} from '../MainAgentRuntimeRunner'
 
 const DEFAULT_MAIN_AGENT_EXECUTION = {
   hardMaxSteps: 25
@@ -38,24 +40,7 @@ const toRequestSpec = (prepared: RunPreparationResult['runSpec']) => ({
   options: prepared.request.options
 })
 
-export interface MainAgentNextRuntimeRunnerInput {
-  runInput: MainChatRunInput
-  prepared: RunPreparationResult
-  emitter: ChatRunEventEmitter
-  signal: AbortSignal
-  toolConfirmationRequester: ToolConfirmationRequester
-}
-
-export interface MainAgentNextRuntimeRunResult {
-  kernelResult: AgentRunKernelResult
-  uiAdapter: Pick<AgentUiAdapter, 'getFinalAssistantMessage' | 'getLastUsage'>
-}
-
-export interface MainAgentNextRuntimeRunner {
-  run(input: MainAgentNextRuntimeRunnerInput): Promise<MainAgentNextRuntimeRunResult>
-}
-
-export class DefaultMainAgentNextRuntimeRunner implements MainAgentNextRuntimeRunner {
+export class DefaultMainAgentNextRuntimeRunner implements MainAgentRuntimeRunner {
   constructor(
     private readonly hostRequestBuilder = new DefaultMainAgentHostRequestBuilder(),
     private readonly completionAdapter = new DefaultAgentRunCompletionAdapter(),
@@ -64,7 +49,7 @@ export class DefaultMainAgentNextRuntimeRunner implements MainAgentNextRuntimeRu
     } = {}
   ) {}
 
-  async run(input: MainAgentNextRuntimeRunnerInput): Promise<MainAgentNextRuntimeRunResult> {
+  async run(input: MainAgentRuntimeRunnerInput): Promise<MainAgentRuntimeRunResult> {
     const runtimeInfrastructure = createDefaultRuntimeInfrastructure()
     const submittedAt = runtimeInfrastructure.runtimeClock.now()
     const hostRequest = this.hostRequestBuilder.build({
@@ -116,17 +101,17 @@ export class DefaultMainAgentNextRuntimeRunner implements MainAgentNextRuntimeRu
     })
 
     return {
-      kernelResult: this.completionAdapter.adapt({
+      runtimeResult: this.completionAdapter.adapt({
         result,
         artifacts: uiAdapter.getArtifacts()
       }),
-      uiAdapter
+      stepCommitter: uiAdapter
     }
   }
 
   private async executeToolCalls(
     calls: ToolCallProps[],
-    input: MainAgentNextRuntimeRunnerInput
+    input: MainAgentRuntimeRunnerInput
   ) {
     const toolExecutor = new ToolExecutor({
       maxConcurrency: 3,

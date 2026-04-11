@@ -1,24 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHAT_RUN_EVENTS, CHAT_RUN_STATES } from '@shared/chatRun/events'
-import { AbortError } from '@main/services/agentCore/errors'
-
-const {
-  assistantStepExecuteMock,
-  flushPendingAssistantUpdateMock,
-  getLastAssistantMessageMock,
-  getLastUsageMock
-} = vi.hoisted(() => ({
-  assistantStepExecuteMock: vi.fn(async () => ({
-    completed: true,
-    finishReason: 'completed',
-    messages: [],
-    artifacts: []
-  })),
-  flushPendingAssistantUpdateMock: vi.fn(),
-  getLastAssistantMessageMock: vi.fn(),
-  getLastUsageMock: vi.fn()
-}))
-
+import { AbortError } from '@main/services/agent/contracts'
 import { AgentRun } from '../AgentRun'
 
 const input = {
@@ -30,14 +12,20 @@ const input = {
     mediaCtx: [],
     stream: true
   }
-} as any
+} as const
 
 const prepared = {
   runSpec: {
     submissionId: 'submission-1',
     modelContext: {
       model: { id: 'model-1', label: 'model-1', type: 'llm' },
-      account: { id: 'account-1', providerId: 'provider-1', apiUrl: 'https://example.com', apiKey: 'key', models: [] },
+      account: {
+        id: 'account-1',
+        providerId: 'provider-1',
+        apiUrl: 'https://example.com',
+        apiKey: 'key',
+        models: []
+      },
       providerDefinition: { id: 'provider-1', adapterPluginId: 'openai-chat-compatible-adapter' }
     },
     request: {
@@ -93,6 +81,11 @@ const assistantMessage = {
   }
 } as MessageEntity
 
+const stepCommitter = {
+  getFinalAssistantMessage: vi.fn(() => assistantMessage),
+  getLastUsage: vi.fn(() => undefined)
+}
+
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((res) => {
@@ -103,18 +96,10 @@ const createDeferred = <T,>() => {
 
 describe('AgentRun', () => {
   beforeEach(() => {
-    assistantStepExecuteMock.mockReset()
-    assistantStepExecuteMock.mockResolvedValue({
-      completed: true,
-      finishReason: 'completed',
-      messages: [],
-      artifacts: []
-    })
-    flushPendingAssistantUpdateMock.mockReset()
-    getLastAssistantMessageMock.mockReset()
-    getLastAssistantMessageMock.mockReturnValue(assistantMessage)
-    getLastUsageMock.mockReset()
-    getLastUsageMock.mockReturnValue(undefined)
+    stepCommitter.getFinalAssistantMessage.mockReset()
+    stepCommitter.getFinalAssistantMessage.mockReturnValue(assistantMessage)
+    stepCommitter.getLastUsage.mockReset()
+    stepCommitter.getLastUsage.mockReturnValue(undefined)
   })
 
   it('completes the run and does not wait for post-run jobs', async () => {
@@ -123,42 +108,27 @@ describe('AgentRun', () => {
       title: 'skipped',
       compression: 'skipped'
     } as const
-    const assistantStepFactory = {
-      create: vi.fn(() => ({
-        loop: {
-          execute: assistantStepExecuteMock
-        },
-        messageManager: {
-          flushPendingAssistantUpdate: flushPendingAssistantUpdateMock,
-          getLastAssistantMessage: getLastAssistantMessageMock,
-          getLastUsage: getLastUsageMock
-        }
-      }))
-    }
     const emitter = {
       emit: vi.fn(),
       setChatMeta: vi.fn()
     }
     const services = {
-      agentRunKernel: {
+      mainAgentRuntimeRunner: {
         run: vi.fn(async () => ({
-          state: 'completed',
-          stepResult: {
-            completed: true,
-            finishReason: 'completed',
-            messages: [],
-            artifacts: []
-          }
+          runtimeResult: {
+            state: 'completed',
+            stepResult: {
+              completed: true,
+              finishReason: 'completed',
+              messages: [],
+              artifacts: []
+            }
+          },
+          stepCommitter
         }))
       },
-      assistantStepFactory,
       chatAgentAdapter: {
         prepareRun: vi.fn(async () => prepared),
-        createStepRuntimeContext: vi.fn(() => ({
-          messageEntities: prepared.chatContext.messageEntities,
-          chatId: prepared.chatContext.chat.id,
-          chatUuid: prepared.chatContext.chat.uuid
-        })),
         finalizeRun: vi.fn(() => ({
           runResult: {
             assistantMessageId: 102,
@@ -190,7 +160,7 @@ describe('AgentRun', () => {
       }
     }
 
-    const run = new AgentRun(input, services, runtime as any)
+    const run = new AgentRun(input as any, services, runtime as any)
     const result = await run.run()
 
     expect(result).toEqual({
@@ -198,9 +168,8 @@ describe('AgentRun', () => {
       usage: undefined,
       state: 'completed'
     })
-    expect(services.agentRunKernel.run).toHaveBeenCalledTimes(1)
+    expect(services.mainAgentRuntimeRunner.run).toHaveBeenCalledTimes(1)
     expect(services.chatAgentAdapter.prepareRun).toHaveBeenCalledTimes(1)
-    expect(assistantStepFactory.create).toHaveBeenCalledTimes(1)
     expect(services.chatAgentAdapter.finalizeRun).toHaveBeenCalledTimes(1)
     expect(services.postRunJobService.getPlan).toHaveBeenCalledTimes(1)
     expect(services.postRunJobService.emitPlan).toHaveBeenCalledWith(
@@ -225,15 +194,15 @@ describe('AgentRun', () => {
     await postRunDeferred.promise
   })
 
-  it('uses main agent next runtime runner when provided', async () => {
+  it('runs through the injected main agent runtime runner', async () => {
     const postRunDeferred = createDeferred<void>()
     const postRunPlan = {
       title: 'skipped',
       compression: 'skipped'
     } as const
-    const mainAgentNextRuntimeRunner = {
+    const mainAgentRuntimeRunner = {
       run: vi.fn(async () => ({
-        kernelResult: {
+        runtimeResult: {
           state: 'completed',
           stepResult: {
             usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
@@ -243,28 +212,20 @@ describe('AgentRun', () => {
             artifacts: []
           }
         },
-        uiAdapter: {
+        stepCommitter: {
           getFinalAssistantMessage: vi.fn(() => assistantMessage),
           getLastUsage: vi.fn(() => ({ promptTokens: 1, completionTokens: 2, totalTokens: 3 }))
         }
       }))
-    }
-    const assistantStepFactory = {
-      create: vi.fn()
     }
     const emitter = {
       emit: vi.fn(),
       setChatMeta: vi.fn()
     }
     const services = {
-      agentRunKernel: {
-        run: vi.fn()
-      },
-      assistantStepFactory,
-      mainAgentNextRuntimeRunner,
+      mainAgentRuntimeRunner,
       chatAgentAdapter: {
         prepareRun: vi.fn(async () => prepared),
-        createStepRuntimeContext: vi.fn(),
         finalizeRun: vi.fn(() => ({
           runResult: {
             assistantMessageId: 102,
@@ -293,7 +254,7 @@ describe('AgentRun', () => {
       }
     }
 
-    const run = new AgentRun(input, services, runtime as any)
+    const run = new AgentRun(input as any, services, runtime as any)
     const result = await run.run()
 
     expect(result).toEqual({
@@ -301,10 +262,11 @@ describe('AgentRun', () => {
       usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
       state: 'completed'
     })
-    expect(mainAgentNextRuntimeRunner.run).toHaveBeenCalledTimes(1)
-    expect(services.agentRunKernel.run).not.toHaveBeenCalled()
-    expect(assistantStepFactory.create).not.toHaveBeenCalled()
-    expect(services.chatAgentAdapter.createStepRuntimeContext).not.toHaveBeenCalled()
+    expect(mainAgentRuntimeRunner.run).toHaveBeenCalledTimes(1)
+    expect(mainAgentRuntimeRunner.run).toHaveBeenCalledWith(expect.objectContaining({
+      runInput: input,
+      prepared
+    }))
 
     postRunDeferred.resolve()
     await postRunDeferred.promise
@@ -316,17 +278,13 @@ describe('AgentRun', () => {
       setChatMeta: vi.fn()
     }
     const services = {
-      agentRunKernel: {
+      mainAgentRuntimeRunner: {
         run: vi.fn()
-      },
-      assistantStepFactory: {
-        create: vi.fn()
       },
       chatAgentAdapter: {
         prepareRun: vi.fn(async () => {
           throw new AbortError()
         }),
-        createStepRuntimeContext: vi.fn(),
         finalizeRun: vi.fn()
       },
       postRunJobService: {
@@ -340,7 +298,7 @@ describe('AgentRun', () => {
       }
     }
 
-    const run = new AgentRun(input, services, runtime as any)
+    const run = new AgentRun(input as any, services, runtime as any)
 
     const result = await run.run()
     expect(result).toEqual({ state: 'aborted' })
@@ -352,36 +310,22 @@ describe('AgentRun', () => {
     })
   })
 
-  it('emits aborted events when kernel returns aborted', async () => {
+  it('emits aborted events when runner returns aborted', async () => {
     const emitter = {
       emit: vi.fn(),
       setChatMeta: vi.fn()
     }
     const services = {
-      agentRunKernel: {
+      mainAgentRuntimeRunner: {
         run: vi.fn(async () => ({
-          state: 'aborted'
-        }))
-      },
-      assistantStepFactory: {
-        create: vi.fn(() => ({
-          loop: {
-            execute: assistantStepExecuteMock
+          runtimeResult: {
+            state: 'aborted'
           },
-          messageManager: {
-            flushPendingAssistantUpdate: flushPendingAssistantUpdateMock,
-            getLastAssistantMessage: getLastAssistantMessageMock,
-            getLastUsage: getLastUsageMock
-          }
+          stepCommitter
         }))
       },
       chatAgentAdapter: {
         prepareRun: vi.fn(async () => prepared),
-        createStepRuntimeContext: vi.fn(() => ({
-          messageEntities: prepared.chatContext.messageEntities,
-          chatId: prepared.chatContext.chat.id,
-          chatUuid: prepared.chatContext.chat.uuid
-        })),
         abortRun: vi.fn(async () => undefined),
         finalizeRun: vi.fn()
       },
@@ -396,11 +340,11 @@ describe('AgentRun', () => {
       }
     }
 
-    const run = new AgentRun(input, services, runtime as any)
+    const run = new AgentRun(input as any, services, runtime as any)
 
     const result = await run.run()
     expect(result).toEqual({ state: 'aborted' })
-    expect(services.agentRunKernel.run).toHaveBeenCalledTimes(1)
+    expect(services.mainAgentRuntimeRunner.run).toHaveBeenCalledTimes(1)
     expect(services.chatAgentAdapter.finalizeRun).not.toHaveBeenCalled()
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_RUN_EVENTS.RUN_ABORTED, {
       reason: 'cancelled'

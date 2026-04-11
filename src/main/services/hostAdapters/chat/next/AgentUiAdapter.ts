@@ -5,7 +5,7 @@ import type { AgentEvent } from '@main/services/next/events/AgentEvent'
 import type { ToolResultFact } from '@main/services/next/tools/ToolResultFact'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
-import type { StepArtifact } from '@main/services/agentCore/types'
+import type { StepArtifact } from '@main/services/agent/contracts'
 import { serializeError } from '@main/services/serializeError'
 import type {
   AgentUiMessageState,

@@ -5,7 +5,7 @@ describe('AgentRunCompletionAdapter', () => {
   it('keeps file input semantics aligned with executable request adaptation', () => {
     const adapter = new DefaultAgentRunCompletionAdapter()
 
-    const kernelResult = adapter.adapt({
+    const runtimeResult = adapter.adapt({
       result: {
         status: 'completed',
         startedAt: 1,
@@ -39,12 +39,12 @@ describe('AgentRunCompletionAdapter', () => {
       artifacts: []
     })
 
-    expect(kernelResult.state).toBe('completed')
-    if (kernelResult.state !== 'completed') {
-      throw new Error('Expected completed kernel result')
+    expect(runtimeResult.state).toBe('completed')
+    if (runtimeResult.state !== 'completed') {
+      throw new Error('Expected completed runtime result')
     }
 
-    expect(kernelResult.stepResult.requestHistoryMessages[0]).toMatchObject({
+    expect(runtimeResult.stepResult.requestHistoryMessages[0]).toMatchObject({
       role: 'user',
       content: [{
         type: 'text',
@@ -53,4 +53,3 @@ describe('AgentRunCompletionAdapter', () => {
     })
   })
 })
-

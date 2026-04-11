@@ -10,9 +10,11 @@
  */
 import type { AgentStepDraftDelta } from '../../step/AgentStepDraft'
 import type { ModelResponseChunk } from './ModelResponseChunk'
-import { ParserState, ThinkTagMode } from '@main/services/agentCore/execution/parser/parser-state'
-import { ThinkTagParser } from '@main/services/agentCore/execution/parser/think-tag-parser'
 import type { RuntimeClock } from '../../loop/RuntimeClock'
+import {
+  ThinkTagTokenizer,
+  type ThinkTagTokenizerState
+} from './ThinkTagTokenizer'
 
 export interface ToolCallAssemblyState {
   toolCallId: string
@@ -63,7 +65,7 @@ const parseJsonLike = (value: string): boolean => {
 }
 
 export class DefaultModelResponseParser implements ModelResponseParser {
-  private readonly thinkTagParser = new ThinkTagParser()
+  private readonly thinkTagTokenizer = new ThinkTagTokenizer()
 
   constructor(private readonly runtimeClock: RuntimeClock) {}
 
@@ -88,7 +90,10 @@ export class DefaultModelResponseParser implements ModelResponseParser {
     }
 
     const deltas: AgentStepDraftDelta[] = []
-    const parserState = this.createParserState(input.state)
+    const tokenizerState: ThinkTagTokenizerState = {
+      isInThinkTag: input.state.isInThinkTag,
+      pendingThinkTagPrefix: input.state.pendingThinkTagPrefix ?? ''
+    }
 
     if (input.chunk.responseId || input.chunk.model) {
       deltas.push({
@@ -108,18 +113,18 @@ export class DefaultModelResponseParser implements ModelResponseParser {
     }
 
     if (input.chunk.content) {
-      for (const segment of this.thinkTagParser.parse(input.chunk.content, parserState)) {
-        if (segment.type === 'reasoning') {
+      for (const token of this.thinkTagTokenizer.parse(input.chunk.content, tokenizerState)) {
+        if (token.type === 'reasoning') {
           deltas.push({
             type: 'reasoning_delta',
             timestamp: this.runtimeClock.now(),
-            reasoning: segment.content
+            reasoning: token.content
           })
         } else {
           deltas.push({
             type: 'content_delta',
             timestamp: this.runtimeClock.now(),
-            content: segment.content
+            content: token.content
           })
         }
       }
@@ -186,18 +191,11 @@ export class DefaultModelResponseParser implements ModelResponseParser {
       deltas,
       toolCallsSnapshot,
       state: {
-        isInThinkTag: parserState.isInThinkTag,
-        pendingThinkTagPrefix: parserState.pendingThinkTagPrefix,
+        isInThinkTag: tokenizerState.isInThinkTag,
+        pendingThinkTagPrefix: tokenizerState.pendingThinkTagPrefix,
         toolCallAssemblies: nextAssemblies
       }
     }
-  }
-
-  private createParserState(state: ModelResponseParserState): ParserState {
-    const parserState = new ParserState()
-    parserState.thinkTagMode = state.isInThinkTag ? ThinkTagMode.Inside : ThinkTagMode.Outside
-    parserState.pendingThinkTagPrefix = state.pendingThinkTagPrefix ?? ''
-    return parserState
   }
 
   private upsertAssembly(
@@ -222,7 +220,7 @@ export class DefaultModelResponseParser implements ModelResponseParser {
     const created: ToolCallAssemblyState = {
       toolCallId: toolCall.id,
       toolCallIndex: toolCall.index,
-      toolName: toolCall.function?.name || undefined,
+      toolName: undefined,
       argumentsBuffer: '',
       readyEmitted: false
     }

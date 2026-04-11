@@ -22,7 +22,7 @@ run.accepted
 ## Key Files
 - Main runtime:
   - `src/main/services/chatRun/index.ts`
-  - `src/main/services/agentCore/execution/AgentStepLoop.ts`
+  - `src/main/services/next/*`
 - Shared protocol:
   - `src/shared/chatRun/events.ts`
 - Renderer hook:

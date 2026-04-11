@@ -2,8 +2,8 @@ import {
   type ChatCompressionExecuteInput,
   type ChatTitleGenerateInput
 } from '@main/services/chatOperations'
-import type { RunResult } from '@main/services/agentCore/types'
-import type { MainChatRunInput } from '@main/services/hostAdapters/chat'
+import type { RunResult } from '@main/services/agent/contracts'
+import type { MainChatRunInput } from '@main/services/hostAdapters/chat/preparation/types'
 import type { ChatRunEventSink } from './infrastructure'
 import type { ToolConfirmationDecision } from './infrastructure'
 import { ChatRunRuntimeFactory, type ChatRunRuntime } from './runtime/ChatRunRuntimeFactory'
@@ -54,5 +54,5 @@ export class ChatRunService {
   }
 }
 
-export type { MainChatRunInput } from '@main/services/hostAdapters/chat'
+export type { MainChatRunInput } from '@main/services/hostAdapters/chat/preparation/types'
 export type { ToolConfirmationDecision } from './infrastructure'

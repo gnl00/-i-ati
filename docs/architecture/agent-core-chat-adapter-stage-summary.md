@@ -1,20 +1,19 @@
 # Agent Core / Chat Adapter Stage Summary
 
-> 这份文档记录的是 `agentCore + hostAdapters/chat` 拆分过程中的阶段性总结，部分路径描述对应当时状态。
+> 这份文档记录的是早期拆分过程中的阶段性总结，部分命名与路径已过时。
 > 当前结构请优先参考 [chat-runtime-architecture-current.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-runtime-architecture-current.md)。
 
 ## 背景
 
 这一阶段的目标，不再是单纯把 `chatSubmit` 改名为 `chatRun`，而是继续把运行时拆成更清晰的三层：
 
-- `agentCore`
-  - 通用执行内核
+- runtime core
 - `hostAdapters/chat`
   - chat 领域适配层
 - `chatRun`
   - shell / runtime orchestration
 
-重点不是继续拆 service 数量，而是把“哪些属于 core、哪些属于 chat adapter、哪些属于 shell”逐步做实。
+重点不是继续拆 service 数量，而是把“哪些属于 runtime core、哪些属于 chat adapter、哪些属于 shell”逐步做实。
 
 ## 这一阶段完成的关键调整
 
@@ -48,29 +47,20 @@
 
 ### 3. `run` 语义收紧为 `run-kernel`
 
-原来的 `agentCore/run` 已改成：
-
-- [run-kernel](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/run-kernel)
-
-核心件：
-
-- [AgentRunKernel.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/run-kernel/AgentRunKernel.ts)
-
-这个命名更准确地表达了它是 run 级内核，而不是泛化的 run 子域。
+这一步是历史阶段性调整。
+`run-kernel` 后续已经随旧 runtime 一起移除，不再属于当前主路径架构。
 
 ### 4. 第一批 core ports 落地
 
 新增：
 
-- [ToolConfirmationRequester.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports/ToolConfirmationRequester.ts)
-- [AgentStepEventListener.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports/AgentStepEventListener.ts)
-- [AgentMessageEventSink.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports/AgentMessageEventSink.ts)
-- [ConversationStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports/ConversationStore.ts)
+- `ToolConfirmationRequester.ts`
+- `AgentMessageEventSink.ts`
+- `ConversationStore.ts`
 
 这一轮不是为了“抽象而抽象”，而是先把最稳定的外部依赖接口化：
 
 - 工具确认
-- step 运行事件监听
 - 消息事件下沉出口
 - 对话持久化
 
@@ -91,49 +81,15 @@
 - `AssistantStepFactory` 不再依赖完整 chat preparation 结果
 - step 执行只消费真正需要的 chat 运行时信息
 
-### 6. step loop 组装继续下沉到 core
+### 6. step loop 与 parser 曾下沉到 runtime core
 
-新增：
-
-- [AgentStepRuntimeFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/AgentStepRuntimeFactory.ts)
-
-现在：
-
-- `AgentStepLoop`
-- `AgentStepRuntimeFactory`
-- `parser/*`
-
-都已经在 `agentCore/execution` 下。
-
-这意味着 step loop 本身和它的 runtime wiring，已经不再留在 chat adapter / chatRun shell 侧。
-
-### 7. parser 整体迁入 `agentCore/execution/parser`
-
-原来的 `chatRun/streaming/parser/*` 已迁到：
-
-- [parser](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/parser)
-
-包括：
-
-- `ChunkParser`
-- `ToolCallParser`
-- `ThinkTagParser`
-- `ParserState`
-- `SegmentBuilder`
-- parser types
-
-同时在 parser 目录内部新增了：
-
-- [errors.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/parser/errors.ts)
-- [logger.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/parser/logger.ts)
-
-这样 parser 不再依赖 `chatRun/errors` 里的 parser error，也不再依赖旧的 `chatRun` logger 包袱。
+这部分旧实现后续已经删除，等价职责已经转到 `next/*`。
 
 ### 8. `segment-content` 与 chat-side helper 分离
 
 纯 `MessageSegment[]` 级能力已迁入：
 
-- [segment-content.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution/parser/segment-content.ts)
+- 现已稳定落在 `src/main/services/messages/MessageSegmentContent.ts`
 
 原来的：
 
@@ -141,13 +97,7 @@
 
 已经删除。
 
-这说明：
-
-- `extractContentFromSegments`
-- `extractReasoningFromSegments`
-- `hasContentInSegments`
-
-现在都属于 core execution，而不是 chatRun。
+这说明这类 `MessageSegment[]` 级能力已经脱离旧 streaming 目录，落到更稳定的共享位置。
 
 ### 9. `assistant-step` 整组迁入 chat adapter
 
@@ -157,34 +107,28 @@
 
 已整体迁到：
 
-- [hostAdapters/chat/execution](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/index.ts)
+- `hostAdapters/chat/legacy` 已整体移除
 
 包含：
 
-- [AssistantStepFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepFactory.ts)
-- [AssistantStepMessageManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepMessageManager.ts)
-- [AssistantStepEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepEventMapper.ts)
+- `AssistantStepFactory` 已移除；legacy loop wiring 不再保留运行时入口
+- `ChatStepCommitter` 已移除
+- `AssistantStepEventMapper` 已移除
 
 这一步非常关键，因为它把 chat-specific 的 step wiring 明确归到了 chat adapter，而不再挂在 `chatRun/runtime`。
 
 ## 当前分层结果
 
-### `agentCore`
+### runtime core
 
-当前已经比较明确属于 core 的内容：
-
-- [run-kernel](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/run-kernel)
-- [execution](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/execution)
-- [tools](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/tools)
-- [types](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/types)
-- [ports](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/ports)
+当前主路径已经切到 `agent/*` 和 `next/*`。
 
 ### `hostAdapters/chat`
 
 当前已经比较明确属于 chat adapter 的内容：
 
 - [ChatAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/ChatAgentAdapter.ts)
-- [execution](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/index.ts)
+- legacy chat-side step wiring 已从主代码移除
 - [mapping](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/mapping/index.ts)
 - [persistence](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/persistence/index.ts)
 - [preparation](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/preparation/index.ts)
@@ -229,9 +173,9 @@
 
 2. `AgentRun` 是否还能再薄：
    - 继续向 run shell 收缩
-   - 让更多 run lifecycle 逻辑下沉到 `agentCore/run-kernel`
+   - 让更多 run lifecycle 逻辑下沉到当前 runtime core
 
-3. `agentCore/ports` 是否要继续补：
+3. runtime contracts 是否还要继续补：
    - model execution
    - run trace writer
    - 更明确的 run-state / event mapping 边界

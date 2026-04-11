@@ -94,8 +94,8 @@ title generation 和 compression 已独立为 post-run jobs：
 - `AssistantStepLoop`
   - 单次 assistant 回合循环执行器
   - 驱动 `request -> response -> tool -> next request`
-- `AssistantStepMessageManager`
-  - 管理当前回合中的 assistant/tool message 更新与 request 重建
+- `ChatStepCommitter`
+  - 管理 legacy assistant/tool message 更新与投影落点
 - `RunFinalizeService`
   - assistant 最终消息与 chat 最终状态落库
 - `PostRunJobService`
@@ -117,7 +117,7 @@ title generation 和 compression 已独立为 post-run jobs：
 - `StreamingOrchestratorContext` -> `AssistantStepContext`
 - `StreamingOrchestratorDeps` -> `AssistantStepDeps`
 - `StreamingOrchestratorConfig` -> `AssistantStepLoopConfig`
-- `StreamingMessageManager` -> `AssistantStepMessageManager`
+- `StreamingMessageManager` -> `ChatStepCommitter` / `AssistantStepAssembler`
 
 ### 为什么用 `AssistantXXX` 而不是 `AgentXXX`
 
@@ -149,7 +149,7 @@ src/main/services/chatRun/
     AgentRun.ts
     assistant-step/
       AssistantStepLoop.ts
-      AssistantStepMessageManager.ts
+      ChatStepCommitter.ts
   finalize/
     RunFinalizeService.ts
 src/main/services/chatPostRun/
@@ -240,8 +240,7 @@ run.accepted
 - `src/main/services/chatRun/index.ts`
 - `src/main/services/chatRun/runtime/RunManager.ts`
 - `src/main/services/chatRun/runtime/AgentRun.ts`
-- `src/main/services/agentCore/execution/AgentStepLoop.ts`
-- `src/main/services/hostAdapters/chat/execution/AssistantStepMessageManager.ts`
+- `ChatStepCommitter` 已从当前主代码移除
 - `src/main/services/hostAdapters/chat/preparation/index.ts`
 - `src/main/services/hostAdapters/chat/finalize/ChatFinalizeService.ts`
 - `src/main/services/chatPostRun/PostRunJobService.ts`

@@ -2,18 +2,20 @@
 
 `hostAdapters` 是宿主适配层。
 
-它的职责不是充当应用入口本身，而是把不同宿主环境中的输入、状态和输出语义，适配到 `agentCore` 的通用运行时模型上。
+它的职责不是充当应用入口本身，而是把不同宿主环境中的输入、状态和输出语义，适配到当前主运行时模型上。
 
 ## 在整体架构中的位置
 
 当前主结构可以理解为：
 
-- `agentCore`
-  - 通用 agent 内核
-  - 负责 run、execution、tools、artifacts、ports
+- `agent`
+  - 运行时 contracts 与工具执行归属
+- `next`
+  - 当前主 agent runtime
+  - 负责 loop、step、runtime model parsing、events、tools orchestration
 - `hostAdapters`
   - 宿主适配层
-  - 负责把宿主世界映射到 `agentCore`
+  - 负责把宿主世界映射到当前 runtime
 - `chatRun`
   - shell/runtime orchestration
   - 负责 accepted、cancel、composition、event emitter、tool confirmation
@@ -41,7 +43,13 @@
 
 - chat state -> `RunSpec`
 - chat context -> step runtime context
-- `agentCore` 产物 -> chat message / chat event / chat persistence
+- runtime 产物 -> chat message / chat event / chat persistence
+
+当前需要额外注意：
+
+- `hostAdapters/chat/index.ts` 应优先作为当前主链可依赖的公共出口
+- 旧的 chat-side step wiring 已从当前主代码中移除，不应再按 legacy runtime 边界扩展新实现
+- 新代码不应再把 `hostAdapters/chat` 设计回旧的 legacy runtime 宿主包装层
 
 ## 当前 chat adapter 职责
 
@@ -51,8 +59,10 @@
   - chat 所需配置和 model context 解析
 - `preparation/`
   - chat prepare 逻辑
-- `execution/`
-  - chat-side step wiring
+  - `execution/`
+    - legacy chat-side step wiring
+  - `legacy/`
+    - 对 legacy execution wiring 的显式 compat 出口
 - `mapping/`
   - chat event 和 context mapping
 - `persistence/`
@@ -82,7 +92,7 @@ src/main/services/hostAdapters/
 - `hostAdapters/workflow`
   - 面向脚本或 workflow 执行
 
-它们共享同一个 `agentCore`，但各自负责不同宿主世界的：
+它们共享同一套 runtime contracts / loop 语义，但各自负责不同宿主世界的：
 
 - 输入上下文映射
 - 事件映射
@@ -91,8 +101,8 @@ src/main/services/hostAdapters/
 
 ## 设计原则
 
-- `hostAdapters` 可以依赖 `agentCore`
-- `agentCore` 不应反向依赖 `hostAdapters`
+- `hostAdapters` 可以依赖 `agent/*`、`next/*`
+- runtime core 不应反向依赖 `hostAdapters`
 - `hostAdapters` 可以理解宿主领域对象，例如 chat entity / terminal session
 - `hostAdapters` 不应承担 shell/runtime orchestration
 - shell/runtime orchestration 仍应留在 `chatRun` 或未来更明确的 runtime shell 层

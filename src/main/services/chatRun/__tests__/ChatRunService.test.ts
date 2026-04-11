@@ -3,18 +3,37 @@ import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
 
 const {
   emitterInstances,
-  orchestratorExecuteMock,
+  runtimeRunnerMock,
   updateChatMock,
   updateMessageMock,
   generateTitleMock,
   compressionExecuteMock
 } = vi.hoisted(() => ({
   emitterInstances: [] as Array<{ emit: ReturnType<typeof vi.fn>; setChatMeta: ReturnType<typeof vi.fn> }>,
-  orchestratorExecuteMock: vi.fn(async () => ({
-    completed: true,
-    finishReason: 'completed',
-    messages: [],
-    artifacts: []
+  runtimeRunnerMock: vi.fn(async () => ({
+    runtimeResult: {
+      state: 'completed' as const,
+      stepResult: {
+        completed: true,
+        finishReason: 'completed',
+        requestHistoryMessages: [],
+        artifacts: []
+      }
+    },
+    stepCommitter: {
+      getFinalAssistantMessage: vi.fn(() => ({
+        id: 102,
+        chatId: 1,
+        chatUuid: 'chat-1',
+        body: {
+          role: 'assistant',
+          content: '',
+          segments: [],
+          typewriterCompleted: false
+        }
+      })),
+      getLastUsage: vi.fn(() => undefined)
+    }
   })),
   updateChatMock: vi.fn(),
   updateMessageMock: vi.fn(),
@@ -55,23 +74,38 @@ vi.mock('../infrastructure', () => {
   }
 })
 
-vi.mock('@main/services/agentCore/execution', () => ({
-  AgentStepLoop: class {
-    execute = orchestratorExecuteMock
-  },
-  AgentStepRuntimeFactory: class {
-    create() {
-      return new (class {
-        execute = orchestratorExecuteMock
-      })()
-    }
-  },
-  ChunkParser: class {}
+vi.mock('../runtime/next', () => ({
+  DefaultMainAgentNextRuntimeRunner: class {
+    run = runtimeRunnerMock
+  }
 }))
 
-vi.mock('@main/services/agentCore/tools', () => ({
+vi.mock('@main/services/agent/tools', () => ({
   ToolExecutor: class {
     execute = vi.fn(async () => [])
+  }
+}))
+
+vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
+  default: {
+    infer: vi.fn(async () => null)
+  }
+}))
+
+vi.mock('@main/services/userInfo/UserInfoService', () => ({
+  default: {
+    getUserInfo: vi.fn(async () => ({
+      info: {
+        name: '',
+        preferredAddress: '',
+        basicInfo: '',
+        preferences: '',
+        updatedAt: 0
+      },
+      isEmpty: true,
+      exists: false,
+      filePath: '/tmp/user-info.md'
+    }))
   }
 }))
 
@@ -124,6 +158,8 @@ vi.mock('@main/services/DatabaseService', () => ({
       .mockReturnValue(103),
     updateChat: updateChatMock,
     updateMessage: updateMessageMock,
+    getEmotionStateByChatId: vi.fn(() => null),
+    upsertEmotionState: vi.fn(),
     getActiveCompressedSummariesByChatId: vi.fn(() => []),
     getChatSkills: vi.fn(() => []),
     getConfigValue: vi.fn(() => undefined)
@@ -151,6 +187,9 @@ vi.mock('@main/services/logging/LogService', () => ({
 
 vi.mock('@shared/prompts', () => ({
   systemPrompt: vi.fn(() => 'system prompt'),
+  buildUserInfoPrompt: vi.fn(() => ''),
+  buildEmotionSystemPrompt: vi.fn(() => ''),
+  buildSkillsSystemPrompt: vi.fn(() => ''),
   buildUserInstructionPrompt: vi.fn(() => '')
 }))
 
@@ -185,12 +224,31 @@ const createDeferred = <T,>() => {
 describe('ChatRunService', () => {
   beforeEach(() => {
     emitterInstances.length = 0
-    orchestratorExecuteMock.mockReset()
-    orchestratorExecuteMock.mockResolvedValue({
-      completed: true,
-      finishReason: 'completed',
-      messages: [],
-      artifacts: []
+    runtimeRunnerMock.mockReset()
+    runtimeRunnerMock.mockResolvedValue({
+      runtimeResult: {
+        state: 'completed',
+        stepResult: {
+          completed: true,
+          finishReason: 'completed',
+          requestHistoryMessages: [],
+          artifacts: []
+        }
+      },
+      stepCommitter: {
+        getFinalAssistantMessage: vi.fn(() => ({
+          id: 102,
+          chatId: 1,
+          chatUuid: 'chat-1',
+          body: {
+            role: 'assistant',
+            content: '',
+            segments: [],
+            typewriterCompleted: false
+          }
+        })),
+        getLastUsage: vi.fn(() => undefined)
+      }
     })
     updateChatMock.mockReset()
     updateMessageMock.mockReset()
@@ -230,13 +288,8 @@ describe('ChatRunService', () => {
   })
 
   it('returns accepted immediately from start without waiting for loop completion', async () => {
-    const deferred = createDeferred<{
-      completed: true
-      finishReason: 'completed'
-      messages: []
-      artifacts: []
-    }>()
-    orchestratorExecuteMock.mockReturnValueOnce(deferred.promise)
+    const deferred = createDeferred<Awaited<ReturnType<typeof runtimeRunnerMock>>>()
+    runtimeRunnerMock.mockReturnValueOnce(deferred.promise)
 
     const service = new ChatRunService()
     const result = await service.start({
@@ -255,13 +308,37 @@ describe('ChatRunService', () => {
       submissionId: 'submission-1'
     })
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(orchestratorExecuteMock).toHaveBeenCalledTimes(1)
+    expect(runtimeRunnerMock).toHaveBeenCalledTimes(1)
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(CHAT_RUN_EVENTS.RUN_ACCEPTED, {
       accepted: true,
       submissionId: 'submission-1'
     })
 
-    deferred.resolve({ completed: true, finishReason: 'completed', messages: [], artifacts: [] })
+    deferred.resolve({
+      runtimeResult: {
+        state: 'completed',
+        stepResult: {
+          completed: true,
+          finishReason: 'completed',
+          requestHistoryMessages: [],
+          artifacts: []
+        }
+      },
+      stepCommitter: {
+        getFinalAssistantMessage: vi.fn(() => ({
+          id: 102,
+          chatId: 1,
+          chatUuid: 'chat-1',
+          body: {
+            role: 'assistant',
+            content: '',
+            segments: [],
+            typewriterCompleted: false
+          }
+        })),
+        getLastUsage: vi.fn(() => undefined)
+      }
+    })
     await deferred.promise
   })
 

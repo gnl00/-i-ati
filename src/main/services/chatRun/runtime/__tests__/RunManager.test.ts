@@ -44,15 +44,6 @@ vi.mock('@main/services/chatPostRun', () => ({
   PostRunJobService: class {}
 }))
 
-vi.mock('@main/services/hostAdapters/chat', () => ({
-  ChatAgentAdapter: class {},
-  AssistantStepFactory: class {}
-}))
-
-vi.mock('@main/services/agentCore/run-kernel', () => ({
-  AgentRunKernel: class {}
-}))
-
 import { RunManager } from '../RunManager'
 
 const createManager = () =>
@@ -70,9 +61,10 @@ const createManager = () =>
         return {}
       }
     })() as any,
-    agentRunKernel: new (class {})() as any,
+    mainAgentRuntimeRunner: new (class {
+      run = vi.fn()
+    })() as any,
     chatAgentAdapter: new (class {})() as any,
-    assistantStepFactory: new (class {})() as any,
     postRunJobService: new (class {})() as any
   })
 

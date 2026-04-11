@@ -1,4 +1,4 @@
-import type { ChatRunModelContext, RunSpec } from '@main/services/agentCore/types'
+import type { ChatRunModelContext, RunSpec } from '@main/services/agent/contracts'
 
 export type ChatRunInputState = {
   textCtx: string

@@ -115,4 +115,4 @@ next/
 1. 先在 `next` 中把 runtime-native contract 定住
 2. 再实现最小 `AgentLoop`
 3. 然后接 `chat` host 的 outputs
-4. 最后逐步替换现有 `agentCore + hostAdapters/chat + chatRun` 组合
+4. 最后完成对旧 `agentCore + hostAdapters/chat + chatRun` 组合的替换与清理

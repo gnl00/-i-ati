@@ -1,4 +1,4 @@
-import type { ChatRunModelContext } from '@main/services/agentCore/types'
+import type { ChatRunModelContext } from '@main/services/agent/contracts'
 
 export type PostRunJobInput = {
   submissionId: string

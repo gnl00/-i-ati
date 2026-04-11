@@ -37,6 +37,7 @@
 - think tag 状态和 tool call 拼接状态，也都属于这一层的显式 parser state
 - `ModelStreamExecutor` 应把当前 `IUnifiedResponse | IUnifiedStreamResponse` 规范化成 `ModelResponseChunk`
 - `ModelResponseParser` 只依赖 `ModelResponseChunk`，不直接依赖 provider/unified response union
+- `ModelResponseParser` 的 think-tag 词法状态应由 `runtime/model` 自己定义，不再直接借用 legacy parser state
 - `tool_call_started` 和 `tool_call_ready` 之间的拼接过程，应由 parser state 管理
 - `tool_call_ready` 不要求前面必须已有 `tool_call_started`
 - 如果 parser 在同一个 chunk 同时拿到名字和完整参数，可以直接产出 `tool_call_ready`

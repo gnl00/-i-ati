@@ -1,10 +1,10 @@
 import type {
   ToolConfirmationDecision,
   ToolConfirmationRequest
-} from '@main/services/agentCore/ports'
+} from '@main/services/agent/contracts'
 import type { ChatRunEventEmitter } from './event-emitter'
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
-export type { ToolConfirmationDecision, ToolConfirmationRequest } from '@main/services/agentCore/ports'
+export type { ToolConfirmationDecision, ToolConfirmationRequest } from '@main/services/agent/contracts'
 
 type PendingConfirmation = {
   promise: Promise<ToolConfirmationDecision>

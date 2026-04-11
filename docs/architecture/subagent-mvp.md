@@ -91,7 +91,7 @@
 - 组合 subagent 专用 system prompt
 - 注入精简上下文
 - 创建独立 `ToolExecutor`
-- 复用现有 `AgentRunKernel + AgentStepLoop`
+- 在当前主路径里复用新的 runtime / tool execution 链路，而不是旧 `AgentRunKernel + AgentStepLoop`
 
 子代理不会把自己的中间消息直接插入主 chat。
 
@@ -178,7 +178,7 @@
 相关代码：
 
 - [approval.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/approval.ts)
-- [ToolExecutor.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agentCore/tools/ToolExecutor.ts)
+- [ToolExecutor.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agent/tools/ToolExecutor.ts)
 
 ### 父 run 桥接
 
@@ -186,7 +186,7 @@
 
 当前实现是：
 
-- 主 chat run 在 [AssistantStepFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepFactory.ts) 注册自己的：
+- 旧设计里，主 chat run 曾通过 chat-side step factory 注册自己的：
   - `ToolConfirmationRequester`
   - `ChatRunEventEmitter`
 - subagent 通过 [subagent-runtime-bridge.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/subagent/subagent-runtime-bridge.ts) 复用父 run 的确认链

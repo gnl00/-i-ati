@@ -1,14 +1,14 @@
-import type { AgentRunKernelResult } from '@main/services/agentCore/run-kernel'
-import type { RunResult } from '@main/services/agentCore/types'
-import type { ChatAgentAdapter } from '@main/services/hostAdapters/chat'
+import type { RunResult } from '@main/services/agent/contracts'
+import type { ChatAgentAdapter } from '@main/services/hostAdapters/chat/ChatAgentAdapter'
 import type { PostRunJobService } from '@main/services/chatPostRun'
-import type { MainChatRunInput } from '@main/services/hostAdapters/chat'
+import type { MainChatRunInput } from '@main/services/hostAdapters/chat/preparation/types'
 import type { ChatRunEventEmitter } from '../infrastructure'
+import type { MainAgentRuntimeTerminalResult } from './MainAgentRuntimeResult'
 import { RunLifecycleEventMapper } from './RunLifecycleEventMapper'
 
-type HandleKernelResultArgs = {
+type HandleRuntimeResultArgs = {
   input: MainChatRunInput
-  kernelResult: AgentRunKernelResult
+  runtimeResult: MainAgentRuntimeTerminalResult
   runSpec: any
   chatContext: any
   emitter: ChatRunEventEmitter
@@ -21,10 +21,10 @@ type HandleKernelResultArgs = {
 }
 
 export class RunTerminalHandler {
-  async handleKernelResult(args: HandleKernelResultArgs): Promise<RunResult> {
+  async handleRuntimeResult(args: HandleRuntimeResultArgs): Promise<RunResult> {
     const {
       input,
-      kernelResult,
+      runtimeResult,
       runSpec,
       chatContext,
       emitter,
@@ -34,7 +34,7 @@ export class RunTerminalHandler {
     } = args
     const lifecycle = new RunLifecycleEventMapper(emitter)
 
-    if (kernelResult.state === 'aborted') {
+    if (runtimeResult.state === 'aborted') {
       await chatAgentAdapter.abortRun({
         chatContext,
         stepCommitter
@@ -43,11 +43,11 @@ export class RunTerminalHandler {
       return { state: 'aborted' }
     }
 
-    if (kernelResult.state === 'failed') {
-      lifecycle.emitFailed(kernelResult.error)
+    if (runtimeResult.state === 'failed') {
+      lifecycle.emitFailed(runtimeResult.error)
       return {
         state: 'failed',
-        error: kernelResult.error
+        error: runtimeResult.error
       }
     }
 
@@ -56,7 +56,7 @@ export class RunTerminalHandler {
       input,
       runSpec,
       chatContext,
-      stepResult: kernelResult.stepResult,
+      stepResult: runtimeResult.stepResult,
       emitter,
       stepCommitter
     })

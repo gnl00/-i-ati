@@ -1,21 +1,17 @@
 import { AbortError } from './errors'
-import type { ToolConfirmationRequester } from '@main/services/agentCore/ports'
-import { AgentRunKernel } from '@main/services/agentCore/run-kernel'
+import type { ToolConfirmationRequester } from '@main/services/agent/contracts'
 import { AgentRun } from './AgentRun'
 import { PostRunJobService } from '@main/services/chatPostRun'
-import {
-  ChatAgentAdapter,
-  AssistantStepFactory,
-  type MainChatRunInput
-} from '@main/services/hostAdapters/chat'
-import type { RunResult } from '@main/services/agentCore/types'
+import { ChatAgentAdapter } from '@main/services/hostAdapters/chat/ChatAgentAdapter'
+import type { MainChatRunInput } from '@main/services/hostAdapters/chat/preparation/types'
+import type { RunResult } from '@main/services/agent/contracts'
 import type {
   ChatRunEventEmitterFactory,
   ChatRunEventSink,
   ToolConfirmationManager
 } from '../infrastructure'
 import { RunRegistry } from './RunRegistry'
-import type { MainAgentNextRuntimeRunner } from './next'
+import type { MainAgentRuntimeRunner } from './MainAgentRuntimeRunner'
 
 type StartChatRunResult = {
   accepted: true
@@ -25,11 +21,9 @@ type StartChatRunResult = {
 export type RunManagerDependencies = {
   toolConfirmationManager: ToolConfirmationManager
   eventEmitterFactory: ChatRunEventEmitterFactory
-  agentRunKernel: AgentRunKernel
+  mainAgentRuntimeRunner: MainAgentRuntimeRunner
   chatAgentAdapter: ChatAgentAdapter
-  assistantStepFactory: AssistantStepFactory
   postRunJobService: PostRunJobService
-  mainAgentNextRuntimeRunner?: MainAgentNextRuntimeRunner
 }
 
 export class RunManager {
@@ -97,11 +91,9 @@ export class RunManager {
       request: (request) => this.deps.toolConfirmationManager.request(emitter, request)
     }
     const run = new AgentRun(input, {
-      agentRunKernel: this.deps.agentRunKernel,
-      assistantStepFactory: this.deps.assistantStepFactory,
+      mainAgentRuntimeRunner: this.deps.mainAgentRuntimeRunner,
       chatAgentAdapter: this.deps.chatAgentAdapter,
-      postRunJobService: this.deps.postRunJobService,
-      mainAgentNextRuntimeRunner: this.deps.mainAgentNextRuntimeRunner
+      postRunJobService: this.deps.postRunJobService
     }, {
       emitter,
       toolConfirmationRequester

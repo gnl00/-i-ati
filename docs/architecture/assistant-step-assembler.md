@@ -41,7 +41,7 @@
 
 文件：
 
-- [AssistantStepAssembler.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepAssembler.ts)
+- 当前生产代码中已移除；这里描述的是历史上的 assistant projection 规则
 
 它不关心模型请求、也不关心 renderer，只做一件事：
 

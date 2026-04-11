@@ -1,7 +1,7 @@
 import type { AgentRequestSpec } from '@main/services/next/request/AgentRequestSpec'
 import type { AgentRequestSpecSource } from '@main/services/next/runtime/NextAgentRuntimeContext'
 import type { NextAgentRuntimeRunInput } from '@main/services/next/runtime/NextAgentRuntimeRunInput'
-import type { RunSpec } from '@main/services/agentCore/types'
+import type { RunSpec } from '@main/services/agent/contracts'
 import { embeddedToolsRegistry } from '@tools/registry'
 
 export interface SubagentRequestSpecSourceOptions {

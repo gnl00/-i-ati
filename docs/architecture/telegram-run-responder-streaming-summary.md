@@ -25,7 +25,7 @@
 
 这轮改造的目标是让 Telegram 回复链路和 Chat UI 在语义上保持一致：
 
-- `agentCore` 仍只负责 parser / step loop / tools / artifacts
+- 主 runtime 仍负责 parser / step loop / tools / artifacts
 - `chatRun` 仍负责 run orchestration 和共享事件发射
 - `hostAdapters/chat` 仍负责 assistant message 持久化与事件映射
 - Telegram 不再重建最终回复，而是消费共享 run 事件
@@ -33,8 +33,8 @@
 也就是说，Telegram 要复用的是：
 
 1. assistant placeholder
-2. `AgentStepLoop`
-3. `AssistantStepMessageManager`
+2. 主 runtime step loop
+3. legacy assistant step message projection
 4. `message.updated`
 5. `run.completed`
 
@@ -53,7 +53,7 @@
    - 输入 `IUnifiedResponse`
    - 输出 `ParseResult`
    - 维护 parser state
-2. 如果在 parser 内直接回调宿主 handler，`agentCore` 会开始感知宿主侧副作用
+2. 如果在 parser 内直接回调宿主 handler，runtime core 会开始感知宿主侧副作用
 3. 这会让 parser 从“纯解析器”变成“解析 + host projection”混合层，破坏当前分层
 
 当前正确的流式边界不是 raw chunk，而是已经投影成 assistant message 的共享事件：
@@ -244,6 +244,5 @@
 - [TelegramRunResponder.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramRunResponder.ts)
 - [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/infrastructure/event-emitter.ts)
 - [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunManager.ts)
-- [AssistantStepMessageManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepMessageManager.ts)
-- [AssistantStepEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/execution/AssistantStepEventMapper.ts)
+- 历史上 Telegram 曾复用 chat-side message projection；当前对应 legacy 代码已移除
 - [DATA_FLOW.md](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/hooks/chatSubmit/docs/DATA_FLOW.md)

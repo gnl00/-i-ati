@@ -33,7 +33,7 @@ vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
 
 const executeMock = vi.fn()
 
-vi.mock('@main/services/agentCore/tools', () => ({
+vi.mock('@main/services/agent/tools', () => ({
   ToolExecutor: class {
     async execute(calls: Array<{ id: string; index?: number; function: string; args: string }>) {
       executeMock(calls)
@@ -213,11 +213,11 @@ describe('DefaultMainAgentNextRuntimeRunner integration', () => {
       }
     })
 
-    expect(result.kernelResult.state).toBe('completed')
-    expect(result.uiAdapter.getFinalAssistantMessage().body.content).toBe(
+    expect(result.runtimeResult.state).toBe('completed')
+    expect(result.stepCommitter.getFinalAssistantMessage().body.content).toBe(
       'Let me inspect that first.\n\nDone after tool'
     )
-    const textSegments = result.uiAdapter
+    const textSegments = result.stepCommitter
       .getFinalAssistantMessage()
       .body.segments
       .filter((segment): segment is TextSegment => segment.type === 'text')

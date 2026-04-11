@@ -1,4 +1,4 @@
-import type { RunResult, StepResult } from '@main/services/agentCore/types'
+import type { RunResult, StepResult } from '@main/services/agent/contracts'
 import { ChatFinalizeService } from './finalize/ChatFinalizeService'
 import { ChatEventMapper, ChatStepRuntimeContextMapper, type ChatStepRuntimeContext } from './mapping'
 import type { MainChatRunInput, RunPreparationResult } from './preparation'
