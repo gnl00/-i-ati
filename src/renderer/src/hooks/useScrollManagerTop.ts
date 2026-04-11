@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { VirtuosoHandle } from 'react-virtuoso'
-import { resolveAnchorIndex } from '@renderer/components/chat/scroll-anchor'
+
+export type UserScrollSource = 'wheel' | 'pointer'
 
 interface UseScrollManagerTopProps {
-  messages: MessageEntity[]
   messagesLength: number
   chatUuid?: string
-  onUserScrollIntentRef?: RefObject<(() => void) | null>
-  onUserScrollUpIntentRef?: RefObject<(() => void) | null>
+  onUserScrollIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
+  onUserScrollUpIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
+  suppressScrollIntentRef?: RefObject<boolean>
   onLatestVisibleChange?: (visible: boolean) => void
 }
 
@@ -27,24 +28,21 @@ interface UseScrollManagerTopReturn {
 }
 
 export function useScrollManagerTop({
-  messages,
   messagesLength,
   chatUuid,
   onUserScrollIntentRef,
   onUserScrollUpIntentRef,
+  suppressScrollIntentRef,
   onLatestVisibleChange
 }: UseScrollManagerTopProps): UseScrollManagerTopReturn {
   const scrollParentRef = useRef<HTMLDivElement>(null)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const programmaticScrollRef = useRef<boolean>(false)
   const showJumpToLatestRef = useRef<boolean>(false)
-  const prevMessagesLengthRef = useRef<number>(messagesLength)
   const lastChatUuidRef = useRef<string | undefined>(chatUuid)
-  const pendingChatInitScrollRef = useRef<boolean>(false)
-  const forceScrollRafRef = useRef<number>(0)
-  const settleScrollRafRef = useRef<number>(0)
   const smoothScrollTimeoutRef = useRef<number>(0)
   const prevScrollTopRef = useRef<number>(0)
+  const pointerDownInContainerRef = useRef<boolean>(false)
 
   const [showJumpToLatest, setShowJumpToLatest] = useState<boolean>(false)
   const [isButtonFadingOut, setIsButtonFadingOut] = useState<boolean>(false)
@@ -118,43 +116,11 @@ export function useScrollManagerTop({
   }, [showJumpToLatest])
 
   useEffect(() => {
-    const previousLength = prevMessagesLengthRef.current
-    const hasNewMessage = messagesLength > previousLength
-    prevMessagesLengthRef.current = messagesLength
-
-    if (!hasNewMessage || messagesLength <= 0) {
-      return
-    }
-
-    if (forceScrollRafRef.current) {
-      cancelAnimationFrame(forceScrollRafRef.current)
-    }
-    if (settleScrollRafRef.current) {
-      cancelAnimationFrame(settleScrollRafRef.current)
-      settleScrollRafRef.current = 0
-    }
-
-    forceScrollRafRef.current = requestAnimationFrame(() => {
-      if (pendingChatInitScrollRef.current) {
-        pendingChatInitScrollRef.current = false
-      }
-      const targetIndex = resolveAnchorIndex(messages, 'latestUserForAutoTop')
-      scrollToIndex(targetIndex, false)
-      settleScrollRafRef.current = requestAnimationFrame(() => {
-        scrollToIndex(targetIndex, false)
-        settleScrollRafRef.current = 0
-      })
-      forceScrollRafRef.current = 0
-    })
-  }, [messages, messagesLength, scrollToIndex])
-
-  useEffect(() => {
     if (lastChatUuidRef.current === chatUuid) {
       return
     }
 
     lastChatUuidRef.current = chatUuid
-    pendingChatInitScrollRef.current = true
     showJumpToLatestRef.current = false
     setShowJumpToLatest(false)
     setIsButtonFadingOut(false)
@@ -171,13 +137,6 @@ export function useScrollManagerTop({
 
   useEffect(() => {
     return () => {
-      if (forceScrollRafRef.current) {
-        cancelAnimationFrame(forceScrollRafRef.current)
-      }
-      if (settleScrollRafRef.current) {
-        cancelAnimationFrame(settleScrollRafRef.current)
-        settleScrollRafRef.current = 0
-      }
       if (smoothScrollTimeoutRef.current) {
         clearTimeout(smoothScrollTimeoutRef.current)
         smoothScrollTimeoutRef.current = 0
@@ -191,50 +150,71 @@ export function useScrollManagerTop({
 
     prevScrollTopRef.current = container.scrollTop
 
-    const notifyUserScrollIntent = () => {
-      onUserScrollIntentRef?.current?.()
+    const notifyUserScrollIntent = (source: UserScrollSource) => {
+      onUserScrollIntentRef?.current?.(source)
     }
 
-    const showByUserUpScroll = () => {
+    const showByUserUpScroll = (source: UserScrollSource) => {
       if (messagesLength <= 0) return
       if (!showJumpToLatestRef.current) {
         setShowJumpToLatest(true)
       }
-      onUserScrollUpIntentRef?.current?.()
+      onUserScrollUpIntentRef?.current?.(source)
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!container.contains(event.target as Node)) return
+      pointerDownInContainerRef.current = true
+    }
+
+    const onPointerUp = () => {
+      pointerDownInContainerRef.current = false
     }
 
     const onWheel = (event: WheelEvent) => {
+      if (suppressScrollIntentRef?.current) {
+        prevScrollTopRef.current = container.scrollTop
+        return
+      }
       if (event.deltaY !== 0) {
-        notifyUserScrollIntent()
+        notifyUserScrollIntent('wheel')
       }
       if (event.deltaY < 0) {
-        showByUserUpScroll()
+        showByUserUpScroll('wheel')
       }
     }
 
     const onScroll = () => {
-      if (programmaticScrollRef.current) {
+      if (programmaticScrollRef.current || suppressScrollIntentRef?.current) {
         prevScrollTopRef.current = container.scrollTop
         return
       }
 
       const currentTop = container.scrollTop
-      if (currentTop !== prevScrollTopRef.current) {
-        notifyUserScrollIntent()
+      const activeUserSource = pointerDownInContainerRef.current ? 'pointer' : null
+
+      if (activeUserSource && currentTop !== prevScrollTopRef.current) {
+        notifyUserScrollIntent(activeUserSource)
       }
-      if (currentTop < prevScrollTopRef.current) {
-        showByUserUpScroll()
+      if (activeUserSource && currentTop < prevScrollTopRef.current) {
+        showByUserUpScroll(activeUserSource)
       }
       prevScrollTopRef.current = currentTop
     }
 
+    container.addEventListener('pointerdown', onPointerDown, { passive: true })
+    window.addEventListener('pointerup', onPointerUp, { passive: true })
+    window.addEventListener('pointercancel', onPointerUp, { passive: true })
     container.addEventListener('wheel', onWheel, { passive: true })
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => {
+      container.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
       container.removeEventListener('wheel', onWheel)
       container.removeEventListener('scroll', onScroll)
     }
-  }, [messagesLength, onUserScrollIntentRef, onUserScrollUpIntentRef])
+  }, [messagesLength, onUserScrollIntentRef, onUserScrollUpIntentRef, suppressScrollIntentRef])
 
   return {
     scrollParentRef,

@@ -3,20 +3,32 @@ import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea from "@renderer/components/chat/chatInput/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
 import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageNext2"
+import { useScrollManagerTop, type UserScrollSource } from '@renderer/hooks/useScrollManagerTop'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store/chatStore'
 import { ArrowDown } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Virtuoso, type StateSnapshot } from 'react-virtuoso'
-import { useScrollManagerTop } from '@renderer/hooks/useScrollManagerTop'
 import { resolveAnchorIndex } from './scroll-anchor'
 import { TaskPlanBar } from './task/TaskPlanBar'
 import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
 import { useSubagentRuntime } from '@renderer/hooks/useSubagentRuntime'
 import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
 import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotifications'
+
+const STREAMING_FOLLOW_RESTORE_THRESHOLD_PX = 24
+type ScrollMode = 'tail-follow' | 'anchor-lock' | 'manual'
+
+const STABLE_SPACER_REASONS = new Set([
+  'user-sent',
+  'conversation-switch',
+  'container-mounted',
+  'container-resize',
+  'total-list-height-changed'
+])
 
 const ChatMessageRow: React.FC<{
   messageIndex: number
@@ -48,10 +60,12 @@ const ChatWindowComponentNext: React.FC = () => {
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
   const runPhase = useChatStore(state => state.runPhase)
+  const scrollHint = useChatStore(state => state.scrollHint)
+  const clearScrollHint = useChatStore(state => state.clearScrollHint)
   const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
   const upsertMessage = useChatStore(state => state.upsertMessage)
-  const onUserScrollIntentRef = useRef<(() => void) | null>(null)
-  const onUserScrollUpIntentRef = useRef<(() => void) | null>(null)
+  const onUserScrollIntentRef = useRef<((source: UserScrollSource) => void) | null>(null)
+  const onUserScrollUpIntentRef = useRef<((source: UserScrollSource) => void) | null>(null)
   const committedLastAssistantIndex = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].body.role === 'assistant') {
@@ -72,10 +86,12 @@ const ChatWindowComponentNext: React.FC = () => {
 
   const isRunStreaming = runPhase === 'streaming'
   const inputAreaRef = useRef<HTMLDivElement>(null)
-  const streamingFollowEnabledRef = useRef<boolean>(true)
-  const setStreamingFollowEnabled = useCallback((enabled: boolean) => {
-    streamingFollowEnabledRef.current = enabled
-  }, [])
+  const latestVisibleRef = useRef<boolean>(true)
+  const scrollModeRef = useRef<ScrollMode>('tail-follow')
+  const lockedAnchorMessageIdRef = useRef<number | null>(null)
+  const hasInitialAnchorScrollDoneRef = useRef<boolean>(true)
+  const suppressScrollIntentRef = useRef<boolean>(false)
+  const suppressScrollIntentReleaseRafRef = useRef<number>(0)
   const {
     scrollParentRef,
     virtuosoRef,
@@ -84,15 +100,21 @@ const ChatWindowComponentNext: React.FC = () => {
     scrollToMessageIndex,
     onRangeChanged
   } = useScrollManagerTop({
-    messages: displayMessages,
     messagesLength: displayMessages.length,
     chatUuid,
     onUserScrollIntentRef,
     onUserScrollUpIntentRef,
+    suppressScrollIntentRef,
     onLatestVisibleChange: (visible) => {
-      if (visible && isRunStreaming) {
-        setStreamingFollowEnabled(true)
+      if (
+        visible
+        && isRunStreaming
+        && !latestVisibleRef.current
+        && scrollModeRef.current === 'manual'
+      ) {
+        scrollModeRef.current = 'tail-follow'
       }
+      latestVisibleRef.current = visible
     }
   })
 
@@ -107,8 +129,8 @@ const ChatWindowComponentNext: React.FC = () => {
   const spacerDisabledAtLengthRef = useRef<number>(0)
   const disableTailSpacerRef = useRef<boolean>(false)
   const spacerHeightRef = useRef<number>(0)
-  const spacerMeasureRafRef = useRef<number>(0)
-  const topAnchorLockRafRef = useRef<number>(0)
+  const layoutPassRafRef = useRef<number>(0)
+  const latestLayoutReasonRef = useRef<string | null>(null)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
   useToolConfirmations(chatUuid)
   useSubagentRuntime(chatUuid)
@@ -119,6 +141,35 @@ const ChatWindowComponentNext: React.FC = () => {
 
   const autoTopAnchorIndex = resolveAnchorIndex(displayMessages, 'latestUserForAutoTop')
   const latestMessageIndex = resolveAnchorIndex(displayMessages, 'latestMessage')
+  const resolveLockedAnchor = useCallback(() => {
+    const lockedAnchorMessageId = lockedAnchorMessageIdRef.current
+    if (lockedAnchorMessageId === null) return null
+
+    const index = displayMessages.findIndex(message => message.id === lockedAnchorMessageId)
+    if (index < 0) return null
+
+    return {
+      messageId: lockedAnchorMessageId,
+      index
+    }
+  }, [displayMessages])
+
+  const getLockedAnchorElement = useCallback(() => {
+    const container = scrollParentRef.current
+    const lockedAnchor = resolveLockedAnchor()
+    if (!container || !lockedAnchor) return null
+
+    return container.querySelector<HTMLElement>(`[data-message-id="${lockedAnchor.messageId}"]`)
+      ?? container.querySelector<HTMLElement>(`[data-index="${lockedAnchor.index}"]`)
+  }, [resolveLockedAnchor, scrollParentRef])
+
+  const getLockedAnchorViewportTop = useCallback(() => {
+    const container = scrollParentRef.current
+    const anchorElement = getLockedAnchorElement()
+    if (!container || !anchorElement) return null
+
+    return anchorElement.getBoundingClientRect().top - container.getBoundingClientRect().top
+  }, [getLockedAnchorElement, scrollParentRef])
   const renderedLatestAssistant = useMemo(() => {
     if (lastAssistantIndex < 0) return undefined
     if (streamPreviewMessage && previewRenderIndex === lastAssistantIndex) {
@@ -175,6 +226,22 @@ const ChatWindowComponentNext: React.FC = () => {
 
   const getIndexMetrics = useCallback((targetIndex: number): { top: number; height: number; bottom: number } | null => {
     if (targetIndex < 0) return null
+
+    const container = scrollParentRef.current
+    if (container) {
+      const itemElement = container.querySelector<HTMLElement>(`[data-index="${targetIndex}"]`)
+      if (itemElement) {
+        const containerRect = container.getBoundingClientRect()
+        const itemRect = itemElement.getBoundingClientRect()
+        const top = itemRect.top - containerRect.top + container.scrollTop
+        const height = itemRect.height
+
+        if (height > 0) {
+          return { top, height, bottom: top + height }
+        }
+      }
+    }
+
     const snapshot = readVirtuosoState()
     if (!snapshot || !Array.isArray(snapshot.ranges) || snapshot.ranges.length === 0) {
       return null
@@ -207,13 +274,36 @@ const ChatWindowComponentNext: React.FC = () => {
     return getIndexMetrics(latestMessageIndex)
   }, [getIndexMetrics, latestMessageIndex])
 
-  const getAutoTopTailMetrics = useCallback((): {
+  const getLockedAnchorTailMetrics = useCallback((): {
     anchorTop: number
     anchorHeight: number
     latestBottom: number
     tailHeight: number
+    anchorIndex: number
+    anchorMessageId: number
   } | null => {
-    const anchorMetrics = getIndexMetrics(autoTopAnchorIndex)
+    const lockedAnchor = resolveLockedAnchor()
+    if (!lockedAnchor) return null
+
+    const anchorElement = getLockedAnchorElement()
+    let anchorMetrics: { top: number; height: number; bottom: number } | null = null
+    if (anchorElement) {
+      const container = scrollParentRef.current
+      if (!container) return null
+
+      const containerRect = container.getBoundingClientRect()
+      const itemRect = anchorElement.getBoundingClientRect()
+      const top = itemRect.top - containerRect.top + container.scrollTop
+      const height = itemRect.height
+
+      if (height > 0) {
+        anchorMetrics = { top, height, bottom: top + height }
+      }
+    }
+
+    if (!anchorMetrics) {
+      anchorMetrics = getIndexMetrics(lockedAnchor.index)
+    }
     const latestMetrics = getIndexMetrics(latestMessageIndex)
 
     if (!anchorMetrics || !latestMetrics) {
@@ -224,76 +314,261 @@ const ChatWindowComponentNext: React.FC = () => {
       anchorTop: anchorMetrics.top,
       anchorHeight: anchorMetrics.height,
       latestBottom: latestMetrics.bottom,
-      tailHeight: Math.max(anchorMetrics.height, latestMetrics.bottom - anchorMetrics.top)
+      tailHeight: Math.max(anchorMetrics.height, latestMetrics.bottom - anchorMetrics.top),
+      anchorIndex: lockedAnchor.index,
+      anchorMessageId: lockedAnchor.messageId
     }
-  }, [autoTopAnchorIndex, getIndexMetrics, latestMessageIndex])
+  }, [getIndexMetrics, getLockedAnchorElement, latestMessageIndex, resolveLockedAnchor, scrollParentRef])
 
-  const measureSpacer = useCallback(() => {
+  const commitBottomSpacerHeight = useCallback((nextHeight: number) => {
+    if (nextHeight === spacerHeightRef.current) return false
+    spacerHeightRef.current = nextHeight
+    setBottomSpacerHeight(nextHeight)
+    return true
+  }, [])
+
+  const suppressUserScrollIntent = useCallback((frames = 2) => {
+    suppressScrollIntentRef.current = true
+    if (suppressScrollIntentReleaseRafRef.current) {
+      cancelAnimationFrame(suppressScrollIntentReleaseRafRef.current)
+      suppressScrollIntentReleaseRafRef.current = 0
+    }
+
+    const releaseAfterFrames = (remainingFrames: number) => {
+      suppressScrollIntentReleaseRafRef.current = requestAnimationFrame(() => {
+        if (remainingFrames <= 1) {
+          suppressScrollIntentReleaseRafRef.current = 0
+          suppressScrollIntentRef.current = false
+          return
+        }
+        releaseAfterFrames(remainingFrames - 1)
+      })
+    }
+
+    releaseAfterFrames(Math.max(1, frames))
+  }, [])
+
+  const computeAnchorLockLayout = useCallback(() => {
+    const container = scrollParentRef.current
+    if (!container) return null
+
+    const tailMetrics = getLockedAnchorTailMetrics()
+    if (!tailMetrics) return null
+
+    const viewportHeight = container.clientHeight
+    const requiredViewportFill = Math.max(0, Math.floor(viewportHeight - tailMetrics.tailHeight))
+
+    return {
+      viewportHeight,
+      requiredViewportFill,
+      nextBottomSpacerHeight: requiredViewportFill,
+      tailMetrics
+    }
+  }, [getLockedAnchorTailMetrics, scrollParentRef])
+
+  const runLayoutPass = useCallback((reason: string) => {
     const container = scrollParentRef.current
     if (!container) return
 
-    if (disableTailSpacerRef.current) {
-      if (spacerHeightRef.current !== 0) {
-        spacerHeightRef.current = 0
-        setBottomSpacerHeight(0)
+    const mode = scrollModeRef.current
+
+    if (disableTailSpacerRef.current || mode !== 'anchor-lock') {
+      const didResetSpacer = commitBottomSpacerHeight(0)
+      if (didResetSpacer) {
+        suppressUserScrollIntent()
       }
       return
     }
 
-    const tailMetrics = getAutoTopTailMetrics()
-    if (!tailMetrics) return
+    const layout = computeAnchorLockLayout()
+    if (!layout) return
 
-    const viewportHeight = container.clientHeight
-    const nextHeight = Math.max(0, Math.floor(viewportHeight - tailMetrics.tailHeight))
-    if (nextHeight !== spacerHeightRef.current) {
-      spacerHeightRef.current = nextHeight
-      setBottomSpacerHeight(nextHeight)
+    const currentSpacerHeight = spacerHeightRef.current
+    const canShrinkSpacer = STABLE_SPACER_REASONS.has(reason)
+    const nextBottomSpacerHeight = layout.nextBottomSpacerHeight < currentSpacerHeight && !canShrinkSpacer
+      ? currentSpacerHeight
+      : layout.nextBottomSpacerHeight
+
+    const didUpdateSpacer = commitBottomSpacerHeight(nextBottomSpacerHeight)
+    if (didUpdateSpacer) {
+      suppressUserScrollIntent()
     }
-  }, [getAutoTopTailMetrics, scrollParentRef])
+    if (!hasInitialAnchorScrollDoneRef.current) return
 
-  const requestSpacerMeasurement = useCallback(() => {
-    if (spacerMeasureRafRef.current) return
+    const currentTop = getLockedAnchorViewportTop()
+    if (currentTop === null || Math.abs(currentTop) < 0.5) return
 
-    spacerMeasureRafRef.current = requestAnimationFrame(() => {
-      spacerMeasureRafRef.current = 0
-      measureSpacer()
+    suppressUserScrollIntent()
+    container.scrollTop += currentTop
+  }, [
+    commitBottomSpacerHeight,
+    computeAnchorLockLayout,
+    getLockedAnchorViewportTop,
+    scrollParentRef,
+    suppressUserScrollIntent,
+  ])
+
+  const requestLayoutPass = useCallback((reason: string) => {
+    latestLayoutReasonRef.current = reason
+    if (layoutPassRafRef.current) return
+
+    layoutPassRafRef.current = requestAnimationFrame(() => {
+      layoutPassRafRef.current = 0
+      const nextReason = latestLayoutReasonRef.current ?? reason
+      latestLayoutReasonRef.current = null
+      runLayoutPass(nextReason)
     })
-  }, [measureSpacer])
+  }, [runLayoutPass])
 
-  const requestTopAnchorLock = useCallback(() => {
-    if (!isRunStreaming) return
-    if (!streamingFollowEnabledRef.current) return
-    if (autoTopAnchorIndex < 0) return
-    if (topAnchorLockRafRef.current) return
-
-    topAnchorLockRafRef.current = requestAnimationFrame(() => {
-      topAnchorLockRafRef.current = 0
-      scrollToMessageIndex(autoTopAnchorIndex, false, 'start')
-    })
-  }, [autoTopAnchorIndex, isRunStreaming, scrollToMessageIndex])
+  const cancelScheduledLayoutPass = useCallback(() => {
+    latestLayoutReasonRef.current = null
+    if (!layoutPassRafRef.current) return
+    cancelAnimationFrame(layoutPassRafRef.current)
+    layoutPassRafRef.current = 0
+  }, [])
 
   useEffect(() => {
-    if (isRunStreaming) {
-      setStreamingFollowEnabled(true)
+    if (scrollHint.type === 'none') return
+    if (scrollHint.chatUuid !== (chatUuid ?? null)) return
+
+    if (scrollHint.type === 'conversation-switch') {
+      cancelScheduledLayoutPass()
+      lockedAnchorMessageIdRef.current = null
+      hasInitialAnchorScrollDoneRef.current = true
+      scrollModeRef.current = 'tail-follow'
+      return
     }
-  }, [isRunStreaming, setStreamingFollowEnabled])
+  }, [autoTopAnchorIndex, cancelScheduledLayoutPass, chatUuid, displayMessages, scrollHint])
+
+  useLayoutEffect(() => {
+    if (scrollHint.type !== 'conversation-switch') return
+    if (scrollHint.chatUuid !== (chatUuid ?? null)) return
+    if (displayMessages.length <= 0) {
+      clearScrollHint()
+      return
+    }
+
+    const targetIndex = Math.min(scrollHint.index, Math.max(displayMessages.length - 1, 0))
+    lockedAnchorMessageIdRef.current = null
+    hasInitialAnchorScrollDoneRef.current = true
+    scrollModeRef.current = 'tail-follow'
+    clearScrollHint()
+    requestAnimationFrame(() => {
+      scrollToMessageIndex(targetIndex, false, scrollHint.align)
+      requestAnimationFrame(() => {
+        requestLayoutPass('conversation-switch')
+      })
+    })
+  }, [
+    chatUuid,
+    clearScrollHint,
+    displayMessages.length,
+    requestLayoutPass,
+    scrollHint,
+    scrollToMessageIndex
+  ])
+
+  useLayoutEffect(() => {
+    if (scrollHint.type !== 'user-sent') return
+    if (scrollHint.chatUuid !== (chatUuid ?? null)) return
+
+    const anchorIndex = scrollHint.messageId !== undefined
+      ? displayMessages.findIndex(message => message.id === scrollHint.messageId)
+      : -1
+    const resolvedAnchorIndex = scrollHint.messageId !== undefined
+      ? anchorIndex
+      : autoTopAnchorIndex
+    if (scrollHint.messageId !== undefined && anchorIndex < 0) {
+      return
+    }
+    if (resolvedAnchorIndex < 0) return
+
+    cancelScheduledLayoutPass()
+    lockedAnchorMessageIdRef.current = displayMessages[resolvedAnchorIndex]?.id ?? scrollHint.messageId ?? null
+    if (lockedAnchorMessageIdRef.current === null) {
+      hasInitialAnchorScrollDoneRef.current = true
+      scrollModeRef.current = 'tail-follow'
+      clearScrollHint()
+      scrollToMessageIndex(resolvedAnchorIndex, false, 'start')
+      return
+    }
+    hasInitialAnchorScrollDoneRef.current = true
+    scrollModeRef.current = 'anchor-lock'
+
+    if (disableTailSpacerRef.current) {
+      disableTailSpacerRef.current = false
+      setDisableTailSpacer(false)
+    }
+
+    clearScrollHint()
+    const container = scrollParentRef.current
+    let initialSpacerHeight = spacerHeightRef.current
+    if (container) {
+      initialSpacerHeight = container.clientHeight
+      suppressUserScrollIntent(4)
+      flushSync(() => {
+        commitBottomSpacerHeight(initialSpacerHeight)
+      })
+    }
+    requestAnimationFrame(() => {
+      suppressUserScrollIntent(4)
+      scrollToMessageIndex(resolvedAnchorIndex, false, 'start')
+      requestAnimationFrame(() => {
+        requestLayoutPass('user-sent')
+      })
+    })
+  }, [
+    autoTopAnchorIndex,
+    cancelScheduledLayoutPass,
+    chatUuid,
+    clearScrollHint,
+    commitBottomSpacerHeight,
+    displayMessages,
+    requestLayoutPass,
+    scrollParentRef,
+    scrollHint,
+    scrollToMessageIndex,
+    suppressUserScrollIntent,
+  ])
 
   useEffect(() => {
     onUserScrollIntentRef.current = () => {
       if (!isRunStreaming) return
-      setStreamingFollowEnabled(false)
+
+      cancelScheduledLayoutPass()
+      scrollModeRef.current = 'manual'
+      lockedAnchorMessageIdRef.current = null
+      hasInitialAnchorScrollDoneRef.current = true
+      const container = scrollParentRef.current
+      if (!container) return
+
+      const latestMetrics = getLatestMessageMetrics()
+      if (!latestMetrics) return
+
+      const viewportBottom = container.scrollTop + container.clientHeight
+      const nearLatestBottom = viewportBottom >= latestMetrics.bottom - STREAMING_FOLLOW_RESTORE_THRESHOLD_PX
+
+      if (nearLatestBottom) {
+        scrollModeRef.current = 'tail-follow'
+      }
     }
 
     return () => {
       onUserScrollIntentRef.current = null
     }
-  }, [isRunStreaming, setStreamingFollowEnabled])
+  }, [cancelScheduledLayoutPass, chatUuid, getLatestMessageMetrics, isRunStreaming, scrollParentRef])
 
   useEffect(() => {
     onUserScrollUpIntentRef.current = () => {
       const container = scrollParentRef.current
       if (!container) return
-      if (isRunStreaming) return
+      if (isRunStreaming) {
+        cancelScheduledLayoutPass()
+        scrollModeRef.current = 'manual'
+        lockedAnchorMessageIdRef.current = null
+        hasInitialAnchorScrollDoneRef.current = true
+        return
+      }
 
       const latestMetrics = getLatestMessageMetrics()
       if (!latestMetrics) return
@@ -302,6 +577,10 @@ const ChatWindowComponentNext: React.FC = () => {
       // (i.e. no spacer area remains visible).
       if (viewportBottom > latestMetrics.bottom + 1) return
 
+      cancelScheduledLayoutPass()
+      scrollModeRef.current = 'manual'
+      lockedAnchorMessageIdRef.current = null
+      hasInitialAnchorScrollDoneRef.current = true
       spacerDisabledAtLengthRef.current = messages.length
       disableTailSpacerRef.current = true
       spacerHeightRef.current = 0
@@ -312,7 +591,7 @@ const ChatWindowComponentNext: React.FC = () => {
     return () => {
       onUserScrollUpIntentRef.current = null
     }
-  }, [getLatestMessageMetrics, messages.length, isRunStreaming, scrollParentRef, setStreamingFollowEnabled])
+  }, [cancelScheduledLayoutPass, chatUuid, getLatestMessageMetrics, messages.length, isRunStreaming, scrollParentRef])
 
   const handleJumpToLatestClick = useCallback(() => {
     const lastAssistantMessage = renderedLatestAssistant
@@ -343,10 +622,13 @@ const ChatWindowComponentNext: React.FC = () => {
     disableTailSpacerRef.current = true
     spacerHeightRef.current = 0
     setDisableTailSpacer(true)
-    setStreamingFollowEnabled(true)
+    lockedAnchorMessageIdRef.current = null
+    hasInitialAnchorScrollDoneRef.current = true
+    scrollModeRef.current = 'tail-follow'
+    cancelScheduledLayoutPass()
     // Button targets the latest message (confirmed behavior).
     scrollToMessageIndex(latestMessageIndex, true, 'end')
-  }, [renderedLatestAssistant, displayMessages.length, latestMessageIndex, isRunStreaming, scrollToMessageIndex, setStreamingFollowEnabled, patchMessageUiState, upsertMessage, lastMessageIndex, messages.length])
+  }, [cancelScheduledLayoutPass, renderedLatestAssistant, displayMessages.length, latestMessageIndex, isRunStreaming, scrollToMessageIndex, patchMessageUiState, upsertMessage, lastMessageIndex, messages.length])
 
   
 
@@ -374,22 +656,18 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [chatUuid, messages.length])
 
   useEffect(() => {
-    if (spacerMeasureRafRef.current) {
-      cancelAnimationFrame(spacerMeasureRafRef.current)
-      spacerMeasureRafRef.current = 0
-    }
-    if (topAnchorLockRafRef.current) {
-      cancelAnimationFrame(topAnchorLockRafRef.current)
-      topAnchorLockRafRef.current = 0
-    }
+    cancelScheduledLayoutPass()
 
     spacerDisabledAtLengthRef.current = 0
     disableTailSpacerRef.current = false
-    streamingFollowEnabledRef.current = true
+    scrollModeRef.current = 'tail-follow'
+    lockedAnchorMessageIdRef.current = null
+    hasInitialAnchorScrollDoneRef.current = true
+    latestVisibleRef.current = true
     spacerHeightRef.current = 0
     setDisableTailSpacer(false)
     setBottomSpacerHeight(0)
-  }, [chatUuid])
+  }, [cancelScheduledLayoutPass, chatUuid])
 
   useEffect(() => {
     if (!disableTailSpacer) return
@@ -408,54 +686,47 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [bottomSpacerHeight])
 
   useLayoutEffect(() => {
-    requestSpacerMeasurement()
-  }, [autoTopAnchorIndex, latestMessageIndex, messages.length, requestSpacerMeasurement])
-
-  useEffect(() => {
-    requestSpacerMeasurement()
-  }, [latestAssistantTextSignature, requestSpacerMeasurement])
-
-  useEffect(() => {
-    if (isRunStreaming) return
-    requestSpacerMeasurement()
-  }, [isRunStreaming, requestSpacerMeasurement])
-
-  useEffect(() => {
-    if (!isRunStreaming) return
-    requestTopAnchorLock()
-  }, [latestAssistantNonTextSignature, isRunStreaming, requestTopAnchorLock])
+    requestLayoutPass('transcript-change')
+  }, [
+    autoTopAnchorIndex,
+    latestAssistantNonTextSignature,
+    latestAssistantTextSignature,
+    latestMessageIndex,
+    messages.length,
+    bottomSpacerHeight,
+    isRunStreaming,
+    requestLayoutPass
+  ])
 
   useEffect(() => {
     const container = scrollParentRef.current
     if (!container) return
 
-    requestSpacerMeasurement()
+    requestLayoutPass('container-mounted')
     const containerObserver = new ResizeObserver(() => {
-      requestSpacerMeasurement()
+      requestLayoutPass('container-resize')
     })
     containerObserver.observe(container)
 
     return () => {
       containerObserver.disconnect()
     }
-  }, [artifactsPanelOpen, requestSpacerMeasurement, scrollParentRef])
+  }, [artifactsPanelOpen, requestLayoutPass, scrollParentRef])
 
   useEffect(() => {
     return () => {
-      if (spacerMeasureRafRef.current) {
-        cancelAnimationFrame(spacerMeasureRafRef.current)
-        spacerMeasureRafRef.current = 0
+      cancelScheduledLayoutPass()
+      if (suppressScrollIntentReleaseRafRef.current) {
+        cancelAnimationFrame(suppressScrollIntentReleaseRafRef.current)
+        suppressScrollIntentReleaseRafRef.current = 0
       }
-      if (topAnchorLockRafRef.current) {
-        cancelAnimationFrame(topAnchorLockRafRef.current)
-        topAnchorLockRafRef.current = 0
-      }
+      suppressScrollIntentRef.current = false
     }
-  }, [])
+  }, [cancelScheduledLayoutPass])
 
   const handleLatestAssistantTyping = useCallback(() => {
-    requestSpacerMeasurement()
-  }, [requestSpacerMeasurement])
+    requestLayoutPass('typing-change')
+  }, [requestLayoutPass])
 
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
@@ -488,15 +759,10 @@ const ChatWindowComponentNext: React.FC = () => {
               className="flex flex-col overflow-hidden relative"
               id="chat-panel"
             >
-              <div
-                ref={scrollParentRef}
-                className="flex-1 app-undragable overflow-scroll px-2 contain-layout contain-paint overscroll-contain"
-                style={{ overflowAnchor: 'none' }}
-              >
               <AnimatePresence initial={false}>
                 {displayPlans.length > 0 && (
                   <motion.div
-                    className="sticky top-0 z-30 -mx-2 px-2 pt-1 pb-1 bg-chat-light/95 dark:bg-chat-dark/95 backdrop-blur-sm overflow-hidden"
+                    className="shrink-0 px-2 pt-1 pb-1 bg-chat-light/95 dark:bg-chat-dark/95 backdrop-blur-sm overflow-hidden"
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
@@ -529,13 +795,20 @@ const ChatWindowComponentNext: React.FC = () => {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              <div
+                ref={scrollParentRef}
+                className="min-h-0 flex-1 app-undragable overflow-scroll px-2 contain-layout contain-paint overscroll-contain"
+                style={{ overflowAnchor: 'none' }}
+              >
               <Virtuoso
+                key={chatUuid ?? 'empty-chat'}
                 ref={virtuosoRef}
                 data={displayMessages}
                 className="h-full w-full"
                 customScrollParent={scrollParentRef.current ?? undefined}
                 totalListHeightChanged={() => {
-                  requestTopAnchorLock()
+                  requestLayoutPass('total-list-height-changed')
                 }}
                 components={{
                   Footer: () => <div style={{ height: bottomSpacerHeight }} />
@@ -544,7 +817,11 @@ const ChatWindowComponentNext: React.FC = () => {
                 increaseViewportBy={{ top: 200, bottom: 400 }}
                 rangeChanged={onRangeChanged}
                 itemContent={(index, message) => (
-                  <div data-index={index} className="w-full min-h-px">
+                  <div
+                    data-index={index}
+                    data-message-id={message.id ?? undefined}
+                    className="w-full min-h-px"
+                  >
                     <ChatMessageRow
                       messageIndex={index}
                       message={message}

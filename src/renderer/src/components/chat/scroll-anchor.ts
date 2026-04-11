@@ -1,4 +1,8 @@
-export type AnchorMode = 'latestMessage' | 'latestUserForAutoTop' | 'latestMinusOne'
+export type AnchorMode =
+  | 'latestMessage'
+  | 'latestUserForAutoTop'
+  | 'latestAssistantForAutoTop'
+  | 'latestMinusOne'
 
 export function resolveAnchorIndex(messages: MessageEntity[], mode: AnchorMode): number {
   const latestIndex = messages.length - 1
@@ -10,6 +14,15 @@ export function resolveAnchorIndex(messages: MessageEntity[], mode: AnchorMode):
 
   if (mode === 'latestMinusOne') {
     return latestIndex > 0 ? latestIndex - 1 : latestIndex
+  }
+
+  if (mode === 'latestAssistantForAutoTop') {
+    for (let i = latestIndex; i >= 0; i--) {
+      if (messages[i]?.body.role === 'assistant') {
+        return i
+      }
+    }
+    return latestIndex
   }
 
   for (let i = latestIndex; i >= 0; i--) {
