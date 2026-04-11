@@ -7,6 +7,7 @@ import type {
   AssistantCycleSnapshot
 } from '@main/services/agentCore/execution'
 import type { StepArtifact } from '@main/services/agentCore/types'
+import { assertChatMessageSegmentsHaveIds, assertMessageEntitySegmentsHaveIds } from '@shared/chatRun/segmentId'
 import { AssistantStepAssembler } from './AssistantStepAssembler'
 
 export class ChatStepCommitter implements AgentStepCommitter {
@@ -38,6 +39,7 @@ export class ChatStepCommitter implements AgentStepCommitter {
       body: previewBody
     }
 
+    assertMessageEntitySegmentsHaveIds(previewMessage, 'legacy-chat-step-committer:stream-preview')
     this.messageEvents.emitStreamPreviewUpdated(previewMessage)
   }
 
@@ -77,6 +79,7 @@ export class ChatStepCommitter implements AgentStepCommitter {
   }
 
   async commitToolResult(toolMsg: ChatMessage): Promise<void> {
+    assertChatMessageSegmentsHaveIds(toolMsg, 'legacy-chat-step-committer:tool-result')
     try {
       const entity = this.conversationStore.persistToolResultMessage(
         toolMsg,
@@ -122,6 +125,7 @@ export class ChatStepCommitter implements AgentStepCommitter {
       segments: updated.body.segments || [],
       toolCalls: updated.body.toolCalls
     })
+    assertMessageEntitySegmentsHaveIds(updated, 'legacy-chat-step-committer:message-updated')
     this.messageEvents.emitMessageUpdated(updated)
   }
 

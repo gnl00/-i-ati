@@ -225,6 +225,91 @@ describe('AgentRun', () => {
     await postRunDeferred.promise
   })
 
+  it('uses main agent next runtime runner when provided', async () => {
+    const postRunDeferred = createDeferred<void>()
+    const postRunPlan = {
+      title: 'skipped',
+      compression: 'skipped'
+    } as const
+    const mainAgentNextRuntimeRunner = {
+      run: vi.fn(async () => ({
+        kernelResult: {
+          state: 'completed',
+          stepResult: {
+            usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+            completed: true,
+            finishReason: 'stop',
+            requestHistoryMessages: [],
+            artifacts: []
+          }
+        },
+        uiAdapter: {
+          getFinalAssistantMessage: vi.fn(() => assistantMessage),
+          getLastUsage: vi.fn(() => ({ promptTokens: 1, completionTokens: 2, totalTokens: 3 }))
+        }
+      }))
+    }
+    const assistantStepFactory = {
+      create: vi.fn()
+    }
+    const emitter = {
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
+    }
+    const services = {
+      agentRunKernel: {
+        run: vi.fn()
+      },
+      assistantStepFactory,
+      mainAgentNextRuntimeRunner,
+      chatAgentAdapter: {
+        prepareRun: vi.fn(async () => prepared),
+        createStepRuntimeContext: vi.fn(),
+        finalizeRun: vi.fn(() => ({
+          runResult: {
+            assistantMessageId: 102,
+            usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+            state: 'completed'
+          },
+          postRunInput: {
+            submissionId: input.submissionId,
+            chatEntity: prepared.chatContext.chat,
+            messageBuffer: prepared.chatContext.messageEntities,
+            content: input.input.textCtx,
+            modelContext: prepared.runSpec.modelContext
+          }
+        }))
+      },
+      postRunJobService: {
+        getPlan: vi.fn(() => postRunPlan),
+        emitPlan: vi.fn(),
+        run: vi.fn(() => postRunDeferred.promise)
+      }
+    } as any
+    const runtime = {
+      emitter,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    }
+
+    const run = new AgentRun(input, services, runtime as any)
+    const result = await run.run()
+
+    expect(result).toEqual({
+      assistantMessageId: 102,
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      state: 'completed'
+    })
+    expect(mainAgentNextRuntimeRunner.run).toHaveBeenCalledTimes(1)
+    expect(services.agentRunKernel.run).not.toHaveBeenCalled()
+    expect(assistantStepFactory.create).not.toHaveBeenCalled()
+    expect(services.chatAgentAdapter.createStepRuntimeContext).not.toHaveBeenCalled()
+
+    postRunDeferred.resolve()
+    await postRunDeferred.promise
+  })
+
   it('emits aborted events when preparation aborts', async () => {
     const emitter = {
       emit: vi.fn(),

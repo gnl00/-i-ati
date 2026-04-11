@@ -446,6 +446,7 @@ declare interface IBaseResponse {
 // 文本片段
 declare interface TextSegment {
   type: 'text'
+  segmentId: string
   content: string
   timestamp: number
 }
@@ -453,6 +454,7 @@ declare interface TextSegment {
 // 推理片段（thinking过程）
 declare interface ReasoningSegment {
   type: 'reasoning'
+  segmentId: string
   content: string
   timestamp: number
 }
@@ -460,6 +462,7 @@ declare interface ReasoningSegment {
 // 工具调用片段
 declare interface ToolCallSegment {
   type: 'toolCall'
+  segmentId: string
   name: string
   content: any
   cost?: number
@@ -473,6 +476,7 @@ declare interface ToolCallSegment {
 declare interface ErrorSegment {
   content?: string
   type: 'error'
+  segmentId: string
   error: {
     name: string
     message: string

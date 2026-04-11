@@ -140,6 +140,17 @@ function useChatSubmitV2() {
       if (event.type === CHAT_RUN_EVENTS.MESSAGES_LOADED) {
         chatStore.clearStreamPreviewMessage()
         chatStore.setMessages(event.payload.messages)
+        if (event.payload.messages.length > 0) {
+          const state = useChatStore.getState()
+          chatStore.setScrollHint({
+            type: 'conversation-switch',
+            chatUuid: state.currentChatUuid,
+            index: event.payload.messages.length - 1,
+            align: 'end'
+          })
+        } else {
+          chatStore.clearScrollHint()
+        }
         return
       }
 
@@ -155,14 +166,31 @@ function useChatSubmitV2() {
           return
         }
         useChatStore.getState().upsertMessage(message)
+        if (event.type === CHAT_RUN_EVENTS.MESSAGE_CREATED && message.body.role === 'user') {
+          useChatStore.getState().setScrollHint({
+            type: 'user-sent',
+            chatUuid: useChatStore.getState().currentChatUuid,
+            messageId: message.id
+          })
+        }
         if (message.body.role === 'assistant') {
           chatStore.clearStreamPreviewMessage()
         }
         return
       }
 
+      if (event.type === CHAT_RUN_EVENTS.MESSAGE_SEGMENT_UPDATED) {
+        useChatStore.getState().patchMessageSegment(event.payload.messageId, event.payload.patch)
+        return
+      }
+
       if (event.type === CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED) {
         chatStore.setStreamPreviewMessage(event.payload.message)
+        return
+      }
+
+      if (event.type === CHAT_RUN_EVENTS.STREAM_PREVIEW_SEGMENT_UPDATED) {
+        chatStore.patchStreamPreviewSegment(event.payload.patch)
         return
       }
 

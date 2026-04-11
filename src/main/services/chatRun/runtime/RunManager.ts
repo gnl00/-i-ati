@@ -15,6 +15,7 @@ import type {
   ToolConfirmationManager
 } from '../infrastructure'
 import { RunRegistry } from './RunRegistry'
+import type { MainAgentNextRuntimeRunner } from './next'
 
 type StartChatRunResult = {
   accepted: true
@@ -28,6 +29,7 @@ export type RunManagerDependencies = {
   chatAgentAdapter: ChatAgentAdapter
   assistantStepFactory: AssistantStepFactory
   postRunJobService: PostRunJobService
+  mainAgentNextRuntimeRunner?: MainAgentNextRuntimeRunner
 }
 
 export class RunManager {
@@ -99,6 +101,7 @@ export class RunManager {
       assistantStepFactory: this.deps.assistantStepFactory,
       chatAgentAdapter: this.deps.chatAgentAdapter,
       postRunJobService: this.deps.postRunJobService,
+      mainAgentNextRuntimeRunner: this.deps.mainAgentNextRuntimeRunner
     }, {
       emitter,
       toolConfirmationRequester

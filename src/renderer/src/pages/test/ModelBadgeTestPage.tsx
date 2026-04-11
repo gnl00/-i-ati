@@ -8,6 +8,7 @@ import { ToolCallResultNext } from '@renderer/components/chat/chatMessage/assist
 import { ToolCallResultNextOutput } from '@renderer/components/chat/chatMessage/assistant-message/toolcall/ToolCallResultNextOutput'
 
 const mockReasoningSegment: ReasoningSegment = {
+  segmentId: 'model-badge-test:reasoning:1',
   type: 'reasoning',
   timestamp: Date.now(),
   content: [
@@ -20,6 +21,7 @@ const mockReasoningSegment: ReasoningSegment = {
 }
 
 const mockToolCallSegment: ToolCallSegment = {
+  segmentId: 'model-badge-test:toolCall:read',
   type: 'toolCall',
   name: 'read',
   timestamp: Date.now() + 2000,

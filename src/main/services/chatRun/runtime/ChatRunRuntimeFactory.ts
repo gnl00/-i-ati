@@ -4,6 +4,7 @@ import { PostRunJobService } from '@main/services/chatPostRun'
 import { ChatAgentAdapter, AssistantStepFactory } from '@main/services/hostAdapters/chat'
 import { ChatRunEventEmitterFactory, ToolConfirmationManager } from '../infrastructure'
 import { RunManager } from './RunManager'
+import { DefaultMainAgentNextRuntimeRunner } from './next'
 
 export type ChatRunRuntime = {
   toolConfirmationManager: ToolConfirmationManager
@@ -21,6 +22,7 @@ export class ChatRunRuntimeFactory {
     const chatAgentAdapter = new ChatAgentAdapter()
     const assistantStepFactory = new AssistantStepFactory()
     const postRunJobService = new PostRunJobService(eventEmitterFactory)
+    const mainAgentNextRuntimeRunner = new DefaultMainAgentNextRuntimeRunner()
 
     const runManager = new RunManager({
       toolConfirmationManager,
@@ -28,7 +30,8 @@ export class ChatRunRuntimeFactory {
       agentRunKernel,
       chatAgentAdapter,
       assistantStepFactory,
-      postRunJobService
+      postRunJobService,
+      mainAgentNextRuntimeRunner
     })
 
     return {

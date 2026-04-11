@@ -1,0 +1,911 @@
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../../mapping/ChatEventMapper', () => ({
+  ChatEventMapper: class {
+    emitStreamPreviewUpdated = vi.fn()
+    emitStreamPreviewSegmentUpdated = vi.fn()
+    emitStreamPreviewCleared = vi.fn()
+    emitToolResultAttached = vi.fn()
+    emitMessageUpdated = vi.fn()
+    emitMessageSegmentUpdated = vi.fn()
+  }
+}))
+
+vi.mock('../../persistence/ChatStepStore', () => ({
+  ChatStepStore: class {
+    persistToolResultMessage = vi.fn((body: ChatMessage, chatId?: number, chatUuid?: string) => ({
+      id: 900,
+      chatId,
+      chatUuid,
+      body
+    }))
+  }
+}))
+
+import { AgentUiAdapter } from '../AgentUiAdapter'
+
+describe('AgentUiAdapter', () => {
+  it('keeps final text when a completed step also contains tool calls', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const messageEntities = [placeholder]
+    const adapter = new AgentUiAdapter(emitter, messageEntities, placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: 'final answer',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README.md"}'
+          },
+          index: 0
+        }],
+        finishReason: 'stop'
+      }
+    })
+
+    const finalMessage = adapter.getFinalAssistantMessage()
+    expect(finalMessage.body.content).toBe('final answer')
+    expect(finalMessage.body.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'text',
+          content: 'final answer'
+        }),
+        expect.objectContaining({
+          type: 'toolCall',
+          name: 'read'
+        })
+      ])
+    )
+  })
+
+  it('marks stream preview bodies with stream_preview source', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 123,
+      delta: {
+        type: 'content_delta',
+        timestamp: 123,
+        content: 'hello'
+      },
+      snapshot: {
+        content: 'hello',
+        reasoning: '',
+        toolCalls: []
+      }
+    })
+
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    expect(emitStreamPreviewUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({
+          source: 'stream_preview',
+          content: 'hello'
+        })
+      })
+    )
+  })
+
+  it('keeps preview text segment identity stable across incremental content updates', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 123,
+      delta: {
+        type: 'content_delta',
+        timestamp: 123,
+        content: 'hello'
+      },
+      snapshot: {
+        content: 'hello',
+        reasoning: '',
+        toolCalls: []
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 124,
+      delta: {
+        type: 'content_delta',
+        timestamp: 124,
+        content: ' world'
+      },
+      snapshot: {
+        content: 'hello world',
+        reasoning: '',
+        toolCalls: []
+      }
+    })
+
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewSegmentUpdated = (adapter as any).messageEvents.emitStreamPreviewSegmentUpdated as ReturnType<typeof vi.fn>
+    const firstPreviewBody = emitStreamPreviewUpdated.mock.calls[0][0].body as ChatMessage
+    const firstTextSegment = firstPreviewBody.segments.find(
+      (segment): segment is TextSegment => segment.type === 'text'
+    )
+    const secondPatch = emitStreamPreviewSegmentUpdated.mock.calls[0][1] as {
+      segment: TextSegment
+      content?: string
+    }
+    const secondTextSegment = secondPatch.segment
+
+    expect(firstTextSegment?.segmentId).toBe('preview:step-1:text')
+    expect(secondTextSegment?.segmentId).toBe('preview:step-1:text')
+    expect(secondTextSegment?.content).toBe('hello world')
+    expect(secondPatch.content).toBe('hello world')
+  })
+
+  it('updates assistant tool-call segments when tool execution completes', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const messageEntities = [placeholder]
+    const adapter = new AgentUiAdapter(emitter, messageEntities, placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README.md"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 124,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read',
+        cost: 1680,
+        content: 'file content'
+      }
+    })
+
+    expect(adapter.getFinalAssistantMessage().body.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'toolCall',
+          toolCallId: 'tool-1',
+          cost: 1680,
+          isError: false,
+          content: expect.objectContaining({
+            status: 'success',
+            result: 'file content'
+          })
+        })
+      ])
+    )
+    expect(messageEntities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: expect.objectContaining({
+            role: 'tool',
+            toolCallId: 'tool-1',
+            content: 'file content'
+          })
+        })
+      ])
+    )
+  })
+
+  it('emits committed assistant updates as segment patches', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: 'final answer',
+        toolCalls: [],
+        finishReason: 'stop'
+      }
+    })
+
+    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
+    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
+
+    expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
+      101,
+      expect.objectContaining({
+        segment: expect.objectContaining({
+          type: 'text',
+          segmentId: 'committed:step-1:text',
+          content: 'final answer'
+        }),
+        replaceSegments: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'text',
+            segmentId: 'committed:step-1:text'
+          })
+        ]),
+        content: 'final answer',
+        typewriterCompleted: false
+      })
+    )
+    expect(emitMessageUpdated).not.toHaveBeenCalled()
+  })
+
+  it('uses committed segment patches for tool progress updates', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README.md"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
+    emitMessageUpdated.mockClear()
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'started',
+      stepId: 'step-1',
+      timestamp: 124,
+      toolCallId: 'tool-1',
+      toolCallIndex: 0,
+      toolName: 'read'
+    })
+
+    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
+    expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
+      101,
+      expect.objectContaining({
+        segment: expect.objectContaining({
+          type: 'toolCall',
+          toolCallId: 'tool-1'
+        })
+      })
+    )
+    expect(emitMessageUpdated).not.toHaveBeenCalled()
+  })
+
+  it('preserves completed typewriter state during tool progress updates', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 120,
+      delta: {
+        type: 'content_delta',
+        timestamp: 120,
+        content: 'hello'
+      },
+      snapshot: {
+        content: 'hello',
+        reasoning: '',
+        toolCalls: []
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 121,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 121,
+        content: 'hello',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README.md"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
+    emitMessageSegmentUpdated.mockClear()
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'started',
+      stepId: 'step-1',
+      timestamp: 122,
+      toolCallId: 'tool-1',
+      toolCallIndex: 0,
+      toolName: 'read'
+    })
+
+    expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
+      101,
+      expect.objectContaining({
+        typewriterCompleted: true
+      })
+    )
+  })
+
+  it('preserves prior tool-call result segments when a later completed step adds final text', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README.md"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 124,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read',
+        content: 'file content'
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 130,
+      step: {
+        status: 'completed',
+        stepId: 'step-2',
+        stepIndex: 1,
+        startedAt: 125,
+        completedAt: 130,
+        content: 'Final answer',
+        toolCalls: [],
+        finishReason: 'stop'
+      }
+    })
+
+    expect(adapter.getFinalAssistantMessage().body.content).toBe('Final answer')
+    expect(adapter.getFinalAssistantMessage().body.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'toolCall',
+          toolCallId: 'tool-1',
+          content: expect.objectContaining({
+            status: 'success',
+            result: 'file content'
+          })
+        }),
+        expect.objectContaining({
+          type: 'text',
+          content: 'Final answer'
+        })
+      ])
+    )
+  })
+
+  it('preserves prior committed text when a later completed step adds a follow-up after tool execution', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 120,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 120,
+        content: '让我先看看这颗新脑袋。',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'emotion_report',
+            arguments: '{}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 121,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'emotion_report',
+        content: { ok: true }
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 130,
+      step: {
+        status: 'completed',
+        stepId: 'step-2',
+        stepIndex: 1,
+        startedAt: 125,
+        completedAt: 130,
+        content: '新脑袋新气象，等着你验货 🫡',
+        toolCalls: [],
+        finishReason: 'stop'
+      }
+    })
+
+    expect(adapter.getFinalAssistantMessage().body.content).toBe(
+      '让我先看看这颗新脑袋。\n\n新脑袋新气象，等着你验货 🫡'
+    )
+    expect(adapter.getFinalAssistantMessage().body.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'text',
+          segmentId: 'committed:step-1:text',
+          content: '让我先看看这颗新脑袋。'
+        }),
+        expect.objectContaining({
+          type: 'text',
+          segmentId: 'committed:step-2:text',
+          content: '新脑袋新气象，等着你验货 🫡'
+        })
+      ])
+    )
+  })
+
+  it('preserves prior reasoning segments when a later completed step adds only follow-up text', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 120,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 120,
+        content: '先帮你检查一遍。',
+        reasoning: '正在核对你的当前配置和默认行为。',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README.md"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 121,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read',
+        content: 'ok'
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 130,
+      step: {
+        status: 'completed',
+        stepId: 'step-2',
+        stepIndex: 1,
+        startedAt: 125,
+        completedAt: 130,
+        content: '新脑袋新气象，等着你验货 🫡',
+        reasoning: '',
+        toolCalls: [],
+        finishReason: 'stop'
+      }
+    })
+
+    expect(adapter.getFinalAssistantMessage().body.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'reasoning',
+          segmentId: 'committed:step-1:reasoning',
+          content: '正在核对你的当前配置和默认行为。'
+        }),
+        expect.objectContaining({
+          type: 'text',
+          segmentId: 'committed:step-2:text',
+          content: '新脑袋新气象，等着你验货 🫡'
+        })
+      ])
+    )
+  })
+
+  it('marks committed assistant message as typewriter completed when preview was already active', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 120,
+      delta: {
+        type: 'content_delta',
+        timestamp: 120,
+        content: 'hello'
+      },
+      snapshot: {
+        content: 'hello',
+        reasoning: '',
+        toolCalls: []
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: 'hello',
+        toolCalls: [],
+        finishReason: 'stop'
+      }
+    })
+
+    expect(adapter.getFinalAssistantMessage().body).toEqual(
+      expect.objectContaining({
+        content: 'hello',
+        typewriterCompleted: true
+      })
+    )
+  })
+
+  it('keeps tool-call segments ordered by first appearance across steps with repeated per-step indexes', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 100,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 90,
+        completedAt: 100,
+        content: '',
+        toolCalls: [{
+          id: 'tool-b',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"b.txt"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 101,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-b',
+        toolCallIndex: 0,
+        toolName: 'read',
+        content: 'b'
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 110,
+      step: {
+        status: 'completed',
+        stepId: 'step-2',
+        stepIndex: 1,
+        startedAt: 105,
+        completedAt: 110,
+        content: 'done',
+        toolCalls: [{
+          id: 'tool-a',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"a.txt"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 111,
+      result: {
+        status: 'success',
+        stepId: 'step-2',
+        toolCallId: 'tool-a',
+        toolCallIndex: 0,
+        toolName: 'read',
+        content: 'a'
+      }
+    })
+
+    const toolCallSegments = adapter.getFinalAssistantMessage().body.segments.filter(
+      (segment): segment is ToolCallSegment => segment.type === 'toolCall'
+    )
+
+    expect(toolCallSegments.map(segment => segment.toolCallId)).toEqual(['tool-b', 'tool-a'])
+  })
+})

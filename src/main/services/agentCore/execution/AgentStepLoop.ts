@@ -1,5 +1,6 @@
 import { unifiedChatRequest } from '@main/request/index'
 import { createLogger } from '@main/services/logging/LogService'
+import { buildMessageSegmentId } from '@shared/chatRun/segmentId'
 import { AbortError } from '../errors'
 import { formatWebSearchForLLM, normalizeToolArgs } from '../utils'
 import type { ChunkParser, ParseResult } from './parser'
@@ -309,6 +310,7 @@ export class AgentStepLoop {
 
     this.cycleBuffer.appendToolResultSegment({
       type: 'toolCall',
+      segmentId: buildMessageSegmentId('toolCall', 'legacy-tool-result', result.id),
       name: result.name,
       content: {
         toolName: result.name,
@@ -347,6 +349,7 @@ export class AgentStepLoop {
 
     this.cycleBuffer.appendToolResultSegment({
       type: 'toolCall',
+      segmentId: buildMessageSegmentId('toolCall', 'legacy-tool-result', result.id),
       name: result.name,
       content: {
         toolName: result.name,

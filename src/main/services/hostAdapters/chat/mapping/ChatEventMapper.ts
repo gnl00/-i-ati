@@ -1,6 +1,11 @@
 import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
+import {
+  assertMessageEntitySegmentsHaveIds,
+  assertMessageSegmentPatchHasIds
+} from '@shared/chatRun/segmentId'
 import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
 import type { AgentMessageEventSink } from '@main/services/agentCore/ports'
+import type { ChatRunMessageSegmentPatch } from '@shared/chatRun/events'
 
 export class ChatEventMapper implements AgentMessageEventSink {
   constructor(private readonly emitter: ChatRunEventEmitter) {}
@@ -25,11 +30,32 @@ export class ChatEventMapper implements AgentMessageEventSink {
   }
 
   emitMessageUpdated(message: MessageEntity): void {
+    assertMessageEntitySegmentsHaveIds(message, 'chat-event-mapper:message-updated')
     this.emitter.emit(CHAT_RUN_EVENTS.MESSAGE_UPDATED, { message })
   }
 
+  emitMessageSegmentUpdated(messageId: number, patch: ChatRunMessageSegmentPatch): void {
+    assertMessageSegmentPatchHasIds(patch, 'chat-event-mapper:message-segment-updated')
+    this.emitter.emit(CHAT_RUN_EVENTS.MESSAGE_SEGMENT_UPDATED, {
+      messageId,
+      patch
+    })
+  }
+
   emitStreamPreviewUpdated(message: MessageEntity): void {
+    assertMessageEntitySegmentsHaveIds(message, 'chat-event-mapper:stream-preview-updated')
     this.emitter.emit(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, { message })
+  }
+
+  emitStreamPreviewSegmentUpdated(
+    target: { chatId?: number; chatUuid?: string },
+    patch: ChatRunMessageSegmentPatch
+  ): void {
+    assertMessageSegmentPatchHasIds(patch, 'chat-event-mapper:stream-preview-segment-updated')
+    this.emitter.emit(CHAT_RUN_EVENTS.STREAM_PREVIEW_SEGMENT_UPDATED, {
+      ...target,
+      patch
+    })
   }
 
   emitStreamPreviewCleared(): void {
@@ -37,6 +63,7 @@ export class ChatEventMapper implements AgentMessageEventSink {
   }
 
   emitToolResultAttached(toolCallId: string, message: MessageEntity): void {
+    assertMessageEntitySegmentsHaveIds(message, 'chat-event-mapper:tool-result-attached')
     this.emitter.emit(CHAT_RUN_EVENTS.TOOL_RESULT_ATTACHED, {
       toolCallId,
       message

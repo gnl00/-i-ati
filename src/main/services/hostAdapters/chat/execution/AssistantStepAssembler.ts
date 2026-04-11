@@ -1,4 +1,8 @@
 import type { AssistantCycleSnapshot } from '@main/services/agentCore/execution'
+import {
+  assertChatMessageSegmentsHaveIds,
+  assertMessageSegmentsHaveIds
+} from '@shared/chatRun/segmentId'
 
 type AssistantStepView = {
   committedBody: ChatMessage
@@ -11,9 +15,10 @@ export class AssistantStepAssembler {
   private currentCyclePersistentSegments: MessageSegment[] = []
 
   constructor(baseBody: ChatMessage) {
+    assertChatMessageSegmentsHaveIds(baseBody, 'legacy-chat-host-base')
     this.committedBody = {
       ...baseBody,
-      segments: [...(baseBody.segments || [])]
+      segments: baseBody.segments ? [...baseBody.segments] : []
     }
   }
 
@@ -24,11 +29,12 @@ export class AssistantStepAssembler {
   }
 
   updatePreview(snapshot: AssistantCycleSnapshot): AssistantStepView {
+    assertMessageSegmentsHaveIds(snapshot.segments, 'legacy-chat-host-preview')
     this.previewBody = {
       ...this.committedBody,
       source: 'stream_preview',
       content: snapshot.content,
-      segments: [...snapshot.segments],
+      segments: snapshot.segments ? [...snapshot.segments] : [],
       toolCalls: snapshot.toolCalls ? [...snapshot.toolCalls] : undefined,
       typewriterCompleted: false
     }
@@ -42,7 +48,8 @@ export class AssistantStepAssembler {
   }
 
   commitToolCycle(snapshot: AssistantCycleSnapshot): AssistantStepView {
-    const visibleSegments = snapshot.segments.filter(segment => (
+    assertMessageSegmentsHaveIds(snapshot.segments, 'legacy-chat-host-committed')
+    const visibleSegments = (snapshot.segments ?? []).filter(segment => (
       segment.type === 'reasoning' ||
       segment.type === 'toolCall' ||
       segment.type === 'error'
@@ -68,11 +75,12 @@ export class AssistantStepAssembler {
 
   commitFinalCycle(snapshot: AssistantCycleSnapshot): AssistantStepView {
     const previewWasActive = Boolean(this.previewBody)
+    assertMessageSegmentsHaveIds(snapshot.segments, 'legacy-chat-host-committed')
 
     this.committedBody = {
       ...this.committedBody,
       content: snapshot.content,
-      segments: [...this.getCommittedPersistentSegments(), ...snapshot.segments],
+      segments: [...this.getCommittedPersistentSegments(), ...(snapshot.segments ?? [])],
       toolCalls: this.mergeToolCalls(snapshot.toolCalls),
       // When preview already typed the final text live, avoid replaying it again on commit.
       typewriterCompleted: previewWasActive
@@ -83,15 +91,19 @@ export class AssistantStepAssembler {
   }
 
   getView(): AssistantStepView {
+    assertChatMessageSegmentsHaveIds(this.committedBody, 'legacy-chat-host-view:committed')
+    if (this.previewBody) {
+      assertChatMessageSegmentsHaveIds(this.previewBody, 'legacy-chat-host-view:preview')
+    }
     return {
       committedBody: {
         ...this.committedBody,
-        segments: [...(this.committedBody.segments || [])]
+        segments: this.committedBody.segments ? [...this.committedBody.segments] : []
       },
       previewBody: this.previewBody
         ? {
             ...this.previewBody,
-            segments: [...(this.previewBody.segments || [])]
+            segments: this.previewBody.segments ? [...this.previewBody.segments] : []
           }
         : null
     }

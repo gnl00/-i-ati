@@ -12,12 +12,14 @@ import type { RunResult } from '@main/services/agentCore/types'
 import { RunLifecycleEventMapper } from './RunLifecycleEventMapper'
 import { RunTerminalHandler } from './RunTerminalHandler'
 import { serializeError } from '@main/services/serializeError'
+import type { MainAgentNextRuntimeRunner } from './next'
 
 export type AgentRunServices = {
   agentRunKernel: AgentRunKernel
   assistantStepFactory: AssistantStepFactory
   chatAgentAdapter: ChatAgentAdapter
   postRunJobService: PostRunJobService
+  mainAgentNextRuntimeRunner?: MainAgentNextRuntimeRunner
 }
 
 export type AgentRunRuntime = {
@@ -65,6 +67,28 @@ export class AgentRun {
         chatId: runSpec.runtimeContext.chatId,
         chatUuid: runSpec.runtimeContext.chatUuid
       })
+
+      if (this.services.mainAgentNextRuntimeRunner) {
+        const nextResult = await this.services.mainAgentNextRuntimeRunner.run({
+          runInput: this.input,
+          prepared: { runSpec, chatContext },
+          emitter: this.emitter,
+          signal: this.controller.signal,
+          toolConfirmationRequester: this.runtime.toolConfirmationRequester
+        })
+
+        return await this.terminalHandler.handleKernelResult({
+          input: this.input,
+          kernelResult: nextResult.kernelResult,
+          runSpec,
+          chatContext,
+          emitter: this.emitter,
+          chatAgentAdapter: this.services.chatAgentAdapter,
+          postRunJobService: this.services.postRunJobService,
+          stepCommitter: nextResult.uiAdapter
+        })
+      }
+
       const stepContext = this.services.chatAgentAdapter.createStepRuntimeContext(chatContext)
 
       const step = this.services.assistantStepFactory.create({

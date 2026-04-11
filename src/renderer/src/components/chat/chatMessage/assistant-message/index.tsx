@@ -31,7 +31,28 @@ const EMPTY_PREVIEW_MESSAGE: ChatMessage = {
   typewriterCompleted: true
 }
 
+type SegmentRenderLayer = 'committed' | 'preview'
+
+type SegmentRenderItem = {
+  key: string
+  layer: SegmentRenderLayer
+  sourceIndex: number
+  segment: MessageSegment
+}
+
+type SupportSegmentRenderItem = SegmentRenderItem & {
+  nextSegmentTimestamp?: number
+  isStreamingTail: boolean
+}
+
+type OrderedSegmentRenderItem =
+  | { kind: 'text'; item: SegmentRenderItem }
+  | { kind: 'support'; item: SupportSegmentRenderItem }
+
 function getSegmentRenderKey(segment: MessageSegment, index: number): string {
+  if ('segmentId' in segment && typeof segment.segmentId === 'string' && segment.segmentId) {
+    return segment.segmentId
+  }
   if (segment.type === 'toolCall' && segment.toolCallId) {
     return `tool-${segment.toolCallId}`
   }
@@ -148,6 +169,107 @@ function resolveMessageProvider(
   const definition = providerDefinitions.find(item => item.id === account.providerId)
   return definition?.iconKey || definition?.id || account.providerId
 }
+
+const areSupportSegmentRenderItemsEqual = (
+  previous: SupportSegmentRenderItem[],
+  next: SupportSegmentRenderItem[]
+): boolean => {
+  if (previous.length !== next.length) return false
+
+  return previous.every((item, index) => {
+    const nextItem = next[index]
+    return item.key === nextItem.key
+      && item.layer === nextItem.layer
+      && item.sourceIndex === nextItem.sourceIndex
+      && item.segment === nextItem.segment
+      && item.nextSegmentTimestamp === nextItem.nextSegmentTimestamp
+      && item.isStreamingTail === nextItem.isStreamingTail
+  })
+}
+
+const AssistantSupportSegmentRow = memo(({
+  item
+}: {
+  item: SupportSegmentRenderItem
+}) => {
+  const { segment, key, nextSegmentTimestamp, isStreamingTail } = item
+
+  if (segment.type === 'reasoning') {
+    return (
+      <ReasoningSegmentNext
+        key={key}
+        segment={segment}
+        nextSegmentTimestamp={nextSegmentTimestamp}
+        isStreaming={isStreamingTail}
+      />
+    )
+  }
+
+  if (segment.type === 'toolCall') {
+    return <ToolCallResultNextOutput key={key} toolCall={segment} index={item.sourceIndex} />
+  }
+
+  if (segment.type === 'error') {
+    return <ErrorMessage key={key} error={segment.error} />
+  }
+
+  return null
+}, (prevProps, nextProps) => areSupportSegmentRenderItemsEqual([prevProps.item], [nextProps.item]))
+
+const AssistantTextSegmentRow = memo(({
+  item,
+  typewriter,
+  isOverlayPreview
+}: {
+  item: SegmentRenderItem
+  typewriter: ReturnType<typeof useMessageTypewriter>
+  isOverlayPreview: boolean
+}) => {
+  const { segment, key, layer, sourceIndex } = item
+  if (segment.type !== 'text') return null
+
+  const isTypedLayer = layer === 'preview' || !isOverlayPreview
+  if (isTypedLayer && !typewriter.shouldRenderSegment(sourceIndex)) {
+    return null
+  }
+
+  const visibleTokenCount = isTypedLayer ? typewriter.getSegmentVisibleLength(sourceIndex) : Infinity
+  const isTyping = visibleTokenCount !== Infinity
+  const visibleTokens = isTyping ? typewriter.getVisibleTokens(sourceIndex) : undefined
+  const hasCode = segment.content.includes('```') || segment.content.includes('`')
+
+  if (hasCode) {
+    const visibleText = visibleTokens ? visibleTokens.join('') : undefined
+    return <TextSegment key={key} segment={segment} visibleText={visibleText} animateOnChange={false} />
+  }
+
+  const mode = getStreamingTextRenderMode()
+  if (mode === 'markdown') {
+    const visibleText = visibleTokens ? visibleTokens.join('') : undefined
+    return (
+      <TextSegment
+        key={key}
+        segment={segment}
+        visibleText={visibleText}
+        animateOnChange={isTyping}
+        transitionKey={visibleText}
+      />
+    )
+  }
+
+  const proseClassName =
+    'prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300'
+
+  return (
+    <StreamingMarkdownSwitch
+      key={key}
+      text={segment.content}
+      visibleTokens={visibleTokens}
+      isTyping={isTyping}
+      className={proseClassName}
+    />
+  )
+})
 
 export interface AssistantMessageProps {
   index: number
@@ -267,11 +389,61 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
 
   if (!m || m.role !== 'assistant') return null
 
-  const committedVisibleSegments = committedTypewriter.segments.filter(segment => !isEmotionToolSegment(segment))
-  const previewVisibleSegments = isOverlayPreview
-    ? previewTypewriter.segments.filter(segment => !isEmotionToolSegment(segment))
+  const isRunBusy = runPhase !== 'idle'
+  const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
+  const isStreaming = runPhase === 'streaming'
+
+  const buildSegmentItems = (
+    segments: MessageSegment[],
+    layer: SegmentRenderLayer,
+    typewriter: ReturnType<typeof useMessageTypewriter>
+  ): OrderedSegmentRenderItem[] => {
+    const orderedItems: OrderedSegmentRenderItem[] = []
+
+    segments.forEach((segment, sourceIndex) => {
+      if (isEmotionToolSegment(segment)) return
+
+      const key = `${layer}-${getSegmentRenderKey(segment, sourceIndex)}`
+
+      if (segment.type === 'text') {
+        orderedItems.push({
+          kind: 'text',
+          item: {
+            key,
+            layer,
+            sourceIndex,
+            segment
+          }
+        })
+        return
+      }
+
+      const nextSegment = typewriter.segments[sourceIndex + 1]
+      const nextSegmentTimestamp =
+        nextSegment && 'timestamp' in nextSegment && typeof nextSegment.timestamp === 'number'
+          ? nextSegment.timestamp
+          : undefined
+
+      orderedItems.push({
+        kind: 'support',
+        item: {
+          key,
+          layer,
+          sourceIndex,
+          segment,
+          nextSegmentTimestamp,
+          isStreamingTail: layer === 'preview' && isLatest && isStreaming && sourceIndex === typewriter.segments.length - 1
+        }
+      })
+    })
+
+    return orderedItems
+  }
+
+  const committedItems = buildSegmentItems(committedTypewriter.segments, 'committed', committedTypewriter)
+  const previewItems = isOverlayPreview
+    ? buildSegmentItems(previewTypewriter.segments, 'preview', previewTypewriter)
     : []
-  const visibleSegments = [...committedVisibleSegments, ...previewVisibleSegments]
   const hasVisibleToolCalls = Array.isArray((previewMessage ?? m).toolCalls)
     && (previewMessage ?? m).toolCalls!.some(call => !isEmotionToolName(call.function?.name))
   const emotionLabel = getEmotionLabel(badgeMessage)
@@ -285,11 +457,10 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     ? previewMessage.content.trim().length > 0
     : Array.isArray(previewMessage?.content) && previewMessage.content.length > 0
   const hasContent = hasCommittedContent || hasPreviewContent
-  const hasSegments = committedVisibleSegments.length > 0 || previewVisibleSegments.length > 0 || visibleSegments.length > 0
+  const hasSegments =
+    committedItems.length > 0
+    || previewItems.length > 0
   const hasToolCalls = hasVisibleToolCalls
-  const isRunBusy = runPhase !== 'idle'
-  const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
-  const isStreaming = runPhase === 'streaming'
 
   if (!shouldRenderAssistantMessageShell({
     hasContent,
@@ -338,85 +509,6 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const modelProvider = resolveMessageProvider((previewMessage ?? m).modelRef, providerDefinitions, accounts)
   const badgeModel = (previewMessage ?? m).model
 
-  const renderSegment = (
-    segment: MessageSegment,
-    segIdx: number,
-    layer: 'committed' | 'preview'
-  ) => {
-    if (isEmotionToolSegment(segment)) return null
-    const key = `${layer}-${getSegmentRenderKey(segment, segIdx)}`
-    const typewriter = layer === 'preview' ? previewTypewriter : committedTypewriter
-    const isTypedLayer = layer === 'preview' || !isOverlayPreview
-    const sourceSegments = layer === 'preview' ? previewTypewriter.segments : committedTypewriter.segments
-
-    if (isTypedLayer && !typewriter.shouldRenderSegment(segIdx)) return null
-
-    if (segment.type === 'text') {
-      const visibleTokenCount = isTypedLayer ? typewriter.getSegmentVisibleLength(segIdx) : Infinity
-      const isTyping = visibleTokenCount !== Infinity
-      const visibleTokens = isTyping ? typewriter.getVisibleTokens(segIdx) : undefined
-      const hasCode = segment.content.includes('```') || segment.content.includes('`')
-
-      if (hasCode) {
-        const visibleText = visibleTokens ? visibleTokens.join('') : undefined
-        return <TextSegment key={key} segment={segment} visibleText={visibleText} animateOnChange={false} />
-      }
-
-      const mode = getStreamingTextRenderMode()
-      if (mode === 'markdown') {
-        const visibleText = visibleTokens ? visibleTokens.join('') : undefined
-        return (
-          <TextSegment
-            key={key}
-            segment={segment}
-            visibleText={visibleText}
-            animateOnChange={isTyping}
-            transitionKey={visibleText}
-          />
-        )
-      }
-
-      const proseClassName =
-        'prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-blue-600 dark:text-slate-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300'
-      return (
-        <StreamingMarkdownSwitch
-          key={key}
-          text={segment.content}
-          visibleTokens={visibleTokens}
-          isTyping={isTyping}
-          className={proseClassName}
-        />
-      )
-    }
-
-    if (segment.type === 'reasoning') {
-      const nextSegment = sourceSegments[segIdx + 1]
-      const nextSegmentTimestamp =
-        nextSegment && 'timestamp' in nextSegment && typeof nextSegment.timestamp === 'number'
-          ? nextSegment.timestamp
-          : undefined
-
-      return (
-        <ReasoningSegmentNext
-          key={key}
-          segment={segment}
-          nextSegmentTimestamp={nextSegmentTimestamp}
-          isStreaming={isTypedLayer && isLatest && isStreaming && segIdx === sourceSegments.length - 1}
-        />
-      )
-    }
-
-    if (segment.type === 'toolCall') {
-      return <ToolCallResultNextOutput key={key} toolCall={segment} index={index} />
-    }
-
-    if (segment.type === 'error') {
-      return <ErrorMessage key={key} error={segment.error} />
-    }
-
-    return null
-  }
-
   return (
     <div
       id={'assistant-message-' + index}
@@ -442,8 +534,30 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         )}
 
         {/* Segments */}
-        {committedVisibleSegments.map((segment, segIdx) => renderSegment(segment, segIdx, 'committed'))}
-        {previewVisibleSegments.map((segment, segIdx) => renderSegment(segment, segIdx, 'preview'))}
+        {committedItems.map((entry) => (
+          entry.kind === 'text'
+            ? (
+              <AssistantTextSegmentRow
+                key={entry.item.key}
+                item={entry.item}
+                typewriter={committedTypewriter}
+                isOverlayPreview={isOverlayPreview}
+              />
+            )
+            : <AssistantSupportSegmentRow key={entry.item.key} item={entry.item} />
+        ))}
+        {previewItems.map((entry) => (
+          entry.kind === 'text'
+            ? (
+              <AssistantTextSegmentRow
+                key={entry.item.key}
+                item={entry.item}
+                typewriter={previewTypewriter}
+                isOverlayPreview={isOverlayPreview}
+              />
+            )
+            : <AssistantSupportSegmentRow key={entry.item.key} item={entry.item} />
+        ))}
 
         {/* Command Confirmation */}
         {isCommandConfirmPending && (

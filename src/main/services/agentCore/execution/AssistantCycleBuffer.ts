@@ -1,6 +1,7 @@
 import type { ParseResult, SegmentDelta } from './parser'
 import { SegmentBuilder } from './parser'
 import { extractContentFromSegments } from './parser/segment-content'
+import { buildMessageSegmentId } from '@shared/chatRun/segmentId'
 
 export type AssistantCycleSnapshot = {
   content: string
@@ -21,6 +22,7 @@ export class AssistantCycleBuffer {
     this.segments = content.trim()
       ? [{
           type: 'text',
+          segmentId: buildMessageSegmentId('text', 'legacy-cycle', Date.now()),
           content,
           timestamp: Date.now()
         }]

@@ -4,6 +4,7 @@
  */
 
 import type { SegmentBuilder as ISegmentBuilder } from './types'
+import { buildMessageSegmentId } from '@shared/chatRun/segmentId'
 
 export class SegmentBuilder implements ISegmentBuilder {
   /**
@@ -37,6 +38,7 @@ export class SegmentBuilder implements ISegmentBuilder {
         ...segments,
         {
           type,
+          segmentId: buildMessageSegmentId(type, 'legacy-parser', `${Date.now()}:${segments.length}`),
           content: delta,
           timestamp: Date.now()
         }

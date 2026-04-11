@@ -32,6 +32,14 @@ export type ChatRunToolCall = {
   index?: number
 }
 
+export type ChatRunMessageSegmentPatch = {
+  segment: MessageSegment
+  replaceSegments?: MessageSegment[]
+  content?: ChatMessage['content']
+  toolCalls?: IToolCall[]
+  typewriterCompleted?: boolean
+}
+
 export const CHAT_RUN_EVENTS = {
   RUN_ACCEPTED: 'run.accepted',
   RUN_STATE_CHANGED: 'run.state.changed',
@@ -43,7 +51,9 @@ export const CHAT_RUN_EVENTS = {
   MESSAGES_LOADED: 'messages.loaded',
   MESSAGE_CREATED: 'message.created',
   MESSAGE_UPDATED: 'message.updated',
+  MESSAGE_SEGMENT_UPDATED: 'message.segment.updated',
   STREAM_PREVIEW_UPDATED: 'stream.preview.updated',
+  STREAM_PREVIEW_SEGMENT_UPDATED: 'stream.preview.segment.updated',
   STREAM_PREVIEW_CLEARED: 'stream.preview.cleared',
   TOOL_CALL_DETECTED: 'tool.call.detected',
   TOOL_EXEC_REQUIRES_CONFIRMATION: 'tool.exec.requires_confirmation',
@@ -80,7 +90,13 @@ export type ChatRunEventPayloads = {
   'messages.loaded': { messages: MessageEntity[] }
   'message.created': { message: MessageEntity }
   'message.updated': { message: MessageEntity }
+  'message.segment.updated': { messageId: number; patch: ChatRunMessageSegmentPatch }
   'stream.preview.updated': { message: MessageEntity }
+  'stream.preview.segment.updated': {
+    chatId?: number
+    chatUuid?: string
+    patch: ChatRunMessageSegmentPatch
+  }
   'stream.preview.cleared': {}
   'tool.call.detected': { toolCall: ChatRunToolCall }
   'tool.exec.requires_confirmation': {

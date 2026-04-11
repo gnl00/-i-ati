@@ -71,15 +71,15 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
           </div>
           <div className="h-px flex-1 bg-slate-200/70 dark:bg-slate-700/70" />
         </div>
-        <AssistantMessage
-          index={index}
-          message={message}
-          previewMessage={previewMessage}
-          isLatest={isLatest}
-          isHovered={hoverState.assistantMessageHovered}
-          onHover={hoverState.onMouseHoverAssistantMsg}
-          onCopyClick={onCopyClick}
-          onTypingChange={onTypingChange}
+      <AssistantMessage
+        index={index}
+        message={message}
+        previewMessage={previewMessage}
+        isLatest={isLatest}
+        isHovered={hoverState.assistantMessageHovered}
+        onHover={hoverState.onMouseHoverAssistantMsg}
+        onCopyClick={onCopyClick}
+        onTypingChange={onTypingChange}
         />
       </>
     )

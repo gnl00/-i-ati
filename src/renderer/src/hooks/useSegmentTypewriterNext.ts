@@ -134,6 +134,9 @@ export const useSegmentTypewriterNext = (
   }, [granularity])
 
   const getSegmentKey = useCallback((segment: MessageSegment, index: number): string => {
+    if ('segmentId' in segment && typeof segment.segmentId === 'string' && segment.segmentId) {
+      return segment.segmentId
+    }
     if (segment.type === 'toolCall' && segment.toolCallId) {
       return `tool-${segment.toolCallId}`
     }

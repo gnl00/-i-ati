@@ -1,6 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatStepCommitter } from '../ChatStepCommitter'
 
+const textSegment = (content: string, timestamp: number): TextSegment => ({
+  type: 'text',
+  segmentId: `test:text:${timestamp}:${content}`,
+  content,
+  timestamp
+})
+
+const reasoningSegment = (content: string, timestamp: number): ReasoningSegment => ({
+  type: 'reasoning',
+  segmentId: `test:reasoning:${timestamp}:${content}`,
+  content,
+  timestamp
+})
+
+const toolCallSegment = (
+  toolCallId: string,
+  name: string,
+  timestamp: number,
+  content: ToolCallSegment['content'],
+  toolCallIndex?: number
+): ToolCallSegment => ({
+  type: 'toolCall',
+  segmentId: `test:toolCall:${toolCallId}`,
+  name,
+  timestamp,
+  toolCallId,
+  ...(toolCallIndex !== undefined ? { toolCallIndex } : {}),
+  content
+})
+
 const noopMessageEvents = {
   emitMessageUpdated: vi.fn(),
   emitStreamPreviewUpdated: vi.fn(),
@@ -37,11 +67,7 @@ describe('ChatStepCommitter', () => {
 
     committer.commitFinalCycle({
       content: 'Final answer',
-      segments: [{
-        type: 'text',
-        content: 'Final answer',
-        timestamp: Date.now()
-      }]
+      segments: [textSegment('Final answer', Date.now())]
     })
 
     expect(committer.getFinalAssistantMessage().body.content).toBe('Final answer')
@@ -68,11 +94,7 @@ describe('ChatStepCommitter', () => {
 
     committer.commitToolOnlyCycle({
       content: 'Intermediate summary that should stay hidden',
-      segments: [{
-        type: 'text',
-        content: 'Intermediate summary that should stay hidden',
-        timestamp: Date.now()
-      }],
+      segments: [textSegment('Intermediate summary that should stay hidden', Date.now())],
       toolCalls: [{
         id: 'tool-1',
         type: 'function',
@@ -109,16 +131,8 @@ describe('ChatStepCommitter', () => {
     committer.commitToolOnlyCycle({
       content: 'hidden answer draft',
       segments: [
-        {
-          type: 'reasoning',
-          content: 'thinking...',
-          timestamp: Date.now()
-        },
-        {
-          type: 'text',
-          content: 'hidden answer draft',
-          timestamp: Date.now()
-        }
+        reasoningSegment('thinking...', Date.now()),
+        textSegment('hidden answer draft', Date.now())
       ]
     })
 
@@ -151,11 +165,7 @@ describe('ChatStepCommitter', () => {
 
     committer.commitFinalCycle({
       content: 'Final answer after emotion sync',
-      segments: [{
-        type: 'text',
-        content: 'Final answer after emotion sync',
-        timestamp: Date.now()
-      }],
+      segments: [textSegment('Final answer after emotion sync', Date.now())],
       toolCalls: [{
         id: 'tool-1',
         type: 'function',
@@ -190,26 +200,16 @@ describe('ChatStepCommitter', () => {
 
     committer.commitToolOnlyCycle({
       content: 'hidden tool draft',
-      segments: [{
-        type: 'toolCall',
-        name: 'web_search',
-        timestamp: Date.now(),
-        toolCallId: 'tool-1',
-        content: {
-          toolName: 'web_search',
-          status: 'success',
-          result: { ok: true }
-        }
-      }]
+      segments: [toolCallSegment('tool-1', 'web_search', Date.now(), {
+        toolName: 'web_search',
+        status: 'success',
+        result: { ok: true }
+      })]
     })
 
     committer.commitFinalCycle({
       content: 'Final answer after tool execution',
-      segments: [{
-        type: 'text',
-        content: 'Final answer after tool execution',
-        timestamp: Date.now()
-      }]
+      segments: [textSegment('Final answer after tool execution', Date.now())]
     })
 
     expect(committer.getFinalAssistantMessage().body.content).toBe('Final answer after tool execution')
@@ -246,17 +246,11 @@ describe('ChatStepCommitter', () => {
     committer.beginCycle()
     committer.commitToolOnlyCycle({
       content: 'first hidden tool draft',
-      segments: [{
-        type: 'toolCall',
-        name: 'memory_retrieval',
-        timestamp: 1,
-        toolCallId: 'tool-1',
-        content: {
-          toolName: 'memory_retrieval',
-          status: 'success',
-          result: { ok: true }
-        }
-      }],
+      segments: [toolCallSegment('tool-1', 'memory_retrieval', 1, {
+        toolName: 'memory_retrieval',
+        status: 'success',
+        result: { ok: true }
+      })],
       toolCalls: [{
         id: 'tool-1',
         type: 'function',
@@ -270,17 +264,11 @@ describe('ChatStepCommitter', () => {
     committer.beginCycle()
     committer.commitToolOnlyCycle({
       content: 'second hidden tool draft',
-      segments: [{
-        type: 'toolCall',
-        name: 'emotion_report',
-        timestamp: 2,
-        toolCallId: 'tool-2',
-        content: {
-          toolName: 'emotion_report',
-          status: 'success',
-          result: { ok: true }
-        }
-      }],
+      segments: [toolCallSegment('tool-2', 'emotion_report', 2, {
+        toolName: 'emotion_report',
+        status: 'success',
+        result: { ok: true }
+      })],
       toolCalls: [{
         id: 'tool-2',
         type: 'function',
@@ -328,21 +316,13 @@ describe('ChatStepCommitter', () => {
     committer.beginCycle()
     committer.commitToolOnlyCycle({
       content: 'hidden cycle one',
-      segments: [{
-        type: 'reasoning',
-        content: 'same reasoning',
-        timestamp: 100
-      }]
+      segments: [reasoningSegment('same reasoning', 100)]
     })
 
     committer.beginCycle()
     committer.commitToolOnlyCycle({
       content: 'hidden cycle two',
-      segments: [{
-        type: 'reasoning',
-        content: 'same reasoning',
-        timestamp: 100
-      }]
+      segments: [reasoningSegment('same reasoning', 100)]
     })
 
     expect(committer.getFinalAssistantMessage().body.segments).toEqual([
@@ -380,11 +360,7 @@ describe('ChatStepCommitter', () => {
 
     committer.updateStreamPreview({
       content: 'Preview answer',
-      segments: [{
-        type: 'text',
-        content: 'Preview answer',
-        timestamp: Date.now()
-      }]
+      segments: [textSegment('Preview answer', Date.now())]
     })
 
     expect(noopMessageEvents.emitStreamPreviewUpdated).toHaveBeenCalledWith(

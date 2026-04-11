@@ -1,6 +1,7 @@
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { messagePersistence } from '@renderer/services/messages/MessagePersistenceService'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import { buildMessageSegmentId } from '@shared/chatRun/segmentId'
 import { resolveExistingChatModelRef, resolveNewChatModelRef, isModelRefAvailable } from '@shared/services/ChatModelResolver'
 import { create } from 'zustand'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
@@ -12,6 +13,110 @@ export type PostRunJobsState = {
   compression: PostRunJobStatus
 }
 export type ChatRunOutcome = 'idle' | 'completed' | 'failed' | 'aborted'
+
+function areSegmentsEquivalent(previous: MessageSegment, next: MessageSegment): boolean {
+  if (previous.type !== next.type) return false
+  if (previous.segmentId && next.segmentId && previous.segmentId !== next.segmentId) return false
+
+  switch (next.type) {
+    case 'text':
+      return previous.type === 'text'
+        && previous.content === next.content
+        && previous.timestamp === next.timestamp
+        && previous.segmentId === next.segmentId
+    case 'reasoning':
+      return previous.type === 'reasoning'
+        && previous.content === next.content
+        && previous.timestamp === next.timestamp
+        && previous.segmentId === next.segmentId
+    case 'toolCall':
+      return previous.type === 'toolCall'
+        && previous.segmentId === next.segmentId
+        && previous.name === next.name
+        && previous.toolCallId === next.toolCallId
+        && previous.toolCallIndex === next.toolCallIndex
+        && previous.timestamp === next.timestamp
+        && previous.cost === next.cost
+        && previous.isError === next.isError
+        && previous.content?.status === next.content?.status
+        && previous.content?.args === next.content?.args
+        && previous.content?.error === next.content?.error
+        && previous.content?.result === next.content?.result
+        && previous.content?.raw === next.content?.raw
+    case 'error':
+      return previous.type === 'error'
+        && previous.segmentId === next.segmentId
+        && previous.error.timestamp === next.error.timestamp
+        && previous.error.name === next.error.name
+        && previous.error.message === next.error.message
+        && previous.error.code === next.error.code
+        && previous.error.stack === next.error.stack
+    default:
+      return false
+  }
+}
+
+function getSegmentIdentity(segment: MessageSegment, index: number): string {
+  if (segment.segmentId) return segment.segmentId
+  if (segment.type === 'toolCall' && segment.toolCallId) return `tool:${segment.toolCallId}`
+  if (segment.type === 'error') return `error:${segment.error.timestamp}:${index}`
+  return `${segment.type}:${('timestamp' in segment && typeof segment.timestamp === 'number') ? segment.timestamp : index}`
+}
+
+function mergeSegmentsByIdentity(
+  previous: MessageSegment[] | undefined,
+  next: MessageSegment[] | undefined
+): MessageSegment[] {
+  if (!next?.length) return next ?? []
+  if (!previous?.length) return next
+
+  const previousById = new Map<string, MessageSegment>()
+  previous.forEach((segment, index) => {
+    previousById.set(getSegmentIdentity(segment, index), segment)
+  })
+
+  return next.map((segment, index) => {
+    const previousSegment = previousById.get(getSegmentIdentity(segment, index))
+    if (!previousSegment) {
+      return segment
+    }
+    return areSegmentsEquivalent(previousSegment, segment) ? previousSegment : segment
+  })
+}
+
+function mergeMessageEntityPreservingSegments(
+  previous: MessageEntity,
+  next: MessageEntity
+): MessageEntity {
+  return {
+    ...next,
+    body: {
+      ...next.body,
+      segments: mergeSegmentsByIdentity(previous.body.segments, next.body.segments)
+    }
+  }
+}
+
+function patchSegmentsByIdentity(
+  existing: MessageSegment[] | undefined,
+  patch: MessageSegment
+): MessageSegment[] {
+  const current = existing ?? []
+  const patchIdentity = getSegmentIdentity(patch, current.length)
+  const index = current.findIndex((segment, segmentIndex) => (
+    getSegmentIdentity(segment, segmentIndex) === patchIdentity
+  ))
+
+  if (index < 0) {
+    return [...current, patch]
+  }
+
+  return current.map((segment, segmentIndex) => (
+    segmentIndex === index
+      ? (areSegmentsEquivalent(segment, patch) ? segment : patch)
+      : segment
+  ))
+}
 
 function hasAssistantPayload(message: ChatMessage): boolean {
   const hasContent = typeof message.content === 'string'
@@ -66,6 +171,11 @@ export type ChatState = {
   chatTitle: string
   chatList: ChatEntity[]
   userInstruction: string
+  scrollHint: (
+    | { type: 'none' }
+    | { type: 'conversation-switch'; chatUuid: string | null; index: number; align: 'start' | 'end' }
+    | { type: 'user-sent'; chatUuid: string | null; messageId?: number }
+  )
   // Request state
   runPhase: ChatRunPhase
   postRunJobs: PostRunJobsState
@@ -103,6 +213,8 @@ export type ChatAction = {
   setChatId: (chatId: number | null) => void
   setChatUuid: (chatUuid: string | null) => void
   setUserInstruction: (value: string) => void
+  setScrollHint: (hint: ChatState['scrollHint']) => void
+  clearScrollHint: () => void
   updateWorkspacePath: (workspacePath?: string) => Promise<void>
 
   // 数据操作方法（通过 IPC 与 SQLite 同步）
@@ -118,6 +230,20 @@ export type ChatAction = {
   updateLastAssistantMessageWithError: (error: Error) => Promise<number | undefined>
   clearMessages: () => void
   setCurrentChat: (chatId: number | null, chatUuid: string | null) => void
+  patchStreamPreviewSegment: (patch: {
+    segment: MessageSegment
+    replaceSegments?: MessageSegment[]
+    content?: ChatMessage['content']
+    toolCalls?: IToolCall[]
+    typewriterCompleted?: boolean
+  }) => void
+  patchMessageSegment: (messageId: number, patch: {
+    segment: MessageSegment
+    replaceSegments?: MessageSegment[]
+    content?: ChatMessage['content']
+    toolCalls?: IToolCall[]
+    typewriterCompleted?: boolean
+  }) => void
 
   // 向后兼容的方法（内部会调用上面新的数据操作方法）
   setMessages: (msgs: MessageEntity[]) => void
@@ -136,6 +262,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   chatTitle: 'NewChat',
   chatList: [],
   userInstruction: '',
+  scrollHint: { type: 'none' },
 
   // Request state
   runPhase: 'idle',
@@ -232,7 +359,38 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   setChatId: (chatId) => set({ currentChatId: chatId }),
   setChatUuid: (chatUuid) => set({ currentChatUuid: chatUuid }),
   setUserInstruction: (value) => set({ userInstruction: value }),
-  setStreamPreviewMessage: (message) => set({ streamPreviewMessage: message }),
+  setScrollHint: (hint) => set({ scrollHint: hint }),
+  clearScrollHint: () => set({ scrollHint: { type: 'none' } }),
+  setStreamPreviewMessage: (message) => set((prevState) => ({
+    streamPreviewMessage: message && prevState.streamPreviewMessage
+      ? mergeMessageEntityPreservingSegments(prevState.streamPreviewMessage, message)
+      : message
+  })),
+  patchStreamPreviewSegment: (patch) => set((prevState) => {
+    if (!prevState.streamPreviewMessage) {
+      return prevState
+    }
+
+    return {
+      streamPreviewMessage: {
+        ...prevState.streamPreviewMessage,
+        body: {
+          ...prevState.streamPreviewMessage.body,
+          ...(patch.content !== undefined ? { content: patch.content } : {}),
+          ...(patch.toolCalls !== undefined ? { toolCalls: patch.toolCalls } : {}),
+          ...(patch.typewriterCompleted !== undefined
+            ? { typewriterCompleted: patch.typewriterCompleted }
+            : {}),
+          segments: patch.replaceSegments
+            ? mergeSegmentsByIdentity(undefined, patch.replaceSegments)
+            : patchSegmentsByIdentity(
+                prevState.streamPreviewMessage.body.segments,
+                patch.segment
+              )
+        }
+      }
+    }
+  }),
   clearStreamPreviewMessage: () => set({ streamPreviewMessage: null }),
   updateWorkspacePath: async (workspacePath) => {
     const state = get()
@@ -280,7 +438,15 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       chatTitle: chat.title || 'NewChat',
       userInstruction: chat.userInstruction || '',
       messages: messages,
-      streamPreviewMessage: null
+      streamPreviewMessage: null,
+      scrollHint: messages.length > 0
+        ? {
+          type: 'conversation-switch',
+          chatUuid: chat.uuid,
+          index: messages.length - 1,
+          align: 'end'
+        }
+        : { type: 'none' }
     })
     get().syncSelectedModelRefForChat(chat, messages)
   },
@@ -425,7 +591,9 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       const index = prevState.messages.findIndex((m) => m.id === message.id)
       if (index >= 0) {
         return {
-          messages: prevState.messages.map((m) => (m.id === message.id ? message : m))
+          messages: prevState.messages.map((m) => (
+            m.id === message.id ? mergeMessageEntityPreservingSegments(m, message) : m
+          ))
         }
       }
 
@@ -434,6 +602,26 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
       }
     })
   },
+  patchMessageSegment: (messageId, patch) => set((prevState) => ({
+    messages: prevState.messages.map((message) => (
+      message.id === messageId
+        ? {
+          ...message,
+          body: {
+            ...message.body,
+            ...(patch.content !== undefined ? { content: patch.content } : {}),
+            ...(patch.toolCalls !== undefined ? { toolCalls: patch.toolCalls } : {}),
+            ...(patch.typewriterCompleted !== undefined
+              ? { typewriterCompleted: patch.typewriterCompleted }
+              : {}),
+            segments: patch.replaceSegments
+              ? mergeSegmentsByIdentity(undefined, patch.replaceSegments)
+              : patchSegmentsByIdentity(message.body.segments, patch.segment)
+          }
+        }
+        : message
+    ))
+  })),
 
   /**
    * 更新最后一条 assistant 消息，添加错误信息
@@ -463,6 +651,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
 
     const errorSegment: ErrorSegment = {
       type: 'error',
+      segmentId: buildMessageSegmentId('error', 'renderer-chat-store', Date.now()),
       error: {
         name: error.name || 'Error',
         message: error.message || 'Unknown error',

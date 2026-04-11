@@ -14,6 +14,54 @@ interface ToolCallResultNextOutputProps {
   index: number
 }
 
+type ToolCallRenderContent = Record<string, unknown> | undefined
+
+function getToolCallRenderContent(segment: ToolCallSegment): ToolCallRenderContent {
+  return segment.content as ToolCallRenderContent
+}
+
+function hasSameToolCallIdentity(previous: ToolCallSegment, next: ToolCallSegment): boolean {
+  return previous.segmentId === next.segmentId
+    && previous.name === next.name
+    && previous.toolCallId === next.toolCallId
+    && previous.toolCallIndex === next.toolCallIndex
+}
+
+function hasSameToolCallTiming(previous: ToolCallSegment, next: ToolCallSegment): boolean {
+  return previous.timestamp === next.timestamp
+    && previous.cost === next.cost
+}
+
+function hasSameToolCallRenderState(previous: ToolCallRenderContent, next: ToolCallRenderContent): boolean {
+  return previous?.status === next?.status
+    && previous?.args === next?.args
+    && previous?.error === next?.error
+    && previous?.result === next?.result
+    && previous?.raw === next?.raw
+}
+
+const areToolCallSegmentsEqual = (
+  previous: ToolCallSegment,
+  next: ToolCallSegment
+): boolean => {
+  if (!hasSameToolCallIdentity(previous, next)) {
+    return false
+  }
+
+  if (!hasSameToolCallTiming(previous, next)) {
+    return false
+  }
+
+  if (previous.isError !== next.isError) {
+    return false
+  }
+
+  return hasSameToolCallRenderState(
+    getToolCallRenderContent(previous),
+    getToolCallRenderContent(next)
+  )
+}
+
 function SegmentedToggle({
   leftLabel,
   rightLabel,
@@ -65,7 +113,7 @@ function SegmentedToggle({
   )
 }
 
-export const ToolCallResultNextOutput: React.FC<ToolCallResultNextOutputProps> = React.memo(({ toolCall: tc }) => {
+const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps> = ({ toolCall: tc }) => {
   const [openItem, setOpenItem] = useState<string>('')
   const [showDetails, setShowDetails] = useState(false)
 
@@ -376,4 +424,9 @@ export const ToolCallResultNextOutput: React.FC<ToolCallResultNextOutputProps> =
       </Accordion>
     </motion.div>
   )
-})
+}
+
+export const ToolCallResultNextOutput = React.memo(
+  ToolCallResultNextOutputComponent,
+  (prevProps, nextProps) => areToolCallSegmentsEqual(prevProps.toolCall, nextProps.toolCall)
+)
