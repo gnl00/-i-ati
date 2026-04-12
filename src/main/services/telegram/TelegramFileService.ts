@@ -1,8 +1,8 @@
 import { net } from 'electron'
 import { Bot } from 'grammy'
 import { lookup as lookupMimeType } from 'mime-types'
-import { createLogger } from '@main/services/logging/LogService'
-import type { TelegramInboundEnvelope, TelegramInboundMedia } from '@main/services/hostAdapters/telegram'
+import { createLogger } from '@main/logging/LogService'
+import type { TelegramInboundEnvelope, TelegramInboundMedia } from '@main/hosts/telegram'
 
 const MAX_INLINE_FILE_SIZE = 10 * 1024 * 1024
 const MAX_INLINE_TEXT_FILE_SIZE = 32 * 1024
@@ -23,7 +23,6 @@ export type TelegramAttachmentContext = {
 
 export class TelegramFileService {
   private readonly logger = createLogger('TelegramFileService')
-  private readonly effectiveFetch: typeof fetch = this.resolveFetch()
 
   private resolveFetch(): typeof fetch {
     if (typeof net?.fetch === 'function') {
@@ -43,7 +42,7 @@ export class TelegramFileService {
           continue
         }
 
-        const response = await this.effectiveFetch(`https://api.telegram.org/file/bot${bot.token}/${file.file_path}`)
+        const response = await this.resolveFetch()(`https://api.telegram.org/file/bot${bot.token}/${file.file_path}`)
         if (!response.ok) {
           throw new Error(`Failed to download telegram file: ${response.status}`)
         }

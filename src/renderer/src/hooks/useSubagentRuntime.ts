@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { subscribeChatRunEvents } from '@renderer/invoker/ipcInvoker'
+import { subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
 import { useSubagentRuntimeStore } from '@renderer/store/subagentRuntime'
-import { CHAT_RUN_EVENTS, type ChatRunEvent } from '@shared/chatRun/events'
+import { RUN_EVENTS, type RunEvent } from '@shared/run/events'
 
 export function useSubagentRuntime(chatUuid?: string | null): void {
   const upsert = useSubagentRuntimeStore(state => state.upsert)
@@ -9,18 +9,18 @@ export function useSubagentRuntime(chatUuid?: string | null): void {
   const clear = useSubagentRuntimeStore(state => state.clear)
 
   useEffect(() => {
-    const unsubscribe = subscribeChatRunEvents((event: ChatRunEvent) => {
+    const unsubscribe = subscribeRunEvents((event: RunEvent) => {
       if (chatUuid && event.chatUuid && event.chatUuid !== chatUuid) {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.SUBAGENT_UPDATED) {
+      if (event.type === RUN_EVENTS.SUBAGENT_UPDATED) {
         upsert(event.payload.subagent)
         return
       }
 
       if (
-        event.type === CHAT_RUN_EVENTS.TOOL_EXEC_REQUIRES_CONFIRMATION
+        event.type === RUN_EVENTS.TOOL_CONFIRMATION_REQUIRED
         && event.payload.agent?.kind === 'subagent'
         && event.payload.agent.subagentId
       ) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SubagentAgentEventSink } from '../next/SubagentAgentEventSink'
+import { SubagentAgentEventSink } from '../runtime/SubagentAgentEventSink'
 
 describe('SubagentAgentEventSink', () => {
   it('collects tools used and files touched from tool events', async () => {

@@ -1,5 +1,5 @@
 import { net } from 'electron'
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 import type {
   RemotePluginCatalogItem,
   RemotePluginRegistryDocument,

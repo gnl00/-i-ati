@@ -26,7 +26,7 @@ vi.mock('@main/main-window', () => ({
 }))
 
 describe('SubagentRuntimeFactory', () => {
-  it('delegates to next runtime runner', async () => {
+  it('delegates to runtime runner', async () => {
     const { SubagentRuntimeFactory } = await import('../subagent-runtime-factory')
     const appConfigStore = {
       requireConfig: vi.fn(() => ({}))
@@ -55,9 +55,9 @@ describe('SubagentRuntimeFactory', () => {
     const systemPromptComposer = {
       compose: vi.fn(async () => ['base system prompt'])
     }
-    const nextRuntimeRunner = {
+    const runtimeRunner = {
       run: vi.fn(async () => ({
-        summary: 'next summary',
+        summary: 'runtime summary',
         artifacts: {
           tools_used: ['read'],
           files_touched: []
@@ -69,7 +69,7 @@ describe('SubagentRuntimeFactory', () => {
       appConfigStore as any,
       modelContextResolver as any,
       systemPromptComposer as any,
-      nextRuntimeRunner as any
+      runtimeRunner as any
     )
 
     const result = await factory.run({
@@ -84,8 +84,8 @@ describe('SubagentRuntimeFactory', () => {
       }
     })
 
-    expect(result.summary).toBe('next summary')
-    expect(nextRuntimeRunner.run).toHaveBeenCalledWith(
+    expect(result.summary).toBe('runtime summary')
+    expect(runtimeRunner.run).toHaveBeenCalledWith(
       expect.objectContaining({
         subagentId: 'sub-1'
       }),

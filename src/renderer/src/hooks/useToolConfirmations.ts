@@ -1,19 +1,19 @@
 import { useEffect } from 'react'
-import { subscribeChatRunEvents } from '@renderer/invoker/ipcInvoker'
+import { subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
-import type { ChatRunEvent } from '@shared/chatRun/events'
+import { RUN_EVENTS, type RunEvent } from '@shared/run/events'
 
 export function useToolConfirmations(chatUuid?: string | null): void {
   const enqueue = useToolConfirmationStore(state => state.enqueue)
   const clear = useToolConfirmationStore(state => state.clear)
 
   useEffect(() => {
-    const unsubscribe = subscribeChatRunEvents((event: ChatRunEvent) => {
+    const unsubscribe = subscribeRunEvents((event: RunEvent) => {
       if (chatUuid && event.chatUuid && event.chatUuid !== chatUuid) {
         return
       }
 
-      if (event.type === 'tool.exec.requires_confirmation') {
+      if (event.type === RUN_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
         enqueue(event.payload)
       }
     })

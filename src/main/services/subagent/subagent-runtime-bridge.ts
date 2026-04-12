@@ -1,14 +1,14 @@
 import type {
   ToolConfirmationRequest,
   ToolConfirmationRequester
-} from '@main/services/agent/contracts'
-import type { ChatRunEventEmitter } from '@main/services/chatRun/infrastructure'
-import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
+} from '@main/agent/contracts'
+import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
+import { RUN_OUTPUT_EVENTS } from '@shared/run/output-events'
 import type { SubagentRecord } from '@tools/subagent/index.d'
 
 type ParentRuntimeChannel = {
   requester: ToolConfirmationRequester
-  emitter: ChatRunEventEmitter
+  emitter: RunEventEmitter
 }
 
 class SubagentRuntimeBridge {
@@ -36,7 +36,7 @@ class SubagentRuntimeBridge {
       return
     }
 
-    channel.emitter.emit(CHAT_RUN_EVENTS.SUBAGENT_UPDATED, { subagent })
+    channel.emitter.emit(RUN_OUTPUT_EVENTS.SUBAGENT_UPDATED, { subagent })
   }
 }
 

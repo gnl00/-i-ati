@@ -1,4 +1,4 @@
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 import type { SubagentRecord } from '@tools/subagent/index.d'
 import { SubagentRegistry } from './subagent-registry'
 import { SubagentRuntimeFactory } from './subagent-runtime-factory'

@@ -14,7 +14,7 @@ const {
   sqliteVecLoadMock: vi.fn()
 }))
 
-vi.mock('@main/services/logging/LogService', () => ({
+vi.mock('@main/logging/LogService', () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),

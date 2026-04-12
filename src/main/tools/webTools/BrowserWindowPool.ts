@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { mainWindow } from '@main/main-window'
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 
 interface WindowPoolConfig {
   searchWindowCount: number

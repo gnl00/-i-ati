@@ -2,8 +2,10 @@ import { useChatStore } from '@renderer/store/chatStore'
 import { useMcpRuntimeStore } from '@renderer/store/mcpRuntime'
 import { v4 as uuidv4 } from 'uuid'
 import { useRef } from 'react'
-import { invokeChatRunCancel, invokeChatRunStart, subscribeChatRunEvents } from '@renderer/invoker/ipcInvoker'
-import { CHAT_RUN_EVENTS, type ChatRunEvent, type SerializedError } from '@shared/chatRun/events'
+import { invokeRunCancel, invokeRunStart, subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
+import { RUN_EVENTS, type RunEvent } from '@shared/run/events'
+import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
+import type { SerializedError } from '@shared/run/lifecycle-events'
 import toolsDefinitions from '@tools/definitions'
 import { toast } from 'sonner'
 
@@ -121,12 +123,12 @@ function useChatSubmitV2() {
   }
 
   const bindRunEvents = (submissionId: string) => {
-    unsubscribeRef.current = subscribeChatRunEvents((event: ChatRunEvent) => {
+    unsubscribeRef.current = subscribeRunEvents((event: RunEvent) => {
       if (event.submissionId !== submissionId) {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.CHAT_READY) {
+      if (event.type === CHAT_HOST_EVENTS.CHAT_READY) {
         const { chatEntity } = event.payload
         chatStore.updateChatList(chatEntity)
         chatStore.setCurrentChat(chatEntity.id || null, chatEntity.uuid || null)
@@ -137,7 +139,7 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.MESSAGES_LOADED) {
+      if (event.type === CHAT_HOST_EVENTS.MESSAGES_LOADED) {
         chatStore.clearStreamPreviewMessage()
         chatStore.setMessages(event.payload.messages)
         if (event.payload.messages.length > 0) {
@@ -155,8 +157,8 @@ function useChatSubmitV2() {
       }
 
       if (
-        event.type === CHAT_RUN_EVENTS.MESSAGE_CREATED ||
-        event.type === CHAT_RUN_EVENTS.MESSAGE_UPDATED
+        event.type === RUN_EVENTS.MESSAGE_CREATED ||
+        event.type === RUN_EVENTS.MESSAGE_UPDATED
       ) {
         const { message } = event.payload
         if (message.body.role === 'assistant' && useChatStore.getState().runPhase === 'submitting') {
@@ -166,7 +168,7 @@ function useChatSubmitV2() {
           return
         }
         useChatStore.getState().upsertMessage(message)
-        if (event.type === CHAT_RUN_EVENTS.MESSAGE_CREATED && message.body.role === 'user') {
+        if (event.type === RUN_EVENTS.MESSAGE_CREATED && message.body.role === 'user') {
           useChatStore.getState().setScrollHint({
             type: 'user-sent',
             chatUuid: useChatStore.getState().currentChatUuid,
@@ -179,27 +181,27 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.MESSAGE_SEGMENT_UPDATED) {
+      if (event.type === RUN_EVENTS.MESSAGE_SEGMENT_UPDATED) {
         useChatStore.getState().patchMessageSegment(event.payload.messageId, event.payload.patch)
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED) {
+      if (event.type === RUN_EVENTS.PREVIEW_UPDATED) {
         chatStore.setStreamPreviewMessage(event.payload.message)
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.STREAM_PREVIEW_SEGMENT_UPDATED) {
+      if (event.type === RUN_EVENTS.PREVIEW_SEGMENT_UPDATED) {
         chatStore.patchStreamPreviewSegment(event.payload.patch)
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED) {
+      if (event.type === RUN_EVENTS.PREVIEW_CLEARED) {
         chatStore.clearStreamPreviewMessage()
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.CHAT_UPDATED) {
+      if (event.type === CHAT_HOST_EVENTS.CHAT_UPDATED) {
         chatStore.updateChatList(event.payload.chatEntity)
         if (!chatStore.currentChatUuid || chatStore.currentChatUuid === event.payload.chatEntity.uuid) {
           chatStore.setChatTitle(event.payload.chatEntity.title || 'NewChat')
@@ -207,7 +209,7 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_STARTED) {
+      if (event.type === RUN_EVENTS.TITLE_GENERATION_STARTED) {
         chatStore.setPostRunJobState('title', 'pending')
         if (runCompletedRef.current) {
           chatStore.setRunPhase('post_run')
@@ -215,13 +217,13 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_COMPLETED) {
+      if (event.type === RUN_EVENTS.TITLE_GENERATION_COMPLETED) {
         chatStore.setPostRunJobState('title', 'idle')
         maybeCleanupAfterBackgroundJobs()
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.TITLE_GENERATE_FAILED) {
+      if (event.type === RUN_EVENTS.TITLE_GENERATION_FAILED) {
         chatStore.setPostRunJobState('title', 'failed')
         toast.warning('Title generation failed', {
           description: getTitleFailureDescription(event.payload.error)
@@ -230,7 +232,7 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.COMPRESSION_STARTED) {
+      if (event.type === RUN_EVENTS.COMPRESSION_STARTED) {
         chatStore.setPostRunJobState('compression', 'pending')
         if (runCompletedRef.current) {
           chatStore.setRunPhase('post_run')
@@ -239,14 +241,14 @@ function useChatSubmitV2() {
       }
 
       if (
-        event.type === CHAT_RUN_EVENTS.COMPRESSION_COMPLETED
+        event.type === RUN_EVENTS.COMPRESSION_COMPLETED
       ) {
         chatStore.setPostRunJobState('compression', 'idle')
         maybeCleanupAfterBackgroundJobs()
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.COMPRESSION_FAILED) {
+      if (event.type === RUN_EVENTS.COMPRESSION_FAILED) {
         chatStore.setPostRunJobState('compression', 'failed')
         toast.warning('Message compression failed', {
           description: getTitleFailureDescription(event.payload.error)
@@ -255,7 +257,7 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.POST_RUN_PLAN) {
+      if (event.type === RUN_EVENTS.POSTRUN_PLAN) {
         const { title, compression } = event.payload
         chatStore.setPostRunJobState('title', title === 'pending' ? 'pending' : 'idle')
         chatStore.setPostRunJobState('compression', compression === 'pending' ? 'pending' : 'idle')
@@ -270,7 +272,7 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.RUN_COMPLETED) {
+      if (event.type === RUN_EVENTS.RUN_COMPLETED) {
         void clearPreviousErrorMessage()
         runCompletedRef.current = true
         chatStore.clearStreamPreviewMessage()
@@ -283,7 +285,7 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.RUN_FAILED) {
+      if (event.type === RUN_EVENTS.RUN_FAILED) {
         void (async () => {
           chatStore.clearStreamPreviewMessage()
           chatStore.setLastRunOutcome('failed')
@@ -301,7 +303,7 @@ function useChatSubmitV2() {
         return
       }
 
-      if (event.type === CHAT_RUN_EVENTS.RUN_ABORTED) {
+      if (event.type === RUN_EVENTS.RUN_ABORTED) {
         void (async () => {
           chatStore.clearStreamPreviewMessage()
           chatStore.setLastRunOutcome('aborted')
@@ -369,7 +371,7 @@ function useChatSubmitV2() {
     const submissionId = uuidv4()
     const controller = new AbortController()
     controller.signal.addEventListener('abort', () => {
-      void invokeChatRunCancel({ submissionId, reason: 'abort' })
+      void invokeRunCancel({ submissionId, reason: 'abort' })
     })
 
     activeSubmissionIdRef.current = submissionId
@@ -381,7 +383,7 @@ function useChatSubmitV2() {
     chatStore.setRunPhase('submitting')
 
     try {
-      await invokeChatRunStart({
+      await invokeRunStart({
         submissionId,
         input: {
           textCtx,
@@ -423,7 +425,7 @@ function useChatSubmitV2() {
     if (activeAbortControllerRef.current && !activeAbortControllerRef.current.signal.aborted) {
       activeAbortControllerRef.current.abort()
     } else {
-      void invokeChatRunCancel({ submissionId, reason: 'user_cancelled' })
+      void invokeRunCancel({ submissionId, reason: 'user_cancelled' })
     }
     chatStore.setRunPhase('cancelling')
     if (abortFallbackTimerRef.current) {

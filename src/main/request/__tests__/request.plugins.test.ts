@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const getPluginConfigs = vi.fn()
 const getPlugins = vi.fn()
 
-vi.mock('@main/services/DatabaseService', () => ({
+vi.mock('@main/db/DatabaseService', () => ({
   default: {
     getPluginConfigs,
     getPlugins

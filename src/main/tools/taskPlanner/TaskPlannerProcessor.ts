@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 
 type PlanCreateArgs = {

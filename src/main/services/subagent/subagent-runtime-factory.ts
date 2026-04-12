@@ -1,18 +1,18 @@
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
-import { AppConfigStore } from '@main/services/hostAdapters/chat/config/AppConfigStore'
-import { ChatModelContextResolver } from '@main/services/hostAdapters/chat/config/ChatModelContextResolver'
-import { SystemPromptComposer } from '@main/services/hostAdapters/chat/preparation/request/SystemPromptComposer'
+import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
+import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
+import { SystemPromptComposer } from '@main/hosts/chat/preparation/request/SystemPromptComposer'
 import { resolveAllowedEmbeddedToolsForAgent } from '@tools/permissions'
 import { processWorkContextGet } from '@main/tools/workContext/WorkContextToolsProcessor'
 import { processActivityJournalList } from '@main/tools/activityJournal/ActivityJournalToolsProcessor'
 import type { BuiltInSubagentRole } from '@tools/subagent/index.d'
 import type { SubagentExecutionResult, SubagentSpawnInput } from './types'
 import {
-  DefaultSubagentNextRuntimeRunner,
-  type PreparedSubagentNextRunContext,
-  type SubagentNextRuntimeRunner
-} from './next/SubagentNextRuntimeRunner'
+  DefaultSubagentRuntimeRunner,
+  type PreparedSubagentRunContext,
+  type SubagentRuntimeRunner
+} from './runtime/SubagentRuntimeRunner'
 
 const ROLE_PROMPTS: Record<BuiltInSubagentRole, string> = {
   general: 'Act as a focused subagent. Execute the assigned task and return a concise, useful summary.',
@@ -26,7 +26,7 @@ export class SubagentRuntimeFactory {
     private readonly appConfigStore = new AppConfigStore(),
     private readonly modelContextResolver = new ChatModelContextResolver(),
     private readonly systemPromptComposer = new SystemPromptComposer(),
-    private readonly nextRuntimeRunner: SubagentNextRuntimeRunner = new DefaultSubagentNextRuntimeRunner()
+    private readonly runtimeRunner: SubagentRuntimeRunner = new DefaultSubagentRuntimeRunner()
   ) {}
 
   async run(input: SubagentSpawnInput): Promise<SubagentExecutionResult> {
@@ -62,7 +62,7 @@ export class SubagentRuntimeFactory {
       role: input.role
     }) || []
 
-    const preparedContext: PreparedSubagentNextRunContext = {
+    const preparedContext: PreparedSubagentRunContext = {
       modelContext,
       systemPrompt,
       userMessage,
@@ -70,7 +70,7 @@ export class SubagentRuntimeFactory {
       workspacePath
     }
 
-    return this.nextRuntimeRunner.run(input, preparedContext)
+    return this.runtimeRunner.run(input, preparedContext)
   }
 
   private async buildUserTaskMessage(input: SubagentSpawnInput): Promise<string> {

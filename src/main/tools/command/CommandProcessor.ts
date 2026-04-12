@@ -8,8 +8,8 @@ import { promisify } from 'util'
 import { resolve, isAbsolute, join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { app } from 'electron'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import type {
   ExecuteCommandArgs,
   ExecuteCommandResponse

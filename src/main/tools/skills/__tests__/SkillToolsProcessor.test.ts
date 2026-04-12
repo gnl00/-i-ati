@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { processUnloadSkill } from '../SkillToolsProcessor'
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 
-vi.mock('@main/services/DatabaseService', () => ({
+vi.mock('@main/db/DatabaseService', () => ({
   default: {
     getChatByUuid: vi.fn(),
     removeChatSkill: vi.fn()

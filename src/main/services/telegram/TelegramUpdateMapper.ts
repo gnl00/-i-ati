@@ -3,7 +3,7 @@ import type {
   TelegramInboundEnvelope,
   TelegramInboundMedia,
   TelegramPeerType
-} from '@main/services/hostAdapters/telegram'
+} from '@main/hosts/telegram'
 
 function normalizePeerType(value?: string): TelegramPeerType {
   if (value === 'private' || value === 'group' || value === 'supergroup' || value === 'channel') {

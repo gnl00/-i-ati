@@ -1,18 +1,18 @@
 import { getChatById, updateChat } from '@renderer/db/ChatRepository'
 import { messagePersistence } from '@renderer/services/messages/MessagePersistenceService'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { buildMessageSegmentId } from '@shared/chatRun/segmentId'
+import { buildMessageSegmentId } from '@shared/chat/segmentId'
 import { resolveExistingChatModelRef, resolveNewChatModelRef, isModelRefAvailable } from '@shared/services/ChatModelResolver'
 import { create } from 'zustand'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
 
-export type ChatRunPhase = 'idle' | 'submitting' | 'streaming' | 'post_run' | 'cancelling'
+export type RunPhase = 'idle' | 'submitting' | 'streaming' | 'post_run' | 'cancelling'
 export type PostRunJobStatus = 'idle' | 'pending' | 'failed'
 export type PostRunJobsState = {
   title: PostRunJobStatus
   compression: PostRunJobStatus
 }
-export type ChatRunOutcome = 'idle' | 'completed' | 'failed' | 'aborted'
+export type RunOutcome = 'idle' | 'completed' | 'failed' | 'aborted'
 
 function areSegmentsEquivalent(previous: MessageSegment, next: MessageSegment): boolean {
   if (previous.type !== next.type) return false
@@ -177,9 +177,9 @@ export type ChatState = {
     | { type: 'user-sent'; chatUuid: string | null; messageId?: number }
   )
   // Request state
-  runPhase: ChatRunPhase
+  runPhase: RunPhase
   postRunJobs: PostRunJobsState
-  lastRunOutcome: ChatRunOutcome
+  lastRunOutcome: RunOutcome
   // Feature toggles
   webSearchEnable: boolean
   webSearchProcessing: boolean
@@ -195,10 +195,10 @@ export type ChatAction = {
   setSelectedModelRef: (ref: ModelRef | undefined) => void
   ensureSelectedModelRef: () => ModelRef | undefined
   syncSelectedModelRefForChat: (chat: ChatEntity | null, messages?: MessageEntity[]) => ModelRef | undefined
-  setRunPhase: (phase: ChatRunPhase) => void
+  setRunPhase: (phase: RunPhase) => void
   setPostRunJobState: (job: keyof PostRunJobsState, state: PostRunJobStatus) => void
   resetPostRunJobs: () => void
-  setLastRunOutcome: (outcome: ChatRunOutcome) => void
+  setLastRunOutcome: (outcome: RunOutcome) => void
   toggleWebSearch: (state: boolean) => void
   setWebSearchProcessState: (state: boolean) => void
   toggleArtifacts: (state: boolean) => void

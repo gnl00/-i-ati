@@ -1,5 +1,5 @@
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import {
   getRequestAdapterPluginById,
   isRequestAdapterPluginEnabled,

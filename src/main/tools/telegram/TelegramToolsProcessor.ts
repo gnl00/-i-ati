@@ -1,4 +1,4 @@
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 import { telegramGatewayService } from '@main/services/telegram'
 import type { TelegramSetupToolArgs, TelegramSetupToolResponse } from '@tools/telegram/index.d'
 

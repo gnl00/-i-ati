@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import { invalidateRequestAdapterCache } from '@main/request/adapters'
 import { DB_PLUGINS_GET, DB_PLUGINS_IMPORT, DB_PLUGINS_REMOTE_INSTALL, DB_PLUGINS_REMOTE_LIST, DB_PLUGINS_RESCAN, DB_PLUGINS_SAVE, DB_PLUGINS_UNINSTALL } from '@shared/constants'
 

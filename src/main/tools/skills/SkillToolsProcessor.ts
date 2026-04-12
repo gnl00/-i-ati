@@ -2,7 +2,7 @@ import { app } from 'electron'
 import path from 'path'
 import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
 
 interface LoadSkillArgs {

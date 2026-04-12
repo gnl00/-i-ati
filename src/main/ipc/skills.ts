@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 import { SkillService } from '@main/services/skills/SkillService'
 import { processImportSkills, processInstallSkill, processLoadSkill, processReadSkillFile, processUnloadSkill } from '@main/tools/skills/SkillToolsProcessor'
 import {

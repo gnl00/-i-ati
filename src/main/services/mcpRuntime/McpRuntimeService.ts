@@ -3,7 +3,7 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { spawn } from 'child_process'
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 
 export type McpClientProps = {
   name: string

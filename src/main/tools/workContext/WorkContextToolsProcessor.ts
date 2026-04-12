@@ -1,4 +1,4 @@
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 import type {
   WorkContextGetResponse,
   WorkContextSetResponse

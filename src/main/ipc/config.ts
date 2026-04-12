@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import { DB_CONFIG_GET, DB_CONFIG_INIT, DB_CONFIG_SAVE } from '@shared/constants'
 
 const logger = createLogger('DatabaseIPC')

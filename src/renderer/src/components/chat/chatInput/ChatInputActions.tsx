@@ -7,7 +7,7 @@ import {
   TooltipTrigger
 } from "@renderer/components/ui/tooltip"
 import { cn } from '@renderer/lib/utils'
-import { useChatStore, type ChatRunPhase } from '@renderer/store/chatStore'
+import { useChatStore, type RunPhase } from '@renderer/store/chatStore'
 import { useAssistantStore } from '@renderer/store/assistant'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
@@ -24,7 +24,7 @@ import { toast } from 'sonner'
 
 interface ChatInputActionsProps {
   artifacts: boolean
-  runPhase: ChatRunPhase
+  runPhase: RunPhase
   toggleArtifacts: (state: boolean) => void
   setArtifactsPanel: (open: boolean) => void
   onNewChat: () => void

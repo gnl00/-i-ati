@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/services/DatabaseService'
-import { ChatRunService } from '@main/services/chatRun'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { RunService } from '@main/orchestration/chat/run'
+import { createLogger } from '@main/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { resolveNewChatModelRef } from '@shared/services/ChatModelResolver'
 import { ScheduleEventEmitter } from './event-emitter'
@@ -15,7 +15,7 @@ type ScheduledTaskPayload = {
 export class SchedulerService {
   private timer: NodeJS.Timeout | null = null
   private isTicking = false
-  private readonly chatRunService = new ChatRunService()
+  private readonly runService = new RunService()
   private readonly logger = createLogger('SchedulerService')
 
   start(intervalMs: number = 10000): void {
@@ -59,7 +59,7 @@ export class SchedulerService {
         throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
       }
 
-      if (this.chatRunService.hasActiveRunForChat(task.chat_uuid)) {
+      if (this.runService.hasActiveRunForChat(task.chat_uuid)) {
         this.logger.info('task.skipped.chat_busy', {
           taskId: task.id,
           chatUuid: task.chat_uuid
@@ -89,7 +89,7 @@ export class SchedulerService {
       })
       DatabaseService.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
 
-      const submitResult = await this.chatRunService.execute({
+      const submitResult = await this.runService.execute({
         submissionId,
         chatId: chat.id,
         chatUuid: chat.uuid,

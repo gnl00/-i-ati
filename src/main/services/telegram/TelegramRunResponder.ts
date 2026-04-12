@@ -1,8 +1,8 @@
 import type { Bot } from 'grammy'
 import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
-import type { TelegramInboundEnvelope } from '@main/services/hostAdapters/telegram'
-import type { ChatRunEventEnvelope, ChatRunEventPayloads } from '@shared/chatRun/events'
-import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
+import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
+import type { RunEventEnvelope, RunEventPayloads } from '@shared/run/events'
+import { RUN_EVENTS } from '@shared/run/events'
 
 const STREAM_UPDATE_THROTTLE_MS = 400
 const TELEGRAM_TOOL_FOOTER_HIDDEN_TOOLS = new Set(['emotion_report'])
@@ -52,8 +52,8 @@ export class TelegramRunResponder {
     this.logger = args.logger
   }
 
-  handleEvent(event: ChatRunEventEnvelope): Promise<void> {
-    if (this.finalized && event.type !== CHAT_RUN_EVENTS.RUN_COMPLETED) {
+  handleEvent(event: RunEventEnvelope): Promise<void> {
+    if (this.finalized && event.type !== RUN_EVENTS.RUN_COMPLETED) {
       return this.queue
     }
 
@@ -71,10 +71,10 @@ export class TelegramRunResponder {
     return this.queue
   }
 
-  private async handleEventInternal(event: ChatRunEventEnvelope): Promise<void> {
+  private async handleEventInternal(event: RunEventEnvelope): Promise<void> {
     switch (event.type) {
-      case CHAT_RUN_EVENTS.MESSAGE_UPDATED: {
-        const { message } = event.payload as ChatRunEventPayloads['message.updated']
+      case RUN_EVENTS.MESSAGE_UPDATED: {
+        const { message } = event.payload as RunEventPayloads['message.updated']
         if (message.body.role !== 'assistant') {
           return
         }
@@ -104,8 +104,8 @@ export class TelegramRunResponder {
         return
       }
 
-      case CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED: {
-        const { message } = event.payload as ChatRunEventPayloads['stream.preview.updated']
+      case RUN_EVENTS.PREVIEW_UPDATED: {
+        const { message } = event.payload as RunEventPayloads['preview.updated']
         if (message.body.role !== 'assistant') {
           return
         }
@@ -121,12 +121,12 @@ export class TelegramRunResponder {
         return
       }
 
-      case CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED:
+      case RUN_EVENTS.PREVIEW_CLEARED:
         this.activePreviewText = ''
         this.captureStickyPreviewBase()
         return
 
-      case CHAT_RUN_EVENTS.RUN_COMPLETED:
+      case RUN_EVENTS.RUN_COMPLETED:
         this.finalized = true
         this.clearScheduledFlush()
         const hadActivePreview = this.activePreviewText.trim().length > 0
@@ -138,8 +138,8 @@ export class TelegramRunResponder {
         await this.flushLatestText({ final: true })
         return
 
-      case CHAT_RUN_EVENTS.RUN_FAILED:
-      case CHAT_RUN_EVENTS.RUN_ABORTED:
+      case RUN_EVENTS.RUN_FAILED:
+      case RUN_EVENTS.RUN_ABORTED:
         this.finalized = true
         this.clearScheduledFlush()
         return

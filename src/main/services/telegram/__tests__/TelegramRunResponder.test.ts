@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHAT_RUN_EVENTS, type ChatRunEventEnvelope } from '@shared/chatRun/events'
+import { RUN_EVENTS, type RunEventEnvelope, type RunEventPayloads } from '@shared/run/events'
 import { TelegramRunResponder } from '../TelegramRunResponder'
 
 const textSegment = (content: string, timestamp: number): TextSegment => ({
@@ -57,10 +57,10 @@ const createAssistantMessageWithSegments = (segments: MessageSegment[], content 
   }
 })
 
-const createEvent = <T extends keyof import('@shared/chatRun/events').ChatRunEventPayloads>(
+const createEvent = <T extends keyof RunEventPayloads>(
   type: T,
-  payload: import('@shared/chatRun/events').ChatRunEventPayloads[T]
-): ChatRunEventEnvelope<T> => ({
+  payload: RunEventPayloads[T]
+): RunEventEnvelope<T> => ({
   type,
   payload,
   submissionId: 'submission-1',
@@ -99,7 +99,7 @@ describe('TelegramRunResponder', () => {
     })
 
     const firstMessage = createAssistantMessage('Hello')
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: firstMessage
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -117,14 +117,14 @@ describe('TelegramRunResponder', () => {
     }))
 
     const secondMessage = createAssistantMessage('**Hello** world')
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: secondMessage
     }))
     await vi.advanceTimersByTimeAsync(400)
 
     expect(editMessageText).toHaveBeenNthCalledWith(1, 123, 77, '**Hello** world', {})
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.RUN_COMPLETED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.RUN_COMPLETED, {
       assistantMessageId: 102
     }))
 
@@ -154,7 +154,7 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('Preview hello')
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -163,8 +163,8 @@ describe('TelegramRunResponder', () => {
       reply_parameters: { message_id: 56 }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_CLEARED, {}))
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessage('Preview hello world')
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -195,7 +195,7 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('First cycle answer')
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -204,7 +204,7 @@ describe('TelegramRunResponder', () => {
       reply_parameters: { message_id: 57 }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessageWithSegments([
         toolCallSegment('tool-1', 'emotion_report', 2, {
           toolName: 'emotion_report',
@@ -215,9 +215,9 @@ describe('TelegramRunResponder', () => {
     }))
     await vi.advanceTimersByTimeAsync(400)
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_CLEARED, {}))
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessageWithSegments([
         textSegment('👍', 3)
       ])
@@ -250,12 +250,12 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('First cycle answer')
     }))
     await vi.advanceTimersByTimeAsync(400)
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessageWithSegments([
         textSegment('First cycle answer', 1),
         toolCallSegment('tool-1', 'memory_retrieval', 2, {
@@ -269,9 +269,9 @@ describe('TelegramRunResponder', () => {
 
     expect(editMessageText).toHaveBeenCalledWith(123, 109, 'First cycle answer\n\n> tool memory retrieval done', {})
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_CLEARED, {}))
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('👍')
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -302,14 +302,14 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('First cycle answer')
     }))
     await vi.advanceTimersByTimeAsync(400)
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_CLEARED, {}))
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('A much longer replacement answer')
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -340,12 +340,12 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('待几天？有具体想逛的地方没，还是随便转？')
     }))
     await vi.advanceTimersByTimeAsync(400)
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessageWithSegments([
         toolCallSegment('tool-1', 'emotion_report', 2, {
           toolName: 'emotion_report',
@@ -360,9 +360,9 @@ describe('TelegramRunResponder', () => {
     }))
     await vi.advanceTimersByTimeAsync(400)
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_CLEARED, {}))
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('成都这几天天气应该不错，美食街人多，记得带好手机钱包。')
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -374,7 +374,7 @@ describe('TelegramRunResponder', () => {
       {}
     )
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.RUN_COMPLETED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.RUN_COMPLETED, {
       assistantMessageId: 102
     }))
 
@@ -409,14 +409,14 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('First cycle answer')
     }))
     await vi.advanceTimersByTimeAsync(400)
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_CLEARED, {}))
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('不是这个')
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -447,14 +447,14 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('First cycle answer')
     }))
     await vi.advanceTimersByTimeAsync(400)
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_CLEARED, {}))
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_CLEARED, {}))
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.STREAM_PREVIEW_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.PREVIEW_UPDATED, {
       message: createAssistantMessage('だめ')
     }))
     await vi.advanceTimersByTimeAsync(400)
@@ -485,7 +485,7 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessageWithSegments([
         textSegment('Looking it up', 1),
         toolCallSegment('tool-1', 'memory_retrieval', 2, {
@@ -525,7 +525,7 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessageWithSegments([
         textSegment('Hi there', 1),
         toolCallSegment('tool-1', 'emotion_report', 2, {
@@ -570,7 +570,7 @@ describe('TelegramRunResponder', () => {
       }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessageWithSegments([
         textSegment('Looking it up', 1),
         toolCallSegment('tool-1', 'memory_retrieval', 2, {
@@ -585,7 +585,7 @@ describe('TelegramRunResponder', () => {
       reply_parameters: { message_id: 63 }
     })
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessageWithSegments([
         textSegment('Looking it up', 1),
         toolCallSegment('tool-1', 'memory_retrieval', 2, {
@@ -631,7 +631,7 @@ describe('TelegramRunResponder', () => {
       '- 再加一个我能主动发送 Telegram 消息的功能'
     ].join('\n')
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.MESSAGE_UPDATED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.MESSAGE_UPDATED, {
       message: createAssistantMessageWithSegments([
         textSegment(finalText, 1),
         toolCallSegment('tool-1', 'memory_retrieval', 2, {
@@ -654,7 +654,7 @@ describe('TelegramRunResponder', () => {
       { reply_parameters: { message_id: 66 } }
     )
 
-    await responder.handleEvent(createEvent(CHAT_RUN_EVENTS.RUN_COMPLETED, {
+    await responder.handleEvent(createEvent(RUN_EVENTS.RUN_COMPLETED, {
       assistantMessageId: 102
     }))
 

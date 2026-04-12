@@ -348,7 +348,7 @@ declare interface EmotionStateSnapshot {
   history: EmotionStateHistoryEntry[]
 }
 
-declare interface ChatRunEventTrace {
+declare interface RunEventTrace {
   id?: number
   submissionId: string
   chatId?: number

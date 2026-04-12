@@ -4,7 +4,7 @@ const getSoul = vi.fn()
 const saveSoul = vi.fn()
 const resetSoul = vi.fn()
 
-vi.mock('@main/services/SoulService', () => ({
+vi.mock('@main/services/soul/SoulService', () => ({
   soulService: {
     getSoul,
     saveSoul,

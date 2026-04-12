@@ -22,7 +22,7 @@ vi.mock('@main/services/activityJournal/ActivityJournalService', () => ({
   }
 }))
 
-vi.mock('@main/services/DatabaseService', () => ({
+vi.mock('@main/db/DatabaseService', () => ({
   default: {
     getChatByUuid: getChatByUuidMock
   }

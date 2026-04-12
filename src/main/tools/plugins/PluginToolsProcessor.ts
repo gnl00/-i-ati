@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import path from 'path'
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 import { LocalPluginCatalogService, pluginEventEmitter } from '@main/services/plugins'
 
 type InstallPluginArgs = {

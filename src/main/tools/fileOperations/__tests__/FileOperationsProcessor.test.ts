@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
   }
 }))
 
-vi.mock('@main/services/DatabaseService', () => ({
+vi.mock('@main/db/DatabaseService', () => ({
   default: {
     getWorkspacePathByUuid: getWorkspacePathByUuidMock
   }

@@ -5,7 +5,7 @@ import { existsSync } from 'fs'
 import { execFile } from 'child_process'
 import os from 'os'
 import { promisify } from 'util'
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 
 type SkillFrontmatter = {
   name: string

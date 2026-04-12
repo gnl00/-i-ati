@@ -1,4 +1,4 @@
-import { soulService } from '@main/services/SoulService'
+import { soulService } from '@main/services/soul/SoulService'
 
 type GetSoulResponse = {
   success: boolean

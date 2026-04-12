@@ -1,15 +1,15 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import {
-  ChatRunService,
-  type MainChatRunInput,
+  RunService,
+  type MainAgentRunInput,
   type ToolConfirmationDecision
-} from '@main/services/chatRun'
+} from '@main/orchestration/chat/run'
 import type {
-  ChatCompressionExecuteInput,
-  ChatTitleGenerateInput
-} from '@main/services/chatOperations'
+  CompressionExecutionInput,
+  TitleGenerationInput
+} from '@main/orchestration/chat/maintenance'
 import {
   DB_CHAT_SAVE,
   DB_CHAT_GET_ALL,
@@ -24,17 +24,49 @@ import {
   DB_ASSISTANT_GET_BY_ID,
   DB_ASSISTANT_UPDATE,
   DB_ASSISTANT_DELETE,
-  CHAT_RUN_START,
-  CHAT_RUN_CANCEL,
-  CHAT_RUN_TOOL_CONFIRM,
-  CHAT_COMPRESSION_EXECUTE,
-  CHAT_TITLE_GENERATE
+  RUN_START,
+  RUN_CANCEL,
+  RUN_TOOL_CONFIRM,
+  RUN_COMPRESSION_EXECUTE,
+  RUN_TITLE_GENERATE
 } from '@shared/constants'
 
-const chatRunService = new ChatRunService()
+const runService = new RunService()
 const logger = createLogger('DatabaseIPC')
+const LEGACY_RUN_START = 'chat-run:start'
+const LEGACY_RUN_CANCEL = 'chat-run:cancel'
+const LEGACY_RUN_TOOL_CONFIRM = 'chat-run:tool-confirm'
+const LEGACY_RUN_COMPRESSION_EXECUTE = 'chat-compression:execute'
+const LEGACY_RUN_TITLE_GENERATE = 'chat-title:generate'
 
 export function registerChatHandlers(): void {
+  const handleRunStart = async (_event: Electron.IpcMainInvokeEvent, data: MainAgentRunInput) => {
+    console.log(`[ChatSubmit IPC] Submit: ${data.submissionId}`)
+    return runService.start(data)
+  }
+
+  const handleRunCancel = async (
+    _event: Electron.IpcMainInvokeEvent,
+    data: { submissionId: string; reason?: string }
+  ) => {
+    console.log(`[ChatSubmit IPC] Cancel: ${data.submissionId}`)
+    runService.cancel(data.submissionId)
+    return { cancelled: true }
+  }
+
+  const handleRunToolConfirm = async (
+    _event: Electron.IpcMainInvokeEvent,
+    data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }
+  ) => {
+    const decision: ToolConfirmationDecision = {
+      approved: data.approved,
+      reason: data.reason,
+      args: data.args
+    }
+    runService.resolveToolConfirmation(data.toolCallId, decision)
+    return { ok: true }
+  }
+
   ipcMain.handle(DB_CHAT_SAVE, async (_event, data) => {
     logger.info('chat.save')
     return DatabaseService.saveChat(data)
@@ -75,35 +107,31 @@ export function registerChatHandlers(): void {
     return DatabaseService.getChatSkills(chatId)
   })
 
-  ipcMain.handle(CHAT_RUN_START, async (_event, data: MainChatRunInput) => {
-    console.log(`[ChatSubmit IPC] Submit: ${data.submissionId}`)
-    return chatRunService.start(data)
-  })
+  ipcMain.handle(RUN_START, handleRunStart)
+  ipcMain.handle(LEGACY_RUN_START, handleRunStart)
 
-  ipcMain.handle(CHAT_RUN_CANCEL, async (_event, data: { submissionId: string; reason?: string }) => {
-    console.log(`[ChatSubmit IPC] Cancel: ${data.submissionId}`)
-    chatRunService.cancel(data.submissionId)
-    return { cancelled: true }
-  })
+  ipcMain.handle(RUN_CANCEL, handleRunCancel)
+  ipcMain.handle(LEGACY_RUN_CANCEL, handleRunCancel)
 
-  ipcMain.handle(CHAT_RUN_TOOL_CONFIRM, async (_event, data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }) => {
-    const decision: ToolConfirmationDecision = {
-      approved: data.approved,
-      reason: data.reason,
-      args: data.args
-    }
-    chatRunService.resolveToolConfirmation(data.toolCallId, decision)
-    return { ok: true }
-  })
+  ipcMain.handle(RUN_TOOL_CONFIRM, handleRunToolConfirm)
+  ipcMain.handle(LEGACY_RUN_TOOL_CONFIRM, handleRunToolConfirm)
 
-  ipcMain.handle(CHAT_COMPRESSION_EXECUTE, async (_event, data: ChatCompressionExecuteInput) => {
+  ipcMain.handle(RUN_COMPRESSION_EXECUTE, async (_event, data: CompressionExecutionInput) => {
     console.log('[Compression IPC] Execute')
-    return await chatRunService.executeCompression(data)
+    return await runService.executeCompression(data)
+  })
+  ipcMain.handle(LEGACY_RUN_COMPRESSION_EXECUTE, async (_event, data: CompressionExecutionInput) => {
+    console.log('[Compression IPC] Execute')
+    return await runService.executeCompression(data)
   })
 
-  ipcMain.handle(CHAT_TITLE_GENERATE, async (_event, data: ChatTitleGenerateInput) => {
+  ipcMain.handle(RUN_TITLE_GENERATE, async (_event, data: TitleGenerationInput) => {
     console.log('[Title IPC] Generate title')
-    return await chatRunService.generateTitle(data)
+    return await runService.generateTitle(data)
+  })
+  ipcMain.handle(LEGACY_RUN_TITLE_GENERATE, async (_event, data: TitleGenerationInput) => {
+    console.log('[Title IPC] Generate title')
+    return await runService.generateTitle(data)
   })
 
   ipcMain.handle(DB_ASSISTANT_SAVE, async (_event, data: Assistant) => {

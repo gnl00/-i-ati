@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import {
   DB_PROVIDER_DEFINITIONS_GET_ALL,
   DB_PROVIDER_DEFINITION_SAVE,

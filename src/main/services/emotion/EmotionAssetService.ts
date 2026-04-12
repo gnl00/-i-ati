@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { app, protocol } from 'electron'
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 import { EMOTION_ASSET_PROTOCOL } from '@shared/emotion/constants'
 import {
   EMOTION_LABELS,

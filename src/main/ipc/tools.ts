@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { processWebSearch, processWebFetch } from '@main/tools/webTools/WebToolsProcessor'
 import {

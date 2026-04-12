@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { invokeChatRunToolConfirm, subscribeChatRunEvents } from '@renderer/invoker/ipcInvoker'
+import { invokeRunToolConfirm, subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
 import { taskPlannerService } from '@renderer/services/taskPlanner/TaskPlannerService'
+import { RUN_EVENTS } from '@shared/run/events'
 import type { Plan } from '@shared/task-planner/schemas'
 
 type UseTaskPlanResult = {
@@ -42,7 +43,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
 
   const approvePlanReview = useCallback(async () => {
     if (!pendingPlanReview) return
-    await invokeChatRunToolConfirm({
+    await invokeRunToolConfirm({
       toolCallId: pendingPlanReview.toolCallId,
       approved: true
     })
@@ -52,7 +53,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
 
   const abortPlanReview = useCallback(async (reason?: string) => {
     if (!pendingPlanReview) return
-    await invokeChatRunToolConfirm({
+    await invokeRunToolConfirm({
       toolCallId: pendingPlanReview.toolCallId,
       approved: false,
       reason
@@ -61,12 +62,12 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
   }, [pendingPlanReview])
 
   useEffect(() => {
-    const unsubscribe = subscribeChatRunEvents((event) => {
+    const unsubscribe = subscribeRunEvents((event) => {
       if (chatUuid && event.chatUuid && event.chatUuid !== chatUuid) {
         return
       }
 
-      if (event.type === 'tool.exec.requires_confirmation') {
+      if (event.type === RUN_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
         const payload = event.payload
         if (payload?.name === 'plan_create' && payload.toolCallId) {
           const args = payload.args as Partial<Plan> & { steps?: Plan['steps'] }
@@ -86,21 +87,26 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
         }
       }
 
-      if (event.type === 'tool.call.detected') {
+      if (event.type === RUN_EVENTS.TOOL_CALL_DETECTED) {
         const toolCall = event.payload.toolCall
         if (toolCall?.id && toolCall?.name) {
           toolCallNameMapRef.current.set(toolCall.id, toolCall.name)
         }
       }
 
-      if (event.type === 'tool.exec.completed' || event.type === 'tool.exec.failed') {
+      if (
+        event.type === RUN_EVENTS.TOOL_EXECUTION_COMPLETED
+        || event.type === RUN_EVENTS.TOOL_EXECUTION_FAILED
+      ) {
         const toolCallId = event.payload.toolCallId
         if (!toolCallId) return
         if (pendingPlanReview?.toolCallId === toolCallId) {
           setPendingPlanReview(null)
         }
         const toolName = toolCallNameMapRef.current.get(toolCallId)
-        const result = event.type === 'tool.exec.completed' ? (event.payload.result as any) : undefined
+        const result = event.type === RUN_EVENTS.TOOL_EXECUTION_COMPLETED
+          ? (event.payload.result as any)
+          : undefined
         const hasPlanResult = Boolean(result && (result.plan || result.plans))
         if (!hasPlanResult && (!toolName || !toolName.startsWith('plan_'))) {
           return

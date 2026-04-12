@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { telegramGatewayService } from '@main/services/telegram'
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 import {
   TELEGRAM_GATEWAY_START,
   TELEGRAM_GATEWAY_STATUS,

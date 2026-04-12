@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHAT_RUN_EVENT, CONFIG_EVENT, PLUGIN_EVENT, SCHEDULE_EVENT } from '@shared/constants/index'
-import { CHAT_RUN_EVENTS } from '@shared/chatRun/events'
+import { RUN_EVENT, CONFIG_EVENT, PLUGIN_EVENT, SCHEDULE_EVENT } from '@shared/constants/index'
+import { RUN_EVENTS } from '@shared/run/events'
 import { CONFIG_EVENTS } from '@shared/config/events'
 import { PLUGIN_EVENTS } from '@shared/plugins/events'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
-import { subscribeChatRunEvents, subscribeConfigEvents, subscribePluginEvents, subscribeScheduleEvents } from '../ipcInvoker'
+import { subscribeRunEvents, subscribeConfigEvents, subscribePluginEvents, subscribeScheduleEvents } from '../ipcInvoker'
 
 type Listener = (event: any, data: any) => void
 
@@ -43,13 +43,13 @@ describe('ipcInvoker event channel separation', () => {
     const pluginHandler = vi.fn()
     const scheduleHandler = vi.fn()
 
-    const unsubChat = subscribeChatRunEvents(chatHandler as any)
+    const unsubChat = subscribeRunEvents(chatHandler as any)
     const unsubConfig = subscribeConfigEvents(configHandler as any)
     const unsubPlugin = subscribePluginEvents(pluginHandler as any)
     const unsubSchedule = subscribeScheduleEvents(scheduleHandler as any)
 
-    emit(CHAT_RUN_EVENT, {
-      type: CHAT_RUN_EVENTS.RUN_COMPLETED,
+    emit(RUN_EVENT, {
+      type: RUN_EVENTS.RUN_COMPLETED,
       payload: { assistantMessageId: 1 }
     })
     emit(SCHEDULE_EVENT, {
@@ -70,7 +70,7 @@ describe('ipcInvoker event channel separation', () => {
     expect(pluginHandler).toHaveBeenCalledTimes(1)
     expect(scheduleHandler).toHaveBeenCalledTimes(1)
 
-    expect(chatHandler.mock.calls[0][0].type).toBe(CHAT_RUN_EVENTS.RUN_COMPLETED)
+    expect(chatHandler.mock.calls[0][0].type).toBe(RUN_EVENTS.RUN_COMPLETED)
     expect(configHandler.mock.calls[0][0].type).toBe(CONFIG_EVENTS.UPDATED)
     expect(pluginHandler.mock.calls[0][0].type).toBe(PLUGIN_EVENTS.UPDATED)
     expect(scheduleHandler.mock.calls[0][0].type).toBe(SCHEDULE_EVENTS.UPDATED)

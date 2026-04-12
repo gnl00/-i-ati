@@ -1,12 +1,12 @@
 import { v4 as uuidv4 } from 'uuid'
 import { net } from 'electron'
 import { Bot } from 'grammy'
-import { ChatRunService } from '@main/services/chatRun'
-import { AppConfigStore } from '@main/services/hostAdapters/chat/config/AppConfigStore'
-import { ChatModelContextResolver } from '@main/services/hostAdapters/chat/config/ChatModelContextResolver'
-import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/services/hostAdapters/telegram'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import { RunService } from '@main/orchestration/chat/run'
+import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
+import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
+import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import { TelegramUpdateMapper } from './TelegramUpdateMapper'
 import { TelegramFileService } from './TelegramFileService'
 import { TelegramCommandService } from './TelegramCommandService'
@@ -20,7 +20,7 @@ export class TelegramGatewayService {
   private readonly adapter = new TelegramAgentAdapter()
   private readonly appConfigStore = new AppConfigStore()
   private readonly modelResolver = new ChatModelContextResolver()
-  private readonly chatRunService = new ChatRunService()
+  private readonly runService = new RunService()
   private readonly fileService = new TelegramFileService()
   private readonly commandService = new TelegramCommandService()
   private bot: Bot | null = null
@@ -318,7 +318,7 @@ export class TelegramGatewayService {
       })
       : null
 
-    await this.chatRunService.execute(input, {
+    await this.runService.execute(input, {
       ...(responder ? { eventSinks: [responder] } : {})
     })
 

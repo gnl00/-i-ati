@@ -1,8 +1,8 @@
-import { AppConfigStore } from '@main/services/hostAdapters/chat/config/AppConfigStore'
-import { ChatModelContextResolver } from '@main/services/hostAdapters/chat/config/ChatModelContextResolver'
-import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/services/hostAdapters/telegram'
-import { HostChatBindingService } from '@main/services/hostAdapters/shared/HostChatBindingService'
-import DatabaseService from '@main/services/DatabaseService'
+import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
+import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
+import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
+import { HostChatBindingService } from '@main/hosts/shared/HostChatBindingService'
+import DatabaseService from '@main/db/DatabaseService'
 import { embeddedToolsRegistry } from '@tools/registry'
 import type { TelegramCommand, TelegramCommandCallback } from './telegram-command-parser'
 

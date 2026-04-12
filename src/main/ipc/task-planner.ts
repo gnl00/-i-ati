@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import {
   DB_TASK_PLAN_DELETE,
   DB_TASK_PLAN_GET_BY_CHAT_UUID,
@@ -36,10 +36,15 @@ function registerTaskPlanHandlers() {
     return DatabaseService.getTaskPlanById(id)
   })
 
-  ipcMain.handle(DB_TASK_PLAN_GET_BY_CHAT_UUID, (_event, chatUuid: string) => {
+  const handleTaskPlanGetByChatUuid = (
+    _event: Electron.IpcMainInvokeEvent,
+    chatUuid: string
+  ) => {
     logger.info('task_plan.get_by_chat_uuid', { chatUuid })
     return DatabaseService.getTaskPlansByChatUuid(chatUuid)
-  })
+  }
+
+  ipcMain.handle(DB_TASK_PLAN_GET_BY_CHAT_UUID, handleTaskPlanGetByChatUuid)
 
   ipcMain.handle(DB_TASK_PLAN_DELETE, (_event, id: string) => {
     logger.info('task_plan.delete', { id })

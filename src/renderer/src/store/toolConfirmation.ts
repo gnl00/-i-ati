@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { invokeChatRunToolConfirm } from '@renderer/invoker/ipcInvoker'
+import { invokeRunToolConfirm } from '@renderer/invoker/ipcInvoker'
 import type { AgentConfirmationSource } from '@shared/tools/approval'
 
 export type ToolConfirmationRequest = {
@@ -56,7 +56,7 @@ export const useToolConfirmationStore = create<
       ? get().pendingRequests.find(item => item.toolCallId === toolCallId)
       : get().pendingRequests[0]
     if (!pendingRequest) return
-    await invokeChatRunToolConfirm({
+    await invokeRunToolConfirm({
       toolCallId: pendingRequest.toolCallId,
       approved: true
     })
@@ -69,7 +69,7 @@ export const useToolConfirmationStore = create<
       ? get().pendingRequests.find(item => item.toolCallId === toolCallId)
       : get().pendingRequests[0]
     if (!pendingRequest) return
-    await invokeChatRunToolConfirm({
+    await invokeRunToolConfirm({
       toolCallId: pendingRequest.toolCallId,
       approved: false,
       reason

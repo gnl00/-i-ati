@@ -1,4 +1,4 @@
-import { createPerfLogger } from '@main/services/logging/LogService'
+import { createPerfLogger } from '@main/logging/LogService'
 
 const logger = createPerfLogger('Startup')
 

@@ -3,8 +3,8 @@ import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'fs/
 import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
 import { existsSync, statSync, accessSync, constants } from 'fs'
 import { lookup } from 'mime-types'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,

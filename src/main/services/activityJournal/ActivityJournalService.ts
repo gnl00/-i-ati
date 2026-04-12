@@ -15,8 +15,8 @@ import type {
   ActivityJournalEntry,
   ActivityJournalSearchItem
 } from '@tools/activityJournal/index.d'
-import { createLogger } from '@main/services/logging/LogService'
-import { loadSqliteVecExtension } from '@main/services/sqlite/loadSqliteVec'
+import { createLogger } from '@main/logging/LogService'
+import { loadSqliteVecExtension } from '@main/db/sqlite/loadSqliteVec'
 import { ActivityJournalRepository } from './ActivityJournalRepository'
 import EmbeddingServiceInstance from '../embedding/EmbeddingService'
 

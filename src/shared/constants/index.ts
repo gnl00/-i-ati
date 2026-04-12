@@ -154,13 +154,13 @@ export const DB_SCHEDULED_TASK_UPDATE_STATUS = 'db:scheduled-task:update-status'
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
 
-// Chat Run (Main-driven)
-export const CHAT_RUN_START = 'chat-run:start'
-export const CHAT_RUN_CANCEL = 'chat-run:cancel'
-export const CHAT_RUN_EVENT = 'chat-run:event'
-export const CHAT_RUN_TOOL_CONFIRM = 'chat-run:tool-confirm'
-export const CHAT_COMPRESSION_EXECUTE = 'chat-compression:execute'
-export const CHAT_TITLE_GENERATE = 'chat-title:generate'
+// Run Actions (Main-driven)
+export const RUN_START = 'run:start'
+export const RUN_CANCEL = 'run:cancel'
+export const RUN_EVENT = 'run:event'
+export const RUN_TOOL_CONFIRM = 'run:tool-confirm'
+export const RUN_COMPRESSION_EXECUTE = 'run:compression:execute'
+export const RUN_TITLE_GENERATE = 'run:title:generate'
 export const SCHEDULE_EVENT = 'schedule:event'
 export const PLUGIN_EVENT = 'plugin:event'
 export const CONFIG_EVENT = 'config:event'

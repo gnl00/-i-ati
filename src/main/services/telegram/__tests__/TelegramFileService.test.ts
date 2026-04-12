@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TelegramFileService } from '../TelegramFileService'
-import type { TelegramInboundEnvelope } from '@main/services/hostAdapters/telegram'
+import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
 
 const createEnvelope = (media: TelegramInboundEnvelope['media']): TelegramInboundEnvelope => ({
   updateId: 1,

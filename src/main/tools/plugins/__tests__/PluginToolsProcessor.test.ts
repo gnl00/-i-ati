@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 import { processListPlugins, processPluginInstall, processPluginUninstall } from '../PluginToolsProcessor'
 
 const { loadPluginManifestFromDirectoryMock, emitPluginsUpdatedMock } = vi.hoisted(() => ({
@@ -7,7 +7,7 @@ const { loadPluginManifestFromDirectoryMock, emitPluginsUpdatedMock } = vi.hoist
   emitPluginsUpdatedMock: vi.fn()
 }))
 
-vi.mock('@main/services/DatabaseService', () => ({
+vi.mock('@main/db/DatabaseService', () => ({
   default: {
     getWorkspacePathByUuid: vi.fn(),
     importLocalPluginFromDirectory: vi.fn(),

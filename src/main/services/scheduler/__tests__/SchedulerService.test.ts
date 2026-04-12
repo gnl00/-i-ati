@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import { SchedulerService } from '../SchedulerService'
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 
 const taskStore: ScheduledTaskRow[] = []
 const { mockSubmit, mockHasActiveRunForChat } = vi.hoisted(() => ({
@@ -10,7 +10,7 @@ const { mockSubmit, mockHasActiveRunForChat } = vi.hoisted(() => ({
   mockHasActiveRunForChat: vi.fn(() => false)
 }))
 
-vi.mock('@main/services/DatabaseService', () => ({
+vi.mock('@main/db/DatabaseService', () => ({
   default: {
     saveScheduledTask: vi.fn((task: ScheduledTaskRow) => {
       taskStore.push({ ...task })
@@ -55,7 +55,7 @@ vi.mock('@main/services/DatabaseService', () => ({
       const task = taskStore.find(item => item.id === id)
       return task ? { ...task } : undefined
     }),
-    saveChatRunEvent: vi.fn(() => 1),
+    saveRunEvent: vi.fn(() => 1),
     updateScheduledTaskStatus: vi.fn(
       (id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         const task = taskStore.find(item => item.id === id)
@@ -76,14 +76,14 @@ vi.mock('@main/services/scheduler/event-emitter', () => ({
   }
 }))
 
-vi.mock('@main/services/chatRun', () => ({
-  ChatRunService: class {
+vi.mock('@main/orchestration/chat/run', () => ({
+  RunService: class {
     execute = mockSubmit
     hasActiveRunForChat = mockHasActiveRunForChat
   }
 }))
 
-vi.mock('@main/services/logging/LogService', () => ({
+vi.mock('@main/logging/LogService', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),
     info: vi.fn(),

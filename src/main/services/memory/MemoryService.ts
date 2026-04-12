@@ -6,11 +6,11 @@
  */
 
 import EmbeddingServiceInstance from '../embedding/EmbeddingService'
-import { createLogger } from '@main/services/logging/LogService'
+import { createLogger } from '@main/logging/LogService'
 import { app } from 'electron'
 import path from 'path'
 import Database from 'better-sqlite3'
-import { loadSqliteVecExtension } from '@main/services/sqlite/loadSqliteVec'
+import { loadSqliteVecExtension } from '@main/db/sqlite/loadSqliteVec'
 
 /**
  * 记忆条目接口

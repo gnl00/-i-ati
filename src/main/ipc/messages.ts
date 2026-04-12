@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import {
   DB_MESSAGE_SAVE,
   DB_MESSAGE_GET_ALL,
@@ -36,15 +36,22 @@ export function registerMessageHandlers(): void {
     return DatabaseService.getMessageByIds(ids)
   })
 
-  ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_ID, async (_event, chatId) => {
+  const handleMessageGetByChatId = async (_event: Electron.IpcMainInvokeEvent, chatId: number) => {
     logger.info('message.get_by_chat_id', { chatId })
     return DatabaseService.getMessagesByChatId(chatId)
-  })
+  }
 
-  ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_UUID, async (_event, chatUuid) => {
+  const handleMessageGetByChatUuid = async (
+    _event: Electron.IpcMainInvokeEvent,
+    chatUuid: string
+  ) => {
     logger.info('message.get_by_chat_uuid', { chatUuid })
     return DatabaseService.getMessagesByChatUuid(chatUuid)
-  })
+  }
+
+  ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_ID, handleMessageGetByChatId)
+
+  ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_UUID, handleMessageGetByChatUuid)
 
   ipcMain.handle(DB_MESSAGE_UPDATE, async (_event, data) => {
     logger.info('message.update', { id: data.id })

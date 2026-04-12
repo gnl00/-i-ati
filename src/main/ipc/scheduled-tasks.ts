@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/services/DatabaseService'
-import { createLogger } from '@main/services/logging/LogService'
+import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, DB_SCHEDULED_TASK_UPDATE_STATUS } from '@shared/constants'
@@ -21,10 +21,15 @@ const emitScheduledTaskUpdated = (taskId: string): void => {
 }
 
 export function registerScheduledTaskHandlers(): void {
-  ipcMain.handle(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, async (_event, chatUuid: string) => {
+  const handleScheduledTasksGetByChatUuid = async (
+    _event: Electron.IpcMainInvokeEvent,
+    chatUuid: string
+  ) => {
     logger.info('scheduled_tasks.get_by_chat_uuid', { chatUuid })
     return DatabaseService.getScheduledTasksByChatUuid(chatUuid)
-  })
+  }
+
+  ipcMain.handle(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, handleScheduledTasksGetByChatUuid)
 
   ipcMain.handle(
     DB_SCHEDULED_TASK_UPDATE_STATUS,

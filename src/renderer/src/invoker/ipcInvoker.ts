@@ -3,7 +3,7 @@
  * 统一管理所有 Renderer 进程到 Main 进程的 IPC 调用
  */
 
-import type { ChatRunEvent } from '@shared/chatRun/events'
+import type { RunEvent } from '@shared/run/events'
 import type { ConfigEvent } from '@shared/config/events'
 import type { PluginEvent } from '@shared/plugins/events'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
@@ -84,15 +84,15 @@ import {
   DB_TASK_PLAN_UPDATE_STATUS,
   DB_TASK_PLAN_STEP_UPSERT,
   DB_TASK_PLAN_STEP_UPDATE_STATUS,
-  CHAT_RUN_START,
-  CHAT_RUN_CANCEL,
-  CHAT_RUN_TOOL_CONFIRM,
-  CHAT_RUN_EVENT,
+  RUN_START,
+  RUN_CANCEL,
+  RUN_TOOL_CONFIRM,
+  RUN_EVENT,
   CONFIG_EVENT,
   PLUGIN_EVENT,
   SCHEDULE_EVENT,
-  CHAT_COMPRESSION_EXECUTE,
-  CHAT_TITLE_GENERATE,
+  RUN_COMPRESSION_EXECUTE,
+  RUN_TITLE_GENERATE,
   DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID,
   DB_SCHEDULED_TASK_UPDATE_STATUS,
   CHECK_IS_DIRECTORY,
@@ -575,9 +575,9 @@ export async function invokeDbProviderModelSetEnabled(data: { accountId: string;
   return await ipc.invoke(DB_PROVIDER_MODEL_SET_ENABLED, data)
 }
 
-// ============ Chat Submit (Main-driven) ============
+// ============ Run Actions (Main-driven) ============
 
-export async function invokeChatRunStart(data: {
+export async function invokeRunStart(data: {
   submissionId: string
   input: {
     textCtx: string
@@ -593,25 +593,25 @@ export async function invokeChatRunStart(data: {
   chatUuid?: string
 }): Promise<{ accepted: boolean; submissionId: string }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(CHAT_RUN_START, data)
+  return await ipc.invoke(RUN_START, data)
 }
 
-export async function invokeChatRunCancel(data: { submissionId: string; reason?: string }): Promise<{ cancelled: boolean }> {
+export async function invokeRunCancel(data: { submissionId: string; reason?: string }): Promise<{ cancelled: boolean }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(CHAT_RUN_CANCEL, data)
+  return await ipc.invoke(RUN_CANCEL, data)
 }
 
-export async function invokeChatRunToolConfirm(data: {
+export async function invokeRunToolConfirm(data: {
   toolCallId: string
   approved: boolean
   reason?: string
   args?: unknown
 }): Promise<{ ok: boolean }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(CHAT_RUN_TOOL_CONFIRM, data)
+  return await ipc.invoke(RUN_TOOL_CONFIRM, data)
 }
 
-type ChatRunEventHandler = (event: ChatRunEvent) => void
+type RunEventHandler = (event: RunEvent) => void
 type PluginEventHandler = (event: PluginEvent) => void
 type ScheduleEventHandler = (event: ScheduleEvent) => void
 type ConfigEventHandler = (event: ConfigEvent) => void
@@ -622,7 +622,7 @@ type ChannelRegistry<TEvent> = {
 }
 
 type IpcEventRegistryStore = {
-  chatRun: ChannelRegistry<ChatRunEvent>
+  run: ChannelRegistry<RunEvent>
   config: ChannelRegistry<ConfigEvent>
   plugin: ChannelRegistry<PluginEvent>
   schedule: ChannelRegistry<ScheduleEvent>
@@ -644,7 +644,7 @@ function getIpcEventRegistryStore(): IpcEventRegistryStore {
 
   if (!globalObject[IPC_EVENT_REGISTRY_KEY]) {
     globalObject[IPC_EVENT_REGISTRY_KEY] = {
-      chatRun: createChannelRegistry<ChatRunEvent>(),
+      run: createChannelRegistry<RunEvent>(),
       config: createChannelRegistry<ConfigEvent>(),
       plugin: createChannelRegistry<PluginEvent>(),
       schedule: createChannelRegistry<ScheduleEvent>()
@@ -678,10 +678,10 @@ function subscribeIpcEvent<TEvent>(
   }
 }
 
-export function subscribeChatRunEvents(
-  handler: ChatRunEventHandler
+export function subscribeRunEvents(
+  handler: RunEventHandler
 ): () => void {
-  return subscribeIpcEvent(CHAT_RUN_EVENT, getIpcEventRegistryStore().chatRun, handler)
+  return subscribeIpcEvent(RUN_EVENT, getIpcEventRegistryStore().run, handler)
 }
 
 export type {
@@ -723,9 +723,9 @@ export function subscribeScheduleEvents(
   return subscribeIpcEvent(SCHEDULE_EVENT, getIpcEventRegistryStore().schedule, handler)
 }
 
-// ============ Compression (Main-driven) ============
+// ============ Run Maintenance ============
 
-export async function invokeChatCompressionExecute(data: {
+export async function invokeRunCompressionExecute(data: {
   submissionId: string
   chatId: number
   chatUuid: string
@@ -736,10 +736,10 @@ export async function invokeChatCompressionExecute(data: {
   config?: CompressionConfig
 }): Promise<CompressionResult> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(CHAT_COMPRESSION_EXECUTE, data)
+  return await ipc.invoke(RUN_COMPRESSION_EXECUTE, data)
 }
 
-export async function invokeChatTitleGenerate(data: {
+export async function invokeRunTitleGenerate(data: {
   submissionId: string
   chatId?: number
   chatUuid?: string
@@ -749,7 +749,7 @@ export async function invokeChatTitleGenerate(data: {
   providerDefinition: ProviderDefinition
 }): Promise<{ title: string }> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(CHAT_TITLE_GENERATE, data)
+  return await ipc.invoke(RUN_TITLE_GENERATE, data)
 }
 
 export async function invokeDbScheduledTasksByChatUuid(chatUuid: string): Promise<ScheduleTask[]> {

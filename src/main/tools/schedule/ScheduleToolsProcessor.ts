@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/services/DatabaseService'
+import DatabaseService from '@main/db/DatabaseService'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
