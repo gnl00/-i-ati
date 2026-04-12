@@ -48,7 +48,7 @@
 
 ## 轮转、压缩与清理
 
-日志策略由 [LogFileManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/logging/LogFileManager.ts) 管理：
+日志策略由 [LogFileManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/LogFileManager.ts) 管理：
 
 - 当天日志保持明文 `.log`
 - 前一天及更早的 `.log` 会自动压缩成 `.log.gz`
@@ -72,8 +72,8 @@ main 是唯一文件落盘者。
 
 核心入口：
 
-- [LogService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/logging/LogService.ts)
-- [console-capture.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/logging/console-capture.ts)
+- [LogService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/LogService.ts)
+- [console-capture.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/console-capture.ts)
 
 行为：
 
@@ -138,7 +138,7 @@ renderer 不直接写文件。
 ### main
 
 ```ts
-import { createLogger, createPerfLogger } from '@main/services/logging/LogService'
+import { createLogger, createPerfLogger } from '@main/logging/LogService'
 
 const logger = createLogger('MyService')
 const perfLogger = createPerfLogger('Startup')
@@ -171,7 +171,7 @@ logger.error('load_failed', error)
 
 日志清洗逻辑在：
 
-- [redact.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/logging/redact.ts)
+- [redact.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/redact.ts)
 
 默认会处理：
 
@@ -191,8 +191,8 @@ logger.error('load_failed', error)
 
 当前 logging 基础设施测试：
 
-- [redact.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/logging/__tests__/redact.test.ts)
-- [LogFileManager.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/logging/__tests__/LogFileManager.test.ts)
+- [redact.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/__tests__/redact.test.ts)
+- [LogFileManager.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/__tests__/LogFileManager.test.ts)
 
 覆盖：
 

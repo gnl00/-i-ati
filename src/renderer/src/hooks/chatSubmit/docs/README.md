@@ -1,6 +1,6 @@
 # Chat Submit
 
-Chat submit now uses a main-driven run architecture. Renderer sends one submit command, then only consumes `chat-run:event` and projects those events into store state.
+Chat submit now uses a main-driven run architecture. Renderer sends one submit command, then only consumes `RUN_EVENT` and projects those events into store state.
 
 ## Flow Summary
 ```
@@ -12,19 +12,19 @@ run.accepted
   -> message.created (assistant placeholder)
   -> run.state.changed(streaming / executing_tools / finalizing)
   -> message.updated (0..n)
-  -> tool.call.detected / tool.exec.started / tool.exec.completed / tool.exec.failed
+  -> tool.call.detected / tool.execution.started / tool.execution.completed / tool.execution.failed
   -> tool.result.attached
   -> chat.updated
   -> run.completed | run.failed | run.aborted
-  -> title.generate.* / compression.*
+  -> title.generation.* / compression.*
 ```
 
 ## Key Files
 - Main runtime:
   - `src/main/services/chatRun/index.ts`
-  - `src/main/services/next/*`
+  - `src/main/agent/runtime/*`
 - Shared protocol:
-  - `src/shared/chatRun/events.ts`
+  - `src/shared/run/events.ts`
 - Renderer hook:
   - `src/renderer/src/hooks/chatSubmit/index.tsx`
 

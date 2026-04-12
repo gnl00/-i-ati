@@ -39,7 +39,7 @@
 - [index.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/prompts/index.ts)
 - [emotion_tools.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/definitions/emotion_tools.ts)
 - [EmotionToolsProcessor.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/emotion/EmotionToolsProcessor.ts)
-- [ChatStepStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/persistence/ChatStepStore.ts)
+- [ChatStepStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/persistence/ChatStepStore.ts)
 - [assistant-message/index.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/components/chat/chatMessage/assistant-message/index.tsx)
 - [ModelBadgeNext.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeNext.tsx)
 
@@ -190,9 +190,9 @@ type EmotionStateSnapshot = {
 
 - [Database.ts](/Users/gnl/Workspace/code/-i-ati/src/main/db/Database.ts)
 - [EmotionStateRepository.ts](/Users/gnl/Workspace/code/-i-ati/src/main/db/repositories/EmotionStateRepository.ts)
-- [EmotionStateDataService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/database/EmotionStateDataService.ts)
+- [EmotionStateDataService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/db/dataServices/EmotionStateDataService.ts)
 - [emotion-state.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/emotion/emotion-state.ts)
-- [ChatStepStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/persistence/ChatStepStore.ts)
+- [ChatStepStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/persistence/ChatStepStore.ts)
 
 ## 一次完整功能流程
 

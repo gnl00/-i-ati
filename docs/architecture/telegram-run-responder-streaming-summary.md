@@ -9,7 +9,7 @@
 
 实际行为是：
 
-1. `TelegramGatewayService` 调 `ChatRunService.execute(...)`
+1. `TelegramGatewayService` 调 `RunService.execute(...)`
 2. 等整个 run 完成
 3. 从数据库读取最终 assistant message
 4. 重新提取文本
@@ -27,7 +27,7 @@
 
 - 主 runtime 仍负责 parser / step loop / tools / artifacts
 - `chatRun` 仍负责 run orchestration 和共享事件发射
-- `hostAdapters/chat` 仍负责 assistant message 持久化与事件映射
+- `hosts/chat` 仍负责 assistant message 持久化与事件映射
 - Telegram 不再重建最终回复，而是消费共享 run 事件
 
 也就是说，Telegram 要复用的是：
@@ -68,16 +68,16 @@
 
 最终收敛方案分成两层：
 
-### 1. `ChatRunEventSink`
+### 1. `RunEventSink`
 
 在 `chatRun` 基础设施层增加可选 sink 机制：
 
 - 文件：
-  - [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/infrastructure/event-emitter.ts)
-  - [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunManager.ts)
-  - [index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/index.ts)
+  - [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/event-emitter.ts)
+  - [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunManager.ts)
+  - [index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/index.ts)
 
-现有 `ChatRunEventEmitter.emit(...)` 的行为保持不变：
+现有 `RunEventEmitter.emit(...)` 的行为保持不变：
 
 - 继续存 trace DB
 - 继续向主窗口发 IPC
@@ -105,10 +105,10 @@
 - `message.updated`
   - 提取 assistant 文本
   - 节流发送或编辑 Telegram 消息
-- `stream.preview.updated`
+- `preview.updated`
   - 提取当前 cycle 的实时预览文本
   - 在 committed message 到位前作为 Telegram 流式正文来源
-- `stream.preview.cleared`
+- `preview.cleared`
   - 结束 preview 态
   - 不主动清空 Telegram 正文，等待 committed update 接管
 - `run.completed`
@@ -134,7 +134,7 @@
    - `sendMessage(...)`
    - 保留返回的 `message_id`
 2. 后续流式更新：
-   - `stream.preview.updated` 优先驱动 Telegram 文本
+   - `preview.updated` 优先驱动 Telegram 文本
    - committed `message.updated` 作为正式 transcript 接管
    - 统一节流 `editMessageText(...)`
 3. `run.completed` 时：
@@ -181,10 +181,10 @@
 
 ### `chatRun`
 
-- `ChatRunEventSink` 新增到 infrastructure 层
-- `ChatRunEventEmitterFactory.create(...)` 支持 sinks
+- `RunEventSink` 新增到 infrastructure 层
+- `RunEventEmitterFactory.create(...)` 支持 sinks
 - `RunManager.start/execute(...)` 支持 event sinks
-- `ChatRunService.start/execute(...)` 支持 `options.eventSinks`
+- `RunService.start/execute(...)` 支持 `options.eventSinks`
 
 ### `telegram`
 
@@ -214,14 +214,14 @@
 
 - `message.updated`
   - committed transcript
-- `stream.preview.updated`
+- `preview.updated`
   - transient preview
 
 ## 测试与验证
 
 本轮新增验证包括：
 
-- `ChatRunEventEmitter` sink fan-out 测试
+- `RunEventEmitter` sink fan-out 测试
 - `TelegramRunResponder` 的首发 / 节流 / final edit 测试
 - `pnpm run typecheck:web`
 - `pnpm run typecheck:node`
@@ -242,7 +242,7 @@
 
 - [TelegramGatewayService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramGatewayService.ts)
 - [TelegramRunResponder.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramRunResponder.ts)
-- [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/infrastructure/event-emitter.ts)
-- [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunManager.ts)
+- [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/event-emitter.ts)
+- [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunManager.ts)
 - 历史上 Telegram 曾复用 chat-side message projection；当前对应 legacy 代码已移除
 - [DATA_FLOW.md](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/hooks/chatSubmit/docs/DATA_FLOW.md)

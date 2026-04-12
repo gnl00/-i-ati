@@ -84,7 +84,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_chat_uuid ON messages(chat_uuid);
 
 ### 步骤 1: 创建 DatabaseService (主进程)
 
-**文件**: `src/main/services/DatabaseService.ts` (新建)
+**文件**: `src/main/db/DatabaseService.ts` (新建)
 
 **功能**:
 - 单例模式管理 SQLite 连接
@@ -153,7 +153,7 @@ export const DB_CONFIG_INIT = 'db:config:init'
 
 **新增 handlers**:
 ```typescript
-import DatabaseService from './services/DatabaseService'
+import DatabaseService from './db/DatabaseService'
 
 const dbService = DatabaseService.getInstance()
 
@@ -298,7 +298,7 @@ export const deleteChat = async (id: number): Promise<boolean> => {
 
 **在 app.whenReady() 中添加**:
 ```typescript
-import DatabaseService from './services/DatabaseService'
+import DatabaseService from './db/DatabaseService'
 
 app.whenReady().then(async () => {
   // 初始化数据库
@@ -332,7 +332,7 @@ export const initializeAppConfig = async () => {
 
 ### 需要新建的文件
 
-1. **`src/main/services/DatabaseService.ts`**
+1. **`src/main/db/DatabaseService.ts`**
    - SQLite 数据库服务
    - 单例模式
    - 所有 CRUD 操作

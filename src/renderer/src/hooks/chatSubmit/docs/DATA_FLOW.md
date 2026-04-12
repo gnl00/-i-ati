@@ -15,14 +15,14 @@
 
 3. **store.messages**
    - renderer 的投影状态
-   - 只根据 `chat-run:event` 更新
+   - 只根据 `RUN_EVENT` 更新
 
 ## 当前流程
 
 ```
-renderer invokeChatRunStart
+renderer invokeRunStart
   ↓
-main ChatRunService.start
+main RunService.start
   ↓
 run.accepted
 run.state.changed(preparing)
@@ -35,14 +35,14 @@ run.state.changed(streaming)
 message.updated(assistant delta)
 tool.call.detected
 run.state.changed(executing_tools)
-tool.exec.started / completed / failed
+tool.execution.started / completed / failed
 tool.result.attached
   ↓
 run.state.changed(finalizing)
 chat.updated
 run.completed | run.failed | run.aborted
   ↓
-title.generate.* / compression.*
+title.generation.* / compression.*
 ```
 
 ## 关键点
@@ -54,6 +54,6 @@ title.generate.* / compression.*
 
 ## 实践约束
 
-- 新增 chat run 逻辑时，优先改 main `ChatRunService`，不要把流程逻辑加回 renderer。
-- 新增 UI 行为时，只订阅共享事件协议 `src/shared/chatRun/events.ts`。
+- 新增 run 逻辑时，优先改 main `RunService`，不要把流程逻辑加回 renderer。
+- 新增 UI 行为时，只订阅共享事件协议 `src/shared/run/events.ts`。
 - 如果某个状态只影响 UI 展示，就在 renderer 投影层处理；如果影响执行顺序或持久化，就放在 main。

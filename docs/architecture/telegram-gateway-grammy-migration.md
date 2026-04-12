@@ -27,7 +27,7 @@ Telegram 集成最初使用手写 HTTP 调用：
 - `chat_host_bindings`
 - `TelegramAgentAdapter`
 - `HostChatBindingService`
-- `ChatRunService`
+- `RunService`
 
 也就是：
 
@@ -46,14 +46,14 @@ Telegram 集成最初使用手写 HTTP 调用：
 6. `bot.start({ onStart })`
 7. `message` update -> `TelegramUpdateMapper`
 8. `TelegramAgentAdapter`
-9. `ChatRunService.execute(...)`
+9. `RunService.execute(...)`
 10. assistant 回复格式化后回发 Telegram
 
 相关文件：
 
 - [TelegramGatewayService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramGatewayService.ts)
 - [TelegramUpdateMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramUpdateMapper.ts)
-- [TelegramAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/telegram/TelegramAgentAdapter.ts)
+- [TelegramAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/TelegramAgentAdapter.ts)
 - [TelegramFileService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramFileService.ts)
 
 ## 已实现能力
@@ -297,4 +297,4 @@ Telegram 这轮问题还顺带暴露了 macOS CI 包的另一层风险：
 - [TelegramGatewayService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramGatewayService.ts)
 - [TelegramUpdateMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramUpdateMapper.ts)
 - [TelegramFileService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramFileService.ts)
-- [TelegramAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/telegram/TelegramAgentAdapter.ts)
+- [TelegramAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/TelegramAgentAdapter.ts)

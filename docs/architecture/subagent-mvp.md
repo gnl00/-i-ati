@@ -178,7 +178,7 @@
 相关代码：
 
 - [approval.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/approval.ts)
-- [ToolExecutor.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/agent/tools/ToolExecutor.ts)
+- [ToolExecutor.ts](/Users/gnl/Workspace/code/-i-ati/src/main/agent/tools/ToolExecutor.ts)
 
 ### 父 run 桥接
 
@@ -188,7 +188,7 @@
 
 - 旧设计里，主 chat run 曾通过 chat-side step factory 注册自己的：
   - `ToolConfirmationRequester`
-  - `ChatRunEventEmitter`
+  - `RunEventEmitter`
 - subagent 通过 [subagent-runtime-bridge.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/subagent/subagent-runtime-bridge.ts) 复用父 run 的确认链
 
 这意味着：
@@ -227,7 +227,7 @@
 事件来源：
 
 - `subagent.updated`
-- `tool.exec.requires_confirmation`
+- `tool.confirmation.required`
 
 渲染方式：
 

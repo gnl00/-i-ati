@@ -110,7 +110,7 @@ tool flush 阶段 committed body 只保留稳定的：
 `ChatStepCommitter` 不再负责发明消息合并策略，它现在只消费 assembler 输出：
 
 - committed body -> `message.updated`
-- preview body -> `stream.preview.updated`
+- preview body -> `preview.updated`
 
 也就是说，`ChatStepCommitter` 现在是一个投影/发射层，而不是组装层。
 
@@ -140,7 +140,7 @@ renderer 不再负责“拼出最终 assistant message”。
 
 - `message.updated`
   - committed transcript
-- `stream.preview.updated`
+- `preview.updated`
   - transient preview
 
 Telegram 这类宿主如果想保持和 chat UI 一致的流式体验，也应该消费 preview 事件，而不是只看 committed `message.updated`。

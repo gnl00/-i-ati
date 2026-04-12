@@ -25,7 +25,7 @@ renderer 不再承担流程编排，只负责提交命令和投影事件。
 ## 重构原则
 
 - main 是 chat execution 的唯一 runtime truth。
-- renderer 只消费 `chat-run:event`，不重建 assistant/tool 状态机。
+- renderer 只消费 `RUN_EVENT`，不重建 assistant/tool 状态机。
 - `run.completed` 是主链路完成边界。
 - title generation 和 compression 是 post-run jobs，不阻塞主流程。
 - 命名必须反映真实职责边界，不保留误导性的 legacy 语义。
@@ -36,9 +36,9 @@ renderer 不再承担流程编排，只负责提交命令和投影事件。
 
 主流程命名整体从 `chatSubmit` 迁移到 `chatRun`：
 
-- IPC 常量从 `CHAT_SUBMIT_*` 统一为 `CHAT_RUN_*`
-- 共享事件协议迁移到 `src/shared/chatRun/events.ts`
-- main runtime 迁移到 `src/main/services/chatRun/`
+- IPC 常量从 `CHAT_SUBMIT_*` 统一为 `RUN_*`
+- 共享事件协议迁移到 `src/shared/run/events.ts`
+- main runtime 迁移到 `src/main/orchestration/chat/run/`
 - renderer 只保留新的 run 提交和事件投影入口
 
 这一步的意义不是 rename 本身，而是把概念从“提交一次请求”升级为“启动一个 run”。
@@ -64,7 +64,7 @@ renderer 侧旧的 event-driven submit 架构已从主路径移除。
 
 ### 3. IPC 语义改为 accepted-first
 
-`CHAT_RUN_START` 现在是 accepted 语义：
+`RUN_START` 现在是 accepted 语义：
 
 - 提交后立即返回 `{ accepted: true, submissionId }`
 - 真正执行在 main 后台继续
@@ -77,7 +77,7 @@ title generation 和 compression 已独立为 post-run jobs：
 - `run.completed` 先发出
 - renderer 立即恢复输入状态
 - title/compression 在后台继续异步执行
-- 后续通过 `title.generate.*` / `compression.*` 事件更新
+- 后续通过 `title.generation.*` / `compression.*` 事件更新
 
 ### 5. runtime 进一步拆分成明确层次
 
@@ -133,7 +133,7 @@ title generation 和 compression 已独立为 post-run jobs：
 当前主结构如下：
 
 ```text
-src/main/services/chatRun/
+src/main/orchestration/chat/run/
   index.ts
   event-emitter.ts
   tool-confirmation.ts
@@ -152,7 +152,7 @@ src/main/services/chatRun/
       ChatStepCommitter.ts
   finalize/
     RunFinalizeService.ts
-src/main/services/chatPostRun/
+src/main/orchestration/chat/postRun/
   TitleJobService.ts
   CompressionJobService.ts
   PostRunJobService.ts
@@ -175,7 +175,7 @@ src/main/services/chatPostRun/
 当前 run 主链路可以概括为：
 
 ```text
-ChatRunService
+RunService
   -> RunManager
     -> AgentRun
       -> RunPreparationService
@@ -196,18 +196,18 @@ run.accepted
   -> run.state.changed(streaming / executing_tools / finalizing)
   -> message.updated
   -> tool.call.detected
-  -> tool.exec.started / completed / failed
+  -> tool.execution.started / completed / failed
   -> tool.result.attached
   -> chat.updated
   -> run.completed | run.failed | run.aborted
-  -> title.generate.* / compression.*
+  -> title.generation.* / compression.*
 ```
 
 ## 测试覆盖增强
 
 这次重构不仅调整了代码结构，也同步把测试覆盖对齐到新分层：
 
-- `ChatRunService.test.ts`
+- `RunService.test.ts`
   - 保留 facade 级入口验证
 - `RunManager.test.ts`
   - 覆盖 active run、accepted、duplicate submission、cancel 语义
@@ -215,7 +215,7 @@ run.accepted
   - 覆盖单次 run 成功路径和 abort 路径
 - scheduler 相关测试继续验证 `runBlocking` 语义
 
-这样后续继续拆分依赖时，不需要再完全依赖 `ChatRunService` 间接覆盖。
+这样后续继续拆分依赖时，不需要再完全依赖 `RunService` 间接覆盖。
 
 ## 当前收益
 
@@ -237,12 +237,12 @@ run.accepted
 
 ## 相关文件
 
-- `src/main/services/chatRun/index.ts`
-- `src/main/services/chatRun/runtime/RunManager.ts`
-- `src/main/services/chatRun/runtime/AgentRun.ts`
+- `src/main/orchestration/chat/run/index.ts`
+- `src/main/orchestration/chat/run/runtime/RunManager.ts`
+- `src/main/orchestration/chat/run/runtime/AgentRun.ts`
 - `ChatStepCommitter` 已从当前主代码移除
-- `src/main/services/hostAdapters/chat/preparation/index.ts`
-- `src/main/services/hostAdapters/chat/finalize/ChatFinalizeService.ts`
-- `src/main/services/chatPostRun/PostRunJobService.ts`
-- `src/shared/chatRun/events.ts`
+- `src/main/hosts/chat/preparation/index.ts`
+- `src/main/hosts/chat/finalize/ChatFinalizeService.ts`
+- `src/main/orchestration/chat/postRun/PostRunJobService.ts`
+- `src/shared/run/events.ts`
 - `src/renderer/src/hooks/chatSubmit/index.tsx`

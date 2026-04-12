@@ -14,7 +14,7 @@ Refactor database layer to separate provider/account/model data into dedicated t
   - `ChatSkillRepository`
   - `MessageRepository`
   - `CompressedSummaryRepository`
-  - `ChatRunEventRepository`
+  - `RunEventRepository`
   - `AssistantRepository`
 
 ### DatabaseService
@@ -42,7 +42,7 @@ Refactor database layer to separate provider/account/model data into dedicated t
 ## Notable Files
 - `src/main/db/Database.ts`
 - `src/main/db/repositories/*`
-- `src/main/services/DatabaseService.ts`
+- `src/main/db/DatabaseService.ts`
 - `src/shared/constants/index.ts`
 - `src/main/main-ipc.ts`
 - `src/renderer/src/invoker/ipcInvoker.ts`

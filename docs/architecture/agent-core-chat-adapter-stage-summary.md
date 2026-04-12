@@ -8,7 +8,7 @@
 这一阶段的目标，不再是单纯把 `chatSubmit` 改名为 `chatRun`，而是继续把运行时拆成更清晰的三层：
 
 - runtime core
-- `hostAdapters/chat`
+- `hosts/chat`
   - chat 领域适配层
 - `chatRun`
   - shell / runtime orchestration
@@ -19,18 +19,18 @@
 
 ### 1. 明确 shell / infrastructure 边界
 
-`ChatRunEventEmitterFactory` 和 `ToolConfirmationManager` 已迁到：
+`RunEventEmitterFactory` 和 `ToolConfirmationManager` 已迁到：
 
-- [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/infrastructure/event-emitter.ts)
-- [tool-confirmation.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/infrastructure/tool-confirmation.ts)
+- [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/event-emitter.ts)
+- [tool-confirmation.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/tool-confirmation.ts)
 
 这两者现在明确属于 `chatRun` 的 shell / infrastructure，而不是 core 或 chat adapter。
 
-### 2. 引入 `ChatRunRuntimeFactory`
+### 2. 引入 `RunRuntimeFactory`
 
 新增：
 
-- [ChatRunRuntimeFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/ChatRunRuntimeFactory.ts)
+- [RunRuntimeFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunRuntimeFactory.ts)
 
 作用：
 
@@ -38,12 +38,12 @@
 - 统一组装 `CompressionExecutionService`
 - 统一组装 `TitleGenerationService`
 - 共享 `ToolConfirmationManager`
-- 共享 `ChatRunEventEmitterFactory`
+- 共享 `RunEventEmitterFactory`
 
 结果是：
 
-- [ChatRunService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/index.ts) 退化成更薄的 facade
-- [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunManager.ts) 改成显式依赖注入，不再自己 `new` 一组 runtime 组件
+- [RunService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/index.ts) 退化成更薄的 facade
+- [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunManager.ts) 改成显式依赖注入，不再自己 `new` 一组 runtime 组件
 
 ### 3. `run` 语义收紧为 `run-kernel`
 
@@ -68,7 +68,7 @@
 
 新增：
 
-- [ChatStepRuntimeContextMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/mapping/ChatStepRuntimeContextMapper.ts)
+- [ChatStepRuntimeContextMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/mapping/ChatStepRuntimeContextMapper.ts)
 
 现在 `ChatRunContext` 不再直接喂给 step factory，而是先映射成更窄的 step runtime context：
 
@@ -93,7 +93,7 @@
 
 原来的：
 
-- `src/main/services/chatRun/streaming/segment-utils.ts`
+- `src/main/orchestration/chat/run/streaming/segment-utils.ts`
 
 已经删除。
 
@@ -103,11 +103,11 @@
 
 原来的：
 
-- `src/main/services/chatRun/runtime/assistant-step/*`
+- `src/main/orchestration/chat/run/runtime/assistant-step/*`
 
 已整体迁到：
 
-- `hostAdapters/chat/legacy` 已整体移除
+- `hosts/chat/legacy` 已整体移除
 
 包含：
 
@@ -123,27 +123,27 @@
 
 当前主路径已经切到 `agent/*` 和 `next/*`。
 
-### `hostAdapters/chat`
+### `hosts/chat`
 
 当前已经比较明确属于 chat adapter 的内容：
 
-- [ChatAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/ChatAgentAdapter.ts)
+- [ChatAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/ChatAgentAdapter.ts)
 - legacy chat-side step wiring 已从主代码移除
-- [mapping](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/mapping/index.ts)
-- [persistence](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/persistence/index.ts)
-- [preparation](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/preparation/index.ts)
-- [finalize](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/finalize/index.ts)
-- [config](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/config/index.ts)
+- [mapping](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/mapping/index.ts)
+- [persistence](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/persistence/index.ts)
+- [preparation](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/index.ts)
+- [finalize](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/finalize/index.ts)
+- [config](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/config/index.ts)
 
 ### `chatRun`
 
 当前更接近 shell / runtime orchestration：
 
-- [index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/index.ts)
-- [runtime/RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/RunManager.ts)
-- [runtime/AgentRun.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/AgentRun.ts)
-- [runtime/ChatRunRuntimeFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/runtime/ChatRunRuntimeFactory.ts)
-- [infrastructure](/Users/gnl/Workspace/code/-i-ati/src/main/services/chatRun/infrastructure/index.ts)
+- [index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/index.ts)
+- [runtime/RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunManager.ts)
+- [runtime/AgentRun.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/AgentRun.ts)
+- [runtime/RunRuntimeFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunRuntimeFactory.ts)
+- [infrastructure](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/index.ts)
 
 ## 当前判断
 

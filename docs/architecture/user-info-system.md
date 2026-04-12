@@ -125,7 +125,7 @@ This file stores the stable global user profile used for prompt injection.
 
 当前通过：
 
-- [UserInfoPromptProvider.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/hostAdapters/chat/preparation/request/UserInfoPromptProvider.ts)
+- [UserInfoPromptProvider.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/UserInfoPromptProvider.ts)
 
 在 system prompt 中插入：
 
