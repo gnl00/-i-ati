@@ -193,8 +193,8 @@ describe('AgentUiAdapter', () => {
     }
     const secondTextSegment = secondPatch.segment
 
-    expect(firstTextSegment?.segmentId).toBe('preview:step-1:text')
-    expect(secondTextSegment?.segmentId).toBe('preview:step-1:text')
+    expect(firstTextSegment?.segmentId).toBe('preview:step-1:text:0')
+    expect(secondTextSegment?.segmentId).toBe('preview:step-1:text:0')
     expect(secondTextSegment?.content).toBe('hello world')
     expect(secondPatch.content).toBe('hello world')
   })
@@ -324,13 +324,13 @@ describe('AgentUiAdapter', () => {
       expect.objectContaining({
         segment: expect.objectContaining({
           type: 'text',
-          segmentId: 'committed:step-1:text',
+          segmentId: 'committed:step-1:text:0',
           content: 'final answer'
         }),
         replaceSegments: expect.arrayContaining([
           expect.objectContaining({
             type: 'text',
-            segmentId: 'committed:step-1:text'
+            segmentId: 'committed:step-1:text:0'
           })
         ]),
         content: 'final answer',
@@ -652,12 +652,12 @@ describe('AgentUiAdapter', () => {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'text',
-          segmentId: 'committed:step-1:text',
+          segmentId: 'committed:step-1:text:0',
           content: '让我先看看这颗新脑袋。'
         }),
         expect.objectContaining({
           type: 'text',
-          segmentId: 'committed:step-2:text',
+          segmentId: 'committed:step-2:text:0',
           content: '新脑袋新气象，等着你验货 🫡'
         })
       ])
@@ -740,15 +740,321 @@ describe('AgentUiAdapter', () => {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'reasoning',
-          segmentId: 'committed:step-1:reasoning',
+          segmentId: 'committed:step-1:reasoning:0',
           content: '正在核对你的当前配置和默认行为。'
         }),
         expect.objectContaining({
           type: 'text',
-          segmentId: 'committed:step-2:text',
+          segmentId: 'committed:step-2:text:0',
           content: '新脑袋新气象，等着你验货 🫡'
         })
       ])
+    )
+  })
+
+  it('materializes separate reasoning episodes with independent timing boundaries', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.started',
+      timestamp: 100,
+      stepId: 'step-1',
+      stepIndex: 0
+    })
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 101,
+      delta: {
+        type: 'reasoning_delta',
+        timestamp: 101,
+        reasoning: 'reasoning-1'
+      },
+      snapshot: {
+        content: '',
+        reasoning: 'reasoning-1',
+        toolCalls: []
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 115,
+      delta: {
+        type: 'tool_call_started',
+        timestamp: 115,
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read'
+      },
+      snapshot: {
+        content: '',
+        reasoning: 'reasoning-1',
+        toolCalls: []
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 120,
+      delta: {
+        type: 'reasoning_delta',
+        timestamp: 120,
+        reasoning: 'reasoning-2'
+      },
+      snapshot: {
+        content: '',
+        reasoning: 'reasoning-1reasoning-2',
+        toolCalls: []
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 138,
+      delta: {
+        type: 'content_delta',
+        timestamp: 138,
+        content: 'final text'
+      },
+      snapshot: {
+        content: 'final text',
+        reasoning: 'reasoning-1reasoning-2',
+        toolCalls: []
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 140,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 140,
+        content: 'final text',
+        reasoning: 'reasoning-1reasoning-2',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{}'
+          },
+          index: 0
+        }],
+        finishReason: 'stop'
+      }
+    })
+
+    expect(adapter.getFinalAssistantMessage().body.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'reasoning',
+          segmentId: 'committed:step-1:reasoning:0',
+          content: 'reasoning-1',
+          timestamp: 101,
+          endedAt: 115
+        }),
+        expect.objectContaining({
+          type: 'toolCall',
+          segmentId: 'committed:step-1:tool:tool-1',
+          timestamp: 115
+        }),
+        expect.objectContaining({
+          type: 'reasoning',
+          segmentId: 'committed:step-1:reasoning:1',
+          content: 'reasoning-2',
+          timestamp: 120,
+          endedAt: 138
+        }),
+        expect.objectContaining({
+          type: 'text',
+          segmentId: 'committed:step-1:text:0',
+          content: 'final text',
+          timestamp: 138
+        })
+      ])
+    )
+  })
+
+  it('falls back to full preview update when text starts after reasoning and closes its timing window', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.started',
+      timestamp: 100,
+      stepId: 'step-1',
+      stepIndex: 0
+    })
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 101,
+      delta: {
+        type: 'reasoning_delta',
+        timestamp: 101,
+        reasoning: 'thinking'
+      },
+      snapshot: {
+        content: '',
+        reasoning: 'thinking',
+        toolCalls: []
+      }
+    })
+
+    await adapter.handle({
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 130,
+      delta: {
+        type: 'content_delta',
+        timestamp: 130,
+        content: 'answer'
+      },
+      snapshot: {
+        content: 'answer',
+        reasoning: 'thinking',
+        toolCalls: []
+      }
+    })
+
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewSegmentUpdated = (adapter as any).messageEvents.emitStreamPreviewSegmentUpdated as ReturnType<typeof vi.fn>
+    const latestPreview = emitStreamPreviewUpdated.mock.calls.at(-1)?.[0]?.body as ChatMessage
+    const reasoningSegment = latestPreview.segments.find(
+      (segment): segment is ReasoningSegment => segment.type === 'reasoning'
+    )
+
+    expect(emitStreamPreviewUpdated).toHaveBeenCalledTimes(2)
+    expect(emitStreamPreviewSegmentUpdated).not.toHaveBeenCalled()
+    expect(reasoningSegment).toEqual(
+      expect.objectContaining({
+        segmentId: 'preview:step-1:reasoning:0',
+        timestamp: 101,
+        endedAt: 130
+      })
+    )
+    expect(latestPreview.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'text',
+          segmentId: 'preview:step-1:text:0',
+          content: 'answer',
+          timestamp: 130
+        })
+      ])
+    )
+  })
+
+  it('keeps reasoning timing stable after later committed tool updates', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 140,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 140,
+        content: '',
+        reasoning: 'reasoning',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 220,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read',
+        content: 'ok'
+      }
+    })
+
+    const reasoningSegment = adapter.getFinalAssistantMessage().body.segments.find(
+      (segment): segment is ReasoningSegment => segment.type === 'reasoning'
+    )
+
+    expect(reasoningSegment).toEqual(
+      expect.objectContaining({
+        segmentId: 'committed:step-1:reasoning:0',
+        timestamp: 100,
+        endedAt: 140
+      })
     )
   })
 

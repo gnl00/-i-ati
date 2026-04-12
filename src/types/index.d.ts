@@ -457,6 +457,7 @@ declare interface ReasoningSegment {
   segmentId: string
   content: string
   timestamp: number
+  endedAt?: number
 }
 
 // 工具调用片段

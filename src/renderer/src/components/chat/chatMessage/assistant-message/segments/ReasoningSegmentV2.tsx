@@ -48,6 +48,10 @@ export const ReasoningSegmentV2: React.FC<ReasoningSegmentV2Props> = memo(({
       return undefined
     }
 
+    if (typeof segment.endedAt === 'number' && segment.endedAt >= segment.timestamp) {
+      return segment.endedAt - segment.timestamp
+    }
+
     if (typeof nextSegmentTimestamp === 'number' && nextSegmentTimestamp >= segment.timestamp) {
       return nextSegmentTimestamp - segment.timestamp
     }
@@ -57,7 +61,7 @@ export const ReasoningSegmentV2: React.FC<ReasoningSegmentV2Props> = memo(({
     }
 
     return undefined
-  }, [isStreaming, liveNow, nextSegmentTimestamp, segment.timestamp])
+  }, [isStreaming, liveNow, nextSegmentTimestamp, segment.endedAt, segment.timestamp])
 
   const thoughtSeconds = durationMs != null ? Math.max(1, Math.ceil(durationMs / 1000)) : undefined
 

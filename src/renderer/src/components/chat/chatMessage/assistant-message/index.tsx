@@ -41,7 +41,6 @@ type SegmentRenderItem = {
 }
 
 type SupportSegmentRenderItem = SegmentRenderItem & {
-  nextSegmentTimestamp?: number
   isStreamingTail: boolean
 }
 
@@ -182,7 +181,6 @@ const areSupportSegmentRenderItemsEqual = (
       && item.layer === nextItem.layer
       && item.sourceIndex === nextItem.sourceIndex
       && item.segment === nextItem.segment
-      && item.nextSegmentTimestamp === nextItem.nextSegmentTimestamp
       && item.isStreamingTail === nextItem.isStreamingTail
   })
 }
@@ -192,14 +190,13 @@ const AssistantSupportSegmentRow = memo(({
 }: {
   item: SupportSegmentRenderItem
 }) => {
-  const { segment, key, nextSegmentTimestamp, isStreamingTail } = item
+  const { segment, key, isStreamingTail } = item
 
   if (segment.type === 'reasoning') {
     return (
       <ReasoningSegmentNext
         key={key}
         segment={segment}
-        nextSegmentTimestamp={nextSegmentTimestamp}
         isStreaming={isStreamingTail}
       />
     )
@@ -418,12 +415,6 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         return
       }
 
-      const nextSegment = typewriter.segments[sourceIndex + 1]
-      const nextSegmentTimestamp =
-        nextSegment && 'timestamp' in nextSegment && typeof nextSegment.timestamp === 'number'
-          ? nextSegment.timestamp
-          : undefined
-
       orderedItems.push({
         kind: 'support',
         item: {
@@ -431,7 +422,6 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
           layer,
           sourceIndex,
           segment,
-          nextSegmentTimestamp,
           isStreamingTail: layer === 'preview' && isLatest && isStreaming && sourceIndex === typewriter.segments.length - 1
         }
       })

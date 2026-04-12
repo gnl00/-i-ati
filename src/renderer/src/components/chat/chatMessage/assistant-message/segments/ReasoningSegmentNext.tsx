@@ -9,13 +9,11 @@ import { remarkPreserveLineBreaks } from '../../markdown/markdown-plugins'
 
 interface ReasoningSegmentNextProps {
   segment: ReasoningSegment
-  nextSegmentTimestamp?: number
   isStreaming?: boolean
 }
 
 export const ReasoningSegmentNext: React.FC<ReasoningSegmentNextProps> = memo(({
   segment,
-  nextSegmentTimestamp,
   isStreaming = false
 }) => {
   const fixedContent = fixMalformedCodeBlocks(segment.content)
@@ -44,8 +42,8 @@ export const ReasoningSegmentNext: React.FC<ReasoningSegmentNextProps> = memo(({
       return undefined
     }
 
-    if (typeof nextSegmentTimestamp === 'number' && nextSegmentTimestamp >= segment.timestamp) {
-      return nextSegmentTimestamp - segment.timestamp
+    if (typeof segment.endedAt === 'number' && segment.endedAt >= segment.timestamp) {
+      return segment.endedAt - segment.timestamp
     }
 
     if (isStreaming) {
@@ -53,7 +51,7 @@ export const ReasoningSegmentNext: React.FC<ReasoningSegmentNextProps> = memo(({
     }
 
     return undefined
-  }, [isStreaming, liveNow, nextSegmentTimestamp, segment.timestamp])
+  }, [isStreaming, liveNow, segment.endedAt, segment.timestamp])
 
   const thoughtSeconds = durationMs != null ? Math.max(1, Math.ceil(durationMs / 1000)) : undefined
 

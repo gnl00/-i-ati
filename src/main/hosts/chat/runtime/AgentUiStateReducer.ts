@@ -77,115 +77,220 @@ const cloneContentBlock = (
   block: AgentUiContentBlockState
 ): AgentUiContentBlockState => ({ ...block })
 
-const serializeTextBlocks = (blocks: AgentUiContentBlockState[]): string => {
-  return blocks
-    .filter((block): block is AgentUiTextBlockState => block.kind === 'text')
-    .map(block => block.content.trim())
-    .filter(Boolean)
-    .join('\n\n')
+const appendCommittedContent = (existingContent: string, stepContent: string): string => {
+  const normalizedStepContent = stepContent.trim()
+  if (!normalizedStepContent) {
+    return existingContent
+  }
+
+  if (!existingContent.trim()) {
+    return normalizedStepContent
+  }
+
+  return `${existingContent}\n\n${normalizedStepContent}`
 }
 
-const upsertTextBlock = (
+const closeLastOpenStepBlock = (
   blocks: AgentUiContentBlockState[],
   stepId: string | undefined,
-  content: string
-): AgentUiContentBlockState[] => {
-  if (!stepId || !content.trim()) {
-    return blocks
-  }
-
-  const nextBlocks = [...blocks]
-  const index = nextBlocks.findIndex((block) => block.kind === 'text' && block.stepId === stepId)
-  const nextBlock: AgentUiTextBlockState = {
-    kind: 'text',
-    stepId,
-    content
-  }
-
-  if (index >= 0) {
-    nextBlocks[index] = nextBlock
-    return nextBlocks
-  }
-
-  const lastBlock = nextBlocks[nextBlocks.length - 1]
-  if (lastBlock?.kind === 'text' && lastBlock.content === content) {
-    return nextBlocks
-  }
-
-  nextBlocks.push(nextBlock)
-  return nextBlocks
-}
-
-const upsertReasoningBlock = (
-  blocks: AgentUiContentBlockState[],
-  stepId: string | undefined,
-  reasoning: string | undefined
-): AgentUiContentBlockState[] => {
-  if (!stepId || !reasoning?.trim()) {
-    return blocks
-  }
-
-  const nextBlocks = [...blocks]
-  const index = nextBlocks.findIndex((block) => block.kind === 'reasoning' && block.stepId === stepId)
-  const nextBlock: AgentUiReasoningBlockState = {
-    kind: 'reasoning',
-    stepId,
-    content: reasoning
-  }
-
-  if (index >= 0) {
-    nextBlocks[index] = nextBlock
-    return nextBlocks
-  }
-
-  const lastBlock = nextBlocks[nextBlocks.length - 1]
-  if (lastBlock?.kind === 'reasoning' && lastBlock.content === reasoning) {
-    return nextBlocks
-  }
-
-  nextBlocks.push(nextBlock)
-  return nextBlocks
-}
-
-const upsertToolCallBlock = (
-  blocks: AgentUiContentBlockState[],
-  stepId: string | undefined,
-  toolCallId: string
+  endedAt: number
 ): AgentUiContentBlockState[] => {
   if (!stepId) {
     return blocks
   }
 
-  const exists = blocks.some((block) => (
-    block.kind === 'toolCall' && block.toolCallId === toolCallId
-  ))
-  if (exists) {
+  const nextBlocks = [...blocks]
+  for (let index = nextBlocks.length - 1; index >= 0; index -= 1) {
+    const block = nextBlocks[index]
+    if (block.stepId !== stepId || typeof block.endedAt === 'number') {
+      continue
+    }
+
+    nextBlocks[index] = {
+      ...block,
+      endedAt: Math.max(block.startedAt, endedAt)
+    }
+    return nextBlocks
+  }
+
+  return nextBlocks
+}
+
+const getNextBlockOrdinal = (
+  blocks: AgentUiContentBlockState[],
+  stepId: string,
+  kind: AgentUiContentBlockState['kind']
+): number => {
+  return blocks.filter((block) => block.stepId === stepId && block.kind === kind).length
+}
+
+const createTextBlock = (
+  blocks: AgentUiContentBlockState[],
+  stepId: string,
+  content: string,
+  timestamp: number,
+  endedAt?: number
+): AgentUiTextBlockState => ({
+  blockId: `${stepId}:text:${getNextBlockOrdinal(blocks, stepId, 'text')}`,
+  kind: 'text',
+  stepId,
+  content,
+  startedAt: timestamp,
+  ...(typeof endedAt === 'number' ? { endedAt } : {})
+})
+
+const createReasoningBlock = (
+  blocks: AgentUiContentBlockState[],
+  stepId: string,
+  content: string,
+  timestamp: number,
+  endedAt?: number
+): AgentUiReasoningBlockState => ({
+  blockId: `${stepId}:reasoning:${getNextBlockOrdinal(blocks, stepId, 'reasoning')}`,
+  kind: 'reasoning',
+  stepId,
+  content,
+  startedAt: timestamp,
+  ...(typeof endedAt === 'number' ? { endedAt } : {})
+})
+
+const createToolCallBlock = (
+  stepId: string,
+  toolCallId: string,
+  timestamp: number,
+  endedAt?: number
+): AgentUiToolCallBlockState => ({
+  blockId: `${stepId}:tool:${toolCallId}`,
+  kind: 'toolCall',
+  stepId,
+  toolCallId,
+  startedAt: timestamp,
+  ...(typeof endedAt === 'number' ? { endedAt } : {})
+})
+
+const appendTextDeltaBlock = (
+  blocks: AgentUiContentBlockState[],
+  stepId: string | undefined,
+  contentDelta: string,
+  timestamp: number
+): AgentUiContentBlockState[] => {
+  if (!stepId || contentDelta.length === 0) {
     return blocks
   }
 
+  const nextBlocks = [...blocks]
+  const lastBlock = nextBlocks[nextBlocks.length - 1]
+  if (lastBlock?.kind === 'text' && lastBlock.stepId === stepId && typeof lastBlock.endedAt !== 'number') {
+    nextBlocks[nextBlocks.length - 1] = {
+      ...lastBlock,
+      content: `${lastBlock.content}${contentDelta}`
+    }
+    return nextBlocks
+  }
+
   return [
-    ...blocks,
-    {
-      kind: 'toolCall',
-      stepId,
-      toolCallId
-    } satisfies AgentUiToolCallBlockState
+    ...closeLastOpenStepBlock(nextBlocks, stepId, timestamp),
+    createTextBlock(nextBlocks, stepId, contentDelta, timestamp)
   ]
+}
+
+const appendReasoningDeltaBlock = (
+  blocks: AgentUiContentBlockState[],
+  stepId: string | undefined,
+  reasoningDelta: string,
+  timestamp: number
+): AgentUiContentBlockState[] => {
+  if (!stepId || reasoningDelta.length === 0) {
+    return blocks
+  }
+
+  const nextBlocks = [...blocks]
+  const lastBlock = nextBlocks[nextBlocks.length - 1]
+  if (lastBlock?.kind === 'reasoning' && lastBlock.stepId === stepId && typeof lastBlock.endedAt !== 'number') {
+    nextBlocks[nextBlocks.length - 1] = {
+      ...lastBlock,
+      content: `${lastBlock.content}${reasoningDelta}`
+    }
+    return nextBlocks
+  }
+
+  return [
+    ...closeLastOpenStepBlock(nextBlocks, stepId, timestamp),
+    createReasoningBlock(nextBlocks, stepId, reasoningDelta, timestamp)
+  ]
+}
+
+const openToolCallBlock = (
+  blocks: AgentUiContentBlockState[],
+  stepId: string | undefined,
+  toolCallId: string,
+  timestamp: number
+): AgentUiContentBlockState[] => {
+  if (!stepId) {
+    return blocks
+  }
+
+  const nextBlocks = [...blocks]
+  const lastBlock = nextBlocks[nextBlocks.length - 1]
+  if (
+    lastBlock?.kind === 'toolCall'
+    && lastBlock.stepId === stepId
+    && lastBlock.toolCallId === toolCallId
+    && typeof lastBlock.endedAt !== 'number'
+  ) {
+    return nextBlocks
+  }
+
+  return [
+    ...closeLastOpenStepBlock(nextBlocks, stepId, timestamp),
+    createToolCallBlock(stepId, toolCallId, timestamp)
+  ]
+}
+
+const finalizeStepBlocks = (
+  blocks: AgentUiContentBlockState[],
+  stepId: string | undefined,
+  endedAt: number
+): AgentUiContentBlockState[] => {
+  return closeLastOpenStepBlock(blocks, stepId, endedAt)
 }
 
 const ensureCommittedBlocksForStep = (
   blocks: AgentUiContentBlockState[],
   step: AgentStep
 ): AgentUiContentBlockState[] => {
-  let nextBlocks = [...blocks]
-  if (step.reasoning?.trim()) {
-    nextBlocks = upsertReasoningBlock(nextBlocks, step.stepId, step.reasoning)
+  let nextBlocks = finalizeStepBlocks(blocks, step.stepId, step.completedAt)
+
+  const hasReasoningBlock = nextBlocks.some((block) => (
+    block.kind === 'reasoning' && block.stepId === step.stepId
+  ))
+  if (!hasReasoningBlock && step.reasoning?.trim()) {
+    nextBlocks = [
+      ...nextBlocks,
+      createReasoningBlock(nextBlocks, step.stepId, step.reasoning, step.startedAt, step.completedAt)
+    ]
   }
-  if (step.content.trim()) {
-    nextBlocks = upsertTextBlock(nextBlocks, step.stepId, step.content)
+
+  const hasTextBlock = nextBlocks.some((block) => (
+    block.kind === 'text' && block.stepId === step.stepId
+  ))
+  if (!hasTextBlock && step.content.trim()) {
+    nextBlocks = [
+      ...nextBlocks,
+      createTextBlock(nextBlocks, step.stepId, step.content, step.startedAt, step.completedAt)
+    ]
   }
+
   for (const toolCall of step.toolCalls) {
-    nextBlocks = upsertToolCallBlock(nextBlocks, step.stepId, toolCall.id)
+    const hasToolCallBlock = nextBlocks.some((block) => (
+      block.kind === 'toolCall' && block.stepId === step.stepId && block.toolCallId === toolCall.id
+    ))
+    if (!hasToolCallBlock) {
+      nextBlocks = [
+        ...nextBlocks,
+        createToolCallBlock(step.stepId, toolCall.id, step.completedAt)
+      ]
+    }
   }
   return nextBlocks
 }
@@ -284,18 +389,20 @@ export class AgentUiStateReducer {
     let previewContentBlocks = [...preview.contentBlocks]
 
     if (event.delta.type === 'content_delta') {
-      previewContentBlocks = upsertTextBlock(
+      previewContentBlocks = appendTextDeltaBlock(
         previewContentBlocks,
         event.stepId,
-        event.snapshot.content
+        event.delta.content,
+        event.timestamp
       )
     }
 
     if (event.delta.type === 'reasoning_delta') {
-      previewContentBlocks = upsertReasoningBlock(
+      previewContentBlocks = appendReasoningDeltaBlock(
         previewContentBlocks,
         event.stepId,
-        event.snapshot.reasoning
+        event.delta.reasoning,
+        event.timestamp
       )
     }
 
@@ -310,18 +417,20 @@ export class AgentUiStateReducer {
           status: 'pending'
         }, existing)
       }])
-      previewContentBlocks = upsertToolCallBlock(
+      previewContentBlocks = openToolCallBlock(
         previewContentBlocks,
         event.stepId,
-        delta.toolCallId
+        delta.toolCallId,
+        event.timestamp
       )
     }
 
     if (event.delta.type === 'tool_call_ready') {
-      previewContentBlocks = upsertToolCallBlock(
+      previewContentBlocks = openToolCallBlock(
         previewContentBlocks,
         event.stepId,
-        event.delta.toolCall.id
+        event.delta.toolCall.id,
+        event.timestamp
       )
     }
 
@@ -330,11 +439,17 @@ export class AgentUiStateReducer {
       return toToolCallState(toolCall, existing)
     })
     for (const toolCall of event.snapshot.toolCalls) {
-      previewContentBlocks = upsertToolCallBlock(
-        previewContentBlocks,
-        event.stepId,
-        toolCall.id
-      )
+      const hasToolCallBlock = previewContentBlocks.some((block) => (
+        block.kind === 'toolCall' && block.stepId === event.stepId && block.toolCallId === toolCall.id
+      ))
+      if (!hasToolCallBlock) {
+        previewContentBlocks = openToolCallBlock(
+          previewContentBlocks,
+          event.stepId,
+          toolCall.id,
+          event.timestamp
+        )
+      }
     }
 
     this.state = {
@@ -353,7 +468,8 @@ export class AgentUiStateReducer {
     if (this.state.preview?.stepId === step.stepId) {
       committedContentBlocks = [
         ...committedContentBlocks,
-        ...this.state.preview.contentBlocks.map(cloneContentBlock)
+        ...finalizeStepBlocks(this.state.preview.contentBlocks, step.stepId, step.completedAt)
+          .map(cloneContentBlock)
       ]
     }
     committedContentBlocks = ensureCommittedBlocksForStep(committedContentBlocks, step)
@@ -370,7 +486,7 @@ export class AgentUiStateReducer {
     this.state = {
       committed: {
         stepId: step.stepId,
-        content: serializeTextBlocks(committedContentBlocks),
+        content: appendCommittedContent(this.state.committed.content, step.content),
         contentBlocks: committedContentBlocks,
         toolCalls: mergedToolCalls,
         failure: step.status === 'failed'

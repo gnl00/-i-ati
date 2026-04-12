@@ -20,21 +20,30 @@ export interface AgentUiToolCallState {
 }
 
 export interface AgentUiTextBlockState {
+  blockId: string
   kind: 'text'
   stepId: string
   content: string
+  startedAt: number
+  endedAt?: number
 }
 
 export interface AgentUiReasoningBlockState {
+  blockId: string
   kind: 'reasoning'
   stepId: string
   content: string
+  startedAt: number
+  endedAt?: number
 }
 
 export interface AgentUiToolCallBlockState {
+  blockId: string
   kind: 'toolCall'
   stepId: string
   toolCallId: string
+  startedAt: number
+  endedAt?: number
 }
 
 export type AgentUiContentBlockState =

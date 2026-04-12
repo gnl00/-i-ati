@@ -9,6 +9,7 @@ import { ChatStepStore } from '../persistence/ChatStepStore'
 import type { StepArtifact } from '@main/agent/contracts'
 import { serializeError } from '@main/utils/serializeError'
 import type {
+  AgentUiContentBlockState,
   AgentUiMessageState,
   AgentUiReasoningBlockState,
   AgentUiTextBlockState,
@@ -50,24 +51,23 @@ const toMessageToolCall = (toolCall: AgentUiToolCallState): IToolCall => ({
 
 const buildReasoningSegment = (
   block: AgentUiReasoningBlockState,
-  timestamp: number,
   layer: 'preview' | 'committed'
 ): ReasoningSegment => ({
   type: 'reasoning',
-  segmentId: `${layer}:${block.stepId}:reasoning`,
+  segmentId: `${layer}:${block.blockId}`,
   content: block.content,
-  timestamp
+  timestamp: block.startedAt,
+  endedAt: block.endedAt
 })
 
 const buildTextSegment = (
   block: AgentUiTextBlockState,
-  timestamp: number,
   layer: 'preview' | 'committed'
 ): TextSegment => ({
   type: 'text',
-  segmentId: `${layer}:${block.stepId}:text`,
+  segmentId: `${layer}:${block.blockId}`,
   content: block.content,
-  timestamp
+  timestamp: block.startedAt
 })
 
 const buildSegments = (input: {
@@ -84,14 +84,14 @@ const buildSegments = (input: {
   for (const block of input.state.contentBlocks) {
     if (block.kind === 'reasoning') {
       if (block.content.trim()) {
-        segments.push(buildReasoningSegment(block, input.timestamp, input.layer))
+        segments.push(buildReasoningSegment(block, input.layer))
       }
       continue
     }
 
     if (block.kind === 'text') {
       if (input.includeText && block.content.trim()) {
-        segments.push(buildTextSegment(block, input.timestamp, input.layer))
+        segments.push(buildTextSegment(block, input.layer))
       }
       continue
     }
@@ -102,7 +102,7 @@ const buildSegments = (input: {
     }
     segments.push({
       type: 'toolCall',
-      segmentId: `${input.layer}:${block.stepId}:tool:${call.toolCallId}`,
+      segmentId: `${input.layer}:${block.blockId}`,
       name: call.name,
       content: {
         toolName: call.name,
@@ -113,7 +113,7 @@ const buildSegments = (input: {
       },
       ...(call.cost !== undefined ? { cost: call.cost } : {}),
       isError: call.status === 'failed' || call.status === 'aborted',
-      timestamp: input.timestamp,
+      timestamp: block.startedAt,
       toolCallId: call.toolCallId,
       toolCallIndex: call.toolCallIndex
     })
@@ -179,12 +179,14 @@ export class AgentUiAdapter implements AgentEventSink {
           && previousState.preview.stepId === state.preview.stepId
         )
         if (event.delta.type === 'content_delta' && hasActivePreview) {
-          if (this.emitPreviewTextPatch(state.preview, event.timestamp)) {
+          if (this.canEmitOptimizedTextPreviewPatch(previousState.preview!, state.preview!)
+            && this.emitPreviewTextPatch(state.preview, event.timestamp)) {
             return
           }
         }
         if (event.delta.type === 'reasoning_delta' && hasActivePreview) {
-          if (this.emitPreviewReasoningPatch(state.preview, event.timestamp)) {
+          if (this.canEmitOptimizedReasoningPreviewPatch(previousState.preview!, state.preview!)
+            && this.emitPreviewReasoningPatch(state.preview, event.timestamp)) {
             return
           }
         }
@@ -251,6 +253,38 @@ export class AgentUiAdapter implements AgentEventSink {
     return [...this.artifacts]
   }
 
+  private canEmitOptimizedTextPreviewPatch(
+    previousState: AgentUiMessageState,
+    nextState: AgentUiMessageState
+  ): boolean {
+    const previousLastBlock = previousState.contentBlocks.at(-1)
+    const nextLastBlock = nextState.contentBlocks.at(-1)
+    return this.isSameOpenBlockTransition(previousLastBlock, nextLastBlock, 'text')
+      && previousState.contentBlocks.length === nextState.contentBlocks.length
+  }
+
+  private canEmitOptimizedReasoningPreviewPatch(
+    previousState: AgentUiMessageState,
+    nextState: AgentUiMessageState
+  ): boolean {
+    const previousLastBlock = previousState.contentBlocks.at(-1)
+    const nextLastBlock = nextState.contentBlocks.at(-1)
+    return this.isSameOpenBlockTransition(previousLastBlock, nextLastBlock, 'reasoning')
+      && previousState.contentBlocks.length === nextState.contentBlocks.length
+  }
+
+  private isSameOpenBlockTransition(
+    previousBlock: AgentUiContentBlockState | undefined,
+    nextBlock: AgentUiContentBlockState | undefined,
+    expectedKind: AgentUiContentBlockState['kind']
+  ): boolean {
+    return previousBlock?.kind === expectedKind
+      && nextBlock?.kind === expectedKind
+      && previousBlock.blockId === nextBlock.blockId
+      && typeof previousBlock.endedAt !== 'number'
+      && typeof nextBlock.endedAt !== 'number'
+  }
+
   private emitPreview(state: AgentUiMessageState | null, timestamp: number): void {
     if (!state) {
       this.messageEvents.emitStreamPreviewCleared()
@@ -280,7 +314,7 @@ export class AgentUiAdapter implements AgentEventSink {
     } satisfies MessageEntity)
   }
 
-  private emitPreviewTextPatch(state: AgentUiMessageState | null, timestamp: number): boolean {
+  private emitPreviewTextPatch(state: AgentUiMessageState | null, _timestamp: number): boolean {
     if (!state) {
       return false
     }
@@ -291,7 +325,7 @@ export class AgentUiAdapter implements AgentEventSink {
     if (!textBlock) {
       return false
     }
-    const segment = buildTextSegment(textBlock, timestamp, 'preview')
+    const segment = buildTextSegment(textBlock, 'preview')
 
     this.messageEvents.emitStreamPreviewSegmentUpdated(
       {
@@ -310,7 +344,7 @@ export class AgentUiAdapter implements AgentEventSink {
     return true
   }
 
-  private emitPreviewReasoningPatch(state: AgentUiMessageState | null, timestamp: number): boolean {
+  private emitPreviewReasoningPatch(state: AgentUiMessageState | null, _timestamp: number): boolean {
     if (!state) {
       return false
     }
@@ -321,7 +355,7 @@ export class AgentUiAdapter implements AgentEventSink {
     if (!reasoningBlock) {
       return false
     }
-    const segment = buildReasoningSegment(reasoningBlock, timestamp, 'preview')
+    const segment = buildReasoningSegment(reasoningBlock, 'preview')
 
     this.messageEvents.emitStreamPreviewSegmentUpdated(
       {

@@ -11,6 +11,7 @@ const mockReasoningSegment: ReasoningSegment = {
   segmentId: 'model-badge-test:reasoning:1',
   type: 'reasoning',
   timestamp: Date.now(),
+  endedAt: Date.now() + 2000,
   content: [
     'I checked the current assistant message layout and compared the model header against the reasoning and tool call segments.',
     '',
@@ -195,7 +196,6 @@ export default function ModelBadgeTestPage() {
             reasoning={(
               <ReasoningSegmentNext
                 segment={mockReasoningSegment}
-                nextSegmentTimestamp={mockToolCallSegment.timestamp}
                 isStreaming={false}
               />
             )}
@@ -219,7 +219,6 @@ export default function ModelBadgeTestPage() {
             reasoning={(
               <ReasoningSegmentNext
                 segment={mockReasoningSegment}
-                nextSegmentTimestamp={mockToolCallSegment.timestamp}
                 isStreaming={false}
               />
             )}
@@ -231,7 +230,6 @@ export default function ModelBadgeTestPage() {
             reasoning={(
               <ReasoningSegmentNext
                 segment={mockReasoningSegment}
-                nextSegmentTimestamp={mockToolCallSegment.timestamp}
                 isStreaming={false}
               />
             )}
