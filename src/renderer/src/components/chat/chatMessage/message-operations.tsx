@@ -2,6 +2,18 @@ import { CopyIcon, Pencil2Icon, ReloadIcon } from '@radix-ui/react-icons'
 import { cn } from '@renderer/lib/utils'
 import React, { useState } from 'react'
 
+const formatDateTime24h = (timestamp: number): string => {
+  const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
 export interface MessageOperationButtonsProps {
   type: 'user' | 'assistant'
   message: ChatMessage | undefined
@@ -104,7 +116,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
 }) => {
   const isUser = type === 'user'
   const assistantDateLabel = !isUser && typeof message?.createdAt === 'number'
-    ? new Date(message.createdAt).toLocaleDateString().replace(/\//g, '-') + ' ' + new Date(message.createdAt).toLocaleTimeString()
+    ? formatDateTime24h(message.createdAt)
     : null
 
   return (
