@@ -1,103 +1,53 @@
-import type Database from 'better-sqlite3'
+import type { AssistantDao } from '@main/db/dao/AssistantDao'
+import {
+  toAssistantEntity,
+  toAssistantRow
+} from '@main/db/mappers/AssistantMapper'
 
-interface AssistantRow {
-  id: string
-  name: string
-  description: string | null
-  model_account_id: string
-  model_model_id: string
-  system_prompt: string
-  sort_index: number
-  created_at: number
-  updated_at: number
-  is_built_in: number
-  is_default: number
+type AssistantRepositoryDeps = {
+  hasDb: () => boolean
+  getAssistantRepo: () => AssistantDao | undefined
 }
 
-class AssistantRepository {
-  private stmts: {
-    insertAssistant: Database.Statement
-    getAllAssistants: Database.Statement
-    getAssistantById: Database.Statement
-    updateAssistant: Database.Statement
-    deleteAssistant: Database.Statement
-    deleteAllAssistants: Database.Statement
+export class AssistantRepository {
+  constructor(private readonly deps: AssistantRepositoryDeps) {}
+
+  saveAssistant(assistant: Assistant): string {
+    const assistantRepo = this.requireAssistantRepo()
+    assistantRepo.insert(toAssistantRow(assistant))
+    return assistant.id
   }
 
-  constructor(db: Database.Database) {
-    this.stmts = {
-      insertAssistant: db.prepare(`
-        INSERT INTO assistants (
-          id, name, description, model_account_id, model_model_id,
-          system_prompt, sort_index, created_at, updated_at, is_built_in, is_default
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `),
-      getAllAssistants: db.prepare(`
-        SELECT * FROM assistants ORDER BY sort_index ASC, updated_at DESC
-      `),
-      getAssistantById: db.prepare(`
-        SELECT * FROM assistants WHERE id = ?
-      `),
-      updateAssistant: db.prepare(`
-        UPDATE assistants SET
-          name = ?, description = ?, model_account_id = ?, model_model_id = ?,
-          system_prompt = ?, sort_index = ?, updated_at = ?, is_built_in = ?, is_default = ?
-        WHERE id = ?
-      `),
-      deleteAssistant: db.prepare(`
-        DELETE FROM assistants WHERE id = ?
-      `),
-      deleteAllAssistants: db.prepare(`DELETE FROM assistants`)
-    }
+  getAllAssistants(): Assistant[] {
+    const assistantRepo = this.requireAssistantRepo()
+    return assistantRepo.getAll().map(row => toAssistantEntity(row))
   }
 
-  insert(row: AssistantRow): void {
-    this.stmts.insertAssistant.run(
-      row.id,
-      row.name,
-      row.description,
-      row.model_account_id,
-      row.model_model_id,
-      row.system_prompt,
-      row.sort_index,
-      row.created_at,
-      row.updated_at,
-      row.is_built_in,
-      row.is_default
-    )
+  deleteAllAssistants(): void {
+    const assistantRepo = this.requireAssistantRepo()
+    assistantRepo.deleteAll()
   }
 
-  getAll(): AssistantRow[] {
-    return this.stmts.getAllAssistants.all() as AssistantRow[]
+  getAssistantById(id: string): Assistant | undefined {
+    const assistantRepo = this.requireAssistantRepo()
+    const row = assistantRepo.getById(id)
+    return row ? toAssistantEntity(row) : undefined
   }
 
-  getById(id: string): AssistantRow | undefined {
-    return this.stmts.getAssistantById.get(id) as AssistantRow | undefined
+  updateAssistant(assistant: Assistant): void {
+    const assistantRepo = this.requireAssistantRepo()
+    assistantRepo.update(toAssistantRow(assistant))
   }
 
-  update(row: AssistantRow): void {
-    this.stmts.updateAssistant.run(
-      row.name,
-      row.description,
-      row.model_account_id,
-      row.model_model_id,
-      row.system_prompt,
-      row.sort_index,
-      row.updated_at,
-      row.is_built_in,
-      row.is_default,
-      row.id
-    )
+  deleteAssistant(id: string): void {
+    const assistantRepo = this.requireAssistantRepo()
+    assistantRepo.delete(id)
   }
 
-  delete(id: string): void {
-    this.stmts.deleteAssistant.run(id)
-  }
-
-  deleteAll(): void {
-    this.stmts.deleteAllAssistants.run()
+  private requireAssistantRepo(): AssistantDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getAssistantRepo()
+    if (!repo) throw new Error('Assistant repository not initialized')
+    return repo
   }
 }
-
-export { AssistantRepository }
-export type { AssistantRow }

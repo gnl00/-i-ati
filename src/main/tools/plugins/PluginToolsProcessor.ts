@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import path from 'path'
 import DatabaseService from '@main/db/DatabaseService'
-import { LocalPluginCatalogService, pluginEventEmitter } from '@main/services/plugins'
+import { pluginEventEmitter } from '@main/services/plugins'
 
 type InstallPluginArgs = {
   source?: string
@@ -94,8 +94,7 @@ export async function processPluginInstall(args: InstallPluginArgs): Promise<Plu
     }
 
     const resolvedSource = resolveSourcePath(source, args.chat_uuid)
-    const catalogService = new LocalPluginCatalogService()
-    const manifest = await catalogService.loadPluginManifestFromDirectory(resolvedSource)
+    const manifest = await DatabaseService.inspectLocalPluginDirectory(resolvedSource)
     if (manifest.status !== 'installed') {
       return {
         success: false,

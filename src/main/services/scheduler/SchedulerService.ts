@@ -5,7 +5,7 @@ import { createLogger } from '@main/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { resolveNewChatModelRef } from '@shared/services/ChatModelResolver'
 import { ScheduleEventEmitter } from './event-emitter'
-import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
+import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
 
 type ScheduledTaskPayload = {
   prompt?: string

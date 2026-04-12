@@ -1,214 +1,250 @@
-import type Database from 'better-sqlite3'
+import type { ProviderDao } from '@main/db/dao/ProviderDao'
+import {
+  toAccountModelEntity,
+  toProviderAccountEntity,
+  toProviderAccountRow,
+  toProviderDefinitionEntity,
+  toProviderDefinitionRow,
+  toProviderModelRow
+} from '@main/db/mappers/ProviderMapper'
 
-interface ProviderDefinitionRow {
-  id: string
-  display_name: string
-  adapter_plugin_id: string
-  icon_key: string | null
-  default_api_url: string | null
-  request_overrides: string | null
-  created_at: number
-  updated_at: number
+type ProviderRepositoryDeps = {
+  hasDb: () => boolean
+  getDb: () => ReturnType<import('@main/db/core/Database').AppDatabase['getDb']> | null
+  getProviderRepo: () => ProviderDao | undefined
 }
 
-interface ProviderAccountRow {
-  id: string
-  provider_id: string
-  label: string
-  api_url: string
-  api_key: string
-  created_at: number
-  updated_at: number
-}
+export class ProviderRepository {
+  constructor(private readonly deps: ProviderRepositoryDeps) {}
 
-interface ProviderModelRow {
-  account_id: string
-  model_id: string
-  label: string
-  type: string
-  modalities_json: string | null
-  enabled: number
-  created_at: number
-  updated_at: number
-}
-
-class ProviderRepository {
-  private stmts: {
-    getProviderDefinitions: Database.Statement
-    getProviderDefinitionById: Database.Statement
-    countProviderDefinitions: Database.Statement
-    upsertProviderDefinition: Database.Statement
-    deleteProviderDefinition: Database.Statement
-    getProviderAccounts: Database.Statement
-    upsertProviderAccount: Database.Statement
-    deleteProviderAccount: Database.Statement
-    deleteProviderAccountsByProviderId: Database.Statement
-    getProviderModels: Database.Statement
-    upsertProviderModel: Database.Statement
-    deleteProviderModelsByAccountId: Database.Statement
-    deleteProviderModel: Database.Statement
-    updateProviderModelEnabled: Database.Statement
+  getProviderDefinitions(): ProviderDefinition[] {
+    const rows = this.requireProviderRepo().getProviderDefinitions()
+    return rows.map(toProviderDefinitionEntity)
   }
 
-  constructor(db: Database.Database) {
-    this.stmts = {
-      getProviderDefinitions: db.prepare(`
-        SELECT * FROM provider_definitions
-        ORDER BY display_name ASC
-      `),
-      getProviderDefinitionById: db.prepare(`
-        SELECT * FROM provider_definitions WHERE id = ?
-      `),
-      countProviderDefinitions: db.prepare(`
-        SELECT COUNT(*) as count FROM provider_definitions
-      `),
-      upsertProviderDefinition: db.prepare(`
-        INSERT INTO provider_definitions (
-          id, display_name, adapter_plugin_id, icon_key, default_api_url, request_overrides, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          display_name = excluded.display_name,
-          adapter_plugin_id = excluded.adapter_plugin_id,
-          icon_key = excluded.icon_key,
-          default_api_url = excluded.default_api_url,
-          request_overrides = excluded.request_overrides,
-          updated_at = excluded.updated_at
-      `),
-      deleteProviderDefinition: db.prepare(`
-        DELETE FROM provider_definitions WHERE id = ?
-      `),
-      getProviderAccounts: db.prepare(`
-        SELECT * FROM provider_accounts
-        ORDER BY updated_at DESC
-      `),
-      upsertProviderAccount: db.prepare(`
-        INSERT INTO provider_accounts (
-          id, provider_id, label, api_url, api_key, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          provider_id = excluded.provider_id,
-          label = excluded.label,
-          api_url = excluded.api_url,
-          api_key = excluded.api_key,
-          updated_at = excluded.updated_at
-      `),
-      deleteProviderAccount: db.prepare(`
-        DELETE FROM provider_accounts WHERE id = ?
-      `),
-      deleteProviderAccountsByProviderId: db.prepare(`
-        DELETE FROM provider_accounts WHERE provider_id = ?
-      `),
-      getProviderModels: db.prepare(`
-        SELECT * FROM provider_models
-        ORDER BY updated_at DESC
-      `),
-      upsertProviderModel: db.prepare(`
-        INSERT INTO provider_models (
-          account_id, model_id, label, type, modalities_json, enabled, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(account_id, model_id) DO UPDATE SET
-          label = excluded.label,
-          type = excluded.type,
-          modalities_json = excluded.modalities_json,
-          enabled = excluded.enabled,
-          updated_at = excluded.updated_at
-      `),
-      deleteProviderModelsByAccountId: db.prepare(`
-        DELETE FROM provider_models WHERE account_id = ?
-      `),
-      deleteProviderModel: db.prepare(`
-        DELETE FROM provider_models WHERE account_id = ? AND model_id = ?
-      `),
-      updateProviderModelEnabled: db.prepare(`
-        UPDATE provider_models SET enabled = ?, updated_at = ?
-        WHERE account_id = ? AND model_id = ?
-      `)
-    }
-  }
+  getProviderAccounts(): ProviderAccount[] {
+    const providerRepo = this.requireProviderRepo()
+    const accountRows = providerRepo.getProviderAccounts()
+    const modelRows = providerRepo.getProviderModels()
+    const modelsByAccount = new Map<string, AccountModel[]>()
 
-  getProviderDefinitions(): ProviderDefinitionRow[] {
-    return this.stmts.getProviderDefinitions.all() as ProviderDefinitionRow[]
-  }
+    modelRows.forEach(row => {
+      const models = modelsByAccount.get(row.account_id) || []
+      models.push(toAccountModelEntity(row))
+      modelsByAccount.set(row.account_id, models)
+    })
 
-  getProviderDefinitionById(id: string): ProviderDefinitionRow | undefined {
-    return this.stmts.getProviderDefinitionById.get(id) as ProviderDefinitionRow | undefined
+    return accountRows.map(row => toProviderAccountEntity(row, modelsByAccount.get(row.id) || []))
   }
 
   countProviderDefinitions(): number {
-    const row = this.stmts.countProviderDefinitions.get() as { count: number }
-    return row?.count ?? 0
+    return this.requireProviderRepo().countProviderDefinitions()
   }
 
-  upsertProviderDefinition(row: ProviderDefinitionRow): void {
-    this.stmts.upsertProviderDefinition.run(
-      row.id,
-      row.display_name,
-      row.adapter_plugin_id,
-      row.icon_key ?? null,
-      row.default_api_url ?? null,
-      row.request_overrides ?? null,
-      row.created_at,
-      row.updated_at
-    )
+  ensureProviderDefinitions(definitions: ProviderDefinition[]): void {
+    if (!definitions.length) return
+
+    const normalized = this.normalizeProviderDefinitions(definitions).definitions
+    const now = Date.now()
+    const providerRepo = this.requireProviderRepo()
+    const tx = this.requireDb().transaction(() => {
+      normalized.forEach(def => {
+        providerRepo.upsertProviderDefinition(toProviderDefinitionRow(def, now))
+      })
+    })
+    tx()
   }
 
-  deleteProviderDefinition(id: string): void {
-    this.stmts.deleteProviderDefinition.run(id)
+  saveProviderDefinitionsToDb(definitions: ProviderDefinition[]): void {
+    const db = this.requireDb()
+    const providerRepo = this.requireProviderRepo()
+    const normalized = this.normalizeProviderDefinitions(definitions).definitions
+    const existingRows = providerRepo.getProviderDefinitions()
+    const existingIds = new Set(existingRows.map(row => row.id))
+    const incomingIds = new Set(normalized.map(def => def.id))
+    const now = Date.now()
+
+    const tx = db.transaction(() => {
+      normalized.forEach(def => {
+        providerRepo.upsertProviderDefinition(toProviderDefinitionRow(def, now))
+      })
+
+      existingIds.forEach(id => {
+        if (incomingIds.has(id)) return
+        const accountRows = db.prepare('SELECT id FROM provider_accounts WHERE provider_id = ?').all(id) as { id: string }[]
+        accountRows.forEach(row => {
+          providerRepo.deleteProviderModelsByAccountId(row.id)
+        })
+        providerRepo.deleteProviderAccountsByProviderId(id)
+        providerRepo.deleteProviderDefinition(id)
+      })
+    })
+    tx()
   }
 
-  getProviderAccounts(): ProviderAccountRow[] {
-    return this.stmts.getProviderAccounts.all() as ProviderAccountRow[]
+  saveProviderAccountsToDb(accounts: ProviderAccount[]): void {
+    const db = this.requireDb()
+    const providerRepo = this.requireProviderRepo()
+    const existingRows = providerRepo.getProviderAccounts()
+    const existingIds = new Set(existingRows.map(row => row.id))
+    const incomingIds = new Set(accounts.map(account => account.id))
+    const now = Date.now()
+
+    const tx = db.transaction(() => {
+      accounts.forEach(account => {
+        this.assertProviderExists(account.providerId)
+        providerRepo.upsertProviderAccount(toProviderAccountRow(account, now))
+
+        const models = account.models || []
+        const existingModelRows = db.prepare('SELECT model_id FROM provider_models WHERE account_id = ?')
+          .all(account.id) as { model_id: string }[]
+        const existingModelIds = new Set(existingModelRows.map(row => row.model_id))
+        const incomingModelIds = new Set(models.map(model => model.id))
+
+        models.forEach(model => {
+          providerRepo.upsertProviderModel(toProviderModelRow(account.id, model, now))
+        })
+
+        existingModelIds.forEach(modelId => {
+          if (incomingModelIds.has(modelId)) return
+          providerRepo.deleteProviderModel(account.id, modelId)
+        })
+      })
+
+      existingIds.forEach(id => {
+        if (incomingIds.has(id)) return
+        providerRepo.deleteProviderModelsByAccountId(id)
+        providerRepo.deleteProviderAccount(id)
+      })
+    })
+    tx()
   }
 
-  upsertProviderAccount(row: ProviderAccountRow): void {
-    this.stmts.upsertProviderAccount.run(
-      row.id,
-      row.provider_id,
-      row.label,
-      row.api_url,
-      row.api_key,
-      row.created_at,
-      row.updated_at
-    )
+  saveProviderDefinition(definition: ProviderDefinition): void {
+    const normalized = this.normalizeProviderDefinitions([definition]).definitions[0]
+    if (!normalized) return
+
+    this.requireProviderRepo().upsertProviderDefinition(toProviderDefinitionRow(normalized))
   }
 
-  deleteProviderAccount(id: string): void {
-    this.stmts.deleteProviderAccount.run(id)
+  deleteProviderDefinition(providerId: string): void {
+    if (!providerId) return
+
+    const db = this.requireDb()
+    const providerRepo = this.requireProviderRepo()
+    const accountRows = db.prepare('SELECT id FROM provider_accounts WHERE provider_id = ?')
+      .all(providerId) as { id: string }[]
+
+    accountRows.forEach(row => {
+      providerRepo.deleteProviderModelsByAccountId(row.id)
+    })
+
+    providerRepo.deleteProviderAccountsByProviderId(providerId)
+    providerRepo.deleteProviderDefinition(providerId)
   }
 
-  deleteProviderAccountsByProviderId(providerId: string): void {
-    this.stmts.deleteProviderAccountsByProviderId.run(providerId)
+  saveProviderAccount(account: ProviderAccount): void {
+    if (!account?.id) return
+
+    this.assertProviderExists(account.providerId)
+    const db = this.requireDb()
+    const providerRepo = this.requireProviderRepo()
+    const now = Date.now()
+
+    const tx = db.transaction(() => {
+      providerRepo.upsertProviderAccount(toProviderAccountRow(account, now))
+
+      const models = account.models || []
+      const existingRows = db.prepare('SELECT model_id FROM provider_models WHERE account_id = ?')
+        .all(account.id) as { model_id: string }[]
+      const existingIds = new Set(existingRows.map(row => row.model_id))
+      const incomingIds = new Set(models.map(model => model.id))
+
+      models.forEach(model => {
+        providerRepo.upsertProviderModel(toProviderModelRow(account.id, model, now))
+      })
+
+      existingIds.forEach(modelId => {
+        if (incomingIds.has(modelId)) return
+        providerRepo.deleteProviderModel(account.id, modelId)
+      })
+    })
+
+    tx()
   }
 
-  getProviderModels(): ProviderModelRow[] {
-    return this.stmts.getProviderModels.all() as ProviderModelRow[]
+  deleteProviderAccount(accountId: string): void {
+    if (!accountId) return
+    const providerRepo = this.requireProviderRepo()
+    providerRepo.deleteProviderModelsByAccountId(accountId)
+    providerRepo.deleteProviderAccount(accountId)
   }
 
-  upsertProviderModel(row: ProviderModelRow): void {
-    this.stmts.upsertProviderModel.run(
-      row.account_id,
-      row.model_id,
-      row.label,
-      row.type,
-      row.modalities_json ?? null,
-      row.enabled,
-      row.created_at,
-      row.updated_at
-    )
-  }
-
-  deleteProviderModelsByAccountId(accountId: string): void {
-    this.stmts.deleteProviderModelsByAccountId.run(accountId)
+  saveProviderModel(accountId: string, model: AccountModel): void {
+    if (!accountId || !model?.id) return
+    this.requireProviderRepo().upsertProviderModel(toProviderModelRow(accountId, model))
   }
 
   deleteProviderModel(accountId: string, modelId: string): void {
-    this.stmts.deleteProviderModel.run(accountId, modelId)
+    if (!accountId || !modelId) return
+    this.requireProviderRepo().deleteProviderModel(accountId, modelId)
   }
 
-  updateProviderModelEnabled(accountId: string, modelId: string, enabled: number): void {
-    this.stmts.updateProviderModelEnabled.run(enabled, Date.now(), accountId, modelId)
+  setProviderModelEnabled(accountId: string, modelId: string, enabled: boolean): void {
+    if (!accountId || !modelId) return
+    this.requireProviderRepo().updateProviderModelEnabled(accountId, modelId, enabled ? 1 : 0)
+  }
+
+  private normalizeProviderId(value: string): string {
+    return value.trim().toLowerCase().replace(/\s+/g, '-')
+  }
+
+  private normalizeProviderDefinitions(
+    definitions: ProviderDefinition[]
+  ): { definitions: ProviderDefinition[]; changed: boolean } {
+    const byId = new Map<string, ProviderDefinition>()
+    let changed = false
+
+    definitions.forEach(def => {
+      const normalizedId = this.normalizeProviderId(def.id || def.displayName || '')
+      if (!normalizedId) {
+        return
+      }
+      const nextDef = normalizedId === def.id ? def : { ...def, id: normalizedId }
+      if (normalizedId !== def.id) {
+        changed = true
+      }
+      if (byId.has(normalizedId)) {
+        changed = true
+        return
+      }
+      byId.set(normalizedId, nextDef)
+    })
+
+    return { definitions: Array.from(byId.values()), changed }
+  }
+
+  private assertProviderExists(providerId: string): void {
+    if (!providerId) {
+      throw new Error('ProviderId is required')
+    }
+    const row = this.requireProviderRepo().getProviderDefinitionById(providerId)
+    if (!row) {
+      throw new Error(`Provider not found for providerId: ${providerId}`)
+    }
+  }
+
+  private requireDb() {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const db = this.deps.getDb()
+    if (!db) throw new Error('Database not initialized')
+    return db
+  }
+
+  private requireProviderRepo(): ProviderDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getProviderRepo()
+    if (!repo) throw new Error('Provider repository not initialized')
+    return repo
   }
 }
-
-export { ProviderRepository }
-export type { ProviderDefinitionRow, ProviderAccountRow, ProviderModelRow }

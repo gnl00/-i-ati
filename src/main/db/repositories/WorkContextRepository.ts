@@ -1,67 +1,80 @@
-import type Database from 'better-sqlite3'
+import type { WorkContextDao } from '@main/db/dao/WorkContextDao'
 
-interface WorkContextRow {
-  chat_id: number
-  chat_uuid: string
-  content: string
-  created_at: number
-  updated_at: number
+type WorkContextRepositoryDeps = {
+  hasDb: () => boolean
+  getWorkContextRepo: () => WorkContextDao | undefined
 }
 
-class WorkContextRepository {
-  private stmts: {
-    upsert: Database.Statement
-    getByChatId: Database.Statement
-    getByChatUuid: Database.Statement
-    deleteByChatId: Database.Statement
+export class WorkContextRepository {
+  constructor(private readonly deps: WorkContextRepositoryDeps) {}
+
+  getWorkContextByChatId(chatId: number): WorkContextRecord | undefined {
+    const repo = this.requireRepo()
+    const row = repo.getByChatId(chatId)
+    return row
+      ? {
+          chatId: row.chat_id,
+          chatUuid: row.chat_uuid,
+          content: row.content,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        }
+      : undefined
   }
 
-  constructor(db: Database.Database) {
-    this.stmts = {
-      upsert: db.prepare(`
-        INSERT INTO work_contexts (
-          chat_id, chat_uuid, content, created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(chat_id) DO UPDATE SET
-          chat_uuid = excluded.chat_uuid,
-          content = excluded.content,
-          updated_at = excluded.updated_at
-      `),
-      getByChatId: db.prepare(`
-        SELECT * FROM work_contexts WHERE chat_id = ?
-      `),
-      getByChatUuid: db.prepare(`
-        SELECT * FROM work_contexts WHERE chat_uuid = ?
-      `),
-      deleteByChatId: db.prepare(`
-        DELETE FROM work_contexts WHERE chat_id = ?
-      `)
+  getWorkContextByChatUuid(chatUuid: string): WorkContextRecord | undefined {
+    const repo = this.requireRepo()
+    const row = repo.getByChatUuid(chatUuid)
+    return row
+      ? {
+          chatId: row.chat_id,
+          chatUuid: row.chat_uuid,
+          content: row.content,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        }
+      : undefined
+  }
+
+  upsertWorkContext(chatId: number, chatUuid: string, content: string): WorkContextRecord {
+    const repo = this.requireRepo()
+    const now = Date.now()
+    const existing = repo.getByChatId(chatId)
+
+    repo.upsert({
+      chat_id: chatId,
+      chat_uuid: chatUuid,
+      content,
+      created_at: existing?.created_at ?? now,
+      updated_at: now
+    })
+
+    return {
+      chatId,
+      chatUuid,
+      content,
+      createdAt: existing?.created_at ?? now,
+      updatedAt: now
     }
   }
 
-  upsert(row: WorkContextRow): void {
-    this.stmts.upsert.run(
-      row.chat_id,
-      row.chat_uuid,
-      row.content,
-      row.created_at,
-      row.updated_at
-    )
+  deleteWorkContext(chatId: number): void {
+    const repo = this.requireRepo()
+    repo.deleteByChatId(chatId)
   }
 
-  getByChatId(chatId: number): WorkContextRow | undefined {
-    return this.stmts.getByChatId.get(chatId) as WorkContextRow | undefined
-  }
-
-  getByChatUuid(chatUuid: string): WorkContextRow | undefined {
-    return this.stmts.getByChatUuid.get(chatUuid) as WorkContextRow | undefined
-  }
-
-  deleteByChatId(chatId: number): void {
-    this.stmts.deleteByChatId.run(chatId)
+  private requireRepo(): WorkContextDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getWorkContextRepo()
+    if (!repo) throw new Error('Work context repository not initialized')
+    return repo
   }
 }
 
-export { WorkContextRepository }
-export type { WorkContextRow }
+export interface WorkContextRecord {
+  chatId: number
+  chatUuid: string
+  content: string
+  createdAt: number
+  updatedAt: number
+}

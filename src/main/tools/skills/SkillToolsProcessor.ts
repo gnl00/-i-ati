@@ -132,7 +132,7 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       return { success: false, loaded: false, message: 'Chat not found' }
     }
 
-    DatabaseService.addChatSkill(chat.id, args.name)
+    DatabaseService.addSkill(chat.id, args.name)
 
     return {
       success: true,
@@ -220,7 +220,7 @@ export async function processUnloadSkill(args: UnloadSkillArgs): Promise<UnloadS
       return { success: false, removed: false, message: 'Chat not found' }
     }
 
-    DatabaseService.removeChatSkill(chat.id, args.name)
+    DatabaseService.removeSkill(chat.id, args.name)
     return { success: true, removed: true, message: 'Skill removed.' }
   } catch (error) {
     console.error('[SkillTools] Failed to unload skill:', error)

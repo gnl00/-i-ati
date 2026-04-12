@@ -9,14 +9,16 @@ import { LocalPluginInstallService } from './LocalPluginInstallService'
 import { RemotePluginRegistryService } from './RemotePluginRegistryService'
 
 type FetchLike = typeof fetch
+type RemotePluginRegistryPort = Pick<RemotePluginRegistryService, 'listAvailablePlugins'>
+type LocalPluginInstallPort = Pick<LocalPluginInstallService, 'importFromDirectory'>
 
 export class RemotePluginInstallService {
   private readonly logger = createLogger('RemotePluginInstallService')
   private readonly effectiveFetch: FetchLike
 
   constructor(
-    private readonly registryService: RemotePluginRegistryService,
-    private readonly localInstallService: LocalPluginInstallService,
+    private readonly registryService: RemotePluginRegistryPort,
+    private readonly localInstallService: LocalPluginInstallPort,
     fetchImpl?: FetchLike
   ) {
     this.effectiveFetch = fetchImpl ?? this.resolveDefaultFetch()

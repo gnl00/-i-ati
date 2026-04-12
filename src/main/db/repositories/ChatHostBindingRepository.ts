@@ -1,130 +1,114 @@
-import type Database from 'better-sqlite3'
+import type { ChatHostBindingDao, ChatHostBindingRow } from '@main/db/dao/ChatHostBindingDao'
 
-interface ChatHostBindingRow {
-  id: number
-  host_type: string
-  host_chat_id: string
-  host_thread_id: string | null
-  host_user_id: string | null
-  chat_id: number
-  chat_uuid: string
-  last_host_message_id: string | null
-  status: 'active' | 'archived'
-  metadata_json: string | null
-  created_at: number
-  updated_at: number
+type ChatHostBindingRepositoryDeps = {
+  hasDb: () => boolean
+  getChatHostBindingRepo: () => ChatHostBindingDao | undefined
 }
 
-class ChatHostBindingRepository {
-  private readonly stmts: {
-    insertBinding: Database.Statement
-    getBindingByHost: Database.Statement
-    getBindingsByChatUuid: Database.Statement
-    updateBindingById: Database.Statement
-    updateLastHostMessageId: Database.Statement
-    updateStatus: Database.Statement
-  }
+export class ChatHostBindingRepository {
+  constructor(private readonly deps: ChatHostBindingRepositoryDeps) {}
 
-  constructor(db: Database.Database) {
-    this.stmts = {
-      insertBinding: db.prepare(`
-        INSERT INTO chat_host_bindings (
-          host_type, host_chat_id, host_thread_id, host_user_id,
-          chat_id, chat_uuid, last_host_message_id, status, metadata_json, created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `),
-      getBindingByHost: db.prepare(`
-        SELECT * FROM chat_host_bindings
-        WHERE host_type = ? AND host_chat_id = ? AND (
-          (host_thread_id IS NULL AND ? IS NULL) OR host_thread_id = ?
-        )
-        ORDER BY updated_at DESC, id DESC
-        LIMIT 1
-      `),
-      getBindingsByChatUuid: db.prepare(`
-        SELECT * FROM chat_host_bindings WHERE chat_uuid = ? ORDER BY updated_at DESC
-      `),
-      updateBindingById: db.prepare(`
-        UPDATE chat_host_bindings
-        SET
-          host_user_id = ?,
-          chat_id = ?,
-          chat_uuid = ?,
-          last_host_message_id = ?,
-          status = ?,
-          metadata_json = ?,
-          updated_at = ?
-        WHERE id = ?
-      `),
-      updateLastHostMessageId: db.prepare(`
-        UPDATE chat_host_bindings
-        SET last_host_message_id = ?, updated_at = ?
-        WHERE id = ?
-      `),
-      updateStatus: db.prepare(`
-        UPDATE chat_host_bindings
-        SET status = ?, updated_at = ?
-        WHERE id = ?
-      `)
+  saveBinding(data: ChatHostBindingEntity): number {
+    const repo = this.requireRepo()
+    const now = Date.now()
+    const row: ChatHostBindingRow = {
+      id: data.id ?? 0,
+      host_type: data.hostType,
+      host_chat_id: data.hostChatId,
+      host_thread_id: data.hostThreadId ?? null,
+      host_user_id: data.hostUserId ?? null,
+      chat_id: data.chatId,
+      chat_uuid: data.chatUuid,
+      last_host_message_id: data.lastHostMessageId ?? null,
+      status: data.status,
+      metadata_json: data.metadata ? JSON.stringify(data.metadata) : null,
+      created_at: data.createTime ?? now,
+      updated_at: data.updateTime ?? now
     }
+    return repo.insertBinding(row)
   }
 
-  insertBinding(row: ChatHostBindingRow): number {
-    const result = this.stmts.insertBinding.run(
-      row.host_type,
-      row.host_chat_id,
-      row.host_thread_id,
-      row.host_user_id,
-      row.chat_id,
-      row.chat_uuid,
-      row.last_host_message_id,
-      row.status,
-      row.metadata_json,
-      row.created_at,
-      row.updated_at
-    )
-    return Number(result.lastInsertRowid)
-  }
+  upsertBinding(data: ChatHostBindingEntity): void {
+    const repo = this.requireRepo()
+    const now = Date.now()
+    const row: ChatHostBindingRow = {
+      id: data.id ?? 0,
+      host_type: data.hostType,
+      host_chat_id: data.hostChatId,
+      host_thread_id: data.hostThreadId ?? null,
+      host_user_id: data.hostUserId ?? null,
+      chat_id: data.chatId,
+      chat_uuid: data.chatUuid,
+      last_host_message_id: data.lastHostMessageId ?? null,
+      status: data.status,
+      metadata_json: data.metadata ? JSON.stringify(data.metadata) : null,
+      created_at: data.createTime ?? now,
+      updated_at: data.updateTime ?? now
+    }
 
-  updateBindingById(id: number, row: ChatHostBindingRow): void {
-    this.stmts.updateBindingById.run(
-      row.host_user_id,
-      row.chat_id,
-      row.chat_uuid,
-      row.last_host_message_id,
-      row.status,
-      row.metadata_json,
-      row.updated_at,
-      id
-    )
+    const existing = data.id
+      ? undefined
+      : repo.getBindingByHost(data.hostType, data.hostChatId, data.hostThreadId)
+
+    if (data.id) {
+      repo.updateBindingById(data.id, row)
+      return
+    }
+
+    if (existing) {
+      repo.updateBindingById(existing.id, row)
+      return
+    }
+
+    repo.insertBinding(row)
   }
 
   getBindingByHost(
     hostType: string,
     hostChatId: string,
     hostThreadId?: string
-  ): ChatHostBindingRow | undefined {
-    return this.stmts.getBindingByHost.get(
-      hostType,
-      hostChatId,
-      hostThreadId ?? null,
-      hostThreadId ?? null
-    ) as ChatHostBindingRow | undefined
+  ): ChatHostBindingEntity | undefined {
+    const repo = this.requireRepo()
+    const row = repo.getBindingByHost(hostType, hostChatId, hostThreadId)
+    return row ? this.mapRow(row) : undefined
   }
 
-  getBindingsByChatUuid(chatUuid: string): ChatHostBindingRow[] {
-    return this.stmts.getBindingsByChatUuid.all(chatUuid) as ChatHostBindingRow[]
+  getBindingsByChatUuid(chatUuid: string): ChatHostBindingEntity[] {
+    const repo = this.requireRepo()
+    return repo.getBindingsByChatUuid(chatUuid).map(row => this.mapRow(row))
   }
 
-  updateLastHostMessageId(id: number, lastHostMessageId: string | null, updatedAt: number): void {
-    this.stmts.updateLastHostMessageId.run(lastHostMessageId, updatedAt, id)
+  updateLastHostMessageId(id: number, lastHostMessageId?: string): void {
+    const repo = this.requireRepo()
+    repo.updateLastHostMessageId(id, lastHostMessageId ?? null, Date.now())
   }
 
-  updateStatus(id: number, status: 'active' | 'archived', updatedAt: number): void {
-    this.stmts.updateStatus.run(status, updatedAt, id)
+  updateStatus(id: number, status: 'active' | 'archived'): void {
+    const repo = this.requireRepo()
+    repo.updateStatus(id, status, Date.now())
+  }
+
+  private mapRow(row: ChatHostBindingRow): ChatHostBindingEntity {
+    return {
+      id: row.id,
+      hostType: row.host_type,
+      hostChatId: row.host_chat_id,
+      hostThreadId: row.host_thread_id ?? undefined,
+      hostUserId: row.host_user_id ?? undefined,
+      chatId: row.chat_id,
+      chatUuid: row.chat_uuid,
+      lastHostMessageId: row.last_host_message_id ?? undefined,
+      status: row.status,
+      metadata: row.metadata_json ? JSON.parse(row.metadata_json) as Record<string, unknown> : undefined,
+      createTime: row.created_at,
+      updateTime: row.updated_at
+    }
+  }
+
+  private requireRepo(): ChatHostBindingDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getChatHostBindingRepo()
+    if (!repo) throw new Error('Chat host binding repository not initialized')
+    return repo
   }
 }
-
-export { ChatHostBindingRepository }
-export type { ChatHostBindingRow }

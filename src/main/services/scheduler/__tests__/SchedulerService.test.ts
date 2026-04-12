@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ScheduledTaskRow } from '@main/db/repositories/ScheduledTaskRepository'
+import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import { SchedulerService } from '../SchedulerService'
 import DatabaseService from '@main/db/DatabaseService'

@@ -94,17 +94,17 @@ export function registerChatHandlers(): void {
 
   ipcMain.handle(DB_CHAT_SKILL_ADD, async (_event, { chatId, skillName }) => {
     logger.info('chat_skill.add', { chatId, skillName })
-    return DatabaseService.addChatSkill(chatId, skillName)
+    return DatabaseService.addSkill(chatId, skillName)
   })
 
   ipcMain.handle(DB_CHAT_SKILL_REMOVE, async (_event, { chatId, skillName }) => {
     logger.info('chat_skill.remove', { chatId, skillName })
-    return DatabaseService.removeChatSkill(chatId, skillName)
+    return DatabaseService.removeSkill(chatId, skillName)
   })
 
   ipcMain.handle(DB_CHAT_SKILLS_GET, async (_event, chatId) => {
     logger.info('chat_skill.get', { chatId })
-    return DatabaseService.getChatSkills(chatId)
+    return DatabaseService.getSkills(chatId)
   })
 
   ipcMain.handle(RUN_START, handleRunStart)

@@ -5,7 +5,7 @@ import DatabaseService from '@main/db/DatabaseService'
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     getChatByUuid: vi.fn(),
-    removeChatSkill: vi.fn()
+    removeSkill: vi.fn()
   }
 }))
 
@@ -37,6 +37,6 @@ describe('SkillToolsProcessor', () => {
     vi.mocked(DatabaseService.getChatByUuid).mockReturnValue({ id: 1 } as ChatEntity)
     const result = await processUnloadSkill({ name: 'pdf-processing', chat_uuid: 'chat-1' })
     expect(result.success).toBe(true)
-    expect(DatabaseService.removeChatSkill).toHaveBeenCalledWith(1, 'pdf-processing')
+    expect(DatabaseService.removeSkill).toHaveBeenCalledWith(1, 'pdf-processing')
   })
 })

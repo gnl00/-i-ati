@@ -7,7 +7,7 @@ export class SkillsPromptProvider {
   async build(chatId?: number): Promise<string> {
     try {
       const availableSkills = await SkillService.listSkills()
-      const chatSkills = chatId ? DatabaseService.getChatSkills(chatId) : []
+      const chatSkills = chatId ? DatabaseService.getSkills(chatId) : []
 
       if (availableSkills.length === 0 && chatSkills.length === 0) {
         return ''

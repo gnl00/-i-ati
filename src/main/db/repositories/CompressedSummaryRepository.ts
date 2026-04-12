@@ -1,94 +1,48 @@
-import type Database from 'better-sqlite3'
+import type { CompressedSummaryDao } from '@main/db/dao/CompressedSummaryDao'
+import {
+  toCompressedSummaryEntity,
+  toCompressedSummaryInsertRow
+} from '@main/db/mappers/CompressedSummaryMapper'
 
-interface CompressedSummaryRow {
-  id: number
-  chat_id: number
-  chat_uuid: string
-  message_ids: string
-  start_message_id: number
-  end_message_id: number
-  summary: string
-  original_token_count: number | null
-  summary_token_count: number | null
-  compression_ratio: number | null
-  compressed_at: number
-  compression_model: string | null
-  compression_version: number | null
-  status: string
+type CompressedSummaryRepositoryDeps = {
+  hasDb: () => boolean
+  getSummaryRepo: () => CompressedSummaryDao | undefined
 }
 
-class CompressedSummaryRepository {
-  private stmts: {
-    insertCompressedSummary: Database.Statement
-    getCompressedSummariesByChatId: Database.Statement
-    getActiveCompressedSummariesByChatId: Database.Statement
-    updateCompressedSummaryStatus: Database.Statement
-    deleteCompressedSummary: Database.Statement
+export class CompressedSummaryRepository {
+  constructor(private readonly deps: CompressedSummaryRepositoryDeps) {}
+
+  saveCompressedSummary(data: CompressedSummaryEntity): number {
+    const summaryRepo = this.requireSummaryRepo()
+    return summaryRepo.insert(toCompressedSummaryInsertRow(data))
   }
 
-  constructor(db: Database.Database) {
-    this.stmts = {
-      insertCompressedSummary: db.prepare(`
-        INSERT INTO compressed_summaries (
-          chat_id, chat_uuid, message_ids, start_message_id, end_message_id,
-          summary, original_token_count, summary_token_count, compression_ratio,
-          compressed_at, compression_model, compression_version, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `),
-      getCompressedSummariesByChatId: db.prepare(`
-        SELECT * FROM compressed_summaries
-        WHERE chat_id = ?
-        ORDER BY start_message_id ASC
-      `),
-      getActiveCompressedSummariesByChatId: db.prepare(`
-        SELECT * FROM compressed_summaries
-        WHERE chat_id = ? AND status = 'active'
-        ORDER BY start_message_id ASC
-      `),
-      updateCompressedSummaryStatus: db.prepare(`
-        UPDATE compressed_summaries SET status = ? WHERE id = ?
-      `),
-      deleteCompressedSummary: db.prepare(`
-        DELETE FROM compressed_summaries WHERE id = ?
-      `)
-    }
+  getCompressedSummariesByChatId(chatId: number): CompressedSummaryEntity[] {
+    const summaryRepo = this.requireSummaryRepo()
+    const rows = summaryRepo.getByChatId(chatId)
+    return rows.map(row => toCompressedSummaryEntity(row))
   }
 
-  insert(row: Omit<CompressedSummaryRow, 'id'>): number {
-    const result = this.stmts.insertCompressedSummary.run(
-      row.chat_id,
-      row.chat_uuid,
-      row.message_ids,
-      row.start_message_id,
-      row.end_message_id,
-      row.summary,
-      row.original_token_count,
-      row.summary_token_count,
-      row.compression_ratio,
-      row.compressed_at,
-      row.compression_model,
-      row.compression_version,
-      row.status
-    )
-    return Number(result.lastInsertRowid)
+  getActiveCompressedSummariesByChatId(chatId: number): CompressedSummaryEntity[] {
+    const summaryRepo = this.requireSummaryRepo()
+    const rows = summaryRepo.getActiveByChatId(chatId)
+    return rows.map(row => toCompressedSummaryEntity(row))
   }
 
-  getByChatId(chatId: number): CompressedSummaryRow[] {
-    return this.stmts.getCompressedSummariesByChatId.all(chatId) as CompressedSummaryRow[]
+  updateCompressedSummaryStatus(id: number, status: 'active' | 'superseded' | 'invalid'): void {
+    const summaryRepo = this.requireSummaryRepo()
+    summaryRepo.updateStatus(id, status)
   }
 
-  getActiveByChatId(chatId: number): CompressedSummaryRow[] {
-    return this.stmts.getActiveCompressedSummariesByChatId.all(chatId) as CompressedSummaryRow[]
+  deleteCompressedSummary(id: number): void {
+    const summaryRepo = this.requireSummaryRepo()
+    summaryRepo.delete(id)
   }
 
-  updateStatus(id: number, status: string): void {
-    this.stmts.updateCompressedSummaryStatus.run(status, id)
-  }
-
-  delete(id: number): void {
-    this.stmts.deleteCompressedSummary.run(id)
+  private requireSummaryRepo(): CompressedSummaryDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getSummaryRepo()
+    if (!repo) throw new Error('Compressed summary repository not initialized')
+    return repo
   }
 }
-
-export { CompressedSummaryRepository }
-export type { CompressedSummaryRow }

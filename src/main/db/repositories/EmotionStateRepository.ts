@@ -1,67 +1,56 @@
-import type Database from 'better-sqlite3'
+import type { EmotionStateDao } from '@main/db/dao/EmotionStateDao'
 
-interface EmotionStateRow {
-  chat_id: number
-  chat_uuid: string
-  state_json: string
-  created_at: number
-  updated_at: number
+type EmotionStateRepositoryDeps = {
+  hasDb: () => boolean
+  getEmotionStateRepo: () => EmotionStateDao | undefined
 }
 
-class EmotionStateRepository {
-  private stmts: {
-    upsert: Database.Statement
-    getByChatId: Database.Statement
-    getByChatUuid: Database.Statement
-    deleteByChatId: Database.Statement
+export class EmotionStateRepository {
+  constructor(private readonly deps: EmotionStateRepositoryDeps) {}
+
+  getEmotionStateByChatId(chatId: number): EmotionStateSnapshot | undefined {
+    const repo = this.requireRepo()
+    const row = repo.getByChatId(chatId)
+    return row ? this.parseState(row.state_json) : undefined
   }
 
-  constructor(db: Database.Database) {
-    this.stmts = {
-      upsert: db.prepare(`
-        INSERT INTO emotion_states (
-          chat_id, chat_uuid, state_json, created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(chat_id) DO UPDATE SET
-          chat_uuid = excluded.chat_uuid,
-          state_json = excluded.state_json,
-          updated_at = excluded.updated_at
-      `),
-      getByChatId: db.prepare(`
-        SELECT * FROM emotion_states WHERE chat_id = ?
-      `),
-      getByChatUuid: db.prepare(`
-        SELECT * FROM emotion_states WHERE chat_uuid = ?
-      `),
-      deleteByChatId: db.prepare(`
-        DELETE FROM emotion_states WHERE chat_id = ?
-      `)
+  getEmotionStateByChatUuid(chatUuid: string): EmotionStateSnapshot | undefined {
+    const repo = this.requireRepo()
+    const row = repo.getByChatUuid(chatUuid)
+    return row ? this.parseState(row.state_json) : undefined
+  }
+
+  upsertEmotionState(chatId: number, chatUuid: string, state: EmotionStateSnapshot): void {
+    const repo = this.requireRepo()
+    const now = Date.now()
+    const existing = repo.getByChatId(chatId)
+
+    repo.upsert({
+      chat_id: chatId,
+      chat_uuid: chatUuid,
+      state_json: JSON.stringify(state),
+      created_at: existing?.created_at ?? now,
+      updated_at: now
+    })
+  }
+
+  deleteEmotionState(chatId: number): void {
+    const repo = this.requireRepo()
+    repo.deleteByChatId(chatId)
+  }
+
+  private parseState(value: string): EmotionStateSnapshot | undefined {
+    try {
+      return JSON.parse(value) as EmotionStateSnapshot
+    } catch {
+      return undefined
     }
   }
 
-  upsert(row: EmotionStateRow): void {
-    this.stmts.upsert.run(
-      row.chat_id,
-      row.chat_uuid,
-      row.state_json,
-      row.created_at,
-      row.updated_at
-    )
-  }
-
-  getByChatId(chatId: number): EmotionStateRow | undefined {
-    return this.stmts.getByChatId.get(chatId) as EmotionStateRow | undefined
-  }
-
-  getByChatUuid(chatUuid: string): EmotionStateRow | undefined {
-    return this.stmts.getByChatUuid.get(chatUuid) as EmotionStateRow | undefined
-  }
-
-  deleteByChatId(chatId: number): void {
-    this.stmts.deleteByChatId.run(chatId)
+  private requireRepo(): EmotionStateDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getEmotionStateRepo()
+    if (!repo) throw new Error('Emotion state repository not initialized')
+    return repo
   }
 }
-
-export { EmotionStateRepository }
-export type { EmotionStateRow }

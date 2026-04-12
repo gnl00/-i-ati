@@ -1,128 +1,79 @@
-import type Database from 'better-sqlite3'
+import type { MessageDao } from '@main/db/dao/MessageDao'
+import {
+  patchMessageRowUiState,
+  toMessageEntity,
+  toMessageInsertRow,
+  toMessageRow
+} from '@main/db/mappers/MessageMapper'
 
-interface MessageRow {
-  id: number
-  chat_id: number | null
-  chat_uuid: string | null
-  body: string
-  tokens: number | null
+type MessageRepositoryDeps = {
+  hasDb: () => boolean
+  getMessageRepo: () => MessageDao | undefined
 }
 
-type ChatRole = 'system' | 'user' | 'assistant' | 'tool'
+export class MessageRepository {
+  constructor(private readonly deps: MessageRepositoryDeps) {}
 
-class MessageRepository {
-  private db: Database.Database
-  private stmts: {
-    insertMessage: Database.Statement
-    getAllMessages: Database.Statement
-    getMessageById: Database.Statement
-    getMessagesByChatId: Database.Statement
-    getMessagesByChatUuid: Database.Statement
-    updateMessage: Database.Statement
-    deleteMessage: Database.Statement
+  saveMessage(data: MessageEntity): number {
+    const messageRepo = this.requireMessageRepo()
+    return messageRepo.insertMessage(toMessageInsertRow(data))
   }
 
-  constructor(db: Database.Database) {
-    this.db = db
-    this.stmts = {
-      insertMessage: db.prepare(`
-        INSERT INTO messages (chat_id, chat_uuid, body, tokens)
-        VALUES (?, ?, ?, ?)
-      `),
-      getAllMessages: db.prepare(`
-        SELECT * FROM messages
-      `),
-      getMessageById: db.prepare(`
-        SELECT * FROM messages WHERE id = ?
-      `),
-      getMessagesByChatId: db.prepare(`
-        SELECT * FROM messages WHERE chat_id = ? ORDER BY id ASC
-      `),
-      getMessagesByChatUuid: db.prepare(`
-        SELECT * FROM messages WHERE chat_uuid = ? ORDER BY id ASC
-      `),
-      updateMessage: db.prepare(`
-        UPDATE messages SET chat_id = ?, chat_uuid = ?, body = ?, tokens = ?
-        WHERE id = ?
-      `),
-      deleteMessage: db.prepare(`
-        DELETE FROM messages WHERE id = ?
-      `)
-    }
+  getAllMessages(): MessageEntity[] {
+    const messageRepo = this.requireMessageRepo()
+    const rows = messageRepo.getAllMessages()
+    return rows.map(toMessageEntity)
   }
 
-  private shouldCountForChat(bodyJson: string | null | undefined): boolean {
-    if (!bodyJson) return false
-    try {
-      const parsed = JSON.parse(bodyJson) as { role?: ChatRole }
-      return parsed?.role === 'user' || parsed?.role === 'assistant'
-    } catch {
-      return false
-    }
+  getMessageById(id: number): MessageEntity | undefined {
+    const messageRepo = this.requireMessageRepo()
+    const row = messageRepo.getMessageById(id)
+    return row ? toMessageEntity(row) : undefined
   }
 
-  insertMessage(row: Omit<MessageRow, 'id'>): number {
-    const result = this.stmts.insertMessage.run(row.chat_id, row.chat_uuid, row.body, row.tokens)
-    if (row.chat_id && this.shouldCountForChat(row.body)) {
-      this.db.prepare('UPDATE chats SET msg_count = msg_count + 1 WHERE id = ?').run(row.chat_id)
-    }
-    return Number(result.lastInsertRowid)
+  getMessagesByChatId(chatId: number): MessageEntity[] {
+    const messageRepo = this.requireMessageRepo()
+    const rows = messageRepo.getMessagesByChatId(chatId)
+    return rows.map(toMessageEntity)
   }
 
-  getAllMessages(): MessageRow[] {
-    return this.stmts.getAllMessages.all() as MessageRow[]
+  getMessagesByChatUuid(chatUuid: string): MessageEntity[] {
+    const messageRepo = this.requireMessageRepo()
+    const rows = messageRepo.getMessagesByChatUuid(chatUuid)
+    return rows.map(toMessageEntity)
   }
 
-  getMessageById(id: number): MessageRow | undefined {
-    return this.stmts.getMessageById.get(id) as MessageRow | undefined
+  getMessageByIds(ids: number[]): MessageEntity[] {
+    const messageRepo = this.requireMessageRepo()
+    const rows = messageRepo.getMessageByIds(ids)
+    return rows.map(toMessageEntity)
   }
 
-  getMessagesByChatId(chatId: number): MessageRow[] {
-    return this.stmts.getMessagesByChatId.all(chatId) as MessageRow[]
+  updateMessage(data: MessageEntity): void {
+    const messageRepo = this.requireMessageRepo()
+    if (!data.id) return
+    messageRepo.updateMessage(toMessageRow(data))
   }
 
-  getMessagesByChatUuid(chatUuid: string): MessageRow[] {
-    return this.stmts.getMessagesByChatUuid.all(chatUuid) as MessageRow[]
-  }
-
-  getMessageByIds(ids: number[]): MessageRow[] {
-    if (!ids.length) return []
-    const placeholders = ids.map(() => '?').join(',')
-    return this.db.prepare(`SELECT * FROM messages WHERE id IN (${placeholders})`).all(...ids) as MessageRow[]
-  }
-
-  updateMessage(row: MessageRow): void {
-    const prev = this.db.prepare('SELECT chat_id, body FROM messages WHERE id = ?').get(row.id) as { chat_id: number | null; body?: string } | undefined
-    this.stmts.updateMessage.run(row.chat_id, row.chat_uuid, row.body, row.tokens, row.id)
-    if (!prev) return
-
-    const prevCounted = this.shouldCountForChat(prev.body)
-    const nextCounted = this.shouldCountForChat(row.body)
-
-    if (prev.chat_id === row.chat_id) {
-      if (!row.chat_id) return
-      if (prevCounted === nextCounted) return
-      const delta = nextCounted ? 1 : -1
-      this.db.prepare('UPDATE chats SET msg_count = msg_count + ? WHERE id = ?').run(delta, row.chat_id)
+  patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {
+    const messageRepo = this.requireMessageRepo()
+    const row = messageRepo.getMessageById(id)
+    if (!row) {
       return
     }
 
-    if (prev.chat_id && prevCounted) {
-      this.db.prepare('UPDATE chats SET msg_count = msg_count - 1 WHERE id = ?').run(prev.chat_id)
-    }
-    if (row.chat_id && nextCounted) {
-      this.db.prepare('UPDATE chats SET msg_count = msg_count + 1 WHERE id = ?').run(row.chat_id)
-    }
+    messageRepo.updateMessage(patchMessageRowUiState(row, uiState))
   }
 
   deleteMessage(id: number): void {
-    const message = this.db.prepare('SELECT chat_id, body FROM messages WHERE id = ?').get(id) as { chat_id: number | null; body?: string } | undefined
-    this.stmts.deleteMessage.run(id)
-    if (message?.chat_id && this.shouldCountForChat(message.body)) {
-      this.db.prepare('UPDATE chats SET msg_count = msg_count - 1 WHERE id = ?').run(message.chat_id)
-    }
+    const messageRepo = this.requireMessageRepo()
+    messageRepo.deleteMessage(id)
+  }
+
+  private requireMessageRepo(): MessageDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getMessageRepo()
+    if (!repo) throw new Error('Message repository not initialized')
+    return repo
   }
 }
-
-export { MessageRepository }
-export type { MessageRow }

@@ -2,14 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import DatabaseService from '@main/db/DatabaseService'
 import { processListPlugins, processPluginInstall, processPluginUninstall } from '../PluginToolsProcessor'
 
-const { loadPluginManifestFromDirectoryMock, emitPluginsUpdatedMock } = vi.hoisted(() => ({
-  loadPluginManifestFromDirectoryMock: vi.fn(),
+const { inspectLocalPluginDirectoryMock, emitPluginsUpdatedMock } = vi.hoisted(() => ({
+  inspectLocalPluginDirectoryMock: vi.fn(),
   emitPluginsUpdatedMock: vi.fn()
 }))
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     getWorkspacePathByUuid: vi.fn(),
+    inspectLocalPluginDirectory: inspectLocalPluginDirectoryMock,
     importLocalPluginFromDirectory: vi.fn(),
     getPlugins: vi.fn(),
     uninstallLocalPlugin: vi.fn()
@@ -17,9 +18,6 @@ vi.mock('@main/db/DatabaseService', () => ({
 }))
 
 vi.mock('@main/services/plugins', () => ({
-  LocalPluginCatalogService: class {
-    loadPluginManifestFromDirectory = loadPluginManifestFromDirectoryMock
-  },
   pluginEventEmitter: {
     emitPluginsUpdated: emitPluginsUpdatedMock
   }
@@ -31,7 +29,7 @@ describe('PluginToolsProcessor', () => {
   })
 
   it('installs a local plugin from a directory and returns the installed plugin', async () => {
-    loadPluginManifestFromDirectoryMock.mockResolvedValue({
+    inspectLocalPluginDirectoryMock.mockResolvedValue({
       pluginId: 'google-gemini-compatible-adapter-typescript',
       status: 'installed'
     })
@@ -51,7 +49,7 @@ describe('PluginToolsProcessor', () => {
       source: '/tmp/google-gemini-compatible-adapter-typescript'
     })
 
-    expect(loadPluginManifestFromDirectoryMock).toHaveBeenCalledWith('/tmp/google-gemini-compatible-adapter-typescript')
+    expect(inspectLocalPluginDirectoryMock).toHaveBeenCalledWith('/tmp/google-gemini-compatible-adapter-typescript')
     expect(DatabaseService.importLocalPluginFromDirectory).toHaveBeenCalledWith('/tmp/google-gemini-compatible-adapter-typescript')
     expect(result.success).toBe(true)
     expect(result.plugin?.pluginId).toBe('google-gemini-compatible-adapter-typescript')
