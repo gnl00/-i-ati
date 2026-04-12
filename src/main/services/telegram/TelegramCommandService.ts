@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { app } from 'electron'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
@@ -7,6 +10,7 @@ import { embeddedToolsRegistry } from '@tools/registry'
 import type { TelegramCommand, TelegramCommandCallback } from './telegram-command-parser'
 
 const MAX_MESSAGE_LENGTH = 3500
+const DEFAULT_WORKSPACE_DIR = 'workspaces'
 const MODELS_PAGE_SIZE = 5
 const TOOLS_PAGE_SIZE = 12
 
@@ -43,6 +47,8 @@ export class TelegramCommandService {
         return await this.handleModel(command.args, envelope, defaultModelRef)
       case 'tools':
         return this.handleTools(0)
+      case 'workspace':
+        return await this.handleWorkspace(command.args, envelope, defaultModelRef)
       case 'status':
         return await this.handleStatus(envelope, defaultModelRef)
       case 'help':
@@ -207,6 +213,79 @@ export class TelegramCommandService {
     }
   }
 
+  private async handleWorkspace(
+    args: string,
+    envelope: TelegramInboundEnvelope,
+    defaultModelRef: ModelRef
+  ): Promise<TelegramCommandResponse> {
+    const parts = args.trim().split(/\s+/)
+    const subcommand = parts[0]?.toLowerCase()
+    const subArgs = parts.slice(1).join(' ').trim()
+
+    switch (subcommand) {
+      case 'get':
+        return await this.handleWorkspaceGet(envelope, defaultModelRef)
+      case 'set':
+        return await this.handleWorkspaceSet(subArgs, envelope, defaultModelRef)
+      case 'clear':
+        return await this.handleWorkspaceClear(envelope, defaultModelRef)
+      default:
+        return { text: [
+          'Usage:',
+          '/workspace get - Show current workspace path',
+          '/workspace set <path> - Set workspace to the given path',
+          '/workspace clear - Reset to default workspace'
+        ].join('\n') }
+    }
+  }
+
+  private async handleWorkspaceGet(
+    envelope: TelegramInboundEnvelope,
+    defaultModelRef: ModelRef
+  ): Promise<TelegramCommandResponse> {
+    const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+    const workspacePath = chat.workspacePath ?? `./${DEFAULT_WORKSPACE_DIR}/${chat.uuid}`
+    return { text: `Current workspace: ${workspacePath}` }
+  }
+
+  private async handleWorkspaceSet(
+    inputPath: string,
+    envelope: TelegramInboundEnvelope,
+    defaultModelRef: ModelRef
+  ): Promise<TelegramCommandResponse> {
+    if (!inputPath) {
+      return { text: 'Usage: /workspace set <path>' }
+    }
+
+    const resolvedPath = path.isAbsolute(inputPath)
+      ? inputPath
+      : path.join(app.getPath('userData'), inputPath)
+
+    try {
+      const stat = await fs.stat(resolvedPath)
+      if (!stat.isDirectory()) {
+        return { text: `Path is not a directory: ${inputPath}` }
+      }
+    } catch {
+      return { text: `Path does not exist: ${inputPath}` }
+    }
+
+    const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+    DatabaseService.updateChat({ ...chat, workspacePath: inputPath, updateTime: Date.now() })
+
+    return { text: `Workspace updated.\nPath: ${inputPath}` }
+  }
+
+  private async handleWorkspaceClear(
+    envelope: TelegramInboundEnvelope,
+    defaultModelRef: ModelRef
+  ): Promise<TelegramCommandResponse> {
+    const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+    const defaultPath = `./${DEFAULT_WORKSPACE_DIR}/${chat.uuid}`
+    DatabaseService.updateChat({ ...chat, workspacePath: defaultPath, updateTime: Date.now() })
+    return { text: `Workspace reset to default.\nPath: ${defaultPath}` }
+  }
+
   private async handleStatus(envelope: TelegramInboundEnvelope, defaultModelRef: ModelRef): Promise<TelegramCommandResponse> {
     const { chat, binding } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
     const modelLabel = chat.modelRef
@@ -229,6 +308,7 @@ export class TelegramCommandService {
       '/models - List all available models',
       '/model <name> - Set the current chat model',
       '/tools - List available tools',
+      '/workspace get|set|clear - Manage the current workspace',
       '/status - Show current chat and model status',
       '/help - Show bot commands and usage'
     ].join('\n') }

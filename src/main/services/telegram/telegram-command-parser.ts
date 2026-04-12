@@ -3,6 +3,7 @@ export type TelegramCommandName =
   | 'models'
   | 'model'
   | 'tools'
+  | 'workspace'
   | 'status'
   | 'help'
 
@@ -21,6 +22,7 @@ const KNOWN_COMMANDS = new Set<TelegramCommandName>([
   'models',
   'model',
   'tools',
+  'workspace',
   'status',
   'help'
 ])
