@@ -245,4 +245,4 @@ run.accepted
 - `src/main/hosts/chat/finalize/ChatFinalizeService.ts`
 - `src/main/orchestration/chat/postRun/PostRunJobService.ts`
 - `src/shared/run/events.ts`
-- `src/renderer/src/hooks/chatSubmit/index.tsx`
+- `src/renderer/src/hooks/chatRun/useChatRun.ts`

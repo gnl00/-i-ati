@@ -1,5 +1,8 @@
 # 消息构建与压缩流程
 
+> 这份文档记录的是旧版消息准备链路，`chatSubmit/prepare.ts`、`chatSubmit/request.ts` 等路径属于历史状态。
+> 当前 renderer run 入口请优先参考 `src/renderer/src/hooks/chatRun/useChatRun.ts`，消息主链以 main-driven run 为准。
+
 ## 概述
 
 本文档描述了消息从准备、构建、压缩到最终发送给 LLM 的完整流程。
@@ -13,9 +16,9 @@
 ### 整体流程图
 
 ```
-prepare.ts
+historical prepare stage
   ↓ 准备消息实体和系统提示词
-request.ts
+historical request stage
   ↓ 获取压缩摘要（如果启用）
 RequestMessageBuilder
   ├─ [1] 应用压缩策略
@@ -35,7 +38,7 @@ LLM API
 
 ### 步骤 1: 消息准备
 
-**文件：** `src/renderer/src/hooks/chatSubmit/prepare.ts`
+**历史阶段：** renderer `prepare` stage
 
 **功能：** 准备系统提示词和消息实体
 
@@ -61,7 +64,7 @@ const messageEntities = [
 
 ### 步骤 2: 获取压缩摘要
 
-**文件：** `src/renderer/src/hooks/chatSubmit/request.ts`
+**历史阶段：** renderer `request` stage
 
 **功能：** 如果启用压缩，获取活跃的压缩摘要
 
@@ -280,8 +283,8 @@ transformRequest(req: IUnifiedRequest): any {
 
 | 文件 | 作用 |
 |------|------|
-| `src/renderer/src/hooks/chatSubmit/prepare.ts` | 消息准备 |
-| `src/renderer/src/hooks/chatSubmit/request.ts` | 获取压缩摘要，调用 RequestMessageBuilder |
+| 历史 renderer `prepare` stage | 消息准备 |
+| 历史 renderer `request` stage | 获取压缩摘要，调用 RequestMessageBuilder |
 | `src/renderer/src/services/RequestMessageBuilder.ts` | **核心**：统一的消息构建器 |
 | `src/main/services/compressionService.ts` | 压缩策略分析、摘要生成（主线程执行） |
 | `src/main/request/adapters/openai.ts` | OpenAI adapter 转换 |

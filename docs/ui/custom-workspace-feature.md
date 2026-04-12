@@ -1,5 +1,8 @@
 # Custom Workspace Feature
 
+> 这份文档记录的是早期实现阶段，部分 renderer 路径和模块名已过时。
+> 当前 chat run 入口请优先参考 `src/renderer/src/hooks/chatRun/useChatRun.ts`。
+
 ## 概述
 
 自定义 Workspace 功能允许用户为每个 chat 选择自定义的工作目录，用于文件操作工具的基础路径。
@@ -206,11 +209,11 @@ export function setWorkspaceBaseDir(chatUuid: string, customWorkspacePath?: stri
 }
 ```
 
-#### 3.5 Chat Submit 流程 - prepare.ts & finalize.ts
+#### 3.5 历史 chat submit 链路
 
-**文件路径：** 
-- `src/renderer/src/hooks/chatSubmit/prepare.ts`
-- `src/renderer/src/hooks/chatSubmit/finalize.ts`
+**说明：**
+- 这里指的是重构前 renderer 侧的 `prepare/finalize` 阶段
+- 当前代码不再保留这两个独立文件，chat run 入口已收敛到 `src/renderer/src/hooks/chatRun/useChatRun.ts`
 
 **关键修复：**
 保留 `workspacePath` 字段，避免在消息发送过程中丢失
@@ -325,8 +328,8 @@ updateChatList() → 再次同步 workspace
 4. `src/main/main-ipc.ts` - IPC 处理
 5. `src/main/tools/fileOperations/main/FileOperationsProcessor.ts` - 文件操作
 6. `src/renderer/src/tools/fileOperations/renderer/FileOperationsInvoker.ts` - IPC 调用
-7. `src/renderer/src/hooks/chatSubmit/prepare.ts` - 消息准备
-8. `src/renderer/src/hooks/chatSubmit/finalize.ts` - 消息完成
+7. 历史 `chatSubmit/prepare` 阶段 - 消息准备
+8. 历史 `chatSubmit/finalize` 阶段 - 消息完成
 
 ### 辅助文件
 9. `src/renderer/src/invoker/ipcInvoker.ts` - 目录选择 IPC 调用

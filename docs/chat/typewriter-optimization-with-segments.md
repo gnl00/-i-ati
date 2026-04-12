@@ -1,5 +1,8 @@
 # Typewriter 优化实施文档
 
+> 本文档记录的是按阶段推进时的数据流说明，部分链路命名保留了当时状态。
+> 当前 renderer run 入口为 `src/renderer/src/hooks/chatRun/useChatRun.ts`。
+
 ## 📋 项目概述
 
 **目标**: 基于 segments 架构重新设计 typewriter 效果，实现自然的流式消息体验
@@ -114,7 +117,7 @@ const {
 
 **1. 接收数据**:
 ```
-API Stream → adapter.transformStreamResponse() → unifiedChatRequest() → useChatSubmit.tsx
+API Stream → adapter.transformStreamResponse() → unifiedChatRequest() → useChatRun.ts
 ```
 
 **2. 累积内容**:

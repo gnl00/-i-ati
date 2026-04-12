@@ -483,7 +483,10 @@ setAppConfig: async (updatedConfig: IAppConfig) => {
 }
 ```
 
-#### 步骤 3：集成到 `src/renderer/src/hooks/useChatSubmit.tsx`
+> 这份文档是历史待办与方案记录，部分路径和命名来自当时状态。
+> 当前 renderer chat run 入口为 `src/renderer/src/hooks/chatRun/useChatRun.ts`。
+
+#### 步骤 3：集成到 renderer chat run 入口
 
 1. 导入 useMemory hook 和配置：
 
@@ -492,10 +495,10 @@ import { useMemory } from './useMemory'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 ```
 
-2. 在 `useChatSubmit` 函数中初始化 Memory hook：
+2. 在 renderer chat run 入口函数中初始化 Memory hook：
 
 ```typescript
-function useChatSubmit() {
+function useChatRun() {
   const {
     // ... 现有 hooks
   } = useChatContext()
@@ -660,7 +663,7 @@ const { memoryEnabled } = useAppConfigStore()
 ### 涉及的文件
 
 - `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/hooks/useMemory.ts` - 新建 Memory Hook
-- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/hooks/useChatSubmit.tsx` - 集成 Memory 到聊天流程
+- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/hooks/chatRun/useChatRun.ts` - 集成 Memory 到聊天流程
 - `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/store/appConfig.ts` - 添加 Memory 配置状态
 - `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/components/chat/ChatInputArea.tsx` - 添加 UI 指示器（可选）
 
@@ -1379,6 +1382,6 @@ npx shadcn-ui@latest add slider
 - **MemoryService 实现：** `/Volumes/devdata/workspace/code/-i-ati/src/main/services/MemoryService.ts`
 - **EmbeddingService 实现：** `/Volumes/devdata/workspace/code/-i-ati/src/main/services/EmbeddingService.ts`
 - **IPC Handlers：** `/Volumes/devdata/workspace/code/-i-ati/src/main/main-ipc.ts`
-- **聊天提交流程：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/hooks/useChatSubmit.tsx`
+- **当前 chat run 入口：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/hooks/chatRun/useChatRun.ts`
 - **设置面板：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/components/settings/SettingsPanel.tsx`
 - **配置管理：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/store/appConfig.ts`

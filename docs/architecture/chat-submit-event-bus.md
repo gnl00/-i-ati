@@ -16,7 +16,7 @@ Make main process the only runtime truth for chat execution. Renderer only submi
 - `RunEventEmitter`
   - sends `RUN_EVENT` to renderer
   - persists trace events for debugging
-- `useChatSubmitV2`
+- `useChatRun`
   - submits a run
   - subscribes to run events
   - updates `ChatStore`
@@ -52,4 +52,4 @@ run.accepted
 - Shared protocol:
   - `src/shared/run/events.ts`
 - Renderer projection:
-  - `src/renderer/src/hooks/chatSubmit/index.tsx`
+  - `src/renderer/src/hooks/chatRun/useChatRun.ts`

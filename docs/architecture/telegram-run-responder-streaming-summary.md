@@ -245,4 +245,4 @@
 - [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/event-emitter.ts)
 - [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunManager.ts)
 - 历史上 Telegram 曾复用 chat-side message projection；当前对应 legacy 代码已移除
-- [DATA_FLOW.md](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/hooks/chatSubmit/docs/DATA_FLOW.md)
+- [README.md](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/hooks/chatRun/README.md)

@@ -1,7 +1,7 @@
 ## Chat Pipeline - Long-term Improvement Plan
 
 ### Background
-The recent refactor split `useChatSubmit` into modular stages, but both the context shape and execution model are still largely imperative. For long-term stability, we want a clearer control flow and a system that is easier to extend or port to other entry points (multi-window, mobile, web).
+The current renderer entrypoint is `useChatRun`, but both the context shape and execution model are still largely imperative. For long-term stability, we want a clearer control flow and a system that is easier to extend or port to other entry points (multi-window, mobile, web).
 
 ### Recommended Architecture
 Adopt a state-machine driven service that runs outside the renderer (Web Worker or Electron background) and communicates via typed events.
@@ -50,7 +50,7 @@ Idle → Preparing → Streaming → ToolCall → Streaming → … → Finalizi
 ## 聊天管线长期优化方案（中文版）
 
 ### 背景
-虽然 `useChatSubmit` 已拆为多个模块，但上下文和执行流程仍偏命令式。为了获得长期的稳定性和可维护性，需要更清晰的控制流，以及易于扩展和跨端复用的架构。
+虽然当前 renderer 入口已经收敛为 `useChatRun`，但上下文和执行流程仍偏命令式。为了获得长期的稳定性和可维护性，需要更清晰的控制流，以及易于扩展和跨端复用的架构。
 
 ### 推荐架构
 采用 **状态机驱动** 的服务，运行在渲染进程之外（Web Worker 或 Electron 背景进程），通过**类型化事件**与 UI 通信。

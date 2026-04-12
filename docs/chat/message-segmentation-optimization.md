@@ -1,5 +1,8 @@
 # 消息分段渲染优化方案
 
+> 这份文档包含较早阶段的实现草案，部分代码路径已过时。
+> 当前 renderer 入口请优先参考 `src/renderer/src/hooks/chatRun/useChatRun.ts`。
+
 ## 1. 问题背景
 
 ### 1.1 当前实现的问题
@@ -102,7 +105,7 @@ interface ChatMessage {
 
 ### 3.2 修改消息组装逻辑
 
-**文件：** `src/renderer/src/hooks/useChatSubmit.tsx`
+**文件：** `src/renderer/src/hooks/chatRun/useChatRun.ts`
 
 #### 修改点 1：初始化 segments 数组
 

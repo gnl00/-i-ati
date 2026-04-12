@@ -2,7 +2,7 @@ import React, { memo } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store/chatStore'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
-import useChatSubmit from '@renderer/hooks/useChatSubmit'
+import useChatRun from '@renderer/hooks/useChatRun'
 import { ToolCallResultNextOutput } from './toolcall/ToolCallResultNextOutput'
 import { useMessageTypewriter } from '../typewriter/use-message-typewriter'
 import { MessageOperations } from '../message-operations'
@@ -357,7 +357,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const providerDefinitions = useAppConfigStore(state => state.providerDefinitions)
   const accounts = useAppConfigStore(state => state.accounts)
-  const { onSubmit: handleChatSubmit } = useChatSubmit()
+  const { onSubmit: handleChatSubmit } = useChatRun()
 
   const pendingToolConfirm = useToolConfirmationStore(state => state.pendingRequests[0] ?? null)
   const pendingToolConfirmCount = useToolConfirmationStore(state => state.pendingRequests.length)

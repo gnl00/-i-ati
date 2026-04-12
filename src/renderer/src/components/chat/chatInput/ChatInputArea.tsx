@@ -1,6 +1,6 @@
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
 import { Textarea } from '@renderer/components/ui/textarea'
-import useChatSubmit from '@renderer/hooks/useChatSubmit'
+import useChatRun from '@renderer/hooks/useChatRun'
 import { useSlashCommands } from '@renderer/hooks/useSlashCommands'
 import { useMcpConnection } from '@renderer/hooks/useMcpConnection'
 import { cn } from '@renderer/lib/utils'
@@ -162,7 +162,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     editingQueueRef.current = null
   }, [startNewChatBase, setUserInstruction])
 
-  const { onSubmit: handleChatSubmit, cancel: cancelChatSubmit } = useChatSubmit()
+  const { onSubmit: handleChatSubmit, cancel: cancelChatSubmit } = useChatRun()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
