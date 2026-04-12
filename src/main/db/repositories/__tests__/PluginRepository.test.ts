@@ -53,15 +53,10 @@ const createCapabilityRepo = (initialRows: any[] = []) => {
   }
 }
 
-const createSettingRepo = () => {
-  const deletedPluginIds: string[] = []
-  return {
-    deletedPluginIds,
-    deleteByPluginId(pluginId: string) {
-      deletedPluginIds.push(pluginId)
-    }
-  }
-}
+const createSettingRepo = () => ({
+  upsert() {},
+  deleteByPluginId() {}
+})
 
 describe('PluginRepository', () => {
   it('maps dedicated plugin rows and capabilities into entities', () => {
@@ -113,17 +108,17 @@ describe('PluginRepository', () => {
     expect(plugins[0]?.capabilities.length).toBeGreaterThan(0)
   })
 
-  it('syncs local plugin manifests and removes missing local plugins', () => {
+  it('updates plugin source and maps malformed capability payloads safely', () => {
     const pluginRepo = createPluginRepo([
       {
-        plugin_id: 'local-existing',
+        plugin_id: 'local-plugin',
         source: 'local',
-        display_name: 'Local Existing',
+        display_name: 'Local Plugin',
         description: null,
         enabled: 1,
         version: '1.0.0',
-        manifest_path: '/plugins/local-existing/plugin.json',
-        install_root: '/plugins/local-existing',
+        manifest_path: '/plugins/local-plugin/plugin.json',
+        install_root: '/plugins/local-plugin',
         status: 'installed',
         last_error: null,
         created_at: 1,
@@ -132,13 +127,9 @@ describe('PluginRepository', () => {
     ])
     const capabilityRepo = createCapabilityRepo([
       {
-        plugin_id: 'local-existing',
+        plugin_id: 'local-plugin',
         capability_kind: 'request-adapter',
-        capability_json: JSON.stringify({
-          kind: 'request-adapter',
-          providerType: 'openai',
-          modelTypes: ['llm']
-        }),
+        capability_json: '{bad-json',
         created_at: 1,
         updated_at: 1
       }
@@ -153,73 +144,9 @@ describe('PluginRepository', () => {
       getPluginSettingRepo: () => settingRepo as any
     })
 
-    const plugins = service.syncLocalPluginManifests([
-      {
-        pluginId: 'local-new',
-        displayName: 'Local New',
-        description: 'Manifest plugin',
-        version: '2.0.0',
-        manifestPath: '/plugins/local-new/plugin.json',
-        installRoot: '/plugins/local-new',
-        status: 'installed',
-        capabilities: [{
-          kind: 'request-adapter',
-          providerType: 'claude',
-          modelTypes: ['llm']
-        }]
-      }
-    ])
+    const plugins = service.updatePluginSource('local-plugin', 'remote')
 
-    expect(plugins.find(plugin => plugin.pluginId === 'local-new')?.status).toBe('installed')
-    expect(plugins.find(plugin => plugin.pluginId === 'local-existing')).toBeUndefined()
-    expect(settingRepo.deletedPluginIds).toContain('local-existing')
-  })
-
-  it('preserves remote source when a remotely installed plugin is rescanned from disk', () => {
-    const pluginRepo = createPluginRepo([
-      {
-        plugin_id: 'remote-existing',
-        source: 'remote',
-        display_name: 'Remote Existing',
-        description: null,
-        enabled: 1,
-        version: '1.0.0',
-        manifest_path: '/plugins/remote-existing/plugin.json',
-        install_root: '/plugins/remote-existing',
-        status: 'installed',
-        last_error: null,
-        created_at: 1,
-        updated_at: 1
-      }
-    ])
-    const capabilityRepo = createCapabilityRepo()
-    const settingRepo = createSettingRepo()
-
-    const service = new PluginRepository({
-      hasDb: () => true,
-      getDb: () => createTransactionDb() as any,
-      getPluginRepo: () => pluginRepo as any,
-      getPluginCapabilityRepo: () => capabilityRepo as any,
-      getPluginSettingRepo: () => settingRepo as any
-    })
-
-    const plugins = service.syncLocalPluginManifests([
-      {
-        pluginId: 'remote-existing',
-        displayName: 'Remote Existing',
-        description: 'Remote plugin',
-        version: '1.0.1',
-        manifestPath: '/plugins/remote-existing/plugin.json',
-        installRoot: '/plugins/remote-existing',
-        status: 'installed',
-        capabilities: [{
-          kind: 'request-adapter',
-          providerType: 'openai-response',
-          modelTypes: ['llm']
-        }]
-      }
-    ])
-
-    expect(plugins.find(plugin => plugin.pluginId === 'remote-existing')?.source).toBe('remote')
+    expect(plugins.find(plugin => plugin.pluginId === 'local-plugin')?.source).toBe('remote')
+    expect(plugins.find(plugin => plugin.pluginId === 'local-plugin')?.capabilities[0]?.data).toBeUndefined()
   })
 })

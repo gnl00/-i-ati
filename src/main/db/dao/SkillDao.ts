@@ -37,10 +37,13 @@ class SkillDao {
     return this.stmts.getSkillsByChatId.all(chatId) as SkillRow[]
   }
 
-  addSkill(chatId: number, skillName: string): void {
+  getMaxLoadOrder(chatId: number): number {
     const row = this.stmts.getSkillMaxOrder.get(chatId) as { max_order: number | null } | undefined
-    const maxOrder = row?.max_order ?? 0
-    this.stmts.insertSkill.run(chatId, skillName, maxOrder + 1, Date.now())
+    return row?.max_order ?? 0
+  }
+
+  insertSkill(row: SkillRow): void {
+    this.stmts.insertSkill.run(row.chat_id, row.skill_name, row.load_order, row.loaded_at)
   }
 
   removeSkill(chatId: number, skillName: string): void {

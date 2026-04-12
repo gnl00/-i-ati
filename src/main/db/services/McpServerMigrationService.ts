@@ -36,7 +36,7 @@ export class McpServerMigrationService {
     this.requireMcpServerRepository().saveMcpServerConfig(legacyMcp)
 
     const { mcp: _legacyMcp, ...nextConfig } = config
-    configDao?.saveConfig(JSON.stringify(nextConfig), nextConfig.version ?? null)
+    configDao?.saveConfig(JSON.stringify(nextConfig), nextConfig.version ?? null, Date.now())
   }
 
   private requireMcpServerDao(): McpServerDao {

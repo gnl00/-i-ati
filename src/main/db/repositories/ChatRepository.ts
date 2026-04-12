@@ -63,7 +63,12 @@ export class ChatRepository {
 
   addSkill(chatId: number, skillName: string): void {
     const skillRepo = this.requireSkillRepo()
-    skillRepo.addSkill(chatId, skillName)
+    skillRepo.insertSkill({
+      chat_id: chatId,
+      skill_name: skillName,
+      load_order: skillRepo.getMaxLoadOrder(chatId) + 1,
+      loaded_at: Date.now()
+    })
   }
 
   removeSkill(chatId: number, skillName: string): void {

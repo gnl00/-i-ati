@@ -56,7 +56,6 @@ export class ProviderRepository {
   }
 
   saveProviderDefinitionsToDb(definitions: ProviderDefinition[]): void {
-    const db = this.requireDb()
     const providerRepo = this.requireProviderRepo()
     const normalized = this.normalizeProviderDefinitions(definitions).definitions
     const existingRows = providerRepo.getProviderDefinitions()
@@ -64,16 +63,15 @@ export class ProviderRepository {
     const incomingIds = new Set(normalized.map(def => def.id))
     const now = Date.now()
 
-    const tx = db.transaction(() => {
+    const tx = this.requireDb().transaction(() => {
       normalized.forEach(def => {
         providerRepo.upsertProviderDefinition(toProviderDefinitionRow(def, now))
       })
 
       existingIds.forEach(id => {
         if (incomingIds.has(id)) return
-        const accountRows = db.prepare('SELECT id FROM provider_accounts WHERE provider_id = ?').all(id) as { id: string }[]
-        accountRows.forEach(row => {
-          providerRepo.deleteProviderModelsByAccountId(row.id)
+        providerRepo.getProviderAccountIdsByProviderId(id).forEach(accountId => {
+          providerRepo.deleteProviderModelsByAccountId(accountId)
         })
         providerRepo.deleteProviderAccountsByProviderId(id)
         providerRepo.deleteProviderDefinition(id)
@@ -83,22 +81,19 @@ export class ProviderRepository {
   }
 
   saveProviderAccountsToDb(accounts: ProviderAccount[]): void {
-    const db = this.requireDb()
     const providerRepo = this.requireProviderRepo()
     const existingRows = providerRepo.getProviderAccounts()
     const existingIds = new Set(existingRows.map(row => row.id))
     const incomingIds = new Set(accounts.map(account => account.id))
     const now = Date.now()
 
-    const tx = db.transaction(() => {
+    const tx = this.requireDb().transaction(() => {
       accounts.forEach(account => {
         this.assertProviderExists(account.providerId)
         providerRepo.upsertProviderAccount(toProviderAccountRow(account, now))
 
         const models = account.models || []
-        const existingModelRows = db.prepare('SELECT model_id FROM provider_models WHERE account_id = ?')
-          .all(account.id) as { model_id: string }[]
-        const existingModelIds = new Set(existingModelRows.map(row => row.model_id))
+        const existingModelIds = new Set(providerRepo.getProviderModelIdsByAccountId(account.id))
         const incomingModelIds = new Set(models.map(model => model.id))
 
         models.forEach(model => {
@@ -130,13 +125,10 @@ export class ProviderRepository {
   deleteProviderDefinition(providerId: string): void {
     if (!providerId) return
 
-    const db = this.requireDb()
     const providerRepo = this.requireProviderRepo()
-    const accountRows = db.prepare('SELECT id FROM provider_accounts WHERE provider_id = ?')
-      .all(providerId) as { id: string }[]
 
-    accountRows.forEach(row => {
-      providerRepo.deleteProviderModelsByAccountId(row.id)
+    providerRepo.getProviderAccountIdsByProviderId(providerId).forEach(accountId => {
+      providerRepo.deleteProviderModelsByAccountId(accountId)
     })
 
     providerRepo.deleteProviderAccountsByProviderId(providerId)
@@ -147,17 +139,14 @@ export class ProviderRepository {
     if (!account?.id) return
 
     this.assertProviderExists(account.providerId)
-    const db = this.requireDb()
     const providerRepo = this.requireProviderRepo()
     const now = Date.now()
 
-    const tx = db.transaction(() => {
+    const tx = this.requireDb().transaction(() => {
       providerRepo.upsertProviderAccount(toProviderAccountRow(account, now))
 
       const models = account.models || []
-      const existingRows = db.prepare('SELECT model_id FROM provider_models WHERE account_id = ?')
-        .all(account.id) as { model_id: string }[]
-      const existingIds = new Set(existingRows.map(row => row.model_id))
+      const existingIds = new Set(providerRepo.getProviderModelIdsByAccountId(account.id))
       const incomingIds = new Set(models.map(model => model.id))
 
       models.forEach(model => {
@@ -192,7 +181,7 @@ export class ProviderRepository {
 
   setProviderModelEnabled(accountId: string, modelId: string, enabled: boolean): void {
     if (!accountId || !modelId) return
-    this.requireProviderRepo().updateProviderModelEnabled(accountId, modelId, enabled ? 1 : 0)
+    this.requireProviderRepo().updateProviderModelEnabled(accountId, modelId, enabled ? 1 : 0, Date.now())
   }
 
   private normalizeProviderId(value: string): string {

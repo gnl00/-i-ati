@@ -4,17 +4,10 @@
  */
 
 import { DbRuntime } from '../core/DbRuntime'
+import { DbAppServices } from './DbAppServices'
 import { ScheduledTaskRow } from '../dao/ScheduledTaskDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
-import { PluginRuntimeService } from '@main/services/plugins'
-import { ChatService } from './ChatService'
-import { ConfigService } from './ConfigService'
-import { PlanningService } from './PlanningService'
-import { PluginService } from './PluginService'
-import { RunEventService } from './RunEventService'
-import { CompressedSummaryService } from './CompressedSummaryService'
-import { AssistantService } from './AssistantService'
 import { createLogger } from '@main/logging/LogService'
 
 
@@ -25,14 +18,7 @@ class DatabaseService {
   private static instance: DatabaseService
   private readonly logger = createLogger('DatabaseService')
   private dbRuntime?: DbRuntime
-  private pluginRuntimeService?: PluginRuntimeService
-  private chatService?: ChatService
-  private configService?: ConfigService
-  private planningService?: PlanningService
-  private pluginService?: PluginService
-  private runEventService?: RunEventService
-  private compressedSummaryService?: CompressedSummaryService
-  private assistantService?: AssistantService
+  private appServices?: DbAppServices
 
   private constructor() {}
 
@@ -62,38 +48,7 @@ class DatabaseService {
       runtime = this.dbRuntime ?? new DbRuntime()
       const stats = runtime.initialize()
       this.dbRuntime = runtime
-      const activeRuntime = runtime
-      this.pluginRuntimeService = new PluginRuntimeService({
-        pluginStore: activeRuntime.pluginRepository
-      })
-      this.chatService = new ChatService({
-        chatRepository: () => activeRuntime.chatRepository,
-        chatHostBindingRepository: () => activeRuntime.chatHostBindingRepository,
-        messageRepository: () => activeRuntime.messageRepository,
-        emotionStateRepository: () => activeRuntime.emotionStateRepository,
-        workContextRepository: () => activeRuntime.workContextRepository
-      })
-      this.configService = new ConfigService({
-        configRepository: () => activeRuntime.configRepository,
-        mcpServerRepository: () => activeRuntime.mcpServerRepository,
-        providerRepository: () => activeRuntime.providerRepository
-      })
-      this.planningService = new PlanningService({
-        taskPlanRepository: () => activeRuntime.taskPlanRepository,
-        scheduledTaskRepository: () => activeRuntime.scheduledTaskRepository
-      })
-      this.pluginService = new PluginService({
-        pluginRuntimeService: () => this.pluginRuntimeService
-      })
-      this.runEventService = new RunEventService({
-        runEventRepository: () => activeRuntime.runEventRepository
-      })
-      this.compressedSummaryService = new CompressedSummaryService({
-        compressedSummaryRepository: () => activeRuntime.compressedSummaryRepository
-      })
-      this.assistantService = new AssistantService({
-        assistantRepository: () => activeRuntime.assistantRepository
-      })
+      this.appServices = new DbAppServices(runtime)
 
       this.logger.info('initialize.completed', stats)
 
@@ -109,53 +64,39 @@ class DatabaseService {
     }
   }
 
-  private requireChatService(): ChatService {
-    if (!this.chatService) {
-      throw new Error('Chat service not initialized')
-    }
-    return this.chatService
+  private requireChatService() {
+    return this.requireAppServices().chatService
   }
 
-  private requireConfigService(): ConfigService {
-    if (!this.configService) {
-      throw new Error('Config service not initialized')
-    }
-    return this.configService
+  private requireConfigService() {
+    return this.requireAppServices().configService
   }
 
-  private requirePlanningService(): PlanningService {
-    if (!this.planningService) {
-      throw new Error('Planning service not initialized')
-    }
-    return this.planningService
+  private requirePlanningService() {
+    return this.requireAppServices().planningService
   }
 
-  private requirePluginService(): PluginService {
-    if (!this.pluginService) {
-      throw new Error('Plugin service not initialized')
-    }
-    return this.pluginService
+  private requirePluginService() {
+    return this.requireAppServices().pluginService
   }
 
-  private requireRunEventService(): RunEventService {
-    if (!this.runEventService) {
-      throw new Error('Run event service not initialized')
-    }
-    return this.runEventService
+  private requireRunEventService() {
+    return this.requireAppServices().runEventService
   }
 
-  private requireCompressedSummaryService(): CompressedSummaryService {
-    if (!this.compressedSummaryService) {
-      throw new Error('Compressed summary service not initialized')
-    }
-    return this.compressedSummaryService
+  private requireCompressedSummaryService() {
+    return this.requireAppServices().compressedSummaryService
   }
 
-  private requireAssistantService(): AssistantService {
-    if (!this.assistantService) {
-      throw new Error('Assistant service not initialized')
+  private requireAssistantService() {
+    return this.requireAppServices().assistantService
+  }
+
+  private requireAppServices(): DbAppServices {
+    if (!this.appServices) {
+      throw new Error('Application services not initialized')
     }
-    return this.assistantService
+    return this.appServices
   }
 
   // ==================== Chat / Message Methods ====================
@@ -500,14 +441,7 @@ class DatabaseService {
 
     this.dbRuntime.close()
     this.dbRuntime = undefined
-    this.pluginRuntimeService = undefined
-    this.chatService = undefined
-    this.configService = undefined
-    this.planningService = undefined
-    this.pluginService = undefined
-    this.runEventService = undefined
-    this.compressedSummaryService = undefined
-    this.assistantService = undefined
+    this.appServices = undefined
     this.logger.info('database.closed')
   }
 

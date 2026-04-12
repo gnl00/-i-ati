@@ -17,8 +17,8 @@ const {
   getStatusMock: vi.fn()
 }))
 
-vi.mock('@main/db/DatabaseService', () => ({
-  default: {
+vi.mock('@main/db/config', () => ({
+  configDb: {
     getConfig: getConfigMock,
     initConfig: initConfigMock,
     saveConfig: saveConfigMock

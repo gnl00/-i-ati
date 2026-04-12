@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/db/DatabaseService'
+import { planningDb } from '@main/db/planning'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
@@ -64,7 +65,7 @@ function ensureMinDelay(runAtMs: number): number {
 }
 
 function emitScheduleUpdated(taskId: string): void {
-  const task = DatabaseService.getScheduledTaskById(taskId)
+  const task = planningDb.getScheduledTaskById(taskId)
   if (!task) return
   const chat = DatabaseService.getChatByUuid(task.chat_uuid)
   const emitter = new ScheduleEventEmitter({
@@ -104,7 +105,7 @@ export async function processScheduleCreate(args: ScheduleCreateArgs) {
       updated_at: now
     }
 
-    DatabaseService.saveScheduledTask(task)
+    planningDb.saveScheduledTask(task)
     emitScheduleUpdated(task.id)
     return { success: true, task, currentDateTime }
   } catch (error) {
@@ -120,7 +121,7 @@ export async function processScheduleList(args: ScheduleListArgs) {
     if (!args.chat_uuid) {
       return { success: false, message: 'chat_uuid is required', currentDateTime }
     }
-    const tasks = DatabaseService.getScheduledTasksByChatUuid(args.chat_uuid)
+    const tasks = planningDb.getScheduledTasksByChatUuid(args.chat_uuid)
     return { success: true, tasks, currentDateTime }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -135,7 +136,7 @@ export async function processScheduleCancel(args: ScheduleCancelArgs) {
     if (!args.chat_uuid) {
       return { success: false, message: 'chat_uuid is required', currentDateTime }
     }
-    const task = DatabaseService.getScheduledTaskById(args.id)
+    const task = planningDb.getScheduledTaskById(args.id)
     if (!task) {
       return { success: false, message: `Scheduled task not found: ${args.id}`, currentDateTime }
     }
@@ -145,7 +146,7 @@ export async function processScheduleCancel(args: ScheduleCancelArgs) {
     if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
       return { success: false, message: `Cannot cancel task in status: ${task.status}`, currentDateTime }
     }
-    DatabaseService.updateScheduledTaskStatus(
+    planningDb.updateScheduledTaskStatus(
       task.id,
       'cancelled',
       task.attempt_count,
@@ -167,7 +168,7 @@ export async function processScheduleUpdate(args: ScheduleUpdateArgs) {
     if (!args.chat_uuid) {
       return { success: false, message: 'chat_uuid is required', currentDateTime }
     }
-    const existing = DatabaseService.getScheduledTaskById(args.id)
+    const existing = planningDb.getScheduledTaskById(args.id)
     if (!existing) {
       return { success: false, message: `Scheduled task not found: ${args.id}`, currentDateTime }
     }
@@ -196,7 +197,7 @@ export async function processScheduleUpdate(args: ScheduleUpdateArgs) {
       max_attempts: typeof args.max_attempts === 'number' ? args.max_attempts : existing.max_attempts,
       updated_at: Date.now()
     }
-    DatabaseService.updateScheduledTask(updated)
+    planningDb.updateScheduledTask(updated)
     emitScheduleUpdated(updated.id)
     return { success: true, task: updated, currentDateTime }
   } catch (error) {

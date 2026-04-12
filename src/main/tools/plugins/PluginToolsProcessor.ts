@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import path from 'path'
 import DatabaseService from '@main/db/DatabaseService'
+import { pluginDb } from '@main/db/plugins'
 import { pluginEventEmitter } from '@main/services/plugins'
 
 type InstallPluginArgs = {
@@ -57,7 +58,7 @@ const resolveSourcePath = (source: string, chatUuid?: string): string => {
 
 export async function processListPlugins(): Promise<ListPluginsResponse> {
   try {
-    const plugins = DatabaseService.getPlugins().map((plugin) => ({
+    const plugins = pluginDb.getPlugins().map((plugin) => ({
       pluginId: plugin.pluginId,
       name: plugin.name,
       source: plugin.source,
@@ -94,7 +95,7 @@ export async function processPluginInstall(args: InstallPluginArgs): Promise<Plu
     }
 
     const resolvedSource = resolveSourcePath(source, args.chat_uuid)
-    const manifest = await DatabaseService.inspectLocalPluginDirectory(resolvedSource)
+    const manifest = await pluginDb.inspectLocalPluginDirectory(resolvedSource)
     if (manifest.status !== 'installed') {
       return {
         success: false,
@@ -102,7 +103,7 @@ export async function processPluginInstall(args: InstallPluginArgs): Promise<Plu
       }
     }
 
-    const plugins = await DatabaseService.importLocalPluginFromDirectory(resolvedSource)
+    const plugins = await pluginDb.importLocalPluginFromDirectory(resolvedSource)
     pluginEventEmitter.emitPluginsUpdated(plugins)
     const plugin = plugins.find(item => item.pluginId === manifest.pluginId)
 
@@ -133,7 +134,7 @@ export async function processPluginUninstall(args: UninstallPluginArgs): Promise
       }
     }
 
-    const existing = DatabaseService.getPlugins().find(plugin => plugin.pluginId === pluginId)
+    const existing = pluginDb.getPlugins().find(plugin => plugin.pluginId === pluginId)
     if (!existing) {
       return {
         success: false,
@@ -152,7 +153,7 @@ export async function processPluginUninstall(args: UninstallPluginArgs): Promise
       }
     }
 
-    const plugins = await DatabaseService.uninstallLocalPlugin(pluginId)
+    const plugins = await pluginDb.uninstallLocalPlugin(pluginId)
     pluginEventEmitter.emitPluginsUpdated(plugins)
     return {
       success: true,

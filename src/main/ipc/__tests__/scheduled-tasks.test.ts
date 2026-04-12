@@ -16,9 +16,14 @@ vi.mock('electron', () => ({
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
+    getChatByUuid: vi.fn(),
+  }
+}))
+
+vi.mock('@main/db/planning', () => ({
+  planningDb: {
     getScheduledTaskById: vi.fn(),
     getScheduledTasksByChatUuid: vi.fn(),
-    getChatByUuid: vi.fn(),
     updateScheduledTaskStatus: vi.fn()
   }
 }))

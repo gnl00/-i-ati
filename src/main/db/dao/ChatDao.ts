@@ -21,6 +21,7 @@ class ChatDao {
     getChatByUuid: Database.Statement
     getWorkspacePathByUuid: Database.Statement
     updateChat: Database.Statement
+    updateMessageCount: Database.Statement
     deleteChat: Database.Statement
   }
 
@@ -49,6 +50,9 @@ class ChatDao {
           uuid = ?, title = ?, model_account_id = ?, model_model_id = ?, workspace_path = ?, user_instruction = ?,
           create_time = ?, update_time = ?
         WHERE id = ?
+      `),
+      updateMessageCount: db.prepare(`
+        UPDATE chats SET msg_count = msg_count + ? WHERE id = ?
       `),
       deleteChat: db.prepare(`
         DELETE FROM chats WHERE id = ?
@@ -99,6 +103,10 @@ class ChatDao {
       row.update_time,
       row.id
     )
+  }
+
+  updateMessageCount(chatId: number, delta: number): void {
+    this.stmts.updateMessageCount.run(delta, chatId)
   }
 
   deleteChat(id: number): void {

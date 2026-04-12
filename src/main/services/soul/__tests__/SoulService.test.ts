@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const getConfigValue = vi.fn()
 const saveConfigValue = vi.fn()
 
-vi.mock('@main/db/DatabaseService', () => ({
-  default: {
+vi.mock('@main/db/config', () => ({
+  configDb: {
     getConfigValue,
     saveConfigValue
   }

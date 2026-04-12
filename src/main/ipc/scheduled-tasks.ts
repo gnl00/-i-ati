@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import DatabaseService from '@main/db/DatabaseService'
+import { planningDb } from '@main/db/planning'
 import { createLogger } from '@main/logging/LogService'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
@@ -9,7 +10,7 @@ import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 const logger = createLogger('DatabaseIPC')
 
 const emitScheduledTaskUpdated = (taskId: string): void => {
-  const task = DatabaseService.getScheduledTaskById(taskId)
+  const task = planningDb.getScheduledTaskById(taskId)
   if (!task) return
 
   const chat = DatabaseService.getChatByUuid(task.chat_uuid)
@@ -26,7 +27,7 @@ export function registerScheduledTaskHandlers(): void {
     chatUuid: string
   ) => {
     logger.info('scheduled_tasks.get_by_chat_uuid', { chatUuid })
-    return DatabaseService.getScheduledTasksByChatUuid(chatUuid)
+    return planningDb.getScheduledTasksByChatUuid(chatUuid)
   }
 
   ipcMain.handle(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, handleScheduledTasksGetByChatUuid)
@@ -39,7 +40,7 @@ export function registerScheduledTaskHandlers(): void {
     ) => {
       logger.info('scheduled_task.update_status', { id: args.id, status: args.status })
 
-      const task = DatabaseService.getScheduledTaskById(args.id)
+      const task = planningDb.getScheduledTaskById(args.id)
       if (!task) {
         throw new Error(`Scheduled task not found: ${args.id}`)
       }
@@ -57,7 +58,7 @@ export function registerScheduledTaskHandlers(): void {
         throw new Error(`Cannot dismiss task in status: ${task.status}`)
       }
 
-      DatabaseService.updateScheduledTaskStatus(
+      planningDb.updateScheduledTaskStatus(
         task.id,
         args.status,
         task.attempt_count,
@@ -66,7 +67,7 @@ export function registerScheduledTaskHandlers(): void {
       )
 
       emitScheduledTaskUpdated(task.id)
-      return DatabaseService.getScheduledTaskById(task.id)
+      return planningDb.getScheduledTaskById(task.id)
     }
   )
 }

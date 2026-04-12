@@ -161,4 +161,30 @@ describe('ChatHostBindingRepository', () => {
       host_thread_id: null
     })
   })
+
+  it('skips malformed metadata rows when reading chat bindings', () => {
+    const repo = createRepo()
+    repo.rows.push({
+      id: 1,
+      host_type: 'telegram',
+      host_chat_id: 'broken',
+      host_thread_id: null,
+      host_user_id: null,
+      chat_id: 7,
+      chat_uuid: 'chat-uuid',
+      last_host_message_id: null,
+      status: 'active',
+      metadata_json: '{bad-json',
+      created_at: 1,
+      updated_at: 2
+    })
+
+    const service = new ChatHostBindingRepository({
+      hasDb: () => true,
+      getChatHostBindingRepo: () => repo as any
+    })
+
+    expect(service.getBindingByHost('telegram', 'broken')).toBeUndefined()
+    expect(service.getBindingsByChatUuid('chat-uuid')).toEqual([])
+  })
 })

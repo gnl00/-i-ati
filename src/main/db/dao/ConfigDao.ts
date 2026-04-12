@@ -31,8 +31,8 @@ class ConfigDao {
     return this.stmts.getConfig.get('appConfig') as ConfigRow | undefined
   }
 
-  saveConfig(value: string, version: number | null): void {
-    this.stmts.upsertConfig.run('appConfig', value, version, Date.now())
+  saveConfig(value: string, version: number | null, updatedAt: number): void {
+    this.stmts.upsertConfig.run('appConfig', value, version, updatedAt)
   }
 
   getValue(key: string): string | undefined {
@@ -40,8 +40,8 @@ class ConfigDao {
     return row?.value
   }
 
-  saveValue(key: string, value: string, version?: number | null): void {
-    this.stmts.upsertConfig.run(key, value, version ?? null, Date.now())
+  saveValue(key: string, value: string, version: number | null, updatedAt: number): void {
+    this.stmts.upsertConfig.run(key, value, version, updatedAt)
   }
 }
 

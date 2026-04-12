@@ -57,6 +57,7 @@ describe('ConfigRepository', () => {
   })
 
   it('persists provider collections through ProviderRepository and strips them from the config payload', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1710000000000)
     const saveConfig = vi.fn()
     const providerRepository = {
       saveProviderDefinitionsToDb: vi.fn(),
@@ -111,7 +112,28 @@ describe('ConfigRepository', () => {
           maxWebSearchItems: 3
         }
       }),
-      2
+      2,
+      1710000000000
     )
+  })
+
+  it('passes explicit updatedAt when saving a config value', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1710000001234)
+    const saveValue = vi.fn()
+
+    const service = new ConfigRepository({
+      hasDb: () => true,
+      getConfigRepo: () => ({
+        saveValue
+      }) as unknown as any,
+      providerRepository: () => ({
+        getProviderDefinitions: vi.fn().mockReturnValue([]),
+        getProviderAccounts: vi.fn().mockReturnValue([])
+      }) as unknown as any
+    })
+
+    service.saveConfigValue('feature.flag', 'enabled', 3)
+
+    expect(saveValue).toHaveBeenCalledWith('feature.flag', 'enabled', 3, 1710000001234)
   })
 })

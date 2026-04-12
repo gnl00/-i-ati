@@ -40,10 +40,12 @@ class ProviderDao {
     upsertProviderDefinition: Database.Statement
     deleteProviderDefinition: Database.Statement
     getProviderAccounts: Database.Statement
+    getProviderAccountIdsByProviderId: Database.Statement
     upsertProviderAccount: Database.Statement
     deleteProviderAccount: Database.Statement
     deleteProviderAccountsByProviderId: Database.Statement
     getProviderModels: Database.Statement
+    getProviderModelIdsByAccountId: Database.Statement
     upsertProviderModel: Database.Statement
     deleteProviderModelsByAccountId: Database.Statement
     deleteProviderModel: Database.Statement
@@ -81,6 +83,9 @@ class ProviderDao {
         SELECT * FROM provider_accounts
         ORDER BY updated_at DESC
       `),
+      getProviderAccountIdsByProviderId: db.prepare(`
+        SELECT id FROM provider_accounts WHERE provider_id = ?
+      `),
       upsertProviderAccount: db.prepare(`
         INSERT INTO provider_accounts (
           id, provider_id, label, api_url, api_key, created_at, updated_at
@@ -101,6 +106,9 @@ class ProviderDao {
       getProviderModels: db.prepare(`
         SELECT * FROM provider_models
         ORDER BY updated_at DESC
+      `),
+      getProviderModelIdsByAccountId: db.prepare(`
+        SELECT model_id FROM provider_models WHERE account_id = ?
       `),
       upsertProviderModel: db.prepare(`
         INSERT INTO provider_models (
@@ -160,6 +168,11 @@ class ProviderDao {
     return this.stmts.getProviderAccounts.all() as ProviderAccountRow[]
   }
 
+  getProviderAccountIdsByProviderId(providerId: string): string[] {
+    const rows = this.stmts.getProviderAccountIdsByProviderId.all(providerId) as Array<{ id: string }>
+    return rows.map(row => row.id)
+  }
+
   upsertProviderAccount(row: ProviderAccountRow): void {
     this.stmts.upsertProviderAccount.run(
       row.id,
@@ -184,6 +197,11 @@ class ProviderDao {
     return this.stmts.getProviderModels.all() as ProviderModelRow[]
   }
 
+  getProviderModelIdsByAccountId(accountId: string): string[] {
+    const rows = this.stmts.getProviderModelIdsByAccountId.all(accountId) as Array<{ model_id: string }>
+    return rows.map(row => row.model_id)
+  }
+
   upsertProviderModel(row: ProviderModelRow): void {
     this.stmts.upsertProviderModel.run(
       row.account_id,
@@ -205,8 +223,8 @@ class ProviderDao {
     this.stmts.deleteProviderModel.run(accountId, modelId)
   }
 
-  updateProviderModelEnabled(accountId: string, modelId: string, enabled: number): void {
-    this.stmts.updateProviderModelEnabled.run(enabled, Date.now(), accountId, modelId)
+  updateProviderModelEnabled(accountId: string, modelId: string, enabled: number, updatedAt: number): void {
+    this.stmts.updateProviderModelEnabled.run(enabled, updatedAt, accountId, modelId)
   }
 }
 

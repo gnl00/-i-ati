@@ -43,7 +43,7 @@ export class PluginBootstrapService {
     this.requirePluginRepository().savePluginConfigs(legacyPlugins)
 
     const { plugins: _legacyPlugins, ...nextConfig } = config
-    configDao?.saveConfig(JSON.stringify(nextConfig), nextConfig.version ?? null)
+    configDao?.saveConfig(JSON.stringify(nextConfig), nextConfig.version ?? null, Date.now())
   }
 
   private ensureBuiltInPlugins(): void {

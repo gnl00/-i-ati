@@ -17,9 +17,11 @@ describe('PluginRuntimeService', () => {
       getPluginConfigs: vi.fn(),
       savePluginConfigs: vi.fn(),
       getPlugins: vi.fn(),
-      syncLocalPluginManifests: vi.fn().mockReturnValue(manifests),
       updatePluginSource: vi.fn(),
       savePluginSetting: vi.fn()
+    }
+    const pluginManifestSyncService = {
+      syncLocalPluginManifests: vi.fn().mockReturnValue(manifests)
     }
     const localPluginCatalogService = {
       scanInstalledPlugins: vi.fn().mockResolvedValue([{
@@ -35,12 +37,13 @@ describe('PluginRuntimeService', () => {
 
     const service = new PluginRuntimeService({
       pluginStore,
+      pluginManifestSyncService,
       localPluginCatalogService
     })
 
     await expect(service.rescanLocalPlugins()).resolves.toEqual(manifests)
     expect(localPluginCatalogService.scanInstalledPlugins).toHaveBeenCalledOnce()
-    expect(pluginStore.syncLocalPluginManifests).toHaveBeenCalledWith(expect.arrayContaining([
+    expect(pluginManifestSyncService.syncLocalPluginManifests).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({ pluginId: 'local-plugin' })
     ]))
   })
@@ -76,9 +79,11 @@ describe('PluginRuntimeService', () => {
       getPluginConfigs: vi.fn(),
       savePluginConfigs: vi.fn(),
       getPlugins: vi.fn().mockReturnValue(plugins),
-      syncLocalPluginManifests: vi.fn().mockReturnValue(plugins),
       updatePluginSource: vi.fn(),
       savePluginSetting: vi.fn()
+    }
+    const pluginManifestSyncService = {
+      syncLocalPluginManifests: vi.fn().mockReturnValue(plugins)
     }
     const localPluginCatalogService = {
       scanInstalledPlugins: vi.fn().mockResolvedValue([{
@@ -101,13 +106,14 @@ describe('PluginRuntimeService', () => {
 
     const service = new PluginRuntimeService({
       pluginStore,
+      pluginManifestSyncService,
       localPluginCatalogService,
       remotePluginInstallService
     })
 
     await expect(service.installRemotePlugin('remote-plugin')).resolves.toEqual(plugins)
     expect(remotePluginInstallService.install).toHaveBeenCalledWith('remote-plugin')
-    expect(pluginStore.syncLocalPluginManifests).toHaveBeenCalled()
+    expect(pluginManifestSyncService.syncLocalPluginManifests).toHaveBeenCalled()
     expect(pluginStore.updatePluginSource).toHaveBeenCalledWith('remote-plugin', 'remote')
     expect(pluginStore.savePluginSetting).toHaveBeenCalledWith(
       'remote-plugin',
@@ -154,9 +160,11 @@ describe('PluginRuntimeService', () => {
       getPluginConfigs: vi.fn(),
       savePluginConfigs: vi.fn(),
       getPlugins: vi.fn().mockReturnValue(plugins),
-      syncLocalPluginManifests: vi.fn().mockReturnValue(plugins),
       updatePluginSource: vi.fn(),
       savePluginSetting: vi.fn()
+    }
+    const pluginManifestSyncService = {
+      syncLocalPluginManifests: vi.fn().mockReturnValue(plugins)
     }
     const localPluginCatalogService = {
       scanInstalledPlugins: vi.fn().mockResolvedValue([{
@@ -192,6 +200,7 @@ describe('PluginRuntimeService', () => {
 
     const service = new PluginRuntimeService({
       pluginStore,
+      pluginManifestSyncService,
       localPluginCatalogService,
       localPluginInstallService,
       remotePluginRegistryService

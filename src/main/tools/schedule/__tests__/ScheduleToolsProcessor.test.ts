@@ -12,14 +12,19 @@ const taskStore: ScheduledTaskRow[] = []
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
+    getChatByUuid: vi.fn((chatUuid: string) => ({ id: 1, uuid: chatUuid })),
+    saveRunEvent: vi.fn(() => 1),
+  }
+}))
+
+vi.mock('@main/db/planning', () => ({
+  planningDb: {
     saveScheduledTask: vi.fn((task: ScheduledTaskRow) => {
       taskStore.push({ ...task })
     }),
     getScheduledTasksByChatUuid: vi.fn((chatUuid: string) => {
       return taskStore.filter(task => task.chat_uuid === chatUuid).map(task => ({ ...task }))
     }),
-    getChatByUuid: vi.fn((chatUuid: string) => ({ id: 1, uuid: chatUuid })),
-    saveRunEvent: vi.fn(() => 1),
     getScheduledTaskById: vi.fn((id: string) => {
       const task = taskStore.find(item => item.id === id)
       return task ? { ...task } : undefined

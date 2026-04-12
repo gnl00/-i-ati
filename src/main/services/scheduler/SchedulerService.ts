@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/db/DatabaseService'
+import { planningDb } from '@main/db/planning'
 import { RunService } from '@main/orchestration/chat/run'
 import { createLogger } from '@main/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
@@ -39,7 +40,7 @@ export class SchedulerService {
     if (this.isTicking) return
     this.isTicking = true
     try {
-      const tasks = DatabaseService.claimDueScheduledTasks(Date.now(), 5)
+      const tasks = planningDb.claimDueScheduledTasks(Date.now(), 5)
       this.logger.debug('tick.claimed_due_tasks', { count: tasks.length })
       for (const task of tasks) {
         await this.runTask(task)
@@ -87,7 +88,7 @@ export class SchedulerService {
         submissionId,
         attempt: nextAttempt
       })
-      DatabaseService.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
+      planningDb.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
 
       const submitResult = await this.runService.execute({
         submissionId,
@@ -103,7 +104,7 @@ export class SchedulerService {
       })
 
       const assistantMessageId = submitResult.assistantMessageId
-      DatabaseService.updateScheduledTaskStatus(
+      planningDb.updateScheduledTaskStatus(
         task.id,
         'completed',
         nextAttempt,
@@ -131,13 +132,13 @@ export class SchedulerService {
       }
 
       emitter.emit(SCHEDULE_EVENTS.UPDATED, {
-        task: DatabaseService.getScheduledTaskById(task.id) ?? task
+        task: planningDb.getScheduledTaskById(task.id) ?? task
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const maxAttempts = task.max_attempts ?? 0
       const status = maxAttempts === 0 || nextAttempt >= maxAttempts ? 'failed' : 'pending'
-      DatabaseService.updateScheduledTaskStatus(task.id, status, nextAttempt, message, undefined)
+      planningDb.updateScheduledTaskStatus(task.id, status, nextAttempt, message, undefined)
       this.emitScheduleUpdated(task.id)
       this.logger.error('task.failed', {
         taskId: task.id,
@@ -169,7 +170,7 @@ export class SchedulerService {
   }
 
   private emitScheduleUpdated(taskId: string): void {
-    const task = DatabaseService.getScheduledTaskById(taskId)
+    const task = planningDb.getScheduledTaskById(taskId)
     if (!task) return
     const chat = DatabaseService.getChatByUuid(task.chat_uuid)
     const emitter = new ScheduleEventEmitter({

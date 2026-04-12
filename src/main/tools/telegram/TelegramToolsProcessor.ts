@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { configDb } from '@main/db/config'
 import { telegramGatewayService } from '@main/services/telegram'
 import type { TelegramSetupToolArgs, TelegramSetupToolResponse } from '@tools/telegram/index.d'
 
@@ -35,11 +35,11 @@ export async function processTelegramSetupTool(
   }
 
   try {
-    const baseConfig = DatabaseService.getConfig() ?? DatabaseService.initConfig()
+    const baseConfig = configDb.getConfig() ?? configDb.initConfig()
     await telegramGatewayService.startWithToken(botToken)
 
     try {
-      DatabaseService.saveConfig(buildNextTelegramConfig(baseConfig, botToken))
+      configDb.saveConfig(buildNextTelegramConfig(baseConfig, botToken))
     } catch (saveError) {
       telegramGatewayService.stop()
       throw saveError

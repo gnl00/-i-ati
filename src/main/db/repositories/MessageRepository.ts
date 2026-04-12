@@ -1,3 +1,4 @@
+import type { ChatDao } from '@main/db/dao/ChatDao'
 import type { MessageDao } from '@main/db/dao/MessageDao'
 import {
   patchMessageRowUiState,
@@ -8,6 +9,7 @@ import {
 
 type MessageRepositoryDeps = {
   hasDb: () => boolean
+  getChatRepo: () => ChatDao | undefined
   getMessageRepo: () => MessageDao | undefined
 }
 
@@ -16,7 +18,14 @@ export class MessageRepository {
 
   saveMessage(data: MessageEntity): number {
     const messageRepo = this.requireMessageRepo()
-    return messageRepo.insertMessage(toMessageInsertRow(data))
+    const row = toMessageInsertRow(data)
+    const messageId = messageRepo.insertMessage(row)
+
+    if (row.chat_id && this.shouldCountForChat(row.body)) {
+      this.requireChatRepo().updateMessageCount(row.chat_id, 1)
+    }
+
+    return messageId
   }
 
   getAllMessages(): MessageEntity[] {
@@ -52,7 +61,16 @@ export class MessageRepository {
   updateMessage(data: MessageEntity): void {
     const messageRepo = this.requireMessageRepo()
     if (!data.id) return
-    messageRepo.updateMessage(toMessageRow(data))
+
+    const prev = messageRepo.getMessageById(data.id)
+    const next = toMessageRow(data)
+    messageRepo.updateMessage(next)
+
+    if (!prev) {
+      return
+    }
+
+    this.reconcileChatMessageCount(prev, next)
   }
 
   patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {
@@ -67,7 +85,58 @@ export class MessageRepository {
 
   deleteMessage(id: number): void {
     const messageRepo = this.requireMessageRepo()
+    const prev = messageRepo.getMessageById(id)
     messageRepo.deleteMessage(id)
+
+    if (prev?.chat_id && this.shouldCountForChat(prev.body)) {
+      this.requireChatRepo().updateMessageCount(prev.chat_id, -1)
+    }
+  }
+
+  private reconcileChatMessageCount(
+    prev: { chat_id: number | null; body: string },
+    next: { chat_id: number | null; body: string }
+  ): void {
+    const prevCounted = this.shouldCountForChat(prev.body)
+    const nextCounted = this.shouldCountForChat(next.body)
+    const chatRepo = this.requireChatRepo()
+
+    if (prev.chat_id === next.chat_id) {
+      if (!next.chat_id || prevCounted === nextCounted) {
+        return
+      }
+
+      chatRepo.updateMessageCount(next.chat_id, nextCounted ? 1 : -1)
+      return
+    }
+
+    if (prev.chat_id && prevCounted) {
+      chatRepo.updateMessageCount(prev.chat_id, -1)
+    }
+
+    if (next.chat_id && nextCounted) {
+      chatRepo.updateMessageCount(next.chat_id, 1)
+    }
+  }
+
+  private shouldCountForChat(bodyJson: string | null | undefined): boolean {
+    if (!bodyJson) {
+      return false
+    }
+
+    try {
+      const parsed = JSON.parse(bodyJson) as { role?: 'system' | 'user' | 'assistant' | 'tool' }
+      return parsed.role === 'user' || parsed.role === 'assistant'
+    } catch {
+      return false
+    }
+  }
+
+  private requireChatRepo(): ChatDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getChatRepo()
+    if (!repo) throw new Error('Chat repository not initialized')
+    return repo
   }
 
   private requireMessageRepo(): MessageDao {

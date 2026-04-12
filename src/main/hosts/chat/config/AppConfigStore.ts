@@ -1,8 +1,8 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { configDb } from '@main/db/config'
 
 export class AppConfigStore {
   getConfig(): IAppConfig | null {
-    return DatabaseService.getConfig() || null
+    return configDb.getConfig() || null
   }
 
   requireConfig(): IAppConfig {

@@ -1,4 +1,5 @@
 import type { PluginRepository } from '@main/db/repositories/PluginRepository'
+import type { PluginManifestSyncService } from '@main/db/services/PluginManifestSyncService'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import type { ScannedLocalPluginManifest } from './LocalPluginCatalogService'
 import { LocalPluginCatalogService } from './LocalPluginCatalogService'
@@ -11,10 +12,11 @@ type PluginStore = Pick<
   'getPluginConfigs'
   | 'savePluginConfigs'
   | 'getPlugins'
-  | 'syncLocalPluginManifests'
   | 'updatePluginSource'
   | 'savePluginSetting'
 >
+
+type PluginManifestSyncPort = Pick<PluginManifestSyncService, 'syncLocalPluginManifests'>
 
 type LocalPluginCatalogPort = Pick<LocalPluginCatalogService, 'scanInstalledPlugins' | 'loadPluginManifestFromDirectory'>
 type LocalPluginInstallPort = Pick<LocalPluginInstallService, 'importFromDirectory' | 'uninstall'>
@@ -23,6 +25,7 @@ type RemotePluginInstallPort = Pick<RemotePluginInstallService, 'install'>
 
 type PluginRuntimeServiceDeps = {
   pluginStore: PluginStore
+  pluginManifestSyncService: PluginManifestSyncPort
   localPluginCatalogService?: LocalPluginCatalogPort
   localPluginInstallService?: LocalPluginInstallPort
   remotePluginRegistryService?: RemotePluginRegistryPort
@@ -61,7 +64,7 @@ export class PluginRuntimeService {
 
   async rescanLocalPlugins(): Promise<PluginEntity[]> {
     const manifests = await this.localPluginCatalogService.scanInstalledPlugins()
-    return this.deps.pluginStore.syncLocalPluginManifests(manifests)
+    return this.deps.pluginManifestSyncService.syncLocalPluginManifests(manifests)
   }
 
   async inspectLocalPluginDirectory(sourceDir: string): Promise<ScannedLocalPluginManifest> {

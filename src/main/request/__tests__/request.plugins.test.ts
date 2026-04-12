@@ -2,18 +2,39 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getPluginConfigs = vi.fn()
 const getPlugins = vi.fn()
+const getRequestAdapterPluginById = vi.fn()
+const isRequestAdapterPluginEnabled = vi.fn()
+const resolveAdapterForRequest = vi.fn()
 
-vi.mock('@main/db/DatabaseService', () => ({
-  default: {
+vi.mock('@main/logging/LogService', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }))
+}))
+
+vi.mock('@main/db/plugins', () => ({
+  pluginDb: {
     getPluginConfigs,
     getPlugins
   }
+}))
+
+vi.mock('../adapters/index', () => ({
+  getRequestAdapterPluginById,
+  isRequestAdapterPluginEnabled,
+  resolveAdapterForRequest
 }))
 
 describe('unifiedChatRequest plugin gating', () => {
   beforeEach(() => {
     getPluginConfigs.mockReset()
     getPlugins.mockReset()
+    getRequestAdapterPluginById.mockReset()
+    isRequestAdapterPluginEnabled.mockReset()
+    resolveAdapterForRequest.mockReset()
   })
 
   it('throws a clear error when the corresponding adapter plugin is disabled', async () => {
@@ -75,6 +96,10 @@ describe('unifiedChatRequest plugin gating', () => {
         }]
       }
     ])
+    getRequestAdapterPluginById.mockImplementation((pluginId: string, plugins: PluginEntity[]) =>
+      plugins.find(plugin => plugin.pluginId === pluginId)
+    )
+    isRequestAdapterPluginEnabled.mockReturnValue(false)
 
     const beforeFetch = vi.fn()
     const afterFetch = vi.fn()

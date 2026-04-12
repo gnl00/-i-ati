@@ -5,7 +5,7 @@ import { existsSync } from 'fs'
 import { execFile } from 'child_process'
 import os from 'os'
 import { promisify } from 'util'
-import DatabaseService from '@main/db/DatabaseService'
+import { configDb } from '@main/db/config'
 
 type SkillFrontmatter = {
   name: string
@@ -316,7 +316,7 @@ const writeSkillSourceInfo = async (skillDir: string, source?: string): Promise<
 
 const canUseDbCache = (): boolean => {
   try {
-    return DatabaseService.isReady()
+    return configDb.isReady()
   } catch {
     return false
   }
@@ -360,7 +360,7 @@ const readMetadataCacheFile = async (root: string): Promise<SkillMetadataCacheFi
     return null
   }
   try {
-    const raw = DatabaseService.getConfigValue(SKILL_METADATA_CACHE_KEY)
+    const raw = configDb.getConfigValue(SKILL_METADATA_CACHE_KEY)
     if (!raw) {
       return null
     }
@@ -390,7 +390,7 @@ const writeMetadataCacheFile = async (
     root,
     items
   }
-  DatabaseService.saveConfigValue(
+  configDb.saveConfigValue(
     SKILL_METADATA_CACHE_KEY,
     JSON.stringify(payload),
     SKILL_METADATA_CACHE_VERSION

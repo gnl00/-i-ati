@@ -32,6 +32,7 @@ import { RunEventRepository } from '../repositories/RunEventRepository'
 import { AssistantRepository } from '../repositories/AssistantRepository'
 import { PluginBootstrapService } from '../services/PluginBootstrapService'
 import { McpServerMigrationService } from '../services/McpServerMigrationService'
+import { PluginManifestSyncService } from '../services/PluginManifestSyncService'
 
 export type DbRuntimeInitializationStats = {
   chats: number
@@ -75,6 +76,7 @@ export class DbRuntime {
   private _compressedSummaryRepository?: CompressedSummaryRepository
   private _runEventRepository?: RunEventRepository
   private _assistantRepository?: AssistantRepository
+  private _pluginManifestSyncService?: PluginManifestSyncService
 
   initialize(): DbRuntimeInitializationStats {
     if (this.initialized && this.db) {
@@ -112,6 +114,7 @@ export class DbRuntime {
     })
     this._messageRepository = new MessageRepository({
       hasDb: () => Boolean(this.db),
+      getChatRepo: () => this.chatRepo,
       getMessageRepo: () => this.messageRepo
     })
     this._emotionStateRepository = new EmotionStateRepository({
@@ -151,6 +154,14 @@ export class DbRuntime {
       getPluginRepo: () => this.pluginRepo,
       getPluginCapabilityRepo: () => this.pluginCapabilityRepo,
       getPluginSettingRepo: () => this.pluginSettingRepo
+    })
+    this._pluginManifestSyncService = new PluginManifestSyncService({
+      hasDb: () => Boolean(this.db),
+      getDb: () => this.db,
+      getPluginRepo: () => this.pluginRepo,
+      getPluginCapabilityRepo: () => this.pluginCapabilityRepo,
+      getPluginSettingRepo: () => this.pluginSettingRepo,
+      pluginRepository: () => this._pluginRepository
     })
     this._compressedSummaryRepository = new CompressedSummaryRepository({
       hasDb: () => Boolean(this.db),
@@ -221,6 +232,7 @@ export class DbRuntime {
     this._configRepository = undefined
     this._mcpServerRepository = undefined
     this._pluginRepository = undefined
+    this._pluginManifestSyncService = undefined
     this._providerRepository = undefined
     this._compressedSummaryRepository = undefined
     this._runEventRepository = undefined
@@ -266,6 +278,10 @@ export class DbRuntime {
 
   get pluginRepository(): PluginRepository {
     return this.requireService(this._pluginRepository, 'Plugin repository')
+  }
+
+  get pluginManifestSyncService(): PluginManifestSyncService {
+    return this.requireService(this._pluginManifestSyncService, 'Plugin manifest sync service')
   }
 
   get providerRepository(): ProviderRepository {

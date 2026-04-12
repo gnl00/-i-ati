@@ -51,9 +51,11 @@ export class ConfigRepository {
     const normalizedConfig: IAppConfig = {
       ...baseConfig
     }
+    const now = Date.now()
     this.requireConfigRepo().saveConfig(
       JSON.stringify(normalizedConfig),
-      normalizedConfig.version ?? null
+      normalizedConfig.version ?? null,
+      now
     )
   }
 
@@ -66,7 +68,7 @@ export class ConfigRepository {
   saveConfigValue(key: string, value: string, version?: number | null): void {
     this.assertDbReady()
     if (!key) return
-    this.requireConfigRepo().saveValue(key, value, version ?? null)
+    this.requireConfigRepo().saveValue(key, value, version ?? null, Date.now())
   }
 
   initConfig(): IAppConfig {

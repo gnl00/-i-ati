@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { configDb } from '@main/db/config'
 import { defaultSoulPrompt } from '@shared/prompts/soul'
 
 export const SOUL_CONFIG_KEY = 'agent_soul_markdown'
@@ -20,7 +20,7 @@ const normalizeSoulContent = (content: string): string => {
 
 export class SoulService {
   getSoul(): { content: string; source: 'config' | 'default' } {
-    const configValue = DatabaseService.getConfigValue(SOUL_CONFIG_KEY)
+    const configValue = configDb.getConfigValue(SOUL_CONFIG_KEY)
     const normalized = typeof configValue === 'string'
       ? normalizeSoulContent(configValue)
       : ''
@@ -61,12 +61,12 @@ export class SoulService {
       throw new Error(validation.error)
     }
 
-    DatabaseService.saveConfigValue(SOUL_CONFIG_KEY, validation.normalizedContent)
+    configDb.saveConfigValue(SOUL_CONFIG_KEY, validation.normalizedContent)
     return { content: validation.normalizedContent }
   }
 
   resetSoul(): { content: string } {
-    DatabaseService.saveConfigValue(SOUL_CONFIG_KEY, defaultSoulPrompt)
+    configDb.saveConfigValue(SOUL_CONFIG_KEY, defaultSoulPrompt)
     return { content: defaultSoulPrompt }
   }
 }

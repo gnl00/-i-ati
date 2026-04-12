@@ -3,6 +3,7 @@ import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import { SchedulerService } from '../SchedulerService'
 import DatabaseService from '@main/db/DatabaseService'
+import { planningDb } from '@main/db/planning'
 
 const taskStore: ScheduledTaskRow[] = []
 const { mockSubmit, mockHasActiveRunForChat } = vi.hoisted(() => ({
@@ -12,15 +13,6 @@ const { mockSubmit, mockHasActiveRunForChat } = vi.hoisted(() => ({
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
-    saveScheduledTask: vi.fn((task: ScheduledTaskRow) => {
-      taskStore.push({ ...task })
-    }),
-    claimDueScheduledTasks: vi.fn((now: number, limit: number) => {
-      return taskStore
-        .filter(task => task.status === 'pending' && task.run_at <= now)
-        .slice(0, limit)
-        .map(task => ({ ...task }))
-    }),
     getChatByUuid: vi.fn((chatUuid: string) => ({
       id: 1,
       uuid: chatUuid,
@@ -51,11 +43,25 @@ vi.mock('@main/db/DatabaseService', () => ({
         }
       ]
     })),
+    saveRunEvent: vi.fn(() => 1),
+  }
+}))
+
+vi.mock('@main/db/planning', () => ({
+  planningDb: {
+    saveScheduledTask: vi.fn((task: ScheduledTaskRow) => {
+      taskStore.push({ ...task })
+    }),
+    claimDueScheduledTasks: vi.fn((now: number, limit: number) => {
+      return taskStore
+        .filter(task => task.status === 'pending' && task.run_at <= now)
+        .slice(0, limit)
+        .map(task => ({ ...task }))
+    }),
     getScheduledTaskById: vi.fn((id: string) => {
       const task = taskStore.find(item => item.id === id)
       return task ? { ...task } : undefined
     }),
-    saveRunEvent: vi.fn(() => 1),
     updateScheduledTaskStatus: vi.fn(
       (id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         const task = taskStore.find(item => item.id === id)
@@ -124,13 +130,13 @@ describe('SchedulerService', () => {
 
   it('adds a scheduled task and triggers it when due', async () => {
     const dueTask = buildTask()
-    DatabaseService.saveScheduledTask(dueTask)
+    planningDb.saveScheduledTask(dueTask)
 
     const scheduler = new SchedulerService()
     await (scheduler as any).tick()
 
-    expect(DatabaseService.claimDueScheduledTasks).toHaveBeenCalledTimes(1)
-    expect(DatabaseService.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
+    expect(planningDb.claimDueScheduledTasks).toHaveBeenCalledTimes(1)
+    expect(planningDb.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
       1,
       dueTask.id,
       'running',
@@ -138,7 +144,7 @@ describe('SchedulerService', () => {
       undefined,
       undefined
     )
-    expect(DatabaseService.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
+    expect(planningDb.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
       2,
       dueTask.id,
       'completed',
@@ -165,12 +171,12 @@ describe('SchedulerService', () => {
       id: 'task-future',
       run_at: Date.now() + 60_000
     })
-    DatabaseService.saveScheduledTask(futureTask)
+    planningDb.saveScheduledTask(futureTask)
 
     const scheduler = new SchedulerService()
     await (scheduler as any).tick()
 
-    expect(DatabaseService.updateScheduledTaskStatus).not.toHaveBeenCalled()
+    expect(planningDb.updateScheduledTaskStatus).not.toHaveBeenCalled()
     expect(taskStore[0].status).toBe('pending')
   })
 
@@ -178,7 +184,7 @@ describe('SchedulerService', () => {
     const dueTask = buildTask({
       id: 'task-busy-chat'
     })
-    DatabaseService.saveScheduledTask(dueTask)
+    planningDb.saveScheduledTask(dueTask)
     mockHasActiveRunForChat.mockReturnValue(true)
 
     const scheduler = new SchedulerService()
@@ -186,7 +192,7 @@ describe('SchedulerService', () => {
 
     expect(mockHasActiveRunForChat).toHaveBeenCalledWith('chat-1')
     expect(mockSubmit).not.toHaveBeenCalled()
-    expect(DatabaseService.updateScheduledTaskStatus).not.toHaveBeenCalled()
+    expect(planningDb.updateScheduledTaskStatus).not.toHaveBeenCalled()
     expect(taskStore[0].status).toBe('pending')
     expect(taskStore[0].attempt_count).toBe(0)
   })
@@ -196,9 +202,9 @@ describe('SchedulerService', () => {
       id: 'task-fail-retry',
       max_attempts: 3
     })
-    DatabaseService.saveScheduledTask(failingTask)
+    planningDb.saveScheduledTask(failingTask)
 
-    ;(DatabaseService.updateScheduledTaskStatus as any).mockImplementation(
+    ;(planningDb.updateScheduledTaskStatus as any).mockImplementation(
       (id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         if (id === 'task-fail-retry' && status === 'completed') {
           throw new Error('simulated completion failure')
@@ -216,7 +222,7 @@ describe('SchedulerService', () => {
     const scheduler = new SchedulerService()
     await (scheduler as any).tick()
 
-    expect(DatabaseService.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
+    expect(planningDb.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
       1,
       failingTask.id,
       'running',
@@ -224,7 +230,7 @@ describe('SchedulerService', () => {
       undefined,
       undefined
     )
-    expect(DatabaseService.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
+    expect(planningDb.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
       2,
       failingTask.id,
       'completed',
@@ -232,7 +238,7 @@ describe('SchedulerService', () => {
       undefined,
       42
     )
-    expect(DatabaseService.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
+    expect(planningDb.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
       3,
       failingTask.id,
       'pending',
@@ -250,9 +256,9 @@ describe('SchedulerService', () => {
       id: 'task-no-retry',
       max_attempts: 0
     })
-    DatabaseService.saveScheduledTask(noRetryTask)
+    planningDb.saveScheduledTask(noRetryTask)
 
-    ;(DatabaseService.updateScheduledTaskStatus as any).mockImplementation(
+    ;(planningDb.updateScheduledTaskStatus as any).mockImplementation(
       (id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         if (id === 'task-no-retry' && status === 'completed') {
           throw new Error('forced failure no-retry')
@@ -270,7 +276,7 @@ describe('SchedulerService', () => {
     const scheduler = new SchedulerService()
     await (scheduler as any).tick()
 
-    expect(DatabaseService.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
+    expect(planningDb.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
       3,
       noRetryTask.id,
       'failed',

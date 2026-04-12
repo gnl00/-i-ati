@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { pluginDb } from '@main/db/plugins'
 import { createLogger } from '@main/logging/LogService'
 import {
   getRequestAdapterPluginById,
@@ -165,8 +165,8 @@ export const getRequestErrorMetadata = (error: unknown): RequestErrorMetadata | 
 }
 
 export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
-  const pluginConfigs = DatabaseService.getPluginConfigs()
-  const plugins = DatabaseService.getPlugins()
+  const pluginConfigs = pluginDb.getPluginConfigs()
+  const plugins = pluginDb.getPlugins()
 
   let adapter
   const adapterPluginId = req.adapterPluginId

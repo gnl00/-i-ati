@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/db/DatabaseService'
+import { planningDb } from '@main/db/planning'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 
 type PlanCreateArgs = {
@@ -72,7 +72,7 @@ export async function processPlanCreate(args: PlanCreateArgs) {
       createdAt: now,
       updatedAt: now
     }
-    DatabaseService.saveTaskPlan(plan)
+    planningDb.saveTaskPlan(plan)
     return { success: true, plan }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -83,11 +83,11 @@ export async function processPlanCreate(args: PlanCreateArgs) {
 
 export async function processPlanUpdate(args: PlanUpdateArgs) {
   try {
-    DatabaseService.updateTaskPlan({
+    planningDb.updateTaskPlan({
       ...args.plan,
       updatedAt: Date.now()
     })
-    const plan = DatabaseService.getTaskPlanById(args.plan.id)
+    const plan = planningDb.getTaskPlanById(args.plan.id)
     return { success: true, plan }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -111,18 +111,18 @@ export async function processPlanUpdateStatus(args: PlanUpdateStatusArgs) {
       if (!args.stepId) {
         return { success: false, message: 'stepId is required when stepStatus is provided' }
       }
-      const planForStep = DatabaseService.getTaskPlanById(args.id)
+      const planForStep = planningDb.getTaskPlanById(args.id)
       if (planForStep && args.stepStatus === 'doing') {
         const index = planForStep.steps.findIndex(step => step.id === args.stepId)
         if (index > 0) {
           const prevStep = planForStep.steps[index - 1]
           if (prevStep && prevStep.status !== 'done') {
-            DatabaseService.updateTaskPlanStepStatus(args.id, prevStep.id, 'done')
+            planningDb.updateTaskPlanStepStatus(args.id, prevStep.id, 'done')
           }
         }
       }
-      DatabaseService.updateTaskPlanStepStatus(args.id, args.stepId, args.stepStatus)
-      const updatedPlan = DatabaseService.getTaskPlanById(args.id)
+      planningDb.updateTaskPlanStepStatus(args.id, args.stepId, args.stepStatus)
+      const updatedPlan = planningDb.getTaskPlanById(args.id)
       if (updatedPlan) {
         const allDone = updatedPlan.steps.length > 0
           && updatedPlan.steps.every(step => step.status === 'done' || step.status === 'skipped')
@@ -131,8 +131,8 @@ export async function processPlanUpdateStatus(args: PlanUpdateStatusArgs) {
         }
       }
     }
-    DatabaseService.updateTaskPlanStatus(args.id, nextStatus, args.currentStepId, args.failureReason)
-    const plan = DatabaseService.getTaskPlanById(args.id)
+    planningDb.updateTaskPlanStatus(args.id, nextStatus, args.currentStepId, args.failureReason)
+    const plan = planningDb.getTaskPlanById(args.id)
     return { success: true, plan }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -143,7 +143,7 @@ export async function processPlanUpdateStatus(args: PlanUpdateStatusArgs) {
 
 export async function processPlanGetById(args: PlanGetByIdArgs) {
   try {
-    const plan = DatabaseService.getTaskPlanById(args.id)
+    const plan = planningDb.getTaskPlanById(args.id)
     return { success: true, plan }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -158,7 +158,7 @@ export async function processPlanGetCurrentChat(args: PlanGetCurrentChatArgs = {
     if (!chatUuid) {
       return { success: false, message: 'chat_uuid is required' }
     }
-    const plans = DatabaseService.getTaskPlansByChatUuid(chatUuid)
+    const plans = planningDb.getTaskPlansByChatUuid(chatUuid)
     return { success: true, plans }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -169,7 +169,7 @@ export async function processPlanGetCurrentChat(args: PlanGetCurrentChatArgs = {
 
 export async function processPlanDelete(args: PlanDeleteArgs) {
   try {
-    DatabaseService.deleteTaskPlan(args.id)
+    planningDb.deleteTaskPlan(args.id)
     return { success: true }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -180,8 +180,8 @@ export async function processPlanDelete(args: PlanDeleteArgs) {
 
 export async function processPlanStepUpsert(args: PlanStepUpsertArgs) {
   try {
-    DatabaseService.upsertTaskPlanStep(args.planId, args.step)
-    const plan = DatabaseService.getTaskPlanById(args.planId)
+    planningDb.upsertTaskPlanStep(args.planId, args.step)
+    const plan = planningDb.getTaskPlanById(args.planId)
     return { success: true, plan }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

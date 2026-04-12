@@ -20,8 +20,8 @@ vi.mock('electron', () => ({
   }
 }))
 
-vi.mock('@main/db/DatabaseService', () => ({
-  default: {
+vi.mock('@main/db/planning', () => ({
+  planningDb: {
     saveTaskPlan: vi.fn(),
     updateTaskPlan: vi.fn(),
     updateTaskPlanStatus: vi.fn(),

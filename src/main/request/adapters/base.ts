@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { configDb } from '@main/db/config'
 import { createLogger } from '@main/logging/LogService'
 import type { RequestAdapterStreamProtocol } from '@shared/plugins/requestAdapterHooks'
 
@@ -120,7 +120,7 @@ export abstract class BaseAdapter {
 
   private refreshStreamDebugFlag(): void {
     try {
-      this.streamChunkDebugEnabled = DatabaseService.getConfig()?.tools?.streamChunkDebugEnabled ?? false
+      this.streamChunkDebugEnabled = configDb.getConfig()?.tools?.streamChunkDebugEnabled ?? false
     } catch {
       this.streamChunkDebugEnabled = false
     }
