@@ -108,6 +108,7 @@ export class OpenAIAdapter extends BaseAdapter {
       model: response.model || 'unknown',
       timestamp: response.created ? response.created * 1000 : Date.now(),
       content: choice.message?.content || '',
+      reasoning: choice.message?.reasoning_content ?? choice.message?.reasoning,
       toolCalls: this.transformToolCalls(choice.message?.tool_calls),
       finishReason: this.mapFinishReason(choice.finish_reason),
       usage: this.extractUsage(response),
@@ -144,6 +145,7 @@ export class OpenAIAdapter extends BaseAdapter {
           model: data.model || 'unknown',
           delta: {
             content: delta?.content,
+            reasoning: delta?.reasoning_content ?? delta?.reasoning,
             toolCalls: this.transformToolCalls(delta?.tool_calls),
             finishReason: this.mapFinishReason(choice.finish_reason)
           },
