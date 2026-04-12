@@ -30,7 +30,6 @@ export default defineConfig({
     resolve: {
       alias: {
         '@main': resolve('src/main'),
-        '@mcp': resolve('src/mcp'),
         '@request': resolve('src/main/request'),
         '@shared': resolve('src/shared'),
         '@tools': resolve('src/shared/tools'),
