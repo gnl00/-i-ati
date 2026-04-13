@@ -35,9 +35,8 @@ const getDateGroup = (timestamp: number): string => {
 
 const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCurrentChat }) => {
   const chatList = useChatStore(state => state.chatList)
-  const setChatList = useChatStore(state => state.setChatList)
+  const removeChatListEntry = useChatStore(state => state.removeChatListEntry)
   const updateChatList = useChatStore(state => state.updateChatList)
-  const setChatTitle = useChatStore(state => state.setChatTitle)
   const chatId = useChatStore(state => state.currentChatId)
 
   const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
@@ -93,9 +92,6 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     chat.title = event.target.value
     updateChat(chat)
     updateChatList(chat)
-    if (chat.id === chatId) {
-      setChatTitle(chat.title)
-    }
   }
 
   const onMouseOverSheetChat = (nextChatId: number) => {
@@ -109,14 +105,14 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   }
 
   const onSheetChatItemDeleteUndo = (chat: ChatEntity) => {
-    setChatList([...chatList])
-    updateChat(chat)
+    updateChatList(chat)
+    void updateChat(chat)
   }
 
   const onSheetChatItemDeleteClick = (event: React.MouseEvent<HTMLButtonElement>, chat: ChatEntity) => {
     event.stopPropagation()
-    setChatList(chatList.filter(item => item.id !== chat.id))
-    deleteChat(chat.id!)
+    removeChatListEntry(chat.id!)
+    void deleteChat(chat.id!)
     if (chat.id === chatId) {
       onDeletedCurrentChat()
     }

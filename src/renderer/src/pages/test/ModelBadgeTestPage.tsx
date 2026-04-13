@@ -1,10 +1,7 @@
 import { ModelBadgeV2 } from '@renderer/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeV2'
 import { ModelBadgeV3 } from '@renderer/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeV3'
 import { ModelBadgeNext } from '@renderer/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeNext'
-import { ReasoningSegmentV2 } from '@renderer/components/chat/chatMessage/assistant-message/segments/ReasoningSegmentV2'
 import { ReasoningSegmentNext } from '@renderer/components/chat/chatMessage/assistant-message/segments/ReasoningSegmentNext'
-import { ToolCallResult } from '@renderer/components/chat/chatMessage/assistant-message/toolcall/ToolCallResult'
-import { ToolCallResultNext } from '@renderer/components/chat/chatMessage/assistant-message/toolcall/ToolCallResultNext'
 import { ToolCallResultNextOutput } from '@renderer/components/chat/chatMessage/assistant-message/toolcall/ToolCallResultNextOutput'
 
 const mockReasoningSegment: ReasoningSegment = {
@@ -71,13 +68,12 @@ function DemoAssistantBubble({
           </p>
         </div>
 
-        <ReasoningSegmentV2
+        <ReasoningSegmentNext
           segment={mockReasoningSegment}
-          nextSegmentTimestamp={mockToolCallSegment.timestamp}
           isStreaming={false}
         />
 
-        <ToolCallResult toolCall={mockToolCallSegment} index={0} />
+        <ToolCallResultNextOutput toolCall={mockToolCallSegment} index={0} />
       </div>
     </div>
   )
@@ -173,25 +169,13 @@ export default function ModelBadgeTestPage() {
             Real Stack Baseline
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
-            Compare the current reasoning and tool call components against fresh `Next` variants.
+            Compare the current reasoning stack against the consolidated tool output variant.
           </h2>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
           <DemoAssistantStack
-            title="Current Stack With ModelBadgeNext"
-            badge={<ModelBadgeNext model="MiniMax-M2.5" provider="minimax" animate />}
-            reasoning={(
-              <ReasoningSegmentV2
-                segment={mockReasoningSegment}
-                nextSegmentTimestamp={mockToolCallSegment.timestamp}
-                isStreaming={false}
-              />
-            )}
-            toolcall={<ToolCallResult toolCall={mockToolCallSegment} index={0} />}
-          />
-          <DemoAssistantStack
-            title="Next Stack With ModelBadgeNext"
+            title="Baseline Stack With ModelBadgeNext"
             badge={<ModelBadgeNext model="MiniMax-M2.5" provider="minimax" animate />}
             reasoning={(
               <ReasoningSegmentNext
@@ -199,7 +183,18 @@ export default function ModelBadgeTestPage() {
                 isStreaming={false}
               />
             )}
-            toolcall={<ToolCallResultNext toolCall={mockToolCallSegment} index={0} />}
+            toolcall={<ToolCallResultNextOutput toolCall={mockToolCallSegment} index={0} />}
+          />
+          <DemoAssistantStack
+            title="Matched Stack With ModelBadgeNext"
+            badge={<ModelBadgeNext model="MiniMax-M2.5" provider="minimax" animate />}
+            reasoning={(
+              <ReasoningSegmentNext
+                segment={mockReasoningSegment}
+                isStreaming={false}
+              />
+            )}
+            toolcall={<ToolCallResultNextOutput toolCall={mockToolCallSegment} index={0} />}
           />
         </div>
 
@@ -213,17 +208,6 @@ export default function ModelBadgeTestPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <DemoAssistantStack
-            title="ToolCallResultNext"
-            badge={<ModelBadgeNext model="MiniMax-M2.5" provider="minimax" animate />}
-            reasoning={(
-              <ReasoningSegmentNext
-                segment={mockReasoningSegment}
-                isStreaming={false}
-              />
-            )}
-            toolcall={<ToolCallResultNext toolCall={mockToolCallSegment} index={0} />}
-          />
           <DemoAssistantStack
             title="ToolCallResultNextOutput"
             badge={<ModelBadgeNext model="MiniMax-M2.5" provider="minimax" animate />}

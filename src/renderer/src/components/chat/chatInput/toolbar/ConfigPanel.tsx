@@ -13,8 +13,6 @@ import React, { useState } from 'react'
 import { getChatSkills } from '@renderer/db/ChatSkillRepository'
 import { getCompressedSummariesByChatId } from '@renderer/db/CompressedSummaryRepository'
 import { Wrench, Sparkles, Database, Compass } from 'lucide-react'
-import { getChatFromList } from '@renderer/utils/chatWorkspace'
-import { updateChat } from '@renderer/db/ChatRepository'
 
 const ConfigPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -22,9 +20,9 @@ const ConfigPanel: React.FC = () => {
   const currentChatId = useChatStore(state => state.currentChatId)
   const currentChatUuid = useChatStore(state => state.currentChatUuid)
   const userInstruction = useChatStore(state => state.userInstruction)
-  const setUserInstruction = useChatStore(state => state.setUserInstruction)
-  const chatList = useChatStore(state => state.chatList)
-  const updateChatList = useChatStore(state => state.updateChatList)
+  const hydrateUserInstructionDraft = useChatStore(state => state.hydrateUserInstructionDraft)
+  const editUserInstructionDraft = useChatStore(state => state.editUserInstructionDraft)
+  const persistUserInstructionDraft = useChatStore(state => state.persistUserInstructionDraft)
   const { appConfig } = useAppConfigStore()
   const { currentAssistant } = useAssistantStore()
   const [displayAssistant, setDisplayAssistant] = useState<Assistant | null>(null)
@@ -65,29 +63,8 @@ const ConfigPanel: React.FC = () => {
   }, [currentChatId])
 
   React.useEffect(() => {
-    const chat = getChatFromList({ chatId: currentChatId ?? undefined, chatUuid: currentChatUuid ?? undefined, chatList })
-    if (chat) {
-      setUserInstruction(chat.userInstruction ?? '')
-    }
-  }, [currentChatId, currentChatUuid, chatList])
-
-  const saveUserInstruction = React.useCallback(async () => {
-    if (!currentChatId) return
-    const nextValue = userInstruction.trim()
-    const chat = getChatFromList({ chatId: currentChatId ?? undefined, chatUuid: currentChatUuid ?? undefined, chatList })
-    if (!chat || !chat.id) return
-    const currentValue = (chat.userInstruction ?? '').trim()
-    if (nextValue === currentValue) {
-      return
-    }
-    const updatedChat: ChatEntity = {
-      ...chat,
-      userInstruction: nextValue,
-      updateTime: Date.now()
-    }
-    await updateChat(updatedChat)
-    updateChatList(updatedChat)
-  }, [userInstruction, currentChatId, currentChatUuid, chatList, updateChatList])
+    hydrateUserInstructionDraft()
+  }, [currentChatId, currentChatUuid, hydrateUserInstructionDraft])
 
   const tokenTotal = React.useMemo(() => {
     return messages.reduce((sum, msg) => sum + (msg.tokens || 0), 0)
@@ -121,10 +98,10 @@ const ConfigPanel: React.FC = () => {
 
   const handleOpenChange = React.useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
-      void saveUserInstruction()
+      void persistUserInstructionDraft()
     }
     setIsOpen(nextOpen)
-  }, [saveUserInstruction])
+  }, [persistUserInstructionDraft])
 
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
@@ -318,8 +295,10 @@ const ConfigPanel: React.FC = () => {
                   "shadow-xs",
                   "min-h-[80px]"
                 )}
-                onChange={e => setUserInstruction(e.target.value)}
-                onBlur={saveUserInstruction}
+                onChange={e => editUserInstructionDraft(e.target.value)}
+                onBlur={() => {
+                  void persistUserInstructionDraft()
+                }}
               />
             </div>
           </div>

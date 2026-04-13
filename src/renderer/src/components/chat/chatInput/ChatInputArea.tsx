@@ -37,7 +37,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const setSelectedModelRef = useChatStore(state => state.setSelectedModelRef)
   const ensureSelectedModelRef = useChatStore(state => state.ensureSelectedModelRef)
-  const setUserInstruction = useChatStore(state => state.setUserInstruction)
+  const editUserInstructionDraft = useChatStore(state => state.editUserInstructionDraft)
 
   const {
     defaultModel,
@@ -155,12 +155,12 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const startNewChat = useCallback(() => {
     startNewChatBase()
     setCurrentUserInstruction('')
-    setUserInstruction('')
+    editUserInstructionDraft('')
     setQueuedMessages([])
     setQueuePaused(false)
     setEditingQueue(false)
     editingQueueRef.current = null
-  }, [startNewChatBase, setUserInstruction])
+  }, [startNewChatBase, editUserInstructionDraft])
 
   const { onSubmit: handleChatSubmit, cancel: cancelChatSubmit } = useChatRun()
   const handleChatSubmitCallback = useCallback((text, img, options) => {

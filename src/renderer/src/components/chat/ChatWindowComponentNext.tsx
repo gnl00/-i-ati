@@ -55,7 +55,7 @@ const ChatMessageRow: React.FC<{
 
 const ChatWindowComponentNext: React.FC = () => {
   const messages = useChatStore(state => state.messages)
-  const streamPreviewMessage = useChatStore(state => state.streamPreviewMessage)
+  const previewMessage = useChatStore(state => state.preview.message)
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
@@ -74,13 +74,13 @@ const ChatWindowComponentNext: React.FC = () => {
     }
     return -1
   }, [messages])
-  const previewStandalone = Boolean(streamPreviewMessage) && committedLastAssistantIndex < 0
-  const previewRenderIndex = streamPreviewMessage
+  const previewStandalone = Boolean(previewMessage) && committedLastAssistantIndex < 0
+  const previewRenderIndex = previewMessage
     ? (previewStandalone ? messages.length : committedLastAssistantIndex)
     : -1
   const displayMessages = useMemo(
-    () => (previewStandalone && streamPreviewMessage ? [...messages, streamPreviewMessage] : messages),
-    [messages, previewStandalone, streamPreviewMessage]
+    () => (previewStandalone && previewMessage ? [...messages, previewMessage] : messages),
+    [messages, previewStandalone, previewMessage]
   )
   const lastAssistantIndex = previewRenderIndex >= 0 ? previewRenderIndex : committedLastAssistantIndex
 
@@ -172,11 +172,11 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [getLockedAnchorElement, scrollParentRef])
   const renderedLatestAssistant = useMemo(() => {
     if (lastAssistantIndex < 0) return undefined
-    if (streamPreviewMessage && previewRenderIndex === lastAssistantIndex) {
-      return streamPreviewMessage
+    if (previewMessage && previewRenderIndex === lastAssistantIndex) {
+      return previewMessage
     }
     return displayMessages[lastAssistantIndex]
-  }, [displayMessages, lastAssistantIndex, previewRenderIndex, streamPreviewMessage])
+  }, [displayMessages, lastAssistantIndex, previewRenderIndex, previewMessage])
   const latestAssistantTextSignature = useMemo(() => {
     if (!renderedLatestAssistant) return ''
     const latestAssistant = renderedLatestAssistant
@@ -826,8 +826,8 @@ const ChatWindowComponentNext: React.FC = () => {
                       messageIndex={index}
                       message={message}
                       previewMessage={
-                        streamPreviewMessage && previewRenderIndex === index && !previewStandalone
-                          ? streamPreviewMessage.body
+                        previewMessage && previewRenderIndex === index && !previewStandalone
+                          ? previewMessage.body
                           : undefined
                       }
                       lastAssistantIndex={lastAssistantIndex}

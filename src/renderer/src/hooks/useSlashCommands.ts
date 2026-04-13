@@ -20,11 +20,7 @@ export interface UseSlashCommandsOptions {
  */
 export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
   const { onCommandExecute } = options
-  const setChatId = useChatStore(state => state.setChatId)
-  const setChatUuid = useChatStore(state => state.setChatUuid)
-  const setChatTitle = useChatStore(state => state.setChatTitle)
-  const clearMessages = useChatStore(state => state.clearMessages)
-  const syncSelectedModelRefForChat = useChatStore(state => state.syncSelectedModelRefForChat)
+  const resetChatContext = useChatStore(state => state.resetChatContext)
   const artifacts = useChatStore(state => state.artifacts)
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
@@ -41,14 +37,10 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
    * Clears all messages and resets chat state
    */
   const startNewChat = useCallback(() => {
-    setChatId(null)
-    setChatUuid(null)
-    setChatTitle('NewChat')
-    clearMessages()
-    syncSelectedModelRefForChat(null)
+    resetChatContext()
     toggleArtifacts(false)
     toggleWebSearch(false)
-  }, [setChatId, setChatUuid, setChatTitle, clearMessages, syncSelectedModelRefForChat, toggleArtifacts, toggleWebSearch])
+  }, [resetChatContext, toggleArtifacts, toggleWebSearch])
 
   /**
    * Available slash commands

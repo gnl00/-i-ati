@@ -178,7 +178,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
 }) => {
   // Store
   const { assistants, loadAssistants, isLoading, currentAssistant, setCurrentAssistant } = useAssistantStore()
-  const setUserInstruction = useChatStore(state => state.setUserInstruction)
+  const applyAssistantInstructionPreset = useChatStore(state => state.applyAssistantInstructionPreset)
 
   // Text State
   const [typedText, setTypedText] = useState('')
@@ -242,11 +242,11 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({
   const handleAssistantClick = (assistant: Assistant) => {
     if (currentAssistant?.id === assistant.id) {
       setCurrentAssistant(null)
-      setUserInstruction('')
+      applyAssistantInstructionPreset('')
       return
     }
     setCurrentAssistant(assistant)
-    setUserInstruction(assistant.systemPrompt ?? '')
+    applyAssistantInstructionPreset(assistant.systemPrompt ?? '')
   }
 
   const saveUserName = () => {

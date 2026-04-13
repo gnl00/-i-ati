@@ -51,19 +51,15 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
     const { appVersion } = useAppConfigStore()
     const {
-        clearMessages,
         upsertMessage,
         patchMessageUiState,
         toggleArtifacts,
         toggleWebSearch,
         currentChatId: chatId,
         currentChatUuid: chatUuid,
-        setChatList,
-        setChatTitle,
-        setChatUuid,
-        setChatId,
-        loadChat,
-        syncSelectedModelRefForChat,
+        replaceChatList,
+        hydrateChat,
+        resetChatContext,
     } = useChatStore()
 
     /**
@@ -166,14 +162,14 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         if (sheetOpenState) {
             const refreshChatList = () => {
                 getAllChat().then(res => {
-                    setChatList([...res, { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }])
+                    replaceChatList([...res, { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }])
                 }).catch(err => {
                     logger.error('chat_list.refresh_failed', err)
                 })
             }
             refreshChatList()
         }
-    }, [sheetOpenState, setChatList])
+    }, [sheetOpenState, replaceChatList])
 
     useEffect(() => {
         if (!sheetOpenState) {
@@ -241,11 +237,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             return
         }
 
-        setChatId(null)
-        setChatUuid(null)
-        setChatTitle('NewChat')
-        clearMessages()
-        syncSelectedModelRefForChat(null)
+        resetChatContext()
 
         // 切换到默认 workspace (tmp)
         const workspaceResult = await switchWorkspace()
@@ -281,12 +273,12 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             }
 
             if (!chat.id) {
-                clearMessages()
+                resetChatContext()
                 return
             }
 
             try {
-                await loadChat(chat.id)
+                await hydrateChat(chat.id)
                 if (chatSwitchRequestRef.current !== requestId) {
                     return
                 }

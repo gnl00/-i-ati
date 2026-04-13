@@ -51,10 +51,8 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     currentChatId: chatId,
     currentChatUuid: chatUuid,
     chatList,
-    setChatId,
-    setChatUuid,
-    setChatTitle,
-    setChatList,
+    prependChatListEntry,
+    selectChatShell,
     updateWorkspacePath
   } = useChatStore()
   const currentWorkspacePath = useMemo(() => {
@@ -129,12 +127,10 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 
         // 添加新 chat 到 chatList
         newChatEntity.id = newChatId
-        setChatList([newChatEntity, ...chatList])
+        prependChatListEntry(newChatEntity)
 
-        // 然后更新状态
-        setChatId(newChatId)
-        setChatUuid(newChatUuid)
-        setChatTitle('NewChat')
+        // 然后更新当前 chat shell
+        selectChatShell(newChatId, newChatUuid, newChatEntity)
 
         // toast.success(`New chat created with workspace: ${selectedPath}`)
       } else {
