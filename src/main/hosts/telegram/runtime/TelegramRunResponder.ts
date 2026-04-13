@@ -1,11 +1,10 @@
 import type { Bot } from 'grammy'
-import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
 import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
 import type { RunEventEnvelope, RunEventPayloads } from '@shared/run/events'
 import { RUN_EVENTS } from '@shared/run/events'
+import { TelegramRenderMapper, type TelegramRenderBlock } from './TelegramRenderMapper'
 
 const STREAM_UPDATE_THROTTLE_MS = 400
-const TELEGRAM_TOOL_FOOTER_HIDDEN_TOOLS = new Set(['emotion_report'])
 const TELEGRAM_STICKY_APPEND_HIDDEN_TOOLS = new Set(['emotion_report'])
 
 type TelegramRunResponderArgs = {
@@ -18,16 +17,11 @@ type TelegramRunResponderArgs = {
   }
 }
 
-type TelegramRenderBlock = {
-  kind: 'text' | 'tool'
-  key: string
-  text: string
-}
-
 export class TelegramRunResponder {
   private readonly bot: Bot
   private readonly envelope: TelegramInboundEnvelope
   private readonly logger?: TelegramRunResponderArgs['logger']
+  private readonly mapper = new TelegramRenderMapper()
   private latestText = ''
   private latestBaseText = ''
   private latestFooterLines: string[] = []
@@ -80,7 +74,7 @@ export class TelegramRunResponder {
         }
 
         this.latestAssistantMessage = message
-        const committedBlocks = this.extractCommittedBlocks(message)
+        const committedBlocks = this.mapper.extractCommittedBlocks(message)
         if (committedBlocks.length > 0) {
           this.replaceCommittedBlocks(committedBlocks)
           this.activePreviewText = ''
@@ -250,19 +244,8 @@ export class TelegramRunResponder {
     )
   }
 
-  private extractText(message?: MessageEntity): string {
-    const fromSegments = message?.body.segments?.length
-      ? extractContentFromSegments(message.body.segments)
-      : ''
-    const fromContent = typeof message?.body.content === 'string'
-      ? message.body.content
-      : ''
-
-    return (fromSegments || fromContent || '').trim()
-  }
-
   private extractTransportText(message: MessageEntity): string {
-    const rawContentText = this.extractText(message)
+    const rawContentText = this.mapper.extractText(message)
     const previewText = this.committedBlocks.length > 0
       ? rawContentText.trim()
       : this.composeTransportText(rawContentText).text
@@ -270,7 +253,7 @@ export class TelegramRunResponder {
     this.activePreviewText = previewText
     const rawText = this.renderTransportText()
     this.latestBaseText = rawText
-    const toolFooterLines = this.extractToolFooterLines(message)
+    const toolFooterLines = this.mapper.extractToolFooterLines(message)
     this.latestFooterLines = toolFooterLines
     const footerLines = toolFooterLines.length > 0
       ? toolFooterLines
@@ -285,43 +268,6 @@ export class TelegramRunResponder {
     return rawText
       ? `${rawText}\n\n${footerLines.map(line => `> ${line}`).join('\n')}`
       : footerLines.map(line => `> ${line}`).join('\n')
-  }
-
-  private extractToolFooterLines(message?: MessageEntity): string[] {
-    const segments = message?.body.segments
-    if (!segments?.length) {
-      return []
-    }
-
-    return segments
-      .filter((segment): segment is ToolCallSegment => (
-        segment.type === 'toolCall' &&
-        !this.shouldHideToolFooter(segment)
-      ))
-      .map((segment) => this.formatToolFooterLine(segment))
-      .filter(Boolean)
-  }
-
-  private shouldHideToolFooter(segment: ToolCallSegment): boolean {
-    const toolName = typeof segment.content?.toolName === 'string' ? segment.content.toolName : segment.name
-    return TELEGRAM_TOOL_FOOTER_HIDDEN_TOOLS.has(toolName)
-  }
-
-  private formatToolFooterLine(segment: ToolCallSegment): string {
-    const toolName = typeof segment.content?.toolName === 'string'
-      ? segment.content.toolName
-      : segment.name || 'tool'
-    const label = toolName.replace(/_/g, ' ')
-    const status = typeof segment.content?.status === 'string' ? segment.content.status : undefined
-    const isError = Boolean(segment.isError)
-
-    if (isError || status === 'failed' || status === 'aborted') {
-      return `tool ${label} failed`
-    }
-    if (status === 'running' || status === 'executing' || status === 'pending') {
-      return `tool ${label} running`
-    }
-    return `tool ${label} done`
   }
 
   private captureStickyPreviewBase(): void {
@@ -408,52 +354,6 @@ export class TelegramRunResponder {
     return text.length <= 8 && !/[\p{L}\p{N}]/u.test(text)
   }
 
-  private extractCommittedBlocks(message?: MessageEntity): TelegramRenderBlock[] {
-    const segments = message?.body.segments
-    if (segments?.length) {
-      const blocks: TelegramRenderBlock[] = []
-      let textBlockIndex = 0
-
-      segments.forEach((segment, index) => {
-        if (segment.type === 'text') {
-          const text = segment.content.trim()
-          if (!text) return
-          blocks.push({
-            kind: 'text',
-            key: segment.segmentId || `text:${textBlockIndex++}:${index}`,
-            text
-          })
-          return
-        }
-
-        if (segment.type === 'toolCall' && !this.shouldHideToolFooter(segment)) {
-          const text = this.formatToolFooterLine(segment)
-          if (!text) return
-          blocks.push({
-            kind: 'tool',
-            key: `tool:${segment.toolCallId || segment.name || index}`,
-            text
-          })
-        }
-      })
-
-      if (blocks.length > 0) {
-        return blocks
-      }
-    }
-
-    const fallbackText = this.extractText(message)
-    if (!fallbackText) {
-      return []
-    }
-
-    return [{
-      kind: 'text',
-      key: 'text:fallback',
-      text: fallbackText
-    }]
-  }
-
   private promoteActivePreviewToCommitted(): void {
     const text = this.activePreviewText.trim()
     if (!text) {
@@ -487,7 +387,7 @@ export class TelegramRunResponder {
   }
 
   private syncCommittedBlocksFromLatestAssistantMessage(): void {
-    const blocks = this.extractCommittedBlocks(this.latestAssistantMessage)
+    const blocks = this.mapper.extractCommittedBlocks(this.latestAssistantMessage)
     if (blocks.length === 0) {
       return
     }
@@ -495,36 +395,10 @@ export class TelegramRunResponder {
   }
 
   private renderTransportText(): string {
-    const blocks = [...this.committedBlocks]
-    if (this.activePreviewText.trim()) {
-      blocks.push({
-        kind: 'text',
-        key: 'preview',
-        text: this.activePreviewText.trim()
-      })
-    }
-
-    let output = ''
-    let previousKind: TelegramRenderBlock['kind'] | undefined
-
-    for (const block of blocks) {
-      if (block.kind === 'tool') {
-        output = output
-          ? `${output}\n\n> ${block.text}`
-          : `> ${block.text}`
-        previousKind = 'tool'
-        continue
-      }
-
-      output = output
-        ? previousKind === 'tool'
-          ? `${output}\n${block.text}`
-          : `${output}${block.text}`
-        : block.text
-      previousKind = 'text'
-    }
-
-    return output.trim()
+    return this.mapper.renderTransportText({
+      committedBlocks: this.committedBlocks,
+      activePreviewText: this.activePreviewText
+    })
   }
 
   private hasOnlyStickyAppendHiddenTools(message?: MessageEntity): boolean {

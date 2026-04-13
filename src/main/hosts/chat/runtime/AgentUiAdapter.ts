@@ -1,35 +1,18 @@
 import { RUN_LIFECYCLE_EVENTS, RUN_STATES } from '@shared/run/lifecycle-events'
 import { RUN_OUTPUT_EVENTS } from '@shared/run/output-events'
-import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
 import type { AgentEventSink } from '@main/agent/runtime/events/AgentEventSink'
 import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import type { StepArtifact } from '@main/agent/contracts'
+import {
+  AgentRenderStateReducer,
+  type AgentRenderMessageState
+} from '@main/hosts/shared/render'
 import { serializeError } from '@main/utils/serializeError'
-import type {
-  AgentUiContentBlockState,
-  AgentUiMessageState,
-  AgentUiReasoningBlockState,
-  AgentUiTextBlockState,
-  AgentUiToolCallState
-} from './AgentUiState'
-import { AgentUiStateReducer } from './AgentUiStateReducer'
-
-const stringifyToolContent = (content: unknown, error?: { message?: string }): string => {
-  if (typeof content === 'string') {
-    return content
-  }
-  if (content == null) {
-    return error?.message || ''
-  }
-  try {
-    return JSON.stringify(content)
-  } catch {
-    return String(content)
-  }
-}
+import { ChatRenderMapper } from './ChatRenderMapper'
+import { ChatRenderOutput } from './ChatRenderOutput'
 
 const toDetectedToolCall = (toolCall: IToolCall) => ({
   id: toolCall.id,
@@ -39,123 +22,29 @@ const toDetectedToolCall = (toolCall: IToolCall) => ({
   index: toolCall.index
 })
 
-const toMessageToolCall = (toolCall: AgentUiToolCallState): IToolCall => ({
-  id: toolCall.toolCallId,
-  index: toolCall.toolCallIndex,
-  type: 'function',
-  function: {
-    name: toolCall.name,
-    arguments: toolCall.args || ''
-  }
-})
-
-const buildReasoningSegment = (
-  block: AgentUiReasoningBlockState,
-  layer: 'preview' | 'committed'
-): ReasoningSegment => ({
-  type: 'reasoning',
-  segmentId: `${layer}:${block.blockId}`,
-  content: block.content,
-  timestamp: block.startedAt,
-  endedAt: block.endedAt
-})
-
-const buildTextSegment = (
-  block: AgentUiTextBlockState,
-  layer: 'preview' | 'committed'
-): TextSegment => ({
-  type: 'text',
-  segmentId: `${layer}:${block.blockId}`,
-  content: block.content,
-  timestamp: block.startedAt
-})
-
-const buildSegments = (input: {
-  state: AgentUiMessageState
-  timestamp: number
-  includeText: boolean
-  layer: 'preview' | 'committed'
-}): MessageSegment[] => {
-  const segments: MessageSegment[] = []
-  const toolCallMap = new Map(
-    input.state.toolCalls.map((call) => [call.toolCallId, call] as const)
-  )
-
-  for (const block of input.state.contentBlocks) {
-    if (block.kind === 'reasoning') {
-      if (block.content.trim()) {
-        segments.push(buildReasoningSegment(block, input.layer))
-      }
-      continue
-    }
-
-    if (block.kind === 'text') {
-      if (input.includeText && block.content.trim()) {
-        segments.push(buildTextSegment(block, input.layer))
-      }
-      continue
-    }
-
-    const call = toolCallMap.get(block.toolCallId)
-    if (!call) {
-      continue
-    }
-    segments.push({
-      type: 'toolCall',
-      segmentId: `${input.layer}:${block.blockId}`,
-      name: call.name,
-      content: {
-        toolName: call.name,
-        args: call.args,
-        status: call.status,
-        ...(call.result !== undefined ? { result: call.result } : {}),
-        ...(call.error ? { error: call.error } : {})
-      },
-      ...(call.cost !== undefined ? { cost: call.cost } : {}),
-      isError: call.status === 'failed' || call.status === 'aborted',
-      timestamp: block.startedAt,
-      toolCallId: call.toolCallId,
-      toolCallIndex: call.toolCallIndex
-    })
-  }
-
-  if (input.state.failure) {
-    const failure = input.state.failure
-    segments.push({
-      type: 'error',
-      segmentId: `${input.layer}:${input.state.stepId || 'unknown-step'}:error`,
-      error: {
-        name: 'name' in failure && failure.name ? failure.name : 'Error',
-        message: failure.message,
-        code: 'code' in failure ? failure.code : undefined,
-        timestamp: input.timestamp
-      }
-    })
-  }
-
-  return segments
-}
-
 export class AgentUiAdapter implements AgentEventSink {
-  private readonly messageEvents: ChatEventMapper
-  private readonly artifacts: StepArtifact[] = []
-  private finalAssistantMessage: MessageEntity
-  private readonly reducer = new AgentUiStateReducer()
+  private readonly reducer = new AgentRenderStateReducer()
+  private readonly mapper = new ChatRenderMapper()
+  private readonly output: ChatRenderOutput
   private lastUsage?: ITokenUsage
 
   constructor(
     private readonly emitter: import('@main/orchestration/chat/run/infrastructure').RunEventEmitter,
-    private readonly messageEntities: MessageEntity[],
+    messageEntities: MessageEntity[],
     assistantPlaceholder: MessageEntity,
-    private readonly stepStore = new ChatStepStore()
+    stepStore = new ChatStepStore()
   ) {
-    this.messageEvents = new ChatEventMapper(emitter)
-    this.finalAssistantMessage = {
-      ...assistantPlaceholder,
-      body: {
-        ...assistantPlaceholder.body
-      }
-    }
+    this.output = new ChatRenderOutput(
+      emitter,
+      messageEntities,
+      assistantPlaceholder,
+      stepStore,
+      this.mapper
+    )
+  }
+
+  get messageEvents(): ChatEventMapper {
+    return this.output.messageEvents
   }
 
   async handle(event: AgentEvent): Promise<void> {
@@ -173,44 +62,38 @@ export class AgentUiAdapter implements AgentEventSink {
             toolCall: toDetectedToolCall(event.delta.toolCall)
           })
         }
-        const hasActivePreview = Boolean(
-          previousState.preview
-          && state.preview
-          && previousState.preview.stepId === state.preview.stepId
-        )
-        if (event.delta.type === 'content_delta' && hasActivePreview) {
-          if (this.canEmitOptimizedTextPreviewPatch(previousState.preview!, state.preview!)
-            && this.emitPreviewTextPatch(state.preview, event.timestamp)) {
-            return
-          }
+
+        if (this.shouldEmitPreviewTextPatch(event, previousState.preview, state.preview)) {
+          this.emitPreviewTextPatch(state.preview)
+          return
         }
-        if (event.delta.type === 'reasoning_delta' && hasActivePreview) {
-          if (this.canEmitOptimizedReasoningPreviewPatch(previousState.preview!, state.preview!)
-            && this.emitPreviewReasoningPatch(state.preview, event.timestamp)) {
-            return
-          }
+
+        if (this.shouldEmitPreviewReasoningPatch(event, previousState.preview, state.preview)) {
+          this.emitPreviewReasoningPatch(state.preview)
+          return
         }
+
         this.emitPreview(state.preview, event.timestamp)
         return
       case 'step.completed':
-        this.messageEvents.emitStreamPreviewCleared()
-        this.commitAssistantMessage(this.buildBody(
+        this.output.clearPreview()
+        this.output.commitAssistantMessage(this.buildBody(
           state.committed,
           event.timestamp,
           Boolean(previousState.preview)
         ))
         return
       case 'step.failed':
-        this.messageEvents.emitStreamPreviewCleared()
-        this.commitAssistantMessage(this.buildBody(
+        this.output.clearPreview()
+        this.output.commitAssistantMessage(this.buildBody(
           state.committed,
           event.timestamp,
           Boolean(previousState.preview)
         ))
         return
       case 'step.aborted':
-        this.messageEvents.emitStreamPreviewCleared()
-        this.commitAssistantMessage(this.buildBody(
+        this.output.clearPreview()
+        this.output.commitAssistantMessage(this.buildBody(
           state.committed,
           event.timestamp,
           Boolean(previousState.preview)
@@ -223,10 +106,10 @@ export class AgentUiAdapter implements AgentEventSink {
         })
         return
       case 'tool.confirmation_denied':
-        this.commitAssistantMessage(this.buildBody(
+        this.output.commitAssistantMessage(this.buildBody(
           state.committed,
           event.timestamp,
-          this.getCommittedTypewriterCompleted()
+          this.output.getCommittedTypewriterCompleted()
         ))
         await this.handleToolResult(event.deniedResult)
         return
@@ -236,13 +119,13 @@ export class AgentUiAdapter implements AgentEventSink {
       case 'loop.failed':
       case 'loop.aborted':
       case 'loop.completed':
-        this.messageEvents.emitStreamPreviewCleared()
+        this.output.clearPreview()
         return
     }
   }
 
   getFinalAssistantMessage(): MessageEntity {
-    return this.finalAssistantMessage
+    return this.output.getFinalAssistantMessage()
   }
 
   getLastUsage(): ITokenUsage | undefined {
@@ -250,138 +133,50 @@ export class AgentUiAdapter implements AgentEventSink {
   }
 
   getArtifacts(): StepArtifact[] {
-    return [...this.artifacts]
+    return this.output.getArtifacts()
   }
 
-  private canEmitOptimizedTextPreviewPatch(
-    previousState: AgentUiMessageState,
-    nextState: AgentUiMessageState
+  private shouldEmitPreviewTextPatch(
+    event: Extract<AgentEvent, { type: 'step.delta' }>,
+    previousPreview: AgentRenderMessageState | null,
+    nextPreview: AgentRenderMessageState | null
   ): boolean {
-    const previousLastBlock = previousState.contentBlocks.at(-1)
-    const nextLastBlock = nextState.contentBlocks.at(-1)
-    return this.isSameOpenBlockTransition(previousLastBlock, nextLastBlock, 'text')
-      && previousState.contentBlocks.length === nextState.contentBlocks.length
+    return event.delta.type === 'content_delta'
+      && Boolean(previousPreview && nextPreview && previousPreview.stepId === nextPreview.stepId)
+      && this.mapper.canEmitOptimizedTextPreviewPatch(previousPreview!, nextPreview!)
   }
 
-  private canEmitOptimizedReasoningPreviewPatch(
-    previousState: AgentUiMessageState,
-    nextState: AgentUiMessageState
+  private shouldEmitPreviewReasoningPatch(
+    event: Extract<AgentEvent, { type: 'step.delta' }>,
+    previousPreview: AgentRenderMessageState | null,
+    nextPreview: AgentRenderMessageState | null
   ): boolean {
-    const previousLastBlock = previousState.contentBlocks.at(-1)
-    const nextLastBlock = nextState.contentBlocks.at(-1)
-    return this.isSameOpenBlockTransition(previousLastBlock, nextLastBlock, 'reasoning')
-      && previousState.contentBlocks.length === nextState.contentBlocks.length
+    return event.delta.type === 'reasoning_delta'
+      && Boolean(previousPreview && nextPreview && previousPreview.stepId === nextPreview.stepId)
+      && this.mapper.canEmitOptimizedReasoningPreviewPatch(previousPreview!, nextPreview!)
   }
 
-  private isSameOpenBlockTransition(
-    previousBlock: AgentUiContentBlockState | undefined,
-    nextBlock: AgentUiContentBlockState | undefined,
-    expectedKind: AgentUiContentBlockState['kind']
-  ): boolean {
-    return previousBlock?.kind === expectedKind
-      && nextBlock?.kind === expectedKind
-      && previousBlock.blockId === nextBlock.blockId
-      && typeof previousBlock.endedAt !== 'number'
-      && typeof nextBlock.endedAt !== 'number'
+  private emitPreview(state: AgentRenderMessageState | null, timestamp: number): void {
+    this.output.emitPreview(state, timestamp)
   }
 
-  private emitPreview(state: AgentUiMessageState | null, timestamp: number): void {
-    if (!state) {
-      this.messageEvents.emitStreamPreviewCleared()
-      return
-    }
-
-    const previewBody: ChatMessage = {
-      ...this.finalAssistantMessage.body,
-      source: 'stream_preview',
-      content: state.content,
-      segments: buildSegments({
-        state,
-        timestamp,
-        includeText: true,
-        layer: 'preview'
-      }),
-      toolCalls: state.toolCalls.length > 0
-        ? state.toolCalls.map(toMessageToolCall)
-        : undefined,
-      typewriterCompleted: false
-    }
-
-    this.messageEvents.emitStreamPreviewUpdated({
-      chatId: this.finalAssistantMessage.chatId,
-      chatUuid: this.finalAssistantMessage.chatUuid,
-      body: previewBody
-    } satisfies MessageEntity)
+  private emitPreviewTextPatch(state: AgentRenderMessageState | null): boolean {
+    return this.output.emitPreviewTextPatch(state)
   }
 
-  private emitPreviewTextPatch(state: AgentUiMessageState | null, _timestamp: number): boolean {
-    if (!state) {
-      return false
-    }
-
-    const textBlock = state.contentBlocks.findLast(
-      (block): block is AgentUiTextBlockState => block.kind === 'text' && block.content.trim().length > 0
-    )
-    if (!textBlock) {
-      return false
-    }
-    const segment = buildTextSegment(textBlock, 'preview')
-
-    this.messageEvents.emitStreamPreviewSegmentUpdated(
-      {
-        chatId: this.finalAssistantMessage.chatId,
-        chatUuid: this.finalAssistantMessage.chatUuid
-      },
-      {
-        segment,
-        content: state.content,
-        toolCalls: state.toolCalls.length > 0
-          ? state.toolCalls.map(toMessageToolCall)
-          : undefined,
-        typewriterCompleted: false
-      }
-    )
-    return true
-  }
-
-  private emitPreviewReasoningPatch(state: AgentUiMessageState | null, _timestamp: number): boolean {
-    if (!state) {
-      return false
-    }
-
-    const reasoningBlock = state.contentBlocks.findLast(
-      (block): block is AgentUiReasoningBlockState => block.kind === 'reasoning' && block.content.trim().length > 0
-    )
-    if (!reasoningBlock) {
-      return false
-    }
-    const segment = buildReasoningSegment(reasoningBlock, 'preview')
-
-    this.messageEvents.emitStreamPreviewSegmentUpdated(
-      {
-        chatId: this.finalAssistantMessage.chatId,
-        chatUuid: this.finalAssistantMessage.chatUuid
-      },
-      {
-        segment,
-        toolCalls: state.toolCalls.length > 0
-          ? state.toolCalls.map(toMessageToolCall)
-          : undefined,
-        typewriterCompleted: false
-      }
-    )
-    return true
+  private emitPreviewReasoningPatch(state: AgentRenderMessageState | null): boolean {
+    return this.output.emitPreviewReasoningPatch(state)
   }
 
   private async handleToolProgress(
     event: Extract<AgentEvent, { type: 'tool.execution_progress' }>,
-    committedState: AgentUiMessageState
+    committedState: AgentRenderMessageState
   ): Promise<void> {
     if (event.phase === 'started') {
-      this.commitAssistantMessage(this.buildBody(
+      this.output.commitAssistantMessage(this.buildBody(
         committedState,
         event.timestamp,
-        this.getCommittedTypewriterCompleted()
+        this.output.getCommittedTypewriterCompleted()
       ))
       this.emitter.emit(RUN_LIFECYCLE_EVENTS.RUN_STATE_CHANGED, { state: RUN_STATES.EXECUTING_TOOLS })
       this.emitter.emit(RUN_OUTPUT_EVENTS.TOOL_EXECUTION_STARTED, {
@@ -391,10 +186,10 @@ export class AgentUiAdapter implements AgentEventSink {
       return
     }
 
-    this.commitAssistantMessage(this.buildBody(
+    this.output.commitAssistantMessage(this.buildBody(
       committedState,
       event.timestamp,
-      this.getCommittedTypewriterCompleted()
+      this.output.getCommittedTypewriterCompleted()
     ))
 
     if (event.phase === 'completed') {
@@ -417,92 +212,14 @@ export class AgentUiAdapter implements AgentEventSink {
   }
 
   private async handleToolResult(result: ToolResultFact): Promise<void> {
-    const toolMessage: ChatMessage = {
-      role: 'tool',
-      name: result.toolName,
-      toolCallId: result.toolCallId,
-      content: stringifyToolContent(result.content, result.error),
-      segments: []
-    }
-
-    const entity = this.stepStore.persistToolResultMessage(
-      toolMessage,
-      this.finalAssistantMessage.chatId,
-      this.finalAssistantMessage.chatUuid
-    )
-    this.messageEntities.push(entity)
-    this.artifacts.push({
-      kind: 'tool_result_created',
-      toolCallId: result.toolCallId,
-      messageId: entity.id,
-      message: entity.body
-    })
-    this.messageEvents.emitToolResultAttached(result.toolCallId, entity)
+    this.output.appendToolResult(result)
   }
 
   private buildBody(
-    state: AgentUiMessageState,
+    state: AgentRenderMessageState,
     timestamp: number,
     typewriterCompleted = false
   ): ChatMessage {
-    return {
-      ...this.finalAssistantMessage.body,
-      content: state.content,
-      segments: buildSegments({
-        state,
-        timestamp,
-        includeText: Boolean(state.content.trim()),
-        layer: 'committed'
-      }),
-      toolCalls: state.toolCalls.length > 0
-        ? state.toolCalls.map(toMessageToolCall)
-        : undefined,
-      typewriterCompleted
-    }
-  }
-
-  private getCommittedTypewriterCompleted(): boolean {
-    return Boolean(this.finalAssistantMessage.body.typewriterCompleted)
-  }
-
-  private commitAssistantMessage(body: ChatMessage): void {
-    this.finalAssistantMessage = {
-      ...this.finalAssistantMessage,
-      body
-    }
-    assertMessageEntitySegmentsHaveIds(this.finalAssistantMessage, 'next-agent-ui-adapter:message-commit')
-
-    const index = this.messageEntities.findIndex(message => message.id === this.finalAssistantMessage.id)
-    if (index >= 0) {
-      this.messageEntities[index] = this.finalAssistantMessage
-    }
-
-    this.artifacts.push({
-      kind: 'assistant_message_updated',
-      messageId: this.finalAssistantMessage.id,
-      role: 'assistant',
-      content: typeof body.content === 'string' ? body.content : '',
-      segments: body.segments || [],
-      toolCalls: body.toolCalls
-    })
-
-    if (!this.finalAssistantMessage.id || !body.segments?.length) {
-      this.messageEvents.emitMessageUpdated(this.finalAssistantMessage)
-      return
-    }
-
-    body.segments.forEach((segment, index) => {
-      this.messageEvents.emitMessageSegmentUpdated(this.finalAssistantMessage.id!, {
-        segment,
-        ...(index === 0 ? { replaceSegments: body.segments } : {}),
-        ...(index === 0
-          ? {
-              content: body.content,
-              toolCalls: body.toolCalls,
-              typewriterCompleted: body.typewriterCompleted
-            }
-          : {})
-      })
-    })
+    return this.output.buildCommittedBody(state, timestamp, typewriterCompleted)
   }
 }
