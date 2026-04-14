@@ -7,10 +7,10 @@ import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/
 import { HostChatBindingService } from '@main/hosts/shared/HostChatBindingService'
 import DatabaseService from '@main/db/DatabaseService'
 import { embeddedToolsRegistry } from '@tools/registry'
+import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
 import type { TelegramCommand, TelegramCommandCallback } from './telegram-command-parser'
 
 const MAX_MESSAGE_LENGTH = 3500
-const DEFAULT_WORKSPACE_DIR = 'workspaces'
 const MODELS_PAGE_SIZE = 5
 const TOOLS_PAGE_SIZE = 12
 
@@ -244,7 +244,7 @@ export class TelegramCommandService {
     defaultModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
     const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
-    const workspacePath = chat.workspacePath ?? `./${DEFAULT_WORKSPACE_DIR}/${chat.uuid}`
+    const workspacePath = chat.workspacePath ?? getDefaultWorkspacePath(chat.uuid)
     return { text: `Current workspace: ${workspacePath}` }
   }
 
@@ -281,7 +281,7 @@ export class TelegramCommandService {
     defaultModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
     const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
-    const defaultPath = `./${DEFAULT_WORKSPACE_DIR}/${chat.uuid}`
+    const defaultPath = getDefaultWorkspacePath(chat.uuid)
     DatabaseService.updateChat({ ...chat, workspacePath: defaultPath, updateTime: Date.now() })
     return { text: `Workspace reset to default.\nPath: ${defaultPath}` }
   }

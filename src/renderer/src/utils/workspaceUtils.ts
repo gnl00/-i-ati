@@ -4,14 +4,11 @@
  */
 
 import { invokeCreateDirectory } from '@renderer/tools/fileOperations/renderer/FileOperationsInvoker'
-
-/**
- * 工作空间配置
- */
-const WORKSPACE_CONFIG = {
-  baseDir: './workspaces',  // 相对路径
-  defaultWorkspace: 'tmp'
-}
+import {
+  DEFAULT_WORKSPACE_DIR,
+  DEFAULT_WORKSPACE_NAME,
+  getDefaultWorkspacePath
+} from '@shared/workspace/workspacePaths'
 
 /**
  * 获取工作空间路径
@@ -27,8 +24,7 @@ export function getWorkspacePath(chatUuid?: string, customPath?: string): string
   }
 
   // 否则使用默认的基于 UUID 的路径
-  const workspaceName = chatUuid || WORKSPACE_CONFIG.defaultWorkspace
-  const workspacePath = `${WORKSPACE_CONFIG.baseDir}/${workspaceName}`
+  const workspacePath = getDefaultWorkspacePath(chatUuid)
   console.log(`[Workspace] Using default workspace path: ${workspacePath} (chatUuid: ${chatUuid || 'default'})`)
   return workspacePath
 }
@@ -141,12 +137,12 @@ export async function switchWorkspace(chatUuid?: string, customPath?: string): P
  * 获取当前工作空间的基础目录
  */
 export function getWorkspaceBaseDir(): string {
-  return WORKSPACE_CONFIG.baseDir
+  return `./${DEFAULT_WORKSPACE_DIR}`
 }
 
 /**
  * 获取默认工作空间名称
  */
 export function getDefaultWorkspaceName(): string {
-  return WORKSPACE_CONFIG.defaultWorkspace
+  return DEFAULT_WORKSPACE_NAME
 }

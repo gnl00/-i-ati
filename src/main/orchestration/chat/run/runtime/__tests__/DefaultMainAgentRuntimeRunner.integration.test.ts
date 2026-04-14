@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponseChunk'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
-import { RUN_EVENTS } from '@shared/run/events'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 
 vi.mock('@main/logging/LogService', () => ({

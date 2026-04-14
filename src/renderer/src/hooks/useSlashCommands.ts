@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState, useEffect } from 'react'
 import { useChatStore } from '@renderer/store/chatStore'
+import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
 
 export interface SlashCommand {
   cmd: string
   label: string
   description: string
-  action: () => void
+  action: () => void | Promise<void>
 }
 
 export interface UseSlashCommandsOptions {
@@ -26,6 +27,8 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const webSearchEnable = useChatStore(state => state.webSearchEnable)
   const toggleWebSearch = useChatStore(state => state.toggleWebSearch)
+  const currentChatUuid = useChatStore(state => state.currentChatUuid)
+  const updateWorkspacePath = useChatStore(state => state.updateWorkspacePath)
 
   // Command palette state
   const [isOpen, setIsOpen] = useState(false)
@@ -42,6 +45,14 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
     toggleWebSearch(false)
   }, [resetChatContext, toggleArtifacts, toggleWebSearch])
 
+  const clearWorkspace = useCallback(async () => {
+    if (!currentChatUuid) {
+      return
+    }
+
+    await updateWorkspacePath(getDefaultWorkspacePath(currentChatUuid))
+  }, [currentChatUuid, updateWorkspacePath])
+
   /**
    * Available slash commands
    * Commands are memoized to avoid recreation on every render
@@ -53,23 +64,31 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
       description: 'Clear current chat and start a new chat',
       action: startNewChat
     },
-    {
-      cmd: '/artifacts',
-      label: 'Toggle Artifacts',
-      description: artifacts ? 'Expand Artifacts Panel' : 'Collapse Artifacts Panel',
-      action: () => {
-        const newState = !artifacts
-        toggleArtifacts(newState)
-        setArtifactsPanel(newState)
-      }
-    },
-    {
-      cmd: '/websearch',
-      label: 'Toggle Web Search',
-      description: webSearchEnable ? 'Disable Web Search' : 'Enable Web Search',
-      action: () => toggleWebSearch(!webSearchEnable)
-    },
-  ], [artifacts, webSearchEnable, startNewChat, toggleArtifacts, setArtifactsPanel, toggleWebSearch])
+    ...(currentChatUuid
+      ? [{
+          cmd: '/clear-workspace',
+          label: 'Clear Workspace',
+          description: `Reset workspace to: ${getDefaultWorkspacePath(currentChatUuid)}`,
+          action: clearWorkspace
+        }]
+      : []),
+    // {
+    //   cmd: '/artifacts',
+    //   label: 'Toggle Artifacts',
+    //   description: artifacts ? 'Expand Artifacts Panel' : 'Collapse Artifacts Panel',
+    //   action: () => {
+    //     const newState = !artifacts
+    //     toggleArtifacts(newState)
+    //     setArtifactsPanel(newState)
+    //   }
+    // },
+    // {
+    //   cmd: '/websearch',
+    //   label: 'Toggle Web Search',
+    //   description: webSearchEnable ? 'Disable Web Search' : 'Enable Web Search',
+    //   action: () => toggleWebSearch(!webSearchEnable)
+    // },
+  ], [artifacts, webSearchEnable, startNewChat, clearWorkspace, currentChatUuid, toggleArtifacts, setArtifactsPanel, toggleWebSearch])
 
   /**
    * Filter commands based on query
@@ -93,9 +112,9 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
   /**
    * Execute a command and clean up
    */
-  const executeCommand = useCallback((command: SlashCommand) => {
+  const executeCommand = useCallback(async (command: SlashCommand) => {
     // Execute the command action
-    command.action()
+    await command.action()
 
     // Call the optional callback
     if (onCommandExecute) {
@@ -132,7 +151,7 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       if (filteredCommands.length > 0) {
-        executeCommand(filteredCommands[selectedIndex])
+        void executeCommand(filteredCommands[selectedIndex])
       }
       return true
     }

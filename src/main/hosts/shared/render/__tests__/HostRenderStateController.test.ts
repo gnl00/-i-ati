@@ -26,8 +26,8 @@ describe('HostRenderStateController', () => {
       type: 'host.usage.updated',
       timestamp: 3,
       usage: {
-        inputTokens: 1,
-        outputTokens: 2,
+        promptTokens: 1,
+        completionTokens: 2,
         totalTokens: 3
       }
     })
@@ -46,8 +46,8 @@ describe('HostRenderStateController', () => {
 
     expect(state.lifecycle).toBe('streaming')
     expect(state.lastUsage).toEqual({
-      inputTokens: 1,
-      outputTokens: 2,
+      promptTokens: 1,
+      completionTokens: 2,
       totalTokens: 3
     })
     expect(state.preview).toBeNull()

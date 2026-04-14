@@ -7,7 +7,7 @@ interface Command {
   cmd: string
   label: string
   description: string
-  action: () => void
+  action: () => void | Promise<void>
 }
 
 interface CommandPaletteProps {
@@ -15,7 +15,7 @@ interface CommandPaletteProps {
   commands: Command[]  // Already filtered commands
   selectedIndex: number
   textareaRef: React.RefObject<HTMLTextAreaElement | null>
-  onCommandClick: (command: Command) => void
+  onCommandClick: (command: Command) => void | Promise<void>
 }
 
 const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -74,7 +74,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                             ? "bg-blue-gray-100 dark:bg-blue-900/20"
                             : "hover:bg-gray-50 dark:hover:bg-gray-800"
                         )}
-                        onClick={() => onCommandClick(cmd)}
+                        onClick={() => void onCommandClick(cmd)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">

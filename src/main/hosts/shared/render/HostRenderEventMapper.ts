@@ -35,7 +35,7 @@ export class HostRenderEventMapper {
             timestamp: event.timestamp,
             stepId: event.stepId,
             toolCallId: event.delta.toolCall.id,
-            toolCallIndex: event.delta.toolCall.index,
+            toolCallIndex: event.delta.toolCall.index ?? 0,
             toolName: event.delta.toolCall.function.name,
             toolArgs: event.delta.toolCall.function.arguments
           })

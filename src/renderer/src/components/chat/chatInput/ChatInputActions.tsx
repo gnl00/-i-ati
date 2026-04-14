@@ -12,6 +12,7 @@ import { useAssistantStore } from '@renderer/store/assistant'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { saveChat } from '@renderer/db/ChatRepository'
+import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
 import { v4 as uuidv4 } from 'uuid'
 import {
   BadgePlus,
@@ -88,7 +89,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     if (chatId && chatUuid && messages.length === 0) {
       const currentChat = getChatFromList({ chatId, chatList })
       if (currentChat && currentChat.workspacePath) {
-        await updateWorkspacePath(undefined)
+        await updateWorkspacePath(getDefaultWorkspacePath(chatUuid))
         // toast.success('Workspace cleared')
         return
       }
