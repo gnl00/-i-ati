@@ -1,5 +1,23 @@
 import type { MessageSegmentPatch } from '@shared/run/output-events'
 
+export function areToolCallsEquivalent(
+  previous: IToolCall[] | undefined,
+  next: IToolCall[] | undefined
+): boolean {
+  if (previous === next) return true
+  if (!previous?.length && !next?.length) return true
+  if (!previous || !next || previous.length !== next.length) return false
+
+  return previous.every((toolCall, index) => {
+    const nextToolCall = next[index]
+    return toolCall.id === nextToolCall.id
+      && toolCall.index === nextToolCall.index
+      && toolCall.type === nextToolCall.type
+      && toolCall.function?.name === nextToolCall.function?.name
+      && toolCall.function?.arguments === nextToolCall.function?.arguments
+  })
+}
+
 export function areSegmentsEquivalent(previous: MessageSegment, next: MessageSegment): boolean {
   if (previous.type !== next.type) return false
   if (previous.segmentId && next.segmentId && previous.segmentId !== next.segmentId) return false
@@ -79,7 +97,10 @@ export function mergeMessageEntityPreservingSegments(
     ...next,
     body: {
       ...next.body,
-      segments: mergeSegmentsByIdentity(previous.body.segments, next.body.segments)
+      segments: mergeSegmentsByIdentity(previous.body.segments, next.body.segments),
+      toolCalls: areToolCallsEquivalent(previous.body.toolCalls, next.body.toolCalls)
+        ? previous.body.toolCalls
+        : next.body.toolCalls
     }
   }
 }
@@ -109,10 +130,14 @@ export function applyMessageSegmentPatchToBody(
   body: ChatMessage,
   patch: MessageSegmentPatch
 ): ChatMessage {
+  const nextToolCalls = patch.toolCalls !== undefined
+    ? (areToolCallsEquivalent(body.toolCalls, patch.toolCalls) ? body.toolCalls : patch.toolCalls)
+    : body.toolCalls
+
   return {
     ...body,
     ...(patch.content !== undefined ? { content: patch.content } : {}),
-    ...(patch.toolCalls !== undefined ? { toolCalls: patch.toolCalls } : {}),
+    ...(patch.toolCalls !== undefined ? { toolCalls: nextToolCalls } : {}),
     ...(patch.typewriterCompleted !== undefined
       ? { typewriterCompleted: patch.typewriterCompleted }
       : {}),

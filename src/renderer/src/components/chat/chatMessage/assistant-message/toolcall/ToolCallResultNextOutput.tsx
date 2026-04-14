@@ -116,6 +116,9 @@ function SegmentedToggle({
 const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps> = ({ toolCall: tc }) => {
   const [openItem, setOpenItem] = useState<string>('')
   const [showDetails, setShowDetails] = useState(false)
+  const isOpen = openItem === 'tool-result'
+  const shouldPrepareSummary = isOpen && !showDetails
+  const shouldPrepareDetails = isOpen && showDetails
 
   const toolResponse = tc.content as {
     toolName?: string
@@ -127,21 +130,28 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
     results?: any[]
   } | undefined
 
-  const resultPayload = toolResponse?.result
-    ?? toolResponse?.raw
-    ?? (
-      toolResponse
-      && !('toolName' in toolResponse)
-      && !('args' in toolResponse)
-      && !('status' in toolResponse)
-        ? toolResponse
-        : undefined
-    )
+  const resultPayload = useMemo(() => {
+    if (!isOpen) {
+      return undefined
+    }
 
-  const isWebSearch = (toolResponse?.toolName ?? tc.name) === 'web_search'
+    return toolResponse?.result
+      ?? toolResponse?.raw
+      ?? (
+        toolResponse
+        && !('toolName' in toolResponse)
+        && !('args' in toolResponse)
+        && !('status' in toolResponse)
+          ? toolResponse
+          : undefined
+      )
+  }, [isOpen, toolResponse])
+
+  const isWebSearch = isOpen && (toolResponse?.toolName ?? tc.name) === 'web_search'
   const webSearchData = isWebSearch && resultPayload?.results ? resultPayload : null
-  const isSubagentTool = (toolResponse?.toolName ?? tc.name) === 'subagent_spawn'
+  const isSubagentTool = isOpen && ((toolResponse?.toolName ?? tc.name) === 'subagent_spawn'
     || (toolResponse?.toolName ?? tc.name) === 'subagent_wait'
+  )
   const subagentData = isSubagentTool ? (resultPayload ?? toolResponse) : null
   const isError = tc.isError
   const status = typeof toolResponse?.status === 'string' ? toolResponse.status : undefined
@@ -164,6 +174,7 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
   }
 
   const paramEntries = useMemo(() => {
+    if (!shouldPrepareSummary) return []
     const args = toolResponse?.args
     if (!args) return []
     if (typeof args === 'string') {
@@ -178,19 +189,22 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
       return []
     }
     return Object.entries(args) as Array<[string, unknown]>
-  }, [toolResponse?.args])
+  }, [shouldPrepareSummary, toolResponse?.args])
 
   const contentString = useMemo(() => {
+    if (!shouldPrepareDetails) return ''
     return typeof resultPayload?.content === 'string' ? resultPayload.content : ''
-  }, [resultPayload])
+  }, [resultPayload, shouldPrepareDetails])
 
   const contentLineCount = useMemo(() => {
+    if (!shouldPrepareDetails) return 0
     return contentString ? contentString.split('\n').length : 0
-  }, [contentString])
+  }, [contentString, shouldPrepareDetails])
 
   const isContentLong = contentLineCount > jsonLineThreshold || contentString.length > contentCharThreshold
 
   const jsonBaseContent = useMemo(() => {
+    if (!shouldPrepareDetails) return ''
     if (!isJsonExpanded && isContentLong && resultPayload && typeof resultPayload === 'object') {
       const preview = contentString
         ? `${contentString.slice(0, contentCharThreshold)}${contentString.length > contentCharThreshold ? '...' : ''}`
@@ -198,9 +212,11 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
       return JSON.stringify({ ...(resultPayload as Record<string, unknown>), content: preview }, null, 2)
     }
     return JSON.stringify(resultPayload ?? toolResponse, null, 2)
-  }, [resultPayload, toolResponse, isJsonExpanded, isContentLong, contentString])
+  }, [contentString, isContentLong, isJsonExpanded, resultPayload, shouldPrepareDetails, toolResponse])
 
-  const jsonLines = useMemo(() => jsonBaseContent.split('\n'), [jsonBaseContent])
+  const jsonLines = useMemo(() => (
+    shouldPrepareDetails ? jsonBaseContent.split('\n') : []
+  ), [jsonBaseContent, shouldPrepareDetails])
   const isJsonLong = isContentLong || jsonLines.length > jsonLineThreshold
   const visibleJsonContent = isJsonLong && !isJsonExpanded
     ? jsonLines.slice(0, jsonLineThreshold).join('\n')
@@ -213,7 +229,6 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
     toast.success('Result Copied')
   }
 
-  const isOpen = openItem === 'tool-result'
   const detailViewportHeightClass = 'h-[176px]'
 
   return (

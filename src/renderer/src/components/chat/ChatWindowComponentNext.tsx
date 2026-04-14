@@ -10,7 +10,6 @@ import { useChatStore } from '@renderer/store/chatStore'
 import { ArrowDown } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
 import { Virtuoso, type StateSnapshot } from 'react-virtuoso'
 import { resolveAnchorIndex } from './scroll-anchor'
 import { TaskPlanBar } from './task/TaskPlanBar'
@@ -506,9 +505,7 @@ const ChatWindowComponentNext: React.FC = () => {
     if (container) {
       initialSpacerHeight = container.clientHeight
       suppressUserScrollIntent(4)
-      flushSync(() => {
-        commitBottomSpacerHeight(initialSpacerHeight)
-      })
+      commitBottomSpacerHeight(initialSpacerHeight)
     }
     requestAnimationFrame(() => {
       suppressUserScrollIntent(4)
@@ -725,6 +722,9 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [cancelScheduledLayoutPass])
 
   const handleLatestAssistantTyping = useCallback(() => {
+    if (scrollModeRef.current !== 'anchor-lock') {
+      return
+    }
     requestLayoutPass('typing-change')
   }, [requestLayoutPass])
 

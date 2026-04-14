@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import React, { memo, useMemo } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store/chatStore'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
@@ -37,6 +37,7 @@ type SegmentRenderItem = {
   key: string
   layer: SegmentRenderLayer
   sourceIndex: number
+  order: number
   segment: MessageSegment
 }
 
@@ -44,9 +45,17 @@ type SupportSegmentRenderItem = SegmentRenderItem & {
   isStreamingTail: boolean
 }
 
+type TextSegmentRenderItem = SegmentRenderItem & {
+  segment: TextSegment
+}
+
 type OrderedSegmentRenderItem =
-  | { kind: 'text'; item: SegmentRenderItem }
+  | { kind: 'text'; item: TextSegmentRenderItem }
   | { kind: 'support'; item: SupportSegmentRenderItem }
+
+type TypewriterMessageInput = Pick<ChatMessage, 'role' | 'source' | 'typewriterCompleted'> & {
+  segments: TextSegment[]
+}
 
 function getSegmentRenderKey(segment: MessageSegment, index: number): string {
   if ('segmentId' in segment && typeof segment.segmentId === 'string' && segment.segmentId) {
@@ -63,6 +72,18 @@ function getSegmentRenderKey(segment: MessageSegment, index: number): string {
     return `${segment.type}-${timestamp}`
   }
   return `${segment.type}-${index}`
+}
+
+function buildTypewriterMessageInput(
+  message: ChatMessage | undefined,
+  segments: TextSegment[]
+): TypewriterMessageInput {
+  return {
+    role: message?.role ?? 'assistant',
+    source: message?.source,
+    typewriterCompleted: message?.typewriterCompleted,
+    segments
+  }
 }
 
 function isEmotionToolName(name: string | undefined): boolean {
@@ -180,9 +201,72 @@ const areSupportSegmentRenderItemsEqual = (
     return item.key === nextItem.key
       && item.layer === nextItem.layer
       && item.sourceIndex === nextItem.sourceIndex
+      && item.order === nextItem.order
       && item.segment === nextItem.segment
       && item.isStreamingTail === nextItem.isStreamingTail
   })
+}
+
+const areTextSegmentRenderItemsEqual = (
+  previous: TextSegmentRenderItem[],
+  next: TextSegmentRenderItem[]
+): boolean => {
+  if (previous.length !== next.length) return false
+
+  return previous.every((item, index) => {
+    const nextItem = next[index]
+    return item.key === nextItem.key
+      && item.layer === nextItem.layer
+      && item.sourceIndex === nextItem.sourceIndex
+      && item.order === nextItem.order
+      && item.segment === nextItem.segment
+  })
+}
+
+function buildOrderedSegmentItems(args: {
+  segments: MessageSegment[]
+  layer: SegmentRenderLayer
+  orderOffset: number
+  isLatest: boolean
+  isStreaming: boolean
+}): OrderedSegmentRenderItem[] {
+  const { segments, layer, orderOffset, isLatest, isStreaming } = args
+  const orderedItems: OrderedSegmentRenderItem[] = []
+
+  segments.forEach((segment, sourceIndex) => {
+    if (isEmotionToolSegment(segment)) return
+
+    const key = `${layer}-${getSegmentRenderKey(segment, sourceIndex)}`
+    const order = orderOffset + orderedItems.length
+
+    if (segment.type === 'text') {
+      orderedItems.push({
+        kind: 'text',
+        item: {
+          key,
+          layer,
+          sourceIndex,
+          order,
+          segment
+        }
+      })
+      return
+    }
+
+    orderedItems.push({
+      kind: 'support',
+      item: {
+        key,
+        layer,
+        sourceIndex,
+        order,
+        segment,
+        isStreamingTail: layer === 'preview' && isLatest && isStreaming && sourceIndex === segments.length - 1
+      }
+    })
+  })
+
+  return orderedItems
 }
 
 const AssistantSupportSegmentRow = memo(({
@@ -212,6 +296,18 @@ const AssistantSupportSegmentRow = memo(({
 
   return null
 }, (prevProps, nextProps) => areSupportSegmentRenderItemsEqual([prevProps.item], [nextProps.item]))
+
+const AssistantSupportSegmentsLane = memo(({
+  items
+}: {
+  items: SupportSegmentRenderItem[]
+}) => {
+  return items.map((item) => (
+    <div key={item.key} style={{ order: item.order }}>
+      <AssistantSupportSegmentRow item={item} />
+    </div>
+  ))
+}, (prevProps, nextProps) => areSupportSegmentRenderItemsEqual(prevProps.items, nextProps.items))
 
 const AssistantTextSegmentRow = memo(({
   item,
@@ -267,6 +363,59 @@ const AssistantTextSegmentRow = memo(({
     />
   )
 })
+
+const AssistantTextSegmentsLane = memo(({
+  index,
+  committedMessage,
+  previewMessage,
+  isLatest,
+  onTypingChange,
+  items,
+  isOverlayPreview
+}: {
+  index: number
+  committedMessage: TypewriterMessageInput
+  previewMessage: TypewriterMessageInput
+  isLatest: boolean
+  onTypingChange?: () => void
+  items: TextSegmentRenderItem[]
+  isOverlayPreview: boolean
+}) => {
+  const committedTypewriter = useMessageTypewriter({
+    index,
+    message: committedMessage,
+    isLatest,
+    onTypingChange
+  })
+  const previewTypewriter = useMessageTypewriter({
+    index,
+    message: previewMessage,
+    isLatest,
+    onTypingChange
+  })
+
+  return items.map((item) => {
+    const typewriter = item.layer === 'preview' ? previewTypewriter : committedTypewriter
+
+    return (
+      <div key={item.key} style={{ order: item.order }}>
+        <AssistantTextSegmentRow
+          item={item}
+          typewriter={typewriter}
+          isOverlayPreview={isOverlayPreview}
+        />
+      </div>
+    )
+  })
+}, (prevProps, nextProps) => (
+  prevProps.index === nextProps.index
+  && prevProps.committedMessage === nextProps.committedMessage
+  && prevProps.previewMessage === nextProps.previewMessage
+  && prevProps.isLatest === nextProps.isLatest
+  && prevProps.onTypingChange === nextProps.onTypingChange
+  && prevProps.isOverlayPreview === nextProps.isOverlayPreview
+  && areTextSegmentRenderItemsEqual(prevProps.items, nextProps.items)
+))
 
 export interface AssistantMessageProps {
   index: number
@@ -349,6 +498,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
   onCopyClick,
   onTypingChange
 }) => {
+  if (!m || m.role !== 'assistant') return null
+
   const runPhase = useChatStore(state => state.runPhase)
   const messages = useChatStore(state => state.messages)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
@@ -371,69 +522,65 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
       }
     : m
 
-  const committedTypewriter = useMessageTypewriter({
-    index,
-    message: m,
-    isLatest,
-    onTypingChange
-  })
-  const previewTypewriter = useMessageTypewriter({
-    index,
-    message: previewMessage ?? EMPTY_PREVIEW_MESSAGE,
-    isLatest,
-    onTypingChange
-  })
-
-  if (!m || m.role !== 'assistant') return null
-
   const isRunBusy = runPhase !== 'idle'
   const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
   const isStreaming = runPhase === 'streaming'
+  const committedOrderedItems = useMemo(() => buildOrderedSegmentItems({
+    segments: m.segments || [],
+    layer: 'committed',
+    orderOffset: 0,
+    isLatest,
+    isStreaming
+  }), [m.segments, isLatest, isStreaming])
+  const previewOrderedItems = useMemo(() => {
+    if (!isOverlayPreview || !previewMessage?.segments) {
+      return []
+    }
 
-  const buildSegmentItems = (
-    segments: MessageSegment[],
-    layer: SegmentRenderLayer,
-    typewriter: ReturnType<typeof useMessageTypewriter>
-  ): OrderedSegmentRenderItem[] => {
-    const orderedItems: OrderedSegmentRenderItem[] = []
-
-    segments.forEach((segment, sourceIndex) => {
-      if (isEmotionToolSegment(segment)) return
-
-      const key = `${layer}-${getSegmentRenderKey(segment, sourceIndex)}`
-
-      if (segment.type === 'text') {
-        orderedItems.push({
-          kind: 'text',
-          item: {
-            key,
-            layer,
-            sourceIndex,
-            segment
-          }
-        })
-        return
-      }
-
-      orderedItems.push({
-        kind: 'support',
-        item: {
-          key,
-          layer,
-          sourceIndex,
-          segment,
-          isStreamingTail: layer === 'preview' && isLatest && isStreaming && sourceIndex === typewriter.segments.length - 1
-        }
-      })
+    return buildOrderedSegmentItems({
+      segments: previewMessage.segments,
+      layer: 'preview',
+      orderOffset: committedOrderedItems.length,
+      isLatest,
+      isStreaming
     })
-
-    return orderedItems
-  }
-
-  const committedItems = buildSegmentItems(committedTypewriter.segments, 'committed', committedTypewriter)
-  const previewItems = isOverlayPreview
-    ? buildSegmentItems(previewTypewriter.segments, 'preview', previewTypewriter)
-    : []
+  }, [committedOrderedItems.length, isLatest, isOverlayPreview, isStreaming, previewMessage?.segments])
+  const orderedItems = useMemo(
+    () => [...committedOrderedItems, ...previewOrderedItems],
+    [committedOrderedItems, previewOrderedItems]
+  )
+  const textItems = useMemo(
+    () => orderedItems
+      .filter((entry): entry is { kind: 'text'; item: TextSegmentRenderItem } => entry.kind === 'text')
+      .map(entry => entry.item),
+    [orderedItems]
+  )
+  const committedTextSegments = useMemo(
+    () => textItems
+      .filter((item) => item.layer === 'committed')
+      .map((item) => item.segment),
+    [textItems]
+  )
+  const previewTextSegments = useMemo(
+    () => textItems
+      .filter((item) => item.layer === 'preview')
+      .map((item) => item.segment),
+    [textItems]
+  )
+  const committedTypewriterMessage = useMemo(
+    () => buildTypewriterMessageInput(m, committedTextSegments),
+    [committedTextSegments, m.role, m.source, m.typewriterCompleted]
+  )
+  const previewTypewriterMessage = useMemo(
+    () => buildTypewriterMessageInput(previewMessage ?? EMPTY_PREVIEW_MESSAGE, previewTextSegments),
+    [previewMessage, previewTextSegments]
+  )
+  const supportItems = useMemo(
+    () => orderedItems
+      .filter((entry): entry is { kind: 'support'; item: SupportSegmentRenderItem } => entry.kind === 'support')
+      .map(entry => entry.item),
+    [orderedItems]
+  )
   const hasVisibleToolCalls = Array.isArray((previewMessage ?? m).toolCalls)
     && (previewMessage ?? m).toolCalls!.some(call => !isEmotionToolName(call.function?.name))
   const emotionLabel = getEmotionLabel(badgeMessage)
@@ -447,9 +594,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
     ? previewMessage.content.trim().length > 0
     : Array.isArray(previewMessage?.content) && previewMessage.content.length > 0
   const hasContent = hasCommittedContent || hasPreviewContent
-  const hasSegments =
-    committedItems.length > 0
-    || previewItems.length > 0
+  const hasSegments = orderedItems.length > 0
   const hasToolCalls = hasVisibleToolCalls
 
   if (!shouldRenderAssistantMessageShell({
@@ -524,30 +669,18 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = memo(({
         )}
 
         {/* Segments */}
-        {committedItems.map((entry) => (
-          entry.kind === 'text'
-            ? (
-              <AssistantTextSegmentRow
-                key={entry.item.key}
-                item={entry.item}
-                typewriter={committedTypewriter}
-                isOverlayPreview={isOverlayPreview}
-              />
-            )
-            : <AssistantSupportSegmentRow key={entry.item.key} item={entry.item} />
-        ))}
-        {previewItems.map((entry) => (
-          entry.kind === 'text'
-            ? (
-              <AssistantTextSegmentRow
-                key={entry.item.key}
-                item={entry.item}
-                typewriter={previewTypewriter}
-                isOverlayPreview={isOverlayPreview}
-              />
-            )
-            : <AssistantSupportSegmentRow key={entry.item.key} item={entry.item} />
-        ))}
+        <div className="flex flex-col">
+          <AssistantTextSegmentsLane
+            index={index}
+            committedMessage={committedTypewriterMessage}
+            previewMessage={previewTypewriterMessage}
+            isLatest={isLatest}
+            onTypingChange={onTypingChange}
+            items={textItems}
+            isOverlayPreview={isOverlayPreview}
+          />
+          <AssistantSupportSegmentsLane items={supportItems} />
+        </div>
 
         {/* Command Confirmation */}
         {isCommandConfirmPending && (

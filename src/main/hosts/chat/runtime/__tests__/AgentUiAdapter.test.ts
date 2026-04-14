@@ -382,7 +382,9 @@ describe('AgentUiAdapter', () => {
     })
 
     const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
+    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
     emitMessageUpdated.mockClear()
+    emitMessageSegmentUpdated.mockClear()
 
     await adapter.handle({
       type: 'tool.execution_progress',
@@ -394,7 +396,6 @@ describe('AgentUiAdapter', () => {
       toolName: 'read'
     })
 
-    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
     expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
       101,
       expect.objectContaining({
@@ -404,6 +405,7 @@ describe('AgentUiAdapter', () => {
         })
       })
     )
+    expect(emitMessageSegmentUpdated).toHaveBeenCalledTimes(1)
     expect(emitMessageUpdated).not.toHaveBeenCalled()
   })
 
@@ -482,6 +484,83 @@ describe('AgentUiAdapter', () => {
       101,
       expect.objectContaining({
         typewriterCompleted: true
+      })
+    )
+    expect(emitMessageSegmentUpdated).toHaveBeenCalledTimes(1)
+  })
+
+  it('only patches the changed committed tool segment during tool progress', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+
+    await adapter.handle({
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: 'final answer',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README.md"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
+    emitMessageSegmentUpdated.mockClear()
+
+    await adapter.handle({
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 124,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read',
+        cost: 1680,
+        content: 'file content'
+      }
+    })
+
+    expect(emitMessageSegmentUpdated).toHaveBeenCalledTimes(1)
+    expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
+      101,
+      expect.objectContaining({
+        segment: expect.objectContaining({
+          type: 'toolCall',
+          toolCallId: 'tool-1',
+          content: expect.objectContaining({
+            status: 'success',
+            result: 'file content'
+          })
+        }),
+        content: 'final answer'
       })
     )
   })

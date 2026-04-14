@@ -162,9 +162,6 @@ export class ChatRenderMapper {
     return {
       segment: buildTextSegment(textBlock, 'preview'),
       content: state.content,
-      toolCalls: state.toolCalls.length > 0
-        ? state.toolCalls.map(toMessageToolCall)
-        : undefined,
       typewriterCompleted: false
     }
   }
@@ -179,9 +176,6 @@ export class ChatRenderMapper {
 
     return {
       segment: buildReasoningSegment(reasoningBlock, 'preview'),
-      toolCalls: state.toolCalls.length > 0
-        ? state.toolCalls.map(toMessageToolCall)
-        : undefined,
       typewriterCompleted: false
     }
   }

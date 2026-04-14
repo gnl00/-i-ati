@@ -87,19 +87,21 @@ export const ProviderAdvanceConfigDrawer: React.FC<ProviderAdvanceConfigDrawerPr
           <DrawerTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           Request Payload Overrides
           </DrawerTitle>
-          <DrawerDescription className="text-xs text-slate-500 dark:text-slate-400 space-x-2">
-            <span>
-              Applies to provider
-            </span>
+          <div className="flex items-center gap-2">
+            <DrawerDescription className="text-xs text-slate-500 dark:text-slate-400">
+              <span>
+                Applies to provider
+              </span>
+            </DrawerDescription>
             {providerDefinition && (
-                <Badge
-                    variant="outline"
-                    className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-xs"
-                >
-                    {providerDefinition && `${providerDefinition.displayName}`}
-                </Badge>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-xs"
+              >
+                {providerDefinition.displayName}
+              </Badge>
             )}
-          </DrawerDescription>
+          </div>
         </DrawerHeader>
         <div className="px-6 pb-4 space-y-3">
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-950/40 p-3">

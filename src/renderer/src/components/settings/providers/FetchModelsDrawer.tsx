@@ -319,21 +319,23 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                 IMPORT MODELS
                             </span>
                         </DrawerTitle>
-                        <DrawerDescription className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <DrawerDescription className="text-xs font-medium text-slate-500 dark:text-slate-400">
                             <span>
                                 Fetch and import available models from your provider
                             </span>
-                            {currentAccount && (
-                                <Badge
-                                    variant="outline"
-                                    className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-xs"
-                                >
-                                    {providerDefinition
-                                        ? `${providerDefinition.displayName} · ${currentAccount.label}`
-                                        : currentAccount.label}
-                                </Badge>
-                            )}
-                        </DrawerDescription>
+                          </DrawerDescription>
+                          {currentAccount && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-xs"
+                            >
+                              {providerDefinition
+                                ? `${providerDefinition.displayName} · ${currentAccount.label}`
+                                : currentAccount.label}
+                            </Badge>
+                          )}
+                        </div>
                     </div>
                     <Button
                         variant="ghost"
