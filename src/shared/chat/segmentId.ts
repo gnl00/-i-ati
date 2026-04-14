@@ -30,7 +30,7 @@ export const assertMessageEntitySegmentsHaveIds = (
 }
 
 export const assertMessageSegmentPatchHasIds = (
-  patch: import('../run/output-events').MessageSegmentPatch,
+  patch: import('./render-events').MessageSegmentPatch,
   scope: string
 ): void => {
   assertMessageSegmentsHaveIds([patch.segment], `${scope}:segment`)

@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
-import { RUN_EVENTS, type RunEvent } from '@shared/run/events'
+import type { RunEvent } from '@shared/run/events'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 
 export function useToolConfirmations(chatUuid?: string | null): void {
   const enqueue = useToolConfirmationStore(state => state.enqueue)
@@ -13,7 +14,7 @@ export function useToolConfirmations(chatUuid?: string | null): void {
         return
       }
 
-      if (event.type === RUN_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
+      if (event.type === RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
         enqueue(event.payload)
       }
     })

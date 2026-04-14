@@ -6,26 +6,36 @@ import {
   type SerializedError
 } from './lifecycle-events'
 import {
-  RUN_OUTPUT_EVENTS,
-  type MessageSegmentPatch,
-  type RunOutputEventPayloads,
+  RUN_TOOL_EVENTS,
+  type RunToolEventPayloads,
   type RunToolCall
-} from './output-events'
+} from './tool-events'
 import {
   RUN_MAINTENANCE_EVENTS,
   type PostRunPlan,
   type RunMaintenanceEventPayloads
 } from './maintenance-events'
 import {
+  SUBAGENT_EVENTS,
+  type SubagentEventPayloads
+} from '../subagent/events'
+import {
   CHAT_HOST_EVENTS,
   type ChatHostEventPayloads
 } from '../chat/host-events'
+import {
+  CHAT_RENDER_EVENTS,
+  type ChatRenderEventPayloads,
+  type MessageSegmentPatch
+} from '../chat/render-events'
 
 export {
   RUN_STATES,
   RUN_LIFECYCLE_EVENTS,
-  RUN_OUTPUT_EVENTS,
-  RUN_MAINTENANCE_EVENTS
+  RUN_TOOL_EVENTS,
+  RUN_MAINTENANCE_EVENTS,
+  CHAT_RENDER_EVENTS,
+  SUBAGENT_EVENTS
 }
 
 export type {
@@ -35,30 +45,45 @@ export type {
   MessageSegmentPatch,
   PostRunPlan,
   RunLifecycleEventPayloads,
-  RunOutputEventPayloads,
+  RunToolEventPayloads,
   RunMaintenanceEventPayloads
 }
 
+// Aggregate registry for transport compatibility only.
+// Domain code should prefer importing concrete families directly:
+// - chat render consumers -> CHAT_RENDER_EVENTS
+// - tool consumers -> RUN_TOOL_EVENTS
+// - lifecycle / maintenance consumers -> their respective event families
+// - subagent consumers -> SUBAGENT_EVENTS
+// Keep new business events owned by a concrete family first, then aggregate here.
 export const RUN_EVENTS = {
   ...RUN_LIFECYCLE_EVENTS,
-  ...RUN_OUTPUT_EVENTS,
-  ...RUN_MAINTENANCE_EVENTS
+  ...RUN_TOOL_EVENTS,
+  ...RUN_MAINTENANCE_EVENTS,
+  ...CHAT_RENDER_EVENTS,
+  ...SUBAGENT_EVENTS
 } as const
 
 export type RunCoreEventPayloads =
   & RunLifecycleEventPayloads
-  & RunOutputEventPayloads
+  & RunToolEventPayloads
   & RunMaintenanceEventPayloads
 
 export type RunEventPayloads =
   & RunCoreEventPayloads
+  & ChatRenderEventPayloads
   & ChatHostEventPayloads
+  & SubagentEventPayloads
 
 export type RunCoreEventType = keyof RunCoreEventPayloads
 export type RunEventType = keyof RunEventPayloads
 
 export { CHAT_HOST_EVENTS }
-export type { ChatHostEventPayloads }
+export type {
+  ChatHostEventPayloads,
+  ChatRenderEventPayloads,
+  SubagentEventPayloads
+}
 
 export type RunEventMeta = {
   submissionId: string

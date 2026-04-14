@@ -1,6 +1,6 @@
 import { messagePersistence } from '@renderer/services/messages/MessagePersistenceService'
 import { buildMessageSegmentId } from '@shared/chat/segmentId'
-import type { MessageSegmentPatch } from '@shared/run/output-events'
+import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import type { StateCreator } from 'zustand'
 import {
   applyMessageSegmentPatchToEntity,

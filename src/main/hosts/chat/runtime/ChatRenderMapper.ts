@@ -1,4 +1,4 @@
-import type { MessageSegmentPatch } from '@shared/run/output-events'
+import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import type {
   AgentRenderBlock,
   AgentRenderMessageState,

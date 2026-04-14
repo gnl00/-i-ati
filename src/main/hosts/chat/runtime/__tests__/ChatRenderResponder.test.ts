@@ -298,6 +298,36 @@ describe('ChatRenderResponder', () => {
     )
   })
 
+  it('does not re-emit tool confirmation outward events from chat host', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const responder = new ChatRenderResponder(emitter, [placeholder], placeholder)
+
+    await responder.handle({
+      type: 'host.tool.confirmation.required',
+      timestamp: 123,
+      stepId: 'step-1',
+      toolCallId: 'tool-1',
+      toolCallIndex: 0,
+      toolName: 'execute_command'
+    })
+
+    expect(emitter.emit).not.toHaveBeenCalled()
+  })
+
   it('emits committed assistant updates as segment patches', async () => {
     const emitter = {
       emit: vi.fn()

@@ -1,5 +1,5 @@
+import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { buildDifferentialSegmentPatches } from '@shared/run/messagePatch'
-import type { MessageSegmentPatch } from '@shared/run/output-events'
 import type { StepArtifact } from '@main/agent/contracts'
 
 export type CommitAssistantMessageResult = {

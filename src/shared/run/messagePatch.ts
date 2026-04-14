@@ -1,4 +1,4 @@
-import type { MessageSegmentPatch } from './output-events'
+import type { MessageSegmentPatch } from '../chat/render-events'
 
 export function areToolCallsEquivalent(
   previous: IToolCall[] | undefined,

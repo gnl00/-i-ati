@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { RUN_EVENTS } from '@shared/run/events'
-import type { MessageSegmentPatch } from '@shared/run/output-events'
+import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
+import type { MessageSegmentPatch } from '@shared/chat/render-events'
 
 const latestStore = {
   currentChatUuid: 'chat-live',
@@ -68,7 +68,7 @@ describe('handleChatRunEvent', () => {
       chatUuid: 'chat-1',
       timestamp: 1,
       sequence: 1,
-      type: RUN_EVENTS.MESSAGE_CREATED,
+      type: CHAT_RENDER_EVENTS.MESSAGE_CREATED,
       payload: {
         message: {
           id: 11,
@@ -102,7 +102,7 @@ describe('handleChatRunEvent', () => {
       chatUuid: 'chat-1',
       timestamp: 1,
       sequence: 1,
-      type: RUN_EVENTS.MESSAGE_UPDATED,
+      type: CHAT_RENDER_EVENTS.MESSAGE_UPDATED,
       payload: {
         message: {
           id: 12,
@@ -139,7 +139,7 @@ describe('handleChatRunEvent', () => {
       chatUuid: 'chat-1',
       timestamp: 1,
       sequence: 1,
-      type: RUN_EVENTS.PREVIEW_SEGMENT_UPDATED,
+      type: CHAT_RENDER_EVENTS.PREVIEW_SEGMENT_UPDATED,
       payload: {
         chatId: 1,
         chatUuid: 'chat-1',
@@ -153,7 +153,7 @@ describe('handleChatRunEvent', () => {
       chatUuid: 'chat-1',
       timestamp: 2,
       sequence: 2,
-      type: RUN_EVENTS.MESSAGE_SEGMENT_UPDATED,
+      type: CHAT_RENDER_EVENTS.MESSAGE_SEGMENT_UPDATED,
       payload: {
         messageId: 99,
         patch

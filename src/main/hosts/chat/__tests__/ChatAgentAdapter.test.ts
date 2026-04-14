@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { RUN_EVENTS } from '@shared/run/events'
 import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
+import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 
 vi.mock('../preparation', () => ({
   ChatPreparationPipeline: class {}
@@ -90,10 +90,10 @@ describe('ChatAgentAdapter', () => {
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_HOST_EVENTS.MESSAGES_LOADED, {
       messages: prepared.chatContext.historyMessages
     })
-    expect(emitter.emit).toHaveBeenCalledWith(RUN_EVENTS.MESSAGE_CREATED, {
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
       message: prepared.chatContext.createdMessages[0]
     })
-    expect(emitter.emit).toHaveBeenCalledWith(RUN_EVENTS.MESSAGE_CREATED, {
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
       message: prepared.chatContext.createdMessages[1]
     })
   })
@@ -157,7 +157,7 @@ describe('ChatAgentAdapter', () => {
       }
     })
 
-    expect(emitter.emit).toHaveBeenCalledWith(RUN_EVENTS.MESSAGE_UPDATED, {
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_UPDATED, {
       message: finalizedAssistantMessage
     })
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_HOST_EVENTS.CHAT_UPDATED, {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invokeRunToolConfirm, subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
 import { taskPlannerService } from '@renderer/services/taskPlanner/TaskPlannerService'
-import { RUN_EVENTS } from '@shared/run/events'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { Plan } from '@shared/task-planner/schemas'
 
 type UseTaskPlanResult = {
@@ -67,7 +67,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
         return
       }
 
-      if (event.type === RUN_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
+      if (event.type === RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
         const payload = event.payload
         if (payload?.name === 'plan_create' && payload.toolCallId) {
           const args = payload.args as Partial<Plan> & { steps?: Plan['steps'] }
@@ -87,7 +87,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
         }
       }
 
-      if (event.type === RUN_EVENTS.TOOL_CALL_DETECTED) {
+      if (event.type === RUN_TOOL_EVENTS.TOOL_CALL_DETECTED) {
         const toolCall = event.payload.toolCall
         if (toolCall?.id && toolCall?.name) {
           toolCallNameMapRef.current.set(toolCall.id, toolCall.name)
@@ -95,8 +95,8 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
       }
 
       if (
-        event.type === RUN_EVENTS.TOOL_EXECUTION_COMPLETED
-        || event.type === RUN_EVENTS.TOOL_EXECUTION_FAILED
+        event.type === RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED
+        || event.type === RUN_TOOL_EVENTS.TOOL_EXECUTION_FAILED
       ) {
         const toolCallId = event.payload.toolCallId
         if (!toolCallId) return
@@ -104,7 +104,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
           setPendingPlanReview(null)
         }
         const toolName = toolCallNameMapRef.current.get(toolCallId)
-        const result = event.type === RUN_EVENTS.TOOL_EXECUTION_COMPLETED
+        const result = event.type === RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED
           ? (event.payload.result as any)
           : undefined
         const hasPlanResult = Boolean(result && (result.plan || result.plans))

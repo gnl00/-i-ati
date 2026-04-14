@@ -1,5 +1,5 @@
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
-import { RUN_OUTPUT_EVENTS } from '@shared/run/output-events'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
@@ -122,15 +122,8 @@ export class ChatRenderResponder implements HostRenderEventSink {
         ))
         return
 
-      case 'host.tool.confirmation.required':
-        this.emitter.emit(RUN_OUTPUT_EVENTS.TOOL_CONFIRMATION_REQUIRED, {
-          toolCallId: event.toolCallId,
-          name: event.toolName
-        })
-        return
-
       case 'host.tool.detected':
-        this.emitter.emit(RUN_OUTPUT_EVENTS.TOOL_CALL_DETECTED, {
+        this.emitter.emit(RUN_TOOL_EVENTS.TOOL_CALL_DETECTED, {
           toolCall: {
             id: event.toolCallId,
             name: event.toolName,
@@ -142,7 +135,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
         return
 
       case 'host.tool.execution.started':
-        this.emitter.emit(RUN_OUTPUT_EVENTS.TOOL_EXECUTION_STARTED, {
+        this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_STARTED, {
           toolCallId: event.toolCallId,
           name: event.toolName
         })
@@ -150,13 +143,13 @@ export class ChatRenderResponder implements HostRenderEventSink {
 
       case 'host.tool.result.available':
         if (event.result.status === 'success') {
-          this.emitter.emit(RUN_OUTPUT_EVENTS.TOOL_EXECUTION_COMPLETED, {
+          this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED, {
             toolCallId: event.result.toolCallId,
             result: event.result.content,
             cost: event.result.cost ?? 0
           })
         } else if (event.result.status !== 'denied') {
-          this.emitter.emit(RUN_OUTPUT_EVENTS.TOOL_EXECUTION_FAILED, {
+          this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_FAILED, {
             toolCallId: event.result.toolCallId,
             error: serializeError(new Error(event.result.error?.message || (
               event.result.status === 'aborted' ? 'Tool execution aborted' : 'Tool execution failed'

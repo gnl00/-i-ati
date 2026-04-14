@@ -3,7 +3,7 @@ import type {
   ToolConfirmationRequester
 } from '@main/agent/contracts'
 import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
-import { RUN_OUTPUT_EVENTS } from '@shared/run/output-events'
+import { SUBAGENT_EVENTS } from '@shared/subagent/events'
 import type { SubagentRecord } from '@tools/subagent/index.d'
 
 type ParentRuntimeChannel = {
@@ -36,7 +36,7 @@ class SubagentRuntimeBridge {
       return
     }
 
-    channel.emitter.emit(RUN_OUTPUT_EVENTS.SUBAGENT_UPDATED, { subagent })
+    channel.emitter.emit(SUBAGENT_EVENTS.SUBAGENT_UPDATED, { subagent })
   }
 }
 

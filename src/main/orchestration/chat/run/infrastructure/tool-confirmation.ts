@@ -3,7 +3,7 @@ import type {
   ToolConfirmationRequest
 } from '@main/agent/contracts'
 import type { RunEventEmitter } from './event-emitter'
-import { RUN_OUTPUT_EVENTS } from '@shared/run/output-events'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 export type { ToolConfirmationDecision, ToolConfirmationRequest } from '@main/agent/contracts'
 
 type PendingConfirmation = {
@@ -45,7 +45,7 @@ export class ToolConfirmationManager {
       timeoutId
     })
 
-    emitter.emit(RUN_OUTPUT_EVENTS.TOOL_CONFIRMATION_REQUIRED, {
+    emitter.emit(RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED, {
       toolCallId: request.toolCallId,
       name: request.name,
       args: request.args,
