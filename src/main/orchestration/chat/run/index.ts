@@ -4,12 +4,14 @@ import {
 } from '@main/orchestration/chat/maintenance'
 import type { RunResult } from '@main/agent/contracts'
 import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
+import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { RunEventSink } from './infrastructure'
 import type { ToolConfirmationDecision } from './infrastructure'
 import { RunRuntimeFactory, type RunRuntimeDeps } from './runtime/RunRuntimeFactory'
 
 type RunExecutionOptions = {
   eventSinks?: RunEventSink[]
+  hostRenderSinks?: HostRenderEventSink[]
 }
 
 export class RunService {
@@ -24,13 +26,13 @@ export class RunService {
     input: MainAgentRunInput,
     options: RunExecutionOptions = {}
   ): Promise<{ accepted: true; submissionId: string }> {
-    return await this.runtime.runManager.start(input, options.eventSinks)
+    return await this.runtime.runManager.start(input, options.eventSinks, options.hostRenderSinks)
   }
 
   // Internal entry: execute the main run pipeline and wait for its terminal result,
   // but not asynchronous post-run jobs.
   async execute(input: MainAgentRunInput, options: RunExecutionOptions = {}): Promise<RunResult> {
-    return await this.runtime.runManager.execute(input, options.eventSinks)
+    return await this.runtime.runManager.execute(input, options.eventSinks, options.hostRenderSinks)
   }
 
   async executeCompression(data: CompressionExecutionInput): Promise<CompressionResult> {

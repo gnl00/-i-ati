@@ -5,7 +5,7 @@ import { RunService } from '@main/orchestration/chat/run'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
-import { TelegramRunResponder } from '@main/hosts/telegram/runtime'
+import { TelegramRenderResponder } from '@main/hosts/telegram/runtime'
 import DatabaseService from '@main/db/DatabaseService'
 import { createLogger } from '@main/logging/LogService'
 import { TelegramUpdateMapper } from './TelegramUpdateMapper'
@@ -311,7 +311,7 @@ export class TelegramGatewayService {
     })
 
     const responder = this.bot
-      ? new TelegramRunResponder({
+      ? new TelegramRenderResponder({
         bot: this.bot,
         envelope,
         logger: this.logger
@@ -319,7 +319,7 @@ export class TelegramGatewayService {
       : null
 
     await this.runService.execute(input, {
-      ...(responder ? { eventSinks: [responder] } : {})
+      ...(responder ? { hostRenderSinks: [responder] } : {})
     })
 
     if (binding.id) {

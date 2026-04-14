@@ -4,6 +4,7 @@ import { AgentRun } from './AgentRun'
 import { PostRunJobService } from '@main/orchestration/chat/postRun'
 import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
 import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
+import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { RunResult } from '@main/agent/contracts'
 import type {
   RunEventEmitterFactory,
@@ -32,8 +33,12 @@ export class RunManager {
   constructor(private readonly deps: RunManagerDependencies) {}
 
   // Fire-and-forget entry used by the interactive chat flow.
-  async start(input: MainAgentRunInput, eventSinks: RunEventSink[] = []): Promise<StartRunResult> {
-    const run = this.createRun(input, eventSinks)
+  async start(
+    input: MainAgentRunInput,
+    eventSinks: RunEventSink[] = [],
+    hostRenderSinks: HostRenderEventSink[] = []
+  ): Promise<StartRunResult> {
+    const run = this.createRun(input, eventSinks, hostRenderSinks)
     run.emitAccepted()
     void run.run().catch(() => undefined).finally(() => {
       this.registry.delete(input.submissionId)
@@ -47,8 +52,12 @@ export class RunManager {
 
   // Execute the main run pipeline and wait for its terminal result,
   // but do not wait for asynchronous post-run jobs like title/compression.
-  async execute(input: MainAgentRunInput, eventSinks: RunEventSink[] = []): Promise<RunResult> {
-    const run = this.createRun(input, eventSinks)
+  async execute(
+    input: MainAgentRunInput,
+    eventSinks: RunEventSink[] = [],
+    hostRenderSinks: HostRenderEventSink[] = []
+  ): Promise<RunResult> {
+    const run = this.createRun(input, eventSinks, hostRenderSinks)
     run.emitAccepted()
 
     try {
@@ -83,7 +92,11 @@ export class RunManager {
     return this.registry.hasActiveRunForChat(chatUuid)
   }
 
-  private createRun(input: MainAgentRunInput, eventSinks: RunEventSink[] = []): AgentRun {
+  private createRun(
+    input: MainAgentRunInput,
+    eventSinks: RunEventSink[] = [],
+    hostRenderSinks: HostRenderEventSink[] = []
+  ): AgentRun {
     const emitter = this.deps.eventEmitterFactory.create({
       submissionId: input.submissionId
     }, eventSinks)
@@ -96,7 +109,8 @@ export class RunManager {
       postRunJobService: this.deps.postRunJobService
     }, {
       emitter,
-      toolConfirmationRequester
+      toolConfirmationRequester,
+      hostRenderSinks
     })
     this.registry.add(input.submissionId, run)
     return run

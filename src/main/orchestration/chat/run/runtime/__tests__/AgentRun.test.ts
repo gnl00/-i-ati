@@ -250,6 +250,7 @@ describe('AgentRun', () => {
     } as any
     const runtime = {
       emitter,
+      hostRenderSinks: [{ handle: vi.fn() }],
       toolConfirmationRequester: {
         request: vi.fn(async () => ({ approved: true }))
       }
@@ -257,6 +258,10 @@ describe('AgentRun', () => {
 
     const run = new AgentRun(input as any, services, runtime as any)
     const result = await run.run()
+
+    expect(mainAgentRuntimeRunner.run).toHaveBeenCalledWith(expect.objectContaining({
+      hostRenderSinks: runtime.hostRenderSinks
+    }))
 
     expect(result).toEqual({
       assistantMessageId: 102,

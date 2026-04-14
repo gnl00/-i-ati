@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
+import { HostRenderEventMapper } from '@main/hosts/shared/render'
 
 vi.mock('../../mapping/ChatEventMapper', () => ({
   ChatEventMapper: class {
@@ -22,9 +24,22 @@ vi.mock('../../persistence/ChatStepStore', () => ({
   }
 }))
 
-import { AgentUiAdapter } from '../AgentUiAdapter'
+import { ChatRenderResponder } from '../ChatRenderResponder'
 
-describe('AgentUiAdapter', () => {
+const mapperByResponder = new WeakMap<ChatRenderResponder, HostRenderEventMapper>()
+
+const dispatchAgentEvent = async (
+  responder: ChatRenderResponder,
+  event: AgentEvent
+): Promise<void> => {
+  const mapper = mapperByResponder.get(responder) || new HostRenderEventMapper()
+  mapperByResponder.set(responder, mapper)
+  for (const hostEvent of mapper.map(event)) {
+    await responder.handle(hostEvent)
+  }
+}
+
+describe('ChatRenderResponder', () => {
   it('keeps final text when a completed step also contains tool calls', async () => {
     const emitter = {
       emit: vi.fn()
@@ -42,9 +57,9 @@ describe('AgentUiAdapter', () => {
     }
 
     const messageEntities = [placeholder]
-    const adapter = new AgentUiAdapter(emitter, messageEntities, placeholder)
+    const adapter = new ChatRenderResponder(emitter, messageEntities, placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 123,
       step: {
@@ -99,9 +114,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -145,9 +160,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -164,7 +179,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -216,9 +231,9 @@ describe('AgentUiAdapter', () => {
     }
 
     const messageEntities = [placeholder]
-    const adapter = new AgentUiAdapter(emitter, messageEntities, placeholder)
+    const adapter = new ChatRenderResponder(emitter, messageEntities, placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 123,
       step: {
@@ -241,7 +256,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'completed',
       timestamp: 124,
@@ -299,9 +314,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 123,
       step: {
@@ -356,9 +371,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 123,
       step: {
@@ -386,7 +401,7 @@ describe('AgentUiAdapter', () => {
     emitMessageUpdated.mockClear()
     emitMessageSegmentUpdated.mockClear()
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'started',
       stepId: 'step-1',
@@ -425,9 +440,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -444,7 +459,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 121,
       step: {
@@ -470,7 +485,7 @@ describe('AgentUiAdapter', () => {
     const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
     emitMessageSegmentUpdated.mockClear()
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'started',
       stepId: 'step-1',
@@ -505,9 +520,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 123,
       step: {
@@ -533,7 +548,7 @@ describe('AgentUiAdapter', () => {
     const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
     emitMessageSegmentUpdated.mockClear()
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'completed',
       timestamp: 124,
@@ -581,9 +596,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 123,
       step: {
@@ -606,7 +621,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'completed',
       timestamp: 124,
@@ -620,7 +635,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 130,
       step: {
@@ -670,9 +685,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 120,
       step: {
@@ -695,7 +710,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'completed',
       timestamp: 121,
@@ -709,7 +724,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 130,
       step: {
@@ -759,9 +774,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 120,
       step: {
@@ -785,7 +800,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'completed',
       timestamp: 121,
@@ -799,7 +814,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 130,
       step: {
@@ -847,16 +862,16 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.started',
       timestamp: 100,
       stepId: 'step-1',
       stepIndex: 0
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -873,7 +888,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -892,7 +907,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -909,7 +924,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -926,7 +941,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 140,
       step: {
@@ -997,16 +1012,16 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.started',
       timestamp: 100,
       stepId: 'step-1',
       stepIndex: 0
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -1023,7 +1038,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -1084,9 +1099,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 140,
       step: {
@@ -1110,7 +1125,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'completed',
       timestamp: 220,
@@ -1153,9 +1168,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.delta',
       stepId: 'step-1',
       stepIndex: 0,
@@ -1172,7 +1187,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 123,
       step: {
@@ -1211,9 +1226,9 @@ describe('AgentUiAdapter', () => {
       }
     }
 
-    const adapter = new AgentUiAdapter(emitter, [placeholder], placeholder)
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 100,
       step: {
@@ -1236,7 +1251,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'completed',
       timestamp: 101,
@@ -1250,7 +1265,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'step.completed',
       timestamp: 110,
       step: {
@@ -1273,7 +1288,7 @@ describe('AgentUiAdapter', () => {
       }
     })
 
-    await adapter.handle({
+    await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
       phase: 'completed',
       timestamp: 111,

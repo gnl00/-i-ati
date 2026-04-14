@@ -2,6 +2,7 @@ import type { ToolConfirmationRequester } from '@main/agent/contracts'
 import { AbortError } from './errors'
 import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
 import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
+import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { RunEventEmitter } from '../infrastructure'
 import { PostRunJobService } from '@main/orchestration/chat/postRun'
 import type { RunResult } from '@main/agent/contracts'
@@ -19,6 +20,7 @@ export type AgentRunServices = {
 export type AgentRunRuntime = {
   emitter: RunEventEmitter
   toolConfirmationRequester: ToolConfirmationRequester
+  hostRenderSinks?: HostRenderEventSink[]
 }
 
 export class AgentRun {
@@ -66,6 +68,7 @@ export class AgentRun {
         runInput: this.input,
         prepared: { runSpec, chatContext },
         emitter: this.emitter,
+        hostRenderSinks: this.runtime.hostRenderSinks,
         signal: this.controller.signal,
         toolConfirmationRequester: this.runtime.toolConfirmationRequester
       })

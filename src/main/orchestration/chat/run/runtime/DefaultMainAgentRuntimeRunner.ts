@@ -11,10 +11,11 @@ import { DefaultAgentLoop } from '@main/agent/runtime/loop/AgentLoop'
 import type { RunPreparationResult } from '@main/hosts/chat/preparation/types'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import {
-  AgentUiAdapter,
+  ChatRenderResponder,
   DefaultMainAgentHostRequestBuilder,
   MainAgentLoopInputBootstrapper
 } from '@main/hosts/chat/runtime'
+import { HostRenderEventForwarder } from '@main/hosts/shared/render'
 import { DefaultAgentRunCompletionAdapter } from './AgentRunCompletionAdapter'
 import type {
   MainAgentRuntimeRunner,
@@ -59,12 +60,15 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     })
 
     const eventBus = new DefaultAgentEventBus()
-    const uiAdapter = new AgentUiAdapter(
+    const chatResponder = new ChatRenderResponder(
       input.emitter,
       input.prepared.chatContext.messageEntities,
       input.prepared.chatContext.assistantPlaceholder
     )
-    eventBus.register(uiAdapter)
+    eventBus.register(new HostRenderEventForwarder([
+      chatResponder,
+      ...(input.hostRenderSinks || [])
+    ]))
 
     const runtime = new DefaultAgentRuntime({
       requestSpecSource: {
@@ -103,9 +107,9 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     return {
       runtimeResult: this.completionAdapter.adapt({
         result,
-        artifacts: uiAdapter.getArtifacts()
+        artifacts: chatResponder.getArtifacts()
       }),
-      stepCommitter: uiAdapter
+      stepCommitter: chatResponder
     }
   }
 

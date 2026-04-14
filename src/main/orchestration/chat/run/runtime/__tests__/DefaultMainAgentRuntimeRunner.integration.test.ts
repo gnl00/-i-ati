@@ -234,4 +234,64 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       ))
     ).toBe(true)
   })
+
+  it('forwards unified host render events to injected host sinks', async () => {
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => createAsyncStream([
+        {
+          kind: 'delta',
+          responseId: 'resp-1',
+          model: 'model-1',
+          content: 'Thinking',
+          toolCalls: [{
+            argumentsMode: 'snapshot',
+            toolCall: {
+              id: 'tool-1',
+              index: 0,
+              type: 'function',
+              function: {
+                name: 'read',
+                arguments: '{"path":"README.md"}'
+              }
+            }
+          }],
+          finishReason: 'tool_calls'
+        },
+        {
+          kind: 'final',
+          responseId: 'resp-1',
+          model: 'model-1'
+        }
+      ]))
+    }
+    const emitter = {
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
+    } as any
+    const hostSink = {
+      handle: vi.fn(async () => undefined)
+    }
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor
+    })
+
+    await runner.run({
+      runInput: input,
+      prepared,
+      emitter,
+      hostRenderSinks: [hostSink],
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    expect(hostSink.handle).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'host.tool.detected',
+      toolCallId: 'tool-1'
+    }))
+    expect(hostSink.handle).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'host.preview.updated'
+    }))
+  })
 })

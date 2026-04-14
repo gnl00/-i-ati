@@ -4,18 +4,21 @@ import { DuplicateSubmissionIdError } from '../errors'
 const {
   emitAcceptedMock,
   runMock,
-  cancelMock
+  cancelMock,
+  constructorArgsMock
 } = vi.hoisted(() => ({
   emitAcceptedMock: vi.fn(),
   runMock: vi.fn(async () => ({ assistantMessageId: 1, state: 'completed' })),
-  cancelMock: vi.fn()
+  cancelMock: vi.fn(),
+  constructorArgsMock: vi.fn()
 }))
 
 vi.mock('../AgentRun', () => ({
   AgentRun: class {
     chatUuid?: string
-    constructor(input: { chatUuid?: string }) {
+    constructor(input: { chatUuid?: string }, services: unknown, runtime: unknown) {
       this.chatUuid = input.chatUuid
+      constructorArgsMock({ input, services, runtime })
     }
     emitAccepted = emitAcceptedMock
     run = runMock
@@ -93,6 +96,7 @@ describe('RunManager', () => {
     runMock.mockReset()
     runMock.mockResolvedValue({ assistantMessageId: 1, state: 'completed' })
     cancelMock.mockReset()
+    constructorArgsMock.mockReset()
   })
 
   it('returns accepted immediately from start and blocks duplicate submission ids while active', async () => {
@@ -155,5 +159,18 @@ describe('RunManager', () => {
     expect(result).toEqual({ assistantMessageId: 1, state: 'completed' })
     expect(emitAcceptedMock).toHaveBeenCalledTimes(1)
     expect(runMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('passes host render sinks into the created run runtime', async () => {
+    const manager = createManager()
+    const hostRenderSinks = [{ handle: vi.fn() }]
+
+    await manager.execute(input, [], hostRenderSinks as any)
+
+    expect(constructorArgsMock).toHaveBeenCalledWith(expect.objectContaining({
+      runtime: expect.objectContaining({
+        hostRenderSinks
+      })
+    }))
   })
 })

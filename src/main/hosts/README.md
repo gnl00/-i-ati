@@ -1,105 +1,202 @@
 # Hosts
 
-`hosts` 是宿主适配层。
+`hosts/` 是宿主适配层。
 
-它的职责不是充当应用入口本身，而是把不同宿主环境中的输入、状态和输出语义，适配到当前主运行时模型上。
+它负责把不同宿主世界的输入、状态、输出和交互语义，映射到当前 agent runtime 上。
 
-## 在整体架构中的位置
+它不是应用入口本身，也不是 runtime core。
 
-当前主结构可以理解为：
+## Position
 
-- `agent`
-  - 运行时 contracts 与工具执行归属
-- `hosts`
-  - 宿主适配层
-  - 负责把宿主世界映射到当前 runtime
-- `chatRun`
-  - shell/runtime orchestration
-  - 负责 accepted、cancel、composition、event emitter、tool confirmation
-- `chatPostRun`
-  - run 完成后的后台 job
-- `chatOperations`
-  - 显式 chat 操作入口
-
-## hosts 不是入口 handler
-
-真正的入口通常仍然是应用层：
-
-- IPC
-- scheduler
-- CLI / terminal
-- 其他 application service
-
-`hosts` 负责的是这些入口背后的宿主语义适配。
-
-例如当前的：
-
-- `hosts/chat`
-
-负责：
-
-- chat state -> `RunSpec`
-- chat context -> step runtime context
-- runtime 产物 -> chat message / chat event / chat persistence
-
-当前需要额外注意：
-
-- `hosts/chat/index.ts` 应优先作为当前主链可依赖的公共出口
-- 旧的 chat-side step wiring 已从当前主代码中移除，不应再按 legacy runtime 边界扩展新实现
-- 新代码不应再把 `hosts/chat` 设计回旧的 legacy runtime 宿主包装层
-
-## 当前 chat adapter 职责
-
-`hosts/chat` 当前已经包含：
-
-- `config/`
-  - chat 所需配置和 model context 解析
-- `preparation/`
-  - chat prepare 逻辑
-- `legacy/`
-  - 对 legacy execution wiring 的显式 compat 出口
-- `runtime/`
-  - chat host 和 agent runtime 的接线与 UI 适配
-- `mapping/`
-  - chat event 和 context mapping
-- `persistence/`
-  - chat session / step store
-- `finalize/`
-  - chat finalize 逻辑
-- `ChatAgentAdapter.ts`
-  - 当前的 chat facade
-
-## 如何理解未来扩展
-
-如果未来要支持更多宿主入口，可以自然扩展为：
+当前主结构建议理解为：
 
 ```text
-src/main/hosts/
-  chat/
-  terminal/
-  workflow/
+application entry
+  -> orchestration shell
+    -> agent runtime
+      -> hosts
+        -> host-specific transport / persistence / UI protocol
 ```
 
-例如：
+更具体一点：
 
-- `hosts/chat`
-  - 面向 UI chat
-- `hosts/terminal`
-  - 面向 terminal session
-- `hosts/workflow`
-  - 面向脚本或 workflow 执行
+```text
+IPC / Telegram gateway / scheduler / other app services
+  -> chat/run orchestration
+    -> agent/*
+      -> hosts/*
+        -> renderer IPC / telegram bot API / host persistence
+```
 
-它们共享同一套 runtime contracts / loop 语义，但各自负责不同宿主世界的：
+分层职责：
 
-- 输入上下文映射
-- 事件映射
-- 持久化语义
-- 展示/交互语义
+- `agent`
+  - runtime contracts
+  - loop / tool execution
+  - runtime-native facts
+- `hosts`
+  - host semantics adaptation
+  - render/message state folding
+  - host-specific output protocol
+- orchestration shell
+  - accepted / cancel / emitter / confirmation / finalization
 
-## 设计原则
+## Core Rule
 
-- `hosts` 可以依赖 `agent/*`
-- runtime core 不应反向依赖 `hosts`
-- `hosts` 可以理解宿主领域对象，例如 chat entity / terminal session
-- `hosts` 不应承担 shell/runtime orchestration
-- shell/runtime orchestration 仍应留在 `chatRun` 或未来更明确的 runtime shell 层
+`hosts` 可以依赖 `agent/*`。
+
+`agent/*` 不应反向依赖 `hosts/*`。
+
+`hosts` 不应承担：
+
+- app entry handler
+- runtime orchestration
+- tool execution
+
+`hosts` 应承担：
+
+- host input adaptation
+- host-facing render/message state adaptation
+- host-specific output protocol
+- host-scoped persistence or transport glue
+
+## Internal Layers
+
+当前 `hosts` 内部推荐按下面 4 层理解：
+
+```text
+host input adapter
+  -> shared host state/controller
+    -> host-specific mapper/policy
+      -> host-specific output/transport
+```
+
+### 1. Input Adapter
+
+把宿主输入映射成当前 runtime 可接受的输入。
+
+例子：
+
+- [ChatAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/ChatAgentAdapter.ts)
+- [TelegramAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/TelegramAgentAdapter.ts)
+
+### 2. Shared Host State / Controller
+
+这一层不理解具体 UI 组件或 Telegram API，只负责维护宿主侧共享真源。
+
+例子：
+
+- [AgentRenderStateReducer.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/AgentRenderStateReducer.ts)
+- [HostRenderStateController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostRenderStateController.ts)
+- [CommittedAssistantMessageController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/CommittedAssistantMessageController.ts)
+
+### 3. Host-Specific Mapper / Policy
+
+这一层开始进入宿主差异，但仍然不直接做 IO。
+
+例子：
+
+- [ChatRenderMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/runtime/ChatRenderMapper.ts)
+- [TelegramRenderMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/runtime/TelegramRenderMapper.ts)
+- [TelegramTransportStateController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/runtime/TelegramTransportStateController.ts)
+
+### 4. Host Output / Transport
+
+真正发 renderer event、telegram edit/send、持久化 step/tool message 的地方。
+
+例子：
+
+- [ChatRenderOutput.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/runtime/ChatRenderOutput.ts)
+- [TelegramRenderResponder.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/runtime/TelegramRenderResponder.ts)
+
+## Host Runtime Entry
+
+当前 host runtime 统一消费 `HostRenderEvent`。
+
+```text
+AgentEvent
+  -> HostRenderEventMapper
+    -> HostRenderEvent
+      -> host state / mapper / transport
+```
+
+当前例子：
+
+- chat runtime
+- telegram runtime
+
+`RunEventEnvelope` 仍然存在于 orchestration/run-output 层，但不再是 host runtime 的主输入。
+
+## Current Concrete Shape
+
+当前 chat 和 telegram 的主链分别是：
+
+```text
+chat
+  AgentEvent
+    -> HostRenderEventMapper
+      -> HostRenderEvent
+        -> ChatRenderResponder
+          -> HostRenderStateController
+          -> ChatRenderMapper
+          -> CommittedAssistantMessageController
+          -> ChatRenderOutput
+            -> ChatEventMapper / step store / renderer protocol
+```
+
+```text
+telegram
+  AgentEvent
+    -> HostRenderEventMapper
+      -> HostRenderEvent
+        -> TelegramRenderResponder
+          -> HostRenderStateController
+          -> TelegramTransportStateController
+          -> TelegramRenderMapper
+            -> telegram send/edit transport
+```
+
+## Recommended Extension Pattern
+
+后续新增 host 时，优先按下面顺序思考：
+
+1. 先把 runtime 边界统一折叠成 `HostRenderEvent`
+2. 是否可以直接复用 `shared/render` 里的已有 controller
+3. 哪些逻辑属于 host-specific policy
+4. 哪些逻辑才是真正的 transport / persistence
+
+推荐目录骨架：
+
+```text
+src/main/hosts/<host>/
+  <Host>AgentAdapter.ts
+  runtime/
+    <Host>RenderMapper.ts
+    <Host>TransportStateController.ts
+    <Host>Responder.ts
+  persistence/
+  mapping/
+```
+
+不是每个 host 都必须有所有目录，但职责边界应保持一致。
+
+## Design Constraints
+
+后续新增代码时，优先遵守这些约束：
+
+- 不要在 host output 层重新维护第二套 committed/preview 真源
+- 不要把 host-specific transport 策略塞回 shared state reducer
+- 不要让 renderer/telegram 传输协议反向污染 agent runtime contract
+- 不要把 chat host 的事件协议当成所有 host 的通用协议
+- 能下沉到 `shared/render` 的 committed/preview/message patch 逻辑，应优先下沉
+
+## Current Gaps
+
+当前 `hosts` 层已经有稳定骨架，但还有两项后续工作：
+
+1. event 边界还没有完全收敛
+   - 通用 run event 和 chat-specific render protocol 仍有混杂
+2. 部分命名仍带历史包袱
+   - 某些 `chat runtime` 名字已经比实际职责更宽或更窄
+
+这两项不阻塞当前扩展，但后续继续新增 host 前最好继续收紧。
