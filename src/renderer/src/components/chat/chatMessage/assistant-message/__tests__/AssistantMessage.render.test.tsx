@@ -161,7 +161,7 @@ beforeEach(() => {
         root.render(
           <AssistantMessage
             index={0}
-            message={message}
+            committedMessage={message}
             isLatest={true}
             isHovered={false}
             onHover={() => {}}
@@ -208,7 +208,7 @@ beforeEach(() => {
       root.render(
         <AssistantMessage
           index={0}
-          message={createAssistantMessage([
+          committedMessage={createAssistantMessage([
             textSegment('committed:step-1:text:0', 'hello'),
             pendingToolSegment
           ], 'hello')}
@@ -226,7 +226,7 @@ beforeEach(() => {
       root.render(
         <AssistantMessage
           index={0}
-          message={createAssistantMessage([
+          committedMessage={createAssistantMessage([
             textSegment('committed:step-1:text:0', 'hello world'),
             runningToolSegment
           ], 'hello world')}
@@ -246,7 +246,7 @@ beforeEach(() => {
       root.render(
         <AssistantMessage
           index={0}
-          message={createAssistantMessage([
+          committedMessage={createAssistantMessage([
             textSegment('committed:step-1:text:0', 'hello')
           ], 'hello')}
           isLatest={true}
@@ -261,7 +261,7 @@ beforeEach(() => {
       root.render(
         <AssistantMessage
           index={0}
-          message={{
+          committedMessage={{
             role: 'user',
             content: 'user message',
             segments: []

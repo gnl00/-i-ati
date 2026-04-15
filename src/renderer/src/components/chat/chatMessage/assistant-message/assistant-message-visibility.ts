@@ -1,4 +1,4 @@
-export interface AssistantMessageVisibilityInput {
+export interface AssistantMessageShellPresenceInput {
   hasContent: boolean
   hasSegments: boolean
   hasToolCalls: boolean
@@ -8,7 +8,7 @@ export interface AssistantMessageVisibilityInput {
 }
 
 export function shouldRenderAssistantMessageShell(
-  input: AssistantMessageVisibilityInput
+  input: AssistantMessageShellPresenceInput
 ): boolean {
   const {
     hasContent,

@@ -750,7 +750,12 @@ describe('ChatRenderResponder', () => {
         toolCallId: 'tool-1',
         toolCallIndex: 0,
         toolName: 'emotion_report',
-        content: { ok: true }
+        content: {
+          success: true,
+          label: 'joy',
+          emoji: '🙂',
+          intensity: 7
+        }
       }
     })
 
@@ -772,8 +777,21 @@ describe('ChatRenderResponder', () => {
     expect(adapter.getFinalAssistantMessage().body.content).toBe(
       '让我先看看这颗新脑袋。\n\n新脑袋新气象，等着你验货 🫡'
     )
+    expect(adapter.getFinalAssistantMessage().body.emotion).toMatchObject({
+      label: 'joy',
+      emoji: '🙂',
+      intensity: 7,
+      source: 'tool'
+    })
     expect(adapter.getFinalAssistantMessage().body.segments).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: 'toolCall',
+          name: 'emotion_report',
+          presentation: {
+            transcriptVisible: false
+          }
+        }),
         expect.objectContaining({
           type: 'text',
           segmentId: 'committed:step-1:text:0',

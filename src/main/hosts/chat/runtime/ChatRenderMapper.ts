@@ -1,4 +1,5 @@
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
+import { extractEmotionFromToolSegments } from '@main/services/emotion/emotion-state'
 import type {
   AgentRenderBlock,
   AgentRenderMessageState,
@@ -8,6 +9,8 @@ import type {
 } from '@main/hosts/shared/render'
 
 type RenderLayer = 'preview' | 'committed'
+
+const CHAT_TRANSCRIPT_HIDDEN_TOOLS = new Set(['emotion_report'])
 
 const toMessageToolCall = (toolCall: AgentRenderToolCallState): IToolCall => ({
   id: toolCall.toolCallId,
@@ -86,7 +89,14 @@ const buildSegments = (input: {
       isError: call.status === 'failed' || call.status === 'aborted',
       timestamp: block.startedAt,
       toolCallId: call.toolCallId,
-      toolCallIndex: call.toolCallIndex
+      toolCallIndex: call.toolCallIndex,
+      ...(CHAT_TRANSCRIPT_HIDDEN_TOOLS.has(call.name)
+        ? {
+            presentation: {
+              transcriptVisible: false
+            }
+          }
+        : {})
     })
   }
 
@@ -108,6 +118,15 @@ const buildSegments = (input: {
 }
 
 export class ChatRenderMapper {
+  private attachDerivedMessageSemantics(message: ChatMessage): ChatMessage {
+    const emotion = extractEmotionFromToolSegments(message)
+
+    return {
+      ...message,
+      ...(emotion ? { emotion } : {})
+    }
+  }
+
   canEmitOptimizedTextPreviewPatch(
     previousState: AgentRenderMessageState,
     nextState: AgentRenderMessageState
@@ -134,7 +153,7 @@ export class ChatRenderMapper {
     baseBody: ChatMessage
   }): ChatMessage {
     const { state, timestamp, baseBody } = args
-    return {
+    return this.attachDerivedMessageSemantics({
       ...baseBody,
       source: 'stream_preview',
       content: state.content,
@@ -148,7 +167,7 @@ export class ChatRenderMapper {
         ? state.toolCalls.map(toMessageToolCall)
         : undefined,
       typewriterCompleted: false
-    }
+    })
   }
 
   buildPreviewTextPatch(state: AgentRenderMessageState): MessageSegmentPatch | null {
@@ -187,7 +206,7 @@ export class ChatRenderMapper {
     typewriterCompleted?: boolean
   }): ChatMessage {
     const { state, timestamp, baseBody, typewriterCompleted = false } = args
-    return {
+    return this.attachDerivedMessageSemantics({
       ...baseBody,
       content: state.content,
       segments: buildSegments({
@@ -200,7 +219,7 @@ export class ChatRenderMapper {
         ? state.toolCalls.map(toMessageToolCall)
         : undefined,
       typewriterCompleted
-    }
+    })
   }
 
   private isSameOpenBlockTransition(

@@ -443,12 +443,17 @@ declare interface IBaseResponse {
 
 // ==================== Message Segment Types ====================
 
+declare interface MessageSegmentPresentationMeta {
+  transcriptVisible?: boolean
+}
+
 // 文本片段
 declare interface TextSegment {
   type: 'text'
   segmentId: string
   content: string
   timestamp: number
+  presentation?: MessageSegmentPresentationMeta
 }
 
 // 推理片段（thinking过程）
@@ -458,6 +463,7 @@ declare interface ReasoningSegment {
   content: string
   timestamp: number
   endedAt?: number
+  presentation?: MessageSegmentPresentationMeta
 }
 
 // 工具调用片段
@@ -471,6 +477,7 @@ declare interface ToolCallSegment {
   timestamp: number
   toolCallId?: string  // 工具调用唯一标识（LLM 返回）
   toolCallIndex?: number  // 工具调用索引（数组位置）
+  presentation?: MessageSegmentPresentationMeta
 }
 
 // 错误片段
@@ -478,6 +485,7 @@ declare interface ErrorSegment {
   content?: string
   type: 'error'
   segmentId: string
+  presentation?: MessageSegmentPresentationMeta
   error: {
     name: string
     message: string

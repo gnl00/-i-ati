@@ -60,7 +60,7 @@ interface UseSegmentTypewriterReturn {
  * - 队列管理，平滑处理流式输入
  */
 export const useSegmentTypewriterNext = (
-  segments: MessageSegment[],
+  segments: TextSegment[],
   options: SegmentTypewriterOptions = {}
 ): UseSegmentTypewriterReturn => {
   const {
@@ -133,27 +133,12 @@ export const useSegmentTypewriterNext = (
     return tokenizeText(content)
   }, [granularity])
 
-  const getSegmentKey = useCallback((segment: MessageSegment, index: number): string => {
-    if ('segmentId' in segment && typeof segment.segmentId === 'string' && segment.segmentId) {
-      return segment.segmentId
-    }
-    if (segment.type === 'toolCall' && segment.toolCallId) {
-      return `tool-${segment.toolCallId}`
-    }
-    if (segment.type === 'error' && segment.error?.timestamp) {
-      return `error-${segment.error.timestamp}`
-    }
-    const timestamp = (segment as { timestamp?: number }).timestamp
-    if (timestamp) {
-      return `${segment.type}-${timestamp}`
-    }
-    return `${segment.type}-${index}`
-  }, [])
+  const getSegmentKey = useCallback((segment: TextSegment): string => segment.segmentId, [])
 
   const findSegmentIndexByKey = useCallback((key: string): number => {
     const currentSegments = segmentsRef.current
     for (let i = 0; i < currentSegments.length; i++) {
-      if (getSegmentKey(currentSegments[i], i) === key) {
+      if (getSegmentKey(currentSegments[i]) === key) {
         return i
       }
     }
@@ -183,9 +168,7 @@ export const useSegmentTypewriterNext = (
 
   useEffect(() => {
     segments.forEach((segment, segmentIndex) => {
-      if (segment.type !== 'text') return
-
-      const segmentKey = getSegmentKey(segment, segmentIndex)
+      const segmentKey = getSegmentKey(segment)
       const previousContent = segmentContentSnapshotRef.current.get(segmentKey)
       if (previousContent === segment.content) return
       segmentContentSnapshotRef.current.set(segmentKey, segment.content)
@@ -267,9 +250,7 @@ export const useSegmentTypewriterNext = (
 
     for (let i = 0; i < currentSegments.length; i++) {
       const segment = currentSegments[i]
-      if (segment.type !== 'text') continue
-
-      const segmentKey = getSegmentKey(segment, i)
+      const segmentKey = getSegmentKey(segment)
       const consumed = consumedLengthsRef.current.get(segmentKey) || 0
       const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
 
@@ -365,14 +346,14 @@ export const useSegmentTypewriterNext = (
     }
 
     const currentSegment = currentSegments[currentIndex]
-    if (!currentSegment || currentSegment.type !== 'text') {
+    if (!currentSegment) {
       moveToNextSegment()
       animationFrameRef.current = requestAnimationFrame(animate)
       return
     }
 
     // 3. 确保队列最新
-    const resolvedKey = getSegmentKey(currentSegment, currentIndex)
+    const resolvedKey = getSegmentKey(currentSegment)
     if (resolvedKey !== currentKey) {
       activeSegmentKeyRef.current = resolvedKey
     }
@@ -506,11 +487,11 @@ export const useSegmentTypewriterNext = (
     if (!enabled || isAllComplete) return Infinity
 
     const segment = segmentsRef.current[index]
-    if (!segment || segment.type !== 'text') {
+    if (!segment) {
       return Infinity
     }
 
-    const segmentKey = getSegmentKey(segment, index)
+    const segmentKey = getSegmentKey(segment)
     if (completedSegmentsRef.current.has(segmentKey)) return Infinity
 
     if (segmentKey === activeSegmentKeyRef.current) {
@@ -532,9 +513,7 @@ export const useSegmentTypewriterNext = (
     const segment = segmentsRef.current[index]
     if (!segment) return false
 
-    if (segment.type !== 'text') return true
-
-    const segmentKey = getSegmentKey(segment, index)
+    const segmentKey = getSegmentKey(segment)
     if (completedSegmentsRef.current.has(segmentKey)) return true
 
     if (segmentKey === activeSegmentKeyRef.current) return true
@@ -549,9 +528,9 @@ export const useSegmentTypewriterNext = (
   // 新增：获取可见的 tokens（用于动效渲染）
   const getVisibleTokens = useCallback((index: number) => {
     const segment = segmentsRef.current[index]
-    if (!segment || segment.type !== 'text') return []
+    if (!segment) return []
 
-    const segmentKey = getSegmentKey(segment, index)
+    const segmentKey = getSegmentKey(segment)
     const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
     const visibleLength = getSegmentVisibleLength(index)
 

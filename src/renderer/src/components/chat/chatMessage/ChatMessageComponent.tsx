@@ -73,7 +73,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
         </div>
       <AssistantMessage
         index={index}
-        message={message}
+        committedMessage={message}
         previewMessage={previewMessage}
         isLatest={isLatest}
         isHovered={hoverState.assistantMessageHovered}
@@ -101,7 +101,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
   return (
     <AssistantMessage
       index={index}
-      message={message}
+      committedMessage={message}
       previewMessage={previewMessage}
       isLatest={isLatest}
       isHovered={hoverState.assistantMessageHovered}
