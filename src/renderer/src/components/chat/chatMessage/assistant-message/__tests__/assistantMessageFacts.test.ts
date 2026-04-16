@@ -129,6 +129,27 @@ describe('buildAssistantMessageFacts', () => {
     })
 
     expect(facts.presence.hasToolCalls).toBe(true)
+    expect(facts.presence.hasSegments).toBe(true)
     expect(facts.isOverlayPreview).toBe(true)
+  })
+
+  it('reports no visible segments when transcript only contains hidden tool calls', () => {
+    const facts = buildAssistantMessageFacts({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'emotion-tool',
+            name: 'emotion_report',
+            toolCallId: 'emotion-tool',
+            transcriptVisible: false
+          })
+        ]
+      }
+    })
+
+    expect(facts.presence.hasSegments).toBe(false)
+    expect(facts.presence.hasToolCalls).toBe(false)
   })
 })

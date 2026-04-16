@@ -15,6 +15,7 @@ export interface AssistantMessageFacts {
   }
   presence: {
     hasContent: boolean
+    hasSegments: boolean
     hasToolCalls: boolean
   }
 }
@@ -51,6 +52,8 @@ export function buildAssistantMessageFacts(source: {
 }): AssistantMessageFacts {
   const { committedMessage, previewMessage } = source
   const displayMessage = previewMessage ?? committedMessage
+  const committedSegments = getVisibleTranscriptSegments(committedMessage)
+  const previewSegments = getVisibleTranscriptSegments(previewMessage)
 
   return {
     isOverlayPreview: Boolean(previewMessage),
@@ -60,11 +63,12 @@ export function buildAssistantMessageFacts(source: {
     },
     emotion: resolveHeaderEmotion([previewMessage, committedMessage]),
     transcript: {
-      committedSegments: getVisibleTranscriptSegments(committedMessage),
-      previewSegments: getVisibleTranscriptSegments(previewMessage)
+      committedSegments,
+      previewSegments
     },
     presence: {
       hasContent: hasMessageContent(committedMessage) || hasMessageContent(previewMessage),
+      hasSegments: committedSegments.length > 0 || previewSegments.length > 0,
       hasToolCalls: getVisibleTranscriptSegments(displayMessage).some(
         (segment): segment is ToolCallSegment => segment.type === 'toolCall'
       )

@@ -1,9 +1,9 @@
 import React, { memo } from 'react'
 import { ModelBadgeNext } from './model-badge/ModelBadgeNext'
-import type { AssistantMessageRenderState } from './model/assistantMessageMapper'
+import type { AssistantMessageHeaderProjection } from './model/assistantMessageMapper'
 
 export interface AssistantMessageHeaderModel {
-  header: AssistantMessageRenderState['header']
+  header: AssistantMessageHeaderProjection
   badgeAnimate: boolean
 }
 

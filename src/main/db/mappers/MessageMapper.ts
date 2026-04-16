@@ -1,9 +1,13 @@
 import type { MessageRow } from '@main/db/dao/MessageDao'
+import { normalizeChatMessageSegmentsWithIds } from '@shared/chat/segmentId'
 
 export const toMessageInsertRow = (message: MessageEntity): Omit<MessageRow, 'id'> => ({
   chat_id: message.chatId ?? null,
   chat_uuid: message.chatUuid ?? null,
-  body: JSON.stringify(message.body),
+  body: JSON.stringify(normalizeChatMessageSegmentsWithIds(
+    message.body,
+    `db-message:${message.id ?? message.chatUuid ?? message.chatId ?? 'new'}`
+  )),
   tokens: message.tokens ?? null
 })
 
@@ -16,7 +20,10 @@ export const toMessageEntity = (row: MessageRow): MessageEntity => ({
   id: row.id,
   chatId: row.chat_id ?? undefined,
   chatUuid: row.chat_uuid ?? undefined,
-  body: JSON.parse(row.body),
+  body: normalizeChatMessageSegmentsWithIds(
+    JSON.parse(row.body) as ChatMessage,
+    `db-message:${row.id}`
+  ),
   tokens: row.tokens ?? undefined
 })
 
@@ -24,7 +31,10 @@ export const patchMessageRowUiState = (
   row: MessageRow,
   uiState: { typewriterCompleted?: boolean }
 ): MessageRow => {
-  const body = JSON.parse(row.body) as ChatMessage
+  const body = normalizeChatMessageSegmentsWithIds(
+    JSON.parse(row.body) as ChatMessage,
+    `db-message:${row.id}`
+  )
   const nextBody: ChatMessage = {
     ...body,
     ...(uiState.typewriterCompleted !== undefined

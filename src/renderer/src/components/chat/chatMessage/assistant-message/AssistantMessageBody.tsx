@@ -2,15 +2,15 @@ import React, { memo } from 'react'
 import { CommandConfirmation, type CommandConfirmationRequest } from './CommandConfirmation'
 import { AssistantTextSegmentList } from './renderers/AssistantTextSegmentList'
 import { AssistantSupportSegmentList } from './renderers/AssistantSupportSegmentList'
-import type { AssistantMessageRenderState } from './model/assistantMessageMapper'
+import type { AssistantMessageTranscriptProjection } from './model/assistantMessageMapper'
+import type { AssistantMessageTextPlaybackModel } from './model/assistantMessageTextPlayback'
 
 export interface AssistantMessageBodyModel {
   index: number
   isLatest: boolean
   onTypingChange?: () => void
-  blocks: AssistantMessageRenderState['blocks']
-  playback: AssistantMessageRenderState['playback']
-  showCommandConfirmation: boolean
+  transcript: AssistantMessageTranscriptProjection
+  textPlayback: AssistantMessageTextPlaybackModel
   commandConfirmationRequest?: CommandConfirmationRequest
   onConfirmCommand: () => void
   onCancelCommand: () => void
@@ -27,9 +27,8 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
     index,
     isLatest,
     onTypingChange,
-    blocks,
-    playback,
-    showCommandConfirmation,
+    transcript,
+    textPlayback,
     commandConfirmationRequest,
     onConfirmCommand,
     onCancelCommand
@@ -40,17 +39,17 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
       <div className="flex flex-col">
         <AssistantTextSegmentList
           index={index}
-          committedPlaybackInput={playback.committed}
-          previewPlaybackInput={playback.preview}
+          committedPlaybackInput={textPlayback.committed}
+          previewPlaybackInput={textPlayback.preview}
           isLatest={isLatest}
           onTypingChange={onTypingChange}
-          items={blocks.textItems}
-          isOverlayPreview={blocks.isOverlayPreview}
+          items={transcript.textItems}
+          isOverlayPreview={transcript.isOverlayPreview}
         />
-        <AssistantSupportSegmentList items={blocks.supportItems} />
+        <AssistantSupportSegmentList items={transcript.supportItems} />
       </div>
 
-      {showCommandConfirmation && commandConfirmationRequest && (
+      {commandConfirmationRequest && (
         <CommandConfirmation
           request={commandConfirmationRequest}
           onConfirm={onConfirmCommand}

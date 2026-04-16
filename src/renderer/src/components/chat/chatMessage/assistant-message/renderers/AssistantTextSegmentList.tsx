@@ -1,10 +1,8 @@
 import React, { memo } from 'react'
 import { useMessageTypewriter } from '../../typewriter/use-message-typewriter'
 import { AssistantTextSegmentContent } from './AssistantTextSegmentContent'
-import type {
-  AssistantMessagePlaybackInput,
-  TextSegmentRenderItem
-} from '../model/assistantMessageMapper'
+import type { TextSegmentRenderItem } from '../model/assistantMessageMapper'
+import type { AssistantMessageTextPlaybackInput } from '../model/assistantMessageTextPlayback'
 
 const areTextSegmentRenderItemsEqual = (
   previous: TextSegmentRenderItem[],
@@ -54,8 +52,8 @@ export const AssistantTextSegmentList = memo(({
   isOverlayPreview
 }: {
   index: number
-  committedPlaybackInput: AssistantMessagePlaybackInput
-  previewPlaybackInput: AssistantMessagePlaybackInput
+  committedPlaybackInput: AssistantMessageTextPlaybackInput
+  previewPlaybackInput: AssistantMessageTextPlaybackInput
   isLatest: boolean
   onTypingChange?: () => void
   items: TextSegmentRenderItem[]

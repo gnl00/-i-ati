@@ -98,16 +98,14 @@ describe('mapAssistantMessage', () => {
       ]
     })
 
-    expect(renderState.blocks.isOverlayPreview).toBe(true)
-    expect(renderState.blocks.textItems.map(item => item.segment.segmentId)).toEqual([
+    expect(renderState.transcript.isOverlayPreview).toBe(true)
+    expect(renderState.transcript.textItems.map(item => item.segment.segmentId)).toEqual([
       'committed-text',
       'preview-text'
     ])
-    expect(renderState.blocks.supportItems.map(item => item.segment.segmentId)).toEqual([
+    expect(renderState.transcript.supportItems.map(item => item.segment.segmentId)).toEqual([
       'preview-reasoning'
     ])
-    expect(renderState.playback.committed.segments).toHaveLength(1)
-    expect(renderState.playback.preview.segments).toHaveLength(1)
     expect(renderState.header.badgeModel).toBe('gpt-5-preview')
     expect(renderState.header.modelProvider).toBe('openai')
     expect(renderState.header.emotionLabel).toBe('joy')
@@ -140,9 +138,8 @@ describe('mapAssistantMessage', () => {
       accounts: []
     })
 
-    expect(renderState.presence.hasToolCalls).toBe(false)
-    expect(renderState.presence.hasContent).toBe(false)
-    expect(renderState.presence.hasSegments).toBe(false)
+    expect(renderState.transcript.textItems).toHaveLength(0)
+    expect(renderState.transcript.supportItems).toHaveLength(0)
   })
 
   it('falls back to emotion tool segments when unified emotion is absent', () => {
@@ -254,7 +251,7 @@ describe('mapAssistantMessage', () => {
       accounts: []
     })
 
-    expect(renderState.blocks.supportItems.map(item => ({
+    expect(renderState.transcript.supportItems.map(item => ({
       id: item.segment.segmentId,
       isStreamingTail: item.isStreamingTail
     }))).toEqual([

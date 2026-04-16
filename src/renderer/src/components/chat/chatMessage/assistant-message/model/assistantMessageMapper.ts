@@ -24,10 +24,6 @@ type OrderedSegmentRenderItem =
   | { kind: 'text'; item: TextSegmentRenderItem }
   | { kind: 'support'; item: SupportSegmentRenderItem }
 
-type AssistantMessagePlaybackInput = Pick<ChatMessage, 'role' | 'source' | 'typewriterCompleted'> & {
-  segments: TextSegment[]
-}
-
 export interface AssistantMessageSource {
   committedMessage: ChatMessage
   previewMessage?: ChatMessage
@@ -40,52 +36,36 @@ export interface AssistantMessageMapperContext {
   accounts: ProviderAccount[]
 }
 
-export interface AssistantMessageRenderState {
-  header: {
-    badgeModel?: string
-    modelProvider?: string
-    emotionLabel?: string
-    emotionEmoji?: string
-    emotionIntensity?: number
-  }
-  blocks: {
-    isOverlayPreview: boolean
-    textItems: TextSegmentRenderItem[]
-    supportItems: SupportSegmentRenderItem[]
-  }
-  playback: {
-    committed: AssistantMessagePlaybackInput
-    preview: AssistantMessagePlaybackInput
-  }
-  presence: {
-    hasContent: boolean
-    hasSegments: boolean
-    hasToolCalls: boolean
-  }
+export interface AssistantMessageHeaderProjection {
+  badgeModel?: string
+  modelProvider?: string
+  emotionLabel?: string
+  emotionEmoji?: string
+  emotionIntensity?: number
 }
 
-export const EMPTY_PREVIEW_MESSAGE: ChatMessage = {
-  role: 'assistant',
-  content: '',
-  segments: [],
-  source: 'stream_preview',
-  typewriterCompleted: true
+export interface AssistantMessageTranscriptProjection {
+  isOverlayPreview: boolean
+  textItems: TextSegmentRenderItem[]
+  supportItems: SupportSegmentRenderItem[]
+}
+
+export interface AssistantMessageRenderState {
+  header: AssistantMessageHeaderProjection
+  transcript: AssistantMessageTranscriptProjection
 }
 
 function getSegmentRenderKey(segment: MessageSegment): string {
-  return segment.segmentId
-}
-
-export function buildAssistantMessagePlaybackInput(
-  message: ChatMessage | undefined,
-  segments: TextSegment[]
-): AssistantMessagePlaybackInput {
-  return {
-    role: message?.role ?? 'assistant',
-    source: message?.source,
-    typewriterCompleted: message?.typewriterCompleted,
-    segments
+  if (segment.segmentId) {
+    return segment.segmentId
   }
+
+  const timestamp =
+    'timestamp' in segment && typeof segment.timestamp === 'number'
+      ? segment.timestamp
+      : 'na'
+
+  return `${segment.type}:missing:${timestamp}`
 }
 
 function resolveMessageProvider(
@@ -113,7 +93,7 @@ function buildOrderedSegmentItems(args: {
   const orderedItems: OrderedSegmentRenderItem[] = []
 
   segments.forEach((segment, sourceIndex) => {
-    const key = `${layer}-${getSegmentRenderKey(segment)}`
+    const key = `${layer}-${getSegmentRenderKey(segment)}-${sourceIndex}`
     const order = orderOffset + orderedItems.length
 
     if (segment.type === 'text') {
@@ -179,12 +159,6 @@ export function mapAssistantMessage(
   const supportItems = orderedItems
     .filter((entry): entry is { kind: 'support'; item: SupportSegmentRenderItem } => entry.kind === 'support')
     .map(entry => entry.item)
-  const committedTextSegments = textItems
-    .filter((item) => item.layer === 'committed')
-    .map((item) => item.segment)
-  const previewTextSegments = textItems
-    .filter((item) => item.layer === 'preview')
-    .map((item) => item.segment)
 
   return {
     header: {
@@ -194,19 +168,10 @@ export function mapAssistantMessage(
       emotionEmoji: facts.emotion.emoji,
       emotionIntensity: facts.emotion.intensity
     },
-    blocks: {
+    transcript: {
       isOverlayPreview: facts.isOverlayPreview,
       textItems,
       supportItems
-    },
-    playback: {
-      committed: buildAssistantMessagePlaybackInput(committedMessage, committedTextSegments),
-      preview: buildAssistantMessagePlaybackInput(previewMessage ?? EMPTY_PREVIEW_MESSAGE, previewTextSegments)
-    },
-    presence: {
-      hasContent: facts.presence.hasContent,
-      hasSegments: orderedItems.length > 0,
-      hasToolCalls: facts.presence.hasToolCalls
     }
   }
 }
@@ -214,6 +179,5 @@ export function mapAssistantMessage(
 export type {
   SegmentRenderLayer,
   SupportSegmentRenderItem,
-  TextSegmentRenderItem,
-  AssistantMessagePlaybackInput
+  TextSegmentRenderItem
 }

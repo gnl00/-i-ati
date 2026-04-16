@@ -5,11 +5,7 @@ import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 import useChatRun from '@renderer/hooks/useChatRun'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import {
-  shouldRenderAssistantMessageShell
-} from './assistant-message-visibility'
-import {
   AssistantMessageLayout,
-  type AssistantMessageShellModel
 } from './AssistantMessageLayout'
 import { mapAssistantMessage } from './model/assistantMessageMapper'
 import {
@@ -17,10 +13,11 @@ import {
   findLatestRegeneratableUserMessage,
   getAssistantCopyContent
 } from './model/assistantMessageContent'
-import { buildAssistantMessageLayoutState } from './model/assistantMessageLayoutState'
-import type { AssistantMessageHeaderModel } from './AssistantMessageHeader'
-import type { AssistantMessageBodyModel } from './AssistantMessageBody'
-import type { AssistantMessageFooterActionsModel } from './AssistantMessageFooterActions'
+import { buildAssistantMessageCommandState } from './model/assistantMessageCommandState'
+import { buildAssistantMessageFooterState } from './model/assistantMessageFooterState'
+import { buildAssistantMessageLayoutModels } from './model/assistantMessageLayoutModels'
+import { buildAssistantMessageShellState } from './model/assistantMessageShellState'
+import { buildAssistantMessageTextPlaybackModel } from './model/assistantMessageTextPlayback'
 
 export interface AssistantMessageProps {
   index: number
@@ -70,31 +67,51 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     accounts
   }), [committedMessage, previewMessage, isLatest, isStreaming, providerDefinitions, accounts])
 
-  if (!shouldRenderAssistantMessageShell({
-    hasContent: renderState.presence.hasContent,
-    hasSegments: renderState.presence.hasSegments,
-    hasToolCalls: renderState.presence.hasToolCalls,
+  const shellState = useMemo(() => buildAssistantMessageShellState({
+    committedMessage,
+    previewMessage,
     isCommandConfirmPending,
     isLatest,
     isResponseActive: isAssistantResponseActive
-  })) {
+  }), [
+    committedMessage,
+    previewMessage,
+    isCommandConfirmPending,
+    isLatest,
+    isAssistantResponseActive
+  ])
+
+  if (!shellState.shouldRender) {
     return null
   }
 
-  const layoutState = useMemo(() => buildAssistantMessageLayoutState({
-    committedMessage,
-    isLatest,
-    isOverlayPreview: renderState.blocks.isOverlayPreview,
+  const commandState = useMemo(() => buildAssistantMessageCommandState({
     isCommandConfirmPending,
     pendingToolConfirm,
     pendingToolConfirmCount
   }), [
-    committedMessage,
-    isLatest,
-    renderState.blocks.isOverlayPreview,
     isCommandConfirmPending,
     pendingToolConfirm,
     pendingToolConfirmCount
+  ])
+
+  const footerState = useMemo(() => buildAssistantMessageFooterState({
+    committedMessage,
+    isLatest,
+    isOverlayPreview: renderState.transcript.isOverlayPreview
+  }), [
+    committedMessage,
+    isLatest,
+    renderState.transcript.isOverlayPreview
+  ])
+
+  const textPlayback = useMemo(() => buildAssistantMessageTextPlaybackModel({
+    committedMessage,
+    previewMessage
+  }, renderState.transcript.textItems), [
+    committedMessage,
+    previewMessage,
+    renderState.transcript.textItems
   ])
 
   const handleRegenerate = useCallback(() => {
@@ -136,65 +153,54 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     onCopyClick(getAssistantCopyContent(previewMessage ?? committedMessage))
   }, [committedMessage, onCopyClick, previewMessage])
 
-  const shell = useMemo<AssistantMessageShellModel>(() => ({
+  const handleEdit = useCallback(() => {
+    console.log('Edit assistant message:', index)
+  }, [index])
+
+  const layoutModels = useMemo(() => buildAssistantMessageLayoutModels({
     index,
     isLatest,
-    onHover
-  }), [index, isLatest, onHover])
-
-  const header = useMemo<AssistantMessageHeaderModel>(() => ({
-    header: renderState.header,
-    badgeAnimate: isAssistantResponseActive && isLatest
-  }), [renderState.header, isAssistantResponseActive, isLatest])
-
-  const body = useMemo<AssistantMessageBodyModel>(() => ({
-    index,
-    isLatest,
+    committedMessage,
+    isHovered,
+    onHover,
     onTypingChange,
-    blocks: renderState.blocks,
-    playback: renderState.playback,
-    showCommandConfirmation: layoutState.showCommandConfirmation,
-    commandConfirmationRequest: layoutState.commandConfirmationRequest,
+    headerProjection: renderState.header,
+    transcriptProjection: renderState.transcript,
+    textPlayback,
+    commandState,
+    footerState,
+    badgeAnimate: isAssistantResponseActive && isLatest,
+    onCopyClick: handleCopy,
+    onRegenerateClick: handleRegenerate,
+    onEditClick: handleEdit,
     onConfirmCommand: handleConfirmCommand,
     onCancelCommand: handleCancelCommand
   }), [
     index,
     isLatest,
+    committedMessage,
+    isHovered,
+    onHover,
     onTypingChange,
-    renderState.blocks,
-    renderState.playback,
-    layoutState.showCommandConfirmation,
-    layoutState.commandConfirmationRequest,
+    renderState.header,
+    renderState.transcript,
+    textPlayback,
+    commandState,
+    footerState,
+    isAssistantResponseActive,
+    handleCopy,
+    handleRegenerate,
+    handleEdit,
     handleConfirmCommand,
     handleCancelCommand
   ])
 
-  const footer = useMemo<AssistantMessageFooterActionsModel>(() => ({
-    committedMessage,
-    isHovered,
-    showOperations: layoutState.showOperations,
-    showRegenerate: layoutState.showRegenerate,
-    onCopyClick: handleCopy,
-    onRegenerateClick: handleRegenerate,
-    onEditClick: () => {
-      console.log('Edit assistant message:', index)
-    }
-  }), [
-    committedMessage,
-    isHovered,
-    layoutState.showOperations,
-    layoutState.showRegenerate,
-    handleCopy,
-    handleRegenerate,
-    index
-  ])
-
   return (
     <AssistantMessageLayout
-      shell={shell}
-      header={header}
-      body={body}
-      footer={footer}
+      shell={layoutModels.shell}
+      header={layoutModels.header}
+      body={layoutModels.body}
+      footer={layoutModels.footer}
     />
   )
 })

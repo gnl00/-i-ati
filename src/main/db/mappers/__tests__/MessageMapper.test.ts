@@ -66,4 +66,48 @@ describe('messageMapper', () => {
       })
     })
   })
+
+  it('normalizes legacy segments without segmentId when reading and writing rows', () => {
+    const legacyMessage: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      segments: [
+        {
+          type: 'reasoning',
+          content: 'thinking',
+          timestamp: 1
+        } as ReasoningSegment,
+        {
+          type: 'toolCall',
+          name: 'read_file',
+          content: { toolName: 'read_file', status: 'completed' },
+          timestamp: 2
+        } as ToolCallSegment
+      ]
+    }
+
+    const insertRow = toMessageInsertRow({
+      chatUuid: 'chat-legacy',
+      body: legacyMessage
+    } as MessageEntity)
+    const insertBody = JSON.parse(insertRow.body) as ChatMessage
+
+    expect(insertBody.segments?.map((segment) => segment.segmentId)).toEqual([
+      'db-message:chat-legacy:reasoning:0',
+      'db-message:chat-legacy:toolCall:1'
+    ])
+
+    const entity = toMessageEntity({
+      id: 4,
+      chat_id: 1,
+      chat_uuid: 'chat-1',
+      body: JSON.stringify(legacyMessage),
+      tokens: 12
+    })
+
+    expect(entity.body.segments?.map((segment) => segment.segmentId)).toEqual([
+      'db-message:4:reasoning:0',
+      'db-message:4:toolCall:1'
+    ])
+  })
 })
