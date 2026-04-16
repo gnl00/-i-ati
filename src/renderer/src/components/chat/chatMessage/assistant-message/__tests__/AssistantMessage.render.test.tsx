@@ -7,6 +7,7 @@ import { useChatStore } from '@renderer/store/chatStore'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 
 const toolCallRenderCounts = new Map<string, number>()
+let headerRenderCount = 0
 
 vi.mock('@renderer/hooks/useChatRun', () => ({
   default: () => ({
@@ -40,7 +41,10 @@ vi.mock('../CommandConfirmation', () => ({
 }))
 
 vi.mock('../model-badge/ModelBadgeNext', () => ({
-  ModelBadgeNext: () => null
+  ModelBadgeNext: () => {
+    headerRenderCount += 1
+    return null
+  }
 }))
 
 vi.mock('../segments/TextSegment', () => ({
@@ -56,8 +60,8 @@ vi.mock('../segments/ReasoningSegmentNext', () => ({
 }))
 
 vi.mock('../typewriter/StreamingMarkdownSwitch', () => ({
-  StreamingMarkdownSwitch: ({ text, visibleTokens }: { text: string; visibleTokens?: string[] }) => (
-    <div data-testid="streaming-markdown">{visibleTokens ? visibleTokens.join('') : text}</div>
+  StreamingMarkdownSwitch: ({ text, visibleText }: { text: string; visibleText?: string }) => (
+    <div data-testid="streaming-markdown">{visibleText ?? text}</div>
   )
 }))
 
@@ -124,6 +128,7 @@ describe('AssistantMessage render isolation', () => {
 
 beforeEach(() => {
   toolCallRenderCounts.clear()
+  headerRenderCount = 0
   ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   container = document.createElement('div')
   document.body.appendChild(container)
@@ -189,6 +194,48 @@ beforeEach(() => {
     ], 'hello world again'))
 
     expect(toolCallRenderCounts.get('committed:step-1:tool:tool-1')).toBe(1)
+  })
+
+  it('does not rerender the header subtree when only text changes', async () => {
+    const renderMessage = async (message: ChatMessage) => {
+      await act(async () => {
+        root.render(
+          <AssistantMessage
+            index={0}
+            committedMessage={message}
+            isLatest={true}
+            isHovered={false}
+            onHover={() => {}}
+            onCopyClick={() => {}}
+          />
+        )
+      })
+    }
+
+    await renderMessage({
+      ...createAssistantMessage([
+        textSegment('committed:step-1:text:0', 'hello')
+      ], 'hello'),
+      model: 'gpt-5'
+    })
+
+    expect(headerRenderCount).toBe(1)
+
+    await renderMessage({
+      ...createAssistantMessage([
+        textSegment('committed:step-1:text:0', 'hello world')
+      ], 'hello world'),
+      model: 'gpt-5'
+    })
+
+    await renderMessage({
+      ...createAssistantMessage([
+        textSegment('committed:step-1:text:0', 'hello world again')
+      ], 'hello world again'),
+      model: 'gpt-5'
+    })
+
+    expect(headerRenderCount).toBe(1)
   })
 
   it('rerenders the toolcall subtree when the tool segment itself changes', async () => {

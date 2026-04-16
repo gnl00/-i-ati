@@ -22,25 +22,30 @@ const areTextSegmentRenderItemsEqual = (
 
 const AssistantTextSegmentItem = memo(({
   item,
-  typewriter,
-  isOverlayPreview
+  shouldRender,
+  visibleText,
+  isTyping
 }: {
   item: TextSegmentRenderItem
-  typewriter: ReturnType<typeof useMessageTypewriter>
-  isOverlayPreview: boolean
+  shouldRender: boolean
+  visibleText?: string
+  isTyping: boolean
 }) => {
-  const { segment, key, layer, sourceIndex } = item
-  const isTypedLayer = layer === 'preview' || !isOverlayPreview
-  if (isTypedLayer && !typewriter.shouldRenderSegment(sourceIndex)) {
+  if (!shouldRender) {
     return null
   }
 
-  const visibleTokenCount = isTypedLayer ? typewriter.getSegmentVisibleLength(sourceIndex) : Infinity
-  const isTyping = visibleTokenCount !== Infinity
-  const visibleTokens = isTyping ? typewriter.getVisibleTokens(sourceIndex) : undefined
-
-  return <AssistantTextSegmentContent key={key} segment={segment} visibleTokens={visibleTokens} isTyping={isTyping} />
-})
+  return <AssistantTextSegmentContent segment={item.segment} visibleText={visibleText} isTyping={isTyping} />
+}, (prevProps, nextProps) => (
+  prevProps.item.key === nextProps.item.key
+  && prevProps.item.layer === nextProps.item.layer
+  && prevProps.item.sourceIndex === nextProps.item.sourceIndex
+  && prevProps.item.order === nextProps.item.order
+  && prevProps.item.segment === nextProps.item.segment
+  && prevProps.shouldRender === nextProps.shouldRender
+  && prevProps.visibleText === nextProps.visibleText
+  && prevProps.isTyping === nextProps.isTyping
+))
 
 export const AssistantTextSegmentList = memo(({
   index,
@@ -63,24 +68,36 @@ export const AssistantTextSegmentList = memo(({
     index,
     message: committedPlaybackInput,
     isLatest,
+    playbackEnabled: !isOverlayPreview,
     onTypingChange
   })
   const previewTypewriter = useMessageTypewriter({
     index,
     message: previewPlaybackInput,
     isLatest,
+    playbackEnabled: isOverlayPreview,
     onTypingChange
   })
 
   return items.map((item) => {
     const typewriter = item.layer === 'preview' ? previewTypewriter : committedTypewriter
+    const isTypedLayer = item.layer === 'preview' || !isOverlayPreview
+    const shouldRender = !isTypedLayer || typewriter.shouldRenderSegment(item.sourceIndex)
+    const visibleLength = isTypedLayer && shouldRender
+      ? typewriter.getSegmentVisibleLength(item.sourceIndex)
+      : Infinity
+    const isTyping = visibleLength !== Infinity
+    const visibleText = isTyping
+      ? typewriter.getVisibleTokens(item.sourceIndex).join('')
+      : undefined
 
     return (
       <div key={item.key} style={{ order: item.order }}>
         <AssistantTextSegmentItem
           item={item}
-          typewriter={typewriter}
-          isOverlayPreview={isOverlayPreview}
+          shouldRender={shouldRender}
+          visibleText={visibleText}
+          isTyping={isTyping}
         />
       </div>
     )

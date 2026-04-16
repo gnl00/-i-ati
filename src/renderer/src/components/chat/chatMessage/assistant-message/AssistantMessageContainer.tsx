@@ -1,11 +1,11 @@
-import React, { memo, useCallback, useMemo } from 'react'
+import React, { memo, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useChatStore } from '@renderer/store/chatStore'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 import useChatRun from '@renderer/hooks/useChatRun'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import {
-  AssistantMessageLayout,
+  AssistantMessageLayout
 } from './AssistantMessageLayout'
 import { mapAssistantMessage } from './model/assistantMessageMapper'
 import {
@@ -15,9 +15,14 @@ import {
 } from './model/assistantMessageContent'
 import { buildAssistantMessageCommandState } from './model/assistantMessageCommandState'
 import { buildAssistantMessageFooterState } from './model/assistantMessageFooterState'
-import { buildAssistantMessageLayoutModels } from './model/assistantMessageLayoutModels'
 import { buildAssistantMessageShellState } from './model/assistantMessageShellState'
 import { buildAssistantMessageTextPlaybackModel } from './model/assistantMessageTextPlayback'
+import {
+  buildAssistantMessageBodyModel,
+  buildAssistantMessageFooterModel,
+  buildAssistantMessageHeaderModel,
+  buildAssistantMessageShellModel
+} from './model/assistantMessageLayoutModels'
 
 export interface AssistantMessageProps {
   index: number
@@ -113,6 +118,8 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     previewMessage,
     renderState.transcript.textItems
   ])
+  const copyContentRef = useRef(getAssistantCopyContent(previewMessage ?? committedMessage))
+  copyContentRef.current = getAssistantCopyContent(previewMessage ?? committedMessage)
 
   const handleRegenerate = useCallback(() => {
     if (isRunBusy) {
@@ -150,57 +157,84 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   }, [cancel, pendingToolConfirm])
 
   const handleCopy = useCallback(() => {
-    onCopyClick(getAssistantCopyContent(previewMessage ?? committedMessage))
-  }, [committedMessage, onCopyClick, previewMessage])
+    onCopyClick(copyContentRef.current)
+  }, [onCopyClick])
 
   const handleEdit = useCallback(() => {
     console.log('Edit assistant message:', index)
   }, [index])
 
-  const layoutModels = useMemo(() => buildAssistantMessageLayoutModels({
+  const shellModel = useMemo(() => buildAssistantMessageShellModel({
     index,
     isLatest,
-    committedMessage,
-    isHovered,
-    onHover,
+    onHover
+  }), [
+    index,
+    isLatest,
+    onHover
+  ])
+
+  const headerModel = useMemo(() => buildAssistantMessageHeaderModel({
+    headerProjection: {
+      badgeModel: renderState.header.badgeModel,
+      modelProvider: renderState.header.modelProvider,
+      emotionLabel: renderState.header.emotionLabel,
+      emotionEmoji: renderState.header.emotionEmoji,
+      emotionIntensity: renderState.header.emotionIntensity
+    },
+    badgeAnimate: isAssistantResponseActive && isLatest
+  }), [
+    renderState.header.badgeModel,
+    renderState.header.modelProvider,
+    renderState.header.emotionLabel,
+    renderState.header.emotionEmoji,
+    renderState.header.emotionIntensity,
+    isAssistantResponseActive,
+    isLatest
+  ])
+
+  const bodyModel = useMemo(() => buildAssistantMessageBodyModel({
+    index,
+    isLatest,
     onTypingChange,
-    headerProjection: renderState.header,
     transcriptProjection: renderState.transcript,
     textPlayback,
     commandState,
-    footerState,
-    badgeAnimate: isAssistantResponseActive && isLatest,
-    onCopyClick: handleCopy,
-    onRegenerateClick: handleRegenerate,
-    onEditClick: handleEdit,
     onConfirmCommand: handleConfirmCommand,
     onCancelCommand: handleCancelCommand
   }), [
     index,
     isLatest,
-    committedMessage,
-    isHovered,
-    onHover,
     onTypingChange,
-    renderState.header,
     renderState.transcript,
     textPlayback,
     commandState,
-    footerState,
-    isAssistantResponseActive,
-    handleCopy,
-    handleRegenerate,
-    handleEdit,
     handleConfirmCommand,
     handleCancelCommand
   ])
 
+  const footerModel = useMemo(() => buildAssistantMessageFooterModel({
+    committedMessage,
+    isHovered,
+    footerState,
+    onCopyClick: handleCopy,
+    onRegenerateClick: handleRegenerate,
+    onEditClick: handleEdit
+  }), [
+    committedMessage.createdAt,
+    isHovered,
+    footerState,
+    handleCopy,
+    handleRegenerate,
+    handleEdit
+  ])
+
   return (
     <AssistantMessageLayout
-      shell={layoutModels.shell}
-      header={layoutModels.header}
-      body={layoutModels.body}
-      footer={layoutModels.footer}
+      shell={shellModel}
+      header={headerModel}
+      body={bodyModel}
+      footer={footerModel}
     />
   )
 })

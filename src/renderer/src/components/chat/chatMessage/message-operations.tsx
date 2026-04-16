@@ -16,7 +16,7 @@ const formatDateTime24h = (timestamp: number): string => {
 
 export interface MessageOperationButtonsProps {
   type: 'user' | 'assistant'
-  message: ChatMessage | undefined
+  message: Pick<ChatMessage, 'createdAt'> | undefined
   isHovered: boolean
   onCopyClick: () => void
   onEditClick?: () => void

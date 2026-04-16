@@ -34,37 +34,81 @@ export interface AssistantMessageLayoutModels {
   footer: AssistantMessageFooterActionsModel
 }
 
+export function buildAssistantMessageShellModel(
+  input: Pick<BuildAssistantMessageLayoutModelsInput, 'index' | 'isLatest' | 'onHover'>
+): AssistantMessageShellModel {
+  return {
+    index: input.index,
+    isLatest: input.isLatest,
+    onHover: input.onHover
+  }
+}
+
+export function buildAssistantMessageHeaderModel(
+  input: Pick<BuildAssistantMessageLayoutModelsInput, 'headerProjection' | 'badgeAnimate'>
+): AssistantMessageHeaderModel {
+  return {
+    header: input.headerProjection,
+    badgeAnimate: input.badgeAnimate
+  }
+}
+
+export function buildAssistantMessageBodyModel(
+  input: Pick<
+    BuildAssistantMessageLayoutModelsInput,
+    | 'index'
+    | 'isLatest'
+    | 'onTypingChange'
+    | 'transcriptProjection'
+    | 'textPlayback'
+    | 'commandState'
+    | 'onConfirmCommand'
+    | 'onCancelCommand'
+  >
+): AssistantMessageBodyModel {
+  return {
+    index: input.index,
+    isLatest: input.isLatest,
+    onTypingChange: input.onTypingChange,
+    transcript: input.transcriptProjection,
+    textPlayback: input.textPlayback,
+    commandConfirmationRequest: input.commandState.commandConfirmationRequest,
+    onConfirmCommand: input.onConfirmCommand,
+    onCancelCommand: input.onCancelCommand
+  }
+}
+
+export function buildAssistantMessageFooterModel(
+  input: Pick<
+    BuildAssistantMessageLayoutModelsInput,
+    | 'committedMessage'
+    | 'isHovered'
+    | 'footerState'
+    | 'onCopyClick'
+    | 'onRegenerateClick'
+    | 'onEditClick'
+  >
+): AssistantMessageFooterActionsModel {
+  return {
+    messageMeta: input.committedMessage.createdAt == null
+      ? undefined
+      : { createdAt: input.committedMessage.createdAt },
+    isHovered: input.isHovered,
+    showOperations: input.footerState.showOperations,
+    showRegenerate: input.footerState.showRegenerate,
+    onCopyClick: input.onCopyClick,
+    onRegenerateClick: input.onRegenerateClick,
+    onEditClick: input.onEditClick
+  }
+}
+
 export function buildAssistantMessageLayoutModels(
   input: BuildAssistantMessageLayoutModelsInput
 ): AssistantMessageLayoutModels {
   return {
-    shell: {
-      index: input.index,
-      isLatest: input.isLatest,
-      onHover: input.onHover
-    },
-    header: {
-      header: input.headerProjection,
-      badgeAnimate: input.badgeAnimate
-    },
-    body: {
-      index: input.index,
-      isLatest: input.isLatest,
-      onTypingChange: input.onTypingChange,
-      transcript: input.transcriptProjection,
-      textPlayback: input.textPlayback,
-      commandConfirmationRequest: input.commandState.commandConfirmationRequest,
-      onConfirmCommand: input.onConfirmCommand,
-      onCancelCommand: input.onCancelCommand
-    },
-    footer: {
-      committedMessage: input.committedMessage,
-      isHovered: input.isHovered,
-      showOperations: input.footerState.showOperations,
-      showRegenerate: input.footerState.showRegenerate,
-      onCopyClick: input.onCopyClick,
-      onRegenerateClick: input.onRegenerateClick,
-      onEditClick: input.onEditClick
-    }
+    shell: buildAssistantMessageShellModel(input),
+    header: buildAssistantMessageHeaderModel(input),
+    body: buildAssistantMessageBodyModel(input),
+    footer: buildAssistantMessageFooterModel(input)
   }
 }

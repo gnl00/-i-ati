@@ -12,24 +12,24 @@ import { loadKatexStyles } from '@renderer/utils/styleLoaders'
 
 export const StreamingMarkdownSwitch: React.FC<{
   text: string
-  visibleTokens?: string[]
+  visibleText?: string
   isTyping: boolean
   className?: string
-}> = memo(({ text, visibleTokens, isTyping, className }) => {
+}> = memo(({ text, visibleText, isTyping, className }) => {
   useEffect(() => {
     void loadKatexStyles()
   }, [])
 
   const fixedFullText = useMemo(() => fixMalformedCodeBlocks(text), [text])
 
-  const visibleText = useMemo(() => {
-    if (!visibleTokens) return fixedFullText
-    return fixMalformedCodeBlocks(visibleTokens.join(''))
-  }, [visibleTokens, fixedFullText])
+  const fixedVisibleText = useMemo(() => {
+    if (visibleText === undefined) return fixedFullText
+    return fixMalformedCodeBlocks(visibleText)
+  }, [visibleText, fixedFullText])
 
   const proseBoxClassName = cn("flow-root", className)
 
-  if (!isTyping || !visibleTokens) {
+  if (!isTyping || visibleText === undefined) {
     return (
       <div className={proseBoxClassName}>
         <ReactMarkdown
@@ -48,7 +48,7 @@ export const StreamingMarkdownSwitch: React.FC<{
 
   return (
     <StreamingMarkdownLite
-      text={visibleText}
+      text={fixedVisibleText}
       className={proseBoxClassName}
       animate
     />

@@ -2,7 +2,7 @@ import React, { memo } from 'react'
 import { MessageOperations } from '../message-operations'
 
 export interface AssistantMessageFooterActionsModel {
-  committedMessage: ChatMessage
+  messageMeta?: Pick<ChatMessage, 'createdAt'>
   isHovered: boolean
   showOperations: boolean
   showRegenerate: boolean
@@ -19,7 +19,7 @@ export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActio
   model
 }) => {
   const {
-    committedMessage,
+    messageMeta,
     isHovered,
     showOperations,
     showRegenerate,
@@ -34,7 +34,7 @@ export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActio
 
   return (
     <MessageOperations
-      message={committedMessage}
+      message={messageMeta}
       type="assistant"
       isHovered={isHovered}
       showRegenerate={showRegenerate}

@@ -26,17 +26,17 @@ vi.mock('../segments/TextSegment', () => ({
 vi.mock('../../typewriter/StreamingMarkdownSwitch', () => ({
   StreamingMarkdownSwitch: ({
     text,
-    visibleTokens,
+    visibleText,
     isTyping
   }: {
     text: string
-    visibleTokens?: string[]
+    visibleText?: string
     isTyping: boolean
   }) => (
     <div
       data-testid="streaming-markdown"
       data-text={text}
-      data-visible={visibleTokens?.join('') ?? ''}
+      data-visible={visibleText ?? ''}
       data-typing={isTyping ? 'yes' : 'no'}
     />
   )
@@ -56,7 +56,7 @@ describe('AssistantTextSegmentContent', () => {
           content: '```ts\\nconst x = 1\\n```',
           timestamp: 1
         }}
-        visibleTokens={['```ts\\n', 'const x = 1\\n', '```']}
+        visibleText={'```ts\\nconst x = 1\\n```'}
         isTyping={true}
       />
     )
@@ -76,7 +76,7 @@ describe('AssistantTextSegmentContent', () => {
           content: 'hello world',
           timestamp: 1
         }}
-        visibleTokens={['hello', ' ', 'world']}
+        visibleText="hello world"
         isTyping={true}
       />
     )
@@ -95,7 +95,7 @@ describe('AssistantTextSegmentContent', () => {
           content: 'hello world',
           timestamp: 1
         }}
-        visibleTokens={['hello', ' ', 'world']}
+        visibleText="hello world"
         isTyping={true}
       />
     )

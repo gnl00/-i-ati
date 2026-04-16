@@ -16,6 +16,7 @@ export interface UseMessageTypewriterProps {
   index: number
   message: MessageTypewriterInput
   isLatest: boolean
+  playbackEnabled?: boolean
   onTypingChange?: () => void
 }
 
@@ -38,11 +39,11 @@ export interface UseMessageTypewriterReturn {
 export function useMessageTypewriter(
   props: UseMessageTypewriterProps
 ): UseMessageTypewriterReturn {
-  const { index, message: m, isLatest, onTypingChange } = props
+  const { index, message: m, isLatest, playbackEnabled = true, onTypingChange } = props
   const runPhase = useChatStore(state => state.runPhase)
 
   const segments = m.segments || []
-  const enabled = m.role === 'assistant' && isLatest && !m.typewriterCompleted
+  const enabled = playbackEnabled && m.role === 'assistant' && isLatest && !m.typewriterCompleted
   const isStreaming = runPhase === 'streaming' && isLatest
 
   const handlePlaybackComplete = usePersistTypewriterCompletion({

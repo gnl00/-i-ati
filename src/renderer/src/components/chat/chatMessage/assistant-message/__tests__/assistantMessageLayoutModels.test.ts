@@ -79,11 +79,7 @@ describe('buildAssistantMessageLayoutModels', () => {
     expect(models.body.commandConfirmationRequest?.command).toBe('ls')
     expect(models.body.onConfirmCommand).toBe(onConfirmCommand)
     expect(models.footer).toEqual({
-      committedMessage: {
-        role: 'assistant',
-        content: 'hello',
-        segments: []
-      },
+      messageMeta: undefined,
       isHovered: true,
       showOperations: true,
       showRegenerate: true,

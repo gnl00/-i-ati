@@ -11,16 +11,15 @@ const ASSISTANT_TEXT_PROSE_CLASS_NAME =
 
 export interface AssistantTextSegmentContentProps {
   segment: TextSegment
-  visibleTokens?: string[]
+  visibleText?: string
   isTyping: boolean
 }
 
 export const AssistantTextSegmentContent: React.FC<AssistantTextSegmentContentProps> = memo(({
   segment,
-  visibleTokens,
+  visibleText,
   isTyping
 }) => {
-  const visibleText = visibleTokens ? visibleTokens.join('') : undefined
   const hasCode = segment.content.includes('```') || segment.content.includes('`')
 
   if (hasCode) {
@@ -42,7 +41,7 @@ export const AssistantTextSegmentContent: React.FC<AssistantTextSegmentContentPr
   return (
     <StreamingMarkdownSwitch
       text={segment.content}
-      visibleTokens={visibleTokens}
+      visibleText={visibleText}
       isTyping={isTyping}
       className={ASSISTANT_TEXT_PROSE_CLASS_NAME}
     />
