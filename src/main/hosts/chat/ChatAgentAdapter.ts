@@ -71,9 +71,11 @@ export class ChatAgentAdapter {
     emitter,
     stepCommitter
   }: FinalizeRunArgs): Promise<FinalizeRunResult> {
+    const usage = stepResult.usage ?? stepCommitter.getLastUsage()
     const updatedAssistantMessage = await this.finalizeService.finalizeAssistantMessage(
       chatContext.assistantPlaceholder,
-      stepCommitter.getFinalAssistantMessage()
+      stepCommitter.getFinalAssistantMessage(),
+      usage
     )
     const finalizedChat = this.finalizeService.finalizeChatEntity(
       chatContext.chat,
@@ -88,7 +90,7 @@ export class ChatAgentAdapter {
       runResult: {
         userMessageId: chatContext.createdMessages[0]?.id,
         assistantMessageId: updatedAssistantMessage.id,
-        usage: stepResult.usage ?? stepCommitter.getLastUsage(),
+        usage,
         state: 'completed'
       },
       postRunInput: {

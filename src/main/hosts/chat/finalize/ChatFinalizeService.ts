@@ -8,9 +8,10 @@ export class ChatFinalizeService {
 
   async finalizeAssistantMessage(
     placeholder: MessageEntity,
-    finalAssistantMessage: MessageEntity
+    finalAssistantMessage: MessageEntity,
+    usage?: ITokenUsage
   ): Promise<MessageEntity> {
-    return this.chatStepStore.finalizeAssistantMessage(placeholder, finalAssistantMessage)
+    return this.chatStepStore.finalizeAssistantMessage(placeholder, finalAssistantMessage, usage)
   }
 
   async settleAbortedAssistantMessage(

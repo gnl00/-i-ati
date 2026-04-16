@@ -112,8 +112,14 @@ describe('ChatAgentAdapter', () => {
 
   it('emits final assistant message update after finalizeRun', async () => {
     const adapter = new ChatAgentAdapter(preparationPipeline as any, finalizeService as any)
+    const usage = {
+      promptTokens: 12,
+      completionTokens: 8,
+      totalTokens: 20
+    }
     const finalizedAssistantMessage = {
       id: 102,
+      tokens: 20,
       body: {
         role: 'assistant',
         content: 'hello',
@@ -147,6 +153,7 @@ describe('ChatAgentAdapter', () => {
       stepResult: {
         completed: true,
         finishReason: 'completed',
+        usage,
         requestHistoryMessages: [],
         artifacts: []
       },
@@ -160,9 +167,15 @@ describe('ChatAgentAdapter', () => {
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_UPDATED, {
       message: finalizedAssistantMessage
     })
+    expect(finalizeService.finalizeAssistantMessage).toHaveBeenCalledWith(
+      prepared.chatContext.assistantPlaceholder,
+      finalizedAssistantMessage,
+      usage
+    )
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_HOST_EVENTS.CHAT_UPDATED, {
       chatEntity: finalizedChat
     })
     expect(result.runResult.assistantMessageId).toBe(102)
+    expect(result.runResult.usage).toEqual(usage)
   })
 })

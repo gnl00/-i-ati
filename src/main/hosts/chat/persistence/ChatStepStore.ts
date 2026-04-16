@@ -107,7 +107,8 @@ export class ChatStepStore implements ConversationStore {
 
   async finalizeAssistantMessage(
     placeholder: MessageEntity,
-    finalAssistantMessage: MessageEntity
+    finalAssistantMessage: MessageEntity,
+    usage?: ITokenUsage
   ): Promise<MessageEntity> {
     const content = finalAssistantMessage.body.segments?.length
       ? extractContentFromSegments(finalAssistantMessage.body.segments)
@@ -123,6 +124,7 @@ export class ChatStepStore implements ConversationStore {
 
     const updated: MessageEntity = {
       ...placeholder,
+      ...(usage ? { tokens: usage.totalTokens } : {}),
       body: {
         ...finalAssistantMessage.body,
         content,
