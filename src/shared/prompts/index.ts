@@ -242,6 +242,9 @@ emotion_report is also mandatory before the final user-facing answer in this tur
 - 如果 user info 缺失，默认先简短提问并在获得回答后立刻使用 \`user_info_set\` 保存完整资料；不要静默跳过，除非是紧急/安全场景、用户要求先处理任务，或用户明确拒绝提供资料
 - 配置 Telegram bot 时，优先使用 \`telegram_setup_tool\`；不要先手工改 config 再尝试启动
 - \`telegram_setup_tool\` 的语义是：传入 bot token，验证并启动 gateway，只有启动成功后才保存配置
+- 需要主动发 Telegram 消息时，优先判断当前 chat 是否已经绑定 Telegram 目标；已绑定时可直接使用 \`telegram_send_message\`
+- 需要跨 chat 或目标不明确时，先用 \`telegram_search_targets\` 解析 reachable target，再用 \`telegram_send_message\`
+- \`telegram_send_message\` 的目标优先级是：\`target_chat_uuid\` > 当前 chat 的 Telegram binding > 显式 \`chat_id / thread_id\`
 
 **Recent Context Retrieval**：
 - \`history_search\` 用于检索最近 3 天内的原始对话内容，支持 title 和 message 命中
@@ -413,6 +416,8 @@ Do not restate the entire profile; only use what is relevant.
 - 用户问“我长期偏好是什么、之前定过什么稳定规则？” → 优先使用 memory_retrieval
 - 每轮对话在最终回复前都必须按 emotion system 调用 \`emotion_report\`
 - 用户说“帮我配置 Telegram bot / 这是 bot token，接上 Telegram” → 优先使用 \`telegram_setup_tool\`
+- 用户说“发条 Telegram 给 Alice / 给群里主动发个提醒 / 晚上 8 点发我一句话” → 当前 chat 已绑定 Telegram 时优先使用 \`telegram_send_message\`
+- 用户说“给 Telegram 上那个 Alice 发消息，但当前不在那个 chat 里” → 先用 \`telegram_search_targets\`，再用 \`telegram_send_message\`
 - 用户说“帮我看看为什么报错 / 为什么启动失败 / 为什么最近变慢了” → 优先使用 \`log_search\`
 - 完成某件事情，或者值得记录的动作，如“接通 remote plugin install”或“修复 scheduler race condition” → 使用 activity_journal_append
 - 只是检查代码、浏览日志、验证假设但没有形成新决定或里程碑 → 不要使用 activity_journal_append

@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { net } from 'electron'
 import { Bot } from 'grammy'
+import { configDb } from '@main/db/config'
 import { RunService } from '@main/orchestration/chat/run'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
@@ -47,6 +48,28 @@ export class TelegramGatewayService {
   private toPreview(value: string, limit = 400): string {
     const normalized = value.replace(/\r\n?/g, '\n').trim()
     return normalized.length > limit ? `${normalized.slice(0, limit)}…` : normalized
+  }
+
+  private persistBotIdentity(botToken: string, botProfile: { botUsername?: string; botId?: string }): void {
+    try {
+      const config = this.appConfigStore.getConfig()
+      if (!config?.telegram?.botToken || config.telegram.botToken !== botToken) {
+        return
+      }
+
+      configDb.saveConfig({
+        ...config,
+        telegram: {
+          ...config.telegram,
+          botUsername: botProfile.botUsername,
+          botId: botProfile.botId
+        }
+      })
+    } catch (error) {
+      this.logger.warn('bot_identity.persist_failed', {
+        message: error instanceof Error ? error.message : String(error)
+      })
+    }
   }
 
   getStatus(): {
@@ -428,6 +451,10 @@ export class TelegramGatewayService {
       this.lastUpdateId = 0
       this.botUsername = me.username
       this.botId = String(me.id)
+      this.persistBotIdentity(botToken, {
+        botUsername: this.botUsername,
+        botId: this.botId
+      })
       this.lastSuccessfulPollAt = undefined
       this.lastMessageProcessedAt = undefined
       const startTimeout = setTimeout(() => {
@@ -459,6 +486,10 @@ export class TelegramGatewayService {
           bot.botInfo = botInfo
           this.botUsername = botInfo.username
           this.botId = String(botInfo.id)
+          this.persistBotIdentity(botToken, {
+            botUsername: this.botUsername,
+            botId: this.botId
+          })
           this.starting = false
           this.running = true
           this.lastSuccessfulPollAt = Date.now()

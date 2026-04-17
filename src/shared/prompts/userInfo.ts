@@ -3,6 +3,14 @@ const displayValue = (value?: string): string => {
   return trimmed && trimmed.length > 0 ? trimmed : 'unknown'
 }
 
+type PromptTelegramHostInfo = {
+  enabled?: boolean
+  botUsername?: string
+  botId?: string
+  mode?: 'polling' | 'webhook'
+  proactiveMessagingAvailable?: boolean
+}
+
 const hasPreferredAddress = (info?: UserInfo): boolean => {
   return Boolean(info?.preferredAddress?.trim())
 }
@@ -20,9 +28,21 @@ const hasCoreUserInfo = (info?: UserInfo): boolean => {
   ].some(value => Boolean(value?.trim()))
 }
 
-export const buildUserInfoPrompt = (info?: UserInfo): string => {
+export const buildUserInfoPrompt = (
+  info?: UserInfo,
+  runtime?: {
+    telegram?: PromptTelegramHostInfo
+  }
+): string => {
   const hasInfo = hasCoreUserInfo(info)
   const hasAddress = hasPreferredAddress(info)
+  const telegram = runtime?.telegram
+  const hasTelegramInfo = Boolean(
+    telegram?.enabled
+    || telegram?.botUsername?.trim()
+    || telegram?.botId?.trim()
+    || telegram?.mode
+  )
 
   return [
     '<user_info>',
@@ -31,6 +51,17 @@ export const buildUserInfoPrompt = (info?: UserInfo): string => {
     `- Preferred address: ${displayValue(info?.preferredAddress)}`,
     `- Basic info: ${displayValue(info?.basicInfo)}`,
     `- Preferences: ${displayValue(info?.preferences)}`,
+    hasTelegramInfo
+      ? [
+          '',
+          '### Telegram Host',
+          `- Enabled: ${telegram?.enabled ? 'true' : 'false'}`,
+          `- Bot username: ${displayValue(telegram?.botUsername)}`,
+          `- Bot ID: ${displayValue(telegram?.botId)}`,
+          `- Mode: ${telegram?.mode ?? 'unknown'}`,
+          `- Proactive messaging: ${telegram?.proactiveMessagingAvailable ? 'available' : 'unavailable'}`
+        ].join('\n')
+      : '',
     '',
     '### Priority',
     '- Safety constraints override everything else.',
@@ -40,6 +71,7 @@ export const buildUserInfoPrompt = (info?: UserInfo): string => {
     '### Usage',
     '- Treat the user_info fields above as stable facts or stable preferences unless the user explicitly updates them.',
     '- Do not invent missing user info. Unknown means unknown.',
+    '- Telegram proactive messaging requires resolving a reachable Telegram target before sending.',
     '',
     hasAddress
       ? ''

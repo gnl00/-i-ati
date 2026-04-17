@@ -99,6 +99,8 @@ declare interface UserInfo {
 declare interface TelegramChannelConfig {
   enabled?: boolean
   botToken?: string
+  botUsername?: string
+  botId?: string
   mode?: 'polling' | 'webhook'
   webhookUrl?: string
   webhookSecret?: string
