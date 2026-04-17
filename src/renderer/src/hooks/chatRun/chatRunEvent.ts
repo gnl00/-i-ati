@@ -1,5 +1,6 @@
 import { subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
 import { useChatStore } from '@renderer/store/chatStore'
+import { scheduleAssistantStreamingPerfRecentSessionFlush } from '@renderer/components/chat/chatMessage/typewriter/assistantStreamingPerf'
 import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
@@ -189,6 +190,9 @@ export async function handleChatRunEvent(
       return
     }
     case RUN_LIFECYCLE_EVENTS.RUN_COMPLETED:
+      scheduleAssistantStreamingPerfRecentSessionFlush({
+        reason: 'run_completed'
+      })
       void clearPreviousErrorMessage({
         lastErrorMessage: lastErrorMessageRef.current,
         clearedErrorMessageIds: clearedErrorMessageIdsRef.current
@@ -205,6 +209,9 @@ export async function handleChatRunEvent(
       }
       return
     case RUN_LIFECYCLE_EVENTS.RUN_FAILED: {
+      scheduleAssistantStreamingPerfRecentSessionFlush({
+        reason: 'run_failed'
+      })
       chatStore.resetPreview()
       chatStore.setLastRunOutcome('failed')
       const error = normalizeRunError(event.payload.error)
@@ -221,6 +228,9 @@ export async function handleChatRunEvent(
       return
     }
     case RUN_LIFECYCLE_EVENTS.RUN_ABORTED:
+      scheduleAssistantStreamingPerfRecentSessionFlush({
+        reason: 'run_aborted'
+      })
       chatStore.resetPreview()
       chatStore.setLastRunOutcome('aborted')
       await getLatestChatStore().settleLatestAssistantAfterAbort()

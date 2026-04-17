@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
+import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
 
 const latestStore = {
@@ -16,6 +17,14 @@ vi.mock('@renderer/store/chatStore', () => ({
   useChatStore: {
     getState: vi.fn(() => latestStore)
   }
+}))
+
+const { scheduleAssistantStreamingPerfRecentSessionFlush } = vi.hoisted(() => ({
+  scheduleAssistantStreamingPerfRecentSessionFlush: vi.fn()
+}))
+
+vi.mock('@renderer/components/chat/chatMessage/typewriter/assistantStreamingPerf', () => ({
+  scheduleAssistantStreamingPerfRecentSessionFlush
 }))
 
 import { handleChatRunEvent } from '../chatRunEvent'
@@ -56,6 +65,7 @@ describe('handleChatRunEvent', () => {
     latestStore.patchMessageSegment.mockReset()
     latestStore.updateLastAssistantMessageWithError.mockReset()
     latestStore.settleLatestAssistantAfterAbort.mockReset()
+    scheduleAssistantStreamingPerfRecentSessionFlush.mockReset()
   })
 
   it('uses the latest store state when handling user message creation', async () => {
@@ -162,5 +172,26 @@ describe('handleChatRunEvent', () => {
 
     expect(input.chatStore.applyPreviewSegmentPatch).toHaveBeenCalledWith(patch)
     expect(latestStore.patchMessageSegment).toHaveBeenCalledWith(99, patch)
+  })
+
+  it('schedules a perf flush when the run completes', async () => {
+    const input = createInput()
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 3,
+      sequence: 3,
+      type: RUN_LIFECYCLE_EVENTS.RUN_COMPLETED,
+      payload: {
+        assistantMessageId: 12
+      }
+    })
+
+    expect(scheduleAssistantStreamingPerfRecentSessionFlush).toHaveBeenCalledWith({
+      reason: 'run_completed'
+    })
+    expect(input.chatStore.setLastRunOutcome).toHaveBeenCalledWith('completed')
   })
 })

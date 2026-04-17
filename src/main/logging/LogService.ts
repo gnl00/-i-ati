@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import pino, { type DestinationStream, type Logger as PinoLogger } from 'pino'
-import type { LogLevel, LogWritePayload } from '@shared/types/logging'
+import type { LogLevel, LogTarget, LogWritePayload } from '@shared/types/logging'
 import { LogFileManager } from './LogFileManager'
 import { sanitizeLogValue, serializeError } from './redact'
 import { localIsoPinoTimestamp } from './time'
@@ -36,7 +36,7 @@ export class LogService {
     message: string
     context?: unknown
     error?: unknown
-    target?: 'app' | 'perf'
+    target?: LogTarget
   }> = []
 
   async initialize(): Promise<void> {
@@ -68,7 +68,7 @@ export class LogService {
   private createScopedLogger(
     scope: string,
     process: 'main' | 'renderer',
-    target: 'app' | 'perf'
+    target: LogTarget
   ): ScopedLogger {
     return {
       debug: (message, context) => this.write({ level: 'debug', scope, process, message, context, target }),
@@ -89,7 +89,8 @@ export class LogService {
       process: 'renderer',
       message: payload.message,
       context: payload.context,
-      error: payload.error
+      error: payload.error,
+      target: payload.target
     })
   }
 
@@ -100,7 +101,7 @@ export class LogService {
     message: string
     context?: unknown
     error?: unknown
-    target?: 'app' | 'perf'
+    target?: LogTarget
   }): void {
     void this.ensureReadyForWrite()
 

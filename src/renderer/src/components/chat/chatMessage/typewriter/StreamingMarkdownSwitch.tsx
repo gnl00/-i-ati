@@ -9,13 +9,22 @@ import { fixMalformedCodeBlocks, markdownCodeComponents } from '../markdown/mark
 import { remarkPreserveLineBreaks } from '../markdown/markdown-plugins'
 import { StreamingMarkdownLite } from '../typewriter/StreamingMarkdownLite'
 import { loadKatexStyles } from '@renderer/utils/styleLoaders'
+import {
+  recordAssistantStreamingSwitchRender,
+  type AssistantStreamingPerfMode
+} from './assistantStreamingPerf'
 
 export const StreamingMarkdownSwitch: React.FC<{
   text: string
   visibleText?: string
   isTyping: boolean
   className?: string
-}> = memo(({ text, visibleText, isTyping, className }) => {
+  perfSessionId?: string
+  perfSegmentId?: string
+  perfMode?: AssistantStreamingPerfMode
+}> = memo(({ text, visibleText, isTyping, className, perfSessionId, perfSegmentId, perfMode }) => {
+  const renderStart = performance.now()
+
   useEffect(() => {
     void loadKatexStyles()
   }, [])
@@ -28,6 +37,22 @@ export const StreamingMarkdownSwitch: React.FC<{
   }, [visibleText, fixedFullText])
 
   const proseBoxClassName = cn("flow-root", className)
+  const durationMs = performance.now() - renderStart
+  const activePerfMode = perfMode ?? 'switch'
+  const activeSegmentId = perfSegmentId ?? 'unknown'
+  const activeSessionId = perfSessionId ?? `assistant-text-segment:${activeSegmentId}:${activePerfMode}`
+
+  useEffect(() => {
+    recordAssistantStreamingSwitchRender({
+      sessionId: activeSessionId,
+      segmentId: activeSegmentId,
+      mode: activePerfMode,
+      renderer: !isTyping || visibleText === undefined ? 'full-markdown' : 'lite',
+      isTyping,
+      visibleTextLength: visibleText?.length ?? text.length,
+      durationMs
+    })
+  }, [activePerfMode, activeSegmentId, activeSessionId, durationMs, isTyping, text.length, visibleText])
 
   if (!isTyping || visibleText === undefined) {
     return (
@@ -51,6 +76,9 @@ export const StreamingMarkdownSwitch: React.FC<{
       text={fixedVisibleText}
       className={proseBoxClassName}
       animate
+      perfSessionId={activeSessionId}
+      perfSegmentId={activeSegmentId}
+      perfMode={activePerfMode}
     />
   )
 })

@@ -1,5 +1,5 @@
 import { LOG_WRITE } from '@shared/constants'
-import type { LogLevel, LogWritePayload } from '@shared/types/logging'
+import type { LogLevel, LogTarget, LogWritePayload } from '@shared/types/logging'
 
 type ConsoleMethod = (...args: unknown[]) => void
 
@@ -16,12 +16,13 @@ function canUseIPC(): boolean {
   return Boolean((window as any).electron?.ipcRenderer)
 }
 
-function sendRendererLog(level: LogLevel, args: unknown[]): void {
+function sendRendererLog(level: LogLevel, args: unknown[], target: LogTarget = 'app'): void {
   if (!canUseIPC()) return
 
   const [first, ...rest] = args
   const payload: LogWritePayload = {
     level,
+    target,
     scope: 'Console',
     process: 'renderer',
     message: typeof first === 'string' ? first : String(first ?? ''),
@@ -55,12 +56,27 @@ export function installRendererConsoleCapture(): void {
 }
 
 export function createRendererLogger(scope: string) {
+  return createScopedRendererLogger(scope, 'app')
+}
+
+export function createRendererPerfLogger(scope: string) {
+  return createScopedRendererLogger(scope, 'perf')
+}
+
+function createScopedRendererLogger(scope: string, target: LogTarget) {
   return {
-    debug: (message: string, context?: unknown) => writeScopedRendererLog('debug', scope, message, context),
-    info: (message: string, context?: unknown) => writeScopedRendererLog('info', scope, message, context),
-    warn: (message: string, context?: unknown) => writeScopedRendererLog('warn', scope, message, context),
+    debug: (message: string, context?: unknown) => writeScopedRendererLog('debug', scope, message, context, undefined, target),
+    info: (message: string, context?: unknown) => writeScopedRendererLog('info', scope, message, context, undefined, target),
+    warn: (message: string, context?: unknown) => writeScopedRendererLog('warn', scope, message, context, undefined, target),
     error: (message: string, errorOrContext?: unknown) =>
-      writeScopedRendererLog('error', scope, message, errorOrContext instanceof Error ? undefined : errorOrContext, errorOrContext instanceof Error ? errorOrContext : undefined)
+      writeScopedRendererLog(
+        'error',
+        scope,
+        message,
+        errorOrContext instanceof Error ? undefined : errorOrContext,
+        errorOrContext instanceof Error ? errorOrContext : undefined,
+        target
+      )
   }
 }
 
@@ -69,13 +85,15 @@ function writeScopedRendererLog(
   scope: string,
   message: string,
   context?: unknown,
-  error?: Error
+  error?: Error,
+  target: LogTarget = 'app'
 ): void {
   originalConsole[level](message, context ?? '')
   if (!canUseIPC()) return
 
   const payload: LogWritePayload = {
     level,
+    target,
     scope,
     process: 'renderer',
     message,

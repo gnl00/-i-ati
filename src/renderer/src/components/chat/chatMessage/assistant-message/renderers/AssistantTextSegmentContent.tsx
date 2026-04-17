@@ -1,5 +1,10 @@
-import React, { memo } from 'react'
+import React, { Profiler, memo, useEffect } from 'react'
 import { StreamingMarkdownSwitch } from '../../typewriter/StreamingMarkdownSwitch'
+import {
+  flushAssistantStreamingPerfSession,
+  isAssistantStreamingPerfEnabled,
+  recordAssistantStreamingCommit
+} from '../../typewriter/assistantStreamingPerf'
 import { TextSegment } from '../segments/TextSegment'
 
 function getStreamingTextRenderMode(): 'markdown' | 'switch' {
@@ -20,15 +25,24 @@ export const AssistantTextSegmentContent: React.FC<AssistantTextSegmentContentPr
   visibleText,
   isTyping
 }) => {
-  const hasCode = segment.content.includes('```') || segment.content.includes('`')
-
-  if (hasCode) {
-    return <TextSegment segment={segment} visibleText={visibleText} animateOnChange={false} />
-  }
-
   const mode = getStreamingTextRenderMode()
-  if (mode === 'markdown') {
-    return (
+  const hasCode = segment.content.includes('```') || segment.content.includes('`')
+  const perfMode = hasCode ? 'code' : mode
+  const perfSessionId = `assistant-text-segment:${segment.segmentId}:${perfMode}`
+
+  useEffect(() => {
+    if (!isAssistantStreamingPerfEnabled()) return
+
+    return () => {
+      flushAssistantStreamingPerfSession(perfSessionId, 'unmount')
+    }
+  }, [perfSessionId])
+
+  let content: React.ReactNode
+  if (hasCode) {
+    content = <TextSegment segment={segment} visibleText={visibleText} animateOnChange={false} />
+  } else if (mode === 'markdown') {
+    content = (
       <TextSegment
         segment={segment}
         visibleText={visibleText}
@@ -36,14 +50,39 @@ export const AssistantTextSegmentContent: React.FC<AssistantTextSegmentContentPr
         transitionKey={visibleText}
       />
     )
+  } else {
+    content = (
+      <StreamingMarkdownSwitch
+        text={segment.content}
+        visibleText={visibleText}
+        isTyping={isTyping}
+        className={ASSISTANT_TEXT_PROSE_CLASS_NAME}
+        perfSessionId={perfSessionId}
+        perfSegmentId={segment.segmentId}
+        perfMode={perfMode}
+      />
+    )
+  }
+
+  if (!isAssistantStreamingPerfEnabled()) {
+    return content
   }
 
   return (
-    <StreamingMarkdownSwitch
-      text={segment.content}
-      visibleText={visibleText}
-      isTyping={isTyping}
-      className={ASSISTANT_TEXT_PROSE_CLASS_NAME}
-    />
+    <Profiler
+      id={perfSessionId}
+      onRender={(_id, phase, actualDuration, baseDuration) => {
+        recordAssistantStreamingCommit({
+          sessionId: perfSessionId,
+          segmentId: segment.segmentId,
+          mode: perfMode,
+          phase,
+          actualDuration,
+          baseDuration
+        })
+      }}
+    >
+      {content}
+    </Profiler>
   )
 })
