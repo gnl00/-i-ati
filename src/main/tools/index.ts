@@ -73,6 +73,7 @@ import {
   processSubagentSpawn,
   processSubagentWait
 } from '@main/tools/subagent/SubagentToolsProcessor'
+import { processLogSearch } from '@main/tools/log/LogToolsProcessor'
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
@@ -126,6 +127,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   activity_journal_append: processActivityJournalAppend,
   activity_journal_list: processActivityJournalList,
   activity_journal_search: processActivityJournalSearch,
+  log_search: processLogSearch,
   subagent_spawn: processSubagentSpawn,
   subagent_wait: processSubagentWait
 }

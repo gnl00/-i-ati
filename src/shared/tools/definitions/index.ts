@@ -19,6 +19,7 @@ import telegramTools from './telegram_tools'
 import userInfoTools from './user_info_tools'
 import activityJournalTools from './activity_journal_tools'
 import subagentTools from './subagent_tools'
+import logTools from './log_tools'
 
 /**
  * 合并所有工具定义
@@ -39,7 +40,8 @@ export const tools = [
   ...telegramTools,
   ...userInfoTools,
   ...activityJournalTools,
-  ...subagentTools
+  ...subagentTools,
+  ...logTools
 ]
 
 /**

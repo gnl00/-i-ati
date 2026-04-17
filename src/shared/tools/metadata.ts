@@ -18,6 +18,7 @@ export type EmbeddedToolCapability =
   | 'plugin'
   | 'telegram'
   | 'subagent'
+  | 'log'
   | 'registry'
 
 export interface EmbeddedToolMetadata {
@@ -336,6 +337,12 @@ export const embeddedToolMetadata: Record<string, EmbeddedToolMetadata> = {
     riskLevel: 'none',
     mutatesWorkspace: false,
     subagent: 'allow'
+  },
+  log_search: {
+    capability: 'log',
+    riskLevel: 'warning',
+    mutatesWorkspace: false,
+    subagent: 'deny'
   },
   subagent_spawn: {
     capability: 'subagent',

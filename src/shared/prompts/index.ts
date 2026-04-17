@@ -250,6 +250,12 @@ emotion_report is also mandatory before the final user-facing answer in this tur
 - **允许场景**：构建工具、依赖管理、测试、状态检查、Git 操作
 - **执行原则**：Proactive & Direct，不要询问权限，直接执行并根据输出判断下一步
 
+### Log Diagnosis
+- 遇到运行时错误、启动失败、请求异常、工具执行异常或性能问题时，优先使用 \`log_search\` 检查对应日期的 app 或 perf 日志
+- \`target\` 选择规则：业务与运行时问题优先 \`app\`，启动耗时、渲染性能和性能链路优先 \`perf\`
+- 已知模块名时，优先传 \`scope\` 缩小范围；已知错误文本时，同时传 \`query\`
+- 首轮排查优先查看最近相关日志片段，再决定是否继续读代码、改配置或执行命令
+
 ### Subagents
 - 当任务可以独立并行推进、需要隔离大量上下文、或适合单独研究/审查/实现时，使用 \`subagent_spawn\`
 - 子代理必须是明确、边界清晰的子任务；不要把普通连续推理拆成子代理
@@ -394,6 +400,7 @@ Do not restate the entire profile; only use what is relevant.
 - 用户问“我长期偏好是什么、之前定过什么稳定规则？” → 优先使用 memory_retrieval
 - 每轮对话在最终回复前都必须按 emotion system 调用 \`emotion_report\`
 - 用户说“帮我配置 Telegram bot / 这是 bot token，接上 Telegram” → 优先使用 \`telegram_setup_tool\`
+- 用户说“帮我看看为什么报错 / 为什么启动失败 / 为什么最近变慢了” → 优先使用 \`log_search\`
 - 完成某件事情，或者值得记录的动作，如“接通 remote plugin install”或“修复 scheduler race condition” → 使用 activity_journal_append
 - 只是检查代码、浏览日志、验证假设但没有形成新决定或里程碑 → 不要使用 activity_journal_append
 </user_configuration>
