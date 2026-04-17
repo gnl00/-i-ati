@@ -55,6 +55,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         patchMessageUiState,
         toggleArtifacts,
         toggleWebSearch,
+        setScrollHint,
         currentChatId: chatId,
         currentChatUuid: chatUuid,
         replaceChatList,
@@ -249,8 +250,21 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         toggleWebSearch(false)
     }
 
-    const onChatClick = async (_, chat: ChatEntity) => {
+    const onChatClick = async (_: React.MouseEvent<HTMLDivElement>, result: ChatSearchResult) => {
+        const { chat, matchedMessageId } = result
         setSheetOpenState(false)
+
+        if (chatId === chat.id) {
+            if (matchedMessageId && chat.uuid) {
+                setScrollHint({
+                    type: 'search-result',
+                    chatUuid: chat.uuid,
+                    messageId: matchedMessageId
+                })
+            }
+            return
+        }
+
         if (chatId != chat.id) {
             const requestId = ++chatSwitchRequestRef.current
 
@@ -281,6 +295,13 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 await hydrateChat(chat.id)
                 if (chatSwitchRequestRef.current !== requestId) {
                     return
+                }
+                if (matchedMessageId) {
+                    setScrollHint({
+                        type: 'search-result',
+                        chatUuid: chat.uuid,
+                        messageId: matchedMessageId
+                    })
                 }
             } catch (err: any) {
                 toast({

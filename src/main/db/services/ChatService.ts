@@ -103,6 +103,10 @@ export class ChatService {
     return this.requireMessageRepository().getMessagesByChatUuid(chatUuid)
   }
 
+  searchChats(args: ChatSearchRequest): ChatSearchResult[] {
+    return this.requireMessageRepository().searchChats(args)
+  }
+
   getMessageByIds(ids: number[]): MessageEntity[] {
     return this.requireMessageRepository().getMessageByIds(ids)
   }

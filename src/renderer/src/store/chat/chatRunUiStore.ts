@@ -10,6 +10,7 @@ export type ChatRunScrollHint =
   | { type: 'none' }
   | { type: 'conversation-switch'; chatUuid: string | null; index: number; align: 'start' | 'end' }
   | { type: 'user-sent'; chatUuid: string | null; messageId?: number }
+  | { type: 'search-result'; chatUuid: string | null; messageId: number }
 
 export type ChatRunUiState = {
   runPhase: RunPhase

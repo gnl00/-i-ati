@@ -23,6 +23,7 @@ type ScrollMode = 'tail-follow' | 'anchor-lock' | 'manual'
 
 const STABLE_SPACER_REASONS = new Set([
   'user-sent',
+  'search-result',
   'conversation-switch',
   'container-mounted',
   'container-resize',
@@ -437,6 +438,12 @@ const ChatWindowComponentNext: React.FC = () => {
       scrollModeRef.current = 'tail-follow'
       return
     }
+
+    if (scrollHint.type === 'search-result') {
+      cancelScheduledLayoutPass()
+      hasInitialAnchorScrollDoneRef.current = true
+      scrollModeRef.current = 'anchor-lock'
+    }
   }, [autoTopAnchorIndex, cancelScheduledLayoutPass, chatUuid, displayMessages, scrollHint])
 
   useLayoutEffect(() => {
@@ -526,6 +533,54 @@ const ChatWindowComponentNext: React.FC = () => {
     scrollHint,
     scrollToMessageIndex,
     suppressUserScrollIntent,
+  ])
+
+  useLayoutEffect(() => {
+    if (scrollHint.type !== 'search-result') return
+    if (scrollHint.chatUuid !== (chatUuid ?? null)) return
+
+    const targetIndex = displayMessages.findIndex(message => message.id === scrollHint.messageId)
+    if (targetIndex < 0) {
+      return
+    }
+
+    cancelScheduledLayoutPass()
+    lockedAnchorMessageIdRef.current = scrollHint.messageId
+    hasInitialAnchorScrollDoneRef.current = true
+    scrollModeRef.current = 'anchor-lock'
+
+    if (disableTailSpacerRef.current) {
+      disableTailSpacerRef.current = false
+      setDisableTailSpacer(false)
+    }
+
+    clearScrollHint()
+    const container = scrollParentRef.current
+    let initialSpacerHeight = spacerHeightRef.current
+    if (container) {
+      initialSpacerHeight = container.clientHeight
+      suppressUserScrollIntent(4)
+      commitBottomSpacerHeight(initialSpacerHeight)
+    }
+
+    requestAnimationFrame(() => {
+      suppressUserScrollIntent(4)
+      scrollToMessageIndex(targetIndex, false, 'start')
+      requestAnimationFrame(() => {
+        requestLayoutPass('search-result')
+      })
+    })
+  }, [
+    cancelScheduledLayoutPass,
+    chatUuid,
+    clearScrollHint,
+    commitBottomSpacerHeight,
+    displayMessages,
+    requestLayoutPass,
+    scrollHint,
+    scrollParentRef,
+    scrollToMessageIndex,
+    suppressUserScrollIntent
   ])
 
   useEffect(() => {

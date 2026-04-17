@@ -189,6 +189,10 @@ class DatabaseService {
     return this.requireChatService().getMessagesByChatUuid(chatUuid)
   }
 
+  public searchChats(args: ChatSearchRequest): ChatSearchResult[] {
+    return this.requireChatService().searchChats(args)
+  }
+
   public getMessageByIds(ids: number[]): MessageEntity[] {
     return this.requireChatService().getMessageByIds(ids)
   }

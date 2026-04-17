@@ -14,6 +14,7 @@ import {
   DB_CHAT_SAVE,
   DB_CHAT_GET_ALL,
   DB_CHAT_GET_BY_ID,
+  DB_CHAT_SEARCH,
   DB_CHAT_UPDATE,
   DB_CHAT_DELETE,
   DB_CHAT_SKILL_ADD,
@@ -80,6 +81,14 @@ export function registerChatHandlers(): void {
   ipcMain.handle(DB_CHAT_GET_BY_ID, async (_event, id) => {
     logger.info('chat.get_by_id', { id })
     return DatabaseService.getChatById(id)
+  })
+
+  ipcMain.handle(DB_CHAT_SEARCH, async (_event, args: ChatSearchRequest) => {
+    logger.info('chat.search', {
+      queryLength: args?.query?.trim().length ?? 0,
+      limit: args?.limit
+    })
+    return DatabaseService.searchChats(args)
   })
 
   ipcMain.handle(DB_CHAT_UPDATE, async (_event, data) => {

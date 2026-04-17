@@ -1,16 +1,117 @@
 import { CheckIcon, Cross2Icon, Pencil2Icon } from '@radix-ui/react-icons'
 import { Input } from '@renderer/components/ui/input'
 import { deleteChat, updateChat } from '@renderer/db/ChatRepository'
+import { invokeDbChatSearch } from '@renderer/invoker/ipcInvoker'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store/chatStore'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
 interface ChatTitleListProps {
-  onChatClick: (event: React.MouseEvent<HTMLDivElement>, chat: ChatEntity) => void
+  onChatClick: (event: React.MouseEvent<HTMLDivElement>, result: ChatSearchResult) => void
   onDeletedCurrentChat: () => void
+}
+
+const SEARCH_RESULT_LIMIT = 50
+const SEARCH_BAR_CLEARANCE_CLASS = 'pt-11'
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function renderHighlightedText(
+  text: string,
+  query: string,
+  highlightClassName: string
+): React.ReactNode {
+  const normalizedQuery = query.trim()
+  if (!normalizedQuery) {
+    return text
+  }
+
+  const matcher = new RegExp(`(${escapeRegExp(normalizedQuery)})`, 'ig')
+  const parts = text.split(matcher)
+
+  return parts.map((part, index) => {
+    if (part.toLowerCase() !== normalizedQuery.toLowerCase()) {
+      return <React.Fragment key={`highlight-part-${index}`}>{part}</React.Fragment>
+    }
+
+    return (
+      <mark
+        key={`highlight-part-${index}`}
+        className={highlightClassName}
+      >
+        {part}
+      </mark>
+    )
+  })
+}
+
+function renderHighlightedTitle(title: string, query: string): React.ReactNode {
+  return renderHighlightedText(
+    title,
+    query,
+    'rounded bg-blue-100 px-0.5 text-blue-900 dark:bg-blue-500/20 dark:text-blue-100'
+  )
+}
+
+function renderHighlightedSnippet(snippet: string, query: string): React.ReactNode {
+  return renderHighlightedText(
+    snippet,
+    query,
+    'rounded bg-amber-200/80 px-0.5 text-gray-800 dark:bg-amber-500/25 dark:text-amber-100'
+  )
+}
+
+function formatSearchResultDateTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const year = date.getFullYear()
+  const currentYear = now.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startOfTargetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  const dayDiff = Math.round((startOfToday - startOfTargetDay) / (24 * 60 * 60 * 1000))
+
+  if (dayDiff === 0) {
+    return `Today ${hours}:${minutes}`
+  }
+
+  if (dayDiff === 1) {
+    return `Yesterday ${hours}:${minutes}`
+  }
+
+  if (year === currentYear) {
+    return `${month}-${day} ${hours}:${minutes}`
+  }
+
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
+function getSearchResultTimestamp(result: ChatSearchResult): number {
+  return result.matchedTimestamp ?? result.chat.updateTime
+}
+
+function getSearchResultHitCount(result: ChatSearchResult): number {
+  switch (result.matchSource) {
+    case 'title+message':
+      return result.messageHitCount + 1
+    case 'title':
+      return 1
+    case 'message':
+    default:
+      return Math.max(result.messageHitCount, 1)
+  }
+}
+
+function formatHitCountLabel(hitCount: number): string {
+  return `${hitCount === 1 ? '' : '+'}${hitCount}`
 }
 
 const getDate = (timestamp: number): string => {
@@ -45,36 +146,102 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<ChatSearchResult[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState('')
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const searchRequestIdRef = useRef(0)
 
   const sortedChatList = useMemo(() => {
     return [...chatList].sort((a, b) => b.updateTime - a.updateTime)
   }, [chatList])
 
-  const filteredChatList = useMemo(() => {
+  const titleListResults = useMemo<ChatSearchResult[]>(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
     if (!normalizedQuery) {
       return sortedChatList
+        .filter(item => item.id !== -1)
+        .map(item => ({
+          chat: item,
+          matchSource: 'title',
+          messageHitCount: 0,
+          score: item.updateTime
+        }))
     }
 
     return sortedChatList.filter(item => {
       if (item.id === -1) return false
       return item.title.toLowerCase().includes(normalizedQuery)
-    })
+    }).map(item => ({
+      chat: item,
+      matchSource: 'title',
+      messageHitCount: 0,
+      score: item.updateTime
+    }))
   }, [searchQuery, sortedChatList])
 
+  const isSearchMode = searchQuery.trim().length > 0
+  const displayResults = isSearchMode ? searchResults : titleListResults
+  const listTopPaddingClass = searchOpen ? SEARCH_BAR_CLEARANCE_CLASS : 'pt-2'
+
   const groupedChatList = useMemo(() => {
-    const groups = new Map<string, ChatEntity[]>()
-    filteredChatList.forEach(item => {
+    if (isSearchMode) {
+      return []
+    }
+
+    const groups = new Map<string, ChatSearchResult[]>()
+    displayResults.forEach(result => {
+      const item = result.chat
       if (item.id === -1) return
       const group = getDateGroup(item.updateTime)
       if (!groups.has(group)) {
         groups.set(group, [])
       }
-      groups.get(group)!.push(item)
+      groups.get(group)!.push(result)
     })
     return Array.from(groups.entries())
-  }, [filteredChatList])
+  }, [displayResults, isSearchMode])
+
+  useEffect(() => {
+    const normalizedQuery = searchQuery.trim()
+    const requestId = ++searchRequestIdRef.current
+
+    if (!normalizedQuery) {
+      setSearchLoading(false)
+      setSearchError('')
+      setSearchResults([])
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSearchLoading(true)
+      setSearchError('')
+      void invokeDbChatSearch({
+        query: normalizedQuery,
+        limit: SEARCH_RESULT_LIMIT
+      }).then(results => {
+        if (searchRequestIdRef.current !== requestId) {
+          return
+        }
+        setSearchResults(results)
+      }).catch(error => {
+        if (searchRequestIdRef.current !== requestId) {
+          return
+        }
+        setSearchError(error instanceof Error ? error.message : 'Failed to search chats')
+        setSearchResults([])
+      }).finally(() => {
+        if (searchRequestIdRef.current !== requestId) {
+          return
+        }
+        setSearchLoading(false)
+      })
+    }, 180)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [searchQuery])
 
   const openSearch = () => {
     setSearchOpen(true)
@@ -86,6 +253,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   const closeSearch = () => {
     setSearchOpen(false)
     setSearchQuery('')
+    setSearchError('')
+    setSearchResults([])
   }
 
   const onChatItemTitleChange = (event: React.ChangeEvent<HTMLInputElement>, chat: ChatEntity) => {
@@ -190,7 +359,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     ref={searchInputRef}
                     value={searchQuery}
                     onChange={event => setSearchQuery(event.target.value)}
-                    placeholder="Search chats..."
+                    placeholder="Search titles and messages..."
                     className="h-8.5 min-w-0 border-0 bg-transparent pl-1.5 pr-2.5 text-[13px] shadow-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 dark:placeholder:text-gray-500"
                   />
                   <button
@@ -208,14 +377,86 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
         </motion.div>
       </div>
 
-      {groupedChatList.length === 0 ? (
-        <div className="px-4 py-10 text-center">
+      {searchError ? (
+        <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
+          <p className="text-sm text-rose-500 dark:text-rose-400">Search failed</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{searchError}</p>
+        </div>
+      ) : searchLoading ? (
+        <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Searching chats...</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Scanning titles and messages</p>
+        </div>
+      ) : isSearchMode ? (
+        displayResults.length === 0 ? (
+          <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No matching chats</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Try another title or message keyword</p>
+          </div>
+        ) : (
+          <div className={cn('space-y-0.5 px-1', listTopPaddingClass)}>
+            {displayResults.map(result => {
+              const item = result.chat
+              const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
+              const isActive = item.id === chatId
+              const hitCount = getSearchResultHitCount(result)
+
+              return (
+                <div
+                  key={`${item.id}-${result.matchedMessageId ?? 'title'}`}
+                  id="chat-item"
+                  onMouseOver={() => onMouseOverSheetChat(item.id as number)}
+                  onMouseLeave={onMouseLeaveSheetChat}
+                  onClick={event => onChatClick(event, result)}
+                  className={cn(
+                    'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5',
+                    'transition-all duration-200 ease-out',
+                    isActive
+                      ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent dark:hover:from-blue-900/25 dark:hover:via-blue-900/15"
+                      : 'hover:scale-[1.01] hover:bg-gray-100 hover:shadow-xs dark:hover:bg-gray-800'
+                  )}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex items-center gap-2">
+                        <span
+                          className={cn(
+                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-gray-300',
+                            isHovered && 'text-gray-900 dark:text-gray-100'
+                          )}
+                        >
+                          {renderHighlightedTitle(item.title, searchQuery)}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                          {formatHitCountLabel(hitCount)}
+                        </span>
+                      </div>
+                      <span className="shrink-0 pt-0.5 text-[11px] font-medium tabular-nums text-gray-400 dark:text-gray-500">
+                        {formatSearchResultDateTime(getSearchResultTimestamp(result))}
+                      </span>
+                    </div>
+                    {result.snippet && (
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                        {renderHighlightedSnippet(result.snippet, searchQuery)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      ) : groupedChatList.length === 0 ? (
+        <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
           <p className="text-sm text-gray-500 dark:text-gray-400">No matching chats</p>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Try another title keyword</p>
         </div>
       ) : (
-        groupedChatList.map(([groupName, items]) => (
-          <section key={groupName} className="mb-2">
+        groupedChatList.map(([groupName, items], index) => (
+          <section
+            key={groupName}
+            className={cn('mb-2', index === 0 && listTopPaddingClass)}
+          >
             <div className="sticky top-0 z-20 border-b border-gray-200/80 bg-background/94 px-3 pt-3 pb-2 backdrop-blur-md dark:border-gray-700/80">
               <h4 className="truncate text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
                 {groupName}
@@ -223,7 +464,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
             </div>
 
             <div className="space-y-0.5 px-1 pt-1">
-              {items.map(item => {
+              {items.map(result => {
+                const item = result.chat
                 const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
                 const isActive = item.id === chatId
 
@@ -233,7 +475,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     id="chat-item"
                     onMouseOver={() => onMouseOverSheetChat(item.id as number)}
                     onMouseLeave={onMouseLeaveSheetChat}
-                    onClick={event => onChatClick(event, item)}
+                    onClick={event => onChatClick(event, result)}
                     className={cn(
                       'group relative flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5',
                       'transition-all duration-200 ease-out',

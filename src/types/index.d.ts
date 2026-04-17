@@ -285,6 +285,21 @@ declare interface ChatEntity {
   createTime: number // 创建时间
 }
 
+declare interface ChatSearchRequest {
+  query: string
+  limit?: number
+}
+
+declare interface ChatSearchResult {
+  chat: ChatEntity
+  matchSource: 'title' | 'message' | 'title+message'
+  matchedMessageId?: number
+  matchedTimestamp?: number
+  snippet?: string
+  messageHitCount: number
+  score: number
+}
+
 declare interface ChatHostBindingEntity {
   id?: number
   hostType: string

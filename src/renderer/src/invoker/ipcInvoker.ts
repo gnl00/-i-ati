@@ -31,6 +31,7 @@ import {
   DB_CHAT_SAVE,
   DB_CHAT_GET_ALL,
   DB_CHAT_GET_BY_ID,
+  DB_CHAT_SEARCH,
   DB_CHAT_UPDATE,
   DB_CHAT_DELETE,
   DB_CHAT_SKILL_ADD,
@@ -284,6 +285,14 @@ export async function invokeDbChatGetAll(): Promise<ChatEntity[]> {
 export async function invokeDbChatGetById(id: number): Promise<ChatEntity | undefined> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_CHAT_GET_BY_ID, id)
+}
+
+/**
+ * 搜索聊天标题与消息内容
+ */
+export async function invokeDbChatSearch(args: ChatSearchRequest): Promise<ChatSearchResult[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_CHAT_SEARCH, args)
 }
 
 /**

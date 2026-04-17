@@ -32,6 +32,7 @@ const createMessageRepo = (initialRows: any[] = []) => {
 }
 
 const createChatRepo = () => ({
+  getAllChats: vi.fn(() => []),
   updateMessageCount: vi.fn()
 })
 
@@ -137,5 +138,109 @@ describe('MessageRepository', () => {
     repository.deleteMessage(1)
 
     expect(chatRepo.updateMessageCount).toHaveBeenCalledWith(7, -1)
+  })
+
+  it('searches chats by title and message content with aggregated result metadata', () => {
+    const messageRepo = createMessageRepo([
+      {
+        id: 11,
+        chat_id: 1,
+        chat_uuid: 'chat-1',
+        body: JSON.stringify({
+          role: 'assistant',
+          createdAt: 1000,
+          content: 'implementation details are ready',
+          segments: [
+            {
+              type: 'text',
+              segmentId: 'seg-1',
+              content: 'Implementation details are ready for review',
+              timestamp: 1
+            }
+          ]
+        }),
+        tokens: null
+      },
+      {
+        id: 12,
+        chat_id: 2,
+        chat_uuid: 'chat-2',
+        body: JSON.stringify({
+          role: 'assistant',
+          createdAt: 2000,
+          content: 'General note',
+          segments: [
+            {
+              type: 'text',
+              segmentId: 'seg-2',
+              content: 'A separate implementation note lives here',
+              timestamp: 2
+            }
+          ]
+        }),
+        tokens: null
+      }
+    ])
+    const chatRepo = {
+      ...createChatRepo(),
+      getAllChats: vi.fn(() => [
+        {
+          id: 1,
+          uuid: 'chat-1',
+          title: 'Implementation Plan',
+          msg_count: 8,
+          model_account_id: null,
+          model_model_id: null,
+          workspace_path: null,
+          user_instruction: null,
+          create_time: 100,
+          update_time: 200
+        },
+        {
+          id: 2,
+          uuid: 'chat-2',
+          title: 'Release Notes',
+          msg_count: 4,
+          model_account_id: null,
+          model_model_id: null,
+          workspace_path: null,
+          user_instruction: null,
+          create_time: 100,
+          update_time: 150
+        }
+      ])
+    }
+    const repository = new MessageRepository({
+      hasDb: () => true,
+      getChatRepo: () => chatRepo as any,
+      getMessageRepo: () => messageRepo as any
+    })
+
+    const results = repository.searchChats({ query: 'implementation' })
+
+    expect(results).toHaveLength(2)
+    expect(results[0]).toMatchObject({
+      chat: {
+        id: 1,
+        uuid: 'chat-1',
+        title: 'Implementation Plan'
+      },
+      matchSource: 'title+message',
+      matchedMessageId: 11,
+      matchedTimestamp: 1000,
+      messageHitCount: 1
+    })
+    expect(results[0].snippet).toContain('Implementation details')
+    expect(results[1]).toMatchObject({
+      chat: {
+        id: 2,
+        uuid: 'chat-2',
+        title: 'Release Notes'
+      },
+      matchSource: 'message',
+      matchedMessageId: 12,
+      matchedTimestamp: 2000,
+      messageHitCount: 1
+    })
   })
 })

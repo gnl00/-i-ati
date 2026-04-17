@@ -11,6 +11,28 @@ export function extractContentFromSegments(
     .join('')
 }
 
+export function extractSearchableMessageText(
+  message: Pick<ChatMessage, 'content' | 'segments'>
+): string {
+  const fromSegments = extractContentFromSegments(message.segments)
+  if (fromSegments.trim().length > 0) {
+    return fromSegments
+  }
+
+  if (typeof message.content === 'string') {
+    return message.content
+  }
+
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((item): item is VLMContent & { text: string } => item.type === 'text' && typeof item.text === 'string')
+      .map(item => item.text)
+      .join(' ')
+  }
+
+  return ''
+}
+
 export function extractReasoningFromSegments(
   segments: MessageSegment[] | undefined
 ): string {

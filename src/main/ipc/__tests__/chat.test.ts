@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  DB_CHAT_SEARCH,
   RUN_CANCEL,
   RUN_COMPRESSION_EXECUTE,
   RUN_START,
@@ -32,6 +33,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     saveChat: vi.fn(),
     getAllChats: vi.fn(),
     getChatById: vi.fn(),
+    searchChats: vi.fn(),
     updateChat: vi.fn(),
     deleteChat: vi.fn(),
     addSkill: vi.fn(),
@@ -67,6 +69,7 @@ describe('registerChatHandlers', () => {
     const registeredChannels = ipcMainHandleMock.mock.calls.map(([channel]) => channel)
 
     expect(registeredChannels).toContain(RUN_START)
+    expect(registeredChannels).toContain(DB_CHAT_SEARCH)
     expect(registeredChannels).toContain('chat-run:start')
     expect(registeredChannels).toContain(RUN_CANCEL)
     expect(registeredChannels).toContain('chat-run:cancel')

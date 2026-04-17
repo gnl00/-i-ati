@@ -39,7 +39,7 @@ export const normalizeChatMessageSegmentsWithIds = (
 
   return {
     ...message,
-    segments: normalizedSegments
+    segments: normalizedSegments ?? message.segments
   }
 }
 
