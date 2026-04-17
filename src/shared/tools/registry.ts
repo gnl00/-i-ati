@@ -3,6 +3,10 @@
  * 用于注册和管理内置的 LLM 工具
  */
 
+import type { EmbeddedToolMetadata } from './metadata-types'
+
+export type { EmbeddedToolMetadata } from './metadata-types'
+
 export interface ToolDefinition {
   type: string
   function: {
@@ -10,14 +14,6 @@ export interface ToolDefinition {
     description: string
     parameters: any
   }
-}
-
-export interface EmbeddedToolMetadata {
-  capability: string
-  riskLevel: 'none' | 'warning' | 'dangerous'
-  mutatesWorkspace: boolean
-  subagent: 'allow' | 'deny'
-  roles?: string[]
 }
 
 export interface EmbeddedToolHandler {

@@ -1,4 +1,6 @@
-export default [
+import type { ToolDefinition } from '@shared/tools/registry'
+
+export const userInfoTools = [
   {
     type: 'function',
     function: {
@@ -43,4 +45,6 @@ export default [
       }
     }
   }
-] as const
+] satisfies ToolDefinition[]
+
+export default userInfoTools

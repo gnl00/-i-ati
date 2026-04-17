@@ -1,6 +1,6 @@
 import type { ToolDefinition } from '@shared/tools/registry'
 
-export default [
+export const soulTools = [
   {
     type: 'function',
     function: {
@@ -55,3 +55,5 @@ export default [
     }
   }
 ] satisfies ToolDefinition[]
+
+export default soulTools

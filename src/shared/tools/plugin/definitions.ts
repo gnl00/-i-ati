@@ -1,6 +1,6 @@
 import type { ToolDefinition } from '@shared/tools/registry'
 
-export default [
+export const pluginTools = [
   {
     type: 'function',
     function: {
@@ -51,3 +51,5 @@ export default [
     }
   }
 ] satisfies ToolDefinition[]
+
+export default pluginTools

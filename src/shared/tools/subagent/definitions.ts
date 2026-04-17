@@ -1,4 +1,6 @@
-export default [
+import type { ToolDefinition } from '@shared/tools/registry'
+
+export const subagentTools = [
   {
     type: 'function',
     function: {
@@ -59,4 +61,6 @@ export default [
       }
     }
   }
-]
+] satisfies ToolDefinition[]
+
+export default subagentTools

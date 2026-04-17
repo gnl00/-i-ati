@@ -1,0 +1,123 @@
+import type { ToolDefinition } from '@shared/tools/registry'
+
+export const memoryTools = [
+  {
+    type: 'function',
+    function: {
+      name: 'memory_retrieval',
+      description: 'Retrieve relevant context from long-term memory based on semantic similarity. Use this tool to search for relevant historical conversations, facts, or context that may help answer the current query. IMPORTANT: The query parameter MUST be in ENGLISH for accurate vector similarity search. Translate your search query to English before calling this tool.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query to find relevant memories. MUST be in ENGLISH for accurate vector similarity search. Translate your search intent to English before calling this tool.'
+          },
+          chatId: {
+            type: 'number',
+            description: 'Optional: Limit the search to a specific chat ID. If not provided, searches across all conversations.'
+          },
+          topK: {
+            type: 'number',
+            description: 'Optional: Number of relevant memories to retrieve (default: 5, max: 10).'
+          },
+          threshold: {
+            type: 'number',
+            description: 'Optional: Minimum similarity threshold (0-1). Only memories with similarity >= threshold will be returned (default: 0.6).'
+          }
+        },
+        required: ['query'],
+        $schema: 'http://json-schema.org/draft-07/schema#'
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'memory_save',
+      description: 'Save important information to long-term memory for future reference. Use this tool when you encounter important facts, decisions, preferences, or context that should be remembered across conversations. The system stores both the original content and its English translation for accurate semantic retrieval.',
+      parameters: {
+        type: 'object',
+        properties: {
+          context_origin: {
+            type: 'string',
+            description: 'The content to save in its ORIGINAL language (as provided by the user). This is preserved for accurate display when retrieved.'
+          },
+          context_en: {
+            type: 'string',
+            description: 'The English translation of the content. This is used for vector embedding generation to ensure accurate semantic search. IMPORTANT: Always provide the English translation, even if the original content is already in English.'
+          },
+          chatId: {
+            type: 'number',
+            description: 'The chat ID to associate this memory with.'
+          },
+          metadata: {
+            type: 'object',
+            description: 'Optional: Additional metadata about this memory (e.g., category, importance, tags).',
+            properties: {
+              category: {
+                type: 'string',
+                description: "Category of the memory (e.g., 'preference', 'fact', 'decision', 'context')"
+              },
+              importance: {
+                type: 'string',
+                enum: ['low', 'medium', 'high'],
+                description: 'Importance level of this memory'
+              },
+              tags: {
+                type: 'array',
+                items: {
+                  type: 'string'
+                },
+                description: 'Tags for categorizing this memory'
+              }
+            }
+          }
+        },
+        required: ['context_origin', 'context_en', 'chatId'],
+        $schema: 'http://json-schema.org/draft-07/schema#'
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'memory_update',
+      description: 'Update an existing memory item by id. Use when you need to correct, refine, or remove fields in a saved memory. If you update context_en, a new embedding will be generated.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description: 'The memory id to update (from memory_retrieval results).'
+          },
+          context_origin: {
+            type: 'string',
+            description: 'Updated content in original language.'
+          },
+          context_en: {
+            type: 'string',
+            description: 'Updated English translation for embedding.'
+          },
+          role: {
+            type: 'string',
+            enum: ['user', 'assistant', 'system'],
+            description: 'Optional updated role for the memory.'
+          },
+          timestamp: {
+            type: 'number',
+            description: 'Optional updated timestamp (ms).'
+          },
+          metadata: {
+            type: 'object',
+            description: 'Optional updated metadata; pass null to clear.'
+          }
+        },
+        required: ['id'],
+        $schema: 'http://json-schema.org/draft-07/schema#'
+      }
+    }
+  }
+] satisfies ToolDefinition[]
+
+export default memoryTools

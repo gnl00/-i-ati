@@ -1,6 +1,6 @@
 import type { ToolDefinition } from '@shared/tools/registry'
 
-export default [
+export const telegramTools = [
   {
     type: 'function',
     function: {
@@ -20,3 +20,5 @@ export default [
     }
   }
 ] satisfies ToolDefinition[]
+
+export default telegramTools

@@ -1,7 +1,7 @@
 import type { ToolDefinition } from '@shared/tools/registry'
 import { EMOTION_LABELS } from '@shared/emotion/emotionAssetCatalog'
 
-export default [
+export const emotionTools = [
   {
     type: 'function',
     function: {
@@ -72,3 +72,5 @@ export default [
     }
   }
 ] satisfies ToolDefinition[]
+
+export default emotionTools
