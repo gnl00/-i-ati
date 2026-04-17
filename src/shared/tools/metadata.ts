@@ -158,6 +158,12 @@ export const embeddedToolMetadata: Record<string, EmbeddedToolMetadata> = {
     mutatesWorkspace: false,
     subagent: 'deny'
   },
+  history_search: {
+    capability: 'memory',
+    riskLevel: 'none',
+    mutatesWorkspace: false,
+    subagent: 'allow'
+  },
   execute_command: {
     capability: 'command',
     riskLevel: 'dangerous',

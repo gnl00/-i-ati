@@ -9,6 +9,7 @@ import { ScheduledTaskRow } from '../dao/ScheduledTaskDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import { createLogger } from '@main/logging/LogService'
+import type { HistorySearchArgs, HistorySearchItem } from '@tools/history/index.d'
 
 
 /**
@@ -191,6 +192,10 @@ class DatabaseService {
 
   public searchChats(args: ChatSearchRequest): ChatSearchResult[] {
     return this.requireChatService().searchChats(args)
+  }
+
+  public searchHistory(args: HistorySearchArgs): HistorySearchItem[] {
+    return this.requireChatService().searchHistory(args)
   }
 
   public getMessageByIds(ids: number[]): MessageEntity[] {

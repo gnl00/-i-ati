@@ -3,6 +3,7 @@ import type { ChatRepository } from '../repositories/ChatRepository'
 import type { EmotionStateRepository } from '../repositories/EmotionStateRepository'
 import type { MessageRepository } from '../repositories/MessageRepository'
 import type { WorkContextRecord, WorkContextRepository } from '../repositories/WorkContextRepository'
+import type { HistorySearchArgs, HistorySearchItem } from '@tools/history/index.d'
 
 type ChatServiceDeps = {
   chatRepository: () => ChatRepository | undefined
@@ -105,6 +106,10 @@ export class ChatService {
 
   searchChats(args: ChatSearchRequest): ChatSearchResult[] {
     return this.requireMessageRepository().searchChats(args)
+  }
+
+  searchHistory(args: HistorySearchArgs): HistorySearchItem[] {
+    return this.requireMessageRepository().searchHistory(args)
   }
 
   getMessageByIds(ids: number[]): MessageEntity[] {

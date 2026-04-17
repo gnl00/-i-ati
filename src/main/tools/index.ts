@@ -21,6 +21,7 @@ import {
   processMemorySave,
   processMemoryUpdate
 } from '@main/tools/memory/MemoryToolsProcessor'
+import { processHistorySearch } from '@main/tools/history/HistoryToolsProcessor'
 import {
   processWorkContextGet,
   processWorkContextSet
@@ -95,6 +96,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   memory_retrieval: processMemoryRetrieval,
   memory_save: processMemorySave,
   memory_update: processMemoryUpdate,
+  history_search: processHistorySearch,
   work_context_get: processWorkContextGet,
   work_context_set: processWorkContextSet,
   execute_command: processExecuteCommand,

@@ -8,6 +8,7 @@ import listTools from './list_tools.json'
 import toolSearchTools from './registry_search_tools'
 import webTools from './web_tools'
 import memoryTools from './memory_tools'
+import historyTools from './history_tools'
 import commandTools from './command_tools'
 import skillsTools from './skills_tools'
 import planTools from './plan_tools'
@@ -30,6 +31,7 @@ export const tools = [
   ...webTools,
   ...fileOperationsTools,
   ...memoryTools,
+  ...historyTools,
   ...commandTools,
   ...skillsTools,
   ...planTools,
