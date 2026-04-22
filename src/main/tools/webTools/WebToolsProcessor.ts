@@ -1,4 +1,5 @@
-import { BrowserWindow } from 'electron'
+import { net } from 'electron'
+import type { BrowserWindow } from 'electron'
 import * as cheerio from 'cheerio'
 import TurndownService from 'turndown'
 import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@tools/webTools/index.d'
@@ -16,6 +17,8 @@ interface WebSearchProcessArgs {
 }
 
 type CleanMode = 'lite' | 'full'
+type FetchLike = typeof fetch
+type HttpFetchTransport = 'electron-net-fetch' | 'node-fetch'
 
 interface WebFetchProcessArgs {
   url: string
@@ -45,6 +48,37 @@ const directHttpExtensions = new Set([
 ])
 
 const logger = createLogger('WebToolsProcessor')
+
+function resolveDefaultHttpFetch(): { fetchImpl: FetchLike; transport: HttpFetchTransport } {
+  if (typeof net?.fetch === 'function') {
+    return {
+      fetchImpl: net.fetch.bind(net) as FetchLike,
+      transport: 'electron-net-fetch'
+    }
+  }
+
+  return {
+    fetchImpl: fetch,
+    transport: 'node-fetch'
+  }
+}
+
+function getErrorCauseDetails(error: unknown): Record<string, unknown> {
+  const cause = (error as { cause?: unknown } | undefined)?.cause
+  if (!cause || typeof cause !== 'object') {
+    return {}
+  }
+
+  const causeRecord = cause as Record<string, unknown>
+  return {
+    causeName: causeRecord.name,
+    causeMessage: causeRecord.message,
+    causeCode: causeRecord.code,
+    causeErrno: causeRecord.errno,
+    causeSyscall: causeRecord.syscall,
+    causeHostname: causeRecord.hostname
+  }
+}
 
 function getFallbackTitleFromUrl(url: string): string {
   try {
@@ -269,13 +303,27 @@ async function fetchPageContentViaHttp(
   fallbackUrl: string,
   mode: CleanMode
 ): Promise<{ pageTitle: string; finalUrl: string; extractedText: string }> {
-  const response = await fetch(fallbackUrl, {
-    redirect: 'follow',
-    headers: {
-      'User-Agent': userAgent,
-      'Accept': 'text/html, text/plain, text/markdown, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8'
-    }
-  })
+  const { fetchImpl, transport } = resolveDefaultHttpFetch()
+  let response: Response
+
+  try {
+    response = await fetchImpl(fallbackUrl, {
+      redirect: 'follow',
+      headers: {
+        'User-Agent': userAgent,
+        'Accept': 'text/html, text/plain, text/markdown, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8'
+      }
+    })
+  } catch (error: any) {
+    logger.warn('web_fetch.direct_http_request_failed', {
+      url: fallbackUrl,
+      transport,
+      name: error?.name,
+      message: error?.message || String(error),
+      ...getErrorCauseDetails(error)
+    })
+    throw error
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch page: HTTP ${response.status}`)
