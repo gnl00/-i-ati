@@ -245,6 +245,9 @@ declare interface IChatRequestV2 {
 
 declare interface MCPTool {
   type: 'function'
+  source?: 'embedded' | 'mcp'
+  serverName?: string
+  originalName?: string
   function: {
     name: string
     description?: string

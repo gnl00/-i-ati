@@ -1,8 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ToolExecutor } from '../ToolExecutor'
 
-const { handlerMock, assessExecuteCommandReviewMock } = vi.hoisted(() => ({
+const {
+  handlerMock,
+  mcpCallToolMock,
+  getToolSourceMock,
+  assessExecuteCommandReviewMock
+} = vi.hoisted(() => ({
   handlerMock: vi.fn(async (args: any) => ({ ok: true, args })),
+  mcpCallToolMock: vi.fn(async () => [{ ok: true }]),
+  getToolSourceMock: vi.fn(() => undefined as 'mcp' | undefined),
   assessExecuteCommandReviewMock: vi.fn(() => ({
     level: 'safe',
     reason: 'safe',
@@ -27,7 +34,8 @@ vi.mock('@tools/registry', () => ({
 
 vi.mock('@main/services/mcpRuntime', () => ({
   mcpRuntimeService: {
-    callTool: vi.fn()
+    callTool: mcpCallToolMock,
+    getToolSource: getToolSourceMock
   }
 }))
 
@@ -186,6 +194,31 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).toHaveBeenCalledTimes(1)
     const callArgs = handlerMock.mock.calls[0][0]
     expect(callArgs.chat_uuid).toBe('chat-runtime')
+  })
+
+  it('keeps mcp tool arguments free of injected chat_uuid', async () => {
+    handlerMock.mockClear()
+    mcpCallToolMock.mockClear()
+    getToolSourceMock.mockReturnValueOnce('mcp')
+
+    const executor = new ToolExecutor({
+      chatUuid: 'chat-runtime'
+    })
+
+    await executor.execute([{
+      id: 'call-5c',
+      function: 'mcp_echo',
+      args: JSON.stringify({
+        text: 'hello'
+      })
+    } as any])
+
+    expect(mcpCallToolMock).toHaveBeenCalledTimes(1)
+    const firstCall = mcpCallToolMock.mock.calls[0] as unknown as [string, string, Record<string, unknown>]
+    const callArgs = firstCall[2]
+    expect(callArgs).toEqual({
+      text: 'hello'
+    })
   })
 
   it('rejects tools that are not allowed in the current runtime', async () => {

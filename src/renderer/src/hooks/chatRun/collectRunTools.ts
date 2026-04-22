@@ -13,18 +13,37 @@ export function collectRunTools(
   options: CollectRunToolsOptions
 ): any[] {
   const toolsByName = new Map<string, any>()
-  const normalizeToolDef = (tool: any): any => tool?.function ?? tool
+  const normalizeToolDef = (tool: any): any => {
+    if (tool?.function) {
+      return {
+        ...tool.function,
+        ...(tool.source ? { source: tool.source } : {}),
+        ...(tool.serverName ? { serverName: tool.serverName } : {}),
+        ...(tool.originalName ? { originalName: tool.originalName } : {})
+      }
+    }
+    return tool
+  }
   const findToolDefinition = (name: string) => {
     const match = (toolsDefinitions as any[]).find(tool => tool?.function?.name === name)
-    return match?.function ?? match
+    if (match?.function) {
+      return {
+        ...match.function,
+        ...(match.source ? { source: match.source } : {})
+      }
+    }
+    return match
   }
 
-  useMcpRuntimeStore.getState().getAllTools().forEach(tool => {
-    const normalized = normalizeToolDef(tool)
-    const name = normalized?.name
-    if (name) {
-      toolsByName.set(name, normalized)
-    }
+  const mcpRuntime = useMcpRuntimeStore.getState()
+  mcpRuntime.selectedServerNames.forEach(serverName => {
+    mcpRuntime.getServerTools(serverName)?.forEach(tool => {
+      const normalized = normalizeToolDef(tool)
+      const name = normalized?.name
+      if (name) {
+        toolsByName.set(name, normalized)
+      }
+    })
   })
 
   if (state.webSearchEnable) {

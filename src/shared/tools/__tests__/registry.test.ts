@@ -45,6 +45,7 @@ describe('EmbeddedToolsRegistry', () => {
     const allTools = embeddedToolsRegistry.getAllTools()
     expect(allTools.map(tool => tool.function.name)).toContain(embeddedTool.function.name)
     expect(allTools.map(tool => tool.function.name)).not.toContain(externalTool.function.name)
+    expect(allTools.find(tool => tool.function.name === embeddedTool.function.name)?.source).toBe('embedded')
   })
 
   it('getAllToolDefinitions returns embedded and external tools', () => {
@@ -67,6 +68,14 @@ describe('EmbeddedToolsRegistry', () => {
         description: externalTool.function.description
       }
     ])
+  })
+
+  it('resolves tool sources from registry entries', () => {
+    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool, embeddedMetadata)
+    embeddedToolsRegistry.registerExternal(externalTool.function.name, externalTool)
+
+    expect(embeddedToolsRegistry.getToolSource(embeddedTool.function.name)).toBe('embedded')
+    expect(embeddedToolsRegistry.getToolSource(externalTool.function.name)).toBe('mcp')
   })
 
   it('stores embedded tool metadata', () => {

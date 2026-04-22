@@ -253,26 +253,17 @@ export class ToolExecutor implements IToolExecutor {
       return args
     }
 
-    if (this.chatUuid && (
+    const toolSource = this.resolveToolSource(toolName)
+    let nextArgs = args
+
+    if (toolSource !== 'mcp' && this.chatUuid && (
       toolName?.startsWith('schedule_')
       || toolName?.startsWith('plan_')
       || toolName?.startsWith('activity_journal_')
       || toolName === 'execute_command'
     )) {
-      const nextArgs = { ...args, chat_uuid: this.chatUuid }
-      if (toolName?.startsWith('subagent_')) {
-        return {
-          ...nextArgs,
-          ...(this.modelRef ? { model_ref: this.modelRef } : {}),
-          ...(this.submissionId ? { parent_submission_id: this.submissionId } : {})
-        }
-      }
-      return nextArgs
-    }
-
-    let nextArgs = args
-
-    if (this.chatUuid && !args.chat_uuid) {
+      nextArgs = { ...nextArgs, chat_uuid: this.chatUuid }
+    } else if (toolSource !== 'mcp' && this.chatUuid && !args.chat_uuid) {
       nextArgs = { ...nextArgs, chat_uuid: this.chatUuid }
     }
 
@@ -286,6 +277,16 @@ export class ToolExecutor implements IToolExecutor {
     }
 
     return nextArgs
+  }
+
+  private resolveToolSource(toolName?: string): 'embedded' | 'mcp' | undefined {
+    if (!toolName) {
+      return undefined
+    }
+    if (embeddedToolsRegistry.isRegistered(toolName)) {
+      return 'embedded'
+    }
+    return mcpRuntimeService.getToolSource(toolName)
   }
 
   private shouldAutoApprovePlanCreate(): boolean {

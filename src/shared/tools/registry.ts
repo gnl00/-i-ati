@@ -6,9 +6,11 @@
 import type { EmbeddedToolMetadata } from './metadata-types'
 
 export type { EmbeddedToolMetadata } from './metadata-types'
+export type ToolSource = 'embedded' | 'mcp'
 
 export interface ToolDefinition {
   type: string
+  source?: ToolSource
   function: {
     name: string
     description: string
@@ -36,10 +38,17 @@ class EmbeddedToolsRegistry {
     definition?: ToolDefinition,
     metadata?: EmbeddedToolMetadata
   ): void {
+    const normalizedDefinition = definition
+      ? {
+          ...definition,
+          source: definition.source ?? 'embedded'
+        }
+      : undefined
+
     this.tools.set(toolName, {
       name: toolName,
       handler,
-      definition,
+      definition: normalizedDefinition,
       metadata
     })
     // console.log(`[EmbeddedToolsRegistry] Registered tool: ${toolName}`)
@@ -50,7 +59,10 @@ class EmbeddedToolsRegistry {
    * 外部工具没有 handler，只有定义
    */
   registerExternal(toolName: string, definition: ToolDefinition): void {
-    this.externalTools.set(toolName, definition)
+    this.externalTools.set(toolName, {
+      ...definition,
+      source: definition.source ?? 'mcp'
+    })
     console.log(`[EmbeddedToolsRegistry] Registered external tool: ${toolName}`)
   }
 
@@ -99,6 +111,16 @@ class EmbeddedToolsRegistry {
   getToolMetadata(toolName: string): EmbeddedToolMetadata | undefined {
     const tool = this.tools.get(toolName)
     return tool?.metadata
+  }
+
+  getToolSource(toolName: string): ToolSource | undefined {
+    if (this.tools.has(toolName)) {
+      return 'embedded'
+    }
+    if (this.externalTools.has(toolName)) {
+      return 'mcp'
+    }
+    return undefined
   }
 
   /**

@@ -7,7 +7,10 @@ export class ToolListBuilder {
     for (const tool of embeddedToolsRegistry.getAllTools()) {
       const name = tool.function?.name
       if (!name) continue
-      toolsByName.set(name, { ...tool.function })
+      toolsByName.set(name, {
+        ...tool.function,
+        ...(tool.source ? { source: tool.source } : {})
+      })
     }
 
     if (Array.isArray(extraTools)) {
