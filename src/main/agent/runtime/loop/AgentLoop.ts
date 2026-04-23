@@ -59,11 +59,21 @@ const isAbortError = (error: unknown, signal?: AbortSignal): boolean => (
   || (error instanceof Error && error.name === 'AbortError')
 )
 
+const getErrorCode = (error: unknown): string | undefined => {
+  if (!error || typeof error !== 'object') {
+    return undefined
+  }
+
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' ? code : undefined
+}
+
 const toFailureInfo = (error: unknown): AgentLoopFailureInfo => {
   if (error instanceof Error) {
     return {
       name: error.name,
-      message: error.message
+      message: error.message,
+      code: getErrorCode(error)
     }
   }
 
@@ -76,7 +86,8 @@ const toStepFailureInfo = (error: unknown): AgentStepFailureInfo => {
   if (error instanceof Error) {
     return {
       name: error.name,
-      message: error.message
+      message: error.message,
+      code: getErrorCode(error)
     }
   }
 

@@ -28,6 +28,7 @@ export interface RequestErrorMetadata {
 
 type RequestErrorWithMetadata = Error & {
   __requestLogged?: boolean
+  code?: string
   [REQUEST_ERROR_METADATA]?: RequestErrorMetadata
 }
 
@@ -65,6 +66,7 @@ const looksLikeNetworkError = (
   return (
     message.includes('fetch failed')
     || message.includes('failed to fetch')
+    || message.includes('terminated')
     || message.includes('networkerror')
     || name.includes('network')
     || causeNameLower?.includes('network') === true
@@ -154,7 +156,81 @@ const attachRequestErrorMetadata = (
 ): RequestErrorWithMetadata => {
   const errorWithMetadata = error as RequestErrorWithMetadata
   errorWithMetadata[REQUEST_ERROR_METADATA] = metadata
+  if (!errorWithMetadata.code && (metadata.code || metadata.causeCode)) {
+    errorWithMetadata.code = metadata.code || metadata.causeCode
+  }
   return errorWithMetadata
+}
+
+const logRequestFailure = (
+  req: IUnifiedRequest,
+  adapterPluginId: string,
+  endpoint: string | undefined,
+  signal: AbortSignal | null,
+  metadata: RequestErrorMetadata,
+  phase?: 'stream'
+): void => {
+  logger.error('request.failed', {
+    baseUrl: req.baseUrl,
+    adapterPluginId,
+    model: req.model,
+    endpoint,
+    stream: req.stream ?? true,
+    signalAborted: Boolean(signal?.aborted),
+    phase,
+    ...metadata
+  })
+}
+
+const enrichAndLogRequestError = (
+  error: unknown,
+  req: IUnifiedRequest,
+  adapterPluginId: string,
+  endpoint: string | undefined,
+  signal: AbortSignal | null,
+  phase?: 'stream'
+): unknown => {
+  const metadata = getRequestErrorMetadata(error) ?? normalizeRequestError(error, signal)
+  const enrichedError = error instanceof Error ? attachRequestErrorMetadata(error, metadata) : error
+  const logged = error instanceof Error && (error as RequestErrorWithMetadata).__requestLogged
+
+  if (!logged) {
+    logRequestFailure(req, adapterPluginId, endpoint, signal, metadata, phase)
+  }
+
+  if (enrichedError instanceof Error) {
+    ;(enrichedError as RequestErrorWithMetadata).__requestLogged = true
+  }
+
+  return enrichedError
+}
+
+async function *withStreamRequestLifecycle(
+  stream: AsyncIterable<IUnifiedResponse>,
+  context: {
+    req: IUnifiedRequest
+    adapterPluginId: string
+    endpoint: string | undefined
+    signal: AbortSignal | null
+    afterFetch: Function
+  }
+): AsyncGenerator<IUnifiedResponse, void, unknown> {
+  try {
+    for await (const chunk of stream) {
+      yield chunk
+    }
+  } catch (error) {
+    throw enrichAndLogRequestError(
+      error,
+      context.req,
+      context.adapterPluginId,
+      context.endpoint,
+      context.signal,
+      'stream'
+    )
+  } finally {
+    context.afterFetch()
+  }
 }
 
 export const getRequestErrorMetadata = (error: unknown): RequestErrorMetadata | undefined => {
@@ -196,6 +272,7 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   }
   beforeFetch()
   let endpoint: string | undefined
+  let shouldRunAfterFetch = true
   try {
     // Use adapter to construct complete endpoint URL
     const resolvedEndpoint: string = adapter.getEndpoint(req.baseUrl, req)
@@ -249,44 +326,36 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
         message: summary
       })
       const requestError = attachRequestErrorMetadata(new Error(summary), metadata)
-      logger.error('request.failed', {
-        baseUrl: req.baseUrl,
-        adapterPluginId,
-        model: req.model,
-        endpoint,
-        stream: req.stream ?? true,
-        signalAborted: Boolean(signal?.aborted),
-        ...metadata
-      })
+      logRequestFailure(req, adapterPluginId, endpoint, signal, metadata)
       requestError.__requestLogged = true
       throw requestError
     }
     const streamEnabled = req.stream ?? true
     if (streamEnabled) {
       const reader = fetchResponse.body?.pipeThrough(new TextDecoderStream()).getReader()
-      return reader && adapter.transformStreamResponse(reader)
+      if (!reader) {
+        return undefined
+      }
+
+      shouldRunAfterFetch = false
+      return withStreamRequestLifecycle(adapter.transformStreamResponse(reader), {
+        req,
+        adapterPluginId,
+        endpoint,
+        signal,
+        afterFetch
+      })
     } else {
       const response = adapter.parseResponse(await fetchResponse.json())
       return response
     }
 
   } catch (error: any) {
-    const metadata = getRequestErrorMetadata(error) ?? normalizeRequestError(error, signal)
-    const enrichedError = error instanceof Error ? attachRequestErrorMetadata(error, metadata) : error
-    if (!error?.__requestLogged) {
-      logger.error('request.failed', {
-        baseUrl: req.baseUrl,
-        adapterPluginId,
-        model: req.model,
-        endpoint,
-        stream: req.stream ?? true,
-        signalAborted: Boolean(signal?.aborted),
-        ...metadata
-      })
-    }
-    throw enrichedError
+    throw enrichAndLogRequestError(error, req, adapterPluginId, endpoint, signal)
   } finally {
-    afterFetch()
+    if (shouldRunAfterFetch) {
+      afterFetch()
+    }
   }
 }
 

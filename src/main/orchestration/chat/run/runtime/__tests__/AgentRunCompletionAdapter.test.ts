@@ -52,4 +52,37 @@ describe('AgentRunCompletionAdapter', () => {
       }]
     })
   })
+
+  it('returns loop failure details without creating a misleading adapter stack', () => {
+    const adapter = new DefaultAgentRunCompletionAdapter()
+
+    const runtimeResult = adapter.adapt({
+      result: {
+        status: 'failed',
+        startedAt: 1,
+        completedAt: 2,
+        transcript: {
+          transcriptId: 'transcript-1',
+          createdAt: 1,
+          updatedAt: 2,
+          records: []
+        },
+        failure: {
+          name: 'TypeError',
+          message: 'terminated',
+          code: 'UND_ERR_SOCKET'
+        }
+      },
+      artifacts: []
+    })
+
+    expect(runtimeResult).toEqual({
+      state: 'failed',
+      error: {
+        name: 'TypeError',
+        message: 'terminated',
+        code: 'UND_ERR_SOCKET'
+      }
+    })
+  })
 })
