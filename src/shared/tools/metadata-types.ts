@@ -19,6 +19,7 @@ export type EmbeddedToolCapability =
   | 'telegram'
   | 'subagent'
   | 'log'
+  | 'knowledgebase'
   | 'registry'
 
 export interface EmbeddedToolMetadata {

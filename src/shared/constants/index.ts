@@ -73,6 +73,11 @@ export const MEMORY_CLEAR = 'memory-clear'
 export const EMBEDDING_GENERATE = 'embedding-generate'
 export const EMBEDDING_GENERATE_BATCH = 'embedding-generate-batch'
 export const EMBEDDING_GET_MODEL_INFO = 'embedding-get-model-info'
+export const KNOWLEDGEBASE_SEARCH = 'knowledgebase:search'
+export const KNOWLEDGEBASE_REINDEX = 'knowledgebase:reindex'
+export const KNOWLEDGEBASE_STATUS = 'knowledgebase:status'
+export const KNOWLEDGEBASE_STATS = 'knowledgebase:stats'
+export const KNOWLEDGEBASE_CLEAR = 'knowledgebase:clear'
 
 // Memory Tools Actions
 export const MEMORY_RETRIEVAL_ACTION = 'memory-retrieval-action'

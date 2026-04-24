@@ -202,6 +202,7 @@ type AppConfigState = {
   pluginsLoaded: boolean
   remotePlugins: RemotePluginCatalogItem[]
   remotePluginsLoaded: boolean
+  knowledgebase: KnowledgebaseConfig | undefined
   compression: CompressionConfig | undefined
 }
 
@@ -275,6 +276,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   pluginsLoaded: false,
   remotePlugins: [],
   remotePluginsLoaded: false,
+  knowledgebase: defaultConfig.knowledgebase,
 
   // State - Compression settings
   compression: defaultConfig.compression,
@@ -285,10 +287,12 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       config.providerDefinitions || []
     )
     const nextAccounts = normalizeAccounts(config.accounts || [])
+    const nextKnowledgebase = config.knowledgebase ?? defaultConfig.knowledgebase
 
     set({
       appConfig: {
         ...config,
+        knowledgebase: nextKnowledgebase,
         providerDefinitions: nextProviderDefinitions,
         accounts: nextAccounts
       },
@@ -300,6 +304,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
       streamChunkDebugEnabled: config.tools?.streamChunkDebugEnabled ?? false,
+      knowledgebase: nextKnowledgebase,
       compression: config.compression
     })
   },
@@ -340,6 +345,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
     const nextConfig = {
       ...updatedConfig,
+      knowledgebase: updatedConfig.knowledgebase ?? defaultConfig.knowledgebase,
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts
     }
@@ -357,6 +363,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       titleGenerateEnabled: nextConfig.tools?.titleGenerateEnabled ?? true,
       memoryEnabled: nextConfig.tools?.memoryEnabled ?? true,
       streamChunkDebugEnabled: nextConfig.tools?.streamChunkDebugEnabled ?? false,
+      knowledgebase: nextConfig.knowledgebase,
       compression: nextConfig.compression
     })
   },

@@ -33,7 +33,8 @@ export class RunRequestFactory {
     const systemPrompts = await this.systemPromptComposer.compose(
       environment.workspacePath,
       environment.chat.id,
-      mergedUserInstruction
+      mergedUserInstruction,
+      input.textCtx
     )
 
     const requestMessages = new RequestMessageBuilder()

@@ -3,6 +3,7 @@ import {
   systemPrompt as systemPromptBuilder
 } from '@shared/prompts'
 import { EmotionPromptProvider } from './EmotionPromptProvider'
+import { KnowledgebasePromptProvider } from './KnowledgebasePromptProvider'
 import { SoulPromptProvider } from './SoulPromptProvider'
 import { SkillsPromptProvider } from './SkillsPromptProvider'
 import { UserInfoPromptProvider } from './UserInfoPromptProvider'
@@ -12,13 +13,15 @@ export class SystemPromptComposer {
     private readonly userInfoPromptProvider = new UserInfoPromptProvider(),
     private readonly skillsPromptProvider = new SkillsPromptProvider(),
     private readonly emotionPromptProvider = new EmotionPromptProvider(),
-    private readonly soulPromptProvider = new SoulPromptProvider()
+    private readonly soulPromptProvider = new SoulPromptProvider(),
+    private readonly knowledgebasePromptProvider = new KnowledgebasePromptProvider()
   ) {}
 
   async compose(
     workspacePath: string,
     chatId?: number,
-    userInstruction?: string
+    userInstruction?: string,
+    currentQuery?: string
   ): Promise<string[]> {
     const baseSystemPrompt = systemPromptBuilder(workspacePath)
     const userInfoPrompt = await this.userInfoPromptProvider.build()
@@ -26,14 +29,15 @@ export class SystemPromptComposer {
     const emotionPrompt = this.emotionPromptProvider.build(chatId)
     const soulPrompt = this.soulPromptProvider.build()
     const userInstructionPrompt = buildUserInstructionPrompt(userInstruction)
-
+    const knowledgebasePrompt = await this.knowledgebasePromptProvider.build(currentQuery)
     const composedSystemPrompt = [
       baseSystemPrompt,
       userInfoPrompt,
       skillsPrompt,
       emotionPrompt,
       soulPrompt,
-      userInstructionPrompt
+      userInstructionPrompt,
+      knowledgebasePrompt
     ]
       .filter(part => part.trim().length > 0)
       .join('\n\n')

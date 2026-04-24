@@ -27,7 +27,9 @@ import {
 import { processMemoryRetrieval, processMemorySave } from '@main/tools/memory/MemoryToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import EmbeddingServiceInstance from '@main/services/embedding/EmbeddingService'
+import { knowledgebaseService } from '@main/services/knowledgebase/KnowledgebaseService'
 import MemoryService from '@main/services/memory/MemoryService'
+import { processKnowledgebaseSearch } from '@main/tools/knowledgebase/KnowledgebaseToolsProcessor'
 import {
   WEB_SEARCH_ACTION,
   WEB_FETCH_ACTION,
@@ -61,13 +63,18 @@ import {
   MEMORY_RETRIEVAL_ACTION,
   MEMORY_SAVE_ACTION,
   COMMAND_EXECUTE_ACTION,
+  KNOWLEDGEBASE_CLEAR,
+  KNOWLEDGEBASE_REINDEX,
+  KNOWLEDGEBASE_STATS,
+  KNOWLEDGEBASE_STATUS,
   MCP_CONNECT,
   MCP_DISCONNECT,
   MCP_TOOL_CALL,
   MCP_STATUS,
   EMBEDDING_GENERATE,
   EMBEDDING_GENERATE_BATCH,
-  EMBEDDING_GET_MODEL_INFO
+  EMBEDDING_GET_MODEL_INFO,
+  KNOWLEDGEBASE_SEARCH
 } from '@shared/constants'
 
 const logger = createLogger('ToolIPC')
@@ -231,5 +238,33 @@ export function registerToolHandlers(): void {
   ipcMain.handle(EMBEDDING_GET_MODEL_INFO, async (_event) => {
     logger.info('embedding_get_model_info.invoke')
     return await EmbeddingServiceInstance.getModelInfo()
+  })
+
+  ipcMain.handle(KNOWLEDGEBASE_SEARCH, async (_event, args) => {
+    logger.info('knowledgebase_search.invoke', { query: args?.query, topK: args?.top_k })
+    return await processKnowledgebaseSearch(args)
+  })
+  ipcMain.handle(KNOWLEDGEBASE_REINDEX, async (_event, args?: boolean | { force?: boolean; configOverride?: KnowledgebaseConfig }) => {
+    const force = typeof args === 'boolean' ? args : Boolean(args?.force)
+    logger.info('knowledgebase_reindex.invoke', {
+      force,
+      folderCount: typeof args === 'object' ? args?.configOverride?.folders?.length : undefined
+    })
+    return await knowledgebaseService.reindex({
+      force,
+      configOverride: typeof args === 'object' ? args?.configOverride : undefined
+    })
+  })
+  ipcMain.handle(KNOWLEDGEBASE_STATUS, async () => {
+    logger.info('knowledgebase_status.invoke')
+    return knowledgebaseService.getStatus()
+  })
+  ipcMain.handle(KNOWLEDGEBASE_STATS, async () => {
+    logger.info('knowledgebase_stats.invoke')
+    return await knowledgebaseService.getStats()
+  })
+  ipcMain.handle(KNOWLEDGEBASE_CLEAR, async () => {
+    logger.info('knowledgebase_clear.invoke')
+    return await knowledgebaseService.clear()
   })
 }

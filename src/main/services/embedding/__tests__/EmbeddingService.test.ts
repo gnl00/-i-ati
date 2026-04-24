@@ -51,10 +51,17 @@ describe('EmbeddingService', () => {
     mockExistsSync.mockReturnValue(true)
 
     // 创建 mock pipeline 实例
-    mockPipelineInstance = vi.fn(async (_text: string, _options?: any) => {
-      // 模拟返回 384 维的 embedding 向量
+    mockPipelineInstance = vi.fn(async (text: string | string[], _options?: any) => {
+      if (Array.isArray(text)) {
+        const embedding = new Float32Array(384 * text.length).fill(0.1)
+        return {
+          data: embedding,
+          dims: [text.length, 384]
+        }
+      }
+
       const embedding = new Float32Array(384).fill(0.1)
-      return { data: embedding }
+      return { data: embedding, dims: [384] }
     })
 
     // 配置 pipeline mock
@@ -278,6 +285,53 @@ describe('EmbeddingService', () => {
 
       expect(result.count).toBe(10)
       expect(result.embeddings).toHaveLength(10)
+    })
+
+    it('应该对批量输入直接使用 pipeline 数组调用', async () => {
+      const texts = ['文本1', '文本2', '文本3', '文本4']
+      await service.generateBatchEmbeddings(texts, { batchSize: 4 })
+
+      expect(mockPipelineInstance).toHaveBeenCalledWith(
+        texts,
+        expect.objectContaining({
+          pooling: 'mean',
+          normalize: true
+        })
+      )
+    })
+
+    it('应该限制单次批量推理的最大批次数量', async () => {
+      const texts = Array.from({ length: 25 }, (_, index) => `文本${index}`)
+      mockPipelineInstance.mockClear()
+
+      await service.generateBatchEmbeddings(texts, { batchSize: 96 })
+
+      const arrayCalls = mockPipelineInstance.mock.calls
+        .map(call => call[0])
+        .filter((value): value is string[] => Array.isArray(value))
+
+      expect(arrayCalls).toHaveLength(2)
+      expect(arrayCalls[0]).toHaveLength(24)
+      expect(arrayCalls[1]).toHaveLength(1)
+    })
+
+    it('应该按字符预算拆分大文本批次', async () => {
+      const texts = [
+        'a'.repeat(6000),
+        'b'.repeat(6000),
+        'c'.repeat(1000)
+      ]
+      mockPipelineInstance.mockClear()
+
+      await service.generateBatchEmbeddings(texts, { batchSize: 16 })
+
+      const arrayCalls = mockPipelineInstance.mock.calls
+        .map(call => call[0])
+        .filter((value): value is string[] => Array.isArray(value))
+
+      expect(arrayCalls).toHaveLength(2)
+      expect(arrayCalls[0]).toHaveLength(2)
+      expect(arrayCalls[1]).toHaveLength(1)
     })
   })
 

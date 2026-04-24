@@ -15,6 +15,15 @@ export const defaultConfig: IAppConfig = {
   skills: {
     folders: []
   },
+  knowledgebase: {
+    enabled: false,
+    folders: [],
+    autoIndexOnStartup: true,
+    chunkSize: 1200,
+    chunkOverlap: 200,
+    maxResults: 8,
+    retrievalMode: 'tool-first'
+  },
   compression: {
     enabled: true,
     triggerThreshold: 30,

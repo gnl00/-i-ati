@@ -74,6 +74,7 @@ import {
   processActivityJournalList,
   processActivityJournalSearch
 } from '@main/tools/activityJournal/ActivityJournalToolsProcessor'
+import { processKnowledgebaseSearch } from '@main/tools/knowledgebase/KnowledgebaseToolsProcessor'
 import {
   processSubagentSpawn,
   processSubagentWait
@@ -135,6 +136,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   activity_journal_append: processActivityJournalAppend,
   activity_journal_list: processActivityJournalList,
   activity_journal_search: processActivityJournalSearch,
+  knowledgebase_search: processKnowledgebaseSearch,
   log_search: processLogSearch,
   subagent_spawn: processSubagentSpawn,
   subagent_wait: processSubagentWait

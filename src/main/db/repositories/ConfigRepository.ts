@@ -82,6 +82,15 @@ export class ConfigRepository {
         maxWebSearchItems: 3,
         streamChunkDebugEnabled: false
       },
+      knowledgebase: {
+        enabled: false,
+        folders: [],
+        autoIndexOnStartup: true,
+        chunkSize: 1200,
+        chunkOverlap: 200,
+        maxResults: 8,
+        retrievalMode: 'tool-first'
+      },
       configForUpdate: {
         version: 2.0
       }

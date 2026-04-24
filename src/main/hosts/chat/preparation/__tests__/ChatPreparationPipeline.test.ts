@@ -64,6 +64,16 @@ vi.mock('@tools/registry', () => ({
   }
 }))
 
+const { knowledgebaseSearchMock } = vi.hoisted(() => ({
+  knowledgebaseSearchMock: vi.fn<(...args: any[]) => Promise<any[]>>(async () => [])
+}))
+
+vi.mock('@main/services/knowledgebase/KnowledgebaseService', () => ({
+  knowledgebaseService: {
+    search: knowledgebaseSearchMock
+  }
+}))
+
 import DatabaseService from '@main/db/DatabaseService'
 import {
   ChatPreparationPipeline,
@@ -129,6 +139,7 @@ const input = {
 describe('ChatPreparationPipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    knowledgebaseSearchMock.mockResolvedValue([])
     ;(DatabaseService.getConfig as any).mockReturnValue(config)
     ;(DatabaseService.getChatById as any).mockReturnValue(chatEntity)
     ;(DatabaseService.getChatByUuid as any).mockReturnValue(undefined)
@@ -227,5 +238,74 @@ describe('ChatPreparationPipeline', () => {
         source: 'schedule'
       })
     ]))
+  })
+
+  it('injects retrieved knowledgebase context into the system prompt', async () => {
+    ;(DatabaseService.getConfig as any).mockReturnValue({
+      ...config,
+      knowledgebase: {
+        enabled: true,
+        folders: ['/workspace/docs'],
+        maxResults: 4,
+        retrievalMode: 'auto'
+      }
+    })
+    knowledgebaseSearchMock.mockResolvedValue([
+      {
+        chunkId: 'chunk-1',
+        documentId: 'doc-1',
+        filePath: '/workspace/docs/guide.md',
+        fileName: 'guide.md',
+        folderPath: '/workspace/docs',
+        ext: '.md',
+        text: 'Knowledge base snippet for the current request.',
+        chunkIndex: 0,
+        score: 0.91,
+        similarity: 0.88,
+        charStart: 0,
+        charEnd: 42,
+        tokenEstimate: 11
+      }
+    ])
+
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare(input, emitter)
+
+    expect(knowledgebaseSearchMock).toHaveBeenCalledWith('hello', expect.objectContaining({
+      topK: 4,
+      threshold: 0.42,
+      folders: ['/workspace/docs']
+    }))
+    expect(prepared.runSpec.request.systemPrompt).toContain('<knowledgebase_context>')
+    expect(prepared.runSpec.request.systemPrompt).toContain('/workspace/docs/guide.md')
+    expect(prepared.runSpec.request.systemPrompt).toContain('Knowledge base snippet for the current request.')
+  })
+
+  it('adds tool-first retrieval policy without auto-searching the knowledgebase', async () => {
+    ;(DatabaseService.getConfig as any).mockReturnValue({
+      ...config,
+      knowledgebase: {
+        enabled: true,
+        folders: ['/workspace/docs'],
+        maxResults: 4,
+        retrievalMode: 'tool-first'
+      }
+    })
+
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare(input, emitter)
+
+    expect(knowledgebaseSearchMock).not.toHaveBeenCalled()
+    expect(prepared.runSpec.request.systemPrompt).toContain('<knowledgebase_policy>')
+    expect(prepared.runSpec.request.systemPrompt).toContain('knowledgebase_search')
+    expect(prepared.runSpec.request.systemPrompt).not.toContain('<knowledgebase_context>')
   })
 })

@@ -6,9 +6,10 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
-import { Brain, Database, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
+import { BookOpen, Brain, Database, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
+import KnowledgebaseManager from './KnowledgebaseManager'
 import MemoryManager from './MemoryManager'
 import { MCPServersManagerContent } from './mcps/MCPServersManager'
 import ProvidersManager from './providers/ProvidersManager'
@@ -57,6 +58,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const [telegramEnabled, setTelegramEnabled] = useState<boolean>(appConfig?.telegram?.enabled ?? false)
     const [telegramBotToken, setTelegramBotToken] = useState<string>(appConfig?.telegram?.botToken || '')
     const [emotionAssetPack, setEmotionAssetPack] = useState<string>(appConfig?.emotion?.assetPack || 'default')
+    const [knowledgebaseEnabled, setKnowledgebaseEnabled] = useState<boolean>(appConfig?.knowledgebase?.enabled ?? false)
+    const [knowledgebaseFolders, setKnowledgebaseFolders] = useState<string[]>(appConfig?.knowledgebase?.folders || [])
+    const [knowledgebaseRetrievalMode, setKnowledgebaseRetrievalMode] = useState<KnowledgebaseRetrievalMode>(appConfig?.knowledgebase?.retrievalMode ?? 'tool-first')
+    const [knowledgebaseAutoIndexOnStartup, setKnowledgebaseAutoIndexOnStartup] = useState<boolean>(appConfig?.knowledgebase?.autoIndexOnStartup ?? true)
+    const [knowledgebaseChunkSize, setKnowledgebaseChunkSize] = useState<number>(appConfig?.knowledgebase?.chunkSize || 1200)
+    const [knowledgebaseChunkOverlap, setKnowledgebaseChunkOverlap] = useState<number>(appConfig?.knowledgebase?.chunkOverlap || 200)
+    const [knowledgebaseMaxResults, setKnowledgebaseMaxResults] = useState<number>(appConfig?.knowledgebase?.maxResults || 8)
     const [activeTab, setActiveTab] = useState<string>('provider-list')
     const previousSavedTelegramRef = useRef({
         enabled: appConfig?.telegram?.enabled ?? false,
@@ -79,6 +87,13 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             setCompressionKeepRecentCount(appConfig.compression.keepRecentCount || 20)
             setCompressionCompressCount(appConfig.compression.compressCount || 10)
         }
+        setKnowledgebaseEnabled(appConfig?.knowledgebase?.enabled ?? false)
+        setKnowledgebaseFolders(appConfig?.knowledgebase?.folders || [])
+        setKnowledgebaseRetrievalMode(appConfig?.knowledgebase?.retrievalMode ?? 'tool-first')
+        setKnowledgebaseAutoIndexOnStartup(appConfig?.knowledgebase?.autoIndexOnStartup ?? true)
+        setKnowledgebaseChunkSize(appConfig?.knowledgebase?.chunkSize || 1200)
+        setKnowledgebaseChunkOverlap(appConfig?.knowledgebase?.chunkOverlap || 200)
+        setKnowledgebaseMaxResults(appConfig?.knowledgebase?.maxResults || 8)
         setEmotionAssetPack(appConfig?.emotion?.assetPack || 'default')
     }, [appConfig])
 
@@ -129,6 +144,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 ...(appConfig.emotion || {}),
                 assetPack: emotionAssetPack || 'default'
             },
+            knowledgebase: {
+                ...(appConfig.knowledgebase || {}),
+                enabled: knowledgebaseEnabled,
+                folders: knowledgebaseFolders,
+                retrievalMode: knowledgebaseRetrievalMode,
+                autoIndexOnStartup: knowledgebaseAutoIndexOnStartup,
+                chunkSize: knowledgebaseChunkSize,
+                chunkOverlap: knowledgebaseChunkOverlap,
+                maxResults: knowledgebaseMaxResults
+            },
             compression: {
                 enabled: compressionEnabled,
                 triggerThreshold: compressionTriggerThreshold,
@@ -163,6 +188,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             icon: <Brain className="w-3 h-3" />
         },
         {
+            value: 'knowledgebase',
+            label: 'Knowledge Base',
+            icon: <BookOpen className="w-3 h-3" />
+        },
+        {
             value: 'mcp-servers',
             label: 'MCP Servers',
             icon: <Plug className="w-3 h-3" />
@@ -185,6 +215,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     ]
 
     const savedTools = appConfig?.tools || {}
+    const savedKnowledgebase = appConfig?.knowledgebase
     const savedCompression = appConfig?.compression
     const savedMcpConfig = savedMcpServerConfig || { mcpServers: {} }
 
@@ -205,24 +236,32 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         || compressionKeepRecentCount !== (savedCompression?.keepRecentCount ?? 20)
         || compressionCompressCount !== (savedCompression?.compressCount ?? 10)
 
+    const knowledgebaseDirty = knowledgebaseEnabled !== (savedKnowledgebase?.enabled ?? false)
+        || knowledgebaseRetrievalMode !== (savedKnowledgebase?.retrievalMode ?? 'tool-first')
+        || knowledgebaseAutoIndexOnStartup !== (savedKnowledgebase?.autoIndexOnStartup ?? true)
+        || knowledgebaseChunkSize !== (savedKnowledgebase?.chunkSize ?? 1200)
+        || knowledgebaseChunkOverlap !== (savedKnowledgebase?.chunkOverlap ?? 200)
+        || knowledgebaseMaxResults !== (savedKnowledgebase?.maxResults ?? 8)
+        || JSON.stringify(knowledgebaseFolders) !== JSON.stringify(savedKnowledgebase?.folders ?? [])
+
     const mcpDirty = mcpConfigLoaded
         && JSON.stringify(mcpServerConfig ?? {}) !== JSON.stringify(savedMcpConfig ?? {})
     const pluginsDirty = pluginsLoaded
         && JSON.stringify(plugins) !== JSON.stringify(savedPlugins)
 
-    const hasUnsavedChanges = providersRevision > 0 || toolsDirty || compressionDirty || mcpDirty || pluginsDirty
+    const hasUnsavedChanges = providersRevision > 0 || toolsDirty || knowledgebaseDirty || compressionDirty || mcpDirty || pluginsDirty
 
     return (
-        <div className="grid gap-4">
-            <div className="flex items-start justify-between gap-4">
-                <div id="title" className="space-y-2 select-none">
+        <div className="grid gap-4 w-full min-w-0">
+            <div className="flex items-start justify-between gap-4 min-w-0">
+                <div id="title" className="space-y-2 select-none min-w-0 flex-1">
                     <h4 className="font-medium leading-none space-x-2 text-gray-900 dark:text-gray-100">
                         <span>@i</span>
                         <Badge variant="secondary" className='bg-slate-100 dark:bg-slate-800 text-gray-800 dark:text-gray-200'>{appVersion}</Badge>
                     </h4>
                     <p className="text-sm text-muted-foreground dark:text-gray-400">Shape how @i works and connects.</p>
                 </div>
-                <div id="changes-indicator" className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-linear-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-xs">
+                <div id="changes-indicator" className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-linear-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-xs shrink-0">
                     <div className="flex items-center gap-2">
                         <div className="relative flex h-1.5 w-1.5">
                             {hasUnsavedChanges && (
@@ -249,11 +288,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     </Button>
                 </div>
             </div>
-            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list">
-                <div className="flex items-center justify-between mb-2">
+            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list" className="w-full min-w-0">
+                <div className="flex items-center justify-between mb-2 min-w-0">
                     <AnimatedTabsList
                         tabs={preferenceTabs}
                         value={activeTab}
+                        scrollable
+                        autoScrollActive
+                        className="flex-1 min-w-0"
                         tabsListClassName="h-10 shadow-xs border border-gray-200/50 dark:border-gray-700/50"
                     />
                 </div>
@@ -287,6 +329,25 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                     <MemoryManager
                         memoryEnabled={memoryEnabled}
                         setMemoryEnabled={setMemoryEnabled}
+                    />
+                </TabsContent>
+
+                <TabsContent value="knowledgebase">
+                    <KnowledgebaseManager
+                        enabled={knowledgebaseEnabled}
+                        setEnabled={setKnowledgebaseEnabled}
+                        folders={knowledgebaseFolders}
+                        setFolders={setKnowledgebaseFolders}
+                        retrievalMode={knowledgebaseRetrievalMode}
+                        setRetrievalMode={setKnowledgebaseRetrievalMode}
+                        autoIndexOnStartup={knowledgebaseAutoIndexOnStartup}
+                        setAutoIndexOnStartup={setKnowledgebaseAutoIndexOnStartup}
+                        chunkSize={knowledgebaseChunkSize}
+                        setChunkSize={setKnowledgebaseChunkSize}
+                        chunkOverlap={knowledgebaseChunkOverlap}
+                        setChunkOverlap={setKnowledgebaseChunkOverlap}
+                        maxResults={knowledgebaseMaxResults}
+                        setMaxResults={setKnowledgebaseMaxResults}
                     />
                 </TabsContent>
 

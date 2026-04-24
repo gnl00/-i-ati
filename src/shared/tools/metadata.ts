@@ -3,6 +3,7 @@ import { commandToolMetadata } from './command/metadata'
 import { emotionToolMetadata } from './emotion/metadata'
 import { fileOperationsToolMetadata } from './fileOperations/metadata'
 import { historyToolMetadata } from './history/metadata'
+import { knowledgebaseToolMetadata } from './knowledgebase/metadata'
 import { logToolMetadata } from './log/metadata'
 import { memoryToolMetadata } from './memory/metadata'
 import { mergeEmbeddedToolMetadata } from './metadata-utils'
@@ -42,6 +43,7 @@ export const embeddedToolMetadata = mergeEmbeddedToolMetadata(
   telegramToolMetadata,
   userInfoToolMetadata,
   activityJournalToolMetadata,
+  knowledgebaseToolMetadata,
   logToolMetadata,
   subagentToolMetadata
 )

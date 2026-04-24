@@ -12,6 +12,7 @@ import { SkillService } from './services/skills/SkillService'
 import { schedulerService } from './services/scheduler/SchedulerService'
 import { telegramGatewayService } from './services/telegram'
 import { emotionAssetService } from './services/emotion/EmotionAssetService'
+import { knowledgebaseService } from './services/knowledgebase/KnowledgebaseService'
 import { installMainConsoleCapture } from './logging/console-capture'
 import { createPerfLogger, logService } from './logging/LogService'
 import { StartupTracer } from './utils/startupTracer'
@@ -108,6 +109,15 @@ app.whenReady().then(async () => {
     console.error('[App] Failed to initialize memory service; continuing without vector memory features:', error)
   }
   startupTracer.mark('memory.init.end')
+
+  console.log('[App] Initializing knowledgebase service...')
+  startupTracer.mark('knowledgebase.init.start')
+  try {
+    await knowledgebaseService.initialize()
+  } catch (error) {
+    console.error('[App] Failed to initialize knowledgebase service; continuing without knowledgebase features:', error)
+  }
+  startupTracer.mark('knowledgebase.init.end')
 
   // Initialize skills from configured folders (background)
   void SkillService.initializeFromConfig(appConfig)

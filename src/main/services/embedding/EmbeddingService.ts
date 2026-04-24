@@ -34,6 +34,8 @@ class EmbeddingService {
   private initializationPromise: Promise<void> | null = null
   private readonly MODEL_NAME = 'all-MiniLM-L6-v2'
   private readonly EMBEDDING_DIMENSIONS = 384
+  private readonly MAX_SAFE_BATCH_SIZE = 24
+  private readonly MAX_SAFE_BATCH_CHARS = 12000
 
   private constructor() {
     this.modelPath = app.isPackaged
@@ -113,6 +115,82 @@ class EmbeddingService {
     }
   }
 
+  private normalizeSingleOutput(output: any): number[] {
+    if (output?.data) {
+      return Array.from(output.data) as number[]
+    }
+
+    if (Array.isArray(output)) {
+      return output.map((value) => Number(value))
+    }
+
+    throw new Error('Unexpected embedding output shape')
+  }
+
+  private normalizeBatchOutput(output: any, expectedCount: number): number[][] {
+    if (Array.isArray(output)) {
+      return output.map(item => this.normalizeSingleOutput(item))
+    }
+
+    if (output?.data && Array.isArray(output?.dims) && output.dims.length >= 2) {
+      const dims = output.dims as number[]
+      const batchCount = dims[0] ?? expectedCount
+      const dimensions = dims[dims.length - 1] ?? this.EMBEDDING_DIMENSIONS
+      const values = Array.from(output.data) as number[]
+
+      if (batchCount * dimensions <= values.length) {
+        const embeddings: number[][] = []
+        for (let index = 0; index < batchCount; index += 1) {
+          const start = index * dimensions
+          embeddings.push(values.slice(start, start + dimensions))
+        }
+        return embeddings
+      }
+    }
+
+    if (expectedCount === 1) {
+      return [this.normalizeSingleOutput(output)]
+    }
+
+    return []
+  }
+
+  private createSafeTextBatches(texts: string[], requestedBatchSize?: number): string[][] {
+    const safeBatchSize = Math.max(
+      1,
+      Math.min(requestedBatchSize || 32, this.MAX_SAFE_BATCH_SIZE)
+    )
+    const batches: string[][] = []
+    let currentBatch: string[] = []
+    let currentChars = 0
+
+    const flush = () => {
+      if (currentBatch.length === 0) {
+        return
+      }
+      batches.push(currentBatch)
+      currentBatch = []
+      currentChars = 0
+    }
+
+    texts.forEach((text) => {
+      const textLength = Math.max(text.length, 1)
+      const exceedsBatchSize = currentBatch.length >= safeBatchSize
+      const exceedsCharBudget = currentBatch.length > 0
+        && currentChars + textLength > this.MAX_SAFE_BATCH_CHARS
+
+      if (exceedsBatchSize || exceedsCharBudget) {
+        flush()
+      }
+
+      currentBatch.push(text)
+      currentChars += textLength
+    })
+
+    flush()
+    return batches
+  }
+
   /**
    * 生成单个文本的 embedding
    * @param text 输入文本
@@ -144,7 +222,7 @@ class EmbeddingService {
       })
 
       // 转换为普通数组
-      const embedding = Array.from(output.data) as number[]
+      const embedding = this.normalizeSingleOutput(output)
 
       const elapsed = Date.now() - startTime
       console.log(`[EmbeddingService] Generated embedding in ${elapsed}ms, dimensions: ${embedding.length}`)
@@ -190,21 +268,30 @@ class EmbeddingService {
 
     try {
       const startTime = Date.now()
-      const batchSize = options?.batchSize || 32
       const embeddings: number[][] = []
+      const batches = this.createSafeTextBatches(validTexts, options?.batchSize)
 
-      // 分批处理
-      for (let i = 0; i < validTexts.length; i += batchSize) {
-        const batch = validTexts.slice(i, i + batchSize)
-
-        // 处理当前批次
-        const batchResults = await Promise.all(
-          batch.map(text => this.generateEmbedding(text, options))
+      for (const [index, batch] of batches.entries()) {
+        const batchStartTime = Date.now()
+        let batchEmbeddings = this.normalizeBatchOutput(
+          await this.pipeline(batch, {
+            pooling: options?.pooling || 'mean',
+            normalize: options?.normalize !== false,
+          }),
+          batch.length
         )
 
-        embeddings.push(...batchResults.map(r => r.embedding))
+        if (batchEmbeddings.length !== batch.length) {
+          const batchResults = await Promise.all(
+            batch.map(text => this.generateEmbedding(text, options))
+          )
+          batchEmbeddings = batchResults.map(result => result.embedding)
+        }
 
-        console.log(`[EmbeddingService] Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(validTexts.length / batchSize)}`)
+        embeddings.push(...batchEmbeddings)
+
+        console.log(`[EmbeddingService] Processed batch ${index + 1}/${batches.length}`)
+        console.log(`[EmbeddingService] Generated batch of ${batch.length} embeddings in ${Date.now() - batchStartTime}ms`)
       }
 
       const elapsed = Date.now() - startTime

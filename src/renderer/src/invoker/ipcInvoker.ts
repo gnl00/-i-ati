@@ -97,7 +97,12 @@ import {
   DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID,
   DB_SCHEDULED_TASK_UPDATE_STATUS,
   CHECK_IS_DIRECTORY,
-  SELECT_DIRECTORY
+  SELECT_DIRECTORY,
+  KNOWLEDGEBASE_CLEAR,
+  KNOWLEDGEBASE_REINDEX,
+  KNOWLEDGEBASE_SEARCH,
+  KNOWLEDGEBASE_STATS,
+  KNOWLEDGEBASE_STATUS
 } from '@shared/constants/index'
 
 /**
@@ -953,4 +958,72 @@ export async function invokeSelectDirectory(): Promise<{ success: boolean; path:
 export async function invokeCheckIsDirectory(path: string): Promise<{ success: boolean; isDirectory: boolean; error?: string }> {
   const ipc = getElectronIPC()
   return await ipc.invoke(CHECK_IS_DIRECTORY, path)
+}
+
+export async function invokeKnowledgebaseReindex(args?: {
+  force?: boolean
+  configOverride?: KnowledgebaseConfig
+}): Promise<{ success: boolean }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(KNOWLEDGEBASE_REINDEX, args ?? {})
+}
+
+export async function invokeKnowledgebaseSearch(args: {
+  query: string
+  localized_query: string
+  top_k?: number
+  threshold?: number
+  folders?: string[]
+  extensions?: string[]
+}): Promise<{
+  success: boolean
+  query: string
+  total_hits: number
+  results: Array<{
+    chunk_id: string
+    document_id: string
+    file_path: string
+    file_name: string
+    folder_path: string
+    ext: string
+    text: string
+    chunk_index: number
+    score: number
+    similarity: number
+    char_start: number
+    char_end: number
+    token_estimate: number
+  }>
+  message?: string
+}> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(KNOWLEDGEBASE_SEARCH, args)
+}
+
+export async function invokeKnowledgebaseStatus(): Promise<{
+  state: 'idle' | 'scanning' | 'chunking' | 'embedding' | 'completed' | 'failed'
+  totalFiles: number
+  processedFiles: number
+  totalChunks: number
+  processedChunks: number
+  message?: string
+  updatedAt: number
+}> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(KNOWLEDGEBASE_STATUS)
+}
+
+export async function invokeKnowledgebaseStats(): Promise<{
+  documentCount: number
+  chunkCount: number
+  indexedDocumentCount: number
+  lastIndexedAt?: number
+}> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(KNOWLEDGEBASE_STATS)
+}
+
+export async function invokeKnowledgebaseClear(): Promise<{ success: boolean }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(KNOWLEDGEBASE_CLEAR)
 }

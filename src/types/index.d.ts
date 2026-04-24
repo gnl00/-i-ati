@@ -73,6 +73,7 @@ declare interface IAppConfig {
   skills?: {
     folders?: string[]
   }
+  knowledgebase?: KnowledgebaseConfig
   plugins?: {
     items?: AppPluginConfig[]
   }
@@ -82,6 +83,18 @@ declare interface IAppConfig {
   emotion?: EmotionConfig
   version?: number
   configForUpdate?: IAppConfig
+}
+
+declare type KnowledgebaseRetrievalMode = 'auto' | 'tool-first' | 'off'
+
+declare interface KnowledgebaseConfig {
+  enabled?: boolean
+  folders?: string[]
+  autoIndexOnStartup?: boolean
+  chunkSize?: number
+  chunkOverlap?: number
+  maxResults?: number
+  retrievalMode?: KnowledgebaseRetrievalMode
 }
 
 declare interface EmotionConfig {

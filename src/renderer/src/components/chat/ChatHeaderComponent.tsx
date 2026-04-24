@@ -46,7 +46,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
                 <GearIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="ml-1 mt-1 p-0 pt-2 px-2 app-undragable w-auto h-full">
+            <PopoverContent className="ml-1 mt-1 p-0 pt-2 px-2 app-undragable w-[716px] max-w-[calc(100vw-1rem)] overflow-hidden">
               <SettingsPanel />
             </PopoverContent>
           </Popover>

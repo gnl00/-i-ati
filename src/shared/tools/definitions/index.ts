@@ -8,6 +8,7 @@ import { commandTools } from '../command/definitions'
 import { emotionTools } from '../emotion/definitions'
 import { fileOperationsTools } from '../fileOperations/definitions'
 import { historyTools } from '../history/definitions'
+import { knowledgebaseTools } from '../knowledgebase/definitions'
 import { logTools } from '../log/definitions'
 import { memoryTools } from '../memory/definitions'
 import { mergeToolDefinitions } from '../definitions-utils'
@@ -43,6 +44,7 @@ export const tools = mergeToolDefinitions(
   telegramTools,
   userInfoTools,
   activityJournalTools,
+  knowledgebaseTools,
   subagentTools,
   logTools
 )

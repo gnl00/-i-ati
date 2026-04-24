@@ -3,6 +3,68 @@ import path from 'path'
 import * as fs from 'fs'
 import Database from 'better-sqlite3'
 
+function bootstrapKnowledgebaseDb(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS knowledgebase_documents (
+      id TEXT PRIMARY KEY,
+      folder_path TEXT NOT NULL,
+      file_path TEXT NOT NULL UNIQUE,
+      file_name TEXT NOT NULL,
+      ext TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      mtime_ms INTEGER NOT NULL,
+      content_hash TEXT NOT NULL,
+      status TEXT NOT NULL,
+      error TEXT,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      last_indexed_at INTEGER
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledgebase_documents_folder_path
+      ON knowledgebase_documents(folder_path);
+    CREATE INDEX IF NOT EXISTS idx_knowledgebase_documents_status
+      ON knowledgebase_documents(status);
+
+    CREATE TABLE IF NOT EXISTS knowledgebase_chunks (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL,
+      chunk_index INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      char_start INTEGER NOT NULL,
+      char_end INTEGER NOT NULL,
+      token_estimate INTEGER NOT NULL,
+      chunk_hash TEXT NOT NULL,
+      metadata_json TEXT,
+      FOREIGN KEY(document_id) REFERENCES knowledgebase_documents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledgebase_chunks_document_id
+      ON knowledgebase_chunks(document_id);
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS vec_knowledgebase_chunks USING vec0(
+      chunk_id TEXT PRIMARY KEY,
+      embedding FLOAT[384]
+    );
+
+    CREATE TABLE IF NOT EXISTS knowledgebase_embedding_cache (
+      cache_key TEXT PRIMARY KEY,
+      model TEXT NOT NULL,
+      strategy_version TEXT NOT NULL,
+      chunk_hash TEXT NOT NULL,
+      embedding BLOB NOT NULL,
+      dimensions INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      last_used_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledgebase_embedding_cache_chunk_hash
+      ON knowledgebase_embedding_cache(chunk_hash);
+    CREATE INDEX IF NOT EXISTS idx_knowledgebase_embedding_cache_last_used_at
+      ON knowledgebase_embedding_cache(last_used_at);
+  `)
+}
+
 class AppDatabase {
   private static instance: AppDatabase
   private db: Database.Database | null = null
@@ -447,4 +509,4 @@ class AppDatabase {
 
 }
 
-export { AppDatabase }
+export { AppDatabase, bootstrapKnowledgebaseDb }
