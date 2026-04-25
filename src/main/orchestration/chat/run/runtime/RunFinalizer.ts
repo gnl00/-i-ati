@@ -37,6 +37,7 @@ export class RunFinalizer {
     if (runtimeResult.state === 'aborted') {
       await chatAgentAdapter.abortRun({
         chatContext,
+        emitter,
         stepCommitter
       })
       lifecycle.emitAborted()

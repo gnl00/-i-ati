@@ -35,9 +35,9 @@ export class ChatPreparationPipeline {
         chat: environment.chat,
         workspacePath: environment.workspacePath,
         historyMessages: environment.historyMessages,
-        createdMessages: [step.messageBuffer[step.messageBuffer.length - 2], step.messageBuffer[step.messageBuffer.length - 1]],
+        createdMessages: [step.messageBuffer[step.messageBuffer.length - 1]],
         messageEntities: step.messageBuffer,
-        assistantPlaceholder: step.assistantPlaceholder
+        assistantDraft: step.assistantDraft
       }
     }
   }

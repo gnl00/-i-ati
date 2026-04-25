@@ -15,6 +15,7 @@ vi.mock('../../mapping/ChatEventMapper', () => ({
 
 vi.mock('../../persistence/ChatStepStore', () => ({
   ChatStepStore: class {
+    persistAssistantMessage = vi.fn((message: MessageEntity) => message)
     persistToolResultMessage = vi.fn((body: ChatMessage, chatId?: number, chatUuid?: string) => ({
       id: 900,
       chatId,
@@ -328,7 +329,7 @@ describe('ChatRenderResponder', () => {
     expect(emitter.emit).not.toHaveBeenCalled()
   })
 
-  it('emits committed assistant updates as segment patches', async () => {
+  it('emits committed assistant updates for persisted assistant drafts', async () => {
     const emitter = {
       emit: vi.fn()
     } as any
@@ -361,31 +362,28 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
     const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
 
-    expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
-      101,
+    expect(emitStreamPreviewUpdated).not.toHaveBeenCalled()
+    expect(emitMessageUpdated).toHaveBeenCalledWith(
       expect.objectContaining({
-        segment: expect.objectContaining({
-          type: 'text',
-          segmentId: 'committed:step-1:text:0',
-          content: 'final answer'
-        }),
-        replaceSegments: expect.arrayContaining([
-          expect.objectContaining({
-            type: 'text',
-            segmentId: 'committed:step-1:text:0'
-          })
-        ]),
-        content: 'final answer',
-        typewriterCompleted: false
+        body: expect.objectContaining({
+          content: 'final answer',
+          segments: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'text',
+              segmentId: 'committed:step-1:text:0',
+              content: 'final answer'
+            })
+          ]),
+          typewriterCompleted: false
+        })
       })
     )
-    expect(emitMessageUpdated).not.toHaveBeenCalled()
   })
 
-  it('uses committed segment patches for tool progress updates', async () => {
+  it('emits committed tool progress updates for persisted assistant drafts', async () => {
     const emitter = {
       emit: vi.fn()
     } as any
@@ -427,9 +425,9 @@ describe('ChatRenderResponder', () => {
     })
 
     const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
-    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
     emitMessageUpdated.mockClear()
-    emitMessageSegmentUpdated.mockClear()
+    emitStreamPreviewUpdated.mockClear()
 
     await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
@@ -441,20 +439,26 @@ describe('ChatRenderResponder', () => {
       toolName: 'read'
     })
 
-    expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
-      101,
+    expect(emitStreamPreviewUpdated).not.toHaveBeenCalled()
+    expect(emitMessageUpdated).toHaveBeenCalledWith(
       expect.objectContaining({
-        segment: expect.objectContaining({
-          type: 'toolCall',
-          toolCallId: 'tool-1'
+        body: expect.objectContaining({
+          segments: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'toolCall',
+              toolCallId: 'tool-1',
+              content: expect.objectContaining({
+                status: 'running'
+              })
+            })
+          ])
         })
       })
     )
-    expect(emitMessageSegmentUpdated).toHaveBeenCalledTimes(1)
-    expect(emitMessageUpdated).not.toHaveBeenCalled()
+    expect(emitMessageUpdated).toHaveBeenCalledTimes(1)
   })
 
-  it('preserves completed typewriter state during tool progress updates', async () => {
+  it('keeps persisted tool-progress updates non-final while committed draft remains typewriter-complete', async () => {
     const emitter = {
       emit: vi.fn()
     } as any
@@ -512,8 +516,10 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
-    emitMessageSegmentUpdated.mockClear()
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
+    emitStreamPreviewUpdated.mockClear()
+    emitMessageUpdated.mockClear()
 
     await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
@@ -525,16 +531,19 @@ describe('ChatRenderResponder', () => {
       toolName: 'read'
     })
 
-    expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
-      101,
+    expect(emitStreamPreviewUpdated).not.toHaveBeenCalled()
+    expect(emitMessageUpdated).toHaveBeenCalledWith(
       expect.objectContaining({
-        typewriterCompleted: true
+        body: expect.objectContaining({
+          typewriterCompleted: true
+        })
       })
     )
-    expect(emitMessageSegmentUpdated).toHaveBeenCalledTimes(1)
+    expect(emitMessageUpdated).toHaveBeenCalledTimes(1)
+    expect(adapter.getFinalAssistantMessage().body.typewriterCompleted).toBe(true)
   })
 
-  it('only patches the changed committed tool segment during tool progress', async () => {
+  it('re-emits committed assistant updates when a tool segment changes', async () => {
     const emitter = {
       emit: vi.fn()
     } as any
@@ -575,8 +584,10 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const emitMessageSegmentUpdated = (adapter as any).messageEvents.emitMessageSegmentUpdated as ReturnType<typeof vi.fn>
-    emitMessageSegmentUpdated.mockClear()
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
+    emitStreamPreviewUpdated.mockClear()
+    emitMessageUpdated.mockClear()
 
     await dispatchAgentEvent(adapter, {
       type: 'tool.execution_progress',
@@ -593,19 +604,23 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    expect(emitMessageSegmentUpdated).toHaveBeenCalledTimes(1)
-    expect(emitMessageSegmentUpdated).toHaveBeenCalledWith(
-      101,
+    expect(emitStreamPreviewUpdated).not.toHaveBeenCalled()
+    expect(emitMessageUpdated).toHaveBeenCalledTimes(1)
+    expect(emitMessageUpdated).toHaveBeenCalledWith(
       expect.objectContaining({
-        segment: expect.objectContaining({
-          type: 'toolCall',
-          toolCallId: 'tool-1',
-          content: expect.objectContaining({
-            status: 'success',
-            result: 'file content'
-          })
-        }),
-        content: 'final answer'
+        body: expect.objectContaining({
+          content: 'final answer',
+          segments: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'toolCall',
+              toolCallId: 'tool-1',
+              content: expect.objectContaining({
+                status: 'success',
+                result: 'file content'
+              })
+            })
+          ])
+        })
       })
     )
   })

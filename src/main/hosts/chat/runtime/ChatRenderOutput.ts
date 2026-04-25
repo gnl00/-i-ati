@@ -23,6 +23,17 @@ const stringifyToolContent = (content: unknown, error?: { message?: string }): s
   }
 }
 
+const hasPersistableAssistantPayload = (body: ChatMessage): boolean => {
+  const hasContent = typeof body.content === 'string'
+    ? body.content.trim().length > 0
+    : Array.isArray(body.content) && body.content.length > 0
+
+  const hasSegments = Array.isArray(body.segments) && body.segments.length > 0
+  const hasToolCalls = Array.isArray(body.toolCalls) && body.toolCalls.length > 0
+
+  return hasContent || hasSegments || hasToolCalls
+}
+
 export class ChatRenderOutput {
   readonly messageEvents: ChatEventMapper
   private readonly mapper: ChatRenderMapper
@@ -32,14 +43,14 @@ export class ChatRenderOutput {
   constructor(
     emitter: import('@main/orchestration/chat/run/infrastructure').RunEventEmitter,
     private readonly messageEntities: MessageEntity[],
-    assistantPlaceholder: MessageEntity,
+    assistantDraft: MessageEntity,
     private readonly stepStore = new ChatStepStore(),
     mapper = new ChatRenderMapper()
   ) {
     this.messageEvents = new ChatEventMapper(emitter)
     this.mapper = mapper
     this.committedAssistant = new CommittedAssistantMessageController(
-      assistantPlaceholder,
+      assistantDraft,
       this.messageEntities
     )
   }
@@ -133,22 +144,32 @@ export class ChatRenderOutput {
   }
 
   commitAssistantMessage(body: ChatMessage): void {
-    const { message, patches, artifact } = this.committedAssistant.commit(body)
+    const { message, artifact } = this.committedAssistant.commit(body)
     assertMessageEntitySegmentsHaveIds(message, 'next-agent-ui-adapter:message-commit')
     this.artifacts.push(artifact)
 
-    if (!message.id || !body.segments?.length) {
-      this.messageEvents.emitMessageUpdated(message)
+    if (message.id == null && hasPersistableAssistantPayload(message.body)) {
+      const persistedMessage = this.stepStore.persistAssistantMessage(message)
+      this.messageEntities.push(persistedMessage)
+      this.messageEvents.emitMessageCreated(persistedMessage)
       return
     }
 
-    if (patches.length === 0) {
+    if (message.id != null) {
+      const persistedMessage = this.stepStore.persistAssistantMessage(message)
+      this.messageEvents.emitMessageUpdated(persistedMessage)
       return
     }
 
-    patches.forEach((patch) => {
-      this.messageEvents.emitMessageSegmentUpdated(message.id!, patch)
-    })
+    this.messageEvents.emitStreamPreviewUpdated({
+      chatId: message.chatId,
+      chatUuid: message.chatUuid,
+      body: {
+        ...message.body,
+        source: 'stream_preview',
+        typewriterCompleted: false
+      }
+    } satisfies MessageEntity)
   }
 
   appendToolResult(result: ToolResultFact): void {

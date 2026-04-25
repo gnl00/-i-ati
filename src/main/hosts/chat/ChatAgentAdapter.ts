@@ -73,7 +73,7 @@ export class ChatAgentAdapter {
   }: FinalizeRunArgs): Promise<FinalizeRunResult> {
     const usage = stepResult.usage ?? stepCommitter.getLastUsage()
     const updatedAssistantMessage = await this.finalizeService.finalizeAssistantMessage(
-      chatContext.assistantPlaceholder,
+      chatContext.chat,
       stepCommitter.getFinalAssistantMessage(),
       usage
     )
@@ -83,7 +83,7 @@ export class ChatAgentAdapter {
       input.modelRef
     )
     const chatEventMapper = new ChatEventMapper(emitter)
-    chatEventMapper.emitMessageUpdated(updatedAssistantMessage)
+    chatEventMapper.emitMessageCreated(updatedAssistantMessage)
     chatEventMapper.emitChatUpdated(finalizedChat)
 
     return {
@@ -105,11 +105,15 @@ export class ChatAgentAdapter {
 
   async abortRun({
     chatContext,
+    emitter,
     stepCommitter
-  }: Pick<FinalizeRunArgs, 'chatContext' | 'stepCommitter'>): Promise<void> {
-    await this.finalizeService.settleAbortedAssistantMessage(
-      chatContext.assistantPlaceholder,
+  }: Pick<FinalizeRunArgs, 'chatContext' | 'stepCommitter' | 'emitter'>): Promise<void> {
+    const settledAssistantMessage = await this.finalizeService.settleAbortedAssistantMessage(
+      chatContext.chat,
       stepCommitter.getFinalAssistantMessage()
     )
+    if (settledAssistantMessage) {
+      new ChatEventMapper(emitter).emitMessageCreated(settledAssistantMessage)
+    }
   }
 }

@@ -1,18 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  updateMessageMock,
+  saveMessageMock,
+  updateChatMock,
   getEmotionStateByChatIdMock,
   upsertEmotionStateMock
 } = vi.hoisted(() => ({
-  updateMessageMock: vi.fn(),
+  saveMessageMock: vi.fn(),
+  updateChatMock: vi.fn(),
   getEmotionStateByChatIdMock: vi.fn(),
   upsertEmotionStateMock: vi.fn()
 }))
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
-    updateMessage: updateMessageMock,
+    saveMessage: saveMessageMock,
+    updateChat: updateChatMock,
     getEmotionStateByChatId: getEmotionStateByChatIdMock,
     upsertEmotionState: upsertEmotionStateMock
   }
@@ -28,28 +31,30 @@ import { ChatStepStore } from '../ChatStepStore'
 
 describe('ChatStepStore.finalizeAssistantMessage', () => {
   beforeEach(() => {
-    updateMessageMock.mockReset()
+    saveMessageMock.mockReset()
+    saveMessageMock.mockReturnValue(102)
+    updateChatMock.mockReset()
     getEmotionStateByChatIdMock.mockReset()
     upsertEmotionStateMock.mockReset()
   })
 
   it('writes usage totalTokens into the finalized assistant message', async () => {
     const store = new ChatStepStore()
-    const placeholder: MessageEntity = {
-      id: 102,
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+    const finalAssistantMessage: MessageEntity = {
       chatId: 1,
       chatUuid: 'chat-1',
       body: {
+        createdAt: 1,
         role: 'assistant',
-        content: '',
-        segments: [],
-        typewriterCompleted: false
-      }
-    }
-    const finalAssistantMessage: MessageEntity = {
-      ...placeholder,
-      body: {
-        role: 'assistant',
+        model: 'model-1',
         content: 'hello',
         segments: [],
         typewriterCompleted: false
@@ -61,16 +66,19 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
       totalTokens: 20
     }
 
-    const result = await store.finalizeAssistantMessage(placeholder, finalAssistantMessage, usage)
+    const result = await store.finalizeAssistantMessage(chatEntity, finalAssistantMessage, usage)
 
+    expect(result.id).toBe(102)
     expect(result.tokens).toBe(20)
-    expect(updateMessageMock).toHaveBeenCalledWith(expect.objectContaining({
-      id: 102,
+    expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({
       tokens: 20,
       body: expect.objectContaining({
         content: 'hello',
         typewriterCompleted: true
       })
+    }))
+    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [102]
     }))
   })
 })

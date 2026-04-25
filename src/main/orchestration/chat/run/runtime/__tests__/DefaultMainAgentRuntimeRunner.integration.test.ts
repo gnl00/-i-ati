@@ -20,6 +20,22 @@ const { saveMessageMock } = vi.hoisted(() => ({
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     saveMessage: saveMessageMock,
+    getChatById: vi.fn((id: number) => ({
+      id,
+      uuid: 'chat-1',
+      title: 'NewChat',
+      messages: [],
+      modelRef: {
+        accountId: 'account-1',
+        modelId: 'model-1'
+      },
+      workspacePath: './workspaces/chat-1',
+      userInstruction: '',
+      createTime: 1,
+      updateTime: 1
+    })),
+    getChatByUuid: vi.fn(() => undefined),
+    updateMessage: vi.fn(),
     updateChat: vi.fn(),
     saveRunEvent: vi.fn()
   }
@@ -115,18 +131,8 @@ const prepared = {
       updateTime: 1
     },
     workspacePath: './workspaces/chat-1',
-    messageEntities: [{
-      id: 102,
-      chatId: 1,
-      chatUuid: 'chat-1',
-      body: {
-        role: 'assistant',
-        content: '',
-        segments: []
-      }
-    }],
-    assistantPlaceholder: {
-      id: 102,
+    messageEntities: [],
+    assistantDraft: {
       chatId: 1,
       chatUuid: 'chat-1',
       body: {
@@ -227,10 +233,11 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     ])
     expect(
       emitter.emit.mock.calls.some(([type, payload]) => (
-        type === CHAT_RENDER_EVENTS.MESSAGE_SEGMENT_UPDATED
-        && payload?.messageId === 102
-        && payload?.patch?.segment?.type === 'text'
-        && payload?.patch?.segment?.content === 'Let me inspect that first.'
+        type === CHAT_RENDER_EVENTS.PREVIEW_UPDATED
+        && payload?.message?.body?.source === 'stream_preview'
+        && payload?.message?.body?.segments?.some?.((segment: MessageSegment) => (
+          segment.type === 'text' && segment.content === 'Let me inspect that first.'
+        ))
       ))
     ).toBe(true)
   })

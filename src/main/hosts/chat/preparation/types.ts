@@ -29,7 +29,7 @@ export type RunEnvironment = {
 
 export type StepBootstrap = {
   messageBuffer: MessageEntity[]
-  assistantPlaceholder: MessageEntity
+  assistantDraft: MessageEntity
 }
 
 export type ChatHostRunContext = {
@@ -38,7 +38,7 @@ export type ChatHostRunContext = {
   historyMessages: MessageEntity[]
   createdMessages: MessageEntity[]
   messageEntities: MessageEntity[]
-  assistantPlaceholder: MessageEntity
+  assistantDraft: MessageEntity
 }
 
 export type RunPreparationResult = {

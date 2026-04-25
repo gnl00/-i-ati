@@ -132,6 +132,35 @@ describe('handleChatRunEvent', () => {
     expect(latestStore.upsertMessage).toHaveBeenCalledTimes(1)
   })
 
+  it('moves submitting runs into streaming when the first preview arrives', async () => {
+    latestStore.runPhase = 'submitting'
+    const input = createInput()
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_RENDER_EVENTS.PREVIEW_UPDATED,
+      payload: {
+        message: {
+          chatId: 1,
+          chatUuid: 'chat-1',
+          body: {
+            role: 'assistant',
+            source: 'stream_preview',
+            content: 'hi',
+            segments: []
+          }
+        }
+      }
+    })
+
+    expect(input.chatStore.setRunPhase).toHaveBeenCalledWith('streaming')
+    expect(input.chatStore.replacePreviewMessage).toHaveBeenCalledTimes(1)
+  })
+
   it('routes preview and committed segment patches to the correct store actions', async () => {
     const input = createInput()
     const patch: MessageSegmentPatch = {

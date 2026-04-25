@@ -12,13 +12,13 @@ export class CommittedAssistantMessageController {
   private finalAssistantMessage: MessageEntity
 
   constructor(
-    assistantPlaceholder: MessageEntity,
+    assistantDraft: MessageEntity,
     private readonly messageEntities: MessageEntity[]
   ) {
     this.finalAssistantMessage = {
-      ...assistantPlaceholder,
+      ...assistantDraft,
       body: {
-        ...assistantPlaceholder.body
+        ...assistantDraft.body
       }
     }
   }

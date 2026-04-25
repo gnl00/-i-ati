@@ -62,14 +62,14 @@ export class ChatStepStore implements ConversationStore {
     return entity
   }
 
-  createAssistantPlaceholder(
+  buildAssistantDraft(
     chatEntity: ChatEntity,
     model: AccountModel,
     modelRef: ModelRef,
     source?: string,
     host?: ChatMessageHostMeta
   ): MessageEntity {
-    const entity: MessageEntity = {
+    return {
       body: {
         createdAt: Date.now(),
         role: 'assistant',
@@ -84,10 +84,6 @@ export class ChatStepStore implements ConversationStore {
       chatId: chatEntity.id,
       chatUuid: chatEntity.uuid
     }
-
-    entity.id = DatabaseService.saveMessage(entity)
-    this.attachMessageToChat(chatEntity, entity.id)
-    return entity
   }
 
   persistToolResultMessage(
@@ -105,8 +101,24 @@ export class ChatStepStore implements ConversationStore {
     return entity
   }
 
+  persistAssistantMessage(message: MessageEntity): MessageEntity {
+    if (message.id != null) {
+      DatabaseService.updateMessage(message)
+      return message
+    }
+
+    message.id = DatabaseService.saveMessage(message)
+
+    const chatEntity = this.resolveChatEntity(message.chatId, message.chatUuid)
+    if (chatEntity) {
+      this.attachMessageToChat(chatEntity, message.id)
+    }
+
+    return message
+  }
+
   async finalizeAssistantMessage(
-    placeholder: MessageEntity,
+    chatEntity: ChatEntity,
     finalAssistantMessage: MessageEntity,
     usage?: ITokenUsage
   ): Promise<MessageEntity> {
@@ -123,7 +135,7 @@ export class ChatStepStore implements ConversationStore {
         : null
 
     const updated: MessageEntity = {
-      ...placeholder,
+      ...finalAssistantMessage,
       ...(usage ? { tokens: usage.totalTokens } : {}),
       body: {
         ...finalAssistantMessage.body,
@@ -134,7 +146,12 @@ export class ChatStepStore implements ConversationStore {
       }
     }
 
-    DatabaseService.updateMessage(updated)
+    if (updated.id != null) {
+      DatabaseService.updateMessage(updated)
+    } else {
+      updated.id = DatabaseService.saveMessage(updated)
+      this.attachMessageToChat(chatEntity, updated.id)
+    }
 
     if (updated.chatId && updated.chatUuid && updated.body.emotion) {
       const previousState = DatabaseService.getEmotionStateByChatId(updated.chatId)
@@ -148,16 +165,11 @@ export class ChatStepStore implements ConversationStore {
   }
 
   async settleAbortedAssistantMessage(
-    placeholder: MessageEntity,
+    chatEntity: ChatEntity,
     lastAssistantMessage: MessageEntity
-  ): Promise<number | undefined> {
+  ): Promise<MessageEntity | undefined> {
     if (this.hasPersistableAssistantPayload(lastAssistantMessage.body)) {
-      const updated = await this.finalizeAssistantMessage(placeholder, lastAssistantMessage)
-      return updated.id
-    }
-
-    if (placeholder.id) {
-      DatabaseService.deleteMessage(placeholder.id)
+      return await this.finalizeAssistantMessage(chatEntity, lastAssistantMessage)
     }
 
     return undefined
@@ -182,5 +194,20 @@ export class ChatStepStore implements ConversationStore {
     chatEntity.messages = [...(chatEntity.messages || []), messageId]
     chatEntity.updateTime = Date.now()
     DatabaseService.updateChat(chatEntity)
+  }
+
+  private resolveChatEntity(chatId?: number, chatUuid?: string): ChatEntity | undefined {
+    if (chatId != null) {
+      const chat = DatabaseService.getChatById(chatId)
+      if (chat) {
+        return chat
+      }
+    }
+
+    if (chatUuid) {
+      return DatabaseService.getChatByUuid(chatUuid)
+    }
+
+    return undefined
   }
 }

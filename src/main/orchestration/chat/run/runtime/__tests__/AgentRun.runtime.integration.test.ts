@@ -16,6 +16,22 @@ vi.mock('@main/logging/LogService', () => ({
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     saveMessage: vi.fn(() => 401),
+    getChatById: vi.fn((id: number) => ({
+      id,
+      uuid: 'chat-1',
+      title: 'NewChat',
+      messages: [],
+      modelRef: {
+        accountId: 'account-1',
+        modelId: 'model-1'
+      },
+      workspacePath: './workspaces/chat-1',
+      userInstruction: '',
+      createTime: 1,
+      updateTime: 1
+    })),
+    getChatByUuid: vi.fn(() => undefined),
+    updateMessage: vi.fn(),
     updateChat: vi.fn(),
     saveRunEvent: vi.fn()
   }
@@ -94,18 +110,8 @@ const prepared = {
     workspacePath: './workspaces/chat-1',
     historyMessages: [],
     createdMessages: [],
-    messageEntities: [{
-      id: 102,
-      chatId: 1,
-      chatUuid: 'chat-1',
-      body: {
-        role: 'assistant',
-        content: '',
-        segments: []
-      }
-    }],
-    assistantPlaceholder: {
-      id: 102,
+    messageEntities: [],
+    assistantDraft: {
       chatId: 1,
       chatUuid: 'chat-1',
       body: {

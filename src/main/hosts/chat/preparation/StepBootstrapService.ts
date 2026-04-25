@@ -16,7 +16,7 @@ export class StepBootstrapService {
       input.input
     )
 
-    const assistantPlaceholder = this.chatStepStore.createAssistantPlaceholder(
+    const assistantDraft = this.chatStepStore.buildAssistantDraft(
       environment.chat,
       environment.modelContext.model,
       input.modelRef,
@@ -34,8 +34,8 @@ export class StepBootstrapService {
     )
 
     return {
-      messageBuffer: [...environment.historyMessages, userMessageEntity, assistantPlaceholder],
-      assistantPlaceholder
+      messageBuffer: [...environment.historyMessages, userMessageEntity],
+      assistantDraft
     }
   }
 }

@@ -58,8 +58,7 @@ const prepared = {
     },
     workspacePath: './workspaces/chat-1',
     messageEntities: [],
-    assistantPlaceholder: {
-      id: 102,
+    assistantDraft: {
       chatId: 1,
       chatUuid: 'chat-1',
       body: {

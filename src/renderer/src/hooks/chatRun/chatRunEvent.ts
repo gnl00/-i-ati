@@ -83,6 +83,12 @@ function handleRunMessageEvent(
   }
 }
 
+function ensureStreamingPhaseOnPreview(chatStore: ChatStoreState): void {
+  if (getLatestChatStore().runPhase === 'submitting') {
+    chatStore.setRunPhase('streaming')
+  }
+}
+
 function handleMaintenancePending(
   chatStore: ChatStoreState,
   job: 'title' | 'compression',
@@ -138,9 +144,11 @@ export async function handleChatRunEvent(
       getLatestChatStore().patchMessageSegment(event.payload.messageId, event.payload.patch)
       return
     case CHAT_RENDER_EVENTS.PREVIEW_UPDATED:
+      ensureStreamingPhaseOnPreview(chatStore)
       chatStore.replacePreviewMessage(event.payload.message)
       return
     case CHAT_RENDER_EVENTS.PREVIEW_SEGMENT_UPDATED:
+      ensureStreamingPhaseOnPreview(chatStore)
       chatStore.applyPreviewSegmentPatch(event.payload.patch)
       return
     case CHAT_RENDER_EVENTS.PREVIEW_CLEARED:

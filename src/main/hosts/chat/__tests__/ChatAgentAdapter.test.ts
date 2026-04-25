@@ -42,18 +42,14 @@ describe('ChatAgentAdapter', () => {
             role: 'user',
             content: 'hello'
           }
-        },
-        {
-          id: 102,
-          body: {
-            role: 'assistant',
-            content: ''
-          }
         }
       ],
       messageEntities: [],
-      assistantPlaceholder: {
-        id: 102
+      assistantDraft: {
+        body: {
+          role: 'assistant',
+          content: ''
+        }
       }
     }
   } as any
@@ -93,9 +89,6 @@ describe('ChatAgentAdapter', () => {
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
       message: prepared.chatContext.createdMessages[0]
     })
-    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
-      message: prepared.chatContext.createdMessages[1]
-    })
   })
 
   it('maps chat context into a narrow step runtime context', () => {
@@ -110,7 +103,7 @@ describe('ChatAgentAdapter', () => {
     })
   })
 
-  it('emits final assistant message update after finalizeRun', async () => {
+  it('emits final assistant message creation after finalizeRun', async () => {
     const adapter = new ChatAgentAdapter(preparationPipeline as any, finalizeService as any)
     const usage = {
       promptTokens: 12,
@@ -164,11 +157,11 @@ describe('ChatAgentAdapter', () => {
       }
     })
 
-    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_UPDATED, {
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
       message: finalizedAssistantMessage
     })
     expect(finalizeService.finalizeAssistantMessage).toHaveBeenCalledWith(
-      prepared.chatContext.assistantPlaceholder,
+      prepared.chatContext.chat,
       finalizedAssistantMessage,
       usage
     )

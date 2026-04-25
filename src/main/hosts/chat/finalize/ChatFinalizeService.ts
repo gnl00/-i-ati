@@ -7,18 +7,18 @@ export class ChatFinalizeService {
   ) {}
 
   async finalizeAssistantMessage(
-    placeholder: MessageEntity,
+    chatEntity: ChatEntity,
     finalAssistantMessage: MessageEntity,
     usage?: ITokenUsage
   ): Promise<MessageEntity> {
-    return this.chatStepStore.finalizeAssistantMessage(placeholder, finalAssistantMessage, usage)
+    return this.chatStepStore.finalizeAssistantMessage(chatEntity, finalAssistantMessage, usage)
   }
 
   async settleAbortedAssistantMessage(
-    placeholder: MessageEntity,
+    chatEntity: ChatEntity,
     lastAssistantMessage: MessageEntity
-  ): Promise<number | undefined> {
-    return this.chatStepStore.settleAbortedAssistantMessage(placeholder, lastAssistantMessage)
+  ): Promise<MessageEntity | undefined> {
+    return this.chatStepStore.settleAbortedAssistantMessage(chatEntity, lastAssistantMessage)
   }
 
   finalizeChatEntity(

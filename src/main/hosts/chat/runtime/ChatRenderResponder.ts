@@ -23,13 +23,13 @@ export class ChatRenderResponder implements HostRenderEventSink {
   constructor(
     private readonly emitter: import('@main/orchestration/chat/run/infrastructure').RunEventEmitter,
     messageEntities: MessageEntity[],
-    assistantPlaceholder: MessageEntity,
+    assistantDraft: MessageEntity,
     stepStore = new ChatStepStore()
   ) {
     this.output = new ChatRenderOutput(
       emitter,
       messageEntities,
-      assistantPlaceholder,
+      assistantDraft,
       stepStore,
       this.mapper
     )

@@ -145,9 +145,7 @@ describe('ChatPreparationPipeline', () => {
     ;(DatabaseService.getChatByUuid as any).mockReturnValue(undefined)
     ;(DatabaseService.getMessagesByChatId as any).mockReturnValue([])
     ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue(historyMessages)
-    ;(DatabaseService.saveMessage as any)
-      .mockReturnValueOnce(101)
-      .mockReturnValueOnce(102)
+    ;(DatabaseService.saveMessage as any).mockReturnValueOnce(101)
     ;(DatabaseService.updateChat as any).mockReset()
   })
 
@@ -183,10 +181,17 @@ describe('ChatPreparationPipeline', () => {
 
     expect(chatContext.chat).toEqual(chatEntity)
     expect(chatContext.historyMessages).toEqual(historyMessages)
-    expect(chatContext.createdMessages).toHaveLength(2)
-    expect(chatContext.messageEntities).toHaveLength(3)
+    expect(chatContext.createdMessages).toHaveLength(1)
+    expect(chatContext.messageEntities).toHaveLength(2)
     expect(chatContext.messageEntities[0]).toEqual(historyMessages[0])
-    expect(chatContext.assistantPlaceholder.id).toBe(102)
+    expect(chatContext.assistantDraft).toEqual(expect.objectContaining({
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: expect.objectContaining({
+        role: 'assistant',
+        content: ''
+      })
+    }))
     expect(runSpec.runtimeContext).toEqual({
       chatId: 1,
       chatUuid: 'chat-1',
@@ -206,9 +211,6 @@ describe('ChatPreparationPipeline', () => {
       expect.objectContaining({
         role: 'user',
         content: 'hello'
-      }),
-      expect.objectContaining({
-        role: 'assistant'
       })
     ]))
   })

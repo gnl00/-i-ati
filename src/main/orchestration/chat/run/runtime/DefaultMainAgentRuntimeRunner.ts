@@ -63,7 +63,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     const chatResponder = new ChatRenderResponder(
       input.emitter,
       input.prepared.chatContext.messageEntities,
-      input.prepared.chatContext.assistantPlaceholder
+      input.prepared.chatContext.assistantDraft
     )
     eventBus.register(new HostRenderEventForwarder([
       chatResponder,
