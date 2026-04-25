@@ -1,10 +1,10 @@
 import { SpeedCodeHighlight } from '@renderer/components/chat/common/SpeedCodeHighlight'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
 import { Braces, Check, ChevronDown, Clipboard, Loader2, Wrench, X } from 'lucide-react'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
@@ -15,6 +15,92 @@ interface ToolCallResultNextOutputProps {
 }
 
 type ToolCallRenderContent = Record<string, unknown> | undefined
+
+const TOOL_COST_TICK_MS = 1000
+const TOOL_COST_REDUCED_TICK_MS = 250
+const TOOL_COST_SETTLE_MS = 360
+
+function formatToolCost(costMs: number): string {
+  return `${(Math.max(0, costMs) / 1000).toFixed(3)}s`
+}
+
+function easeOutQuart(progress: number): number {
+  return 1 - Math.pow(1 - progress, 4)
+}
+
+function useAnimatedToolCost(costMs: number | undefined, isRunning: boolean): number {
+  const shouldReduceMotion = useReducedMotion()
+  const [displayCostMs, setDisplayCostMs] = useState(() => (typeof costMs === 'number' ? costMs : 0))
+  const latestDisplayRef = useRef(displayCostMs)
+  const runningStartedAtRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    latestDisplayRef.current = displayCostMs
+  }, [displayCostMs])
+
+  useEffect(() => {
+    if (typeof costMs === 'number') {
+      runningStartedAtRef.current = null
+
+      if (shouldReduceMotion) {
+        setDisplayCostMs(costMs)
+        return
+      }
+
+      const from = latestDisplayRef.current
+      const to = costMs
+
+      if (Math.abs(to - from) < 16) {
+        setDisplayCostMs(to)
+        return
+      }
+
+      let frameId = 0
+      const startedAt = performance.now()
+
+      const step = (now: number) => {
+        const progress = Math.min((now - startedAt) / TOOL_COST_SETTLE_MS, 1)
+        setDisplayCostMs(from + (to - from) * easeOutQuart(progress))
+
+        if (progress < 1) {
+          frameId = window.requestAnimationFrame(step)
+          return
+        }
+
+        setDisplayCostMs(to)
+      }
+
+      frameId = window.requestAnimationFrame(step)
+      return () => window.cancelAnimationFrame(frameId)
+    }
+
+    if (!isRunning) {
+      runningStartedAtRef.current = null
+      setDisplayCostMs(0)
+      return
+    }
+
+    const now = performance.now()
+    if (runningStartedAtRef.current === null) {
+      runningStartedAtRef.current = now - latestDisplayRef.current
+    }
+
+    const updateCost = () => {
+      const startedAt = runningStartedAtRef.current ?? performance.now()
+      setDisplayCostMs(performance.now() - startedAt)
+    }
+
+    updateCost()
+    const intervalId = window.setInterval(
+      updateCost,
+      shouldReduceMotion ? TOOL_COST_REDUCED_TICK_MS : TOOL_COST_TICK_MS
+    )
+
+    return () => window.clearInterval(intervalId)
+  }, [costMs, isRunning, shouldReduceMotion])
+
+  return displayCostMs
+}
 
 function getToolCallRenderContent(segment: ToolCallSegment): ToolCallRenderContent {
   return segment.content as ToolCallRenderContent
@@ -147,15 +233,24 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
       )
   }, [isOpen, toolResponse])
 
-  const isWebSearch = isOpen && (toolResponse?.toolName ?? tc.name) === 'web_search'
-  const webSearchData = isWebSearch && resultPayload?.results ? resultPayload : null
-  const isSubagentTool = isOpen && ((toolResponse?.toolName ?? tc.name) === 'subagent_spawn'
-    || (toolResponse?.toolName ?? tc.name) === 'subagent_wait'
-  )
+  const toolName = toolResponse?.toolName ?? tc.name
+  const isWebSearch = toolName === 'web_search'
+  const webSearchPayload = useMemo(() => {
+    if (!isWebSearch) {
+      return null
+    }
+
+    const payload = toolResponse?.result ?? toolResponse?.raw ?? toolResponse
+    return payload?.results ? payload : null
+  }, [isWebSearch, toolResponse])
+  const isSubagentTool = toolName === 'subagent_spawn' || toolName === 'subagent_wait'
   const subagentData = isSubagentTool ? (resultPayload ?? toolResponse) : null
   const isError = tc.isError
   const status = typeof toolResponse?.status === 'string' ? toolResponse.status : undefined
   const isRunning = !isError && status === 'running'
+  const displayCostMs = useAnimatedToolCost(tc.cost, isRunning)
+  const displayCostLabel = formatToolCost(displayCostMs)
+  const shouldShowDuration = isRunning || typeof tc.cost === 'number'
   const [isJsonExpanded, setIsJsonExpanded] = useState(false)
   const jsonLineThreshold = 24
   const contentCharThreshold = 1500
@@ -281,7 +376,7 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
                       {tc.name}
                     </span>
                     <span className='text-slate-400/90 dark:text-slate-300 text-[10px]'>
-                    {typeof tc.cost === 'number' ? ` · ${(tc.cost / 1000).toFixed(3)}s` : ' · 0.000s'}
+                    {` · ${displayCostLabel}`}
                     </span>
                 </span>
 
@@ -309,9 +404,9 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
                   ? 'border-red-200/65 dark:border-red-900/35'
                   : 'border-slate-200/55 dark:border-slate-800/55'
               )}>
-                {isWebSearch && webSearchData ? (
+                {webSearchPayload ? (
                   <div className="p-3 bg-slate-100/50 dark:bg-slate-900/34">
-                    <WebSearchResults results={webSearchData.results} />
+                    <WebSearchResults results={webSearchPayload.results} />
                   </div>
                 ) : isSubagentTool && subagentData ? (
                   <SubagentResults
@@ -405,10 +500,10 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
                               <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Tool</span>
                               <span className="text-[13px] font-mono font-semibold text-zinc-600 dark:text-zinc-100">{toolResponse?.toolName ?? tc.name}</span>
                             </div>
-                            {typeof tc.cost === 'number' && (
+                            {shouldShowDuration && (
                               <div className="flex items-baseline gap-1">
                                 <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Duration</span>
-                                <span className="text-[13px] font-mono font-medium text-zinc-600 dark:text-zinc-300">{(tc.cost / 1000).toFixed(3)}s</span>
+                                <span className="text-[13px] font-mono font-medium text-zinc-600 dark:text-zinc-300">{displayCostLabel}</span>
                               </div>
                             )}
                           </div>
