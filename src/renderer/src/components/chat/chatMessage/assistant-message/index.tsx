@@ -7,7 +7,11 @@ import {
 export type { AssistantMessageProps } from './AssistantMessageContainer'
 
 export const AssistantMessage: React.FC<AssistantMessageProps> = memo((props) => {
-  if (!props.committedMessage || props.committedMessage.role !== 'assistant') {
+  if (props.committedMessage && props.committedMessage.role !== 'assistant') {
+    return null
+  }
+
+  if (!props.committedMessage && !props.pendingModel) {
     return null
   }
 

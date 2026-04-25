@@ -7,7 +7,11 @@ import { Send, Timer } from 'lucide-react'
 
 interface ChatMessageComponentProps {
   index: number
-  message: ChatMessage
+  message?: ChatMessage
+  pendingAssistantModel?: {
+    model?: string
+    modelRef?: ModelRef
+  }
   previewMessage?: ChatMessage
   isLatest: boolean
   onTypingChange?: () => void
@@ -20,6 +24,7 @@ interface ChatMessageComponentProps {
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
   index,
   message,
+  pendingAssistantModel,
   previewMessage,
   isLatest,
   onTypingChange
@@ -31,6 +36,25 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
       navigator.clipboard.writeText(content)
       toast.success('Copied', { duration: 800 })
     }
+  }
+
+  if (!message && pendingAssistantModel) {
+    return (
+      <AssistantMessage
+        index={index}
+        pendingModel={pendingAssistantModel}
+        previewMessage={previewMessage}
+        isLatest={isLatest}
+        isHovered={hoverState.assistantMessageHovered}
+        onHover={hoverState.onMouseHoverAssistantMsg}
+        onCopyClick={onCopyClick}
+        onTypingChange={onTypingChange}
+      />
+    )
+  }
+
+  if (!message) {
+    return null
   }
 
   if (message.role === 'user' && message.source && message.source == 'schedule') {

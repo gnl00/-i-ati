@@ -7,10 +7,11 @@ import { useScrollManagerTop, type UserScrollSource } from '@renderer/hooks/useS
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store/chatStore'
+import { useAppConfigStore } from '@renderer/store/appConfig'
 import { ArrowDown } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Virtuoso, type StateSnapshot } from 'react-virtuoso'
+import { Virtuoso, type Components, type StateSnapshot } from 'react-virtuoso'
 import { resolveAnchorIndex } from './scroll-anchor'
 import { TaskPlanBar } from './task/TaskPlanBar'
 import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
@@ -20,6 +21,20 @@ import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotificatio
 
 const STREAMING_FOLLOW_RESTORE_THRESHOLD_PX = 24
 type ScrollMode = 'tail-follow' | 'anchor-lock' | 'manual'
+
+type PendingAssistantModel = {
+  model?: string
+  modelRef?: ModelRef
+}
+
+type ChatVirtuosoFooterContext = {
+  bottomSpacerHeight: number
+  shouldRenderPendingAssistant: boolean
+  messagesLength: number
+  pendingAssistantModel: PendingAssistantModel
+  previewMessage?: ChatMessage
+  onTypingChange?: () => void
+}
 
 const STABLE_SPACER_REASONS = new Set([
   'user-sent',
@@ -53,6 +68,38 @@ const ChatMessageRow: React.FC<{
   )
 })
 
+const ChatVirtuosoFooter: React.FC<{ context?: ChatVirtuosoFooterContext }> = memo(({
+  context
+}) => {
+  if (!context) {
+    return null
+  }
+
+  return (
+    <>
+      {context.shouldRenderPendingAssistant && (
+        <div
+          data-index={context.messagesLength}
+          className="w-full min-h-px"
+        >
+          <ChatMessageComponent
+            index={context.messagesLength}
+            pendingAssistantModel={context.pendingAssistantModel}
+            previewMessage={context.previewMessage}
+            isLatest
+            onTypingChange={context.onTypingChange}
+          />
+        </div>
+      )}
+      <div style={{ height: context.bottomSpacerHeight }} />
+    </>
+  )
+})
+
+const CHAT_VIRTUOSO_COMPONENTS: Components<MessageEntity, ChatVirtuosoFooterContext> = {
+  Footer: ChatVirtuosoFooter
+}
+
 const ChatWindowComponentNext: React.FC = () => {
   const messages = useChatStore(state => state.messages)
   const previewMessage = useChatStore(state => state.preview.message)
@@ -60,12 +107,19 @@ const ChatWindowComponentNext: React.FC = () => {
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
   const runPhase = useChatStore(state => state.runPhase)
+  const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const scrollHint = useChatStore(state => state.scrollHint)
   const clearScrollHint = useChatStore(state => state.clearScrollHint)
   const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
   const upsertMessage = useChatStore(state => state.upsertMessage)
   const onUserScrollIntentRef = useRef<((source: UserScrollSource) => void) | null>(null)
   const onUserScrollUpIntentRef = useRef<((source: UserScrollSource) => void) | null>(null)
+  const resolveModelRef = useAppConfigStore(state => state.resolveModelRef)
+  const providersRevision = useAppConfigStore(state => state.providersRevision)
+  const selectedModel = useMemo(
+    () => resolveModelRef(selectedModelRef),
+    [providersRevision, resolveModelRef, selectedModelRef]
+  )
   const committedLastAssistantIndex = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].body.role === 'assistant') {
@@ -74,15 +128,42 @@ const ChatWindowComponentNext: React.FC = () => {
     }
     return -1
   }, [messages])
-  const previewStandalone = Boolean(previewMessage) && committedLastAssistantIndex < 0
+  const latestUserIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].body.role === 'user') {
+        return i
+      }
+    }
+    return -1
+  }, [messages])
+  const hasCurrentTurnAssistant = latestUserIndex >= 0
+    ? committedLastAssistantIndex > latestUserIndex
+    : committedLastAssistantIndex >= 0
+  const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
+  const shouldRenderPendingAssistant = latestUserIndex >= 0
+    && !hasCurrentTurnAssistant
+    && (isAssistantResponseActive || Boolean(previewMessage))
+  const pendingAssistantModel = useMemo(() => ({
+    model: selectedModel?.model.label ?? selectedModelRef?.modelId,
+    modelRef: selectedModelRef
+      ? {
+          accountId: selectedModelRef.accountId,
+          modelId: selectedModelRef.modelId
+        }
+      : undefined
+  }), [
+    selectedModel?.model.label,
+    selectedModelRef
+  ])
   const previewRenderIndex = previewMessage
-    ? (previewStandalone ? messages.length : committedLastAssistantIndex)
+    ? (hasCurrentTurnAssistant ? committedLastAssistantIndex : -1)
     : -1
-  const displayMessages = useMemo(
-    () => (previewStandalone && previewMessage ? [...messages, previewMessage] : messages),
-    [messages, previewStandalone, previewMessage]
-  )
-  const lastAssistantIndex = previewRenderIndex >= 0 ? previewRenderIndex : committedLastAssistantIndex
+  const displayMessages = messages
+  const lastAssistantIndex = shouldRenderPendingAssistant
+    ? messages.length
+    : previewRenderIndex >= 0
+      ? previewRenderIndex
+      : committedLastAssistantIndex
 
   const isRunStreaming = runPhase === 'streaming'
   const inputAreaRef = useRef<HTMLDivElement>(null)
@@ -171,12 +252,15 @@ const ChatWindowComponentNext: React.FC = () => {
     return anchorElement.getBoundingClientRect().top - container.getBoundingClientRect().top
   }, [getLockedAnchorElement, scrollParentRef])
   const renderedLatestAssistant = useMemo(() => {
+    if (shouldRenderPendingAssistant) {
+      return previewMessage ?? undefined
+    }
     if (lastAssistantIndex < 0) return undefined
     if (previewMessage && previewRenderIndex === lastAssistantIndex) {
       return previewMessage
     }
     return displayMessages[lastAssistantIndex]
-  }, [displayMessages, lastAssistantIndex, previewRenderIndex, previewMessage])
+  }, [displayMessages, lastAssistantIndex, previewRenderIndex, previewMessage, shouldRenderPendingAssistant])
   const latestAssistantTextSignature = useMemo(() => {
     if (!renderedLatestAssistant) return ''
     const latestAssistant = renderedLatestAssistant
@@ -783,6 +867,23 @@ const ChatWindowComponentNext: React.FC = () => {
     requestLayoutPass('typing-change')
   }, [requestLayoutPass])
 
+  const virtuosoFooterContext = useMemo<ChatVirtuosoFooterContext>(() => ({
+    bottomSpacerHeight,
+    shouldRenderPendingAssistant,
+    messagesLength: messages.length,
+    pendingAssistantModel,
+    previewMessage: !hasCurrentTurnAssistant ? previewMessage?.body : undefined,
+    onTypingChange: handleLatestAssistantTyping
+  }), [
+    bottomSpacerHeight,
+    shouldRenderPendingAssistant,
+    messages.length,
+    pendingAssistantModel,
+    hasCurrentTurnAssistant,
+    previewMessage,
+    handleLatestAssistantTyping
+  ])
+
   return (
     <div className="min-h-svh max-h-svh overflow-hidden flex flex-col app-undragable bg-chat-light dark:bg-chat-dark">
       <ChatHeaderComponent />
@@ -865,9 +966,8 @@ const ChatWindowComponentNext: React.FC = () => {
                 totalListHeightChanged={() => {
                   requestLayoutPass('total-list-height-changed')
                 }}
-                components={{
-                  Footer: () => <div style={{ height: bottomSpacerHeight }} />
-                }}
+                components={CHAT_VIRTUOSO_COMPONENTS}
+                context={virtuosoFooterContext}
                 overscan={150}
                 increaseViewportBy={{ top: 200, bottom: 400 }}
                 rangeChanged={onRangeChanged}
@@ -881,7 +981,7 @@ const ChatWindowComponentNext: React.FC = () => {
                       messageIndex={index}
                       message={message}
                       previewMessage={
-                        previewMessage && previewRenderIndex === index && !previewStandalone
+                        previewMessage && previewRenderIndex === index
                           ? previewMessage.body
                           : undefined
                       }

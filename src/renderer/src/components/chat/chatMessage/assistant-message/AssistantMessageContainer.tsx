@@ -26,7 +26,11 @@ import {
 
 export interface AssistantMessageProps {
   index: number
-  committedMessage: ChatMessage
+  committedMessage?: ChatMessage
+  pendingModel?: {
+    model?: string
+    modelRef?: ModelRef
+  }
   previewMessage?: ChatMessage
   isLatest: boolean
   isHovered: boolean
@@ -38,6 +42,7 @@ export interface AssistantMessageProps {
 const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo(({
   index,
   committedMessage,
+  pendingModel,
   previewMessage,
   isLatest,
   isHovered,
@@ -61,25 +66,40 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   const isRunBusy = runPhase !== 'idle'
   const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
   const isStreaming = runPhase === 'streaming'
+  const displayCommittedMessage = useMemo<ChatMessage>(() => (
+    committedMessage ?? {
+      role: 'assistant',
+      source: 'stream_preview',
+      model: pendingModel?.model,
+      modelRef: pendingModel?.modelRef,
+      content: '',
+      segments: [],
+      typewriterCompleted: false
+    }
+  ), [
+    committedMessage,
+    pendingModel?.model,
+    pendingModel?.modelRef
+  ])
 
   const renderState = useMemo(() => mapAssistantMessage({
-    committedMessage,
+    committedMessage: displayCommittedMessage,
     previewMessage
   }, {
     isLatest,
     isStreaming,
     providerDefinitions,
     accounts
-  }), [committedMessage, previewMessage, isLatest, isStreaming, providerDefinitions, accounts])
+  }), [displayCommittedMessage, previewMessage, isLatest, isStreaming, providerDefinitions, accounts])
 
   const shellState = useMemo(() => buildAssistantMessageShellState({
-    committedMessage,
+    committedMessage: displayCommittedMessage,
     previewMessage,
     isCommandConfirmPending,
     isLatest,
     isResponseActive: isAssistantResponseActive
   }), [
-    committedMessage,
+    displayCommittedMessage,
     previewMessage,
     isCommandConfirmPending,
     isLatest,
@@ -101,25 +121,25 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   ])
 
   const footerState = useMemo(() => buildAssistantMessageFooterState({
-    committedMessage,
+    committedMessage: displayCommittedMessage,
     isLatest,
     isOverlayPreview: renderState.transcript.isOverlayPreview
   }), [
-    committedMessage,
+    displayCommittedMessage,
     isLatest,
     renderState.transcript.isOverlayPreview
   ])
 
   const textPlayback = useMemo(() => buildAssistantMessageTextPlaybackModel({
-    committedMessage,
+    committedMessage: displayCommittedMessage,
     previewMessage
   }, renderState.transcript.textItems), [
-    committedMessage,
+    displayCommittedMessage,
     previewMessage,
     renderState.transcript.textItems
   ])
-  const copyContentRef = useRef(getAssistantCopyContent(previewMessage ?? committedMessage))
-  copyContentRef.current = getAssistantCopyContent(previewMessage ?? committedMessage)
+  const copyContentRef = useRef(getAssistantCopyContent(previewMessage ?? displayCommittedMessage))
+  copyContentRef.current = getAssistantCopyContent(previewMessage ?? displayCommittedMessage)
 
   const handleRegenerate = useCallback(() => {
     if (isRunBusy) {
@@ -214,14 +234,14 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   ])
 
   const footerModel = useMemo(() => buildAssistantMessageFooterModel({
-    committedMessage,
+    committedMessage: displayCommittedMessage,
     isHovered,
     footerState,
     onCopyClick: handleCopy,
     onRegenerateClick: handleRegenerate,
     onEditClick: handleEdit
   }), [
-    committedMessage.createdAt,
+    displayCommittedMessage.createdAt,
     isHovered,
     footerState,
     handleCopy,

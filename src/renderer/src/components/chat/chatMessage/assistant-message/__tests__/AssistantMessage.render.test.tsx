@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import React, { act } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '@renderer/store/chatStore'
@@ -322,5 +322,78 @@ beforeEach(() => {
     })
 
     expect(container.innerHTML).toBe('')
+  })
+
+  it('renders a pending model header before committed assistant content exists', async () => {
+    await act(async () => {
+      root.render(
+        <AssistantMessage
+          index={0}
+          pendingModel={{
+            model: 'gpt-5',
+            modelRef: {
+              accountId: 'openai',
+              modelId: 'gpt-5'
+            }
+          }}
+          isLatest={true}
+          isHovered={false}
+          onHover={() => {}}
+          onCopyClick={() => {}}
+        />
+      )
+    })
+
+    expect(headerRenderCount).toBe(1)
+  })
+
+  it('does not rerender the pending header when preview text changes', async () => {
+    const pendingModel = {
+      model: 'gpt-5',
+      modelRef: {
+        accountId: 'openai',
+        modelId: 'gpt-5'
+      }
+    }
+
+    const renderPending = async (previewMessage?: ChatMessage) => {
+      await act(async () => {
+        root.render(
+          <AssistantMessage
+            index={0}
+            pendingModel={pendingModel}
+            previewMessage={previewMessage}
+            isLatest={true}
+            isHovered={false}
+            onHover={() => {}}
+            onCopyClick={() => {}}
+          />
+        )
+      })
+    }
+
+    await renderPending()
+
+    expect(headerRenderCount).toBe(1)
+
+    await renderPending({
+      ...createAssistantMessage([
+        textSegment('preview:step-1:text:0', 'hello')
+      ], 'hello'),
+      source: 'stream_preview',
+      model: 'gpt-5',
+      modelRef: pendingModel.modelRef
+    })
+
+    await renderPending({
+      ...createAssistantMessage([
+        textSegment('preview:step-1:text:0', 'hello world')
+      ], 'hello world'),
+      source: 'stream_preview',
+      model: 'gpt-5',
+      modelRef: pendingModel.modelRef
+    })
+
+    expect(headerRenderCount).toBe(1)
   })
 })
