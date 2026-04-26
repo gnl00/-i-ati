@@ -337,7 +337,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                         className="relative z-10 w-4 h-4 transition-transform duration-300 ease-out group-hover:scale-110"
                         strokeWidth={2}
                       />
-                      <span className="relative z-10 text-xs font-medium capitalize">
+                      <span className="relative z-10 text-[10px] font-medium capitalize">
                         {activeThinkingLevel}
                       </span>
                     </Button>
@@ -432,7 +432,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                 {/* Text with smooth transition */}
                 <span
                   className={cn(
-                    "relative z-10 text-xs font-medium max-w-[100px] truncate",
+                    "relative z-10 text-[10px] font-medium max-w-[100px] truncate",
                     "transition-all duration-300 ease-out"
                   )}
                 >
