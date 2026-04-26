@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ClaudeAdapter } from '../claude'
+
+vi.mock('@main/db/config', () => ({
+  configDb: {
+    getConfig: vi.fn(() => ({ tools: {} }))
+  }
+}))
 
 const toDataChunk = (payload: Record<string, any>): string => `data: ${JSON.stringify(payload)}`
 
@@ -98,6 +104,24 @@ describe('ClaudeAdapter tool use parsing', () => {
 })
 
 describe('ClaudeAdapter request mapping', () => {
+  it('maps thinking level to Claude adaptive thinking fields', () => {
+    const adapter = new ClaudeAdapter()
+    const requestBody = adapter.buildRequest({
+      adapterPluginId: 'claude-compatible-adapter',
+      baseUrl: 'https://api.anthropic.com/v1',
+      apiKey: 'test-key',
+      model: 'claude-sonnet-4-5',
+      stream: false,
+      messages: [{ role: 'user', content: 'hello', segments: [] }],
+      options: {
+        thinkingLevel: 'xhigh'
+      }
+    } as IUnifiedRequest)
+
+    expect(requestBody.thinking).toEqual({ type: 'adaptive' })
+    expect(requestBody.output_config).toEqual({ effort: 'xhigh' })
+  })
+
   it('maps assistant tool_use -> tool_result -> final answer chain in Claude Messages format', () => {
     const adapter = new ClaudeAdapter()
     const requestBody = adapter.buildRequest({

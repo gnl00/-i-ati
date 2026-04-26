@@ -41,7 +41,11 @@ describe('LocalPluginCatalogService', () => {
         capabilities: [{
           kind: 'request-adapter',
           providerType: 'openai',
-          modelTypes: ['llm']
+          modelTypes: ['llm'],
+          thinking: {
+            levels: ['minimal', 'low', 'medium', 'high'],
+            defaultLevel: 'medium'
+          }
         }],
         entries: {
           main: './dist/main.js'
@@ -57,7 +61,16 @@ describe('LocalPluginCatalogService', () => {
     expect(plugins[0]).toMatchObject({
       pluginId: 'gemini-compatible-adapter',
       displayName: 'Gemini Compatible Adapter',
-      status: 'installed'
+      status: 'installed',
+      capabilities: [{
+        kind: 'request-adapter',
+        providerType: 'openai',
+        modelTypes: ['llm'],
+        thinking: {
+          levels: ['minimal', 'low', 'medium', 'high'],
+          defaultLevel: 'medium'
+        }
+      }]
     })
   })
 

@@ -61,6 +61,10 @@ export class OpenAIAdapter extends BaseAdapter {
     return true
   }
 
+  getThinkingLevels(): ThinkingLevel[] {
+    return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh']
+  }
+
   protected extractUsage(raw: any): ITokenUsage | undefined {
     const usage = raw?.usage
     if (!usage) return undefined
@@ -92,6 +96,10 @@ export class OpenAIAdapter extends BaseAdapter {
 
     if (req.tools?.length) {
       requestBody.tools = this.transformToolDefinitions(req.tools)
+    }
+
+    if (req.options?.thinkingLevel && this.getThinkingLevels().includes(req.options.thinkingLevel)) {
+      requestBody.reasoning_effort = req.options.thinkingLevel
     }
 
     return requestBody

@@ -32,7 +32,11 @@ describe('RemotePluginRegistryService', () => {
               {
                 kind: 'request-adapter',
                 providerType: 'openai-response',
-                modelTypes: ['llm', 'vlm']
+                modelTypes: ['llm', 'vlm'],
+                thinking: {
+                  levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+                  defaultLevel: 'medium'
+                }
               }
             ]
           }
@@ -50,7 +54,13 @@ describe('RemotePluginRegistryService', () => {
         path: 'openai-response-compatible-adapter',
         repo: 'gnl00/atiapp-plugins',
         ref: 'main',
-        entries: { main: 'dist/main.js' }
+        entries: { main: 'dist/main.js' },
+        capabilities: [expect.objectContaining({
+          thinking: {
+            levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+            defaultLevel: 'medium'
+          }
+        })]
       })
     ])
   })

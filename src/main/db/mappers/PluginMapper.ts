@@ -1,5 +1,5 @@
 import { builtInPluginRegistry } from '@shared/plugins/builtInRegistry'
-import type { AppPluginSource } from '@shared/plugins/types'
+import type { AppPluginSource, PluginCapability } from '@shared/plugins/types'
 import type { PluginCapabilityRow } from '@main/db/dao/PluginCapabilityDao'
 import type { PluginRow } from '@main/db/dao/PluginDao'
 import type { PluginSettingRow } from '@main/db/dao/PluginSettingDao'
@@ -79,7 +79,7 @@ export const toPluginRowFromManifest = (
 
 export const toPluginCapabilityRows = (
   pluginId: string,
-  capabilities: PluginEntity['capabilities'],
+  capabilities: PluginCapability[],
   now: number
 ): PluginCapabilityRow[] =>
   capabilities.map(capability => ({

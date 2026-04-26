@@ -10,6 +10,7 @@ import type { StateCreator } from 'zustand'
 
 export type ChatSessionState = {
   selectedModelRef: ModelRef | undefined
+  selectedThinkingLevel: ThinkingLevel | undefined
   currentChatId: number | null
   currentChatUuid: string | null
   chatTitle: string
@@ -19,6 +20,7 @@ export type ChatSessionState = {
 
 export type ChatSessionActions = {
   setSelectedModelRef: (ref: ModelRef | undefined) => void
+  setSelectedThinkingLevel: (level: ThinkingLevel | undefined) => void
   ensureSelectedModelRef: () => ModelRef | undefined
   syncSelectedModelRefForChat: (chat: ChatEntity | null, messages?: MessageEntity[]) => ModelRef | undefined
   setChatTitle: (title: string) => void
@@ -41,6 +43,7 @@ type ChatSessionSliceState = ChatSessionState & ChatSessionActions & {
 
 export const createInitialChatSessionState = (): ChatSessionState => ({
   selectedModelRef: undefined,
+  selectedThinkingLevel: undefined,
   currentChatId: null,
   currentChatUuid: null,
   chatTitle: 'NewChat',
@@ -54,6 +57,7 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
 ): ChatSessionActions {
   return {
     setSelectedModelRef: (ref) => set({ selectedModelRef: ref } as Partial<T>),
+    setSelectedThinkingLevel: (level) => set({ selectedThinkingLevel: level } as Partial<T>),
 
     ensureSelectedModelRef: () => {
       const selectedModelRef = get().selectedModelRef

@@ -36,7 +36,8 @@ vi.mock('@main/db/DatabaseService', () => ({
     updateChat: vi.fn(),
     getActiveCompressedSummariesByChatId: vi.fn(() => []),
     getSkills: vi.fn(() => []),
-    getConfigValue: vi.fn(() => undefined)
+    getConfigValue: vi.fn(() => undefined),
+    getPlugins: vi.fn(() => [])
   }
 }))
 
@@ -147,6 +148,24 @@ describe('ChatPreparationPipeline', () => {
     ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue(historyMessages)
     ;(DatabaseService.saveMessage as any).mockReturnValueOnce(101)
     ;(DatabaseService.updateChat as any).mockReset()
+    ;(DatabaseService.getPlugins as any).mockReturnValue([{
+      pluginId: 'openai-chat-compatible-adapter',
+      name: 'OpenAI Chat Compatible Adapter',
+      source: 'built-in',
+      enabled: true,
+      status: 'installed',
+      capabilities: [{
+        kind: 'request-adapter',
+        data: {
+          providerType: 'openai',
+          modelTypes: ['llm', 'vlm'],
+          thinking: {
+            levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+            defaultLevel: 'medium'
+          }
+        }
+      }]
+    }])
   })
 
   it('prepares environment without emitting chat-facing events directly', async () => {
@@ -213,6 +232,56 @@ describe('ChatPreparationPipeline', () => {
         content: 'hello'
       })
     ]))
+  })
+
+  it('omits thinking level when the selected model has no reasoning capability', async () => {
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare({
+      ...input,
+      input: {
+        ...input.input,
+        options: {
+          thinkingLevel: 'high'
+        }
+      }
+    }, emitter)
+
+    expect(prepared.runSpec.request.options).toBeUndefined()
+  })
+
+  it('keeps thinking level when adapter and selected model both support reasoning', async () => {
+    ;(DatabaseService.getConfig as any).mockReturnValue({
+      ...config,
+      accounts: [{
+        ...config.accounts[0],
+        models: [{
+          ...config.accounts[0].models[0],
+          modalities: ['text', 'reason']
+        }]
+      }]
+    })
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare({
+      ...input,
+      input: {
+        ...input.input,
+        options: {
+          thinkingLevel: 'high'
+        }
+      }
+    }, emitter)
+
+    expect(prepared.runSpec.request.options).toEqual({
+      thinkingLevel: 'high'
+    })
   })
 
   it('appends schedule execution context only for schedule-triggered runs', async () => {

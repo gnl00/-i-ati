@@ -20,6 +20,10 @@ export class ClaudeAdapter extends BaseAdapter {
     return false
   }
 
+  getThinkingLevels(): ThinkingLevel[] {
+    return ['low', 'medium', 'high', 'xhigh', 'max']
+  }
+
   protected extractUsage(raw: any): ITokenUsage | undefined {
     const usage = raw?.usage
     if (!usage) return undefined
@@ -62,6 +66,11 @@ export class ClaudeAdapter extends BaseAdapter {
 
     if (req.tools?.length) {
       requestBody.tools = this.transformClaudeTools(req.tools)
+    }
+
+    if (req.options?.thinkingLevel && this.getThinkingLevels().includes(req.options.thinkingLevel)) {
+      requestBody.thinking = { type: 'adaptive' }
+      requestBody.output_config = { effort: req.options.thinkingLevel }
     }
 
     return requestBody

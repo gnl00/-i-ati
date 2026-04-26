@@ -1,4 +1,9 @@
 import { RequestMessageBuilder } from '@shared/services/RequestMessageBuilder'
+import {
+  getRequestAdapterThinkingCapability,
+  modelSupportsThinking
+} from '@shared/plugins/requestAdapterThinking'
+import { pluginDb } from '@main/db/plugins'
 import { AppConfigStore } from '../config'
 import {
   CompressionSummaryResolver,
@@ -54,10 +59,34 @@ export class RunRequestFactory {
       modelType: environment.modelContext.model.type,
       userInstruction: mergedUserInstruction,
       tools: this.toolListBuilder.build(input.tools),
-      options: input.options,
+      options: this.resolveRequestOptions(environment, input.options),
       stream: input.stream,
       requestOverrides: environment.modelContext.providerDefinition.requestOverrides
     }
+  }
+
+  private resolveRequestOptions(
+    environment: RunEnvironment,
+    options: IUnifiedRequest['options'] | undefined
+  ): IUnifiedRequest['options'] | undefined {
+    if (!options?.thinkingLevel) {
+      return options
+    }
+
+    const thinkingCapability = getRequestAdapterThinkingCapability({
+      plugins: pluginDb.getPlugins(),
+      pluginId: environment.modelContext.providerDefinition.adapterPluginId
+    })
+
+    if (
+      modelSupportsThinking(environment.modelContext.model, thinkingCapability)
+      && thinkingCapability?.levels.includes(options.thinkingLevel)
+    ) {
+      return options
+    }
+
+    const { thinkingLevel: _thinkingLevel, ...restOptions } = options
+    return Object.keys(restOptions).length > 0 ? restOptions : undefined
   }
 
   private mergeRequestUserInstruction(input: HostRunInputState): string | undefined {

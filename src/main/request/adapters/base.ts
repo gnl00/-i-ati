@@ -28,6 +28,8 @@ export abstract class BaseAdapter {
   protected streamProtocol: RequestAdapterStreamProtocol = 'sse'
   private streamChunkDebugEnabled = false
 
+  abstract getThinkingLevels(): ThinkingLevel[]
+
   abstract buildHeaders(req: IUnifiedRequest): Record<string, string>
 
   // 构造请求体

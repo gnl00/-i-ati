@@ -14,6 +14,10 @@ export class OpenAIImage1Adapter extends BaseAdapter {
     return false
   }
 
+  getThinkingLevels(): ThinkingLevel[] {
+    return []
+  }
+
   getEndpoint(baseUrl: string): string {
     return `${baseUrl}/images/generations`
   }

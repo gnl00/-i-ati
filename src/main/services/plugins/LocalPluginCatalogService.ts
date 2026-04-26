@@ -2,6 +2,7 @@ import { app } from 'electron'
 import fs from 'fs/promises'
 import path from 'path'
 import type { PluginCapability } from '@shared/plugins/types'
+import { normalizeThinkingCapability } from '@shared/plugins/requestAdapterThinking'
 import type { AppPluginManifest } from '@shared/plugins/manifest'
 
 export interface ScannedLocalPluginManifest {
@@ -213,11 +214,13 @@ export class LocalPluginCatalogService {
       if (!this.isRequestAdapterCapability(capability)) {
         return []
       }
+      const thinking = normalizeThinkingCapability(capability.thinking)
 
       return [{
         kind: 'request-adapter',
         providerType: capability.providerType,
-        modelTypes: capability.modelTypes
+        modelTypes: capability.modelTypes,
+        ...(thinking ? { thinking } : {})
       }]
     })
   }
@@ -233,6 +236,10 @@ export class LocalPluginCatalogService {
 
     return typeof value.providerType === 'string'
       && this.isModelTypes(value.modelTypes)
+      && (
+        value.thinking === undefined ||
+        Boolean(normalizeThinkingCapability(value.thinking))
+      )
   }
 
   private isSupportedCapability(value: unknown): boolean {

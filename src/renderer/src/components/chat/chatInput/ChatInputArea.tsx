@@ -9,6 +9,10 @@ import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useAssistantStore } from '@renderer/store/assistant'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import {
+  getEffectiveThinkingLevel,
+  getRequestAdapterThinkingCapability
+} from '@shared/plugins/requestAdapterThinking'
 import { CustomCaretOverlay, CustomCaretRef } from '../common/CustomCaretOverlay'
 import CommandPalette from './CommandPalette'
 import ChatInputToolbar from './ChatInputToolbar'
@@ -35,6 +39,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
+  const selectedThinkingLevel = useChatStore(state => state.selectedThinkingLevel)
   const setSelectedModelRef = useChatStore(state => state.setSelectedModelRef)
   const ensureSelectedModelRef = useChatStore(state => state.ensureSelectedModelRef)
   const editUserInstructionDraft = useChatStore(state => state.editUserInstructionDraft)
@@ -44,6 +49,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     getModelOptions,
     resolveModelRef,
     providersRevision,
+    plugins,
     mcpServerConfig,
   } = useAppConfigStore()
 
@@ -54,6 +60,21 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   const selectedModel = useMemo(() => {
     return resolveModelRef(selectedModelRef ?? defaultModel)
   }, [defaultModel, providersRevision, resolveModelRef, selectedModelRef])
+  const thinkingCapability = useMemo(() => {
+    if (!selectedModel) {
+      return undefined
+    }
+
+    return getRequestAdapterThinkingCapability({
+      plugins,
+      pluginId: selectedModel.definition.adapterPluginId
+    })
+  }, [plugins, selectedModel])
+  const effectiveThinkingLevel = getEffectiveThinkingLevel(
+    selectedModel?.model,
+    thinkingCapability,
+    selectedThinkingLevel
+  )
 
   useEffect(() => {
     if (!selectedModel) {
@@ -173,9 +194,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }) => {
     onMessagesUpdate?.()
     handleChatSubmitCallback(payload.text, payload.images, {
-      userInstruction: payload.userInstruction
+      userInstruction: payload.userInstruction,
+      options: effectiveThinkingLevel ? { thinkingLevel: effectiveThinkingLevel } : undefined
     })
-  }, [handleChatSubmitCallback, onMessagesUpdate])
+  }, [effectiveThinkingLevel, handleChatSubmitCallback, onMessagesUpdate])
 
   const enqueueMessage = useCallback((payload: {
     text: string

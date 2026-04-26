@@ -1,4 +1,5 @@
 declare type ModelType = 'llm' | 'vlm' | 'mllm' | 'img_gen'
+declare type ThinkingLevel = string
 
 declare interface AccountModel {
   id: string
@@ -191,6 +192,7 @@ declare interface IUnifiedRequest {
   requestOverrides?: Record<string, any>
   options?: {
     maxTokens?: number
+    thinkingLevel?: ThinkingLevel
   }
 }
 

@@ -31,6 +31,29 @@ const requestAdapterFactories = new Map<BuiltInAppPluginId, RequestAdapterFactor
   ['claude-compatible-adapter', () => new ClaudeAdapter()]
 ])
 
+export const createBuiltInRequestAdapter = (pluginId: string): BaseAdapter | null => {
+  const createAdapter = requestAdapterFactories.get(pluginId as BuiltInAppPluginId)
+  return createAdapter ? createAdapter() : null
+}
+
+export const withBuiltInAdapterCapabilities = <T extends { thinking?: { levels: ThinkingLevel[]; defaultLevel?: ThinkingLevel } }>(
+  pluginId: string,
+  capability: T
+): T => {
+  const thinkingLevels = createBuiltInRequestAdapter(pluginId)?.getThinkingLevels() ?? []
+  if (thinkingLevels.length === 0) {
+    return capability
+  }
+
+  return {
+    ...capability,
+    thinking: {
+      levels: thinkingLevels,
+      defaultLevel: thinkingLevels.includes('medium') ? 'medium' : thinkingLevels[0]
+    }
+  }
+}
+
 export const registerEnabledBuiltInRequestAdapters = (
   enabledPluginIds: Set<string>,
   register: (pluginId: string, adapter: BaseAdapter) => void
@@ -48,11 +71,6 @@ export const registerEnabledBuiltInRequestAdapters = (
 
     register(plugin.id, createAdapter())
   })
-}
-
-export const createBuiltInRequestAdapter = (pluginId: string): BaseAdapter | null => {
-  const createAdapter = requestAdapterFactories.get(pluginId as BuiltInAppPluginId)
-  return createAdapter ? createAdapter() : null
 }
 
 const loadRequestAdapterPluginModule = async (plugin: PluginEntity): Promise<RequestAdapterPluginModule | null> => {

@@ -1,4 +1,5 @@
 import { builtInPluginRegistry } from '@shared/plugins/builtInRegistry'
+import { withBuiltInAdapterCapabilities } from '@main/request/adapters/plugins'
 import type { ConfigDao } from '@main/db/dao/ConfigDao'
 import type { PluginCapabilityDao } from '@main/db/dao/PluginCapabilityDao'
 import type { PluginDao } from '@main/db/dao/PluginDao'
@@ -87,7 +88,7 @@ export class PluginBootstrapService {
           definition.capabilities.map((capability) => ({
             plugin_id: definition.id,
             capability_kind: capability.kind,
-            capability_json: JSON.stringify(capability),
+            capability_json: JSON.stringify(withBuiltInAdapterCapabilities(definition.id, capability)),
             created_at: now,
             updated_at: now
           }))

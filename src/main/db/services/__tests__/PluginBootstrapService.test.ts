@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { PluginRepository } from '../../repositories/PluginRepository'
 import { PluginBootstrapService } from '../PluginBootstrapService'
+
+vi.mock('@main/db/config', () => ({
+  configDb: {
+    getConfig: vi.fn(() => ({ tools: {} }))
+  }
+}))
 
 const createTransactionDb = () => ({
   transaction<T extends (...args: any[]) => any>(fn: T) {
@@ -84,6 +90,28 @@ describe('PluginBootstrapService', () => {
     ])
     expect(plugins).toHaveLength(3)
     expect(plugins[0]?.capabilities.length).toBeGreaterThan(0)
+    expect(
+      plugins
+        .find(plugin => plugin.pluginId === 'openai-chat-compatible-adapter')
+        ?.capabilities
+        .find(capability => capability.kind === 'request-adapter')
+        ?.data
+        ?.thinking
+    ).toEqual({
+      levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+      defaultLevel: 'medium'
+    })
+    expect(
+      plugins
+        .find(plugin => plugin.pluginId === 'claude-compatible-adapter')
+        ?.capabilities
+        .find(capability => capability.kind === 'request-adapter')
+        ?.data
+        ?.thinking
+    ).toEqual({
+      levels: ['low', 'medium', 'high', 'xhigh', 'max'],
+      defaultLevel: 'medium'
+    })
   })
 
   it('migrates legacy appConfig.plugins into dedicated plugin tables before seeding missing built-ins', () => {

@@ -35,7 +35,11 @@ Example:
     {
       "kind": "request-adapter",
       "providerType": "gemini",
-      "modelTypes": ["llm", "vlm"]
+      "modelTypes": ["llm", "vlm"],
+      "thinking": {
+        "levels": ["minimal", "low", "medium", "high"],
+        "defaultLevel": "medium"
+      }
     }
   ],
   "entries": {

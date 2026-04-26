@@ -53,6 +53,10 @@ export class RequestAdapterPluginWrapper extends BaseAdapter {
     return this.hooks.supportsStreamOptionsUsage ?? false
   }
 
+  getThinkingLevels(): ThinkingLevel[] {
+    return []
+  }
+
   private requireCurrentRequest(): IUnifiedRequest {
     if (!this.currentRequest) {
       throw new Error('Request adapter hooks require an active request context')

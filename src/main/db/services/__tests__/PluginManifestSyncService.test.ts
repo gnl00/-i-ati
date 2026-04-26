@@ -183,4 +183,56 @@ describe('PluginManifestSyncService', () => {
 
     expect(plugins.find(plugin => plugin.pluginId === 'remote-existing')?.source).toBe('remote')
   })
+
+  it('persists manifest-declared thinking capability in renderer-readable shape', () => {
+    const pluginRepo = createPluginRepo()
+    const capabilityRepo = createCapabilityRepo()
+    const repository = new PluginRepository({
+      hasDb: () => true,
+      getDb: () => createTransactionDb() as any,
+      getPluginRepo: () => pluginRepo as any,
+      getPluginCapabilityRepo: () => capabilityRepo as any,
+      getPluginSettingRepo: () => ({ upsert() {}, deleteByPluginId() {} }) as any
+    })
+    const service = new PluginManifestSyncService({
+      hasDb: () => true,
+      getDb: () => createTransactionDb() as any,
+      getPluginRepo: () => pluginRepo as any,
+      getPluginCapabilityRepo: () => capabilityRepo as any,
+      getPluginSettingRepo: () => ({ deleteByPluginId() {} }) as any,
+      pluginRepository: () => repository
+    })
+
+    const plugins = service.syncLocalPluginManifests([
+      {
+        pluginId: 'openai-response-compatible-adapter',
+        displayName: 'OpenAI Responses Compatible Adapter',
+        description: 'Remote plugin',
+        version: '0.1.3',
+        manifestPath: '/plugins/openai-response-compatible-adapter/plugin.json',
+        installRoot: '/plugins/openai-response-compatible-adapter',
+        status: 'installed',
+        capabilities: [{
+          kind: 'request-adapter',
+          providerType: 'openai-response',
+          modelTypes: ['llm', 'vlm'],
+          thinking: {
+            levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+            defaultLevel: 'medium'
+          }
+        }]
+      }
+    ])
+
+    const capability = plugins
+      .find(plugin => plugin.pluginId === 'openai-response-compatible-adapter')
+      ?.capabilities
+      .find(item => item.kind === 'request-adapter')
+
+    expect(capability?.data?.thinking).toEqual({
+      levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+      defaultLevel: 'medium'
+    })
+    expect(capability?.data?.data).toBeUndefined()
+  })
 })
