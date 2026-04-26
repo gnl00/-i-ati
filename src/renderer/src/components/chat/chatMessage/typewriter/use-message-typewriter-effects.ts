@@ -9,7 +9,7 @@ interface MessageTypewriterEffectsProps {
 
 interface PersistTypewriterCompletionProps {
   index: number
-  message: ChatMessage
+  message: Pick<ChatMessage, 'source' | 'typewriterCompleted'>
 }
 
 export function usePersistTypewriterCompletion(

@@ -130,7 +130,6 @@ export function mapAssistantMessage(
   source: AssistantMessageSource,
   context: AssistantMessageMapperContext
 ): AssistantMessageRenderState {
-  const { committedMessage, previewMessage } = source
   const { isLatest, isStreaming, providerDefinitions, accounts } = context
   const facts = buildAssistantMessageFacts(source)
 

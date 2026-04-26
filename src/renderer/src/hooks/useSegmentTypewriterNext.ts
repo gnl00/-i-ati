@@ -167,7 +167,7 @@ export const useSegmentTypewriterNext = (
   }, [splitContent])
 
   useEffect(() => {
-    segments.forEach((segment, segmentIndex) => {
+    segments.forEach((segment) => {
       const segmentKey = getSegmentKey(segment)
       const previousContent = segmentContentSnapshotRef.current.get(segmentKey)
       if (previousContent === segment.content) return
@@ -255,7 +255,7 @@ export const useSegmentTypewriterNext = (
       const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
 
       if (consumed < tokens.length) {
-        return getSegmentKey(segment, i)
+        return getSegmentKey(segment)
       }
     }
 

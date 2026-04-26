@@ -56,7 +56,7 @@ export const StreamingMarkdownLite: React.FC<{
   perfSegmentId?: string
   perfMode?: AssistantStreamingPerfMode
 }> = memo(({ text, className, animate = true, animationWindow = 16, perfSessionId, perfSegmentId, perfMode = 'lite' }) => {
-  const parseCacheRef = useRef<MarkdownBlockParseSnapshot>()
+  const parseCacheRef = useRef<MarkdownBlockParseSnapshot | undefined>(undefined)
   const parseResult = useMemo(() => {
     const t0 = performance.now()
     const snapshot = buildMarkdownBlockParseSnapshot(text, parseCacheRef.current)

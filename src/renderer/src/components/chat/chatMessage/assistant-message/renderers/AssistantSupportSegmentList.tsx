@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import { memo } from 'react'
 import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 import { AssistantSupportSegmentContent } from './AssistantSupportSegmentContent'
 

@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 
-import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { AssistantTextSegmentContent } from '../renderers/AssistantTextSegmentContent'

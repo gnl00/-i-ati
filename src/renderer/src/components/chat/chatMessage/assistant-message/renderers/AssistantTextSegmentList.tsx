@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import { memo } from 'react'
 import { useMessageTypewriter } from '../../typewriter/use-message-typewriter'
 import { AssistantTextSegmentContent } from './AssistantTextSegmentContent'
 import type { TextSegmentRenderItem } from '../model/assistantMessageMapper'

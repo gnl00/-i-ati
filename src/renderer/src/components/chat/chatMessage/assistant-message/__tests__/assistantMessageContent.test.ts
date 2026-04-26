@@ -11,7 +11,7 @@ describe('assistantMessageContent', () => {
       role: 'user',
       content: [
         { type: 'text', text: 'hello' },
-        { type: 'image_url', image_url: { url: 'img-1' } },
+        { type: 'image_url', image_url: { url: 'img-1', detail: 'auto' } },
         { type: 'text', text: 'world' }
       ],
       segments: []

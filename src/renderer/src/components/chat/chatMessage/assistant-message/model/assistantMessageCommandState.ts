@@ -1,4 +1,5 @@
 import type { CommandConfirmationRequest } from '../CommandConfirmation'
+import type { AgentConfirmationSource } from '@shared/tools/approval'
 
 export interface AssistantMessageCommandStateInput {
   isCommandConfirmPending: boolean

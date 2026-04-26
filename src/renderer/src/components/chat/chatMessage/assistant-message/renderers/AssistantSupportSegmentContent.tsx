@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import { memo } from 'react'
 import { ToolCallResultNextOutput } from '../toolcall/ToolCallResultNextOutput'
 import { ErrorMessage } from '../../error-message'
 import { ReasoningSegmentNext } from '../segments/ReasoningSegmentNext'

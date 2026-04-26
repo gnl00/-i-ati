@@ -74,7 +74,8 @@ describe('mapAssistantMessage', () => {
         emotion: {
           label: 'joy',
           emoji: '🙂',
-          intensity: 0.7
+          intensity: 0.7,
+          source: 'tool'
         },
         segments: [
           reasoningSegment('preview-reasoning', 'thinking'),

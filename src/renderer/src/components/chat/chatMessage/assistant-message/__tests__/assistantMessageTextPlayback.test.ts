@@ -30,12 +30,14 @@ describe('buildAssistantMessageTextPlaybackModel', () => {
       committedMessage: {
         role: 'assistant',
         content: 'hello',
+        segments: [],
         typewriterCompleted: true
       },
       previewMessage: {
         role: 'assistant',
         content: 'hello world',
         source: 'stream_preview',
+        segments: [],
         typewriterCompleted: false
       }
     }, [
