@@ -320,6 +320,10 @@ export class TelegramCommandService {
 
     for (const account of config.accounts ?? []) {
       const provider = config.providerDefinitions?.find((item) => item.id === account.providerId)
+      if (provider?.enabled === false) {
+        continue
+      }
+
       for (const model of account.models ?? []) {
         if (isEnabledModel(model)) {
           result.push({ account, model, provider })

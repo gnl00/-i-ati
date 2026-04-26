@@ -197,6 +197,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                         const iconKey = definition.iconKey || definition.id
                         const iconSrc = getProviderIcon(iconKey)
                         const isActive = definition.id === selectedProviderId
+                        const isProviderEnabled = definition.enabled !== false
 
                         return (
                             <div
@@ -220,6 +221,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                         alt={definition.displayName}
                                         className={cn(
                                             'w-5 h-5 flex-none dark:invert dark:brightness-90 transition-all duration-200 ease-out',
+                                            isProviderEnabled ? 'opacity-90' : 'opacity-35 grayscale',
                                             hoverProviderCardIdx === idx && 'scale-110',
                                             isActive && 'scale-125'
                                         )}
@@ -229,8 +231,15 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                     <TooltipTrigger asChild>
                                         <div className="flex-1 min-w-0">
                                             <p className={cn(
-                                                'truncate font-medium text-sm text-gray-700 dark:text-gray-300 transition-colors duration-200 ease-out',
-                                                hoverProviderCardIdx === idx && 'text-gray-900 dark:text-gray-100'
+                                                'truncate font-medium text-sm transition-colors duration-200 ease-out',
+                                                isProviderEnabled
+                                                    ? 'text-gray-700 dark:text-gray-300'
+                                                    : 'text-gray-400 dark:text-gray-500',
+                                                hoverProviderCardIdx === idx && (
+                                                    isProviderEnabled
+                                                        ? 'text-gray-900 dark:text-gray-100'
+                                                        : 'text-gray-500 dark:text-gray-400'
+                                                )
                                             )}>
                                                 {definition.displayName}
                                             </p>

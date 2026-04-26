@@ -11,6 +11,10 @@ const findAvailableModelByRef = (
     return undefined
   }
 
+  if (!isProviderEnabledForAccount(config, account)) {
+    return undefined
+  }
+
   const model = account.models.find(item => item.id === ref.modelId && item.enabled !== false)
   if (!model) {
     return undefined
@@ -19,12 +23,21 @@ const findAvailableModelByRef = (
   return { account, model }
 }
 
+const isProviderEnabledForAccount = (config: IAppConfig, account: ProviderAccount): boolean => {
+  const definition = config.providerDefinitions?.find(item => item.id === account.providerId)
+  return definition?.enabled !== false
+}
+
 export const isModelRefAvailable = (config: IAppConfig, ref?: ModelRef): boolean => {
   return Boolean(findAvailableModelByRef(config, ref))
 }
 
 export const resolveFirstAvailableModelRef = (config: IAppConfig): ModelRef | undefined => {
   for (const account of config.accounts ?? []) {
+    if (!isProviderEnabledForAccount(config, account)) {
+      continue
+    }
+
     const model = account.models.find(item => item.enabled !== false)
     if (model) {
       return {

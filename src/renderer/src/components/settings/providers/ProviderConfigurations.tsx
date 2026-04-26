@@ -1,5 +1,6 @@
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
+import { Switch } from '@renderer/components/ui/switch'
 import {
   Select,
     SelectContent,
@@ -65,6 +66,7 @@ const ProviderConfigurations = ({
 
     const currentAdapterOption = adapterOptions.find(option => option.pluginId === (providerDefinition?.adapterPluginId ?? 'openai-chat-compatible-adapter'))
     const currentAdapterDisabled = Boolean(currentAdapterOption && !currentAdapterOption.enabled)
+    const providerEnabled = providerDefinition?.enabled !== false
 
     return (
         <div className='px-4 pt-3 pb-2.5 border-b border-gray-200/70 dark:border-gray-700/60 space-y-2.5'>
@@ -73,15 +75,37 @@ const ProviderConfigurations = ({
                 <h3 className='text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100'>
                     {providerDefinition?.displayName || 'Provider'}
                 </h3>
-                <button
-                    type="button"
-                    disabled={!account}
-                    onClick={onResetAccount}
-                    className='h-6 px-2 flex items-center gap-1 rounded-md text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-40 transition-colors duration-150'
-                >
-                    <i className="ri-refresh-line text-[11px]"></i>
-                    Reset
-                </button>
+                <div className='flex items-center gap-2'>
+                    <button
+                        type="button"
+                        disabled={!account}
+                        onClick={onResetAccount}
+                        className='h-6 px-2 flex items-center gap-1 rounded-md text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-40 transition-colors duration-150'
+                    >
+                        <i className="ri-refresh-line text-[11px]"></i>
+                        Reset
+                    </button>
+                    <div className='h-5 w-px bg-gray-200 dark:bg-gray-700' />
+                    <div className='flex items-center gap-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 select-none'>
+                        <span>{providerEnabled ? 'Enabled' : 'Disabled'}</span>
+                        <Switch
+                            aria-label="Toggle provider availability"
+                            checked={providerEnabled}
+                            disabled={!providerDefinition}
+                            onCheckedChange={(checked) => {
+                                if (!providerDefinition) return
+                                onUpdateProviderDefinition(providerDefinition.id, { enabled: checked })
+                            }}
+                            className={cn(
+                                'h-[18px] w-[32px] border-0 focus-visible:ring-gray-300 dark:focus-visible:ring-gray-600',
+                                'data-[state=checked]:bg-gray-900 dark:data-[state=checked]:bg-gray-100',
+                                'data-[state=unchecked]:bg-gray-200 dark:data-[state=unchecked]:bg-gray-700',
+                                '[&>span]:h-[14px] [&>span]:w-[14px] [&>span]:data-[state=checked]:translate-x-[14px] [&>span]:data-[state=unchecked]:translate-x-[2px]',
+                                '[&>span]:bg-white dark:[&>span]:bg-gray-900 [&>span]:shadow-sm'
+                            )}
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* Fields grid */}

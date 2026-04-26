@@ -7,13 +7,16 @@ export class ChatModelContextResolver {
       return null
     }
 
-    const model = account.models.find(item => item.id === modelRef.modelId)
+    const model = account.models.find(item => item.id === modelRef.modelId && item.enabled !== false)
     if (!model) {
       return null
     }
 
     const providerDefinition = config.providerDefinitions?.find(def => def.id === account.providerId)
     if (!providerDefinition) {
+      return null
+    }
+    if (providerDefinition.enabled === false) {
       return null
     }
 

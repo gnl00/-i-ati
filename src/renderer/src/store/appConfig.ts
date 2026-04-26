@@ -430,15 +430,16 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
     if (!ref) return undefined
     const entry = get().getProviderEntries().find(item => item.account?.id === ref.accountId)
     const account = entry?.account
+    if (entry?.definition.enabled === false) return undefined
     if (!account) return undefined
-    const model = account.models.find(item => item.id === ref.modelId)
+    const model = account.models.find(item => item.id === ref.modelId && item.enabled !== false)
     if (!model) return undefined
     return { account, model, definition: entry.definition }
   },
 
   getModelOptions: () => {
     return get().getProviderEntries().flatMap(entry =>
-      (entry.account ? entry.models : [])
+      (entry.account && entry.definition.enabled !== false ? entry.models : [])
         .filter(model => model.enabled !== false)
         .map(model => ({
           account: entry.account!,

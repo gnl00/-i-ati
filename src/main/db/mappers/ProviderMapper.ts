@@ -33,6 +33,7 @@ export const toProviderDefinitionEntity = (row: ProviderDefinitionRow): Provider
   id: row.id,
   displayName: row.display_name,
   adapterPluginId: row.adapter_plugin_id,
+  enabled: row.enabled !== 0,
   iconKey: row.icon_key ?? undefined,
   defaultApiUrl: row.default_api_url ?? undefined,
   requestOverrides: parseRequestOverrides(row.request_overrides)
@@ -45,6 +46,7 @@ export const toProviderDefinitionRow = (
   id: definition.id,
   display_name: definition.displayName,
   adapter_plugin_id: definition.adapterPluginId,
+  enabled: definition.enabled === false ? 0 : 1,
   icon_key: definition.iconKey ?? null,
   default_api_url: definition.defaultApiUrl ?? null,
   request_overrides: definition.requestOverrides ? JSON.stringify(definition.requestOverrides) : null,

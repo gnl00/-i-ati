@@ -56,10 +56,10 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [defaultModel, providersRevision, resolveModelRef, selectedModelRef])
 
   useEffect(() => {
-    if (!selectedModelRef) {
+    if (!selectedModel) {
       ensureSelectedModelRef()
     }
-  }, [ensureSelectedModelRef, selectedModelRef, modelOptions.length, defaultModel])
+  }, [ensureSelectedModelRef, selectedModel, modelOptions.length, defaultModel])
 
   // Use MCP connection hook
   const {
@@ -208,7 +208,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     if (!trimmedInput) {
       return
     }
-    const activeModelRef = selectedModelRef ?? ensureSelectedModelRef()
+    const activeModelRef = ensureSelectedModelRef()
     if (!activeModelRef) {
       toast.warning('Please select a model')
       return
@@ -383,7 +383,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
         toast.error('Input text content is required')
         return
       }
-      if (!(selectedModelRef ?? ensureSelectedModelRef())) {
+      if (!ensureSelectedModelRef()) {
         toast.error('Please select a model')
         return
       }

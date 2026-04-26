@@ -4,6 +4,7 @@ interface ProviderDefinitionRow {
   id: string
   display_name: string
   adapter_plugin_id: string
+  enabled: number
   icon_key: string | null
   default_api_url: string | null
   request_overrides: string | null
@@ -66,11 +67,12 @@ class ProviderDao {
       `),
       upsertProviderDefinition: db.prepare(`
         INSERT INTO provider_definitions (
-          id, display_name, adapter_plugin_id, icon_key, default_api_url, request_overrides, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          id, display_name, adapter_plugin_id, enabled, icon_key, default_api_url, request_overrides, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           display_name = excluded.display_name,
           adapter_plugin_id = excluded.adapter_plugin_id,
+          enabled = excluded.enabled,
           icon_key = excluded.icon_key,
           default_api_url = excluded.default_api_url,
           request_overrides = excluded.request_overrides,
@@ -152,6 +154,7 @@ class ProviderDao {
       row.id,
       row.display_name,
       row.adapter_plugin_id,
+      row.enabled,
       row.icon_key ?? null,
       row.default_api_url ?? null,
       row.request_overrides ?? null,

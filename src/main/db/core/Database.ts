@@ -251,6 +251,7 @@ class AppDatabase {
         id TEXT PRIMARY KEY,
         display_name TEXT NOT NULL,
         adapter_plugin_id TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
         icon_key TEXT,
         default_api_url TEXT,
         request_overrides TEXT,
@@ -258,6 +259,8 @@ class AppDatabase {
         updated_at INTEGER NOT NULL
       )
     `)
+
+    this.ensureColumn('provider_definitions', 'enabled', 'INTEGER NOT NULL DEFAULT 1')
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS provider_accounts (

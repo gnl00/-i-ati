@@ -152,6 +152,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
             id: providerId,
             displayName,
             adapterPluginId,
+            enabled: true,
             iconKey: newDefinitionIconKey || providerId,
             defaultApiUrl: baseUrl
         }

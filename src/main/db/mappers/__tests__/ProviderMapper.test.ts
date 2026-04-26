@@ -14,6 +14,7 @@ describe('providerMapper', () => {
       id: 'openai',
       display_name: 'OpenAI',
       adapter_plugin_id: 'openai-chat-compatible-adapter',
+      enabled: 1,
       icon_key: 'openai',
       default_api_url: 'https://api.openai.com/v1',
       request_overrides: JSON.stringify({ temperature: 0.2 }),
@@ -23,6 +24,7 @@ describe('providerMapper', () => {
       id: 'openai',
       displayName: 'OpenAI',
       adapterPluginId: 'openai-chat-compatible-adapter',
+      enabled: true,
       iconKey: 'openai',
       defaultApiUrl: 'https://api.openai.com/v1',
       requestOverrides: { temperature: 0.2 }
@@ -32,6 +34,7 @@ describe('providerMapper', () => {
       id: 'openai',
       displayName: 'OpenAI',
       adapterPluginId: 'openai-chat-compatible-adapter',
+      enabled: false,
       iconKey: 'openai',
       defaultApiUrl: 'https://api.openai.com/v1',
       requestOverrides: { temperature: 0.2 }
@@ -39,6 +42,7 @@ describe('providerMapper', () => {
       id: 'openai',
       display_name: 'OpenAI',
       adapter_plugin_id: 'openai-chat-compatible-adapter',
+      enabled: 0,
       icon_key: 'openai',
       default_api_url: 'https://api.openai.com/v1',
       request_overrides: JSON.stringify({ temperature: 0.2 }),

@@ -35,6 +35,7 @@ declare interface ProviderDefinition {
   id: string
   displayName: string
   adapterPluginId: string
+  enabled?: boolean
   iconKey?: string
   defaultApiUrl?: string
   requestOverrides?: Record<string, any>

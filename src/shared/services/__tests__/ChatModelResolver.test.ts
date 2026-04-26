@@ -10,7 +10,20 @@ import {
 
 describe('ChatModelResolver', () => {
   const buildConfig = (): IAppConfig => ({
-    providerDefinitions: [],
+    providerDefinitions: [
+      {
+        id: 'provider-1',
+        displayName: 'Provider 1',
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        enabled: true
+      },
+      {
+        id: 'provider-2',
+        displayName: 'Provider 2',
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        enabled: true
+      }
+    ],
     accounts: [
       {
         id: 'account-1',
@@ -48,6 +61,32 @@ describe('ChatModelResolver', () => {
     expect(isModelRefAvailable(config, { accountId: 'account-1', modelId: 'model-a' })).toBe(true)
     expect(isModelRefAvailable(config, { accountId: 'account-1', modelId: 'model-b' })).toBe(false)
     expect(isModelRefAvailable(config, { accountId: 'missing', modelId: 'model-a' })).toBe(false)
+  })
+
+  it('skips models from disabled providers', () => {
+    const config = {
+      ...buildConfig(),
+      providerDefinitions: [
+        {
+          id: 'provider-1',
+          displayName: 'Provider 1',
+          adapterPluginId: 'openai-chat-compatible-adapter',
+          enabled: false
+        },
+        {
+          id: 'provider-2',
+          displayName: 'Provider 2',
+          adapterPluginId: 'openai-chat-compatible-adapter',
+          enabled: true
+        }
+      ]
+    } satisfies IAppConfig
+
+    expect(isModelRefAvailable(config, { accountId: 'account-1', modelId: 'model-a' })).toBe(false)
+    expect(resolveFirstAvailableModelRef(config)).toEqual({
+      accountId: 'account-2',
+      modelId: 'model-c'
+    })
   })
 
   it('resolves the first enabled model as a fallback', () => {
