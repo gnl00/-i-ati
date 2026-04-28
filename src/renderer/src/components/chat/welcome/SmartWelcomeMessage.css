@@ -1,0 +1,382 @@
+/* Smart welcome keeps CSS for stateful 3D transforms, pseudo-elements, and keyframes. */
+
+.smart-welcome-entrance {
+  --smart-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --smart-surface: color-mix(in srgb, hsl(var(--card)) 84%, transparent);
+  --smart-surface-strong: color-mix(in srgb, hsl(var(--card)) 95%, transparent);
+  --smart-border: color-mix(in srgb, hsl(var(--border)) 72%, transparent);
+  --smart-shadow: 0 24px 70px color-mix(in srgb, hsl(var(--foreground)) 14%, transparent);
+}
+
+.smart-welcome-depth-field::before,
+.smart-welcome-depth-field::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  border: 1px solid color-mix(in srgb, hsl(var(--border)) 32%, transparent);
+  border-radius: 999px;
+}
+
+.smart-welcome-depth-field::before {
+  top: 52%;
+  width: min(72vw, 680px);
+  height: min(38vh, 360px);
+  transform: translate(-50%, -50%) rotate(-8deg);
+}
+
+.smart-welcome-depth-field::after {
+  top: 55%;
+  width: min(58vw, 520px);
+  height: min(30vh, 280px);
+  opacity: 0.7;
+  transform: translate(-50%, -50%) rotate(10deg);
+}
+
+.smart-animate-rise {
+  animation: smart-welcome-rise 520ms var(--smart-ease-out) both;
+}
+
+.smart-welcome-footer {
+  animation-delay: 210ms;
+}
+
+.smart-message-stack {
+  --smart-pointer-x: 0;
+  --smart-pointer-y: 0;
+  animation: smart-stack-enter 620ms var(--smart-ease-out) 90ms both;
+}
+
+.smart-message-layer-top {
+  z-index: 3;
+  opacity: 1;
+  filter: blur(0);
+  transform:
+    translate3d(
+      calc(-50% + (var(--smart-pointer-x) * 10px)),
+      calc(0px + (var(--smart-pointer-y) * 6px)),
+      90px
+    )
+    scale(1);
+}
+
+.smart-message-layer-mid {
+  z-index: 2;
+  opacity: 0.85;
+  filter: blur(2px);
+  transform:
+    translate3d(
+      calc(-50% - 36px + (var(--smart-pointer-x) * 6px)),
+      calc(88px + (var(--smart-pointer-y) * 4px)),
+      18px
+    )
+    scale(0.96);
+}
+
+.smart-message-layer-bottom {
+  z-index: 1;
+  opacity: 0.7;
+  filter: blur(4px);
+  transform:
+    translate3d(
+      calc(-50% + 46px + (var(--smart-pointer-x) * 3px)),
+      calc(174px + (var(--smart-pointer-y) * 2px)),
+      -42px
+    )
+    scale(0.92);
+}
+
+.smart-message-layer-hovered {
+  z-index: 5;
+  opacity: 1;
+  filter: blur(0);
+  outline: 0;
+}
+
+.smart-message-layer-dimmed {
+  z-index: 0;
+  opacity: 0.42;
+  filter: blur(2.5px);
+}
+
+.smart-message-layer-top.smart-message-layer-hovered {
+  transform:
+    translate3d(
+      calc(-50% + (var(--smart-pointer-x) * 10px)),
+      calc(-3px + (var(--smart-pointer-y) * 6px)),
+      118px
+    )
+    scale(1.02);
+}
+
+.smart-message-layer-mid.smart-message-layer-hovered {
+  transform:
+    translate3d(
+      calc(-50% - 36px + (var(--smart-pointer-x) * 6px)),
+      calc(84px + (var(--smart-pointer-y) * 4px)),
+      96px
+    )
+    scale(1.01);
+}
+
+.smart-message-layer-bottom.smart-message-layer-hovered {
+  transform:
+    translate3d(
+      calc(-50% + 46px + (var(--smart-pointer-x) * 3px)),
+      calc(168px + (var(--smart-pointer-y) * 2px)),
+      88px
+    )
+    scale(1);
+}
+
+.smart-message-layer-top.smart-message-layer-dimmed {
+  transform:
+    translate3d(
+      calc(-50% + (var(--smart-pointer-x) * 4px)),
+      calc(8px + (var(--smart-pointer-y) * 2px)),
+      0
+    )
+    scale(0.97);
+}
+
+.smart-message-layer-mid.smart-message-layer-dimmed {
+  transform:
+    translate3d(
+      calc(-50% - 42px + (var(--smart-pointer-x) * 2px)),
+      calc(94px + (var(--smart-pointer-y) * 1px)),
+      -36px
+    )
+    scale(0.93);
+}
+
+.smart-message-layer-bottom.smart-message-layer-dimmed {
+  transform:
+    translate3d(
+      calc(-50% + 52px + (var(--smart-pointer-x) * 1px)),
+      calc(182px + (var(--smart-pointer-y) * 1px)),
+      -70px
+    )
+    scale(0.9);
+}
+
+.smart-message-bubble {
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--smart-surface-strong) 92%, hsl(var(--accent)) 8%),
+      var(--smart-surface)
+    );
+  animation: smart-float-bubble 5.6s ease-in-out infinite;
+}
+
+.smart-message-bubble::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      circle at 18% 12%,
+      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+      transparent 36%
+    );
+  opacity: 0.8;
+}
+
+.smart-message-layer-hovered .smart-message-bubble {
+  box-shadow: 0 30px 86px color-mix(in srgb, hsl(var(--foreground)) 18%, transparent);
+}
+
+.smart-message-layer-dimmed .smart-message-bubble {
+  box-shadow: 0 16px 44px color-mix(in srgb, hsl(var(--foreground)) 10%, transparent);
+}
+
+.smart-message-layer-mid .smart-message-bubble {
+  animation-name: smart-float-bubble-mid;
+  animation-delay: -1.4s;
+}
+
+.smart-message-layer-bottom .smart-message-bubble {
+  animation-name: smart-float-bubble-bottom;
+  animation-delay: -2.8s;
+}
+
+.smart-message-layer-hovered .smart-message-action {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.smart-message-tail::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid color-mix(in srgb, hsl(var(--border)) 82%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, hsl(var(--border)) 82%, transparent);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+@keyframes smart-welcome-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes smart-stack-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes smart-float-bubble {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes smart-float-bubble-mid {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes smart-float-bubble-bottom {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+@container (max-width: 560px) {
+  .smart-welcome-entrance {
+    min-height: min(74vh, 640px);
+    padding-inline: 18px;
+  }
+
+  .smart-welcome-inner {
+    gap: 20px;
+  }
+
+  .smart-message-stack {
+    height: 314px;
+  }
+
+  .smart-message-layer {
+    width: min(430px, 95%);
+  }
+
+  .smart-message-layer-mid {
+    transform:
+      translate3d(
+        calc(-50% - 16px + (var(--smart-pointer-x) * 4px)),
+        calc(92px + (var(--smart-pointer-y) * 3px)),
+        18px
+      )
+      scale(0.95);
+  }
+
+  .smart-message-layer-mid.smart-message-layer-hovered {
+    transform:
+      translate3d(
+        calc(-50% - 16px + (var(--smart-pointer-x) * 4px)),
+        calc(88px + (var(--smart-pointer-y) * 3px)),
+        96px
+      )
+      scale(1);
+  }
+
+  .smart-message-layer-mid.smart-message-layer-dimmed {
+    transform:
+      translate3d(
+        calc(-50% - 20px + (var(--smart-pointer-x) * 1px)),
+        calc(98px + (var(--smart-pointer-y) * 1px)),
+        -36px
+      )
+      scale(0.91);
+  }
+
+  .smart-message-layer-bottom {
+    transform:
+      translate3d(
+        calc(-50% + 18px + (var(--smart-pointer-x) * 2px)),
+        calc(180px + (var(--smart-pointer-y) * 1px)),
+        -42px
+      )
+      scale(0.91);
+  }
+
+  .smart-message-layer-bottom.smart-message-layer-hovered {
+    transform:
+      translate3d(
+        calc(-50% + 18px + (var(--smart-pointer-x) * 2px)),
+        calc(174px + (var(--smart-pointer-y) * 1px)),
+        88px
+      )
+      scale(0.98);
+  }
+
+  .smart-message-layer-bottom.smart-message-layer-dimmed {
+    transform:
+      translate3d(
+        calc(-50% + 22px + (var(--smart-pointer-x) * 1px)),
+        calc(186px + (var(--smart-pointer-y) * 1px)),
+        -70px
+      )
+      scale(0.88);
+  }
+
+  .smart-message-bubble {
+    min-height: 108px;
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+
+  .smart-message-body {
+    max-width: 330px;
+  }
+
+  .smart-message-action {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .smart-message-tail {
+    left: calc(50% + 88px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smart-animate-rise,
+  .smart-message-stack,
+  .smart-message-bubble {
+    animation: none;
+  }
+
+  .smart-message-layer,
+  .smart-message-bubble,
+  .smart-message-action {
+    transition-duration: 0.01ms;
+  }
+}

@@ -1,8 +1,8 @@
 import { ArtifactsPanel, FloatingArtifactsToggle } from '@renderer/components/artifacts'
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
-import ChatInputArea from "@renderer/components/chat/chatInput/ChatInputArea"
+import ChatInputArea, { type ChatInputAreaHandle } from "@renderer/components/chat/chatInput/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
-import WelcomeMessage from "@renderer/components/chat/welcome/WelcomeMessageNext2"
+import WelcomeMessage from "@renderer/components/chat/welcome/SmartWelcomeEntrance"
 import { useScrollManagerTop, type UserScrollSource } from '@renderer/hooks/useScrollManagerTop'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { cn } from '@renderer/lib/utils'
@@ -167,6 +167,7 @@ const ChatWindowComponentNext: React.FC = () => {
 
   const isRunStreaming = runPhase === 'streaming'
   const inputAreaRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<ChatInputAreaHandle>(null)
   const latestVisibleRef = useRef<boolean>(true)
   const scrollModeRef = useRef<ScrollMode>('tail-follow')
   const lockedAnchorMessageIdRef = useRef<number | null>(null)
@@ -216,6 +217,10 @@ const ChatWindowComponentNext: React.FC = () => {
   useToolConfirmations(chatUuid)
   useSubagentRuntime(chatUuid)
   useScheduleNotifications(chatUuid)
+
+  const handleWelcomeSuggestionClick = useCallback((prompt: string) => {
+    chatInputRef.current?.fillInput(prompt)
+  }, [])
   const displayPlans = pendingPlanReview
     ? [pendingPlanReview.plan, ...activePlans]
     : activePlans
@@ -1001,7 +1006,10 @@ const ChatWindowComponentNext: React.FC = () => {
                     isWelcomeExiting && "welcome-overlay-exit"
                   )}
                 >
-                  <WelcomeMessage isExiting={isWelcomeExiting} />
+                  <WelcomeMessage
+                    isExiting={isWelcomeExiting}
+                    onSuggestionClick={handleWelcomeSuggestionClick}
+                  />
                 </div>
               )}
 
@@ -1062,7 +1070,7 @@ const ChatWindowComponentNext: React.FC = () => {
           className="bg-transparent overflow-hidden relative"
         >
           <div ref={inputAreaRef} className="h-full overflow-hidden">
-            <ChatInputArea />
+            <ChatInputArea ref={chatInputRef} />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

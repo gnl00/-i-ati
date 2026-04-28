@@ -7,7 +7,7 @@ import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store/chatStore'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useAssistantStore } from '@renderer/store/assistant'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   getEffectiveThinkingLevel,
@@ -24,7 +24,11 @@ interface ChatInputAreaProps {
   onMessagesUpdate?: () => void
 }
 
-const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
+export interface ChatInputAreaHandle {
+  fillInput: (text: string) => void
+}
+
+const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(({
   onMessagesUpdate,
 }, ref) => {
   // Use Zustand selectors to avoid unnecessary re-renders
@@ -122,6 +126,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [currentAssistant])
 
   // Textarea ref
+  const rootRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Custom Caret Ref
@@ -171,6 +176,26 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
     textareaRef,
     onCommandExecute: handleCommandExecute
   })
+
+  const fillInput = useCallback((text: string) => {
+    setInputContent(text)
+    handleCommandInputChange(text)
+
+    requestAnimationFrame(() => {
+      const textarea = textareaRef.current
+      if (!textarea) return
+
+      textarea.focus()
+      textarea.value = text
+      textarea.setSelectionRange(text.length, text.length)
+      textarea.dispatchEvent(new Event('input', { bubbles: true }))
+      caretOverlayRef.current?.updateCaret(true)
+    })
+  }, [handleCommandInputChange])
+
+  useImperativeHandle(ref, () => ({
+    fillInput
+  }), [fillInput])
 
   // Extend startNewChat to include local state reset
   const startNewChat = useCallback(() => {
@@ -515,7 +540,7 @@ const ChatInputArea = React.forwardRef<HTMLDivElement, ChatInputAreaProps>(({
   }, [])
 
   return (
-    <div ref={ref} id='inputArea' className={cn('rounded-md w-full h-full flex flex-col bg-transparent')}>
+    <div ref={rootRef} id='inputArea' className={cn('rounded-md w-full h-full flex flex-col bg-transparent')}>
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
         <ChatImgGalleryComponent />
       </div>
