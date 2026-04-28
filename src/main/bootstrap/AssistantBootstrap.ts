@@ -3,7 +3,7 @@
  * 负责初始化内置 assistants
  */
 
-import DatabaseService from '@main/db/DatabaseService'
+import DatabaseService from '@main/db/services/DatabaseService'
 
 /**
  * 内置 Assistants 定义

@@ -11,6 +11,7 @@
  * - 它不直接改写 loop、transcript 或 host output
  */
 import { createLogger } from '@main/logging/LogService'
+import { getRequestErrorMetadata, unifiedChatRequest } from '@main/request/index'
 import type { ModelResponseStream } from './ModelResponseStream'
 import type { ModelResponseChunk, ModelToolCallChunk } from './ModelResponseChunk'
 import type { RequestErrorMetadata } from '@main/request/index'
@@ -105,7 +106,6 @@ export class DefaultModelStreamExecutor implements ModelStreamExecutor {
   ) {}
 
   async execute(input: ModelStreamExecutorInput): Promise<ModelResponseStream> {
-    const { unifiedChatRequest, getRequestErrorMetadata } = await import('@main/request/index')
     const maxAttempts = Math.max(1, this.options.maxAttempts ?? 2)
     const retryDelayMs = this.options.retryDelayMs ?? 300
     const sleep = this.options.sleep ?? (async (ms: number) => {

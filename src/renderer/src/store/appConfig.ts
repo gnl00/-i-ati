@@ -3,6 +3,8 @@ import { toast } from 'sonner'
 import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import { defaultConfig } from '../config'
+import { getConfig, initConfig, saveConfig } from '../db/ConfigRepository'
+import { subscribeConfigEvents, subscribePluginEvents } from '../invoker/ipcInvoker'
 
 // Initialization tracking
 let configInitialized = false
@@ -338,7 +340,6 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Public setter (saves to SQLite)
   setAppConfig: async (updatedConfig: IAppConfig) => {
-    const { saveConfig } = await import('../db/ConfigRepository')
     const nextProviderDefinitions = normalizeProviderDefinitions(
       updatedConfig.providerDefinitions || []
     )
@@ -370,7 +371,6 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   },
 
   refreshAppConfig: async () => {
-    const { getConfig } = await import('../db/ConfigRepository')
     const loadedConfig = await getConfig()
     if (!loadedConfig) {
       return
@@ -758,7 +758,6 @@ export const initializeAppConfig = async (): Promise<void> => {
 
   configInitPromise = (async () => {
     try {
-      const { initConfig } = await import('../db/ConfigRepository')
       const loadedConfig = await initConfig()
       logger.info('config.loaded_from_sqlite', {
         accountCount: loadedConfig.accounts?.length || 0
@@ -766,7 +765,6 @@ export const initializeAppConfig = async (): Promise<void> => {
       const store = useAppConfigStore.getState()
       store._setAppConfig(loadedConfig)
       if (!configEventsSubscribed || !pluginEventsSubscribed) {
-        const { subscribeConfigEvents, subscribePluginEvents } = await import('../invoker/ipcInvoker')
         if (!configEventsSubscribed) {
           subscribeConfigEvents((event) => {
             if (event.type !== 'updated') return
