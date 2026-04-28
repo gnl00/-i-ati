@@ -19,12 +19,20 @@ vi.mock('@renderer/store/chatStore', () => ({
   }
 }))
 
-const { scheduleAssistantStreamingPerfRecentSessionFlush } = vi.hoisted(() => ({
-  scheduleAssistantStreamingPerfRecentSessionFlush: vi.fn()
+const {
+  scheduleAssistantStreamingPerfRecentSessionFlush,
+  recordAssistantStreamingPreviewPatchBatch,
+  flushAssistantStreamingPreviewPatchBatchSummary
+} = vi.hoisted(() => ({
+  scheduleAssistantStreamingPerfRecentSessionFlush: vi.fn(),
+  recordAssistantStreamingPreviewPatchBatch: vi.fn(),
+  flushAssistantStreamingPreviewPatchBatchSummary: vi.fn()
 }))
 
 vi.mock('@renderer/components/chat/chatMessage/typewriter/assistantStreamingPerf', () => ({
-  scheduleAssistantStreamingPerfRecentSessionFlush
+  scheduleAssistantStreamingPerfRecentSessionFlush,
+  recordAssistantStreamingPreviewPatchBatch,
+  flushAssistantStreamingPreviewPatchBatchSummary
 }))
 
 import { handleChatRunEvent } from '../chatRunEvent'
@@ -42,6 +50,7 @@ function createInput() {
       setRunPhase: vi.fn(),
       replacePreviewMessage: vi.fn(),
       applyPreviewSegmentPatch: vi.fn(),
+      applyPreviewSegmentPatches: vi.fn(),
       setPostRunJobState: vi.fn(),
       setLastRunOutcome: vi.fn(),
       currentChatUuid: 'chat-stale'
@@ -201,6 +210,74 @@ describe('handleChatRunEvent', () => {
 
     expect(input.chatStore.applyPreviewSegmentPatch).toHaveBeenCalledWith(patch)
     expect(latestStore.patchMessageSegment).toHaveBeenCalledWith(99, patch)
+  })
+
+  it('queues preview segment patches when a preview patch batcher is available', async () => {
+    const enqueue = vi.fn()
+    const flush = vi.fn()
+    const flushPerfSummary = vi.fn()
+    const input = {
+      ...createInput(),
+      previewPatchBatcher: {
+        enqueue,
+        flush,
+        flushPerfSummary
+      }
+    } as unknown as Parameters<typeof handleChatRunEvent>[0]
+    const patch: MessageSegmentPatch = {
+      segment: {
+        type: 'text',
+        segmentId: 'seg-1',
+        content: 'partial',
+        timestamp: 1
+      }
+    }
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_RENDER_EVENTS.PREVIEW_SEGMENT_UPDATED,
+      payload: {
+        chatId: 1,
+        chatUuid: 'chat-1',
+        patch
+      }
+    })
+
+    expect(enqueue).toHaveBeenCalledWith(patch)
+    expect(input.chatStore.applyPreviewSegmentPatch).not.toHaveBeenCalled()
+  })
+
+  it('flushes pending preview patches before run completion cleanup', async () => {
+    const flush = vi.fn()
+    const flushPerfSummary = vi.fn()
+    const input = {
+      ...createInput(),
+      previewPatchBatcher: {
+        enqueue: vi.fn(),
+        flush,
+        flushPerfSummary
+      }
+    } as unknown as Parameters<typeof handleChatRunEvent>[0]
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 3,
+      sequence: 3,
+      type: RUN_LIFECYCLE_EVENTS.RUN_COMPLETED,
+      payload: {
+        assistantMessageId: 12
+      }
+    })
+
+    expect(flush).toHaveBeenCalledWith('sync')
+    expect(flushPerfSummary).toHaveBeenCalledWith('run_completed')
+    expect(input.chatStore.resetPreview).toHaveBeenCalledTimes(1)
   })
 
   it('schedules a perf flush when the run completes', async () => {

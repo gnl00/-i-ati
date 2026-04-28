@@ -14,6 +14,7 @@ import {
   normalizeRunError,
   type LastRunErrorMessage
 } from './reconcileRunErrorMessage'
+import { PreviewPatchBatcher } from './previewPatchBatcher'
 
 type ChatStoreState = ReturnType<typeof useChatStore.getState>
 
@@ -29,6 +30,7 @@ type BindChatRunEventsInput = {
   maybeCleanupAfterBackgroundJobs: () => void
   resetRunLifecycle: (outcome?: ChatRunLifecycleOutcome) => void
   cleanupActiveRun: () => void
+  previewPatchBatcher?: PreviewPatchBatcher
 }
 
 const getLatestChatStore = (): ChatStoreState => useChatStore.getState()
@@ -89,6 +91,10 @@ function ensureStreamingPhaseOnPreview(chatStore: ChatStoreState): void {
   }
 }
 
+function flushPreviewPatchBatch(input: BindChatRunEventsInput): void {
+  input.previewPatchBatcher?.flush('sync')
+}
+
 function handleMaintenancePending(
   chatStore: ChatStoreState,
   job: 'title' | 'compression',
@@ -134,24 +140,32 @@ export async function handleChatRunEvent(
       handleChatReady(chatStore, event)
       return
     case CHAT_HOST_EVENTS.MESSAGES_LOADED:
+      flushPreviewPatchBatch(input)
       handleMessagesLoaded(chatStore, event)
       return
     case CHAT_RENDER_EVENTS.MESSAGE_CREATED:
     case CHAT_RENDER_EVENTS.MESSAGE_UPDATED:
+      flushPreviewPatchBatch(input)
       handleRunMessageEvent(chatStore, event, clearedErrorMessageIdsRef)
       return
     case CHAT_RENDER_EVENTS.MESSAGE_SEGMENT_UPDATED:
       getLatestChatStore().patchMessageSegment(event.payload.messageId, event.payload.patch)
       return
     case CHAT_RENDER_EVENTS.PREVIEW_UPDATED:
+      flushPreviewPatchBatch(input)
       ensureStreamingPhaseOnPreview(chatStore)
       chatStore.replacePreviewMessage(event.payload.message)
       return
     case CHAT_RENDER_EVENTS.PREVIEW_SEGMENT_UPDATED:
       ensureStreamingPhaseOnPreview(chatStore)
-      chatStore.applyPreviewSegmentPatch(event.payload.patch)
+      if (input.previewPatchBatcher) {
+        input.previewPatchBatcher.enqueue(event.payload.patch)
+      } else {
+        chatStore.applyPreviewSegmentPatch(event.payload.patch)
+      }
       return
     case CHAT_RENDER_EVENTS.PREVIEW_CLEARED:
+      flushPreviewPatchBatch(input)
       chatStore.resetPreview()
       return
     case CHAT_HOST_EVENTS.CHAT_UPDATED:
@@ -198,6 +212,8 @@ export async function handleChatRunEvent(
       return
     }
     case RUN_LIFECYCLE_EVENTS.RUN_COMPLETED:
+      flushPreviewPatchBatch(input)
+      input.previewPatchBatcher?.flushPerfSummary('run_completed')
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_completed'
       })
@@ -217,6 +233,8 @@ export async function handleChatRunEvent(
       }
       return
     case RUN_LIFECYCLE_EVENTS.RUN_FAILED: {
+      flushPreviewPatchBatch(input)
+      input.previewPatchBatcher?.flushPerfSummary('run_failed')
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_failed'
       })
@@ -236,6 +254,8 @@ export async function handleChatRunEvent(
       return
     }
     case RUN_LIFECYCLE_EVENTS.RUN_ABORTED:
+      flushPreviewPatchBatch(input)
+      input.previewPatchBatcher?.flushPerfSummary('run_aborted')
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_aborted'
       })
@@ -251,7 +271,23 @@ export async function handleChatRunEvent(
 }
 
 export function bindChatRunEvents(input: BindChatRunEventsInput): () => void {
-  return subscribeRunEvents((event: RunEvent) => {
-    void handleChatRunEvent(input, event)
+  const previewPatchBatcher = new PreviewPatchBatcher({
+    applyPatches: (patches) => {
+      useChatStore.getState().applyPreviewSegmentPatches(patches)
+    }
   })
+  const boundInput = {
+    ...input,
+    previewPatchBatcher
+  }
+
+  const unsubscribe = subscribeRunEvents((event: RunEvent) => {
+    void handleChatRunEvent(boundInput, event)
+  })
+
+  return () => {
+    previewPatchBatcher.flush('sync')
+    previewPatchBatcher.cancel()
+    unsubscribe()
+  }
 }

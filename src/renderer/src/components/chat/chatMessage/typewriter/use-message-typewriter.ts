@@ -1,4 +1,5 @@
 import { useChatStore } from '@renderer/store/chatStore'
+import type { SegmentTypewriterRenderState } from '@renderer/hooks/useSegmentTypewriterNext'
 import { useMessageTypewriterPlayback } from './use-message-typewriter-playback'
 import {
   useMessageTypewriterEffects,
@@ -21,13 +22,10 @@ export interface UseMessageTypewriterProps {
 }
 
 export interface UseMessageTypewriterReturn {
-  getSegmentVisibleLength: (segIdx: number) => number
-  shouldRenderSegment: (segIdx: number) => boolean
+  getSegmentState: (segmentId: string) => SegmentTypewriterRenderState
   isAllComplete: boolean
   forceComplete: () => void
   isStreaming: boolean
-  // 新增：获取可见的 tokens（用于动效渲染）
-  getVisibleTokens: (segIdx: number) => string[]
 }
 
 /**
@@ -60,11 +58,9 @@ export function useMessageTypewriter(
   })
 
   const {
-    getSegmentVisibleLength,
-    shouldRenderSegment,
+    getSegmentState,
     isAllComplete,
-    forceComplete,
-    getVisibleTokens
+    forceComplete
   } = playback
 
   useMessageTypewriterEffects({
@@ -74,11 +70,9 @@ export function useMessageTypewriter(
   })
 
   return {
-    getSegmentVisibleLength,
-    shouldRenderSegment,
+    getSegmentState,
     isAllComplete,
     forceComplete,
-    isStreaming,
-    getVisibleTokens
+    isStreaming
   }
 }

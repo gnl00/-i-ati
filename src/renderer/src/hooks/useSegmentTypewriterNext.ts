@@ -22,15 +22,19 @@ interface SegmentTypewriterOptions {
   batchUpdateInterval?: number // 默认 50ms
 }
 
-interface UseSegmentTypewriterReturn {
+export interface SegmentTypewriterRenderState {
+  shouldRender: boolean
+  visibleLength: number
+  visibleTokens: string[]
+  isTyping: boolean
+}
+
+export interface UseSegmentTypewriterReturn {
   activeSegmentIndex: number
   currentSegmentOffset: number
-  getSegmentVisibleLength: (index: number) => number
-  shouldRenderSegment: (index: number) => boolean
+  getSegmentState: (segmentId: string) => SegmentTypewriterRenderState
   isAllComplete: boolean
   forceComplete: () => void
-  // 新增：获取可见的 tokens（用于动效渲染）
-  getVisibleTokens: (index: number) => string[]
 }
 
 /**
@@ -143,6 +147,11 @@ export const useSegmentTypewriterNext = (
       }
     }
     return -1
+  }, [getSegmentKey])
+
+  const findSegmentByKey = useCallback((key: string): TextSegment | undefined => {
+    const currentSegments = segmentsRef.current
+    return currentSegments.find(segment => getSegmentKey(segment) === key)
   }, [getSegmentKey])
 
   // 确保 segment 队列是最新的（增量添加新 tokens）
@@ -482,72 +491,61 @@ export const useSegmentTypewriterNext = (
     }
   }, [enabled, isAllComplete, animate, activeSegmentIndex])
 
-  // 辅助函数：获取指定 segment 应该显示的内容长度
-  const getSegmentVisibleLength = useCallback((index: number) => {
-    if (!enabled || isAllComplete) return Infinity
-
-    const segment = segmentsRef.current[index]
+  const getSegmentState = useCallback((segmentId: string): SegmentTypewriterRenderState => {
+    const segment = segments.find(item => getSegmentKey(item) === segmentId) ?? findSegmentByKey(segmentId)
     if (!segment) {
-      return Infinity
+      return {
+        shouldRender: false,
+        visibleLength: 0,
+        visibleTokens: [],
+        isTyping: false
+      }
     }
 
     const segmentKey = getSegmentKey(segment)
-    if (completedSegmentsRef.current.has(segmentKey)) return Infinity
+    const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
+
+    if (!enabled || isAllComplete || completedSegmentsRef.current.has(segmentKey)) {
+      return {
+        shouldRender: true,
+        visibleLength: Infinity,
+        visibleTokens: tokens,
+        isTyping: false
+      }
+    }
 
     if (segmentKey === activeSegmentKeyRef.current) {
-      return currentSegmentOffset
+      return {
+        shouldRender: true,
+        visibleLength: currentSegmentOffset,
+        visibleTokens: tokens.slice(0, currentSegmentOffset),
+        isTyping: true
+      }
     }
 
-    const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
     const consumed = consumedLengthsRef.current.get(segmentKey) || 0
     if (consumed >= tokens.length) {
-      return Infinity
-    }
-    return 0
-  }, [enabled, isAllComplete, currentSegmentOffset, getSegmentKey, splitContent])
-
-  // 辅助函数：判断指定 segment 是否应该渲染
-  const shouldRenderSegment = useCallback((index: number) => {
-    if (!enabled || isAllComplete) return true
-
-    const segment = segmentsRef.current[index]
-    if (!segment) return false
-
-    const segmentKey = getSegmentKey(segment)
-    if (completedSegmentsRef.current.has(segmentKey)) return true
-
-    if (segmentKey === activeSegmentKeyRef.current) return true
-
-    const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
-    const consumed = consumedLengthsRef.current.get(segmentKey) || 0
-    if (consumed >= tokens.length) return true
-
-    return false
-  }, [enabled, isAllComplete, getSegmentKey, splitContent])
-
-  // 新增：获取可见的 tokens（用于动效渲染）
-  const getVisibleTokens = useCallback((index: number) => {
-    const segment = segmentsRef.current[index]
-    if (!segment) return []
-
-    const segmentKey = getSegmentKey(segment)
-    const tokens = tokenCacheRef.current.get(segmentKey) || splitContent(segment.content)
-    const visibleLength = getSegmentVisibleLength(index)
-
-    if (visibleLength === Infinity) {
-      return tokens
+      return {
+        shouldRender: true,
+        visibleLength: Infinity,
+        visibleTokens: tokens,
+        isTyping: false
+      }
     }
 
-    return tokens.slice(0, visibleLength)
-  }, [getSegmentVisibleLength, splitContent, getSegmentKey])
+    return {
+      shouldRender: false,
+      visibleLength: 0,
+      visibleTokens: [],
+      isTyping: false
+    }
+  }, [segments, enabled, isAllComplete, currentSegmentOffset, findSegmentByKey, getSegmentKey, splitContent])
 
   return {
     activeSegmentIndex,
     currentSegmentOffset,
-    getSegmentVisibleLength,
-    shouldRenderSegment,
+    getSegmentState,
     isAllComplete,
-    forceComplete,
-    getVisibleTokens
+    forceComplete
   }
 }

@@ -7,7 +7,9 @@ import { LOG_WRITE } from '@shared/constants'
 import { AssistantTextSegmentContent } from '../../assistant-message/renderers/AssistantTextSegmentContent'
 import {
   flushAssistantStreamingPerfSession,
+  flushAssistantStreamingPreviewPatchBatchSummary,
   flushRecentAssistantStreamingPerfSessions,
+  recordAssistantStreamingPreviewPatchBatch,
   resetAssistantStreamingPerfSessions
 } from '../assistantStreamingPerf'
 
@@ -132,6 +134,40 @@ describe('assistant streaming perf baseline harness', () => {
         payload?.target === 'perf'
         && payload?.message === 'assistant_streaming.session.summary'
         && payload?.context?.reason === 'run_completed'
+      )
+    ).toBe(true)
+  })
+
+  it('summarizes preview patch batch compaction counters', () => {
+    recordAssistantStreamingPreviewPatchBatch({
+      eventCount: 4,
+      flushedPatchCount: 2,
+      delayMs: 16,
+      reason: 'raf'
+    })
+    recordAssistantStreamingPreviewPatchBatch({
+      eventCount: 1,
+      flushedPatchCount: 1,
+      delayMs: 0,
+      reason: 'sync'
+    })
+
+    const summary = flushAssistantStreamingPreviewPatchBatchSummary('run_completed')
+
+    expect(summary).toMatchObject({
+      eventCount: 5,
+      flushCount: 2,
+      compactedPatchCount: 3,
+      maxPatchesPerFlush: 4,
+      maxFlushDelayMs: 16,
+      avgFlushDelayMs: 8,
+      reason: 'run_completed'
+    })
+    expect(
+      send.mock.calls.some(([, payload]) =>
+        payload?.target === 'perf'
+        && payload?.message === 'assistant_streaming.preview_patch_batch.summary'
+        && payload?.context?.eventCount === 5
       )
     ).toBe(true)
   })

@@ -35,6 +35,7 @@ export type ChatTranscriptActions = {
   // Preview is an ephemeral overlay driven by run-output ingress. It is never persisted as transcript history.
   replacePreviewMessage: (message: MessageEntity | null) => void
   applyPreviewSegmentPatch: (patch: MessageSegmentPatch) => void
+  applyPreviewSegmentPatches: (patches: MessageSegmentPatch[]) => void
   resetPreview: () => void
 }
 
@@ -363,6 +364,21 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
       return {
         preview: {
           message: applyMessageSegmentPatchToEntity(prevState.preview.message, patch)
+        }
+      } as Partial<T>
+    }),
+
+    applyPreviewSegmentPatches: (patches) => set((prevState) => {
+      if (!prevState.preview.message || patches.length === 0) {
+        return prevState as Partial<T>
+      }
+
+      return {
+        preview: {
+          message: patches.reduce(
+            (message, patch) => applyMessageSegmentPatchToEntity(message, patch),
+            prevState.preview.message
+          )
         }
       } as Partial<T>
     }),

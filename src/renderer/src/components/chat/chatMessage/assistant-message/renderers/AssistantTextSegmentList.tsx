@@ -82,13 +82,17 @@ export const AssistantTextSegmentList = memo(({
   return items.map((item) => {
     const typewriter = item.layer === 'preview' ? previewTypewriter : committedTypewriter
     const isTypedLayer = item.layer === 'preview' || !isOverlayPreview
-    const shouldRender = !isTypedLayer || typewriter.shouldRenderSegment(item.sourceIndex)
-    const visibleLength = isTypedLayer && shouldRender
-      ? typewriter.getSegmentVisibleLength(item.sourceIndex)
-      : Infinity
-    const isTyping = visibleLength !== Infinity
+    const segmentState = isTypedLayer
+      ? typewriter.getSegmentState(item.segment.segmentId)
+      : {
+          shouldRender: true,
+          visibleTokens: [],
+          isTyping: false
+        }
+    const shouldRender = segmentState.shouldRender
+    const isTyping = segmentState.isTyping
     const visibleText = isTyping
-      ? typewriter.getVisibleTokens(item.sourceIndex).join('')
+      ? segmentState.visibleTokens.join('')
       : undefined
 
     return (

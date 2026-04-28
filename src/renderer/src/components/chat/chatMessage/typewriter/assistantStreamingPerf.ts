@@ -8,6 +8,8 @@ export type AssistantStreamingPerfFlushReason =
   | 'run_failed'
   | 'run_aborted'
 
+type PreviewPatchBatchFlushReason = 'raf' | 'sync' | AssistantStreamingPerfFlushReason
+
 interface AssistantStreamingPerfSession {
   sessionId: string
   segmentId: string
@@ -33,6 +35,15 @@ export interface AssistantStreamingPerfSnapshot extends Omit<AssistantStreamingP
 const logger = createRendererPerfLogger('AssistantStreamingPerf')
 const sessions = new Map<string, AssistantStreamingPerfSession>()
 let scheduledFlushTimer: ReturnType<typeof setTimeout> | null = null
+
+const previewPatchBatchStats = {
+  eventCount: 0,
+  flushCount: 0,
+  compactedPatchCount: 0,
+  maxPatchesPerFlush: 0,
+  totalFlushDelayMs: 0,
+  maxFlushDelayMs: 0
+}
 
 function isEnabled(): boolean {
   return Boolean((globalThis as any).__ASSISTANT_STREAMING_PERF__)
@@ -174,6 +185,54 @@ export function recordAssistantStreamingCommit(args: {
   logger.debug('assistant_streaming.render.commit', args)
 }
 
+export function recordAssistantStreamingPreviewPatchBatch(args: {
+  eventCount: number
+  flushedPatchCount: number
+  delayMs: number
+  reason: PreviewPatchBatchFlushReason
+}): void {
+  if (!isEnabled()) return
+
+  previewPatchBatchStats.eventCount += args.eventCount
+  previewPatchBatchStats.flushCount += 1
+  previewPatchBatchStats.compactedPatchCount += args.flushedPatchCount
+  previewPatchBatchStats.maxPatchesPerFlush = Math.max(
+    previewPatchBatchStats.maxPatchesPerFlush,
+    args.eventCount
+  )
+  previewPatchBatchStats.totalFlushDelayMs += args.delayMs
+  previewPatchBatchStats.maxFlushDelayMs = Math.max(
+    previewPatchBatchStats.maxFlushDelayMs,
+    args.delayMs
+  )
+
+  logger.debug('assistant_streaming.preview_patch_batch.flush', args)
+}
+
+export function flushAssistantStreamingPreviewPatchBatchSummary(
+  reason: AssistantStreamingPerfFlushReason = 'manual'
+): typeof previewPatchBatchStats & { avgFlushDelayMs: number; reason: AssistantStreamingPerfFlushReason } | null {
+  if (!isEnabled()) return null
+  if (previewPatchBatchStats.flushCount === 0) return null
+
+  const summary = {
+    ...previewPatchBatchStats,
+    avgFlushDelayMs: previewPatchBatchStats.totalFlushDelayMs / previewPatchBatchStats.flushCount,
+    reason
+  }
+
+  logger.info('assistant_streaming.preview_patch_batch.summary', summary)
+
+  previewPatchBatchStats.eventCount = 0
+  previewPatchBatchStats.flushCount = 0
+  previewPatchBatchStats.compactedPatchCount = 0
+  previewPatchBatchStats.maxPatchesPerFlush = 0
+  previewPatchBatchStats.totalFlushDelayMs = 0
+  previewPatchBatchStats.maxFlushDelayMs = 0
+
+  return summary
+}
+
 export function flushAssistantStreamingPerfSession(
   sessionId: string,
   reason: AssistantStreamingPerfFlushReason = 'manual'
@@ -252,4 +311,10 @@ export function resetAssistantStreamingPerfSessions(): void {
     scheduledFlushTimer = null
   }
   sessions.clear()
+  previewPatchBatchStats.eventCount = 0
+  previewPatchBatchStats.flushCount = 0
+  previewPatchBatchStats.compactedPatchCount = 0
+  previewPatchBatchStats.maxPatchesPerFlush = 0
+  previewPatchBatchStats.totalFlushDelayMs = 0
+  previewPatchBatchStats.maxFlushDelayMs = 0
 }

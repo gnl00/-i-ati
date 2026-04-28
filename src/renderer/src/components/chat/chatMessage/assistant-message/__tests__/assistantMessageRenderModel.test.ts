@@ -104,6 +104,13 @@ describe('mapAssistantMessage', () => {
       'committed-text',
       'preview-text'
     ])
+    expect(renderState.transcript.textItems.map(item => ({
+      id: item.segment.segmentId,
+      sourceIndex: item.sourceIndex
+    }))).toEqual([
+      { id: 'committed-text', sourceIndex: 0 },
+      { id: 'preview-text', sourceIndex: 1 }
+    ])
     expect(renderState.transcript.supportItems.map(item => item.segment.segmentId)).toEqual([
       'preview-reasoning'
     ])
