@@ -14,7 +14,14 @@ export function registerPluginHandlers(): void {
 
   ipcMain.handle(DB_PLUGINS_REMOTE_LIST, async () => {
     logger.info('plugins.remote_list')
-    return await pluginDb.listRemotePlugins()
+    try {
+      return await pluginDb.listRemotePlugins()
+    } catch (error) {
+      logger.warn('plugins.remote_list_failed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return []
+    }
   })
 
   ipcMain.handle(DB_PLUGINS_REMOTE_INSTALL, async (_event, pluginId: string) => {

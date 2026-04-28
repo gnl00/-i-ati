@@ -9,6 +9,7 @@ let configInitialized = false
 let configInitPromise: Promise<void> | null = null
 let configEventsSubscribed = false
 let pluginEventsSubscribed = false
+let remotePluginsRefreshPromise: Promise<RemotePluginCatalogItem[]> | null = null
 const logger = createRendererLogger('AppConfigStore')
 
 export type ModelOption = {
@@ -693,11 +694,22 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   },
   refreshRemotePlugins: async () => {
     const { getRemotePlugins } = await import('../db/PluginRepository')
-    const nextRemotePlugins = await getRemotePlugins()
-    set({
-      remotePlugins: nextRemotePlugins,
-      remotePluginsLoaded: true
+    remotePluginsRefreshPromise ??= getRemotePlugins().finally(() => {
+      remotePluginsRefreshPromise = null
     })
+
+    try {
+      const nextRemotePlugins = await remotePluginsRefreshPromise
+      set({
+        remotePlugins: nextRemotePlugins,
+        remotePluginsLoaded: true
+      })
+    } catch (error) {
+      set({ remotePluginsLoaded: true })
+      logger.warn('remote_plugins.refresh_failed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
   },
   installRemotePlugin: async (pluginId) => {
     const { installRemotePlugin, getRemotePlugins } = await import('../db/PluginRepository')
@@ -825,23 +837,6 @@ export const hydrateDeferredAppConfig = async (): Promise<void> => {
         })
       }
     })(),
-    (async () => {
-      const store = useAppConfigStore.getState()
-      try {
-        logger.info('config.hydrate_remote_plugins.started')
-        const { getRemotePlugins } = await import('../db/PluginRepository')
-        const loadedRemotePlugins = await getRemotePlugins()
-        store._setLoadedRemotePlugins(loadedRemotePlugins)
-        logger.info('config.hydrate_remote_plugins.completed', {
-          count: loadedRemotePlugins.length
-        })
-      } catch (error) {
-        useAppConfigStore.setState({ remotePluginsLoaded: true })
-        logger.warn('config.hydrate_remote_plugins.failed', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
-    })()
   ]).then(() => undefined)
 
   return deferredHydrationPromise

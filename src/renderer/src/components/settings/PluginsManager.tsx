@@ -86,7 +86,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
     }
   }
 
-  const handleRefreshRemote = async (): Promise<void> => {
+  const handleRefreshRemote = React.useCallback(async (): Promise<void> => {
     if (isRefreshingRemote) {
       return
     }
@@ -97,7 +97,15 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
     } finally {
       setIsRefreshingRemote(false)
     }
-  }
+  }, [isRefreshingRemote, refreshRemotePlugins])
+
+  React.useEffect(() => {
+    if (remotePluginsLoaded || isRefreshingRemote) {
+      return
+    }
+
+    void handleRefreshRemote()
+  }, [handleRefreshRemote, remotePluginsLoaded, isRefreshingRemote])
 
   const handleImport = async (): Promise<void> => {
     if (isImporting) {
