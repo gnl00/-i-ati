@@ -580,6 +580,32 @@ declare interface CompressedSummaryEntity {
   status?: 'active' | 'superseded' | 'invalid'
 }
 
+declare type SmartMessageStatus = 'active' | 'stale' | 'dismissed' | 'failed'
+
+declare interface SmartMessageEntity {
+  id: string
+  chatId?: number
+  chatUuid?: string
+  sourceSummaryIds: number[]
+  sourceHash: string
+  title: string
+  body: string
+  actionPrompt: string
+  reason?: string
+  priorityScore: number
+  status: SmartMessageStatus
+  generatedAt: number
+  expiresAt?: number
+  modelId?: string
+  generationVersion: number
+}
+
+declare interface SmartMessageGenerationResult {
+  generated: number
+  skipped: number
+  error?: string
+}
+
 /**
  * 压缩配置
  */

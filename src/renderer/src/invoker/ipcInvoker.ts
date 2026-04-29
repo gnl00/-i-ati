@@ -96,6 +96,9 @@ import {
   RUN_TITLE_GENERATE,
   DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID,
   DB_SCHEDULED_TASK_UPDATE_STATUS,
+  DB_SMART_MESSAGE_DISMISS,
+  DB_SMART_MESSAGES_GET_ACTIVE,
+  DB_SMART_MESSAGES_REFRESH,
   CHECK_IS_DIRECTORY,
   SELECT_DIRECTORY,
   KNOWLEDGEBASE_CLEAR,
@@ -940,6 +943,23 @@ export async function invokeDbCompressedSummaryUpdateStatus(
 export async function invokeDbCompressedSummaryDelete(id: number): Promise<void> {
   const ipc = getElectronIPC()
   return await ipc.invoke('db:compressed-summary:delete', id)
+}
+
+// ============ SmartMessage Operations ============
+
+export async function invokeDbSmartMessagesGetActive(limit?: number): Promise<SmartMessageEntity[]> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_SMART_MESSAGES_GET_ACTIVE, limit)
+}
+
+export async function invokeDbSmartMessageDismiss(id: string): Promise<void> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_SMART_MESSAGE_DISMISS, id)
+}
+
+export async function invokeDbSmartMessagesRefresh(): Promise<SmartMessageGenerationResult> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(DB_SMART_MESSAGES_REFRESH)
 }
 
 // ============ Directory Selection ============

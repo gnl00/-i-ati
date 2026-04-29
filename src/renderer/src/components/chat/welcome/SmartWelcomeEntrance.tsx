@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Sparkle } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
+import { getActiveSmartMessages } from '@renderer/db/SmartMessageRepository'
 import './SmartWelcomeMessage.css'
 
 const CONFIG = {
@@ -325,6 +326,7 @@ const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
   const [username, setUsername] = useState('')
   const [usernameDraft, setUsernameDraft] = useState('')
   const [isEditingUserName, setIsEditingUserName] = useState(false)
+  const [smartMessages, setSmartMessages] = useState<SmartStackMessage[]>(FALLBACK_MESSAGES)
 
   useEffect(() => {
     const saved = getStoredUserName()
@@ -358,7 +360,31 @@ const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
     return () => window.clearInterval(typeInterval)
   }, [timeOfDay, isExiting])
 
-  const stackMessages = useMemo(() => FALLBACK_MESSAGES, [])
+  useEffect(() => {
+    let cancelled = false
+
+    getActiveSmartMessages(3)
+      .then(messages => {
+        if (cancelled || messages.length === 0) return
+        setSmartMessages(messages.map(message => ({
+          id: message.id,
+          title: message.title,
+          body: message.body,
+          actionPrompt: message.actionPrompt
+        })))
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSmartMessages(FALLBACK_MESSAGES)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const stackMessages = useMemo(() => smartMessages, [smartMessages])
 
   const saveUserName = () => {
     const next = usernameDraft.trim()

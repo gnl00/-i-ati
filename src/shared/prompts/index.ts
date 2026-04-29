@@ -8,6 +8,7 @@ export { buildCompressionPrompt } from './compression'
 export { buildEmotionSystemPrompt } from './emotion'
 export { buildSkillsSystemPrompt } from './skills'
 export { generateTitlePrompt } from './title'
+export { buildSmartMessagePrompt } from './smartMessages'
 export { buildUserInfoPrompt } from './userInfo'
 export { buildUserInstructionPrompt } from './userInstruction'
 

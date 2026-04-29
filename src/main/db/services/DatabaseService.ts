@@ -6,6 +6,7 @@
 import { DbRuntime } from '../core/DbRuntime'
 import { DbAppServices } from './DbAppServices'
 import { ScheduledTaskRow } from '../dao/ScheduledTaskDao'
+import type { SmartMessageCandidateSummaryRow } from '../dao/SmartMessageDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import { createLogger } from '@main/logging/LogService'
@@ -91,6 +92,10 @@ class DatabaseService {
 
   private requireAssistantService() {
     return this.requireAppServices().assistantService
+  }
+
+  private requireSmartMessageDbService() {
+    return this.requireAppServices().smartMessageDbService
   }
 
   private requireAppServices(): DbAppServices {
@@ -483,6 +488,38 @@ class DatabaseService {
 
   public deleteCompressedSummary(id: number): void {
     this.requireCompressedSummaryService().deleteCompressedSummary(id)
+  }
+
+  // ==================== SmartMessage Methods ====================
+
+  public upsertSmartMessage(message: SmartMessageEntity): void {
+    this.requireSmartMessageDbService().upsertSmartMessage(message)
+  }
+
+  public getActiveSmartMessages(limit?: number): SmartMessageEntity[] {
+    return this.requireSmartMessageDbService().getActiveSmartMessages(limit)
+  }
+
+  public dismissSmartMessage(id: string): void {
+    this.requireSmartMessageDbService().dismissSmartMessage(id)
+  }
+
+  public markChatSmartMessagesStale(chatUuid: string): void {
+    this.requireSmartMessageDbService().markChatSmartMessagesStale(chatUuid)
+  }
+
+  public getSmartMessageBySourceHash(
+    sourceHash: string,
+    generationVersion: number
+  ): SmartMessageEntity | undefined {
+    return this.requireSmartMessageDbService().getSmartMessageBySourceHash(sourceHash, generationVersion)
+  }
+
+  public listRecentSmartMessageCandidateSummaries(
+    since: number,
+    limit: number
+  ): SmartMessageCandidateSummaryRow[] {
+    return this.requireSmartMessageDbService().listRecentSmartMessageCandidateSummaries(since, limit)
   }
 
   // ==================== Assistant Methods ====================

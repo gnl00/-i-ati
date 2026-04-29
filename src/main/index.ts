@@ -10,6 +10,7 @@ import DatabaseService from './db/DatabaseService'
 import MemoryService from './services/memory/MemoryService'
 import { SkillService } from './services/skills/SkillService'
 import { schedulerService } from './services/scheduler/SchedulerService'
+import { smartMessageSchedulerService } from './services/smartMessages'
 import { telegramGatewayService } from './services/telegram'
 import { emotionAssetService } from './services/emotion/EmotionAssetService'
 import { knowledgebaseService } from './services/knowledgebase/KnowledgebaseService'
@@ -55,6 +56,7 @@ const cleanupAppServices = (): void => {
   destroyWindowPool()
   cleanupDevServers()
   schedulerService.stop()
+  smartMessageSchedulerService.stop()
   telegramGatewayService.stop()
 }
 
@@ -144,6 +146,7 @@ app.whenReady().then(async () => {
   startupTracer.mark('ipc.init.end')
 
   schedulerService.start()
+  smartMessageSchedulerService.start()
 
   // IPC handlers 必须在窗口创建前注册
   // 渲染进程（renderer）可能在窗口创建后立即尝试调用 IPC 方法。如果 handlers 还没注册，这些调用就会失败。

@@ -52,6 +52,7 @@ vi.mock('../../core/DbRuntime', () => ({
     runEventRepository = {}
     compressedSummaryRepository = {}
     assistantRepository = {}
+    smartMessageRepository = {}
   }
 }))
 

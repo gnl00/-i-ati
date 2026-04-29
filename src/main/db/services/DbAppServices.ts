@@ -7,6 +7,7 @@ import { ConfigService } from './ConfigService'
 import { PlanningService } from './PlanningService'
 import { PluginService } from './PluginService'
 import { RunEventService } from './RunEventService'
+import { SmartMessageDbService } from './SmartMessageDbService'
 
 export class DbAppServices {
   public readonly pluginRuntimeService: PluginRuntimeService
@@ -17,6 +18,7 @@ export class DbAppServices {
   public readonly runEventService: RunEventService
   public readonly compressedSummaryService: CompressedSummaryService
   public readonly assistantService: AssistantService
+  public readonly smartMessageDbService: SmartMessageDbService
 
   constructor(runtime: DbRuntime) {
     this.pluginRuntimeService = new PluginRuntimeService({
@@ -50,6 +52,9 @@ export class DbAppServices {
     })
     this.assistantService = new AssistantService({
       assistantRepository: () => runtime.assistantRepository
+    })
+    this.smartMessageDbService = new SmartMessageDbService({
+      smartMessageRepository: () => runtime.smartMessageRepository
     })
   }
 }

@@ -311,6 +311,27 @@ class AppDatabase {
     `)
 
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS smart_messages (
+        id TEXT PRIMARY KEY,
+        chat_id INTEGER,
+        chat_uuid TEXT,
+        source_summary_ids TEXT NOT NULL,
+        source_hash TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        action_prompt TEXT NOT NULL,
+        reason TEXT,
+        priority_score REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',
+        generated_at INTEGER NOT NULL,
+        expires_at INTEGER,
+        model_id TEXT,
+        generation_version INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+      )
+    `)
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS chat_run_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         submission_id TEXT NOT NULL,
@@ -422,6 +443,9 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_chat_uuid ON compressed_summaries(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_status_chat ON compressed_summaries(status, chat_id);
       CREATE INDEX IF NOT EXISTS idx_compressed_summaries_message_range ON compressed_summaries(chat_id, start_message_id, end_message_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_smart_messages_source_hash ON smart_messages(source_hash, generation_version);
+      CREATE INDEX IF NOT EXISTS idx_smart_messages_status_priority ON smart_messages(status, priority_score DESC, generated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_smart_messages_chat_uuid ON smart_messages(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_chat_run_events_submission ON chat_run_events(submission_id);
       CREATE INDEX IF NOT EXISTS idx_chat_run_events_chat_id ON chat_run_events(chat_id);
       CREATE INDEX IF NOT EXISTS idx_chat_run_events_chat_uuid ON chat_run_events(chat_uuid);

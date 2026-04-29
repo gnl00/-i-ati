@@ -156,6 +156,9 @@ export const DB_TASK_PLAN_STEP_UPSERT = 'db:task-plan-step:upsert'
 export const DB_TASK_PLAN_STEP_UPDATE_STATUS = 'db:task-plan-step:update-status'
 export const DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID = 'db:scheduled-tasks:get-by-chat-uuid'
 export const DB_SCHEDULED_TASK_UPDATE_STATUS = 'db:scheduled-task:update-status'
+export const DB_SMART_MESSAGES_GET_ACTIVE = 'db:smart-messages:get-active'
+export const DB_SMART_MESSAGE_DISMISS = 'db:smart-message:dismiss'
+export const DB_SMART_MESSAGES_REFRESH = 'db:smart-messages:refresh'
 
 // Command Operations Actions
 export const COMMAND_EXECUTE_ACTION = 'command-execute-action'
