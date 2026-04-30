@@ -25,6 +25,9 @@ interface AddAssistantCardProps {
   mode?: 'create' | 'edit'
   assistantToEdit?: Assistant | null
   modelOptions: ModelOption[]
+  trigger?: React.ReactElement | null
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
@@ -32,10 +35,13 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
   variant = 'card',
   mode = 'create',
   assistantToEdit = null,
-  modelOptions
+  modelOptions,
+  trigger,
+  open,
+  onOpenChange
 }) => {
   const { addAssistant, updateAssistantById, assistants } = useAssistantStore()
-  const [open, setOpen] = React.useState(false)
+  const [internalOpen, setInternalOpen] = React.useState(false)
   const [modelOpen, setModelOpen] = React.useState(false)
   const [selectedModelRef, setSelectedModelRef] = React.useState<ModelRef | null>(null)
   const [assistantName, setAssistantName] = React.useState('')
@@ -59,7 +65,8 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
   )
 
   React.useEffect(() => {
-    if (open) {
+    const drawerOpen = open ?? internalOpen
+    if (drawerOpen) {
       if (mode === 'edit' && assistantToEdit) {
         setAssistantName(assistantToEdit.name)
         setAssistantDescription(assistantToEdit.description ?? '')
@@ -75,7 +82,7 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
         setSortIndex(maxSortIndex + 1)
       }
     }
-  }, [open, assistants, mode, assistantToEdit])
+  }, [open, internalOpen, assistants, mode, assistantToEdit])
 
   const resetForm = React.useCallback(() => {
     setAssistantName('')
@@ -96,11 +103,14 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
   }, [modelOptions, selectedModelRef])
 
   const handleOpenChange = React.useCallback((nextOpen: boolean) => {
-    setOpen(nextOpen)
+    if (open === undefined) {
+      setInternalOpen(nextOpen)
+    }
+    onOpenChange?.(nextOpen)
     if (!nextOpen) {
       resetForm()
     }
-  }, [resetForm])
+  }, [open, onOpenChange, resetForm])
 
   const handleCreateAssistant = React.useCallback(async () => {
     if (!assistantName.trim()) {
@@ -143,82 +153,89 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
           modelRef: {
             accountId: selectedModelRef.accountId,
             modelId: selectedModelRef.modelId
-            },
-            systemPrompt: assistantPrompt.trim(),
-            sortIndex: safeSortIndex,
-            createdAt: now,
-            updatedAt: now,
-            isBuiltIn: false,
+          },
+          systemPrompt: assistantPrompt.trim(),
+          sortIndex: safeSortIndex,
+          createdAt: now,
+          updatedAt: now,
+          isBuiltIn: false,
           isDefault: false
         }
         await addAssistant(assistant)
       }
-      setOpen(false)
+      handleOpenChange(false)
       resetForm()
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : (mode === 'edit' ? 'Failed to update assistant.' : 'Failed to create assistant.'))
     } finally {
       setIsSubmitting(false)
     }
-  }, [assistantName, selectedModelRef, assistantPrompt, sortIndex, assistantDescription, mode, assistantToEdit, addAssistant, updateAssistantById, resetForm])
+  }, [assistantName, selectedModelRef, assistantPrompt, sortIndex, assistantDescription, mode, assistantToEdit, addAssistant, updateAssistantById, handleOpenChange, resetForm])
+
+  const drawerOpen = open ?? internalOpen
+  const defaultTriggerElement = (
+    variant === 'compact' ? (
+      <Button
+        variant="outline"
+        size="sm"
+        className={cn(
+          "group/add h-7 rounded-full px-2.5 text-[11px] font-medium",
+          "border border-dashed border-border/55",
+          "bg-card/70 text-muted-foreground",
+          "hover:bg-foreground/[0.032] hover:border-foreground/7 hover:text-foreground/85",
+          "hover:shadow-[0_10px_24px_-18px_rgba(15,23,42,0.42)]",
+          "focus-visible:ring-2 focus-visible:ring-ring/30",
+          "active:scale-[0.98]",
+          "transition-[background-color,border-color,color,box-shadow,transform] duration-[240ms] ease-out",
+          !isExpanded && "opacity-0 pointer-events-none"
+        )}
+      >
+        {mode === 'edit' ? (
+          <>
+            <Pencil className="w-3.5 h-3.5 mr-1.5 transition-transform duration-200 group-hover/add:-rotate-12" />
+            Edit
+          </>
+        ) : (
+          <>
+            <BadgePlus className="w-3.5 h-3.5 mr-1.5 transition-transform duration-200 group-hover/add:rotate-90" />
+            Add Assistant
+          </>
+        )}
+      </Button>
+    ) : (
+      <div
+        className={cn(
+          "group/card relative flex flex-col items-center justify-center p-4 h-24 rounded-xl border transition-all duration-300 ease-out",
+          "border-dashed border-border/60 hover:border-border/80",
+          "bg-transparent hover:bg-accent/30",
+          isExpanded ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
+        )}
+      >
+        <div className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-primary/5 scale-0 group-hover/card:scale-125 transition-transform duration-500 ease-out" />
+            <div className="relative p-2.5 rounded-full bg-muted/50 group-hover/card:bg-muted transition-all duration-300 ease-out">
+              <BadgePlus className="w-[18px] h-[18px] text-muted-foreground/70 group-hover/card:text-foreground transition-colors duration-300" />
+            </div>
+          </div>
+
+          <p className="text-[11px] font-medium text-muted-foreground/80 mt-2.5 uppercase tracking-wider group-hover/card:text-foreground transition-colors duration-300">
+            Create
+          </p>
+        </div>
+      </div>
+    )
+  )
+  const triggerElement = trigger === undefined ? defaultTriggerElement : trigger
 
   return (
     <div>
-      <Drawer open={open} onOpenChange={handleOpenChange}>
-        <DrawerTrigger asChild>
-          {variant === 'compact' ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn(
-                "group/add h-7 rounded-full px-2.5 text-[11px] font-medium",
-                "border border-dashed border-slate-300/80 dark:border-slate-700/80",
-                "bg-slate-50/75 dark:bg-slate-900/50 text-slate-600 dark:text-slate-300",
-                "hover:bg-sky-50/90 dark:hover:bg-sky-950/30",
-                "hover:border-sky-300/90 dark:hover:border-sky-600/70",
-                "hover:text-sky-700 dark:hover:text-sky-300",
-                "hover:shadow-[0_8px_20px_-14px_rgba(14,165,233,0.55)]",
-                "active:scale-[0.98]",
-                "transition-all duration-200",
-                !isExpanded && "opacity-0 pointer-events-none"
-              )}
-            >
-              {mode === 'edit' ? (
-                <>
-                  <Pencil className="w-3.5 h-3.5 mr-1.5 transition-transform duration-200 group-hover/add:-rotate-12" />
-                  Edit
-                </>
-              ) : (
-                <>
-                  <BadgePlus className="w-3.5 h-3.5 mr-1.5 transition-transform duration-200 group-hover/add:rotate-90" />
-                  Add Assistant
-                </>
-              )}
-            </Button>
-          ) : (
-            <div
-              className={cn(
-                "group/card relative flex flex-col items-center justify-center p-4 h-24 rounded-xl border transition-all duration-300 ease-out",
-                "border-dashed border-border/60 hover:border-border/80",
-                "bg-transparent hover:bg-accent/30",
-                isExpanded ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
-              )}
-            >
-              <div className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-full bg-primary/5 scale-0 group-hover/card:scale-125 transition-transform duration-500 ease-out" />
-                  <div className="relative p-2.5 rounded-full bg-muted/50 group-hover/card:bg-muted transition-all duration-300 ease-out">
-                    <BadgePlus className="w-[18px] h-[18px] text-muted-foreground/70 group-hover/card:text-foreground transition-colors duration-300" />
-                  </div>
-                </div>
-
-                <p className="text-[11px] font-medium text-muted-foreground/80 mt-2.5 uppercase tracking-wider group-hover/card:text-foreground transition-colors duration-300">
-                  Create
-                </p>
-              </div>
-            </div>
-          )}
-        </DrawerTrigger>
+      <Drawer open={drawerOpen} onOpenChange={handleOpenChange}>
+        {triggerElement && (
+          <DrawerTrigger asChild>
+            {triggerElement}
+          </DrawerTrigger>
+        )}
         <DrawerContent
           ref={drawerContentRef}
           className="max-h-[88vh] border-t border-slate-200/70 dark:border-slate-800/70 bg-background/95 backdrop-blur-xl"

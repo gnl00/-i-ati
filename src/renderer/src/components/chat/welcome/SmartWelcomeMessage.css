@@ -36,8 +36,20 @@
   animation: smart-welcome-rise 520ms var(--smart-ease-out) both;
 }
 
-.smart-welcome-footer {
-  animation-delay: 210ms;
+.smart-assistant-selector {
+  position: absolute;
+  top: clamp(14px, 3vh, 28px);
+  right: clamp(18px, 5vw, 58px);
+  z-index: 4;
+  opacity: 0.58;
+  animation-delay: 160ms;
+  transition: opacity 220ms var(--smart-ease-out);
+}
+
+.smart-assistant-selector:hover,
+.smart-assistant-selector:focus-within,
+.smart-assistant-selector:has(.smart-assistant-trigger[data-state='open']) {
+  opacity: 0.94;
 }
 
 .smart-message-stack {
@@ -277,6 +289,18 @@
 
   .smart-welcome-inner {
     gap: 20px;
+  }
+
+  .smart-assistant-selector {
+    left: 18px;
+    right: 18px;
+    top: 14px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .smart-assistant-trigger {
+    max-width: min(320px, 100%);
   }
 
   .smart-message-stack {
