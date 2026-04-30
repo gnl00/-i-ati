@@ -7,6 +7,10 @@ import type { RunEvent } from '@shared/run/events'
 import type { ConfigEvent } from '@shared/config/events'
 import type { PluginEvent } from '@shared/plugins/events'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
+import type {
+  GetModelCapabilitiesRequest,
+  GetModelCapabilitiesResponse
+} from '@shared/models/capabilities'
 import type { ScheduleEvent } from '@shared/schedule/events'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import type { ScheduleTask, ScheduleTaskStatus } from '@shared/tools/schedule'
@@ -72,6 +76,7 @@ import {
   DB_PROVIDER_MODEL_SAVE,
   DB_PROVIDER_MODEL_DELETE,
   DB_PROVIDER_MODEL_SET_ENABLED,
+  MODELS_GET_MODEL_CAPABILITIES,
   DB_ASSISTANT_SAVE,
   DB_ASSISTANT_GET_ALL,
   DB_ASSISTANT_GET_BY_ID,
@@ -590,6 +595,13 @@ export async function invokeDbProviderModelDelete(data: { accountId: string; mod
 export async function invokeDbProviderModelSetEnabled(data: { accountId: string; modelId: string; enabled: boolean }): Promise<void> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_PROVIDER_MODEL_SET_ENABLED, data)
+}
+
+export async function invokeModelsGetModelCapabilities(
+  request: GetModelCapabilitiesRequest
+): Promise<GetModelCapabilitiesResponse> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(MODELS_GET_MODEL_CAPABILITIES, request)
 }
 
 // ============ Run Actions (Main-driven) ============

@@ -136,6 +136,8 @@ export const DB_PROVIDER_MODEL_SAVE = 'db:provider-model:save'
 export const DB_PROVIDER_MODEL_DELETE = 'db:provider-model:delete'
 export const DB_PROVIDER_MODEL_SET_ENABLED = 'db:provider-model:set-enabled'
 
+export const MODELS_GET_MODEL_CAPABILITIES = 'models:get-model-capabilities'
+
 // Database Operations - Chat Submit Event Trace
 
 // Database Operations - Assistant

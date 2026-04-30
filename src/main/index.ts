@@ -12,6 +12,7 @@ import { SkillService } from './services/skills/SkillService'
 import { schedulerService } from './services/scheduler/SchedulerService'
 import { smartMessageSchedulerService } from './services/smartMessages'
 import { telegramGatewayService } from './services/telegram'
+import { modelsDevCacheService } from './services/models/ModelsDevCacheService'
 import { emotionAssetService } from './services/emotion/EmotionAssetService'
 import { knowledgebaseService } from './services/knowledgebase/KnowledgebaseService'
 import { installMainConsoleCapture } from './logging/console-capture'
@@ -147,6 +148,9 @@ app.whenReady().then(async () => {
 
   schedulerService.start()
   smartMessageSchedulerService.start()
+  void modelsDevCacheService.ensureFreshSnapshot().catch((error) => {
+    console.error('[App#TASK] Failed to initialize models.dev cache:', error)
+  })
 
   // IPC handlers 必须在窗口创建前注册
   // 渲染进程（renderer）可能在窗口创建后立即尝试调用 IPC 方法。如果 handlers 还没注册，这些调用就会失败。

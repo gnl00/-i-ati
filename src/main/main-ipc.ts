@@ -4,6 +4,7 @@ import { registerEmotionHandlers } from '@main/ipc/emotion'
 import { registerLoggingHandlers } from '@main/ipc/logging'
 import { registerMcpServerHandlers } from '@main/ipc/mcp-servers'
 import { registerMessageHandlers } from '@main/ipc/messages'
+import { registerModelsHandlers } from '@main/ipc/models'
 import { registerPluginHandlers } from '@main/ipc/plugins'
 import { registerProviderHandlers } from '@main/ipc/providers'
 import { registerSkillHandlers } from '@main/ipc/skills'
@@ -25,6 +26,7 @@ function mainIPCSetup() {
   registerMcpServerHandlers()
   registerPluginHandlers()
   registerProviderHandlers()
+  registerModelsHandlers()
   registerMessageHandlers()
   registerChatHandlers()
   registerTaskPlanHandlers()

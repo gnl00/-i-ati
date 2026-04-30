@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { Input } from '@renderer/components/ui/input'
 import { Badge } from '@renderer/components/ui/badge'
@@ -28,6 +28,7 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { Search } from 'lucide-react'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import { invokeModelsGetModelCapabilities } from '@renderer/invoker/ipcInvoker'
 import InlineDeleteConfirm from '@renderer/components/settings/common/InlineDeleteConfirm'
 import { toast } from 'sonner'
 
@@ -49,6 +50,7 @@ const MODALITY_OPTIONS = [
   { value: 'image', label: 'Image' },
   { value: 'audio', label: 'Audio' },
   { value: 'video', label: 'Video' },
+  { value: 'pdf', label: 'PDF' },
   { value: 'tool', label: 'Tool' },
   { value: 'reason', label: 'Reason' }
 ] as const
@@ -74,6 +76,8 @@ const getModalityTagClassName = (modality: string): string => {
       return 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300'
     case 'video':
       return 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300'
+    case 'pdf':
+      return 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
     case 'tool':
       return 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
     case 'reason':
@@ -82,6 +86,35 @@ const getModalityTagClassName = (modality: string): string => {
     default:
       return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
   }
+}
+
+const areStringSetsEqual = (left: string[] = [], right: string[] = []): boolean => {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  const leftSet = new Set(left)
+  return right.every(item => leftSet.has(item))
+}
+
+const shouldApplyRemoteModalities = (
+  model: AccountModel,
+  remoteModalities: string[]
+): boolean => {
+  if (remoteModalities.length === 0) {
+    return false
+  }
+
+  const currentModalities = model.modalities ?? []
+  if (currentModalities.length === 0) {
+    return true
+  }
+
+  if (areStringSetsEqual(currentModalities, getDefaultModalitiesForType(model.type))) {
+    return true
+  }
+
+  return false
 }
 
 export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
@@ -102,6 +135,10 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
   const [editingModalities, setEditingModalities] = useState<string[]>([])
   const [editingModalitiesDirty, setEditingModalitiesDirty] = useState(false)
 
+  const modelCapabilitySyncKey = useMemo(() => {
+    return currentAccount?.models.map(model => model.id).join('\n') ?? ''
+  }, [currentAccount?.models])
+
   const filteredModels = useMemo(() => {
     const models = currentAccount?.models ?? []
     const query = modelSearchQuery.trim().toLowerCase()
@@ -114,6 +151,58 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
       )
     })
   }, [currentAccount?.models, modelSearchQuery])
+
+  useEffect(() => {
+    if (!currentAccount?.id || modelCapabilitySyncKey.length === 0) {
+      return
+    }
+
+    let cancelled = false
+    const accountId = currentAccount.id
+    const modelIds = currentAccount.models.map(model => model.id)
+
+    invokeModelsGetModelCapabilities({ modelIds })
+      .then((response) => {
+        if (cancelled) {
+          return
+        }
+
+        const latestAccount = useAppConfigStore.getState().getAccountById(accountId)
+        if (!latestAccount) {
+          return
+        }
+
+        latestAccount.models.forEach((model) => {
+          const snapshot = response.models[model.id] ?? response.models[model.id.trim()]
+          if (!snapshot) {
+            return
+          }
+
+          const updates: Partial<AccountModel> = {}
+          if (
+            shouldApplyRemoteModalities(model, snapshot.modalities)
+            && !areStringSetsEqual(model.modalities ?? [], snapshot.modalities)
+          ) {
+            updates.modalities = snapshot.modalities
+          }
+
+          if (!areStringSetsEqual(model.capabilities ?? [], snapshot.capabilities)) {
+            updates.capabilities = snapshot.capabilities
+          }
+
+          if (Object.keys(updates).length > 0) {
+            updateModel(latestAccount.id, model.id, updates)
+          }
+        })
+      })
+      .catch((error) => {
+        console.warn('Failed to sync model capabilities:', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentAccount?.id, modelCapabilitySyncKey, updateModel])
 
   const handleAddModel = () => {
     const payload = {
