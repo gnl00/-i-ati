@@ -1,10 +1,7 @@
 import { TokensIcon } from '@radix-ui/react-icons'
-import AssistantCardsSection from '@renderer/components/chat/chatInput/toolbar/AssistantCardsSection'
 import { Badge } from "@renderer/components/ui/badge"
 import { Button } from '@renderer/components/ui/button'
-import { Label } from '@renderer/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
-import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
 import { useChatStore } from '@renderer/store/chatStore'
 import { useAppConfigStore } from '@renderer/store/appConfig'
@@ -18,11 +15,6 @@ const ConfigPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
   const messages = useChatStore(state => state.messages)
   const currentChatId = useChatStore(state => state.currentChatId)
-  const currentChatUuid = useChatStore(state => state.currentChatUuid)
-  const userInstruction = useChatStore(state => state.userInstruction)
-  const hydrateUserInstructionDraft = useChatStore(state => state.hydrateUserInstructionDraft)
-  const editUserInstructionDraft = useChatStore(state => state.editUserInstructionDraft)
-  const persistUserInstructionDraft = useChatStore(state => state.persistUserInstructionDraft)
   const { appConfig } = useAppConfigStore()
   const { currentAssistant } = useAssistantStore()
   const [displayAssistant, setDisplayAssistant] = useState<Assistant | null>(null)
@@ -62,10 +54,6 @@ const ConfigPanel: React.FC = () => {
       .catch(() => setCompressionCount(0))
   }, [currentChatId])
 
-  React.useEffect(() => {
-    hydrateUserInstructionDraft()
-  }, [currentChatId, currentChatUuid, hydrateUserInstructionDraft])
-
   const tokenTotal = React.useMemo(() => {
     return messages.reduce((sum, msg) => sum + (msg.tokens || 0), 0)
   }, [messages])
@@ -96,15 +84,8 @@ const ConfigPanel: React.FC = () => {
   const memoryEnabled = appConfig?.tools?.memoryEnabled ?? true
   const compressionEnabled = appConfig?.compression?.enabled ?? true
 
-  const handleOpenChange = React.useCallback((nextOpen: boolean) => {
-    if (!nextOpen) {
-      void persistUserInstructionDraft()
-    }
-    setIsOpen(nextOpen)
-  }, [persistUserInstructionDraft])
-
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <div className="relative flex items-center group">
           {/* Assistant Icon - Slides in/out with animation */}
@@ -194,8 +175,6 @@ const ConfigPanel: React.FC = () => {
         <div className="flex flex-col h-fit">
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-6">
-            <AssistantCardsSection panelOpen={isOpen} />
-
             {/* Parameters Group */}
             <div className="space-y-3 shrink-0">
               <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60">
@@ -263,43 +242,6 @@ const ConfigPanel: React.FC = () => {
                 </div>
               </div>
 
-            </div>
-
-            <div className="space-y-1 flex-1 flex flex-col pt-1 min-h-0">
-              <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60 shrink-0 mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Prompt
-                </span>
-              </div>
-
-              <Label
-                htmlFor="customPrompt"
-                className="sr-only"
-              >
-                Custom Prompt
-              </Label>
-              <Textarea
-                id="customPrompt"
-                value={userInstruction}
-                placeholder='Input your custom prompt here...'
-                className={cn(
-                  "flex-1 text-xs leading-relaxed",
-                  "bg-slate-50 dark:bg-slate-900/50",
-                  "border border-slate-200 dark:border-slate-800",
-                  "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
-                  "ring-0 focus:ring-0 focus-visible:ring-0",
-                  "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
-                  "focus:border-blue-500/50 dark:focus:border-blue-500/50",
-                  "hover:border-slate-200 dark:hover:border-slate-800",
-                  "resize-none p-2",
-                  "shadow-xs",
-                  "min-h-[80px]"
-                )}
-                onChange={e => editUserInstructionDraft(e.target.value)}
-                onBlur={() => {
-                  void persistUserInstructionDraft()
-                }}
-              />
             </div>
           </div>
         </div>
