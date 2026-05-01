@@ -99,7 +99,7 @@ export const fileOperationsTools = [
     type: 'function',
     function: {
       name: 'edit',
-      description: 'Edit a file by searching for a pattern and replacing it with new content. Supports both string and regex matching.',
+      description: 'Edit a file by replacing exactly one matched text block by default. Use all=true for intentional bulk replacement. Returns diagnostics when no match or multiple matches are found.',
       parameters: {
         type: 'object',
         properties: {
@@ -122,8 +122,29 @@ export const fileOperationsTools = [
           },
           all: {
             type: 'boolean',
-            description: 'Whether to replace all occurrences (default: false, only first match).',
+            description: 'Whether to replace all occurrences. Default false requires exactly one match.',
             default: false
+          },
+          dry_run: {
+            type: 'boolean',
+            description: 'When true, report matches and diagnostics without writing the file.',
+            default: false
+          },
+          expected_replacements: {
+            type: 'number',
+            description: 'Optional exact replacement count guard. The edit is applied only when the match count equals this value.'
+          },
+          start_line: {
+            type: 'number',
+            description: 'Optional 1-indexed line where matching should start.'
+          },
+          end_line: {
+            type: 'number',
+            description: 'Optional 1-indexed line where matching should end, inclusive.'
+          },
+          max_diagnostics: {
+            type: 'number',
+            description: 'Maximum number of diagnostic matches or nearest candidates to return. Defaults to 5.'
           }
         },
         required: ['file_path', 'search', 'replace'],

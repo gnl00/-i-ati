@@ -23,6 +23,9 @@ import type {
   WriteResponse,
   EditFileArgs,
   EditFileResponse,
+  EditCharacterDifference,
+  EditMatchLocation,
+  EditNearestMatch,
   EditArgs,
   EditResponse,
   SearchFileArgs,
@@ -71,6 +74,8 @@ const logger = createLogger('FileOperationsProcessor')
 const DEFAULT_READ_WINDOW_SIZE = 200
 const MAX_READ_WINDOW_SIZE = 500
 const DEFAULT_GLOB_MAX_RESULTS = 100
+const DEFAULT_EDIT_DIAGNOSTICS_LIMIT = 5
+const MAX_EDIT_DIAGNOSTICS_LIMIT = 20
 
 // ============ Helper Functions ============
 
@@ -437,55 +442,466 @@ export async function processWrite(args: WriteArgs): Promise<WriteResponse> {
   return processWriteFile(args)
 }
 
+interface TextEditMatch {
+  index: number
+  length: number
+}
+
+interface TextEditRange {
+  startIndex: number
+  endIndex: number
+}
+
+interface LineInfo {
+  line: number
+  content: string
+}
+
+function clampDiagnosticsLimit(maxDiagnostics?: number): number {
+  if (!Number.isFinite(maxDiagnostics) || maxDiagnostics === undefined || maxDiagnostics < 1) {
+    return DEFAULT_EDIT_DIAGNOSTICS_LIMIT
+  }
+
+  return Math.min(Math.floor(maxDiagnostics), MAX_EDIT_DIAGNOSTICS_LIMIT)
+}
+
+function normalizeOptionalLine(line?: number): number | undefined {
+  if (!Number.isFinite(line) || line === undefined) {
+    return undefined
+  }
+
+  return Math.max(1, Math.floor(line))
+}
+
+function createLineStarts(content: string): number[] {
+  const starts = [0]
+
+  for (let index = 0; index < content.length; index++) {
+    if (content[index] === '\n' && index + 1 <= content.length) {
+      starts.push(index + 1)
+    }
+  }
+
+  return starts
+}
+
+function resolveEditRange(content: string, startLine?: number, endLine?: number): TextEditRange {
+  const lineStarts = createLineStarts(content)
+  const totalLines = lineStarts.length
+  const normalizedStartLine = normalizeOptionalLine(startLine) ?? 1
+  const normalizedEndLine = normalizeOptionalLine(endLine) ?? totalLines
+  const boundedStartLine = Math.min(normalizedStartLine, totalLines)
+  const boundedEndLine = Math.min(Math.max(normalizedEndLine, boundedStartLine), totalLines)
+  const startIndex = lineStarts[boundedStartLine - 1] ?? content.length
+  const endIndex = boundedEndLine >= totalLines
+    ? content.length
+    : lineStarts[boundedEndLine]
+
+  return { startIndex, endIndex }
+}
+
+function lineColumnForIndex(content: string, index: number, lineStarts = createLineStarts(content)): { line: number, column: number } {
+  let low = 0
+  let high = lineStarts.length - 1
+  let lineIndex = 0
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2)
+    if (lineStarts[mid] <= index) {
+      lineIndex = mid
+      low = mid + 1
+    } else {
+      high = mid - 1
+    }
+  }
+
+  return {
+    line: lineIndex + 1,
+    column: index - lineStarts[lineIndex] + 1
+  }
+}
+
+function lineContentAtIndex(content: string, index: number, lineStarts = createLineStarts(content)): string {
+  const { line } = lineColumnForIndex(content, index, lineStarts)
+  const startIndex = lineStarts[line - 1]
+  const nextLineStart = lineStarts[line] ?? content.length
+  const endIndex = content[nextLineStart - 1] === '\n' ? nextLineStart - 1 : nextLineStart
+  return content.slice(startIndex, endIndex).replace(/\r$/, '')
+}
+
+function truncatePreview(value: string, maxLength = 240): string {
+  if (value.length <= maxLength) {
+    return value
+  }
+
+  return `${value.slice(0, maxLength - 3)}...`
+}
+
+function collectStringMatches(content: string, search: string, range: TextEditRange): TextEditMatch[] {
+  const matches: TextEditMatch[] = []
+
+  if (search.length === 0) {
+    return matches
+  }
+
+  let index = content.indexOf(search, range.startIndex)
+  while (index !== -1) {
+    if (index + search.length <= range.endIndex) {
+      matches.push({ index, length: search.length })
+    }
+
+    const nextIndex = index + search.length
+    if (nextIndex >= range.endIndex) {
+      break
+    }
+
+    index = content.indexOf(search, nextIndex)
+  }
+
+  return matches
+}
+
+function collectRegexMatches(content: string, search: string, range: TextEditRange): TextEditMatch[] {
+  const matches: TextEditMatch[] = []
+  const pattern = new RegExp(search, 'g')
+  let match = pattern.exec(content)
+
+  while (match) {
+    const matchLength = match[0].length
+    if (match.index >= range.startIndex && match.index + matchLength <= range.endIndex) {
+      matches.push({ index: match.index, length: matchLength })
+    }
+
+    if (matchLength === 0) {
+      pattern.lastIndex++
+    }
+
+    match = pattern.exec(content)
+  }
+
+  return matches
+}
+
+function applyTextMatches(content: string, matches: TextEditMatch[], replace: string): string {
+  let nextContent = ''
+  let lastIndex = 0
+
+  for (const match of matches) {
+    nextContent += content.slice(lastIndex, match.index)
+    nextContent += replace
+    lastIndex = match.index + match.length
+  }
+
+  nextContent += content.slice(lastIndex)
+  return nextContent
+}
+
+function createMatchLocations(content: string, matches: TextEditMatch[], limit: number): EditMatchLocation[] {
+  const lineStarts = createLineStarts(content)
+
+  return matches.slice(0, limit).map((match) => {
+    const { line, column } = lineColumnForIndex(content, match.index, lineStarts)
+    return {
+      line,
+      column,
+      preview: truncatePreview(lineContentAtIndex(content, match.index, lineStarts))
+    }
+  })
+}
+
+function codePointLabel(value: string): string {
+  const codePoint = value.codePointAt(0)
+  if (codePoint === undefined) {
+    return ''
+  }
+
+  return `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`
+}
+
+function createCharacterDifferences(expected: string, actual: string, maxDifferences = 8): EditCharacterDifference[] {
+  const expectedChars = Array.from(expected)
+  const actualChars = Array.from(actual)
+  const length = Math.max(expectedChars.length, actualChars.length)
+  const differences: EditCharacterDifference[] = []
+
+  for (let index = 0; index < length && differences.length < maxDifferences; index++) {
+    const expectedChar = expectedChars[index] ?? ''
+    const actualChar = actualChars[index] ?? ''
+
+    if (expectedChar === actualChar) {
+      continue
+    }
+
+    differences.push({
+      index,
+      expected: expectedChar,
+      expected_codepoint: codePointLabel(expectedChar),
+      actual: actualChar,
+      actual_codepoint: codePointLabel(actualChar)
+    })
+  }
+
+  return differences
+}
+
+function normalizeDashCharacters(value: string): string {
+  return value.replace(/[-‐‑‒–—―﹘﹣－−]/g, '-')
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function normalizeForSimilarity(value: string): string {
+  return normalizeWhitespace(normalizeDashCharacters(value.normalize('NFKC'))).toLowerCase()
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const source = Array.from(a.slice(0, 300))
+  const target = Array.from(b.slice(0, 300))
+  let previous = Array.from({ length: target.length + 1 }, (_, index) => index)
+  let current = new Array<number>(target.length + 1)
+
+  for (let sourceIndex = 0; sourceIndex < source.length; sourceIndex++) {
+    current[0] = sourceIndex + 1
+
+    for (let targetIndex = 0; targetIndex < target.length; targetIndex++) {
+      const substitutionCost = source[sourceIndex] === target[targetIndex] ? 0 : 1
+      current[targetIndex + 1] = Math.min(
+        current[targetIndex] + 1,
+        previous[targetIndex + 1] + 1,
+        previous[targetIndex] + substitutionCost
+      )
+    }
+
+    const nextPrevious = current
+    current = previous
+    previous = nextPrevious
+  }
+
+  return previous[target.length]
+}
+
+function similarityScore(expected: string, actual: string): number {
+  const normalizedExpected = normalizeForSimilarity(expected)
+  const normalizedActual = normalizeForSimilarity(actual)
+  const maxLength = Math.max(normalizedExpected.length, normalizedActual.length)
+
+  if (maxLength === 0) {
+    return 1
+  }
+
+  const distance = levenshteinDistance(normalizedExpected, normalizedActual)
+  return Math.max(0, 1 - distance / maxLength)
+}
+
+function normalizedMatchKind(expected: string, actual: string): EditNearestMatch['normalized_match'] | undefined {
+  if (expected.normalize('NFKC') === actual.normalize('NFKC')) {
+    return 'nfkc'
+  }
+
+  if (normalizeDashCharacters(expected) === normalizeDashCharacters(actual)) {
+    return 'dash_equivalent'
+  }
+
+  if (normalizeWhitespace(expected) === normalizeWhitespace(actual)) {
+    return 'whitespace_flexible'
+  }
+
+  return undefined
+}
+
+function diagnosticSearchLines(search: string): string[] {
+  return Array.from(new Set(
+    search
+      .split(/\r?\n/)
+      .map(line => line.trimEnd())
+      .filter(line => line.trim().length > 0)
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 5)
+  ))
+}
+
+function linesInRange(content: string, range: TextEditRange): LineInfo[] {
+  const lineStarts = createLineStarts(content)
+  const lines: LineInfo[] = []
+
+  for (let index = 0; index < lineStarts.length; index++) {
+    const startIndex = lineStarts[index]
+    const nextLineStart = lineStarts[index + 1] ?? content.length
+    if (nextLineStart <= range.startIndex || startIndex >= range.endIndex) {
+      continue
+    }
+
+    const lineEnd = content[nextLineStart - 1] === '\n' ? nextLineStart - 1 : nextLineStart
+    lines.push({
+      line: index + 1,
+      content: content.slice(startIndex, lineEnd).replace(/\r$/, '')
+    })
+  }
+
+  return lines
+}
+
+function findNearestMatches(content: string, search: string, range: TextEditRange, limit: number): EditNearestMatch[] {
+  const searchLines = diagnosticSearchLines(search)
+  const fileLines = linesInRange(content, range)
+  const candidates = new Map<string, EditNearestMatch>()
+
+  for (const expectedLine of searchLines) {
+    for (const fileLine of fileLines) {
+      if (fileLine.content.trim().length === 0) {
+        continue
+      }
+
+      const normalizedMatch = normalizedMatchKind(expectedLine, fileLine.content)
+      const score = similarityScore(expectedLine, fileLine.content)
+
+      if (!normalizedMatch && score < 0.65) {
+        continue
+      }
+
+      const key = `${fileLine.line}:${fileLine.content}`
+      const candidate: EditNearestMatch = {
+        line: fileLine.line,
+        column: 1,
+        score: Number(score.toFixed(3)),
+        content: truncatePreview(fileLine.content),
+        normalized_match: normalizedMatch,
+        differences: createCharacterDifferences(expectedLine, fileLine.content)
+      }
+      const existing = candidates.get(key)
+
+      if (!existing || candidate.score > existing.score) {
+        candidates.set(key, candidate)
+      }
+    }
+  }
+
+  return Array.from(candidates.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+}
+
 /**
  * Edit File Processor
  * 编辑文件内容，支持字符串替换和正则替换
  */
 export async function processEditFile(args: EditFileArgs): Promise<EditFileResponse> {
   try {
-    const { file_path, chat_uuid, search, replace, regex = false, all = false } = args
+    const {
+      file_path,
+      chat_uuid,
+      search,
+      replace,
+      regex = false,
+      all = false,
+      dry_run = false,
+      expected_replacements,
+      start_line,
+      end_line,
+      max_diagnostics
+    } = args
     const absolutePath = resolveFilePath(file_path, chat_uuid)
-    logger.info('edit_file.start', { filePath: file_path, absolutePath, regex, replaceAll: all })
+    logger.info('edit_file.start', {
+      filePath: file_path,
+      absolutePath,
+      regex,
+      replaceAll: all,
+      dryRun: dry_run
+    })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
     }
 
-    const content = await readFile(absolutePath, 'utf-8')
-    let newContent: string
-    let replacements = 0
+    if (!regex && search.length === 0) {
+      return { success: false, error: 'Search text must not be empty' }
+    }
 
-    if (regex) {
-      const flags = all ? 'g' : ''
-      const regexPattern = new RegExp(search, flags)
-      newContent = content.replace(regexPattern, () => {
-        replacements++
-        return replace
+    const content = await readFile(absolutePath, 'utf-8')
+    const diagnosticsLimit = clampDiagnosticsLimit(max_diagnostics)
+    const editRange = resolveEditRange(content, start_line, end_line)
+    const matches = regex
+      ? collectRegexMatches(content, search, editRange)
+      : collectStringMatches(content, search, editRange)
+    const expectedCount = Number.isFinite(expected_replacements)
+      ? Math.max(0, Math.floor(expected_replacements as number))
+      : undefined
+    const matchLocations = createMatchLocations(content, matches, diagnosticsLimit)
+
+    if (expectedCount !== undefined && matches.length !== expectedCount) {
+      logger.info('edit_file.match_count_mismatch', {
+        filePath: file_path,
+        matches: matches.length,
+        expected: expectedCount
       })
-    } else {
-      if (all) {
-        const parts = content.split(search)
-        replacements = parts.length - 1
-        newContent = parts.join(replace)
-      } else {
-        const index = content.indexOf(search)
-        if (index !== -1) {
-          newContent = content.substring(0, index) + replace + content.substring(index + search.length)
-          replacements = 1
-        } else {
-          newContent = content
+      return {
+        success: false,
+        file_path,
+        status: 'match_count_mismatch',
+        replacements: 0,
+        diagnostics: {
+          message: `Expected ${expectedCount} replacement(s), found ${matches.length}.`,
+          matches: matchLocations,
+          nearest_matches: matches.length === 0
+            ? findNearestMatches(content, search, editRange, diagnosticsLimit)
+            : undefined
         }
       }
     }
 
-    if (replacements > 0) {
+    if (matches.length === 0) {
+      logger.info('edit_file.no_matches', { filePath: file_path })
+      return {
+        success: false,
+        file_path,
+        status: 'no_match',
+        replacements: 0,
+        diagnostics: {
+          message: 'No exact match found.',
+          nearest_matches: findNearestMatches(content, search, editRange, diagnosticsLimit)
+        }
+      }
+    }
+
+    if (!all && matches.length > 1) {
+      logger.info('edit_file.multiple_matches', { filePath: file_path, matches: matches.length })
+      return {
+        success: false,
+        file_path,
+        status: 'multiple_matches',
+        replacements: 0,
+        diagnostics: {
+          message: `Found ${matches.length} matches. Use all=true for bulk replacement or narrow the search text.`,
+          matches: matchLocations
+        }
+      }
+    }
+
+    const matchesToReplace = all ? matches : matches.slice(0, 1)
+    const replacements = matchesToReplace.length
+    const newContent = applyTextMatches(content, matchesToReplace, replace)
+
+    if (!dry_run) {
       await writeFile(absolutePath, newContent, 'utf-8')
       logger.info('edit_file.replacements_applied', { filePath: file_path, replacements })
     } else {
-      logger.info('edit_file.no_matches', { filePath: file_path })
+      logger.info('edit_file.dry_run', { filePath: file_path, replacements })
     }
 
-    return { success: true, file_path, replacements }
+    return {
+      success: true,
+      file_path,
+      status: dry_run ? 'dry_run' : 'replaced',
+      replacements,
+      diagnostics: {
+        message: dry_run
+          ? `Dry run found ${replacements} replacement(s).`
+          : `Applied ${replacements} replacement(s).`,
+        matches: matchLocations
+      }
+    }
   } catch (error: any) {
     logger.error('edit_file.failed', error)
     return { success: false, error: error.message || 'Failed to edit file' }

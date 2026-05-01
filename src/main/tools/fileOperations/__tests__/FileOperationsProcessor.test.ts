@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { tmpdir } from 'os'
 
@@ -21,7 +21,7 @@ vi.mock('@main/db/DatabaseService', () => ({
   }
 }))
 
-import { processGlob, processGrep, processLs, processReadTextFile } from '../FileOperationsProcessor'
+import { processEditFile, processGlob, processGrep, processLs, processReadTextFile } from '../FileOperationsProcessor'
 
 describe('FileOperationsProcessor.read_text_file', () => {
   let userDataDir: string
@@ -170,5 +170,178 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(result.entries?.[0].name).toBe('readme.md')
     expect(result.entries?.[0].size).toBeGreaterThan(0)
     expect(result.entries?.[0].modified).toBeTruthy()
+  })
+})
+
+describe('FileOperationsProcessor.edit_file', () => {
+  let userDataDir: string
+
+  beforeEach(async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'ati-edit-tool-'))
+    getPathMock.mockImplementation((key: string) => {
+      if (key === 'userData') return userDataDir
+      return userDataDir
+    })
+    getWorkspacePathByUuidMock.mockReset()
+    getWorkspacePathByUuidMock.mockReturnValue(undefined)
+  })
+
+  afterEach(async () => {
+    await rm(userDataDir, { recursive: true, force: true })
+    vi.clearAllMocks()
+  })
+
+  it('replaces a unique exact match', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-edit-1', 'sample.md')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, ['alpha', 'target line', 'omega'].join('\n'), 'utf-8')
+
+    const result = await processEditFile({
+      chat_uuid: 'chat-edit-1',
+      file_path: 'sample.md',
+      search: 'target line',
+      replace: 'updated line'
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.status).toBe('replaced')
+    expect(result.replacements).toBe(1)
+    expect(result.diagnostics?.matches?.[0]).toMatchObject({
+      line: 2,
+      column: 1,
+      preview: 'target line'
+    })
+    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['alpha', 'updated line', 'omega'].join('\n'))
+  })
+
+  it('returns unicode diagnostics when no exact match is found', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-edit-2', 'sample.md')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, '# Agent Genesis － 生存系统\n', 'utf-8')
+
+    const result = await processEditFile({
+      chat_uuid: 'chat-edit-2',
+      file_path: 'sample.md',
+      search: '# Agent Genesis — 生存系统',
+      replace: '# Agent Genesis - 生存系统'
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.status).toBe('no_match')
+    expect(result.replacements).toBe(0)
+    expect(result.diagnostics?.nearest_matches?.[0]).toMatchObject({
+      line: 1,
+      normalized_match: 'dash_equivalent'
+    })
+    expect(result.diagnostics?.nearest_matches?.[0].differences).toContainEqual({
+      index: 16,
+      expected: '—',
+      expected_codepoint: 'U+2014',
+      actual: '－',
+      actual_codepoint: 'U+FF0D'
+    })
+    await expect(readFile(filePath, 'utf-8')).resolves.toBe('# Agent Genesis － 生存系统\n')
+  })
+
+  it('blocks ambiguous single replacements and reports match locations', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-edit-3', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, ['token', 'middle', 'token'].join('\n'), 'utf-8')
+
+    const result = await processEditFile({
+      chat_uuid: 'chat-edit-3',
+      file_path: 'sample.txt',
+      search: 'token',
+      replace: 'value'
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.status).toBe('multiple_matches')
+    expect(result.diagnostics?.matches).toEqual([
+      { line: 1, column: 1, preview: 'token' },
+      { line: 3, column: 1, preview: 'token' }
+    ])
+    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['token', 'middle', 'token'].join('\n'))
+  })
+
+  it('keeps all=true for intentional bulk replacement', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-edit-4', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, ['token', 'middle', 'token'].join('\n'), 'utf-8')
+
+    const result = await processEditFile({
+      chat_uuid: 'chat-edit-4',
+      file_path: 'sample.txt',
+      search: 'token',
+      replace: 'value',
+      all: true,
+      expected_replacements: 2
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.status).toBe('replaced')
+    expect(result.replacements).toBe(2)
+    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['value', 'middle', 'value'].join('\n'))
+  })
+
+  it('reports dry run matches without writing the file', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-edit-5', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, 'alpha beta', 'utf-8')
+
+    const result = await processEditFile({
+      chat_uuid: 'chat-edit-5',
+      file_path: 'sample.txt',
+      search: 'beta',
+      replace: 'gamma',
+      dry_run: true
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.status).toBe('dry_run')
+    expect(result.replacements).toBe(1)
+    await expect(readFile(filePath, 'utf-8')).resolves.toBe('alpha beta')
+  })
+
+  it('limits matching to an explicit line range', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-edit-6', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, ['token', 'middle token', 'token'].join('\n'), 'utf-8')
+
+    const result = await processEditFile({
+      chat_uuid: 'chat-edit-6',
+      file_path: 'sample.txt',
+      search: 'token',
+      replace: 'value',
+      start_line: 2,
+      end_line: 2
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.replacements).toBe(1)
+    expect(result.diagnostics?.matches).toEqual([
+      { line: 2, column: 8, preview: 'middle token' }
+    ])
+    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['token', 'middle value', 'token'].join('\n'))
+  })
+
+  it('blocks writes when expected_replacements does not match', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-edit-7', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, ['token', 'token'].join('\n'), 'utf-8')
+
+    const result = await processEditFile({
+      chat_uuid: 'chat-edit-7',
+      file_path: 'sample.txt',
+      search: 'token',
+      replace: 'value',
+      all: true,
+      expected_replacements: 1
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.status).toBe('match_count_mismatch')
+    expect(result.diagnostics?.matches).toHaveLength(2)
+    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['token', 'token'].join('\n'))
   })
 })

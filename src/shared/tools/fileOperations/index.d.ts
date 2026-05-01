@@ -87,12 +87,48 @@ export interface EditFileArgs {
   replace: string
   regex?: boolean
   all?: boolean
+  dry_run?: boolean
+  expected_replacements?: number
+  start_line?: number
+  end_line?: number
+  max_diagnostics?: number
+}
+
+export interface EditMatchLocation {
+  line: number
+  column: number
+  preview: string
+}
+
+export interface EditCharacterDifference {
+  index: number
+  expected: string
+  expected_codepoint: string
+  actual: string
+  actual_codepoint: string
+}
+
+export interface EditNearestMatch {
+  line: number
+  column: number
+  score: number
+  content: string
+  normalized_match?: 'nfkc' | 'dash_equivalent' | 'whitespace_flexible'
+  differences?: EditCharacterDifference[]
+}
+
+export interface EditDiagnostics {
+  message: string
+  matches?: EditMatchLocation[]
+  nearest_matches?: EditNearestMatch[]
 }
 
 export interface EditFileResponse {
   success: boolean
   file_path?: string
+  status?: 'replaced' | 'dry_run' | 'no_match' | 'multiple_matches' | 'match_count_mismatch'
   replacements?: number
+  diagnostics?: EditDiagnostics
   error?: string
 }
 
