@@ -17,6 +17,10 @@ describe('models.dev capability mapping', () => {
       knowledge: '2025-02-28',
       release_date: '2025-10-16',
       last_updated: '2025-10-16',
+      limit: {
+        context: 200000,
+        output: 8192
+      },
       modalities: {
         input: ['text', 'image', 'pdf'],
         output: ['text']
@@ -30,6 +34,7 @@ describe('models.dev capability mapping', () => {
       knowledge: '2025-02-28',
       releaseDate: '2025-10-16',
       lastUpdated: '2025-10-16',
+      contextWindowTokens: 200000,
       sourceDate: '2026-04-30'
     })
   })

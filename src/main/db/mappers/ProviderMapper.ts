@@ -59,6 +59,7 @@ export const toAccountModelEntity = (row: ProviderModelRow): AccountModel => ({
   label: row.label,
   type: row.type as ModelType,
   modalities: parseModalities(row.modalities_json),
+  contextWindowTokens: row.context_window_tokens ?? undefined,
   enabled: row.enabled === 1
 })
 
@@ -97,6 +98,7 @@ export const toProviderModelRow = (
   label: model.label,
   type: model.type,
   modalities_json: model.modalities?.length ? JSON.stringify(model.modalities) : null,
+  context_window_tokens: model.contextWindowTokens ?? null,
   enabled: model.enabled ? 1 : 0,
   created_at: now,
   updated_at: now

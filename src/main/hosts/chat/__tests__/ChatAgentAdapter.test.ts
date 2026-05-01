@@ -170,5 +170,10 @@ describe('ChatAgentAdapter', () => {
     })
     expect(result.runResult.assistantMessageId).toBe(102)
     expect(result.runResult.usage).toEqual(usage)
+    expect(result.postRunInput.messageBuffer).toEqual([
+      ...prepared.chatContext.messageEntities,
+      finalizedAssistantMessage
+    ])
+    expect(result.postRunInput.usage).toEqual(usage)
   })
 })

@@ -10,6 +10,7 @@ interface CompressedSummaryRow {
   summary: string
   original_token_count: number | null
   summary_token_count: number | null
+  used_token_count_at_compression: number | null
   compression_ratio: number | null
   compressed_at: number
   compression_model: string | null
@@ -31,9 +32,9 @@ class CompressedSummaryDao {
       insertCompressedSummary: db.prepare(`
         INSERT INTO compressed_summaries (
           chat_id, chat_uuid, message_ids, start_message_id, end_message_id,
-          summary, original_token_count, summary_token_count, compression_ratio,
+          summary, original_token_count, summary_token_count, used_token_count_at_compression, compression_ratio,
           compressed_at, compression_model, compression_version, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
       getCompressedSummariesByChatId: db.prepare(`
         SELECT * FROM compressed_summaries
@@ -64,6 +65,7 @@ class CompressedSummaryDao {
       row.summary,
       row.original_token_count,
       row.summary_token_count,
+      row.used_token_count_at_compression,
       row.compression_ratio,
       row.compressed_at,
       row.compression_model,

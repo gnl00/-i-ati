@@ -132,6 +132,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
   const [nextAddModelType, setNextAddModelType] = useState<string>('llm')
   const [editingModel, setEditingModel] = useState<AccountModel | undefined>(undefined)
   const [editingModelType, setEditingModelType] = useState<ModelType>('llm')
+  const [editingContextWindowTokens, setEditingContextWindowTokens] = useState<string>('')
   const [editingModalities, setEditingModalities] = useState<string[]>([])
   const [editingModalitiesDirty, setEditingModalitiesDirty] = useState(false)
 
@@ -190,6 +191,14 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
             updates.capabilities = snapshot.capabilities
           }
 
+          if (
+            typeof snapshot.contextWindowTokens === 'number'
+            && snapshot.contextWindowTokens > 0
+            && model.contextWindowTokens !== snapshot.contextWindowTokens
+          ) {
+            updates.contextWindowTokens = snapshot.contextWindowTokens
+          }
+
           if (Object.keys(updates).length > 0) {
             updateModel(latestAccount.id, model.id, updates)
           }
@@ -232,6 +241,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
   const openEditModal = (model: AccountModel) => {
     setEditingModel(model)
     setEditingModelType(model.type)
+    setEditingContextWindowTokens(model.contextWindowTokens ? String(model.contextWindowTokens) : '')
     setEditingModalities(model.modalities?.length ? [...model.modalities] : getDefaultModalitiesForType(model.type))
     setEditingModalitiesDirty(false)
   }
@@ -251,22 +261,34 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
       return
     }
 
+    const parsedContextWindowTokens = Number.parseInt(editingContextWindowTokens, 10)
     updateModel(currentAccount.id, editingModel.id, {
       type: editingModelType,
-      modalities: editingModalities
+      modalities: editingModalities,
+      contextWindowTokens: Number.isFinite(parsedContextWindowTokens) && parsedContextWindowTokens > 0
+        ? parsedContextWindowTokens
+        : undefined
     })
     setEditingModel(undefined)
+    setEditingContextWindowTokens('')
     setEditingModalitiesDirty(false)
   }
 
   return (
     <div className='flex-1 min-h-0 flex flex-col overflow-hidden'>
 
-      <Drawer open={!!editingModel} onOpenChange={(open) => !open && setEditingModel(undefined)}>
+      <Drawer
+        open={!!editingModel}
+        onOpenChange={(open) => {
+          if (open) return
+          setEditingModel(undefined)
+          setEditingContextWindowTokens('')
+        }}
+      >
         <DrawerContent className="max-h-[72vh] border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
           <DrawerHeader className="px-5 pt-5 pb-3 border-b border-gray-200/80 dark:border-gray-800 text-left">
             <DrawerTitle className="text-[15px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-              Edit Model Modalities
+              Edit Model
             </DrawerTitle>
             <DrawerDescription className="text-[12px] text-gray-500 dark:text-gray-400">
               {editingModel ? `${editingModel.label} · ${editingModel.id}` : ''}
@@ -300,6 +322,19 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                Context Window Tokens
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                value={editingContextWindowTokens}
+                onChange={(event) => setEditingContextWindowTokens(event.target.value)}
+                placeholder="128000"
+                className="h-9 text-[12.5px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
@@ -339,6 +374,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
               type="button"
               onClick={() => {
                 setEditingModel(undefined)
+                setEditingContextWindowTokens('')
                 setEditingModalitiesDirty(false)
               }}
               className="h-9 flex-1 rounded-md text-[12px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -533,6 +569,11 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                         </span>
                       )}
                     </div>
+                    {m.contextWindowTokens ? (
+                      <p className='text-[10px] text-gray-400 dark:text-gray-500 font-mono'>
+                        ctx {m.contextWindowTokens.toLocaleString()} tokens
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <div className='px-4 py-2.5 flex items-center justify-center'>

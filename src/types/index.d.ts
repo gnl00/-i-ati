@@ -7,6 +7,7 @@ declare interface AccountModel {
   type: ModelType
   modalities?: string[]
   capabilities?: string[]
+  contextWindowTokens?: number
   enabled?: boolean
 }
 
@@ -569,6 +570,7 @@ declare interface CompressedSummaryEntity {
   // 元数据
   originalTokenCount?: number
   summaryTokenCount?: number
+  usedTokenCountAtCompression?: number
   compressionRatio?: number
 
   // 压缩信息
@@ -611,9 +613,10 @@ declare interface SmartMessageGenerationResult {
  */
 declare interface CompressionConfig {
   enabled: boolean              // 是否启用压缩
-  triggerThreshold: number      // 触发压缩的消息总数阈值（默认 30）
-  keepRecentCount: number       // 保留最近的消息数量（默认 20）
-  compressCount: number         // 每次压缩的消息数量（默认 10）
+  triggerThreshold?: number     // Legacy message-count threshold
+  triggerTokenRatio?: number    // 触发压缩的 token 使用比例（默认 0.7）
+  keepRecentCount?: number      // Legacy recent-message retention
+  compressCount?: number        // Legacy per-run message count
   compressionModel?: ModelRef   // 用于压缩的模型（默认使用当前模型）
   autoCompress: boolean         // 是否自动压缩（默认 true）
 }
@@ -628,6 +631,9 @@ declare interface CompressionResult {
   messageIds?: number[]
   originalTokenCount?: number
   summaryTokenCount?: number
+  usedTokenCount?: number
+  contextWindowTokens?: number
+  triggerTokenRatio?: number
   compressionRatio?: number
   error?: string
 }

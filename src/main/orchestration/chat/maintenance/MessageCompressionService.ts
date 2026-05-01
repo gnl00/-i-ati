@@ -11,6 +11,10 @@
 import { unifiedChatRequest } from '@main/request/index'
 import { buildCompressionPrompt } from '@shared/prompts'
 import DatabaseService from '@main/db/DatabaseService'
+import { createLogger } from '@main/logging/LogService'
+
+const DEFAULT_TRIGGER_TOKEN_RATIO = 0.7
+const logger = createLogger('MessageCompressionService')
 
 export type CompressionJob = {
   chatId: number
@@ -20,19 +24,28 @@ export type CompressionJob = {
   account: ProviderAccount
   providerDefinition: ProviderDefinition
   config?: CompressionConfig
+  usage?: ITokenUsage
 }
 
-class MessageCompressionService {
+export class MessageCompressionService {
   private compressionInProgress: Map<number, boolean> = new Map()
 
   /**
    * 检查是否需要压缩
    */
-  shouldCompress(messageCount: number, config?: CompressionConfig): boolean {
+  shouldCompress(
+    usedTokenCount: number,
+    contextWindowTokens: number | undefined,
+    config?: CompressionConfig
+  ): boolean {
     if (!config || !config.enabled) {
       return false
     }
-    return messageCount >= config.triggerThreshold
+    if (!contextWindowTokens || contextWindowTokens <= 0) {
+      return false
+    }
+
+    return usedTokenCount / contextWindowTokens >= this.resolveTriggerTokenRatio(config)
   }
 
   /**
@@ -41,13 +54,11 @@ class MessageCompressionService {
   analyzeCompressionStrategy(
     messages: MessageEntity[],
     existingSummaries: CompressedSummaryEntity[],
+    model: AccountModel,
     config?: CompressionConfig
   ): CompressionStrategy {
     // 1. 创建已被压缩的消息 ID 集合
-    const compressedIds = new Set<number>()
-    existingSummaries.forEach(summary => {
-      summary.messageIds.forEach(id => compressedIds.add(id))
-    })
+    const compressedIds = this.buildCompressedIdSet(existingSummaries)
 
     // 2. 过滤掉已被压缩的消息
     const uncompressedMessages = messages.filter(m =>
@@ -64,7 +75,12 @@ class MessageCompressionService {
       }
     }
 
-    const shouldCompress = uncompressedMessages.length >= config.triggerThreshold
+    const usedTokenCount = this.sumResponseTokenCount(uncompressedMessages)
+    const shouldCompress = this.shouldCompress(
+      usedTokenCount,
+      this.resolveContextWindowTokens(model),
+      config
+    )
 
     if (!shouldCompress) {
       return {
@@ -75,35 +91,26 @@ class MessageCompressionService {
       }
     }
 
-    // 4. 计算需要压缩的消息数量
-    const compressCount = Math.min(
-      config.compressCount,
-      uncompressedMessages.length - config.keepRecentCount
+    const sortedMessages = [...uncompressedMessages].sort(
+      (a, b) => (a.id || 0) - (b.id || 0)
     )
+    const messagesToCompress = sortedMessages
+      .map(m => m.id)
+      .filter((id): id is number => typeof id === 'number')
 
-    if (compressCount <= 0) {
+    if (messagesToCompress.length === 0) {
       return {
         shouldCompress: false,
         messagesToCompress: [],
-        messagesToKeep: uncompressedMessages.map(m => m.id!),
+        messagesToKeep: [],
         existingSummaries
       }
     }
 
-    // 5. 选择最老的 N 条消息进行压缩
-    const sortedMessages = [...uncompressedMessages].sort(
-      (a, b) => (a.id || 0) - (b.id || 0)
-    )
-    const toCompress = sortedMessages.slice(0, compressCount)
-
-    const pairedCompress = this.addToolPairs(toCompress, sortedMessages)
-    const pairedIds = new Set(pairedCompress.map(m => m.id!))
-    const nextToKeep = sortedMessages.filter(m => !pairedIds.has(m.id!))
-
     return {
       shouldCompress: true,
-      messagesToCompress: pairedCompress.map(m => m.id!),
-      messagesToKeep: nextToKeep.map(m => m.id!),
+      messagesToCompress,
+      messagesToKeep: [],
       existingSummaries
     }
   }
@@ -118,48 +125,47 @@ class MessageCompressionService {
     return Math.ceil(chineseChars / 1.5 + otherChars / 4)
   }
 
-  /**
-   * 将 toolCalls 与 tool responses 成对加入压缩集
-   */
-  private addToolPairs(toCompress: MessageEntity[], allMessages: MessageEntity[]): MessageEntity[] {
-    const compressIds = new Set(toCompress.map(m => m.id!).filter(Boolean))
-    const toolCallIds = new Set<string>()
-
-    for (const message of toCompress) {
-      const body = message.body
-      if (body.role === 'assistant' && body.toolCalls && body.toolCalls.length > 0) {
-        body.toolCalls.forEach(call => {
-          if (call.id) {
-            toolCallIds.add(call.id)
-          }
-        })
+  sumResponseTokenCount(messages: MessageEntity[]): number {
+    return messages.reduce((sum, message) => {
+      const tokens = message.tokens
+      if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens <= 0) {
+        return sum
       }
-      if (body.role === 'tool' && body.toolCallId) {
-        toolCallIds.add(body.toolCallId)
-      }
-    }
+      return sum + tokens
+    }, 0)
+  }
 
-    if (toolCallIds.size === 0) {
-      return toCompress
+  resolveContextWindowTokens(model: AccountModel): number | undefined {
+    const tokens = model.contextWindowTokens
+    if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens <= 0) {
+      return undefined
     }
+    return Math.floor(tokens)
+  }
 
-    const expanded = [...toCompress]
-    for (const message of allMessages) {
-      if (!message.id || compressIds.has(message.id)) continue
-      const body = message.body
-      if (body.role === 'assistant' && body.toolCalls && body.toolCalls.length > 0) {
-        const hasMatch = body.toolCalls.some(call => call.id && toolCallIds.has(call.id))
-        if (hasMatch) {
-          expanded.push(message)
-          compressIds.add(message.id)
-        }
-      } else if (body.role === 'tool' && body.toolCallId && toolCallIds.has(body.toolCallId)) {
-        expanded.push(message)
-        compressIds.add(message.id)
-      }
+  resolveTriggerTokenRatio(config?: CompressionConfig): number {
+    const ratio = config?.triggerTokenRatio
+    if (typeof ratio !== 'number' || !Number.isFinite(ratio) || ratio <= 0) {
+      return DEFAULT_TRIGGER_TOKEN_RATIO
     }
+    return Math.min(ratio, 1)
+  }
 
-    return expanded.sort((a, b) => (a.id || 0) - (b.id || 0))
+  private buildCompressedIdSet(existingSummaries: CompressedSummaryEntity[]): Set<number> {
+    const compressedIds = new Set<number>()
+    existingSummaries.forEach(summary => {
+      summary.messageIds.forEach(id => compressedIds.add(id))
+    })
+    return compressedIds
+  }
+
+  private buildCumulativeMessageIds(
+    existingSummaries: CompressedSummaryEntity[],
+    nextMessageIds: number[]
+  ): number[] {
+    const ids = this.buildCompressedIdSet(existingSummaries)
+    nextMessageIds.forEach(id => ids.add(id))
+    return Array.from(ids).sort((a, b) => a - b)
   }
 
   /**
@@ -217,7 +223,7 @@ class MessageCompressionService {
    * 执行压缩
    */
   async compress(job: CompressionJob): Promise<CompressionResult> {
-    const { chatId, chatUuid, messages, model, account, providerDefinition, config } = job
+    const { chatId, chatUuid, messages, model, account, providerDefinition, config, usage } = job
     if (!config || !config.enabled) {
       return { success: false, error: 'Compression disabled' }
     }
@@ -235,16 +241,65 @@ class MessageCompressionService {
       const existingSummaries = DatabaseService.getActiveCompressedSummariesByChatId(chatId)
 
       // 4. 分析压缩策略
-      const strategy = this.analyzeCompressionStrategy(messages, existingSummaries, config)
+      const strategy = this.analyzeCompressionStrategy(messages, existingSummaries, model, config)
+      const compressedIds = this.buildCompressedIdSet(existingSummaries)
+      const uncompressedMessages = messages.filter(m =>
+        m.id && !compressedIds.has(m.id)
+      )
+      const usedTokenCount = this.sumResponseTokenCount(uncompressedMessages)
+      const contextWindowTokens = this.resolveContextWindowTokens(model)
+      const triggerTokenRatio = this.resolveTriggerTokenRatio(config)
+      const tokenUsageRatio = contextWindowTokens
+        ? Number((usedTokenCount / contextWindowTokens).toFixed(6))
+        : undefined
+      const thresholdTokenCount = contextWindowTokens
+        ? Math.ceil(contextWindowTokens * triggerTokenRatio)
+        : undefined
+      let decisionReason = 'model_context_window_missing'
+      if (contextWindowTokens) {
+        decisionReason = strategy.shouldCompress ? 'threshold_reached' : 'below_threshold'
+      }
+
+      logger.info('compression.strategy.evaluated', {
+        chatId,
+        chatUuid,
+        modelId: model.id,
+        messageCount: messages.length,
+        activeSummaryCount: existingSummaries.length,
+        compressedMessageCount: compressedIds.size,
+        uncompressedMessageCount: uncompressedMessages.length,
+        messagesToCompressCount: strategy.messagesToCompress.length,
+        usedTokenCount,
+        contextWindowTokens,
+        triggerTokenRatio,
+        thresholdTokenCount,
+        tokenUsageRatio,
+        runPromptTokens: usage?.promptTokens,
+        runCompletionTokens: usage?.completionTokens,
+        runTotalTokens: usage?.totalTokens,
+        decisionBasis: 'historical_uncompressed_message_tokens',
+        shouldCompress: strategy.shouldCompress,
+        decisionReason
+      })
 
       if (!strategy.shouldCompress) {
         // console.log('[Compression] No need to compress')
-        return { success: true, error: 'No need to compress' }
+        return {
+          success: true,
+          usedTokenCount,
+          contextWindowTokens,
+          triggerTokenRatio,
+          error: contextWindowTokens ? 'No need to compress' : 'Model context window tokens missing'
+        }
       }
 
       // 5. 获取需要压缩的消息
       const messagesToCompress = messages.filter(m =>
         m.id && strategy.messagesToCompress.includes(m.id)
+      )
+      const cumulativeMessageIds = this.buildCumulativeMessageIds(
+        existingSummaries,
+        strategy.messagesToCompress
       )
 
       // 6. 获取最新的活跃摘要（如果存在）
@@ -271,7 +326,9 @@ class MessageCompressionService {
         messagesToCompress.map(m => JSON.stringify(m.body)).join('')
       )
       const summaryTokenCount = this.estimateTokenCount(summary)
-      const compressionRatio = summaryTokenCount / originalTokenCount
+      const compressionRatio = originalTokenCount > 0
+        ? summaryTokenCount / originalTokenCount
+        : 0
 
       // 9. 将旧摘要标记为 superseded
       if (latestSummary && latestSummary.id) {
@@ -283,12 +340,13 @@ class MessageCompressionService {
       const summaryEntity: CompressedSummaryEntity = {
         chatId,
         chatUuid,
-        messageIds: strategy.messagesToCompress,
-        startMessageId: Math.min(...strategy.messagesToCompress),
-        endMessageId: Math.max(...strategy.messagesToCompress),
+        messageIds: cumulativeMessageIds,
+        startMessageId: Math.min(...cumulativeMessageIds),
+        endMessageId: Math.max(...cumulativeMessageIds),
         summary,
         originalTokenCount,
         summaryTokenCount,
+        usedTokenCountAtCompression: usedTokenCount,
         compressionRatio,
         compressedAt: Date.now(),
         compressionModel: model.id,
@@ -304,9 +362,12 @@ class MessageCompressionService {
         success: true,
         summaryId,
         summary,
-        messageIds: strategy.messagesToCompress,
+        messageIds: cumulativeMessageIds,
         originalTokenCount,
         summaryTokenCount,
+        usedTokenCount,
+        contextWindowTokens,
+        triggerTokenRatio,
         compressionRatio
       }
     } catch (error: any) {

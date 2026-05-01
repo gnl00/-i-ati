@@ -281,6 +281,7 @@ class AppDatabase {
         label TEXT NOT NULL,
         type TEXT NOT NULL,
         modalities_json TEXT,
+        context_window_tokens INTEGER,
         enabled INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
@@ -289,6 +290,7 @@ class AppDatabase {
     `)
 
     this.ensureColumn('provider_models', 'modalities_json', 'TEXT')
+    this.ensureColumn('provider_models', 'context_window_tokens', 'INTEGER')
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS compressed_summaries (
@@ -301,6 +303,7 @@ class AppDatabase {
         summary TEXT NOT NULL,
         original_token_count INTEGER,
         summary_token_count INTEGER,
+        used_token_count_at_compression INTEGER,
         compression_ratio REAL,
         compressed_at INTEGER NOT NULL,
         compression_model TEXT,
@@ -309,6 +312,7 @@ class AppDatabase {
         FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
       )
     `)
+    this.ensureColumn('compressed_summaries', 'used_token_count_at_compression', 'INTEGER')
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS smart_messages (

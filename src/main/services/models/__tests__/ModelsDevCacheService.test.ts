@@ -36,6 +36,9 @@ const createModelsDevPayload = (modelId = 'gpt-5') => ({
           input: ['text', 'image'],
           output: ['text']
         },
+        limit: {
+          context: 128000
+        },
         last_updated: '2026-01-01'
       }
     }
@@ -75,6 +78,7 @@ describe('ModelsDevCacheService', () => {
     expect(response.models['gpt-5']).toEqual(expect.objectContaining({
       modalities: ['text', 'image', 'tool', 'reason'],
       capabilities: ['tool', 'reasoning'],
+      contextWindowTokens: 128000,
       sourceDate: '2026-04-30'
     }))
   })

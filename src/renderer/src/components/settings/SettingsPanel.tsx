@@ -73,9 +73,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
 
     // Compression state
     const [compressionEnabled, setCompressionEnabled] = useState<boolean>(appConfig?.compression?.enabled ?? true)
-    const [compressionTriggerThreshold, setCompressionTriggerThreshold] = useState<number>(appConfig?.compression?.triggerThreshold || 30)
-    const [compressionKeepRecentCount, setCompressionKeepRecentCount] = useState<number>(appConfig?.compression?.keepRecentCount || 20)
-    const [compressionCompressCount, setCompressionCompressCount] = useState<number>(appConfig?.compression?.compressCount || 10)
+    const [compressionTriggerTokenRatio, setCompressionTriggerTokenRatio] = useState<number>(appConfig?.compression?.triggerTokenRatio ?? 0.7)
 
     useEffect(() => {
         if (appConfig?.tools?.maxWebSearchItems !== undefined) {
@@ -83,9 +81,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         }
         if (appConfig?.compression) {
             setCompressionEnabled(appConfig.compression.enabled ?? true)
-            setCompressionTriggerThreshold(appConfig.compression.triggerThreshold || 30)
-            setCompressionKeepRecentCount(appConfig.compression.keepRecentCount || 20)
-            setCompressionCompressCount(appConfig.compression.compressCount || 10)
+            setCompressionTriggerTokenRatio(appConfig.compression.triggerTokenRatio ?? 0.7)
         }
         setKnowledgebaseEnabled(appConfig?.knowledgebase?.enabled ?? false)
         setKnowledgebaseFolders(appConfig?.knowledgebase?.folders || [])
@@ -155,10 +151,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                 maxResults: knowledgebaseMaxResults
             },
             compression: {
+                ...(appConfig.compression || {}),
                 enabled: compressionEnabled,
-                triggerThreshold: compressionTriggerThreshold,
-                keepRecentCount: compressionKeepRecentCount,
-                compressCount: compressionCompressCount,
+                triggerTokenRatio: compressionTriggerTokenRatio,
                 autoCompress: true
             }
         }
@@ -232,9 +227,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         || titleGenerateModel?.modelId !== savedTools.titleGenerateModel?.modelId
 
     const compressionDirty = compressionEnabled !== (savedCompression?.enabled ?? true)
-        || compressionTriggerThreshold !== (savedCompression?.triggerThreshold ?? 30)
-        || compressionKeepRecentCount !== (savedCompression?.keepRecentCount ?? 20)
-        || compressionCompressCount !== (savedCompression?.compressCount ?? 10)
+        || compressionTriggerTokenRatio !== (savedCompression?.triggerTokenRatio ?? 0.7)
 
     const knowledgebaseDirty = knowledgebaseEnabled !== (savedKnowledgebase?.enabled ?? false)
         || knowledgebaseRetrievalMode !== (savedKnowledgebase?.retrievalMode ?? 'tool-first')
@@ -316,12 +309,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         setEmotionAssetPack={setEmotionAssetPack}
                         compressionEnabled={compressionEnabled}
                         setCompressionEnabled={setCompressionEnabled}
-                        compressionTriggerThreshold={compressionTriggerThreshold}
-                        setCompressionTriggerThreshold={setCompressionTriggerThreshold}
-                        compressionKeepRecentCount={compressionKeepRecentCount}
-                        setCompressionKeepRecentCount={setCompressionKeepRecentCount}
-                        compressionCompressCount={compressionCompressCount}
-                        setCompressionCompressCount={setCompressionCompressCount}
+                        compressionTriggerTokenRatio={compressionTriggerTokenRatio}
+                        setCompressionTriggerTokenRatio={setCompressionTriggerTokenRatio}
                     />
                 </TabsContent>
 

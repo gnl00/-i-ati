@@ -21,6 +21,7 @@ const ConfigPanel: React.FC = () => {
   const [isExiting, setIsExiting] = useState(false)
   const [activeSkills, setActiveSkills] = useState<string[]>([])
   const [compressionCount, setCompressionCount] = useState<number>(0)
+  const [activeCompressedMessageIds, setActiveCompressedMessageIds] = useState<Set<number>>(new Set())
 
   // Handle assistant change with exit animation
   React.useEffect(() => {
@@ -44,19 +45,69 @@ const ConfigPanel: React.FC = () => {
     if (!currentChatId) {
       setActiveSkills([])
       setCompressionCount(0)
+      setActiveCompressedMessageIds(new Set())
       return
     }
     getChatSkills(currentChatId)
       .then(setActiveSkills)
       .catch(() => setActiveSkills([]))
     getCompressedSummariesByChatId(currentChatId)
-      .then(result => setCompressionCount(result.length))
-      .catch(() => setCompressionCount(0))
+      .then(result => {
+        setCompressionCount(result.length)
+        const activeIds = new Set<number>()
+        result
+          .filter(summary => summary.status === 'active')
+          .forEach(summary => {
+            summary.messageIds.forEach(id => activeIds.add(id))
+          })
+        setActiveCompressedMessageIds(activeIds)
+      })
+      .catch(() => {
+        setCompressionCount(0)
+        setActiveCompressedMessageIds(new Set())
+      })
   }, [currentChatId])
 
   const tokenTotal = React.useMemo(() => {
     return messages.reduce((sum, msg) => sum + (msg.tokens || 0), 0)
   }, [messages])
+
+  const selectedModelRef = useChatStore(state => state.selectedModelRef)
+
+  const activeModel = React.useMemo(() => {
+    const accountId = selectedModelRef?.accountId ?? appConfig?.tools?.defaultModel?.accountId
+    const modelId = selectedModelRef?.modelId ?? appConfig?.tools?.defaultModel?.modelId
+    if (!accountId || !modelId) {
+      return undefined
+    }
+
+    return appConfig?.accounts
+      ?.find(account => account.id === accountId)
+      ?.models.find(model => model.id === modelId)
+  }, [appConfig?.accounts, appConfig?.tools?.defaultModel, selectedModelRef])
+
+  const compressionTokenTotal = React.useMemo(() => {
+    return messages.reduce((sum, msg) => {
+      if (msg.id && activeCompressedMessageIds.has(msg.id)) {
+        return sum
+      }
+      return sum + (msg.tokens || 0)
+    }, 0)
+  }, [activeCompressedMessageIds, messages])
+
+  const compressionUsagePercent = React.useMemo(() => {
+    const contextWindowTokens = activeModel?.contextWindowTokens
+    if (!contextWindowTokens || contextWindowTokens <= 0) {
+      return undefined
+    }
+    return Math.min(100, Math.round((compressionTokenTotal / contextWindowTokens) * 100))
+  }, [activeModel?.contextWindowTokens, compressionTokenTotal])
+
+  const compressionTriggerPercent = Math.round((appConfig?.compression?.triggerTokenRatio ?? 0.7) * 100)
+  const compressionProgressPercent = Math.min(compressionUsagePercent ?? 0, compressionTriggerPercent)
+  const compressionProgressWidth = compressionTriggerPercent > 0
+    ? Math.min(100, Math.round((compressionProgressPercent / compressionTriggerPercent) * 100))
+    : 0
 
   const toolCallCount = React.useMemo(() => {
     return messages.reduce((sum, msg) => {
@@ -200,14 +251,22 @@ const ConfigPanel: React.FC = () => {
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-[10px] h-5 px-2 font-medium select-none",
+                    "relative overflow-hidden text-[10px] h-5 px-2 font-medium select-none",
                     compressionEnabled
                       ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
                       : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
                   )}
                 >
-                  <Compass className="w-3 h-3 mr-1" />
-                  Compact {compressionEnabled ? 'On' : 'Off'} · {compressionCount}
+                  {compressionEnabled && (
+                    <span
+                      className="absolute inset-y-0 left-0 w-full origin-left bg-indigo-200/45 dark:bg-indigo-400/15 transition-transform duration-300"
+                      style={{ transform: `scaleX(${compressionProgressWidth / 100})` }}
+                    />
+                  )}
+                  <span className="relative z-10 inline-flex items-center">
+                    <Compass className="w-3 h-3 mr-1" />
+                    Compress {compressionEnabled ? 'On' : 'Off'} · {compressionCount} · {compressionUsagePercent ?? '--'}%
+                  </span>
                 </Badge>
               </div>
 

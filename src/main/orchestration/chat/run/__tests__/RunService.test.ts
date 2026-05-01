@@ -41,6 +41,12 @@ const {
   compressionExecuteMock: vi.fn(async () => ({ success: true }))
 }))
 
+vi.mock('electron', () => ({
+  app: {
+    getPath: vi.fn(() => '/tmp')
+  }
+}))
+
 vi.mock('../infrastructure', () => {
   class RunEventEmitter {
     emit = vi.fn()
@@ -130,9 +136,7 @@ vi.mock('@main/db/DatabaseService', () => ({
       compression: {
         enabled: false,
         autoCompress: false,
-        triggerThreshold: 10,
-        compressCount: 5,
-        keepRecentCount: 5
+        triggerTokenRatio: 0.7
       }
     })),
     getChatById: vi.fn((chatId: number) => ({
@@ -281,9 +285,7 @@ describe('RunService', () => {
       compression: {
         enabled: false,
         autoCompress: false,
-        triggerThreshold: 10,
-        compressCount: 5,
-        keepRecentCount: 5
+        triggerTokenRatio: 0.7
       }
     })
     ;(DatabaseService.saveMessage as any).mockReset()
@@ -372,9 +374,7 @@ describe('RunService', () => {
       compression: {
         enabled: true,
         autoCompress: true,
-        triggerThreshold: 1,
-        compressCount: 1,
-        keepRecentCount: 0
+        triggerTokenRatio: 0.7
       }
     })
 

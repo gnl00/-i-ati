@@ -46,6 +46,8 @@
   - [agent-core-chat-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/agent-core-chat-adapter-stage-summary.md)
 - chat 事件协议：
   - [chat-submit-event-bus.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-submit-event-bus.md)
+- 消息压缩 token 策略：
+  - [message-compression-token-strategy.md](/Users/gnl/Workspace/code/-i-ati/docs/chat/message-compression-token-strategy.md)
 - 日志系统：
   - [logging-system.md](/Users/gnl/Workspace/code/-i-ati/docs/internal/logging-system.md)
 - File edit tool 优化：

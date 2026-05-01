@@ -25,6 +25,7 @@ type FinalizeRunResult = {
     messageBuffer: RunPreparationResult['chatContext']['messageEntities']
     content: string
     modelContext: RunPreparationResult['runSpec']['modelContext']
+    usage?: ITokenUsage
   }
 }
 
@@ -96,9 +97,10 @@ export class ChatAgentAdapter {
       postRunInput: {
         submissionId: input.submissionId,
         chatEntity: finalizedChat,
-        messageBuffer: chatContext.messageEntities,
+        messageBuffer: [...chatContext.messageEntities, updatedAssistantMessage],
         content: input.input.textCtx,
-        modelContext: runSpec.modelContext
+        modelContext: runSpec.modelContext,
+        usage
       }
     }
   }

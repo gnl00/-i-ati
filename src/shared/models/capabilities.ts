@@ -20,6 +20,7 @@ export type ModelsDevModel = {
   last_updated?: unknown
   open_weights?: unknown
   interleaved?: unknown
+  limit?: unknown
   modalities?: unknown
 }
 
@@ -43,6 +44,7 @@ export type ModelCapabilitySnapshot = {
   knowledge?: string
   releaseDate?: string
   lastUpdated?: string
+  contextWindowTokens?: number
   sourceDate: string
 }
 
@@ -85,6 +87,14 @@ const getOptionalString = (value: unknown): string | undefined => {
   return typeof value === 'string' && value.trim().length > 0
     ? value.trim()
     : undefined
+}
+
+const getPositiveInteger = (value: unknown): number | undefined => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return undefined
+  }
+
+  return Math.floor(value)
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -151,6 +161,9 @@ export const mapModelsDevModelToCapabilitySnapshot = (
     knowledge: getOptionalString(model.knowledge),
     releaseDate: getOptionalString(model.release_date),
     lastUpdated: getOptionalString(model.last_updated),
+    contextWindowTokens: isRecord(model.limit)
+      ? getPositiveInteger(model.limit.context)
+      : undefined,
     sourceDate
   }
 }
@@ -196,6 +209,7 @@ export const buildModelsDevCapabilityIndex = (
         knowledge: existing.knowledge ?? snapshot.knowledge,
         releaseDate: existing.releaseDate ?? snapshot.releaseDate,
         lastUpdated: maxDateLike(existing.lastUpdated, snapshot.lastUpdated),
+        contextWindowTokens: existing.contextWindowTokens ?? snapshot.contextWindowTokens,
         sourceDate: existing.sourceDate
       })
     })

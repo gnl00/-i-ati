@@ -39,7 +39,8 @@ export class CompressionJobService {
         model: args.modelContext.model,
         account: args.modelContext.account,
         providerDefinition: args.modelContext.providerDefinition,
-        config: compressionConfig
+        config: compressionConfig,
+        usage: args.usage
       })
 
       if (result.success) {

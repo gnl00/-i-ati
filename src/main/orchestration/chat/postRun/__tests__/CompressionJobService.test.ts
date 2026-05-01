@@ -83,9 +83,7 @@ const config = {
   compression: {
     enabled: true,
     autoCompress: true,
-    triggerThreshold: 1,
-    compressCount: 1,
-    keepRecentCount: 0
+    triggerTokenRatio: 0.7
   }
 } as any
 

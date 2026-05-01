@@ -29,12 +29,8 @@ interface ToolsManagerProps {
     setEmotionAssetPack: (value: string) => void
     compressionEnabled: boolean
     setCompressionEnabled: (value: boolean) => void
-    compressionTriggerThreshold: number
-    setCompressionTriggerThreshold: (value: number) => void
-    compressionKeepRecentCount: number
-    setCompressionKeepRecentCount: (value: number) => void
-    compressionCompressCount: number
-    setCompressionCompressCount: (value: number) => void
+    compressionTriggerTokenRatio: number
+    setCompressionTriggerTokenRatio: (value: number) => void
 }
 
 const ToolsManager: React.FC<ToolsManagerProps> = ({
@@ -48,12 +44,8 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     setEmotionAssetPack,
     compressionEnabled,
     setCompressionEnabled,
-    compressionTriggerThreshold,
-    setCompressionTriggerThreshold,
-    compressionKeepRecentCount,
-    setCompressionKeepRecentCount,
-    compressionCompressCount,
-    setCompressionCompressCount
+    compressionTriggerTokenRatio,
+    setCompressionTriggerTokenRatio
 }) => {
     const {
         appConfig,
@@ -561,70 +553,26 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                             </div>
                             <div className="px-4">
 
-                                {/* Trigger Threshold */}
-                                <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-100 dark:border-gray-800/60">
-                                    <div className="flex-1">
-                                        <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Trigger Threshold</p>
-                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Compress when message count exceeds this value</p>
-                                    </div>
-                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
-                                        <Input
-                                            type="number"
-                                            value={compressionTriggerThreshold}
-                                            onChange={(e) => {
-                                                const value = parseInt(e.target.value) || 30
-                                                setCompressionTriggerThreshold(value)
-                                            }}
-                                            disabled={!compressionEnabled}
-                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                                        />
-                                        <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
-                                    </div>
-                                </div>
-
-                                {/* Keep Recent Count */}
-                                <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-100 dark:border-gray-800/60">
-                                    <div className="flex-1">
-                                        <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Keep Recent Count</p>
-                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Number of recent messages to keep uncompressed</p>
-                                    </div>
-                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
-                                        <Input
-                                            type="number"
-                                            min={5}
-                                            max={50}
-                                            value={compressionKeepRecentCount}
-                                            onChange={(e) => {
-                                                const value = parseInt(e.target.value) || 20
-                                                setCompressionKeepRecentCount(value)
-                                            }}
-                                            disabled={!compressionEnabled}
-                                            className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                                        />
-                                        <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
-                                    </div>
-                                </div>
-
-                                {/* Compress Count */}
                                 <div className="flex items-center justify-between gap-4 py-2.5">
                                     <div className="flex-1">
-                                        <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Compress Count</p>
-                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Number of oldest messages to compress each time</p>
+                                        <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Trigger Usage</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Compress after response usage reaches this share of the model context window</p>
                                     </div>
                                     <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
                                         <Input
                                             type="number"
-                                            min={5}
-                                            max={30}
-                                            value={compressionCompressCount}
+                                            min={1}
+                                            max={100}
+                                            value={Math.round(compressionTriggerTokenRatio * 100)}
                                             onChange={(e) => {
-                                                const value = parseInt(e.target.value) || 10
-                                                setCompressionCompressCount(value)
+                                                const value = parseInt(e.target.value) || 70
+                                                const clamped = Math.max(1, Math.min(100, value))
+                                                setCompressionTriggerTokenRatio(clamped / 100)
                                             }}
                                             disabled={!compressionEnabled}
                                             className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-16 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-20 font-mono font-medium disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
                                         />
-                                        <span className="text-xs font-medium text-gray-400 pr-2">msgs</span>
+                                        <span className="text-xs font-medium text-gray-400 pr-2">%</span>
                                     </div>
                                 </div>
 

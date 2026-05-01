@@ -3,6 +3,19 @@ type CompressionPromptParams = {
   previousSummary?: string
 }
 
+const COMPACT_INSTRUCTIONS = `Compact Instructions 如何保留关键信息：
+
+保留优先级：
+1. 架构决策，完整保留
+2. 已修改文件和关键变更
+3. 验证状态，保留 pass/fail
+4. 未解决的 TODO 和回滚笔记
+5. 工具输出可压缩，只保留 pass/fail 结论
+
+标识符保留规则：
+- UUID、hash、IP、端口、URL、文件名、PR 编号、commit hash 必须原样保留
+- 代码符号、命令、路径、环境变量必须原样保留`
+
 export const buildCompressionPrompt = (params: CompressionPromptParams): string => {
   const { conversationText, previousSummary } = params
 
@@ -14,6 +27,8 @@ ${previousSummary}
 
 新的对话内容：
 ${conversationText}
+
+${COMPACT_INSTRUCTIONS}
 
 要求：
 1. 将之前的摘要与新对话内容整合为一个连贯的摘要
@@ -36,6 +51,8 @@ Key facts:
   return `请将以下对话压缩为简洁的摘要，保留关键信息和上下文：
 
 ${conversationText}
+
+${COMPACT_INSTRUCTIONS}
 
 要求：
 1. 保留重要的事实、决策和结论

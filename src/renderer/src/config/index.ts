@@ -26,9 +26,7 @@ export const defaultConfig: IAppConfig = {
   },
   compression: {
     enabled: true,
-    triggerThreshold: 30,
-    keepRecentCount: 20,
-    compressCount: 10,
+    triggerTokenRatio: 0.7,
     autoCompress: true
   },
   emotion: {

@@ -6,4 +6,5 @@ export type PostRunJobInput = {
   messageBuffer: MessageEntity[]
   content: string
   modelContext: RunModelContext
+  usage?: ITokenUsage
 }
