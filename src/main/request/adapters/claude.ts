@@ -314,10 +314,10 @@ export class ClaudeAdapter extends BaseAdapter {
   }
 
   private transformClaudeTools(tools: any[]): any[] {
-    return tools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-      input_schema: tool.inputSchema
+    return this.transformToolDefinitions(tools).map(tool => ({
+      name: tool.function.name,
+      description: tool.function.description,
+      input_schema: tool.function.parameters
     }))
   }
 

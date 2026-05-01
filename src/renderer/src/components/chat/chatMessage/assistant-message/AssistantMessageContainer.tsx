@@ -200,7 +200,8 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
       modelProvider: renderState.header.modelProvider,
       emotionLabel: renderState.header.emotionLabel,
       emotionEmoji: renderState.header.emotionEmoji,
-      emotionIntensity: renderState.header.emotionIntensity
+      emotionIntensity: renderState.header.emotionIntensity,
+      toolCallReason: renderState.header.toolCallReason
     },
     badgeAnimate: isAssistantResponseActive && isLatest
   }), [
@@ -209,6 +210,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     renderState.header.emotionLabel,
     renderState.header.emotionEmoji,
     renderState.header.emotionIntensity,
+    renderState.header.toolCallReason,
     isAssistantResponseActive,
     isLatest
   ])

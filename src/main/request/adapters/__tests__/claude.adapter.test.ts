@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ClaudeAdapter } from '../claude'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
 vi.mock('@main/db/config', () => ({
   configDb: {
@@ -120,6 +121,36 @@ describe('ClaudeAdapter request mapping', () => {
 
     expect(requestBody.thinking).toEqual({ type: 'adaptive' })
     expect(requestBody.output_config).toEqual({ effort: 'xhigh' })
+  })
+
+  it('requires tool_call_reason in Claude tool schemas', () => {
+    const adapter = new ClaudeAdapter()
+    const requestBody = adapter.buildRequest({
+      adapterPluginId: 'claude-compatible-adapter',
+      baseUrl: 'https://api.anthropic.com/v1',
+      apiKey: 'test-key',
+      model: 'claude-sonnet-4-5',
+      stream: false,
+      messages: [{ role: 'user', content: 'hello', segments: [] }],
+      tools: [{
+        name: 'search',
+        description: 'Search',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' }
+          },
+          required: ['query']
+        }
+      }]
+    } as IUnifiedRequest)
+
+    const inputSchema = requestBody.tools[0].input_schema
+    expect(inputSchema.properties[TOOL_CALL_REASON_PARAMETER_NAME]).toEqual(expect.objectContaining({
+      type: 'string',
+      description: expect.stringContaining('same language the user is currently using')
+    }))
+    expect(inputSchema.required).toEqual(['query', TOOL_CALL_REASON_PARAMETER_NAME])
   })
 
   it('maps assistant tool_use -> tool_result -> final answer chain in Claude Messages format', () => {

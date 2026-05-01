@@ -3,6 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
 vi.mock('framer-motion', async () => {
   const React = await import('react')
@@ -29,13 +30,17 @@ vi.mock('framer-motion', async () => {
 
 import { ToolCallResultNextOutput } from '../toolcall/ToolCallResultNextOutput'
 
-const createToolCallSegment = (status: string, cost?: number): ToolCallSegment => ({
+const createToolCallSegment = (
+  status: string,
+  cost?: number,
+  args: Record<string, unknown> = { query: 'latest status' }
+): ToolCallSegment => ({
   type: 'toolCall',
   segmentId: 'committed:step-1:tool:tool-1',
   name: 'search',
   content: {
     toolName: 'search',
-    args: { query: 'latest status' },
+    args,
     status
   },
   isError: false,
@@ -87,5 +92,28 @@ describe('ToolCallResultNextOutput cost display', () => {
     })
 
     expect(container.textContent).toContain('1.680s')
+  })
+
+  it('keeps tool_call_reason out of the summary parameters', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResultNextOutput
+          toolCall={createToolCallSegment('completed', 1680, {
+            query: 'latest status',
+            [TOOL_CALL_REASON_PARAMETER_NAME]: 'Explain why search is needed before fetching live data.'
+          })}
+          index={0}
+        />
+      )
+    })
+
+    const trigger = container.querySelector('button')
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(container.textContent).toContain('latest status')
+    expect(container.textContent).not.toContain(TOOL_CALL_REASON_PARAMETER_NAME)
+    expect(container.textContent).not.toContain('Explain why search is needed')
   })
 })

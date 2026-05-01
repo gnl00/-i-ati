@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { mapAssistantMessage } from '../model/assistantMessageMapper'
 
 const textSegment = (id: string, content: string, timestamp = 1): TextSegment => ({
@@ -21,6 +22,9 @@ const toolCallSegment = (args: {
   toolCallId: string
   timestamp?: number
   transcriptVisible?: boolean
+  reason?: string
+  status?: string
+  result?: unknown
 }): ToolCallSegment => ({
   type: 'toolCall',
   segmentId: args.id,
@@ -31,7 +35,15 @@ const toolCallSegment = (args: {
   timestamp: args.timestamp ?? 3,
   content: {
     toolName: args.name,
-    status: 'completed'
+    status: args.status ?? 'completed',
+    ...(args.reason
+      ? {
+          args: JSON.stringify({
+            [TOOL_CALL_REASON_PARAMETER_NAME]: args.reason
+          })
+        }
+      : {}),
+    ...(args.result !== undefined ? { result: args.result } : {})
   },
   ...(args.transcriptVisible === false
     ? {
@@ -266,5 +278,79 @@ describe('mapAssistantMessage', () => {
       { id: 'preview-reasoning-1', isStreamingTail: false },
       { id: 'preview-reasoning-2', isStreamingTail: true }
     ])
+  })
+
+  it('projects the earliest non-terminal tool call reason into the header', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        model: 'gpt-5',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'tool-1',
+            name: 'read',
+            toolCallId: 'tool-1',
+            reason: 'Read first.',
+            status: 'success',
+            result: { ok: true }
+          }),
+          toolCallSegment({
+            id: 'tool-2',
+            name: 'search',
+            toolCallId: 'tool-2',
+            reason: 'Search second.',
+            status: 'running'
+          }),
+          toolCallSegment({
+            id: 'tool-3',
+            name: 'shell',
+            toolCallId: 'tool-3',
+            reason: 'Typecheck last.',
+            status: 'pending'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: true,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.header.toolCallReason).toEqual({
+      id: 'tool-2',
+      toolName: 'search',
+      reason: 'Search second.',
+      order: 1,
+      isTerminal: false
+    })
+  })
+
+  it('hides the header tool call reason after tool calls reach terminal status', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        model: 'gpt-5',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'tool-1',
+            name: 'read',
+            toolCallId: 'tool-1',
+            reason: 'Read first.',
+            status: 'success',
+            result: { ok: true }
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.header.toolCallReason).toBeUndefined()
   })
 })

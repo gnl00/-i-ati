@@ -1,6 +1,7 @@
 import { SpeedCodeHighlight } from '@renderer/components/chat/common/SpeedCodeHighlight'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
 import { Braces, Check, ChevronDown, Clipboard, Loader2, Wrench, X } from 'lucide-react'
@@ -19,6 +20,10 @@ type ToolCallRenderContent = Record<string, unknown> | undefined
 const TOOL_COST_TICK_MS = 1000
 const TOOL_COST_REDUCED_TICK_MS = 250
 const TOOL_COST_SETTLE_MS = 360
+
+function filterDisplayParamEntries(entries: Array<[string, unknown]>): Array<[string, unknown]> {
+  return entries.filter(([key]) => key !== TOOL_CALL_REASON_PARAMETER_NAME)
+}
 
 function formatToolCost(costMs: number): string {
   return `${(Math.max(0, costMs) / 1000).toFixed(3)}s`
@@ -276,14 +281,14 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
       try {
         const parsed = JSON.parse(args)
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          return Object.entries(parsed) as Array<[string, unknown]>
+          return filterDisplayParamEntries(Object.entries(parsed) as Array<[string, unknown]>)
         }
       } catch {
         return [['input', args]] as Array<[string, unknown]>
       }
       return []
     }
-    return Object.entries(args) as Array<[string, unknown]>
+    return filterDisplayParamEntries(Object.entries(args) as Array<[string, unknown]>)
   }, [shouldPrepareSummary, toolResponse?.args])
 
   const contentString = useMemo(() => {

@@ -1,6 +1,7 @@
 import { configDb } from '@main/db/config'
 import { createLogger } from '@main/logging/LogService'
 import type { RequestAdapterStreamProtocol } from '@shared/plugins/requestAdapterHooks'
+import { withToolCallReasonParameters } from '@shared/tools/definitions-utils'
 
 const logger = createLogger('BaseAdapter')
 
@@ -149,7 +150,7 @@ export abstract class BaseAdapter {
           function: {
             name: tool.function.name,
             description: tool.function.description,
-            parameters: tool.function.parameters || tool.function.inputSchema
+            parameters: withToolCallReasonParameters(tool.function.parameters || tool.function.inputSchema)
           }
         }
       }
@@ -160,7 +161,7 @@ export abstract class BaseAdapter {
         function: {
           name: tool.name,
           description: tool.description,
-          parameters: tool.inputSchema || tool.parameters
+          parameters: withToolCallReasonParameters(tool.inputSchema || tool.parameters)
         }
       }
     })

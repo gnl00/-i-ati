@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import { embeddedToolsRegistry, type ToolDefinition, type EmbeddedToolMetadata } from '../registry'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '../definitions-utils'
 
 const embeddedTool: ToolDefinition = {
   type: 'function',
@@ -82,5 +83,15 @@ describe('EmbeddedToolsRegistry', () => {
     embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool, embeddedMetadata)
 
     expect(embeddedToolsRegistry.getToolMetadata(embeddedTool.function.name)).toEqual(embeddedMetadata)
+  })
+
+  it('adds required tool_call_reason to registered embedded and external definitions', () => {
+    embeddedToolsRegistry.register(embeddedTool.function.name, async () => ({}), embeddedTool, embeddedMetadata)
+    embeddedToolsRegistry.registerExternal(externalTool.function.name, externalTool)
+
+    expect(embeddedToolsRegistry.getTool(embeddedTool.function.name)?.function.parameters.required)
+      .toContain(TOOL_CALL_REASON_PARAMETER_NAME)
+    expect(embeddedToolsRegistry.getTools([externalTool.function.name])[0].function.parameters.required)
+      .toContain(TOOL_CALL_REASON_PARAMETER_NAME)
   })
 })

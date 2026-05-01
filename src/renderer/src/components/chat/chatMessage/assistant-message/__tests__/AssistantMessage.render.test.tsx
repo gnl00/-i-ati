@@ -8,6 +8,7 @@ import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 
 const toolCallRenderCounts = new Map<string, number>()
 let headerRenderCount = 0
+let latestModelBadgeProps: Record<string, unknown> | null = null
 
 vi.mock('@renderer/hooks/useChatRun', () => ({
   default: () => ({
@@ -41,8 +42,9 @@ vi.mock('../CommandConfirmation', () => ({
 }))
 
 vi.mock('../model-badge/ModelBadgeNext', () => ({
-  ModelBadgeNext: () => {
+  ModelBadgeNext: (props: Record<string, unknown>) => {
     headerRenderCount += 1
+    latestModelBadgeProps = props
     return null
   }
 }))
@@ -100,13 +102,17 @@ const toolCallSegment = (args: {
   name?: string
   status?: string
   timestamp?: number
+  reason?: string
 }): ToolCallSegment => ({
   type: 'toolCall',
   segmentId: args.id,
   name: args.name ?? 'read',
   content: {
     toolName: args.name ?? 'read',
-    args: '{"path":"README.md"}',
+    args: JSON.stringify({
+      path: 'README.md',
+      ...(args.reason ? { tool_call_reason: args.reason } : {})
+    }),
     status: args.status ?? 'pending'
   },
   isError: false,
@@ -129,6 +135,7 @@ describe('AssistantMessage render isolation', () => {
 beforeEach(() => {
   toolCallRenderCounts.clear()
   headerRenderCount = 0
+  latestModelBadgeProps = null
   ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   container = document.createElement('div')
   document.body.appendChild(container)
@@ -395,5 +402,37 @@ beforeEach(() => {
     })
 
     expect(headerRenderCount).toBe(1)
+  })
+
+  it('passes the active tool call reason to the model badge', async () => {
+    await act(async () => {
+      root.render(
+        <AssistantMessage
+          index={0}
+          committedMessage={{
+            ...createAssistantMessage([
+              toolCallSegment({
+                id: 'committed:step-1:tool:tool-1',
+                toolCallId: 'tool-1',
+                reason: 'Inspect the current layout implementation.'
+              })
+            ], ''),
+            model: 'gpt-5'
+          }}
+          isLatest={true}
+          isHovered={false}
+          onHover={() => {}}
+          onCopyClick={() => {}}
+        />
+      )
+    })
+
+    expect(latestModelBadgeProps?.toolCallReason).toEqual({
+      id: 'tool-1',
+      toolName: 'read',
+      reason: 'Inspect the current layout implementation.',
+      order: 0,
+      isTerminal: false
+    })
   })
 })

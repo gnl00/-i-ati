@@ -4,6 +4,7 @@
  */
 
 import type { EmbeddedToolMetadata } from './metadata-types'
+import { withToolCallReasonDefinition } from './definitions-utils'
 
 export type { EmbeddedToolMetadata } from './metadata-types'
 export type ToolSource = 'embedded' | 'mcp'
@@ -39,10 +40,10 @@ class EmbeddedToolsRegistry {
     metadata?: EmbeddedToolMetadata
   ): void {
     const normalizedDefinition = definition
-      ? {
+      ? withToolCallReasonDefinition({
           ...definition,
           source: definition.source ?? 'embedded'
-        }
+        })
       : undefined
 
     this.tools.set(toolName, {
@@ -59,10 +60,10 @@ class EmbeddedToolsRegistry {
    * 外部工具没有 handler，只有定义
    */
   registerExternal(toolName: string, definition: ToolDefinition): void {
-    this.externalTools.set(toolName, {
+    this.externalTools.set(toolName, withToolCallReasonDefinition({
       ...definition,
       source: definition.source ?? 'mcp'
-    })
+    }))
     console.log(`[EmbeddedToolsRegistry] Registered external tool: ${toolName}`)
   }
 

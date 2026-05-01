@@ -1,9 +1,10 @@
 import React from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { getEmotionAssetUrl } from '@renderer/assets/emotions/emotionAssetUrls'
 import { cn } from '@renderer/lib/utils'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { ModelBadgeNextIcon } from './ModelBadgeNextIcon'
+import type { ToolCallReasonItem } from '../model/toolCallReason'
 
 interface ModelBadgeNextProps {
   model: string
@@ -12,6 +13,7 @@ interface ModelBadgeNextProps {
   emotionLabel?: string
   emotionEmoji?: string
   emotionIntensity?: number
+  toolCallReason?: ToolCallReasonItem
 }
 
 export const ModelBadgeNext: React.FC<ModelBadgeNextProps> = ({
@@ -20,21 +22,34 @@ export const ModelBadgeNext: React.FC<ModelBadgeNextProps> = ({
   animate = false,
   emotionLabel,
   emotionEmoji,
-  emotionIntensity
+  emotionIntensity,
+  toolCallReason
 }) => {
   const emotionAssetPack = useAppConfigStore(state => state.appConfig.emotion?.assetPack || 'default')
+  const shouldReduceMotion = useReducedMotion()
   const [assetFailed, setAssetFailed] = React.useState(false)
   const emotionAssetUrl = getEmotionAssetUrl(emotionAssetPack, emotionLabel, emotionIntensity)
   const shouldRenderAsset = Boolean(emotionAssetUrl) && !assetFailed
   const emotionKey = `${emotionLabel || ''}:${emotionIntensity || ''}:${emotionEmoji || ''}`
+  const toolCallReasonText = toolCallReason?.reason.trim()
+  const toolCallReasonKey = toolCallReasonText
+    ? `${toolCallReason?.id ?? 'tool-call-reason'}:${toolCallReasonText}`
+    : undefined
 
   React.useEffect(() => {
     setAssetFailed(false)
   }, [emotionAssetUrl, emotionIntensity, emotionEmoji])
 
   return (
-    <div
+    <motion.div
       id="model-badge"
+      layout={!shouldReduceMotion}
+      transition={{
+        layout: {
+          duration: shouldReduceMotion ? 0 : 0.26,
+          ease: [0.22, 1, 0.36, 1]
+        }
+      }}
       className={cn(
         'inline-flex max-w-full items-center gap-2.5 mb-2 px-2.5 py-1.25 rounded-2xl',
         'select-none tracking-tight',
@@ -46,9 +61,48 @@ export const ModelBadgeNext: React.FC<ModelBadgeNextProps> = ({
     >
       <ModelBadgeNextIcon provider={provider} model={model} animate={animate} />
 
-      <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-100 uppercase">
+      <span className="shrink-0 text-[10.5px] font-semibold text-slate-700 dark:text-slate-100 uppercase">
         {model}
       </span>
+      <AnimatePresence initial={false} mode="popLayout">
+        {toolCallReasonText && (
+          <motion.span
+            id="tool-call-reason"
+            key={toolCallReasonKey}
+            layout={!shouldReduceMotion}
+            initial={shouldReduceMotion
+              ? { opacity: 0 }
+              : {
+                  opacity: 0,
+                  x: -8,
+                  clipPath: 'inset(0 100% 0 0)'
+                }}
+            animate={shouldReduceMotion
+              ? { opacity: 1 }
+              : {
+                  opacity: 1,
+                  x: 0,
+                  clipPath: 'inset(0 0% 0 0)'
+                }}
+            exit={shouldReduceMotion
+              ? { opacity: 0 }
+              : {
+                  opacity: 0,
+                  x: 8,
+                  clipPath: 'inset(0 0 0 100%)'
+                }}
+            transition={shouldReduceMotion
+              ? { duration: 0.01 }
+              : { duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            className="relative inline-flex min-w-0 max-w-[520px] overflow-hidden text-xs leading-5 text-muted-foreground will-change-transform"
+            title={toolCallReasonText}
+          >
+            <span className="block min-w-0 truncate whitespace-nowrap">
+              {toolCallReasonText}
+            </span>
+          </motion.span>
+        )}
+      </AnimatePresence>
       <AnimatePresence initial={false} mode="popLayout">
         {(shouldRenderAsset || emotionEmoji) && (
           <motion.span
@@ -64,7 +118,7 @@ export const ModelBadgeNext: React.FC<ModelBadgeNextProps> = ({
               mass: 0.68
             }}
             className={cn(
-              'inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full',
+              'inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full',
               'origin-center will-change-transform'
             )}
             aria-label="emotion"
@@ -84,6 +138,6 @@ export const ModelBadgeNext: React.FC<ModelBadgeNextProps> = ({
           </motion.span>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   )
 }

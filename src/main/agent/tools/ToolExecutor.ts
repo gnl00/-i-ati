@@ -1,6 +1,7 @@
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { assessExecuteCommandReview } from '@main/tools/command/risk'
 import { embeddedToolsRegistry } from '@tools/registry'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 import { v4 as uuidv4 } from 'uuid'
 import type { ToolCallProps } from '@main/agent/contracts'
@@ -219,7 +220,7 @@ export class ToolExecutor implements IToolExecutor {
     }
 
     if (embeddedToolsRegistry.isRegistered(toolName)) {
-      const safeArgs = runtimeArgs ?? this.normalizeArgs(call)
+      const safeArgs = this.stripToolCallReason(runtimeArgs ?? this.normalizeArgs(call))
       const handler = embeddedToolsRegistry.getHandler(toolName)
       if (!handler) {
         throw new Error(`Tool "${toolName}" is not registered`)
@@ -228,7 +229,7 @@ export class ToolExecutor implements IToolExecutor {
     }
 
     const callId = call.id || `call_${uuidv4()}`
-    const safeArgs = runtimeArgs ?? this.normalizeArgs(call)
+    const safeArgs = this.stripToolCallReason(runtimeArgs ?? this.normalizeArgs(call))
     return await mcpRuntimeService.callTool(callId, toolName, safeArgs as { [x: string]: unknown })
   }
 
@@ -238,6 +239,20 @@ export class ToolExecutor implements IToolExecutor {
       : call.args
     const normalizedArgs = normalizeToolArgs(args)
     return this.applyRuntimeContext(normalizedArgs, call.function)
+  }
+
+  private stripToolCallReason(args: any): any {
+    if (!args || typeof args !== 'object' || Array.isArray(args)) {
+      return args
+    }
+
+    if (!(TOOL_CALL_REASON_PARAMETER_NAME in args)) {
+      return args
+    }
+
+    const cleanArgs = { ...args }
+    delete cleanArgs[TOOL_CALL_REASON_PARAMETER_NAME]
+    return cleanArgs
   }
 
   private parseArgsString(rawArgs: string): any {

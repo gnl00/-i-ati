@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ToolExecutor } from '../ToolExecutor'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
 const {
   handlerMock,
@@ -217,6 +218,46 @@ describe('ToolExecutor runtime context', () => {
     const firstCall = mcpCallToolMock.mock.calls[0] as unknown as [string, string, Record<string, unknown>]
     const callArgs = firstCall[2]
     expect(callArgs).toEqual({
+      text: 'hello'
+    })
+  })
+
+  it('strips tool_call_reason before embedded and mcp execution', async () => {
+    handlerMock.mockClear()
+    mcpCallToolMock.mockClear()
+    getToolSourceMock.mockReturnValueOnce('mcp')
+
+    const executor = new ToolExecutor()
+
+    await executor.execute([
+      {
+        id: 'call-5d',
+        function: 'execute_command',
+        args: JSON.stringify({
+          command: 'pwd',
+          execution_reason: 'Check working directory',
+          possible_risk: 'Low risk',
+          risk_score: 0,
+          [TOOL_CALL_REASON_PARAMETER_NAME]: 'Need to inspect the active working directory.'
+        })
+      } as any,
+      {
+        id: 'call-5e',
+        function: 'mcp_echo',
+        args: JSON.stringify({
+          text: 'hello',
+          [TOOL_CALL_REASON_PARAMETER_NAME]: 'Need to echo text through the MCP server.'
+        })
+      } as any
+    ])
+
+    expect(handlerMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+      command: 'pwd',
+      execution_reason: 'Check working directory'
+    }))
+    expect(handlerMock.mock.calls[0][0]).not.toHaveProperty(TOOL_CALL_REASON_PARAMETER_NAME)
+    const mcpCall = mcpCallToolMock.mock.calls[0] as unknown as [string, string, Record<string, unknown>]
+    expect(mcpCall[2]).toEqual({
       text: 'hello'
     })
   })

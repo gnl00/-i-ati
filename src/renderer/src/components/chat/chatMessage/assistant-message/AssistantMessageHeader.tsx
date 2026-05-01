@@ -28,6 +28,7 @@ export const AssistantMessageHeader: React.FC<AssistantMessageHeaderProps> = mem
       emotionLabel={header.emotionLabel}
       emotionEmoji={header.emotionEmoji}
       emotionIntensity={header.emotionIntensity}
+      toolCallReason={header.toolCallReason}
     />
   )
 })
