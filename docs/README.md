@@ -48,3 +48,5 @@
   - [chat-submit-event-bus.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-submit-event-bus.md)
 - 日志系统：
   - [logging-system.md](/Users/gnl/Workspace/code/-i-ati/docs/internal/logging-system.md)
+- File edit tool 优化：
+  - [file-edit-tool-optimization.md](/Users/gnl/Workspace/code/-i-ati/docs/integrations/file-edit-tool-optimization.md)
