@@ -2,7 +2,7 @@ import { ModelBadgeV2 } from '@renderer/components/chat/chatMessage/assistant-me
 import { ModelBadgeV3 } from '@renderer/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeV3'
 import { ModelBadgeNext } from '@renderer/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeNext'
 import { ReasoningSegmentNext } from '@renderer/components/chat/chatMessage/assistant-message/segments/ReasoningSegmentNext'
-import { ToolCallResultNextOutput } from '@renderer/components/chat/chatMessage/assistant-message/toolcall/ToolCallResultNextOutput'
+import { ToolCallResult } from '@renderer/components/chat/chatMessage/assistant-message/toolcall/ToolCallResult'
 
 const mockReasoningSegment: ReasoningSegment = {
   segmentId: 'model-badge-test:reasoning:1',
@@ -73,7 +73,7 @@ function DemoAssistantBubble({
           isStreaming={false}
         />
 
-        <ToolCallResultNextOutput toolCall={mockToolCallSegment} index={0} />
+        <ToolCallResult toolCall={mockToolCallSegment} index={0} />
       </div>
     </div>
   )
@@ -183,7 +183,7 @@ export default function ModelBadgeTestPage() {
                 isStreaming={false}
               />
             )}
-            toolcall={<ToolCallResultNextOutput toolCall={mockToolCallSegment} index={0} />}
+            toolcall={<ToolCallResult toolCall={mockToolCallSegment} index={0} />}
           />
           <DemoAssistantStack
             title="Matched Stack With ModelBadgeNext"
@@ -194,7 +194,7 @@ export default function ModelBadgeTestPage() {
                 isStreaming={false}
               />
             )}
-            toolcall={<ToolCallResultNextOutput toolCall={mockToolCallSegment} index={0} />}
+            toolcall={<ToolCallResult toolCall={mockToolCallSegment} index={0} />}
           />
         </div>
 
@@ -203,13 +203,13 @@ export default function ModelBadgeTestPage() {
             Output Header Variant
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
-            Compare the current `Next` tool call card against an output-header-focused variant.
+            Compare the current `ToolCallResult` card against an output-header-focused variant.
           </h2>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
           <DemoAssistantStack
-            title="ToolCallResultNextOutput"
+            title="ToolCallResult"
             badge={<ModelBadgeNext model="MiniMax-M2.5" provider="minimax" animate />}
             reasoning={(
               <ReasoningSegmentNext
@@ -217,7 +217,7 @@ export default function ModelBadgeTestPage() {
                 isStreaming={false}
               />
             )}
-            toolcall={<ToolCallResultNextOutput toolCall={mockToolCallSegment} index={0} />}
+            toolcall={<ToolCallResult toolCall={mockToolCallSegment} index={0} />}
           />
         </div>
       </div>

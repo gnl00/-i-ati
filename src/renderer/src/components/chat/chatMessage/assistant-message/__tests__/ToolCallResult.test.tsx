@@ -28,7 +28,7 @@ vi.mock('framer-motion', async () => {
   }
 })
 
-import { ToolCallResultNextOutput } from '../toolcall/ToolCallResultNextOutput'
+import { ToolCallResult } from '../toolcall/ToolCallResult'
 
 const createToolCallSegment = (
   status: string,
@@ -50,7 +50,7 @@ const createToolCallSegment = (
   ...(typeof cost === 'number' ? { cost } : {})
 })
 
-describe('ToolCallResultNextOutput cost display', () => {
+describe('ToolCallResult cost display', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -72,7 +72,7 @@ describe('ToolCallResultNextOutput cost display', () => {
 
   it('increments while running and settles on the final cost', async () => {
     await act(async () => {
-      root.render(<ToolCallResultNextOutput toolCall={createToolCallSegment('running')} index={0} />)
+      root.render(<ToolCallResult toolCall={createToolCallSegment('running')} index={0} />)
     })
 
     expect(container.textContent).toContain('0.000s')
@@ -84,7 +84,7 @@ describe('ToolCallResultNextOutput cost display', () => {
     expect(container.textContent).toContain('1.000s')
 
     await act(async () => {
-      root.render(<ToolCallResultNextOutput toolCall={createToolCallSegment('completed', 1680)} index={0} />)
+      root.render(<ToolCallResult toolCall={createToolCallSegment('completed', 1680)} index={0} />)
     })
 
     await act(async () => {
@@ -97,7 +97,7 @@ describe('ToolCallResultNextOutput cost display', () => {
   it('keeps tool_call_reason out of the summary parameters', async () => {
     await act(async () => {
       root.render(
-        <ToolCallResultNextOutput
+        <ToolCallResult
           toolCall={createToolCallSegment('completed', 1680, {
             query: 'latest status',
             [TOOL_CALL_REASON_PARAMETER_NAME]: 'Explain why search is needed before fetching live data.'

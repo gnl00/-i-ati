@@ -67,10 +67,10 @@ vi.mock('../typewriter/StreamingMarkdownSwitch', () => ({
   )
 }))
 
-vi.mock('../toolcall/ToolCallResultNextOutput', async () => {
+vi.mock('../toolcall/ToolCallResult', async () => {
   const React = await import('react')
 
-  const ToolCallResultNextOutput = React.memo(({
+  const ToolCallResult = React.memo(({
     toolCall
   }: {
     toolCall: ToolCallSegment
@@ -82,7 +82,7 @@ vi.mock('../toolcall/ToolCallResultNextOutput', async () => {
   })
 
   return {
-    ToolCallResultNextOutput
+    ToolCallResult
   }
 })
 

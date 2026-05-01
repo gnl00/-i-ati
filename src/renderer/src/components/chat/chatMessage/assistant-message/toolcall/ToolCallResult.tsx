@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
 
-interface ToolCallResultNextOutputProps {
+interface ToolCallResultProps {
   toolCall: ToolCallSegment
   index: number
 }
@@ -204,7 +204,7 @@ function SegmentedToggle({
   )
 }
 
-const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps> = ({ toolCall: tc }) => {
+const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }) => {
   const [openItem, setOpenItem] = useState<string>('')
   const [showDetails, setShowDetails] = useState(false)
   const isOpen = openItem === 'tool-result'
@@ -541,7 +541,7 @@ const ToolCallResultNextOutputComponent: React.FC<ToolCallResultNextOutputProps>
   )
 }
 
-export const ToolCallResultNextOutput = React.memo(
-  ToolCallResultNextOutputComponent,
+export const ToolCallResult = React.memo(
+  ToolCallResultComponent,
   (prevProps, nextProps) => areToolCallSegmentsEqual(prevProps.toolCall, nextProps.toolCall)
 )
