@@ -1,5 +1,27 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
+
+const {
+  rendererLoggerError
+} = vi.hoisted(() => ({
+  rendererLoggerError: vi.fn()
+}))
+
+vi.mock('@renderer/services/logging/rendererLogger', () => ({
+  createRendererLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: rendererLoggerError
+  })),
+  createRendererPerfLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }))
+}))
+
 import {
   PreviewPatchBatcher,
   compactPreviewSegmentPatches
@@ -128,5 +150,67 @@ describe('PreviewPatchBatcher', () => {
     expect(applyPatches.mock.calls[0]?.[0]).toEqual([
       textPatch('text-1', 'hello')
     ])
+  })
+
+  it('binds the default frame scheduler to the global target', () => {
+    const globalWithFrames = globalThis as typeof globalThis & {
+      requestAnimationFrame?: (callback: FrameRequestCallback) => number
+      cancelAnimationFrame?: (handle: number) => void
+    }
+    const originalRequestAnimationFrame = globalWithFrames.requestAnimationFrame
+    const originalCancelAnimationFrame = globalWithFrames.cancelAnimationFrame
+    const applyPatches = vi.fn()
+
+    globalWithFrames.requestAnimationFrame = function (callback: FrameRequestCallback) {
+      expect(this).toBe(globalThis)
+      callback(0)
+      return 1
+    }
+    globalWithFrames.cancelAnimationFrame = vi.fn()
+
+    try {
+      const batcher = new PreviewPatchBatcher({
+        applyPatches
+      })
+
+      expect(() => batcher.enqueue(textPatch('text-1', 'hello'))).not.toThrow()
+      expect(applyPatches).toHaveBeenCalledWith([
+        textPatch('text-1', 'hello')
+      ])
+    } finally {
+      globalWithFrames.requestAnimationFrame = originalRequestAnimationFrame
+      globalWithFrames.cancelAnimationFrame = originalCancelAnimationFrame
+    }
+  })
+
+  it('flushes queued patches synchronously when scheduling fails', () => {
+    rendererLoggerError.mockReset()
+    const applyPatches = vi.fn()
+    const batcher = new PreviewPatchBatcher({
+      applyPatches,
+      schedule: () => {
+        throw new TypeError('Illegal invocation')
+      },
+      cancel: vi.fn()
+    })
+
+    expect(() => batcher.enqueue(textPatch('text-1', 'hello'))).not.toThrow()
+    expect(applyPatches).toHaveBeenCalledTimes(1)
+    expect(applyPatches).toHaveBeenCalledWith([
+      textPatch('text-1', 'hello')
+    ])
+    expect(rendererLoggerError).toHaveBeenCalledWith(
+      'assistant_streaming.preview_patch_batch.schedule_failed',
+      expect.objectContaining({
+        pendingPatchCount: 1,
+        segmentId: 'text-1',
+        segmentType: 'text',
+        textLength: 5,
+        error: expect.objectContaining({
+          name: 'TypeError',
+          message: 'Illegal invocation'
+        })
+      })
+    )
   })
 })

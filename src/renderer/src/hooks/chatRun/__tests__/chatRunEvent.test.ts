@@ -29,13 +29,28 @@ const {
   flushAssistantStreamingPreviewPatchBatchSummary: vi.fn()
 }))
 
+const {
+  rendererLoggerError
+} = vi.hoisted(() => ({
+  rendererLoggerError: vi.fn()
+}))
+
+vi.mock('@renderer/services/logging/rendererLogger', () => ({
+  createRendererLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: rendererLoggerError
+  }))
+}))
+
 vi.mock('@renderer/components/chat/chatMessage/typewriter/assistantStreamingPerf', () => ({
   scheduleAssistantStreamingPerfRecentSessionFlush,
   recordAssistantStreamingPreviewPatchBatch,
   flushAssistantStreamingPreviewPatchBatchSummary
 }))
 
-import { handleChatRunEvent } from '../chatRunEvent'
+import { handleChatRunEvent, handleChatRunEventSafely } from '../chatRunEvent'
 
 function createInput() {
   return {
@@ -75,6 +90,7 @@ describe('handleChatRunEvent', () => {
     latestStore.updateLastAssistantMessageWithError.mockReset()
     latestStore.settleLatestAssistantAfterAbort.mockReset()
     scheduleAssistantStreamingPerfRecentSessionFlush.mockReset()
+    rendererLoggerError.mockReset()
   })
 
   it('uses the latest store state when handling user message creation', async () => {
@@ -249,6 +265,60 @@ describe('handleChatRunEvent', () => {
 
     expect(enqueue).toHaveBeenCalledWith(patch)
     expect(input.chatStore.applyPreviewSegmentPatch).not.toHaveBeenCalled()
+  })
+
+  it('logs event handler failures without rejecting the run event subscription', async () => {
+    const enqueueError = new TypeError('Illegal invocation')
+    const input = {
+      ...createInput(),
+      previewPatchBatcher: {
+        enqueue: vi.fn(() => {
+          throw enqueueError
+        }),
+        flush: vi.fn(),
+        flushPerfSummary: vi.fn()
+      }
+    } as unknown as Parameters<typeof handleChatRunEvent>[0]
+    const patch: MessageSegmentPatch = {
+      segment: {
+        type: 'text',
+        segmentId: 'seg-1',
+        content: 'partial',
+        timestamp: 1
+      }
+    }
+
+    await expect(handleChatRunEventSafely(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_RENDER_EVENTS.PREVIEW_SEGMENT_UPDATED,
+      payload: {
+        chatId: 1,
+        chatUuid: 'chat-1',
+        patch
+      }
+    })).resolves.toBeUndefined()
+
+    expect(rendererLoggerError).toHaveBeenCalledWith(
+      'chat_run.event_handler_failed',
+      expect.objectContaining({
+        type: CHAT_RENDER_EVENTS.PREVIEW_SEGMENT_UPDATED,
+        submissionId: 'submission-1',
+        sequence: 1,
+        chatId: 1,
+        chatUuid: 'chat-1',
+        segmentId: 'seg-1',
+        segmentType: 'text',
+        textLength: 'partial'.length,
+        error: expect.objectContaining({
+          name: 'TypeError',
+          message: 'Illegal invocation'
+        })
+      })
+    )
   })
 
   it('flushes pending preview patches before run completion cleanup', async () => {

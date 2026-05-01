@@ -8,7 +8,7 @@ export type AssistantStreamingPerfFlushReason =
   | 'run_failed'
   | 'run_aborted'
 
-type PreviewPatchBatchFlushReason = 'raf' | 'sync' | AssistantStreamingPerfFlushReason
+type PreviewPatchBatchFlushReason = 'raf' | 'sync' | 'schedule_error' | AssistantStreamingPerfFlushReason
 
 interface AssistantStreamingPerfSession {
   sessionId: string

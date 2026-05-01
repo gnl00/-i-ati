@@ -1,4 +1,5 @@
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
+import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import {
   recordAssistantStreamingPreviewPatchBatch,
   flushAssistantStreamingPreviewPatchBatchSummary,
@@ -7,6 +8,9 @@ import {
 
 type PatchScheduler = (callback: () => void) => number
 type PatchCanceller = (handle: number) => void
+type PreviewPatchBatcherFlushReason = 'raf' | 'sync' | 'schedule_error'
+
+const logger = createRendererLogger('PreviewPatchBatcher')
 
 export type PreviewPatchBatcherOptions = {
   applyPatches: (patches: MessageSegmentPatch[]) => void
@@ -19,17 +23,44 @@ const getPatchSegmentIdentity = (patch: MessageSegmentPatch): string => {
   return patch.segment.segmentId || `${patch.segment.type}:${'timestamp' in patch.segment ? patch.segment.timestamp : 'unknown'}`
 }
 
+function normalizeUnknownError(error: unknown): { name?: string; message: string; stack?: string } {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    }
+  }
+
+  return {
+    message: String(error)
+  }
+}
+
+function getPatchTextLength(patch: MessageSegmentPatch): number | undefined {
+  const segment = patch.segment
+  if ((segment.type === 'text' || segment.type === 'reasoning') && typeof segment.content === 'string') {
+    return segment.content.length
+  }
+  if (typeof patch.content === 'string') {
+    return patch.content.length
+  }
+  return undefined
+}
+
 function getDefaultScheduler(): PatchScheduler {
-  if (typeof requestAnimationFrame === 'function') {
-    return requestAnimationFrame
+  const frameTarget = typeof window !== 'undefined' ? window : globalThis
+  if (typeof frameTarget.requestAnimationFrame === 'function') {
+    return (callback) => frameTarget.requestAnimationFrame(callback)
   }
 
   return (callback) => globalThis.setTimeout(callback, 16) as unknown as number
 }
 
 function getDefaultCanceller(): PatchCanceller {
-  if (typeof cancelAnimationFrame === 'function') {
-    return cancelAnimationFrame
+  const frameTarget = typeof window !== 'undefined' ? window : globalThis
+  if (typeof frameTarget.cancelAnimationFrame === 'function') {
+    return (handle) => frameTarget.cancelAnimationFrame(handle)
   }
 
   return (handle) => globalThis.clearTimeout(handle)
@@ -94,13 +125,25 @@ export class PreviewPatchBatcher {
 
     if (this.scheduledHandle !== 0) return
 
-    this.scheduledHandle = this.schedule(() => {
+    try {
+      this.scheduledHandle = this.schedule(() => {
+        this.scheduledHandle = 0
+        this.flush('raf')
+      })
+    } catch (error) {
       this.scheduledHandle = 0
-      this.flush('raf')
-    })
+      logger.error('assistant_streaming.preview_patch_batch.schedule_failed', {
+        error: normalizeUnknownError(error),
+        pendingPatchCount: this.patches.length,
+        segmentId: getPatchSegmentIdentity(patch),
+        segmentType: patch.segment.type,
+        textLength: getPatchTextLength(patch)
+      })
+      this.flush('schedule_error')
+    }
   }
 
-  flush(reason: 'raf' | 'sync' = 'sync'): void {
+  flush(reason: PreviewPatchBatcherFlushReason = 'sync'): void {
     if (this.patches.length === 0) return
 
     const pending = this.patches

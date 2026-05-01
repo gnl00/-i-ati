@@ -13,6 +13,7 @@ const originalConsole: Record<LogLevel, ConsoleMethod> = {
 let installed = false
 
 function canUseIPC(): boolean {
+  if (typeof window === 'undefined') return false
   return Boolean((window as any).electron?.ipcRenderer)
 }
 

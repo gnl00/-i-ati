@@ -1,8 +1,10 @@
 import { subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
 import { useChatStore } from '@renderer/store/chatStore'
+import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import { scheduleAssistantStreamingPerfRecentSessionFlush } from '@renderer/components/chat/chatMessage/typewriter/assistantStreamingPerf'
 import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
+import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
 import type { RunEvent } from '@shared/run/events'
@@ -20,6 +22,8 @@ type ChatStoreState = ReturnType<typeof useChatStore.getState>
 
 type ChatRunLifecycleOutcome = 'idle' | 'completed' | 'failed' | 'aborted'
 
+const logger = createRendererLogger('ChatRunEvent')
+
 type BindChatRunEventsInput = {
   submissionId: string
   chatStore: ChatStoreState
@@ -34,6 +38,42 @@ type BindChatRunEventsInput = {
 }
 
 const getLatestChatStore = (): ChatStoreState => useChatStore.getState()
+
+function normalizeUnknownError(error: unknown): { name?: string; message: string; stack?: string } {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    }
+  }
+
+  return {
+    message: String(error)
+  }
+}
+
+function getRunEventLogContext(event: RunEvent, error: unknown): Record<string, unknown> {
+  const payload = 'payload' in event ? event.payload : undefined
+  const patch = payload && typeof payload === 'object' && 'patch' in payload
+    ? (payload.patch as MessageSegmentPatch | undefined)
+    : undefined
+  const segment = patch?.segment
+
+  return {
+    error: normalizeUnknownError(error),
+    type: event.type,
+    submissionId: event.submissionId,
+    sequence: event.sequence,
+    chatId: event.chatId,
+    chatUuid: event.chatUuid,
+    segmentId: segment?.segmentId,
+    segmentType: segment?.type,
+    textLength: segment && (segment.type === 'text' || segment.type === 'reasoning')
+      ? segment.content.length
+      : undefined
+  }
+}
 
 function handleChatReady(chatStore: ChatStoreState, event: Extract<RunEvent, { type: typeof CHAT_HOST_EVENTS.CHAT_READY }>): void {
   chatStore.applyReadyChat(event.payload.chatEntity)
@@ -270,6 +310,17 @@ export async function handleChatRunEvent(
   }
 }
 
+export async function handleChatRunEventSafely(
+  input: BindChatRunEventsInput,
+  event: RunEvent
+): Promise<void> {
+  try {
+    await handleChatRunEvent(input, event)
+  } catch (error) {
+    logger.error('chat_run.event_handler_failed', getRunEventLogContext(event, error))
+  }
+}
+
 export function bindChatRunEvents(input: BindChatRunEventsInput): () => void {
   const previewPatchBatcher = new PreviewPatchBatcher({
     applyPatches: (patches) => {
@@ -282,7 +333,7 @@ export function bindChatRunEvents(input: BindChatRunEventsInput): () => void {
   }
 
   const unsubscribe = subscribeRunEvents((event: RunEvent) => {
-    void handleChatRunEvent(boundInput, event)
+    void handleChatRunEventSafely(boundInput, event)
   })
 
   return () => {
