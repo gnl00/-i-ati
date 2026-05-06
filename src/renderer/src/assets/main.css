@@ -160,7 +160,7 @@
   }
 
   .app-undragable {
-    -webkit-app-region: none;
+    -webkit-app-region: no-drag;
   }
 
   .resize-animation {

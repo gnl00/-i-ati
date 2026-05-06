@@ -12,7 +12,7 @@ export default () => {
     }, [])
 
     return (
-        <div className="div-app app-dragable flex flex-col">
+        <div className="div-app flex flex-col">
             <Toaster />
             <SonnerToaster
                 richColors

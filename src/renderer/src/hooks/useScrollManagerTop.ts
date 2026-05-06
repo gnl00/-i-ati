@@ -7,6 +7,7 @@ export type UserScrollSource = 'wheel' | 'pointer'
 interface UseScrollManagerTopProps {
   messagesLength: number
   chatUuid?: string
+  scrollStartOffsetPx?: number
   onUserScrollIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
   onUserScrollUpIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
   suppressScrollIntentRef?: RefObject<boolean>
@@ -30,6 +31,7 @@ interface UseScrollManagerTopReturn {
 export function useScrollManagerTop({
   messagesLength,
   chatUuid,
+  scrollStartOffsetPx = 0,
   onUserScrollIntentRef,
   onUserScrollUpIntentRef,
   suppressScrollIntentRef,
@@ -69,7 +71,12 @@ export function useScrollManagerTop({
       setIsButtonFadingOut(true)
       smoothScrollTimeoutRef.current = window.setTimeout(() => {
         markProgrammaticScroll()
-        virtuosoRef.current?.scrollToIndex({ index, align, behavior: 'smooth' })
+        virtuosoRef.current?.scrollToIndex({
+          index,
+          align,
+          behavior: 'smooth',
+          offset: align === 'start' ? -scrollStartOffsetPx : 0
+        })
         setIsButtonFadingOut(false)
         smoothScrollTimeoutRef.current = 0
       }, 120)
@@ -77,8 +84,13 @@ export function useScrollManagerTop({
     }
 
     markProgrammaticScroll()
-    virtuosoRef.current.scrollToIndex({ index, align, behavior: 'auto' })
-  }, [markProgrammaticScroll])
+    virtuosoRef.current.scrollToIndex({
+      index,
+      align,
+      behavior: 'auto',
+      offset: align === 'start' ? -scrollStartOffsetPx : 0
+    })
+  }, [markProgrammaticScroll, scrollStartOffsetPx])
 
   const scrollToLatest = useCallback((smooth = false) => {
     if (messagesLength <= 0) return
