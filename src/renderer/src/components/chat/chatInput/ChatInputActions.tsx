@@ -219,7 +219,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   return (
     <div
       id="inputAreaBottom"
-      className="rounded-b-2xl z-10 w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 pl-2 flex border-b border-l border-r border-blue-gray-200 dark:border-gray-700 flex-none h-10"
+      className="rounded-b-2xl z-10 w-full bg-white/45 dark:bg-zinc-950/30 p-1 pl-2 flex border-b border-l border-r border-blue-gray-200/80 dark:border-gray-700/80 flex-none h-10"
     >
       <div className='grow flex items-center space-x-2 select-none relative'>
         {/* New Chat Button */}

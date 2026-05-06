@@ -135,7 +135,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   return (
     <div
       id="inputSelector"
-      className='rounded-t-2xl w-full bg-[#F9FAFB] dark:bg-gray-800 p-1 flex items-center space-x-2 flex-none h-10 select-none border-b-0 border-t border-l border-r border-blue-gray-200 dark:border-gray-700'
+      className='rounded-t-2xl w-full bg-white/45 dark:bg-zinc-950/30 p-1 flex items-center space-x-2 flex-none h-10 select-none border-b-0 border-t border-l border-r border-blue-gray-200/80 dark:border-gray-700/80'
     >
       {/* Model Selector */}
       <div id="modelSelector" className="app-undragable bg-transparent">
