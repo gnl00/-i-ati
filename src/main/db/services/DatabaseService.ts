@@ -324,6 +324,10 @@ class DatabaseService {
     return this.requirePlanningService().getScheduledTasksByChatUuid(chatUuid)
   }
 
+  public getScheduledTasks(): ScheduledTaskRow[] {
+    return this.requirePlanningService().getScheduledTasks()
+  }
+
   public getScheduledTasksByStatus(status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] {
     return this.requirePlanningService().getScheduledTasksByStatus(status, limit)
   }

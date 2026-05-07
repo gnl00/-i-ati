@@ -73,6 +73,10 @@ export const planningDb = {
     return DatabaseService.getScheduledTasksByChatUuid(chatUuid)
   },
 
+  getScheduledTasks(): ScheduledTaskRow[] {
+    return DatabaseService.getScheduledTasks()
+  },
+
   getScheduledTasksByStatus(status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] {
     return DatabaseService.getScheduledTasksByStatus(status, limit)
   },

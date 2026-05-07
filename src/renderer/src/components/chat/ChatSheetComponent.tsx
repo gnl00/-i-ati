@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import TrafficLights from '@renderer/components/ui/traffic-lights'
 import { toast } from '@renderer/components/ui/use-toast'
 import { getAllChat } from '@renderer/db/ChatRepository'
-import { invokeDbScheduledTasksByChatUuid, invokeOpenExternal, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
+import { invokeDbScheduledTasksList, invokeOpenExternal, subscribeScheduleEvents } from '@renderer/invoker/ipcInvoker'
 import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import { useChatStore } from '@renderer/store/chatStore'
 import { useAppConfigStore } from '@renderer/store/appConfig'
@@ -113,25 +113,16 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const [scheduledTasks, setScheduledTasks] = useState<ScheduleTask[]>([])
     const [scheduleLoading, setScheduleLoading] = useState(false)
     const [scheduleLoadError, setScheduleLoadError] = useState('')
-    const scheduleCacheRef = useRef<Map<string, ScheduleTask[]>>(new Map())
-    const scheduleLoadedRef = useRef<Set<string>>(new Set())
+    const scheduleCacheRef = useRef<ScheduleTask[] | null>(null)
+    const scheduleLoadedRef = useRef(false)
     const chatSwitchRequestRef = useRef(0)
 
     const loadScheduledTasks = useCallback(async (
-        targetChatUuid?: string | null,
         options?: { silent?: boolean; force?: boolean }
     ) => {
-        if (!targetChatUuid) {
-            setScheduledTasks([])
-            setScheduleLoadError('')
-            setScheduleLoading(false)
-            return
-        }
-
         const silent = options?.silent ?? false
         const force = options?.force ?? false
-        const alreadyLoaded = scheduleLoadedRef.current.has(targetChatUuid)
-        if (!force && alreadyLoaded) {
+        if (!force && scheduleLoadedRef.current) {
             return
         }
 
@@ -139,15 +130,15 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             setScheduleLoading(true)
         }
         try {
-            const tasks = await invokeDbScheduledTasksByChatUuid(targetChatUuid)
+            const tasks = await invokeDbScheduledTasksList()
             const sortedTasks = normalizeScheduledTasks(tasks)
-            scheduleCacheRef.current.set(targetChatUuid, sortedTasks)
-            scheduleLoadedRef.current.add(targetChatUuid)
+            scheduleCacheRef.current = sortedTasks
+            scheduleLoadedRef.current = true
             setScheduledTasks(sortedTasks)
             setScheduleLoadError('')
         } catch (error) {
             logger.error('scheduled_tasks.load_failed', error)
-            scheduleLoadedRef.current.delete(targetChatUuid)
+            scheduleLoadedRef.current = false
             if (!silent) {
                 setScheduledTasks([])
             }
@@ -177,14 +168,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             return
         }
 
-        if (!chatUuid) {
-            setScheduledTasks([])
-            setScheduleLoadError('')
-            setScheduleLoading(false)
-            return
-        }
-
-        const cachedTasks = scheduleCacheRef.current.get(chatUuid)
+        const cachedTasks = scheduleCacheRef.current
         if (cachedTasks) {
             setScheduledTasks(cachedTasks)
             setScheduleLoadError('')
@@ -192,8 +176,8 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         }
 
         const shouldSilentLoad = Boolean(cachedTasks)
-        loadScheduledTasks(chatUuid, { silent: shouldSilentLoad })
-    }, [chatUuid, loadScheduledTasks, sheetOpenState])
+        loadScheduledTasks({ silent: shouldSilentLoad })
+    }, [loadScheduledTasks, sheetOpenState])
 
     useEffect(() => {
         const unsubscribe = subscribeScheduleEvents(event => {
@@ -201,7 +185,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 return
             }
             const task = event.payload?.task
-            if (!task || task.chat_uuid !== chatUuid) {
+            if (!task) {
                 return
             }
             setScheduledTasks(prev => {
@@ -211,15 +195,14 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                         ? [...prev.slice(0, index), task, ...prev.slice(index + 1)]
                         : [task, ...prev]
                 const sorted = normalizeScheduledTasks(next)
-                scheduleCacheRef.current.set(task.chat_uuid, sorted)
-                scheduleLoadedRef.current.add(task.chat_uuid)
+                scheduleCacheRef.current = sorted
                 return sorted
             })
         })
         return () => {
             unsubscribe()
         }
-    }, [chatUuid])
+    }, [])
 
     const onNewChatClick = (_) => {
         setSheetOpenState(false)

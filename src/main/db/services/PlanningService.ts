@@ -81,6 +81,10 @@ export class PlanningService {
     return this.requireScheduledTaskRepository().getScheduledTasksByChatUuid(chatUuid)
   }
 
+  getScheduledTasks(): ScheduledTaskRow[] {
+    return this.requireScheduledTaskRepository().getScheduledTasks()
+  }
+
   getScheduledTasksByStatus(status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] {
     return this.requireScheduledTaskRepository().getScheduledTasksByStatus(status, limit)
   }

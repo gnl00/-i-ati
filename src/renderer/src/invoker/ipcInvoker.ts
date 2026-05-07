@@ -99,7 +99,7 @@ import {
   SCHEDULE_EVENT,
   RUN_COMPRESSION_EXECUTE,
   RUN_TITLE_GENERATE,
-  DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID,
+  DB_SCHEDULED_TASKS_LIST,
   DB_SCHEDULED_TASK_UPDATE_STATUS,
   DB_SMART_MESSAGE_DISMISS,
   DB_SMART_MESSAGES_GET_ACTIVE,
@@ -781,9 +781,9 @@ export async function invokeRunTitleGenerate(data: {
   return await ipc.invoke(RUN_TITLE_GENERATE, data)
 }
 
-export async function invokeDbScheduledTasksByChatUuid(chatUuid: string): Promise<ScheduleTask[]> {
+export async function invokeDbScheduledTasksList(): Promise<ScheduleTask[]> {
   const ipc = getElectronIPC()
-  return await ipc.invoke(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, chatUuid)
+  return await ipc.invoke(DB_SCHEDULED_TASKS_LIST)
 }
 
 export async function invokeDbPluginsRemoteList(): Promise<RemotePluginCatalogItem[]> {

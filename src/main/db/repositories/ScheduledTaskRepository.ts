@@ -47,6 +47,11 @@ export class ScheduledTaskRepository {
     return scheduledTaskRepo.getByChatUuid(chatUuid)
   }
 
+  getScheduledTasks(): ScheduledTaskRow[] {
+    const scheduledTaskRepo = this.requireScheduledTaskRepo()
+    return scheduledTaskRepo.listAll()
+  }
+
   getScheduledTasksByStatus(status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] {
     const scheduledTaskRepo = this.requireScheduledTaskRepo()
     return scheduledTaskRepo.listByStatus(status, limit)

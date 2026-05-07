@@ -4,7 +4,7 @@ import { planningDb } from '@main/db/planning'
 import { createLogger } from '@main/logging/LogService'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
-import { DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, DB_SCHEDULED_TASK_UPDATE_STATUS } from '@shared/constants'
+import { DB_SCHEDULED_TASKS_LIST, DB_SCHEDULED_TASK_UPDATE_STATUS } from '@shared/constants'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 
 const logger = createLogger('DatabaseIPC')
@@ -22,15 +22,12 @@ const emitScheduledTaskUpdated = (taskId: string): void => {
 }
 
 export function registerScheduledTaskHandlers(): void {
-  const handleScheduledTasksGetByChatUuid = async (
-    _event: Electron.IpcMainInvokeEvent,
-    chatUuid: string
-  ) => {
-    logger.info('scheduled_tasks.get_by_chat_uuid', { chatUuid })
-    return planningDb.getScheduledTasksByChatUuid(chatUuid)
+  const handleScheduledTasksList = async () => {
+    logger.info('scheduled_tasks.list')
+    return planningDb.getScheduledTasks()
   }
 
-  ipcMain.handle(DB_SCHEDULED_TASKS_GET_BY_CHAT_UUID, handleScheduledTasksGetByChatUuid)
+  ipcMain.handle(DB_SCHEDULED_TASKS_LIST, handleScheduledTasksList)
 
   ipcMain.handle(
     DB_SCHEDULED_TASK_UPDATE_STATUS,

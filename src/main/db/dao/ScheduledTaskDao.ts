@@ -25,6 +25,7 @@ class ScheduledTaskDao {
     updateStatus: Database.Statement
     getById: Database.Statement
     getByChatUuid: Database.Statement
+    listAll: Database.Statement
     listByStatus: Database.Statement
     deleteById: Database.Statement
     claimDueTasks: Database.Statement
@@ -68,6 +69,9 @@ class ScheduledTaskDao {
       `),
       getByChatUuid: db.prepare(`
         SELECT * FROM scheduled_tasks WHERE chat_uuid = ? ORDER BY run_at ASC
+      `),
+      listAll: db.prepare(`
+        SELECT * FROM scheduled_tasks ORDER BY run_at ASC
       `),
       listByStatus: db.prepare(`
         SELECT * FROM scheduled_tasks WHERE status = ? ORDER BY run_at ASC LIMIT ?
@@ -138,6 +142,10 @@ class ScheduledTaskDao {
 
   getByChatUuid(chatUuid: string): ScheduledTaskRow[] {
     return this.stmts.getByChatUuid.all(chatUuid) as ScheduledTaskRow[]
+  }
+
+  listAll(): ScheduledTaskRow[] {
+    return this.stmts.listAll.all() as ScheduledTaskRow[]
   }
 
   listByStatus(status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] {
