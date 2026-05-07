@@ -397,7 +397,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
               {/** nextTask.goal **/}
               {nextTask ? (
                 <GoalTooltip goal={nextTask.goal}>
-                  <h3 className="line-clamp-3 wrap-break-word text-xs font-semibold leading-4 text-slate-600 dark:text-slate-100">
+                  <h3 className="line-clamp-2 wrap-break-word text-xs font-semibold leading-4 text-slate-600 dark:text-slate-100">
                     {nextTask.goal}
                   </h3>
                 </GoalTooltip>
