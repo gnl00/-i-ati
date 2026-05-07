@@ -2,6 +2,9 @@ import { app } from 'electron'
 import path from 'path'
 import * as fs from 'fs'
 import Database from 'better-sqlite3'
+import { SMART_MESSAGE_TTL_MS } from '@shared/constants/smartMessages'
+
+const LEGACY_SMART_MESSAGE_TTL_MS = 48 * 60 * 60 * 1000
 
 function bootstrapKnowledgebaseDb(db: Database.Database): void {
   db.exec(`
@@ -98,6 +101,7 @@ class AppDatabase {
 
     this.createTables()
     this.createIndexes()
+    this.migrateSmartMessageTtl()
 
     this.initialized = true
     return this.db
@@ -482,6 +486,16 @@ class AppDatabase {
     }
 
     this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
+  }
+
+  private migrateSmartMessageTtl(): void {
+    if (!this.db) throw new Error('Database not initialized')
+
+    this.db.prepare(`
+      UPDATE smart_messages
+      SET expires_at = generated_at + ?
+      WHERE expires_at = generated_at + ?
+    `).run(SMART_MESSAGE_TTL_MS, LEGACY_SMART_MESSAGE_TTL_MS)
   }
 
   private createChatsTable(): void {

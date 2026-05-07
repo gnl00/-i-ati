@@ -205,6 +205,7 @@ describe('SmartMessageGenerationService', () => {
       title: 'Continue welcome',
       actionPrompt: 'Review the Smart message pipeline and suggest the next implementation step.',
       status: 'active',
+      expiresAt: now + 7 * 24 * 60 * 60 * 1000,
       modelId: 'model-1'
     }))
   })

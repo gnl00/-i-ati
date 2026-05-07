@@ -4,6 +4,7 @@ import type { SmartMessageCandidateSummaryRow } from '@main/db/dao/SmartMessageD
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { createLogger } from '@main/logging/LogService'
 import { unifiedChatRequest } from '@main/request/index'
+import { SMART_MESSAGE_TTL_MS } from '@shared/constants/smartMessages'
 import { buildSmartMessagePrompt } from '@shared/prompts'
 import { resolveNewChatModelRef } from '@shared/services/ChatModelResolver'
 import {
@@ -257,7 +258,7 @@ export class SmartMessageGenerationService {
       priorityScore,
       status: 'active',
       generatedAt: args.now,
-      expiresAt: args.now + 48 * 60 * 60 * 1000,
+      expiresAt: args.now + SMART_MESSAGE_TTL_MS,
       modelId: args.modelId,
       generationVersion: args.generationVersion
     }
