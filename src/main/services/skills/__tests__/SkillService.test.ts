@@ -15,6 +15,14 @@ vi.mock('electron', () => ({
   }
 }))
 
+vi.mock('@main/db/config', () => ({
+  configDb: {
+    isReady: vi.fn(() => false),
+    getConfigValue: vi.fn(),
+    saveConfigValue: vi.fn()
+  }
+}))
+
 const createSkillDir = async (rootDir: string, name: string): Promise<{ dir: string; content: string }> => {
   const dir = path.join(rootDir, name)
   await fs.mkdir(dir, { recursive: true })
