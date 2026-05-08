@@ -221,6 +221,7 @@ class BrowserWindowPool {
       show: false,
       webPreferences: {
         offscreen: true,
+        sandbox: false,
         images: false,
         webSecurity: false
       }
