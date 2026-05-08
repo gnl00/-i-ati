@@ -461,6 +461,7 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_assistants_is_built_in ON assistants(is_built_in);
       CREATE INDEX IF NOT EXISTS idx_assistants_is_default ON assistants(is_default);
       CREATE INDEX IF NOT EXISTS idx_assistants_order ON assistants(sort_index ASC, updated_at DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_skills_chat_skill_unique ON chat_skills(chat_id, skill_name);
       CREATE INDEX IF NOT EXISTS idx_chat_skills_chat_id ON chat_skills(chat_id);
       CREATE INDEX IF NOT EXISTS idx_chat_skills_skill_name ON chat_skills(skill_name);
       CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider_id ON provider_accounts(provider_id);

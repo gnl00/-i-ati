@@ -63,6 +63,10 @@ export class ChatRepository {
 
   addSkill(chatId: number, skillName: string): void {
     const skillRepo = this.requireSkillRepo()
+    if (skillRepo.getSkills(chatId).some(row => row.skill_name === skillName)) {
+      return
+    }
+
     skillRepo.insertSkill({
       chat_id: chatId,
       skill_name: skillName,

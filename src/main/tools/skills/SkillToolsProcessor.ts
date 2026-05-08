@@ -132,6 +132,15 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       return { success: false, loaded: false, message: 'Chat not found' }
     }
 
+    if (DatabaseService.getSkills(chat.id).includes(args.name)) {
+      return {
+        success: true,
+        name: args.name,
+        loaded: true,
+        message: 'Skill already loaded.'
+      }
+    }
+
     DatabaseService.addSkill(chat.id, args.name)
 
     return {

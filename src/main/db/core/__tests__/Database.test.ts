@@ -61,4 +61,20 @@ describe('AppDatabase', () => {
     expect(migrationStatement?.[0]).toContain('WHERE expires_at = generated_at + ?')
     expect(dbRunMock).toHaveBeenCalledWith(SMART_MESSAGE_TTL_MS, 48 * 60 * 60 * 1000)
   })
+
+  it('creates a unique chat skill index on chat and skill name', async () => {
+    const { AppDatabase } = await import('../Database')
+
+    AppDatabase.getInstance().initialize()
+
+    const createIndexSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) =>
+        typeof sql === 'string' && sql.includes('idx_chat_skills_chat_skill_unique')
+      )
+
+    expect(createIndexSql).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_skills_chat_skill_unique ON chat_skills(chat_id, skill_name)'
+    )
+  })
 })
