@@ -12,6 +12,31 @@ import type { ModelStreamExecutor } from '../model/ModelStreamExecutor'
 import type { ToolExecutorDispatcher } from '../tools/ToolExecutorDispatcher'
 import type { AgentEventEmitter } from '../events/AgentEventEmitter'
 
+vi.mock('electron', () => ({
+  app: {
+    isReady: () => false,
+    getPath: () => '/tmp'
+  },
+  BrowserWindow: class {},
+  shell: {
+    openExternal: vi.fn()
+  },
+  ipcMain: {
+    handle: vi.fn(),
+    on: vi.fn()
+  },
+  session: {}
+}))
+
+vi.mock('@main/main-window', () => ({
+  mainWindow: {
+    webContents: {
+      send: vi.fn()
+    }
+  },
+  getMainWindow: vi.fn(() => null)
+}))
+
 vi.mock('@main/logging/LogService', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),
@@ -492,6 +517,102 @@ describe('DefaultAgentRuntime', () => {
     expect(result.finalStep.content).toBe('Completed after budget extension')
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(3)
     expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports budget exhaustion details when tool progress reaches the hard step limit', async () => {
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => createAsyncStream([
+        {
+          kind: 'delta',
+          responseId: 'resp-loop',
+          model: 'test-model',
+          toolCalls: [
+            {
+              argumentsMode: 'snapshot',
+              toolCall: {
+                id: `tool-${vi.mocked(modelStreamExecutor.execute).mock.calls.length}`,
+                index: 0,
+                type: 'function',
+                function: {
+                  name: 'repeat_tool',
+                  arguments: '{"again":true}'
+                }
+              }
+            }
+          ],
+          finishReason: 'tool_calls'
+        },
+        {
+          kind: 'final',
+          responseId: 'resp-loop',
+          model: 'test-model'
+        }
+      ]))
+    }
+
+    const toolExecutorDispatcher: ToolExecutorDispatcher = {
+      dispatch: vi.fn(async (batch) => ({
+        status: 'completed' as const,
+        batchId: batch.batchId,
+        stepId: batch.stepId,
+        results: batch.calls.map(call => ({
+          stepId: batch.stepId,
+          toolCallId: call.toolCallId,
+          toolCallIndex: call.index,
+          toolName: call.name,
+          status: 'success' as const,
+          content: {
+            ok: true
+          }
+        }))
+      }))
+    }
+
+    const runtime = new DefaultAgentRuntime({
+      requestSpecSource,
+      runDescriptorSource,
+      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+      userRecordMaterializer: new DefaultUserRecordMaterializer(),
+      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
+      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      agentLoop: new DefaultAgentLoop(),
+      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        modelStreamExecutor,
+        toolExecutorDispatcher
+      })
+    })
+
+    const result = await runtime.run({
+      hostRequest: {
+        hostType: 'test',
+        hostRequestId: 'req-budget-hard-limit',
+        submittedAt: Date.now(),
+        userContent: [
+          {
+            type: 'input_text',
+            text: 'loop on tools'
+          }
+        ]
+      },
+      execution: {
+        softMaxSteps: 1,
+        hardMaxSteps: 3,
+        extensionStepSize: 1
+      }
+    })
+
+    expect(result.status).toBe('failed')
+    if (result.status !== 'failed') {
+      throw new Error('Expected failed result')
+    }
+    expect(result.failure.message).toContain('AgentLoop exceeded softMaxSteps=3 (hardMaxSteps=3)')
+    expect(result.failure.message).toContain('budgetExtensions=2')
+    expect(result.failure.message).toContain('extensionStepSize=1')
+    expect(result.failure.message).toContain('lastStepIndex=2')
+    expect(result.failure.message).toContain('lastProgressSources=tool_call,tool_result')
+    expect(result.failure.message).toContain('lastToolCalls=repeat_tool')
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(3)
+    expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(3)
   })
 
   it('emits step.failed even when the step fails before any delta is produced', async () => {

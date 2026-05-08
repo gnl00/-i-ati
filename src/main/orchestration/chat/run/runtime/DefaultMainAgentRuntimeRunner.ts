@@ -24,7 +24,9 @@ import type {
 } from './MainAgentRuntimeRunner'
 
 const DEFAULT_MAIN_AGENT_EXECUTION = {
-  hardMaxSteps: 25
+  softMaxSteps: 25,
+  hardMaxSteps: 80,
+  extensionStepSize: 5
 } as const
 
 const toRequestSpec = (prepared: RunPreparationResult['runSpec']) => ({

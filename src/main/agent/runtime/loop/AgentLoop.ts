@@ -73,7 +73,8 @@ const toFailureInfo = (error: unknown): AgentLoopFailureInfo => {
     return {
       name: error.name,
       message: error.message,
-      code: getErrorCode(error)
+      code: getErrorCode(error),
+      cause: error.cause ? toFailureInfo(error.cause) : undefined
     }
   }
 
@@ -210,6 +211,30 @@ const collectBudgetProgressSources = (
   }
 
   return Array.from(sources)
+}
+
+const formatBudgetExhaustedMessage = (input: {
+  softMaxSteps: number
+  hardMaxSteps: number
+  extensionStepSize: number
+  budgetExtensionCount: number
+  lastBudgetProgressSources: string[]
+  lastStep?: AgentStep
+}): string => {
+  const lastToolNames = Array.from(new Set(
+    input.lastStep?.toolCalls
+      .map(toolCall => toolCall.function.name)
+      .filter(Boolean) ?? []
+  ))
+
+  return [
+    `AgentLoop exceeded softMaxSteps=${input.softMaxSteps} (hardMaxSteps=${input.hardMaxSteps})`,
+    `budgetExtensions=${input.budgetExtensionCount}`,
+    `extensionStepSize=${input.extensionStepSize}`,
+    `lastStepIndex=${input.lastStep?.stepIndex ?? 'none'}`,
+    `lastProgressSources=${input.lastBudgetProgressSources.length > 0 ? input.lastBudgetProgressSources.join(',') : 'none'}`,
+    `lastToolCalls=${lastToolNames.length > 0 ? lastToolNames.join(',') : 'none'}`
+  ].join('\n')
 }
 
 export class DefaultAgentLoop implements AgentLoop {
@@ -509,7 +534,14 @@ export class DefaultAgentLoop implements AgentLoop {
       transcript,
       usage,
       failure: {
-        message: `AgentLoop exceeded softMaxSteps=${budgetState.softMaxSteps} (hardMaxSteps=${budgetState.hardMaxSteps})`
+        message: formatBudgetExhaustedMessage({
+          softMaxSteps: budgetState.softMaxSteps,
+          hardMaxSteps: budgetState.hardMaxSteps,
+          extensionStepSize: budgetState.extensionStepSize,
+          budgetExtensionCount,
+          lastBudgetProgressSources,
+          lastStep: lastStableStep
+        })
       },
       dependencies,
       finalStep: lastStableStep

@@ -18,6 +18,7 @@ export interface AgentLoopFailureInfo {
   name?: string
   message: string
   code?: string
+  cause?: AgentLoopFailureInfo
 }
 
 export interface AgentLoopResultBase {

@@ -1,8 +1,9 @@
 import type { StepArtifact, StepResult } from '@main/agent/contracts'
-import type { AgentLoopResult } from '@main/agent/runtime/loop/AgentLoopResult'
+import type { AgentLoopFailureInfo, AgentLoopResult } from '@main/agent/runtime/loop/AgentLoopResult'
 import { partsToUnifiedContent } from '@main/agent/runtime/model/ExecutableRequestAdapter'
 import type { AgentTranscriptSnapshot } from '@main/agent/runtime/transcript/AgentTranscript'
 import type { MainAgentRuntimeTerminalResult } from './MainAgentRuntimeResult'
+import type { SerializedError } from '@shared/run/lifecycle-events'
 
 const transcriptToMessages = (transcript: AgentTranscriptSnapshot): ChatMessage[] => (
   transcript.records.map((record) => {
@@ -50,6 +51,13 @@ export interface AgentRunCompletionAdapter {
   adapt(input: AgentRunCompletionAdapterInput): MainAgentRuntimeTerminalResult
 }
 
+const failureToSerializedError = (failure: AgentLoopFailureInfo): SerializedError => ({
+  name: failure.name || 'Error',
+  message: failure.message,
+  code: failure.code,
+  cause: failure.cause ? failureToSerializedError(failure.cause) : undefined
+})
+
 export class DefaultAgentRunCompletionAdapter implements AgentRunCompletionAdapter {
   adapt(input: AgentRunCompletionAdapterInput): MainAgentRuntimeTerminalResult {
     if (input.result.status === 'completed') {
@@ -75,11 +83,7 @@ export class DefaultAgentRunCompletionAdapter implements AgentRunCompletionAdapt
 
     return {
       state: 'failed',
-      error: {
-        name: input.result.failure.name || 'Error',
-        message: input.result.failure.message,
-        code: input.result.failure.code
-      }
+      error: failureToSerializedError(input.result.failure)
     }
   }
 }

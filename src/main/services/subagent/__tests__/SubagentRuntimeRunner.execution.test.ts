@@ -4,6 +4,31 @@ import type { CompletedAgentStep } from '@main/agent/runtime/step/AgentStep'
 import type { AgentRuntime } from '@main/agent/runtime/AgentRuntime'
 import { DefaultSubagentRuntimeRunner } from '../runtime/SubagentRuntimeRunner'
 
+vi.mock('electron', () => ({
+  app: {
+    isReady: () => false,
+    getPath: () => '/tmp'
+  },
+  BrowserWindow: class {},
+  shell: {
+    openExternal: vi.fn()
+  },
+  ipcMain: {
+    handle: vi.fn(),
+    on: vi.fn()
+  },
+  session: {}
+}))
+
+vi.mock('@main/main-window', () => ({
+  mainWindow: {
+    webContents: {
+      send: vi.fn()
+    }
+  },
+  getMainWindow: vi.fn(() => null)
+}))
+
 describe('DefaultSubagentRuntimeRunner execution config', () => {
   it('runs runtime with default softMaxSteps=25 and hardMaxSteps=25', async () => {
     const finalStep: CompletedAgentStep = {
