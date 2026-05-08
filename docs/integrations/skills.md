@@ -1,6 +1,6 @@
 # Skills
 
-This app supports Agent Skills as file-based capability packages. A skill is installed into the Electron app data directory, can be activated per chat, and is injected into the next chat request through the system prompt.
+This app supports Agent Skills as file-based capability packages. A skill is installed into the Electron app data directory, appears in the system prompt as an available capability, and can be loaded on demand through the `load_skill` tool.
 
 ## File Format
 
@@ -57,7 +57,7 @@ The model-facing tool definitions live in [src/shared/tools/skills/definitions.t
 The available skill tools are:
 
 - `install_skill`: install one skill from a URL, file, directory, or archive.
-- `load_skill`: activate an installed skill for the current chat.
+- `load_skill`: load an installed skill for the current chat and return its full `SKILL.md` content.
 - `import_skills`: recursively import all skills from a folder.
 - `unload_skill`: remove a skill from the current chat.
 - `read_skill_file`: read a text file inside an installed skill directory.
@@ -65,7 +65,7 @@ The available skill tools are:
 [SkillToolsProcessor](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/SkillToolsProcessor.ts:1) adapts tool calls to services and database writes:
 
 - Relative install/import sources resolve against the current chat workspace when `chat_uuid` is available, then fall back to `userData`.
-- `load_skill` requires `chat_uuid`, verifies the installed `SKILL.md`, resolves the chat row, and writes the skill name to `chat_skills`.
+- `load_skill` requires `chat_uuid`, verifies the installed `SKILL.md`, resolves the chat row, returns the full skill content, and writes the skill name to `chat_skills` when it is not already present.
 - `unload_skill` requires `chat_uuid`, resolves the chat row, and deletes the row from `chat_skills`.
 - `read_skill_file` accepts only a relative path inside the installed skill root and rejects path traversal.
 
@@ -99,30 +99,27 @@ Renderer helpers live in [src/renderer/src/services/skills/SkillService.ts](/Use
 
 The current UI displays active status. Chat activation and deactivation are handled by the model-facing `load_skill` and `unload_skill` tools or by DB helpers.
 
-## Chat Activation State
+## Chat Load State
 
-Activation is stored per chat in SQLite. The `chat_skills` table contains `chat_id`, `skill_name`, `load_order`, and `loaded_at` ([src/main/db/core/Database.ts](/Users/gnl/Workspace/code/-i-ati/src/main/db/core/Database.ts:135)).
+Loaded skill state is stored per chat in SQLite. The `chat_skills` table contains `chat_id`, `skill_name`, `load_order`, and `loaded_at` ([src/main/db/core/Database.ts](/Users/gnl/Workspace/code/-i-ati/src/main/db/core/Database.ts:135)).
 
 [SkillDao](/Users/gnl/Workspace/code/-i-ati/src/main/db/dao/SkillDao.ts:1) inserts and deletes skill rows and returns skills ordered by `load_order`. [ChatRepository](/Users/gnl/Workspace/code/-i-ati/src/main/db/repositories/ChatRepository.ts:58) materializes `load_order` as the current max plus one.
 
-The current schema permits duplicate `(chat_id, skill_name)` rows. Repeated `load_skill` calls can make prompt assembly load the same skill content more than once.
+`processLoadSkill()` checks `DatabaseService.getSkills(chat.id)` before inserting, so repeated `load_skill` calls for the same chat return the skill content without adding another row. The schema itself does not enforce a unique `(chat_id, skill_name)` constraint, so a database-level unique index or DAO upsert would make this invariant stronger.
 
 ## Prompt Injection
 
 The chat request pipeline uses [SkillsPromptProvider](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/SkillsPromptProvider.ts:1). For each request it:
 
 1. Lists all installed skills through `SkillService.listSkills()`.
-2. Reads activated skill names for the chat through `DatabaseService.getSkills(chatId)`.
-3. Loads full `SKILL.md` content for each activated skill.
-4. Builds `<skills_context>` with [buildSkillsPrompt](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/SkillPromptBuilder.ts:1).
-5. Wraps it in `<skills_system>` policy text through [buildSkillsSystemPrompt](/Users/gnl/Workspace/code/-i-ati/src/shared/prompts/skills.ts:1).
+2. Builds `<skills_context>` with [buildSkillsPrompt](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/SkillPromptBuilder.ts:1).
+3. Wraps it in `<skills_system>` policy text through [buildSkillsSystemPrompt](/Users/gnl/Workspace/code/-i-ati/src/shared/prompts/skills.ts:1).
 
-The generated context has two sections:
+The generated context has one data section:
 
 - `Available Skills`: every installed skill as `name: description`, plus `allowed-tools` when present.
-- `Loaded Skills`: full `SKILL.md` content wrapped as `<skill name="...">...</skill>`.
 
-The system prompt tells the model to proactively load a matching available skill and to follow loaded skill instructions as active task context.
+The system prompt tells the model that available skills are discoverable options. When the current task clearly matches an available skill, the model should call `load_skill`; the returned tool result contains the full skill document and becomes active task context for that run. Initial prompt assembly intentionally does not read or inject full `SKILL.md` content.
 
 ## Runtime Flow
 
@@ -148,15 +145,16 @@ tool call install_skill
   -> userData/skills/<skill-name>/
 ```
 
-Model activates a skill:
+Model loads a skill:
 
 ```text
 tool call load_skill
   -> processLoadSkill()
   -> verify userData/skills/<name>/SKILL.md
   -> DatabaseService.getChatByUuid(chat_uuid)
+  -> SkillService.getSkillContent(name)
   -> DatabaseService.addSkill(chat.id, name)
-  -> chat_skills row
+  -> return { success, name, loaded, content }
 ```
 
 Next chat request:
@@ -165,10 +163,9 @@ Next chat request:
 SystemPromptComposer
   -> SkillsPromptProvider.build(chatId)
   -> SkillService.listSkills()
-  -> DatabaseService.getSkills(chatId)
-  -> SkillService.getSkillContent(name)
+  -> buildSkillsPrompt()
   -> buildSkillsSystemPrompt()
-  -> provider request system prompt
+  -> provider request system prompt with Available Skills only
 ```
 
 Reference file reading:
@@ -186,7 +183,8 @@ tool call read_skill_file
 Existing tests cover the service and part of the tool processor:
 
 - [SkillService.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/skills/__tests__/SkillService.test.ts:1): installs from single `SKILL.md`, installs from directory and copies assets, imports folders with conflict renaming, and installs a zip archive when archive tooling is available.
-- [SkillToolsProcessor.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts:1): covers `unload_skill` validation and DB deletion.
-- [SkillPromptBuilder.test.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/__tests__/SkillPromptBuilder.test.ts:1): covers available and loaded skill prompt formatting.
+- [SkillToolsProcessor.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts:1): covers `unload_skill` validation and DB deletion, plus `load_skill` content return and duplicate-load behavior.
+- [SkillPromptBuilder.test.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/__tests__/SkillPromptBuilder.test.ts:1): covers available skill prompt formatting and verifies loaded skill content is omitted from the initial prompt.
+- [SkillsPromptProvider.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/__tests__/SkillsPromptProvider.test.ts:1): verifies prompt assembly lists available metadata without reading loaded skill content.
 
-Useful next test targets are duplicate activation behavior, `load_skill`, `install_skill`, `import_skills`, `read_skill_file` traversal rejection, IPC registration, renderer folder rescan behavior, and startup `initializeFromConfig`.
+Useful next test targets are `install_skill`, `import_skills`, `read_skill_file` traversal rejection, IPC registration, renderer folder rescan behavior, startup `initializeFromConfig`, and a database-level uniqueness/upsert path for `chat_skills`.
