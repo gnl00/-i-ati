@@ -47,6 +47,7 @@ interface LoadSkillResponse {
   success: boolean
   name?: string
   loaded?: boolean
+  content?: string
   message?: string
 }
 
@@ -132,11 +133,14 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       return { success: false, loaded: false, message: 'Chat not found' }
     }
 
+    const content = await SkillService.getSkillContent(args.name)
+
     if (DatabaseService.getSkills(chat.id).includes(args.name)) {
       return {
         success: true,
         name: args.name,
         loaded: true,
+        content,
         message: 'Skill already loaded.'
       }
     }
@@ -147,6 +151,7 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       success: true,
       name: args.name,
       loaded: true,
+      content,
       message: 'Skill loaded.'
     }
   } catch (error) {

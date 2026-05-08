@@ -1,13 +1,8 @@
-type LoadedSkillContent = {
-  name: string
-  content: string
-}
-
 export const buildSkillsPrompt = (
   availableSkills: SkillMetadata[],
-  loadedSkills: LoadedSkillContent[]
+  _loadedSkills: Array<{ name: string; content: string }> = []
 ): string => {
-  if (availableSkills.length === 0 && loadedSkills.length === 0) {
+  if (availableSkills.length === 0) {
     return ''
   }
 
@@ -20,15 +15,6 @@ export const buildSkillsPrompt = (
         ? ` (allowed-tools: ${skill.allowedTools.join(' ')})`
         : ''
       lines.push(`- ${skill.name}: ${skill.description}${allowedTools}`)
-    }
-  }
-
-  if (loadedSkills.length > 0) {
-    lines.push('', '### Loaded Skills')
-    for (const skill of loadedSkills) {
-      lines.push(`<skill name="${skill.name}">`)
-      lines.push(skill.content.trim())
-      lines.push(`</skill>`)
     }
   }
 

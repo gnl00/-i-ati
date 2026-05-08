@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { existsSync } from 'fs'
 import { processLoadSkill, processUnloadSkill } from '../SkillToolsProcessor'
 import DatabaseService from '@main/db/DatabaseService'
+import { SkillService } from '@main/services/skills/SkillService'
 
 vi.mock('electron', () => ({
   app: {
@@ -22,10 +23,19 @@ vi.mock('@main/db/DatabaseService', () => ({
   }
 }))
 
+vi.mock('@main/services/skills/SkillService', () => ({
+  SkillService: {
+    getSkillContent: vi.fn()
+  }
+}))
+
 describe('SkillToolsProcessor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(existsSync).mockReturnValue(true)
+    vi.mocked(SkillService.getSkillContent).mockResolvedValue(
+      '---\nname: pdf-processing\ndescription: Handle PDFs.\n---\nUse PDF workflow.'
+    )
   })
 
   it('fails when name is missing', async () => {
@@ -63,10 +73,12 @@ describe('SkillToolsProcessor', () => {
     expect(result).toMatchObject({
       success: true,
       name: 'pdf-processing',
-      loaded: true
+      loaded: true,
+      content: '---\nname: pdf-processing\ndescription: Handle PDFs.\n---\nUse PDF workflow.'
     })
     expect(DatabaseService.getSkills).toHaveBeenCalledWith(1)
     expect(DatabaseService.addSkill).toHaveBeenCalledWith(1, 'pdf-processing')
+    expect(SkillService.getSkillContent).toHaveBeenCalledWith('pdf-processing')
   })
 
   it('returns success without inserting when the skill is already loaded for the chat', async () => {
@@ -79,9 +91,11 @@ describe('SkillToolsProcessor', () => {
       success: true,
       name: 'pdf-processing',
       loaded: true,
+      content: '---\nname: pdf-processing\ndescription: Handle PDFs.\n---\nUse PDF workflow.',
       message: 'Skill already loaded.'
     })
     expect(DatabaseService.getSkills).toHaveBeenCalledWith(1)
     expect(DatabaseService.addSkill).toHaveBeenCalledTimes(0)
+    expect(SkillService.getSkillContent).toHaveBeenCalledWith('pdf-processing')
   })
 })

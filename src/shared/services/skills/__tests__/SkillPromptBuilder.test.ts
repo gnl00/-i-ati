@@ -15,13 +15,13 @@ describe('buildSkillsPrompt', () => {
     expect(prompt).toContain('- pdf-processing: Handle PDFs.')
   })
 
-  it('renders loaded skills content', () => {
+  it('omits loaded skills content from the initial prompt', () => {
     const prompt = buildSkillsPrompt(
-      [],
+      [{ name: 'data-analysis', description: 'Analyze data.' }],
       [{ name: 'data-analysis', content: '---\nname: data-analysis\n---\nDo work.' }]
     )
-    expect(prompt).toContain('<skill name="data-analysis">')
-    expect(prompt).toContain('Do work.')
-    expect(prompt).toContain('</skill>')
+    expect(prompt).toContain('- data-analysis: Analyze data.')
+    expect(prompt).not.toContain('<skill name="data-analysis">')
+    expect(prompt).not.toContain('Do work.')
   })
 })

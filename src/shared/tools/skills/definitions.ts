@@ -32,7 +32,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'load_skill',
-      description: 'Load an already installed skill into the current chat context.',
+      description: 'Load an already installed skill into the current chat context and return its full instruction content.',
       parameters: {
         type: 'object',
         properties: {
