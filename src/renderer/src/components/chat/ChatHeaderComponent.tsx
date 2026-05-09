@@ -31,7 +31,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
 
   return (
     <header
-      className="header relative z-50 h-12 shrink-0 overflow-visible app-dragable"
+      className="header relative z-50 h-10 shrink-0 overflow-visible app-dragable"
       style={{ userSelect: 'none' }}
     >
       <div className="pointer-events-none absolute inset-0 border-b border-black/[0.07] backdrop-blur-xl dark:border-white/8" />
@@ -78,7 +78,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
 
         <div className="flex min-w-0 items-center justify-end gap-1.5 justify-self-end">
           <div className="app-undragable pointer-events-auto">
-            <ModeToggle />
+            <ModeToggle triggerClassName={headerActionButtonClassName} />
           </div>
           <Button
             className={cn(
