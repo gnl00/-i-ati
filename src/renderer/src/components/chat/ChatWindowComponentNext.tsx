@@ -910,7 +910,7 @@ const ChatWindowComponentNext: React.FC = () => {
     <>
       <ChatHeaderComponent />
 
-      <div className="relative z-0 -mt-12 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
+      <div className="relative z-0 -mt-11 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
         {/* 外层垂直分割容器 */}
         <ResizablePanelGroup
           direction="vertical"

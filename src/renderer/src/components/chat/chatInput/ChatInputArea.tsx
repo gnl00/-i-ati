@@ -545,7 +545,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         <ChatImgGalleryComponent />
       </div>
 
-      <div id="inputAreaContent" className='relative flex flex-col pb-2 px-2 flex-1 overflow-hidden bg-transparent'>
+      <div id="inputAreaContent" className='relative flex flex-col px-2 flex-1 overflow-hidden bg-transparent'>
         <div
           className={cn(
             'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out bg-transparent',
