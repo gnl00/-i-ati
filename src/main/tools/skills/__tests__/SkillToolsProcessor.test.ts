@@ -74,8 +74,9 @@ describe('SkillToolsProcessor', () => {
       success: true,
       name: 'pdf-processing',
       loaded: true,
-      content: '---\nname: pdf-processing\ndescription: Handle PDFs.\n---\nUse PDF workflow.'
+      contextInjected: true
     })
+    expect(result).not.toHaveProperty('content')
     expect(DatabaseService.getSkills).toHaveBeenCalledWith(1)
     expect(DatabaseService.addSkill).toHaveBeenCalledWith(1, 'pdf-processing')
     expect(SkillService.getSkillContent).toHaveBeenCalledWith('pdf-processing')
@@ -91,9 +92,10 @@ describe('SkillToolsProcessor', () => {
       success: true,
       name: 'pdf-processing',
       loaded: true,
-      content: '---\nname: pdf-processing\ndescription: Handle PDFs.\n---\nUse PDF workflow.',
-      message: 'Skill already loaded.'
+      contextInjected: true,
+      message: 'Skill already loaded in hidden skills context.'
     })
+    expect(result).not.toHaveProperty('content')
     expect(DatabaseService.getSkills).toHaveBeenCalledWith(1)
     expect(DatabaseService.addSkill).toHaveBeenCalledTimes(0)
     expect(SkillService.getSkillContent).toHaveBeenCalledWith('pdf-processing')

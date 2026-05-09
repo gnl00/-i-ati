@@ -27,6 +27,7 @@ import type { ExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
 import type { ModelResponseParser } from './model/ModelResponseParser'
 import type { ModelStreamExecutor } from './model/ModelStreamExecutor'
 import type { LoopBudgetPolicy } from './loop/LoopBudgetPolicy'
+import type { LoadedSkillsTranscriptContextProvider } from './skills/LoadedSkillsTranscriptContextProvider'
 import { DefaultAgentEventBus } from './events/AgentEventBus'
 import { DefaultAgentEventEmitter } from './events/AgentEventEmitter'
 import { DefaultLoopBudgetPolicy } from './loop/LoopBudgetPolicy'
@@ -63,6 +64,7 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   toolBatchAssembler?: ToolBatchAssembler
   toolExecutorDispatcher?: ToolExecutorDispatcher
   toolResultRecordMaterializer?: ToolResultRecordMaterializer
+  loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
   executeToolCalls?: DefaultToolExecutorDispatcherOptions['executeToolCalls']
   abortedResultDisposition?: DefaultToolExecutorDispatcherOptions['abortedResultDisposition']
   requestConfirmation?: DefaultToolExecutorDispatcherOptions['requestConfirmation']
@@ -111,6 +113,7 @@ implements AgentLoopDependenciesFactory {
         }),
       toolResultRecordMaterializer:
         this.options.toolResultRecordMaterializer ?? new DefaultToolResultRecordMaterializer(),
+      loadedSkillsTranscriptContextProvider: this.options.loadedSkillsTranscriptContextProvider,
       agentEventEmitter
     }
   }

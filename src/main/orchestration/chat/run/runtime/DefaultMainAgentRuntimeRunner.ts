@@ -15,6 +15,7 @@ import {
   DefaultMainAgentHostRequestBuilder,
   MainAgentLoopInputBootstrapper
 } from '@main/hosts/chat/runtime'
+import { ChatLoadedSkillsTranscriptContextProvider } from '@main/hosts/chat/runtime/LoadedSkillsTranscriptContextProvider'
 import { HostRenderEventForwarder } from '@main/hosts/shared/render'
 import { DefaultAgentRunCompletionAdapter } from './AgentRunCompletionAdapter'
 import type {
@@ -96,6 +97,9 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
           }
         ),
         executeToolCalls: (calls) => this.executeToolCalls(calls, input),
+        loadedSkillsTranscriptContextProvider: new ChatLoadedSkillsTranscriptContextProvider(
+          input.prepared.runSpec.runtimeContext.chatId
+        ),
         abortedResultDisposition: 'non_terminal'
       })
     })

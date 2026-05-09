@@ -4,12 +4,14 @@ import {
   modelSupportsThinking
 } from '@shared/plugins/requestAdapterThinking'
 import { pluginDb } from '@main/db/plugins'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { AppConfigStore } from '../config'
 import {
   CompressionSummaryResolver,
   SystemPromptComposer,
   ToolListBuilder
 } from './request'
+import { LoadedSkillsContextProvider } from './request/LoadedSkillsContextProvider'
 import type { HostRunInputState, RunEnvironment, StepBootstrap } from './types'
 
 const SCHEDULE_EXECUTION_INSTRUCTION = [
@@ -24,7 +26,8 @@ export class RunRequestFactory {
     private readonly appConfigStore = new AppConfigStore(),
     private readonly compressionSummaryResolver = new CompressionSummaryResolver(),
     private readonly systemPromptComposer = new SystemPromptComposer(),
-    private readonly toolListBuilder = new ToolListBuilder()
+    private readonly toolListBuilder = new ToolListBuilder(),
+    private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider()
   ) {}
 
   async build(
@@ -41,9 +44,11 @@ export class RunRequestFactory {
       mergedUserInstruction,
       input.textCtx
     )
+    const loadedSkillsContext = await this.loadedSkillsContextProvider.build(environment.chat.id)
 
     const requestMessages = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
+      .setEphemeralContextMessages(loadedSkillsContext ? [loadedSkillsContext] : [])
       .setUserInstruction(environment.chat.userInstruction)
       .setMessages(step.messageBuffer)
       .setCompressionSummary(compressionSummary)
@@ -92,7 +97,7 @@ export class RunRequestFactory {
   private mergeRequestUserInstruction(input: HostRunInputState): string | undefined {
     const baseInstruction = input.userInstruction?.trim()
 
-    if (input.source !== 'schedule') {
+    if (input.source !== MESSAGE_SOURCE.SCHEDULE) {
       return baseInstruction || undefined
     }
 

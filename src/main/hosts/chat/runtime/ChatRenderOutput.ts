@@ -1,4 +1,5 @@
 import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
 import type { StepArtifact } from '@main/agent/contracts'
 import {
@@ -166,7 +167,7 @@ export class ChatRenderOutput {
       chatUuid: message.chatUuid,
       body: {
         ...message.body,
-        source: 'stream_preview',
+        source: MESSAGE_SOURCE.STREAM_PREVIEW,
         typewriterCompleted: false
       }
     } satisfies MessageEntity)

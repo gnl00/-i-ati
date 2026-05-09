@@ -1,6 +1,6 @@
 # Skills
 
-This app supports Agent Skills as file-based capability packages. A skill is installed into the Electron app data directory, appears in the system prompt as an available capability, and can be loaded on demand through the `load_skill` tool.
+This app supports Agent Skills as file-based capability packages. A skill is installed into the Electron app data directory, appears in the system prompt as an available capability, and can be activated on demand through the `load_skill` tool. Activated skill documents are injected into model context as hidden user messages sourced from the current chat's `chat_skills` rows.
 
 ## File Format
 
@@ -57,7 +57,7 @@ The model-facing tool definitions live in [src/shared/tools/skills/definitions.t
 The available skill tools are:
 
 - `install_skill`: install one skill from a URL, file, directory, or archive.
-- `load_skill`: load an installed skill for the current chat and return its full `SKILL.md` content.
+- `load_skill`: activate an installed skill for the current chat and return a lightweight status result.
 - `import_skills`: recursively import all skills from a folder.
 - `unload_skill`: remove a skill from the current chat.
 - `read_skill_file`: read a text file inside an installed skill directory.
@@ -65,7 +65,7 @@ The available skill tools are:
 [SkillToolsProcessor](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/SkillToolsProcessor.ts:1) adapts tool calls to services and database writes:
 
 - Relative install/import sources resolve against the current chat workspace when `chat_uuid` is available, then fall back to `userData`.
-- `load_skill` requires `chat_uuid`, verifies the installed `SKILL.md`, resolves the chat row, returns the full skill content, and writes the skill name to `chat_skills` when it is not already present.
+- `load_skill` requires `chat_uuid`, verifies the installed `SKILL.md`, resolves the chat row, writes the skill name to `chat_skills` when it is absent, and returns `{ success, name, loaded, contextInjected }`.
 - `unload_skill` requires `chat_uuid`, resolves the chat row, and deletes the row from `chat_skills`.
 - `read_skill_file` accepts only a relative path inside the installed skill root and rejects path traversal.
 
@@ -105,7 +105,7 @@ Loaded skill state is stored per chat in SQLite. The `chat_skills` table contain
 
 [SkillDao](/Users/gnl/Workspace/code/-i-ati/src/main/db/dao/SkillDao.ts:1) inserts and deletes skill rows and returns skills ordered by `load_order`. [ChatRepository](/Users/gnl/Workspace/code/-i-ati/src/main/db/repositories/ChatRepository.ts:58) materializes `load_order` as the current max plus one.
 
-`processLoadSkill()` checks `DatabaseService.getSkills(chat.id)` before inserting, so repeated `load_skill` calls for the same chat return the skill content without adding another row. The schema itself does not enforce a unique `(chat_id, skill_name)` constraint, so a database-level unique index or DAO upsert would make this invariant stronger.
+`processLoadSkill()` checks `DatabaseService.getSkills(chat.id)` before inserting, so repeated `load_skill` calls for the same chat return a successful status without adding another row. The schema itself does not enforce a unique `(chat_id, skill_name)` constraint, so a database-level unique index or DAO upsert would make this invariant stronger.
 
 ## Prompt Injection
 
@@ -119,7 +119,37 @@ The generated context has one data section:
 
 - `Available Skills`: every installed skill as `name: description`, plus `allowed-tools` when present.
 
-The system prompt tells the model that available skills are discoverable options. When the current task clearly matches an available skill, the model should call `load_skill`; the returned tool result contains the full skill document and becomes active task context for that run. Initial prompt assembly intentionally does not read or inject full `SKILL.md` content.
+The system prompt tells the model that available skills are discoverable options. When the current task clearly matches an available skill, the model should call `load_skill`; the tool result confirms activation, and the runtime injects the active skill documents through a hidden user context message.
+
+## Loaded Skills Context Injection
+
+Loaded skill content is assembled by [LoadedSkillsContextProvider](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/LoadedSkillsContextProvider.ts:1) and [buildLoadedSkillsContextMessage](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/LoadedSkillsContext.ts:1).
+
+For every chat request, `RunRequestFactory` reads `chat_skills` for the current chat, loads each active `SKILL.md`, and passes a virtual context message to `RequestMessageBuilder`.
+
+The injected message shape is:
+
+```ts
+{
+  role: 'user',
+  source: MESSAGE_SOURCE.SKILLS_CONTEXT,
+  content: '<loaded_skills_context>...</loaded_skills_context>',
+  segments: []
+}
+```
+
+`RequestMessageBuilder` inserts this virtual message before the latest user message. With compression enabled, the order becomes:
+
+```text
+system prompt
+user: [Previous conversation summary ...]
+user: <loaded_skills_context>...</loaded_skills_context>
+user: latest user request
+```
+
+During the same run, `AgentLoop` refreshes the hidden context after successful `load_skill` or `unload_skill` tool results by using `ChatLoadedSkillsTranscriptContextProvider`. This makes the next model continuation see the updated active skill set within the same run.
+
+Renderer UI and history search filter `MESSAGE_SOURCE.SKILLS_CONTEXT`, so the hidden carrier message stays out of visible transcript surfaces and searchable chat history.
 
 ## Runtime Flow
 
@@ -154,7 +184,8 @@ tool call load_skill
   -> DatabaseService.getChatByUuid(chat_uuid)
   -> SkillService.getSkillContent(name)
   -> DatabaseService.addSkill(chat.id, name)
-  -> return { success, name, loaded, content }
+  -> return { success, name, loaded, contextInjected }
+  -> AgentLoop refreshes hidden loaded skills context for the next model continuation
 ```
 
 Next chat request:
@@ -166,6 +197,10 @@ SystemPromptComposer
   -> buildSkillsPrompt()
   -> buildSkillsSystemPrompt()
   -> provider request system prompt with Available Skills only
+RunRequestFactory
+  -> LoadedSkillsContextProvider.build(chatId)
+  -> RequestMessageBuilder.setEphemeralContextMessages([...])
+  -> provider request messages include hidden <loaded_skills_context>
 ```
 
 Reference file reading:
@@ -183,8 +218,11 @@ tool call read_skill_file
 Existing tests cover the service and part of the tool processor:
 
 - [SkillService.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/skills/__tests__/SkillService.test.ts:1): installs from single `SKILL.md`, installs from directory and copies assets, imports folders with conflict renaming, and installs a zip archive when archive tooling is available.
-- [SkillToolsProcessor.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts:1): covers `unload_skill` validation and DB deletion, plus `load_skill` content return and duplicate-load behavior.
+- [SkillToolsProcessor.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts:1): covers `unload_skill` validation and DB deletion, plus `load_skill` lightweight status and duplicate-load behavior.
 - [SkillPromptBuilder.test.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/__tests__/SkillPromptBuilder.test.ts:1): covers available skill prompt formatting and verifies loaded skill content is omitted from the initial prompt.
 - [SkillsPromptProvider.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/__tests__/SkillsPromptProvider.test.ts:1): verifies prompt assembly lists available metadata without reading loaded skill content.
+- [LoadedSkillsContextProvider.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/__tests__/LoadedSkillsContextProvider.test.ts:1): verifies active chat skills are rebuilt into hidden context messages.
+- [RequestMessageBuilder.test.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/services/__tests__/RequestMessageBuilder.test.ts:1): verifies hidden context insertion after compression summaries.
+- [DefaultMainAgentRuntimeRunner.integration.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/__tests__/DefaultMainAgentRuntimeRunner.integration.test.ts:1): verifies `load_skill` refreshes hidden context before same-run continuation.
 
 Useful next test targets are `install_skill`, `import_skills`, `read_skill_file` traversal rejection, IPC registration, renderer folder rescan behavior, startup `initializeFromConfig`, and a database-level uniqueness/upsert path for `chat_skills`.

@@ -9,6 +9,7 @@ import {
 } from '@main/db/mappers/MessageMapper'
 import { extractSearchableMessageText } from '@main/services/messages/MessageSegmentContent'
 import type { HistorySearchArgs, HistorySearchItem, HistorySearchMessage } from '@tools/history/index.d'
+import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
 
 type MessageRepositoryDeps = {
   hasDb: () => boolean
@@ -65,7 +66,10 @@ export class MessageRepository {
         continue
       }
 
-      if (body.role !== 'user' && body.role !== 'assistant') {
+      if (
+        (body.role !== 'user' && body.role !== 'assistant')
+        || (body.source && HIDDEN_MESSAGE_SOURCES.has(body.source))
+      ) {
         continue
       }
 
@@ -524,7 +528,10 @@ function buildSearchableMessageRecord(
     return null
   }
 
-  if (body.role !== 'user' && body.role !== 'assistant') {
+  if (
+    (body.role !== 'user' && body.role !== 'assistant')
+    || (body.source && HIDDEN_MESSAGE_SOURCES.has(body.source))
+  ) {
     return null
   }
 

@@ -22,6 +22,7 @@ import type { ToolResultRecordMaterializer } from '../transcript/ToolResultRecor
 import type { ExecutableRequestAdapter } from '../model/ExecutableRequestAdapter'
 import type { ModelResponseParser } from '../model/ModelResponseParser'
 import type { ModelStreamExecutor } from '../model/ModelStreamExecutor'
+import type { LoadedSkillsTranscriptContextProvider } from '../skills/LoadedSkillsTranscriptContextProvider'
 import type { LoopIdentityProvider } from './LoopIdentityProvider'
 import type { RuntimeClock } from './RuntimeClock'
 import type { LoopBudgetPolicy } from './LoopBudgetPolicy'
@@ -42,5 +43,6 @@ export interface AgentLoopDependencies {
   toolBatchAssembler: ToolBatchAssembler
   toolExecutorDispatcher: ToolExecutorDispatcher
   toolResultRecordMaterializer: ToolResultRecordMaterializer
+  loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
   agentEventEmitter: AgentEventEmitter
 }

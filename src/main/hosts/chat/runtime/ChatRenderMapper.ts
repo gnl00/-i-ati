@@ -7,6 +7,7 @@ import type {
   AgentRenderTextBlock,
   AgentRenderToolCallState
 } from '@main/hosts/shared/render'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 type RenderLayer = 'preview' | 'committed'
 
@@ -155,7 +156,7 @@ export class ChatRenderMapper {
     const { state, timestamp, baseBody } = args
     return this.attachDerivedMessageSemantics({
       ...baseBody,
-      source: 'stream_preview',
+      source: MESSAGE_SOURCE.STREAM_PREVIEW,
       content: state.content,
       segments: buildSegments({
         state,

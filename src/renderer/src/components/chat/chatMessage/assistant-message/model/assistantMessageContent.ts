@@ -1,3 +1,5 @@
+import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
+
 export function extractAssistantRegeneratePayload(
   message: ChatMessage
 ): { text: string; images: ClipbordImg[] } | null {
@@ -58,6 +60,10 @@ export function getAssistantCopyContent(message: ChatMessage): string {
 export function findLatestRegeneratableUserMessage(messages: MessageEntity[]): ChatMessage | null {
   return [...messages]
     .reverse()
-    .find(item => item.body.role === 'user' && !item.body.source)
+    .find(item => (
+      item.body.role === 'user'
+      && !item.body.source
+      && !HIDDEN_MESSAGE_SOURCES.has(item.body.source || '')
+    ))
     ?.body ?? null
 }

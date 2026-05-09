@@ -30,6 +30,8 @@ usedTokenCount / contextWindowTokens >= triggerTokenRatio
 8. 新摘要保存为 `active`；旧 active summary 标记为 `superseded`。
 9. 新摘要的 `messageIds` 是累积集合，覆盖历史 summary 和本轮新增消息。
 
+Skills context is reconstructed outside the compressed summary path. Active skills are tracked in `chat_skills`; request preparation rebuilds their `SKILL.md` content into a hidden `MESSAGE_SOURCE.SKILLS_CONTEXT` user message after applying the active summary. This keeps full skill documents out of compression summaries while preserving active skill instructions after compacting.
+
 ## Stored Fields
 
 `compressed_summaries` 关键字段：
@@ -131,6 +133,7 @@ contextOccupancyTokens / contextWindowTokens >= triggerTokenRatio
 
 - active summary 的估算 token
 - 当前仍会发送给模型的未压缩消息估算 token
+- hidden skills context 的估算 token
 - system prompt、tools schema、work context、attachments 的估算 token
 - 输出预留预算，例如 `maxTokens` 或模型默认输出上限
 

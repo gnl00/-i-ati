@@ -47,7 +47,7 @@ interface LoadSkillResponse {
   success: boolean
   name?: string
   loaded?: boolean
-  content?: string
+  contextInjected?: boolean
   message?: string
 }
 
@@ -133,15 +133,15 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       return { success: false, loaded: false, message: 'Chat not found' }
     }
 
-    const content = await SkillService.getSkillContent(args.name)
+    await SkillService.getSkillContent(args.name)
 
     if (DatabaseService.getSkills(chat.id).includes(args.name)) {
       return {
         success: true,
         name: args.name,
         loaded: true,
-        content,
-        message: 'Skill already loaded.'
+        contextInjected: true,
+        message: 'Skill already loaded in hidden skills context.'
       }
     }
 
@@ -151,8 +151,8 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       success: true,
       name: args.name,
       loaded: true,
-      content,
-      message: 'Skill loaded.'
+      contextInjected: true,
+      message: 'Skill loaded into hidden skills context.'
     }
   } catch (error) {
     console.error('[SkillTools] Failed to load skill:', error)

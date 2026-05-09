@@ -439,11 +439,14 @@ export class DefaultAgentLoop implements AgentLoop {
       const outcome = await dependencies.toolExecutorDispatcher.dispatch(batch)
 
       if (outcome.status === 'completed') {
-        const records = this.materializeToolResultRecords(
-          outcome.results,
-          dependencies,
-          dependencies.runtimeClock.now()
-        )
+        const records = [
+          ...this.materializeToolResultRecords(
+            outcome.results,
+            dependencies,
+            dependencies.runtimeClock.now()
+          ),
+          ...await this.materializeLoadedSkillsContextRecords(outcome.results, dependencies)
+        ]
         if (records.length > 0) {
           transcript = dependencies.transcriptAppender.append({
             transcript,
@@ -560,6 +563,31 @@ export class DefaultAgentLoop implements AgentLoop {
         result
       })
     ))
+  }
+
+  private async materializeLoadedSkillsContextRecords(
+    results: ToolResultFact[],
+    dependencies: AgentLoopDependencies
+  ) {
+    if (!dependencies.loadedSkillsTranscriptContextProvider) {
+      return []
+    }
+
+    const shouldRefreshSkillsContext = results.some(result => (
+      (result.toolName === 'load_skill' || result.toolName === 'unload_skill')
+      && result.status === 'success'
+    ))
+
+    if (!shouldRefreshSkillsContext) {
+      return []
+    }
+
+    const record = await dependencies.loadedSkillsTranscriptContextProvider.build({
+      recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
+      timestamp: dependencies.runtimeClock.now()
+    })
+
+    return record ? [record] : []
   }
 
   private async finalizeCompleted(input: {

@@ -1,4 +1,5 @@
 import { useChatStore } from '@renderer/store/chatStore'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { useCallback, useEffect } from 'react'
 
 interface MessageTypewriterEffectsProps {
@@ -20,7 +21,7 @@ export function usePersistTypewriterCompletion(
   const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
 
   return useCallback(() => {
-    if (message.typewriterCompleted || message.source === 'stream_preview') {
+    if (message.typewriterCompleted || message.source === MESSAGE_SOURCE.STREAM_PREVIEW) {
       return
     }
 

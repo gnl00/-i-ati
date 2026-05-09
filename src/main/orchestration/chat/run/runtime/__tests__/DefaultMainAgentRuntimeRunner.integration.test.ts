@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponseChunk'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
+import DatabaseService from '@main/db/DatabaseService'
+import { SkillService } from '@main/services/skills/SkillService'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 
 vi.mock('@main/logging/LogService', () => ({
@@ -35,9 +37,16 @@ vi.mock('@main/db/DatabaseService', () => ({
       updateTime: 1
     })),
     getChatByUuid: vi.fn(() => undefined),
+    getSkills: vi.fn(() => []),
     updateMessage: vi.fn(),
     updateChat: vi.fn(),
     saveRunEvent: vi.fn()
+  }
+}))
+
+vi.mock('@main/services/skills/SkillService', () => ({
+  SkillService: {
+    getSkillContent: vi.fn()
   }
 }))
 
@@ -149,6 +158,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     saveMessageMock.mockReset()
     saveMessageMock.mockReturnValue(301)
     executeMock.mockReset()
+    vi.mocked(DatabaseService.getSkills).mockReturnValue([])
+    vi.mocked(SkillService.getSkillContent).mockResolvedValue('')
   })
 
   it('keeps assistant text visible for a completed step that also contains tool calls', async () => {
@@ -300,5 +311,90 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     expect(hostSink.handle).toHaveBeenCalledWith(expect.objectContaining({
       type: 'host.preview.updated'
     }))
+  })
+
+  it('injects hidden loaded skills context before continuing after load_skill', async () => {
+    vi.mocked(DatabaseService.getSkills).mockReturnValue(['frontend-design'])
+    vi.mocked(SkillService.getSkillContent).mockResolvedValue('Use frontend workflow.')
+
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ request }) => {
+        if (request.messages.some(message => (
+          message.role === 'user'
+          && typeof message.content === 'string'
+          && message.content.includes('<loaded_skills_context>')
+        ))) {
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-2',
+              model: 'model-1',
+              content: 'Using the skill now.',
+              finishReason: 'stop'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-2',
+              model: 'model-1'
+            }
+          ])
+        }
+
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'model-1',
+            toolCalls: [{
+              argumentsMode: 'snapshot',
+              toolCall: {
+                id: 'skill-tool-1',
+                index: 0,
+                type: 'function',
+                function: {
+                  name: 'load_skill',
+                  arguments: '{"name":"frontend-design"}'
+                }
+              }
+            }],
+            finishReason: 'tool_calls'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'model-1'
+          }
+        ])
+      })
+    }
+    const emitter = {
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
+    } as any
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor
+    })
+
+    const result = await runner.run({
+      runInput: input,
+      prepared,
+      emitter,
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    expect(result.runtimeResult.state).toBe('completed')
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
+    const secondRequest = vi.mocked(modelStreamExecutor.execute).mock.calls[1][0].request
+    const contextMessage = secondRequest.messages.find(message => (
+      message.role === 'user'
+      && typeof message.content === 'string'
+      && message.content.includes('<loaded_skills_context>')
+    ))
+    expect(contextMessage?.content).toContain('Use frontend workflow.')
+    const toolMessage = secondRequest.messages.find(message => message.role === 'tool')
+    expect(toolMessage?.content).not.toContain('Use frontend workflow.')
   })
 })

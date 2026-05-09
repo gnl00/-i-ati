@@ -4,6 +4,7 @@ import { UserMessage } from './user-message'
 import { AssistantMessage } from './assistant-message'
 import { useMessageHover } from './user-message/use-message-hover'
 import { Send, Timer } from 'lucide-react'
+import { MESSAGE_SOURCE, HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
 
 interface ChatMessageComponentProps {
   index: number
@@ -57,7 +58,11 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
     return null
   }
 
-  if (message.role === 'user' && message.source && message.source == 'schedule') {
+  if (message.source && HIDDEN_MESSAGE_SOURCES.has(message.source)) {
+    return null
+  }
+
+  if (message.role === 'user' && message.source && message.source == MESSAGE_SOURCE.SCHEDULE) {
     return (
       <>
         {message.source && (
@@ -80,7 +85,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
     )
   }
 
-  if (message.role === 'assistant' && message.source && message.source === 'telegram' && message.host?.direction === 'outbound') {
+  if (message.role === 'assistant' && message.source && message.source === MESSAGE_SOURCE.TELEGRAM && message.host?.direction === 'outbound') {
     return (
       <>
         <div className="flex items-center gap-3 py-2.5">

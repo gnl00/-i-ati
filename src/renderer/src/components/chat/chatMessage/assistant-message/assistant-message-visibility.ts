@@ -1,3 +1,5 @@
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+
 export interface AssistantMessageShellPresenceInput {
   hasContent: boolean
   hasSegments: boolean
@@ -42,7 +44,7 @@ export interface AssistantMessagePreviewStateInput {
 export function isAssistantStreamPreviewMessage(
   input: AssistantMessagePreviewStateInput
 ): boolean {
-  return input.hasPreviewMessage || input.messageSource === 'stream_preview'
+  return input.hasPreviewMessage || input.messageSource === MESSAGE_SOURCE.STREAM_PREVIEW
 }
 
 export function shouldShowAssistantMessageOperations(

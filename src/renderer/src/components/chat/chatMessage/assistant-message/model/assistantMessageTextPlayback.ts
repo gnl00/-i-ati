@@ -1,3 +1,4 @@
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import type { TextSegmentRenderItem } from './assistantMessageMapper'
 
 export interface AssistantMessageTextPlaybackInput {
@@ -21,7 +22,7 @@ export const EMPTY_PREVIEW_MESSAGE: ChatMessage = {
   role: 'assistant',
   content: '',
   segments: [],
-  source: 'stream_preview',
+  source: MESSAGE_SOURCE.STREAM_PREVIEW,
   typewriterCompleted: true
 }
 

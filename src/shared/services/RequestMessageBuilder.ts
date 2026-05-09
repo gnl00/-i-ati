@@ -13,6 +13,7 @@
 class RequestMessageBuilder {
   private messages: MessageEntity[] = []
   private systemPrompts: string[] = []
+  private ephemeralContextMessages: ChatMessage[] = []
   private compressionSummary: CompressedSummaryEntity | null = null
   private userInstruction: string | null = null
 
@@ -29,6 +30,11 @@ class RequestMessageBuilder {
    */
   setSystemPrompts(prompts: string[]): this {
     this.systemPrompts = prompts
+    return this
+  }
+
+  setEphemeralContextMessages(messages: ChatMessage[]): this {
+    this.ephemeralContextMessages = messages
     return this
   }
 
@@ -81,7 +87,8 @@ class RequestMessageBuilder {
     messages = this.repairToolCallPairs(messages)
     // console.log(`[RequestMessageBuilder] After tool call pairing: ${messages.length} messages`)
 
-    // Step 4: 插入系统提示词
+    // Step 4: 插入临时上下文和系统提示词
+    messages = this.insertEphemeralContextMessages(messages)
     const { systemPrompt, messages: messagesWithInstruction } = this.insertSystemPrompts(messages)
     // console.log(`[RequestMessageBuilder] After system prompts: ${messages.length} messages`)
 
@@ -328,6 +335,31 @@ class RequestMessageBuilder {
       systemPrompt: systemPrompt || undefined,
       messages: result
     }
+  }
+
+  private insertEphemeralContextMessages(messages: ChatMessage[]): ChatMessage[] {
+    const contextMessages = this.ephemeralContextMessages.filter(message => (
+      message.role === 'user'
+      && typeof message.content === 'string'
+      && message.content.trim().length > 0
+    ))
+
+    if (contextMessages.length === 0) {
+      return messages
+    }
+
+    const result = [...messages]
+    let insertIndex = result.length
+
+    for (let i = result.length - 1; i >= 0; i -= 1) {
+      if (result[i].role === 'user') {
+        insertIndex = i
+        break
+      }
+    }
+
+    result.splice(insertIndex, 0, ...contextMessages)
+    return result
   }
 
   /**
