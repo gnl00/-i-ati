@@ -66,6 +66,12 @@ import {
   processTelegramSetupTool
 } from '@main/tools/telegram/TelegramToolsProcessor'
 import {
+  processTodoAdd,
+  processTodoDelete,
+  processTodoList,
+  processTodoUpdate
+} from '@main/tools/todo/TodoToolsProcessor'
+import {
   processUserInfoGet,
   processUserInfoSet
 } from '@main/tools/userInfo/UserInfoToolsProcessor'
@@ -131,6 +137,10 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   telegram_setup_tool: processTelegramSetupTool,
   telegram_search_targets: processTelegramSearchTargets,
   telegram_send_message: processTelegramSendMessage,
+  todo_add: processTodoAdd,
+  todo_list: processTodoList,
+  todo_update: processTodoUpdate,
+  todo_delete: processTodoDelete,
   user_info_get: processUserInfoGet,
   user_info_set: processUserInfoSet,
   activity_journal_append: processActivityJournalAppend,

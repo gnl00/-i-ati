@@ -6,6 +6,7 @@
 import { DbRuntime } from '../core/DbRuntime'
 import { DbAppServices } from './DbAppServices'
 import { ScheduledTaskRow } from '../dao/ScheduledTaskDao'
+import type { TodoListFilters, TodoRow } from '../dao/TodoDao'
 import type { SmartMessageCandidateSummaryRow } from '../dao/SmartMessageDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
@@ -338,6 +339,28 @@ class DatabaseService {
 
   public deleteScheduledTask(id: string): void {
     this.requirePlanningService().deleteScheduledTask(id)
+  }
+
+  // ==================== Todo Methods ====================
+
+  public saveTodo(todo: TodoRow): void {
+    this.requirePlanningService().saveTodo(todo)
+  }
+
+  public updateTodo(todo: TodoRow): void {
+    this.requirePlanningService().updateTodo(todo)
+  }
+
+  public getTodoById(id: string): TodoRow | undefined {
+    return this.requirePlanningService().getTodoById(id)
+  }
+
+  public listTodos(filters: TodoListFilters): TodoRow[] {
+    return this.requirePlanningService().listTodos(filters)
+  }
+
+  public deleteTodo(id: string): void {
+    this.requirePlanningService().deleteTodo(id)
   }
 
   // ==================== Config 操作 ====================

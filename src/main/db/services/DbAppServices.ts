@@ -39,7 +39,8 @@ export class DbAppServices {
     })
     this.planningService = new PlanningService({
       taskPlanRepository: () => runtime.taskPlanRepository,
-      scheduledTaskRepository: () => runtime.scheduledTaskRepository
+      scheduledTaskRepository: () => runtime.scheduledTaskRepository,
+      todoRepository: () => runtime.todoRepository
     })
     this.pluginService = new PluginService({
       pluginRuntimeService: () => this.pluginRuntimeService

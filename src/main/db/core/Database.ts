@@ -423,6 +423,22 @@ class AppDatabase {
       )
     `)
 
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS todos (
+        id TEXT PRIMARY KEY,
+        chat_uuid TEXT,
+        title TEXT NOT NULL,
+        notes TEXT,
+        status TEXT NOT NULL DEFAULT 'open',
+        priority TEXT,
+        tags_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        completed_at INTEGER,
+        deleted_at INTEGER
+      )
+    `)
+
     this.ensureChatsTableSchema()
 
     console.log('[Database] Tables created')
@@ -473,6 +489,8 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status_run_at ON scheduled_tasks(status, run_at);
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_run_at ON scheduled_tasks(run_at);
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_plan_id ON scheduled_tasks(plan_id);
+      CREATE INDEX IF NOT EXISTS idx_todos_chat_uuid ON todos(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_todos_status_updated_at ON todos(status, updated_at DESC);
     `)
 
     console.log('[Database] Indexes created')

@@ -20,6 +20,7 @@ export type EmbeddedToolCapability =
   | 'subagent'
   | 'log'
   | 'knowledgebase'
+  | 'todo'
   | 'registry'
 
 export interface EmbeddedToolMetadata {

@@ -1,12 +1,15 @@
 import type { ScheduledTaskRow } from '../dao/ScheduledTaskDao'
+import type { TodoListFilters, TodoRow } from '../dao/TodoDao'
 import type { ScheduledTaskRepository } from '../repositories/ScheduledTaskRepository'
 import type { TaskPlanRepository } from '../repositories/TaskPlanRepository'
+import type { TodoRepository } from '../repositories/TodoRepository'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 
 type PlanningServiceDeps = {
   taskPlanRepository: () => TaskPlanRepository | undefined
   scheduledTaskRepository: () => ScheduledTaskRepository | undefined
+  todoRepository: () => TodoRepository | undefined
 }
 
 export class PlanningService {
@@ -97,6 +100,26 @@ export class PlanningService {
     this.requireScheduledTaskRepository().deleteScheduledTask(id)
   }
 
+  saveTodo(todo: TodoRow): void {
+    this.requireTodoRepository().saveTodo(todo)
+  }
+
+  updateTodo(todo: TodoRow): void {
+    this.requireTodoRepository().updateTodo(todo)
+  }
+
+  getTodoById(id: string): TodoRow | undefined {
+    return this.requireTodoRepository().getTodoById(id)
+  }
+
+  listTodos(filters: TodoListFilters): TodoRow[] {
+    return this.requireTodoRepository().listTodos(filters)
+  }
+
+  deleteTodo(id: string): void {
+    this.requireTodoRepository().deleteTodo(id)
+  }
+
   private requireTaskPlanRepository(): TaskPlanRepository {
     const repository = this.deps.taskPlanRepository()
     if (!repository) throw new Error('Task plan repository not initialized')
@@ -106,6 +129,12 @@ export class PlanningService {
   private requireScheduledTaskRepository(): ScheduledTaskRepository {
     const repository = this.deps.scheduledTaskRepository()
     if (!repository) throw new Error('Scheduled task repository not initialized')
+    return repository
+  }
+
+  private requireTodoRepository(): TodoRepository {
+    const repository = this.deps.todoRepository()
+    if (!repository) throw new Error('Todo repository not initialized')
     return repository
   }
 }

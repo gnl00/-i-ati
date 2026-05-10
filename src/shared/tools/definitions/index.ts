@@ -20,6 +20,7 @@ import { skillTools } from '../skills/definitions'
 import { soulTools } from '../soul/definitions'
 import { subagentTools } from '../subagent/definitions'
 import { telegramTools } from '../telegram/definitions'
+import { todoTools } from '../todo/definitions'
 import { userInfoTools } from '../userInfo/definitions'
 import { webTools } from '../webTools/definitions'
 import { workContextTools } from '../workContext/definitions'
@@ -42,6 +43,7 @@ export const tools = mergeToolDefinitions(
   emotionTools,
   pluginTools,
   telegramTools,
+  todoTools,
   userInfoTools,
   activityJournalTools,
   knowledgebaseTools,

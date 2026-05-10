@@ -17,6 +17,7 @@ import { AssistantDao } from '../dao/AssistantDao'
 import { TaskPlanDao } from '../dao/TaskPlanDao'
 import { ScheduledTaskDao } from '../dao/ScheduledTaskDao'
 import { SmartMessageDao } from '../dao/SmartMessageDao'
+import { TodoDao } from '../dao/TodoDao'
 import { TaskPlanRepository } from '../repositories/TaskPlanRepository'
 import { ScheduledTaskRepository } from '../repositories/ScheduledTaskRepository'
 import { ChatRepository } from '../repositories/ChatRepository'
@@ -32,6 +33,7 @@ import { CompressedSummaryRepository } from '../repositories/CompressedSummaryRe
 import { RunEventRepository } from '../repositories/RunEventRepository'
 import { AssistantRepository } from '../repositories/AssistantRepository'
 import { SmartMessageRepository } from '../repositories/SmartMessageRepository'
+import { TodoRepository } from '../repositories/TodoRepository'
 import { PluginBootstrapService } from '../services/PluginBootstrapService'
 import { McpServerMigrationService } from '../services/McpServerMigrationService'
 import { PluginManifestSyncService } from '../services/PluginManifestSyncService'
@@ -64,6 +66,7 @@ export class DbRuntime {
   private taskPlanRepo?: TaskPlanDao
   private scheduledTaskRepo?: ScheduledTaskDao
   private smartMessageRepo?: SmartMessageDao
+  private todoRepo?: TodoDao
 
   private _chatRepository?: ChatRepository
   private _chatHostBindingRepository?: ChatHostBindingRepository
@@ -72,6 +75,7 @@ export class DbRuntime {
   private _workContextRepository?: WorkContextRepository
   private _taskPlanRepository?: TaskPlanRepository
   private _scheduledTaskRepository?: ScheduledTaskRepository
+  private _todoRepository?: TodoRepository
   private _configRepository?: ConfigRepository
   private _mcpServerRepository?: McpServerRepository
   private _pluginRepository?: PluginRepository
@@ -107,6 +111,7 @@ export class DbRuntime {
     this.taskPlanRepo = new TaskPlanDao(this.db)
     this.scheduledTaskRepo = new ScheduledTaskDao(this.db)
     this.smartMessageRepo = new SmartMessageDao(this.db)
+    this.todoRepo = new TodoDao(this.db)
 
     this._chatRepository = new ChatRepository({
       hasDb: () => Boolean(this.db),
@@ -137,6 +142,10 @@ export class DbRuntime {
     this._scheduledTaskRepository = new ScheduledTaskRepository({
       hasDb: () => Boolean(this.db),
       getScheduledTaskRepo: () => this.scheduledTaskRepo
+    })
+    this._todoRepository = new TodoRepository({
+      hasDb: () => Boolean(this.db),
+      getTodoRepo: () => this.todoRepo
     })
     this._providerRepository = new ProviderRepository({
       hasDb: () => Boolean(this.db),
@@ -232,6 +241,7 @@ export class DbRuntime {
     this.taskPlanRepo = undefined
     this.scheduledTaskRepo = undefined
     this.smartMessageRepo = undefined
+    this.todoRepo = undefined
     this._chatRepository = undefined
     this._chatHostBindingRepository = undefined
     this._messageRepository = undefined
@@ -239,6 +249,7 @@ export class DbRuntime {
     this._workContextRepository = undefined
     this._taskPlanRepository = undefined
     this._scheduledTaskRepository = undefined
+    this._todoRepository = undefined
     this._configRepository = undefined
     this._mcpServerRepository = undefined
     this._pluginRepository = undefined
@@ -277,6 +288,10 @@ export class DbRuntime {
 
   get scheduledTaskRepository(): ScheduledTaskRepository {
     return this.requireService(this._scheduledTaskRepository, 'Scheduled task repository')
+  }
+
+  get todoRepository(): TodoRepository {
+    return this.requireService(this._todoRepository, 'Todo repository')
   }
 
   get configRepository(): ConfigRepository {
