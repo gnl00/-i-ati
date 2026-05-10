@@ -6,13 +6,17 @@ import { cn } from '@renderer/lib/utils'
 import { getActiveSmartMessages } from '@renderer/db/SmartMessageRepository'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useAssistantStore } from '@renderer/store/assistant'
+import {
+  getMsUntilNextSmartGreetingRefresh,
+  pickSmartGreeting,
+  type TimeOfDay
+} from './smartGreeting'
 import './SmartWelcomeMessage.css'
 
 const CONFIG = {
   TYPEWRITER_SPEED: 60
 } as const
 
-type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
 type SmartLayerTone = 'top' | 'mid' | 'bottom'
 
 interface SmartWelcomeEntranceProps {
@@ -57,29 +61,6 @@ interface SmartMessageLayerProps {
   onHoverEnd: () => void
 }
 
-const TIME_OF_DAY_LINES: Record<TimeOfDay, string[]> = {
-  morning: [
-    "Let's start with one sharp priority.",
-    "What should move first this morning?",
-    "Ready for a focused start?"
-  ],
-  afternoon: [
-    "Let's keep the important work moving.",
-    "What needs a clean next step?",
-    "Want to push one task forward?"
-  ],
-  evening: [
-    "Let's wrap up with a focused win.",
-    "Need help finishing today's work?",
-    "Want a clean handoff for tomorrow?"
-  ],
-  night: [
-    "Late session. Let's keep it simple.",
-    "Need a quick push before you sign off?",
-    "Want to finish one more thing tonight?"
-  ]
-}
-
 const FALLBACK_MESSAGES: SmartStackMessage[] = [
   {
     id: 'smart-focus-plan',
@@ -100,13 +81,6 @@ const FALLBACK_MESSAGES: SmartStackMessage[] = [
     actionPrompt: 'Summarize my unfinished follow-ups into clear action items with priorities.'
   }
 ]
-
-const getTimeOfDay = (hour: number): TimeOfDay => {
-  if (hour >= 5 && hour <= 11) return 'morning'
-  if (hour >= 12 && hour <= 17) return 'afternoon'
-  if (hour >= 18 && hour <= 21) return 'evening'
-  return 'night'
-}
 
 const getStoredUserName = (): string => {
   if (typeof window === 'undefined') return ''
@@ -579,13 +553,49 @@ const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
   }, [])
 
   useEffect(() => {
-    const nextTimeOfDay = getTimeOfDay(new Date().getHours())
-    const lines = TIME_OF_DAY_LINES[nextTimeOfDay]
-    const randomLine = lines[Math.floor(Math.random() * lines.length)] ?? lines[0]
+    let refreshTimer: number | null = null
 
-    setTimeOfDay(nextTimeOfDay)
-    setSubtitleText(randomLine)
-  }, [username])
+    const refreshGreeting = () => {
+      const nextGreeting = pickSmartGreeting()
+      setTimeOfDay(nextGreeting.timeOfDay)
+      setSubtitleText(nextGreeting.subtitleText)
+    }
+
+    const clearRefreshTimer = () => {
+      if (refreshTimer === null) return
+      window.clearTimeout(refreshTimer)
+      refreshTimer = null
+    }
+
+    const scheduleNextRefresh = () => {
+      clearRefreshTimer()
+      refreshTimer = window.setTimeout(() => {
+        refreshGreeting()
+        scheduleNextRefresh()
+      }, getMsUntilNextSmartGreetingRefresh())
+    }
+
+    const refreshAndSchedule = () => {
+      refreshGreeting()
+      scheduleNextRefresh()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAndSchedule()
+      }
+    }
+
+    refreshAndSchedule()
+    window.addEventListener('focus', refreshAndSchedule)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearRefreshTimer()
+      window.removeEventListener('focus', refreshAndSchedule)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
 
   useEffect(() => {
     if (isExiting) return
