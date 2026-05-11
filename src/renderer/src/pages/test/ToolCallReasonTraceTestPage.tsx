@@ -8,7 +8,10 @@ import type {
   SupportSegmentRenderItem,
   TextSegmentRenderItem
 } from '@renderer/components/chat/chatMessage/assistant-message/model/assistantMessageMapper'
-import { buildActiveToolCallReason } from '@renderer/components/chat/chatMessage/assistant-message/model/toolCallReason'
+import {
+  buildActiveToolCallReason,
+  buildToolCallReasonModel
+} from '@renderer/components/chat/chatMessage/assistant-message/model/toolCallReason'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
@@ -184,7 +187,8 @@ function buildAssistantModel(args: {
         emotionLabel: 'focused',
         emotionEmoji: '◐',
         emotionIntensity: 2,
-        toolCallReason: buildActiveToolCallReason(args.supportItems)
+        toolCallReason: buildActiveToolCallReason(args.supportItems),
+        toolCallReasons: buildToolCallReasonModel(args.supportItems).items
       }
     },
     body: {
@@ -260,8 +264,8 @@ const assistantCases: AssistantMockCase[] = [
   },
   {
     id: 'multi',
-    title: 'Multi Tool Current Reason',
-    note: 'Only the earliest non-terminal tool reason should appear in the model badge.',
+    title: 'Multi Tool Reason Trace',
+    note: 'Completed and running tool reasons should stay in one horizontal trace from old to new.',
     viewport: 'wide',
     model: buildAssistantModel({
       index: 1,
@@ -498,7 +502,7 @@ function buildSequentialAssistantModel(activeIndex: number): AssistantMessageLay
       buildTextItem(
         `sequential-${activeTool?.id ?? 'complete'}`,
         isDoneStage
-          ? 'Sequential execution mock. All tool calls are complete, so the model badge should no longer show a tool call reason.'
+          ? 'Sequential execution mock. All tool calls are complete, and the reason trace keeps the full path visible.'
           : `Sequential execution mock. The active tool is ${activeToolName}; previous tool calls stay completed so the next reason can be reviewed in context.`,
         0
       )

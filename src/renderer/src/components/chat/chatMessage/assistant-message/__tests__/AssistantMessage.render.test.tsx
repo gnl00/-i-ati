@@ -434,5 +434,14 @@ beforeEach(() => {
       order: 0,
       isTerminal: false
     })
+    expect(latestModelBadgeProps?.toolCallReasons).toEqual([
+      {
+        id: 'tool-1',
+        toolName: 'read',
+        reason: 'Inspect the current layout implementation.',
+        order: 0,
+        isTerminal: false
+      }
+    ])
   })
 })

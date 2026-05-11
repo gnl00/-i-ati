@@ -325,6 +325,29 @@ describe('mapAssistantMessage', () => {
       order: 1,
       isTerminal: false
     })
+    expect(renderState.header.toolCallReasons).toEqual([
+      {
+        id: 'tool-1',
+        toolName: 'read',
+        reason: 'Read first.',
+        order: 0,
+        isTerminal: true
+      },
+      {
+        id: 'tool-2',
+        toolName: 'search',
+        reason: 'Search second.',
+        order: 1,
+        isTerminal: false
+      },
+      {
+        id: 'tool-3',
+        toolName: 'shell',
+        reason: 'Typecheck last.',
+        order: 2,
+        isTerminal: false
+      }
+    ])
   })
 
   it('hides the header tool call reason after tool calls reach terminal status', () => {
@@ -352,5 +375,14 @@ describe('mapAssistantMessage', () => {
     })
 
     expect(renderState.header.toolCallReason).toBeUndefined()
+    expect(renderState.header.toolCallReasons).toEqual([
+      {
+        id: 'tool-1',
+        toolName: 'read',
+        reason: 'Read first.',
+        order: 0,
+        isTerminal: true
+      }
+    ])
   })
 })

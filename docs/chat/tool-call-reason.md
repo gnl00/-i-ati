@@ -30,29 +30,38 @@ Adapters also normalize request tool schemas before sending them upstream:
 The renderer reads the reason from visible tool-call segments:
 
 - `src/renderer/src/components/chat/chatMessage/assistant-message/model/toolCallReason.ts` parses object and JSON-string tool args, builds ordered reason items, and returns the first active non-terminal reason.
-- Terminal tool calls are hidden from the model badge reason slot after completion, failure, abort, denial, timeout, cancellation, or result/error availability.
+- `assistantMessageMapper.ts` computes both `header.toolCallReason` for the active reason and `header.toolCallReasons` for the full ordered reason history.
+- Terminal tool calls remain in the reason history, while the active highlight follows the first non-terminal reason.
 - `emotion_report` remains hidden from the transcript through existing segment presentation metadata, so its reason is also hidden from the badge.
 
-The active reason is displayed in the assistant model badge:
+The assistant header separates model identity from reason history:
 
-- `assistantMessageMapper.ts` computes `header.toolCallReason`.
 - `AssistantMessageContainer.tsx` passes the value into the header model.
 - `AssistantMessageHeader.tsx` passes it into `ModelBadgeNext`.
-- `ModelBadgeNext.tsx` renders the reason after model info and before emotion, with layout and reason switch animations.
+- `ModelBadgeNext.tsx` renders model identity and emotion in the badge, then renders `ToolCallReasonTrace`.
+- `ToolCallReasonTrace.tsx` displays reasons from old to new in a horizontal scroll lane, scrolls to the newest reason, and highlights the active processing reason from `header.toolCallReason`.
 
-When multiple tool calls happen in sequence, the badge shows the active reason in tool-call order:
+When multiple tool calls happen in sequence, the trace preserves prior reasons:
 
 ```text
-model info -> reason 1 -> emotion
-model info -> reason 2 -> emotion
-model info -> reason 3 -> emotion
+model badge
+reason 1 - reason 2 - reason 3
 ```
 
-After the last tool call completes, the reason leaves the badge.
+The newest reason stays focused at the right edge. The active highlight uses the same contract as `buildActiveToolCallReason()`: the earliest non-terminal reason is active. Once that reason reaches a terminal state, its amber highlight transitions back to the neutral style.
+
+Animation details:
+
+- Each reason enters from the right, including the first item and later appended items.
+- Color, border, background, and shadow changes use a short transition so active-to-neutral changes feel continuous.
+- The horizontal overflow mask uses a valid `calc(100% - 18px)` value encoded for Tailwind arbitrary value syntax as `calc(100%_-_18px)`.
 
 ## Development Preview
 
-`src/renderer/src/pages/test/ToolCallReasonTraceTestPage.tsx` contains mock scenarios for visual tuning, including wide/narrow layouts, sequential reason switching, and real `AssistantMessage` container wiring. The page is kept as a reusable test fixture. It is intentionally detached from `src/renderer/src/App.tsx` during normal app startup.
+- `src/renderer/src/pages/test/ToolCallReasonHistoryTestPage.tsx` is the focused playground for fast reason switching, wide and narrow badge lanes, and active-to-neutral visual transitions.
+- `src/renderer/src/pages/test/ToolCallReasonTraceTestPage.tsx` contains assistant-message mock scenarios, including wide/narrow layouts, sequential reason switching, and real `AssistantMessage` container wiring.
+
+Both pages are kept as reusable test fixtures under `src/renderer/src/pages/test`.
 
 ## Tests
 
@@ -64,4 +73,5 @@ Key coverage:
 - Tool execution argument cleanup: `src/main/agent/tools/__tests__/ToolExecutor.test.ts`
 - Renderer extraction and active reason selection: `toolCallReason.test.ts`
 - Assistant render model and container propagation: `assistantMessageRenderModel.test.ts`, `AssistantMessage.render.test.tsx`
+- Reason trace active highlight and overflow mask: `ToolCallReasonTrace.test.tsx`
 - Tool result output filtering: `ToolCallResultNextOutput.test.tsx`
