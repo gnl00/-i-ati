@@ -19,6 +19,12 @@ import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
 import { invokeCheckIsDirectory } from '@renderer/invoker/ipcInvoker'
 import { ArrowBigUp, CornerDownLeft } from 'lucide-react'
+import {
+  isSubmissionBlocked,
+  mergeQueuedMessages,
+  shouldQueueSubmission as getShouldQueueSubmission,
+  type QueuedChatMessage
+} from './queuePolicy'
 
 interface ChatInputAreaProps {
   onMessagesUpdate?: () => void
@@ -36,6 +42,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const imageSrcBase64List = useChatStore(state => state.imageSrcBase64List)
   const setImageSrcBase64List = useChatStore(state => state.setImageSrcBase64List)
   const runPhase = useChatStore(state => state.runPhase)
+  const postRunJobs = useChatStore(state => state.postRunJobs)
   const messages = useChatStore(state => state.messages)
   const currentChatId = useChatStore(state => state.currentChatId)
   const currentChatUuid = useChatStore(state => state.currentChatUuid)
@@ -107,11 +114,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const { currentAssistant } = useAssistantStore()
 
   const [inputContent, setInputContent] = useState<string>('')
-  const [queuedMessages, setQueuedMessages] = useState<Array<{
-    text: string
-    images: ClipbordImg[]
-    userInstruction: string
-  }>>([])
+  const [queuedMessages, setQueuedMessages] = useState<QueuedChatMessage[]>([])
   const [queuePaused, setQueuePaused] = useState<boolean>(false)
   const [editingQueue, setEditingQueue] = useState<boolean>(false)
   const [currentUserInstruction, setCurrentUserInstruction] = useState<string>('')
@@ -134,11 +137,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const queueTimerRef = useRef<number | null>(null)
   const queueFlushingRef = useRef(false)
   const isComposingRef = useRef(false)
-  const editingQueueRef = useRef<{
-    text: string
-    images: ClipbordImg[]
-    userInstruction: string
-  } | null>(null)
+  const editingQueueRef = useRef<QueuedChatMessage | null>(null)
 
   // Callback to handle command execution with textarea cleanup
   const handleCommandExecute = useCallback((_command: any) => {
@@ -212,11 +211,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
-  const submitMessage = useCallback((payload: {
-    text: string
-    images: ClipbordImg[]
-    userInstruction: string
-  }) => {
+  const submitMessage = useCallback((payload: QueuedChatMessage) => {
     onMessagesUpdate?.()
     handleChatSubmitCallback(payload.text, payload.images, {
       userInstruction: payload.userInstruction,
@@ -224,11 +219,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     })
   }, [effectiveThinkingLevel, handleChatSubmitCallback, onMessagesUpdate])
 
-  const enqueueMessage = useCallback((payload: {
-    text: string
-    images: ClipbordImg[]
-    userInstruction: string
-  }) => {
+  const enqueueMessage = useCallback((payload: QueuedChatMessage) => {
     if (queuedMessages.length >= 5) {
       toast.warning('Queue is full (max 5)')
       return
@@ -246,8 +237,13 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     })
   }, [queuedMessages.length, queuePaused, setImageSrcBase64List])
 
-  const isRunBusy = runPhase !== 'idle'
-  const shouldQueueSubmission = isRunBusy || queuePaused || queuedMessages.length > 0
+  const isSubmitBlocked = isSubmissionBlocked(runPhase, postRunJobs)
+  const shouldQueueSubmission = getShouldQueueSubmission({
+    runPhase,
+    postRunJobs,
+    queuePaused,
+    queuedMessageCount: queuedMessages.length
+  })
 
   const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent, overrideText?: string) => {
     const rawInput = overrideText ?? inputContent
@@ -328,7 +324,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   ])
 
   useEffect(() => {
-    if (isRunBusy || queuePaused || editingQueue || queuedMessages.length === 0) {
+    if (isSubmitBlocked || queuePaused || editingQueue || queuedMessages.length === 0) {
       return
     }
     if (queueFlushingRef.current) {
@@ -338,17 +334,21 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       window.clearTimeout(queueTimerRef.current)
     }
     queueTimerRef.current = window.setTimeout(() => {
-      if (useChatStore.getState().runPhase !== 'idle') {
+      const latestState = useChatStore.getState()
+      if (isSubmissionBlocked(latestState.runPhase, latestState.postRunJobs)) {
         return
       }
       setQueuedMessages(prev => {
         if (prev.length === 0) {
           return prev
         }
-        const [nextItem, ...rest] = prev
+        const nextItem = mergeQueuedMessages(prev)
+        if (!nextItem) {
+          return prev
+        }
         queueFlushingRef.current = true
         submitMessage(nextItem)
-        return rest
+        return []
       })
     }, 200)
     return () => {
@@ -357,16 +357,16 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         queueTimerRef.current = null
       }
     }
-  }, [isRunBusy, queuePaused, editingQueue, queuedMessages.length, submitMessage])
+  }, [isSubmitBlocked, queuePaused, editingQueue, queuedMessages.length, submitMessage])
 
   useEffect(() => {
-    if (!isRunBusy) {
+    if (!isSubmitBlocked) {
       queueFlushingRef.current = false
     }
-  }, [isRunBusy])
+  }, [isSubmitBlocked])
 
   useEffect(() => {
-    if (isRunBusy) {
+    if (isSubmitBlocked) {
       return
     }
     const lastAssistant = [...messages].reverse().find(msg => msg.body.role === 'assistant')
@@ -374,7 +374,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     if (hasError) {
       setQueuePaused(true)
     }
-  }, [messages, isRunBusy])
+  }, [messages, isSubmitBlocked])
 
   useEffect(() => {
     setQueuedMessages([])
@@ -549,7 +549,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         <div
           className={cn(
             'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out bg-transparent',
-            isRunBusy && 'opacity-80'
+            isSubmitBlocked && 'opacity-80'
           )}
         >
           <ChatInputToolbar

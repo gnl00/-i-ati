@@ -30,7 +30,7 @@ type BindChatRunEventsInput = {
   runCompletedRef: MutableRefObject<boolean>
   lastErrorMessageRef: MutableRefObject<LastRunErrorMessage | null>
   clearedErrorMessageIdsRef: MutableRefObject<Set<number>>
-  hasPendingPostRunJobs: () => boolean
+  hasPendingBlockingPostRunJobs: () => boolean
   maybeCleanupAfterBackgroundJobs: () => void
   resetRunLifecycle: (outcome?: ChatRunLifecycleOutcome) => void
   cleanupActiveRun: () => void
@@ -138,10 +138,11 @@ function flushPreviewPatchBatch(input: BindChatRunEventsInput): void {
 function handleMaintenancePending(
   chatStore: ChatStoreState,
   job: 'title' | 'compression',
-  runCompletedRef: MutableRefObject<boolean>
+  runCompletedRef: MutableRefObject<boolean>,
+  blocksSubmit: boolean
 ): void {
   chatStore.setPostRunJobState(job, 'pending')
-  if (runCompletedRef.current) {
+  if (blocksSubmit && runCompletedRef.current) {
     chatStore.setRunPhase('post_run')
   }
 }
@@ -165,7 +166,7 @@ export async function handleChatRunEvent(
     runCompletedRef,
     lastErrorMessageRef,
     clearedErrorMessageIdsRef,
-    hasPendingPostRunJobs,
+    hasPendingBlockingPostRunJobs,
     maybeCleanupAfterBackgroundJobs,
     resetRunLifecycle,
     cleanupActiveRun
@@ -212,7 +213,7 @@ export async function handleChatRunEvent(
       chatStore.updateChatList(event.payload.chatEntity)
       return
     case RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_STARTED:
-      handleMaintenancePending(chatStore, 'title', runCompletedRef)
+      handleMaintenancePending(chatStore, 'title', runCompletedRef, false)
       return
     case RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_COMPLETED:
       handleMaintenanceCompleted(chatStore, 'title', maybeCleanupAfterBackgroundJobs)
@@ -225,7 +226,7 @@ export async function handleChatRunEvent(
       maybeCleanupAfterBackgroundJobs()
       return
     case RUN_MAINTENANCE_EVENTS.COMPRESSION_STARTED:
-      handleMaintenancePending(chatStore, 'compression', runCompletedRef)
+      handleMaintenancePending(chatStore, 'compression', runCompletedRef, true)
       return
     case RUN_MAINTENANCE_EVENTS.COMPRESSION_COMPLETED:
       handleMaintenanceCompleted(chatStore, 'compression', maybeCleanupAfterBackgroundJobs)
@@ -243,7 +244,7 @@ export async function handleChatRunEvent(
       chatStore.setPostRunJobState('compression', compression === 'pending' ? 'pending' : 'idle')
 
       if (runCompletedRef.current) {
-        if (title === 'pending' || compression === 'pending') {
+        if (compression === 'pending') {
           chatStore.setRunPhase('post_run')
         } else {
           maybeCleanupAfterBackgroundJobs()
@@ -266,7 +267,7 @@ export async function handleChatRunEvent(
       runCompletedRef.current = true
       chatStore.resetPreview()
       chatStore.setLastRunOutcome('completed')
-      if (hasPendingPostRunJobs()) {
+      if (hasPendingBlockingPostRunJobs()) {
         chatStore.setRunPhase('post_run')
       } else {
         maybeCleanupAfterBackgroundJobs()

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
+import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
 
 const latestStore = {
@@ -73,7 +74,7 @@ function createInput() {
     runCompletedRef: { current: false },
     lastErrorMessageRef: { current: null },
     clearedErrorMessageIdsRef: { current: new Set<number>() },
-    hasPendingPostRunJobs: vi.fn(() => false),
+    hasPendingBlockingPostRunJobs: vi.fn(() => false),
     maybeCleanupAfterBackgroundJobs: vi.fn(),
     resetRunLifecycle: vi.fn(),
     cleanupActiveRun: vi.fn()
@@ -369,5 +370,50 @@ describe('handleChatRunEvent', () => {
       reason: 'run_completed'
     })
     expect(input.chatStore.setLastRunOutcome).toHaveBeenCalledWith('completed')
+  })
+
+  it('keeps title-only post-run work from entering post_run phase', async () => {
+    const input = createInput()
+    input.runCompletedRef.current = true
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 4,
+      sequence: 4,
+      type: RUN_MAINTENANCE_EVENTS.POSTRUN_PLAN,
+      payload: {
+        title: 'pending',
+        compression: 'skipped'
+      }
+    })
+
+    expect(input.chatStore.setPostRunJobState).toHaveBeenCalledWith('title', 'pending')
+    expect(input.chatStore.setPostRunJobState).toHaveBeenCalledWith('compression', 'idle')
+    expect(input.chatStore.setRunPhase).not.toHaveBeenCalledWith('post_run')
+    expect(input.maybeCleanupAfterBackgroundJobs).toHaveBeenCalledTimes(1)
+  })
+
+  it('enters post_run phase while compression is pending', async () => {
+    const input = createInput()
+    input.runCompletedRef.current = true
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 4,
+      sequence: 4,
+      type: RUN_MAINTENANCE_EVENTS.POSTRUN_PLAN,
+      payload: {
+        title: 'skipped',
+        compression: 'pending'
+      }
+    })
+
+    expect(input.chatStore.setPostRunJobState).toHaveBeenCalledWith('compression', 'pending')
+    expect(input.chatStore.setRunPhase).toHaveBeenCalledWith('post_run')
+    expect(input.maybeCleanupAfterBackgroundJobs).not.toHaveBeenCalled()
   })
 })

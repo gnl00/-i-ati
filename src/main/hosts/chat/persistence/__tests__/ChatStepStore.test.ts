@@ -3,11 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   saveMessageMock,
   updateChatMock,
+  getChatByIdMock,
+  getChatByUuidMock,
   getEmotionStateByChatIdMock,
   upsertEmotionStateMock
 } = vi.hoisted(() => ({
   saveMessageMock: vi.fn(),
   updateChatMock: vi.fn(),
+  getChatByIdMock: vi.fn(),
+  getChatByUuidMock: vi.fn(),
   getEmotionStateByChatIdMock: vi.fn(),
   upsertEmotionStateMock: vi.fn()
 }))
@@ -16,6 +20,8 @@ vi.mock('@main/db/DatabaseService', () => ({
   default: {
     saveMessage: saveMessageMock,
     updateChat: updateChatMock,
+    getChatById: getChatByIdMock,
+    getChatByUuid: getChatByUuidMock,
     getEmotionStateByChatId: getEmotionStateByChatIdMock,
     upsertEmotionState: upsertEmotionStateMock
   }
@@ -34,6 +40,10 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     saveMessageMock.mockReset()
     saveMessageMock.mockReturnValue(102)
     updateChatMock.mockReset()
+    getChatByIdMock.mockReset()
+    getChatByIdMock.mockReturnValue(undefined)
+    getChatByUuidMock.mockReset()
+    getChatByUuidMock.mockReturnValue(undefined)
     getEmotionStateByChatIdMock.mockReset()
     upsertEmotionStateMock.mockReset()
   })
@@ -79,6 +89,65 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     }))
     expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
       messages: [102]
+    }))
+  })
+
+  it('preserves the latest persisted chat title when attaching a message', async () => {
+    const store = new ChatStepStore()
+    const staleChatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'NewChat',
+      messages: [100],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+    getChatByIdMock.mockReturnValue({
+      ...staleChatEntity,
+      title: 'Generated title',
+      messages: [100]
+    })
+    saveMessageMock.mockReturnValue(103)
+
+    store.createUserMessage(staleChatEntity, {
+      id: 'model-1',
+      label: 'model-1',
+      type: 'llm'
+    } as AccountModel, {
+      textCtx: 'hello',
+      mediaCtx: []
+    })
+
+    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Generated title',
+      messages: [100, 103]
+    }))
+  })
+
+  it('does not duplicate message ids when attaching a message already present on the latest chat', async () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Generated title',
+      messages: [104],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+    getChatByIdMock.mockReturnValue(chatEntity)
+    saveMessageMock.mockReturnValue(104)
+
+    store.createUserMessage(chatEntity, {
+      id: 'model-1',
+      label: 'model-1',
+      type: 'llm'
+    } as AccountModel, {
+      textCtx: 'hello',
+      mediaCtx: []
+    })
+
+    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [104]
     }))
   })
 })

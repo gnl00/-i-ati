@@ -7,6 +7,10 @@ import type { MainAgentRunInput } from '../preparation'
 
 const DEFAULT_WORKSPACE_DIR = 'workspaces'
 
+function isDefaultChatTitle(title?: string): boolean {
+  return !title || title === 'NewChat'
+}
+
 export class ChatSessionStore {
   async resolveOrCreateChat(
     input: MainAgentRunInput
@@ -52,13 +56,14 @@ export class ChatSessionStore {
     _inputText: string,
     modelRef: ModelRef
   ): ChatEntity {
-    const nextTitle = chatEntity.title && chatEntity.title !== 'NewChat'
-      ? chatEntity.title
-      : 'NewChat'
+    const latestChat = this.reloadChatEntity(chatEntity)
+    const nextTitle = isDefaultChatTitle(latestChat.title)
+      ? 'NewChat'
+      : latestChat.title
 
     const updatedChat: ChatEntity = {
-      ...chatEntity,
-      title: nextTitle || chatEntity.title || 'NewChat',
+      ...latestChat,
+      title: nextTitle || latestChat.title || 'NewChat',
       modelRef,
       updateTime: Date.now()
     }

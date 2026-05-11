@@ -191,9 +191,17 @@ export class ChatStepStore implements ConversationStore {
       return
     }
 
-    chatEntity.messages = [...(chatEntity.messages || []), messageId]
-    chatEntity.updateTime = Date.now()
-    DatabaseService.updateChat(chatEntity)
+    const latestChat = this.resolveChatEntity(chatEntity.id, chatEntity.uuid) ?? chatEntity
+    const messages = latestChat.messages || []
+    const nextMessages = messages.includes(messageId)
+      ? messages
+      : [...messages, messageId]
+
+    DatabaseService.updateChat({
+      ...latestChat,
+      messages: nextMessages,
+      updateTime: Date.now()
+    })
   }
 
   private resolveChatEntity(chatId?: number, chatUuid?: string): ChatEntity | undefined {

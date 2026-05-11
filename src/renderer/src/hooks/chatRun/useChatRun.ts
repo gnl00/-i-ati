@@ -1,11 +1,14 @@
 import { useChatStore } from '@renderer/store/chatStore'
-import { invokeRunCancel, invokeRunStart } from '@renderer/invoker/ipcInvoker'
+import { invokeRunCancel, invokeRunStart, subscribeRunEvents } from '@renderer/invoker/ipcInvoker'
 import { v4 as uuidv4 } from 'uuid'
 import { useRef } from 'react'
 import { toast } from 'sonner'
 import { bindChatRunEvents } from './chatRunEvent'
 import { collectRunTools } from './collectRunTools'
 import type { LastRunErrorMessage } from './reconcileRunErrorMessage'
+import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
+import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
+import type { RunEvent } from '@shared/run/events'
 
 const ABORT_FALLBACK_TIMEOUT_MS = 3000
 
@@ -27,6 +30,7 @@ export default function useChatRun() {
   const runCompletedRef = useRef(false)
   const preCancelRunPhaseRef = useRef<'submitting' | 'streaming' | 'post_run' | null>(null)
   const abortFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const backgroundTitleUnsubscribersRef = useRef<Map<string, () => void>>(new Map())
 
   const resetRunLifecycle = (outcome: 'idle' | 'completed' | 'failed' | 'aborted' = 'idle') => {
     chatStore.setRunPhase('idle')
@@ -34,7 +38,43 @@ export default function useChatRun() {
     chatStore.setLastRunOutcome(outcome)
   }
 
-  const cleanupActiveRun = () => {
+  const bindBackgroundTitleEvents = (submissionId: string) => {
+    if (backgroundTitleUnsubscribersRef.current.has(submissionId)) {
+      return
+    }
+
+    const unsubscribe = subscribeRunEvents((event: RunEvent) => {
+      if (event.submissionId !== submissionId) {
+        return
+      }
+
+      if (event.type === CHAT_HOST_EVENTS.CHAT_UPDATED) {
+        useChatStore.getState().updateChatList(event.payload.chatEntity)
+        return
+      }
+
+      if (
+        event.type === RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_COMPLETED
+        || event.type === RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_FAILED
+      ) {
+        const cleanup = backgroundTitleUnsubscribersRef.current.get(submissionId)
+        cleanup?.()
+        backgroundTitleUnsubscribersRef.current.delete(submissionId)
+      }
+    })
+
+    backgroundTitleUnsubscribersRef.current.set(submissionId, unsubscribe)
+  }
+
+  const cleanupActiveRun = (options: { followPendingTitle?: boolean } = {}) => {
+    const submissionId = activeSubmissionIdRef.current
+    const shouldFollowPendingTitle = options.followPendingTitle
+      && submissionId
+
+    if (shouldFollowPendingTitle && submissionId) {
+      bindBackgroundTitleEvents(submissionId)
+    }
+
     if (abortFallbackTimerRef.current) {
       clearTimeout(abortFallbackTimerRef.current)
       abortFallbackTimerRef.current = null
@@ -47,20 +87,21 @@ export default function useChatRun() {
     preCancelRunPhaseRef.current = null
   }
 
-  const hasPendingPostRunJobs = () => {
+  const hasPendingBlockingPostRunJobs = () => {
     const { postRunJobs } = useChatStore.getState()
-    return postRunJobs.title === 'pending' || postRunJobs.compression === 'pending'
+    return postRunJobs.compression === 'pending'
   }
 
   const maybeCleanupAfterBackgroundJobs = () => {
     if (!runCompletedRef.current) {
       return
     }
-    if (hasPendingPostRunJobs()) {
+    if (hasPendingBlockingPostRunJobs()) {
       return
     }
+    const followPendingTitle = useChatStore.getState().postRunJobs.title === 'pending'
     resetRunLifecycle('completed')
-    cleanupActiveRun()
+    cleanupActiveRun({ followPendingTitle })
   }
 
   const onSubmit = async (
@@ -92,7 +133,7 @@ export default function useChatRun() {
       runCompletedRef,
       lastErrorMessageRef,
       clearedErrorMessageIdsRef,
-      hasPendingPostRunJobs,
+      hasPendingBlockingPostRunJobs,
       maybeCleanupAfterBackgroundJobs,
       resetRunLifecycle,
       cleanupActiveRun

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { updateChatMock, getChatByIdMock } = vi.hoisted(() => ({
   updateChatMock: vi.fn(),
@@ -15,6 +15,11 @@ vi.mock('@main/db/DatabaseService', () => ({
 import { ChatSessionStore } from '../persistence/ChatSessionStore'
 
 describe('ChatSessionStore.finalizeChatEntity', () => {
+  beforeEach(() => {
+    updateChatMock.mockReset()
+    getChatByIdMock.mockReset()
+  })
+
   it('keeps NewChat for a fresh chat so post-run title generation can run', () => {
     const store = new ChatSessionStore()
     const chatEntity = {
@@ -80,5 +85,41 @@ describe('ChatSessionStore.finalizeChatEntity', () => {
       }
     }))
     expect(result.title).toBe('Existing title')
+  })
+
+  it('preserves a generated title from the latest persisted chat', () => {
+    const store = new ChatSessionStore()
+    const staleChatEntity = {
+      id: 3,
+      uuid: 'chat-3',
+      title: 'NewChat',
+      messages: [],
+      modelRef: { accountId: 'account-1', modelId: 'model-1' },
+      workspacePath: './workspaces/chat-3',
+      userInstruction: '',
+      createTime: 1,
+      updateTime: 1
+    } as ChatEntity
+    const latestChatEntity = {
+      ...staleChatEntity,
+      title: 'Generated title'
+    }
+
+    getChatByIdMock.mockReturnValue(latestChatEntity)
+
+    const result = store.finalizeChatEntity(staleChatEntity, 'ignored input', {
+      accountId: 'account-2',
+      modelId: 'model-2'
+    })
+
+    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
+      id: 3,
+      title: 'Generated title',
+      modelRef: {
+        accountId: 'account-2',
+        modelId: 'model-2'
+      }
+    }))
+    expect(result.title).toBe('Generated title')
   })
 })

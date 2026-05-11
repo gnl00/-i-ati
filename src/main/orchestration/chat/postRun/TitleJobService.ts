@@ -9,6 +9,10 @@ import { ChatSessionStore } from '@main/hosts/chat/persistence/ChatSessionStore'
 import { createPostRunEmitter } from './utils'
 import type { PostRunJobInput } from './types'
 
+function isDefaultChatTitle(title?: string): boolean {
+  return !title || title === 'NewChat'
+}
+
 export class TitleJobService {
   private readonly logger = createLogger('TitleJobService')
 
@@ -24,7 +28,7 @@ export class TitleJobService {
       return false
     }
 
-    if (args.chatEntity.title && args.chatEntity.title !== 'NewChat') {
+    if (!isDefaultChatTitle(args.chatEntity.title)) {
       return false
     }
 
@@ -48,6 +52,20 @@ export class TitleJobService {
       return
     }
 
+    const latestChatAtStart = this.chatSessionStore.reloadChatEntity(args.chatEntity)
+    if (!isDefaultChatTitle(latestChatAtStart.title)) {
+      this.logger.debug('title.job.skipped.existing_title', {
+        chatUuid: latestChatAtStart.uuid,
+        chatId: latestChatAtStart.id,
+        currentTitle: latestChatAtStart.title
+      })
+      const emitter = createPostRunEmitter(this.emitterFactory, args)
+      emitter.emit(RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_COMPLETED, {
+        title: latestChatAtStart.title
+      })
+      return
+    }
+
     const titleRef = config.tools?.titleGenerateModel
     const titleContext = titleRef
       ? this.chatModelContextResolver.resolve(config, titleRef)
@@ -59,9 +77,9 @@ export class TitleJobService {
     const chatEventMapper = new ChatEventMapper(emitter)
 
     this.logger.info('title.job.started', {
-      chatUuid: args.chatEntity.uuid,
-      chatId: args.chatEntity.id,
-      currentTitle: args.chatEntity.title,
+      chatUuid: latestChatAtStart.uuid,
+      chatId: latestChatAtStart.id,
+      currentTitle: latestChatAtStart.title,
       modelId: model.id,
       contentLength: args.content.length
     })
@@ -74,30 +92,44 @@ export class TitleJobService {
     try {
       const title = (await this.titleGenerator(args.content, model, account, providerDefinition)).trim()
       this.logger.info('title.job.generated', {
-        chatUuid: args.chatEntity.uuid,
-        chatId: args.chatEntity.id,
-        currentTitle: args.chatEntity.title,
+        chatUuid: latestChatAtStart.uuid,
+        chatId: latestChatAtStart.id,
+        currentTitle: latestChatAtStart.title,
         generatedTitle: title
       })
 
-      if (!title || title === args.chatEntity.title) {
-        this.logger.warn('title.job.completed.noop', {
-          chatUuid: args.chatEntity.uuid,
-          chatId: args.chatEntity.id,
-          currentTitle: args.chatEntity.title,
+      const latestChatBeforeWrite = this.chatSessionStore.reloadChatEntity(args.chatEntity)
+      if (!isDefaultChatTitle(latestChatBeforeWrite.title)) {
+        this.logger.info('title.job.completed.skipped_existing_title', {
+          chatUuid: latestChatBeforeWrite.uuid,
+          chatId: latestChatBeforeWrite.id,
+          currentTitle: latestChatBeforeWrite.title,
           generatedTitle: title
         })
         emitter.emit(RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_COMPLETED, {
-          title: args.chatEntity.title || title
+          title: latestChatBeforeWrite.title
         })
         return
       }
 
-      const updatedChat = this.chatSessionStore.updateChatTitle(args.chatEntity, title)
+      if (!title || title === latestChatBeforeWrite.title) {
+        this.logger.warn('title.job.completed.noop', {
+          chatUuid: latestChatBeforeWrite.uuid,
+          chatId: latestChatBeforeWrite.id,
+          currentTitle: latestChatBeforeWrite.title,
+          generatedTitle: title
+        })
+        emitter.emit(RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_COMPLETED, {
+          title: latestChatBeforeWrite.title || title
+        })
+        return
+      }
+
+      const updatedChat = this.chatSessionStore.updateChatTitle(latestChatBeforeWrite, title)
       chatEventMapper.emitChatUpdated(updatedChat)
       this.logger.info('title.job.completed.updated', {
-        chatUuid: args.chatEntity.uuid,
-        chatId: args.chatEntity.id,
+        chatUuid: updatedChat.uuid,
+        chatId: updatedChat.id,
         title
       })
       emitter.emit(RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_COMPLETED, { title })
