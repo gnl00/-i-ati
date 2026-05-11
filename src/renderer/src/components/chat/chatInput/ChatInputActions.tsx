@@ -353,7 +353,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               sideOffset={6}
               className={cn(
                 "min-w-[150px] rounded-xl border border-slate-200/80 dark:border-slate-700/80",
-                "bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl",
+                "bg-white/20 dark:bg-slate-900/95 backdrop-blur-3xl",
                 "shadow-xl shadow-slate-900/10 dark:shadow-black/30 p-1"
               )}
             >
