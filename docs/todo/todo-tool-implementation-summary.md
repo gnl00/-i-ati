@@ -31,8 +31,8 @@
 
 - `todo_add`: 新增待办，支持 `title`、`notes`、`priority`、`tags`。
 - `todo_list`: 列表查询，默认返回跨 chat 的 open todos，支持 `status`、`scope`、`tag`、`priority`、`limit`。
-- `todo_update`: 更新标题、备注、状态、优先级和标签；完成任务通过 `status: "done"`，重开任务通过 `status: "open"`。
-- `todo_delete`: 软删除待办。
+- `todo_update`: 按 `id` 更新任意 chat 的 todo，支持标题、备注、状态、优先级和标签；完成任务通过 `status: "done"`，重开任务通过 `status: "open"`。
+- `todo_delete`: 按 `id` 软删除任意 chat 的 todo。
 
 ### 存储设计
 
@@ -66,6 +66,8 @@ todo 存储在主 app SQLite 中的独立 `todos` 表，便于精确更新、过
 ## 关键行为
 
 - `todo_list` 默认参数语义：`scope: "all"`、`status: "open"`、`limit: 50`。
+- `todo_add` 绑定当前 chat 的 `chat_uuid`，用于记录来源和当前 chat 范围过滤。
+- `todo_update` 和 `todo_delete` 以 `id` 作为操作边界，允许从当前 chat 修改或删除其他 chat 中列出的 todo。
 - `todo_update` 从 `open` 切到 `done` 时设置 `completed_at = Date.now()`。
 - `todo_update` 从 `done` 切回 `open` 时清空 `completed_at`。
 - 再次完成重开的 todo 时，`completed_at` 记录最近一次完成时间。
@@ -79,6 +81,7 @@ todo 存储在主 app SQLite 中的独立 `todos` 表，便于精确更新、过
 ```bash
 pnpm test:run src/main/tools/todo/__tests__/TodoToolsProcessor.test.ts src/shared/tools/__tests__/definitions.test.ts
 pnpm run typecheck:node
+pnpm exec vitest run src/main/tools/todo/__tests__/TodoToolsProcessor.test.ts
 ```
 
 用户实测确认当前工作正常。

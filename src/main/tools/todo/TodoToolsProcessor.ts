@@ -65,10 +65,6 @@ function validateStatus(status?: TodoStatus): string | undefined {
   return VALID_STATUSES.includes(status) ? undefined : `Invalid status: ${status}`
 }
 
-function isOwnedByChat(todo: TodoItem, chatUuid?: string): boolean {
-  return !chatUuid || todo.chat_uuid === chatUuid
-}
-
 export async function processTodoAdd(args: TodoAddArgs): Promise<TodoAddResponse> {
   try {
     if (!args.chat_uuid) {
@@ -160,10 +156,6 @@ export async function processTodoUpdate(args: TodoUpdateArgs): Promise<TodoUpdat
       return { success: false, message: `Todo not found: ${id}` }
     }
 
-    if (!isOwnedByChat(existing, args.chat_uuid)) {
-      return { success: false, message: 'Todo does not belong to provided chat_uuid' }
-    }
-
     const statusError = validateStatus(args.status)
     if (statusError) {
       return { success: false, message: statusError }
@@ -215,10 +207,6 @@ export async function processTodoDelete(args: TodoDeleteArgs): Promise<TodoDelet
     const existing = DatabaseService.getTodoById(id)
     if (!existing || existing.deleted_at !== null) {
       return { success: false, message: `Todo not found: ${id}` }
-    }
-
-    if (!isOwnedByChat(existing, args.chat_uuid)) {
-      return { success: false, message: 'Todo does not belong to provided chat_uuid' }
     }
 
     DatabaseService.deleteTodo(id)

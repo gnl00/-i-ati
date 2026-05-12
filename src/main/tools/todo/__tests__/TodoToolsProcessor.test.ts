@@ -170,7 +170,7 @@ describe('TodoToolsProcessor', () => {
     expect(result.todo?.completed_at).toBeNull()
   })
 
-  it('rejects update when todo belongs to another chat', async () => {
+  it('updates todos from another chat by id', async () => {
     todoStore.push(makeTodo({ id: 'todo-1', chat_uuid: 'owner-chat' }))
 
     const result = await processTodoUpdate({
@@ -179,9 +179,9 @@ describe('TodoToolsProcessor', () => {
       title: 'Changed'
     })
 
-    expect(result.success).toBe(false)
-    expect(result.message).toContain('chat_uuid')
-    expect(todoStore[0].title).toBe('Todo')
+    expect(result.success).toBe(true)
+    expect(result.todo?.chat_uuid).toBe('owner-chat')
+    expect(todoStore[0].title).toBe('Changed')
   })
 
   it('soft deletes a todo', async () => {
@@ -189,6 +189,18 @@ describe('TodoToolsProcessor', () => {
 
     const result = await processTodoDelete({
       chat_uuid: 'chat-1',
+      id: 'todo-1'
+    })
+
+    expect(result.success).toBe(true)
+    expect(todoStore[0].deleted_at).toBe(now.getTime())
+  })
+
+  it('deletes todos from another chat by id', async () => {
+    todoStore.push(makeTodo({ id: 'todo-1', chat_uuid: 'owner-chat' }))
+
+    const result = await processTodoDelete({
+      chat_uuid: 'other-chat',
       id: 'todo-1'
     })
 
