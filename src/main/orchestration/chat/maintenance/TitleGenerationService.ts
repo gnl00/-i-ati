@@ -22,13 +22,15 @@ export async function generateTitle(
     contentPreview: content.slice(0, 80)
   })
 
+  const prompt = generateTitlePrompt(content)
   const titleReq: IUnifiedRequest = {
     adapterPluginId: providerDefinition.adapterPluginId,
     baseUrl: account.apiUrl,
     apiKey: account.apiKey,
     model: model.id,
-    messages: [{ role: 'user', content: generateTitlePrompt(content), segments: [] }],
+    messages: [{ role: 'user', content: prompt, segments: [] }],
     stream: false,
+    requestOverrides: providerDefinition.requestOverrides,
     options: {
       maxTokens: 32
     }

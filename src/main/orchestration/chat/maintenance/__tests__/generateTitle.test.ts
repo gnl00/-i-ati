@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { unifiedChatRequestMock, loggerInfoMock } = vi.hoisted(() => ({
   unifiedChatRequestMock: vi.fn(async () => ({ content: 'Generated title' })),
@@ -25,15 +25,19 @@ vi.mock('@main/logging/LogService', () => ({
 import { generateTitle } from '../TitleGenerationService'
 
 describe('generateTitle', () => {
-  it('uses a dedicated short title-generation request', async () => {
-    loggerInfoMock.mockReset()
+  beforeEach(() => {
+    unifiedChatRequestMock.mockClear()
+    loggerInfoMock.mockClear()
+  })
 
+  it('uses a dedicated short title-generation request', async () => {
     const title = await generateTitle(
       '早上好啊小家伙，我又给你加了点新东西😄',
       { id: 'model-1' } as AccountModel,
       { apiUrl: 'https://example.com', apiKey: 'key' } as ProviderAccount,
       {
         id: 'provider-1',
+        displayName: 'Provider 1',
         adapterPluginId: 'openai-chat-compatible-adapter'
       } as ProviderDefinition
     )
@@ -58,5 +62,27 @@ describe('generateTitle', () => {
       rawTitle: 'Generated title',
       trimmedTitle: 'Generated title'
     }))
+  })
+
+  it('passes provider request overrides into the title-generation request', async () => {
+    await generateTitle(
+      '优化标题生成',
+      { id: 'model-1' } as AccountModel,
+      { apiUrl: 'https://example.com', apiKey: 'key' } as ProviderAccount,
+      {
+        id: 'provider-1',
+        displayName: 'Provider 1',
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        requestOverrides: {
+          thinking: { type: 'disabled' }
+        }
+      } as ProviderDefinition
+    )
+
+    expect(unifiedChatRequestMock).toHaveBeenCalledWith(expect.objectContaining({
+      requestOverrides: {
+        thinking: { type: 'disabled' }
+      }
+    }), null, expect.any(Function), expect.any(Function))
   })
 })
