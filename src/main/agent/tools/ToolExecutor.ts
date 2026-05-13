@@ -12,7 +12,6 @@ import type {
   ToolExecutionProgress,
   ToolExecutionResult
 } from './types'
-import { normalizeToolArgs } from './utils'
 
 const DEFAULT_CONFIG = {
   maxConcurrency: 3
@@ -122,7 +121,7 @@ export class ToolExecutor implements IToolExecutor {
           return result
         }
         if (decision.args) {
-          runtimeArgs = this.applyRuntimeContext(normalizeToolArgs(decision.args), toolName)
+          runtimeArgs = this.applyRuntimeContext(decision.args, toolName)
         }
       }
 
@@ -237,8 +236,7 @@ export class ToolExecutor implements IToolExecutor {
     const args = typeof call.args === 'string'
       ? this.parseArgsString(call.args)
       : call.args
-    const normalizedArgs = normalizeToolArgs(args)
-    return this.applyRuntimeContext(normalizedArgs, call.function)
+    return this.applyRuntimeContext(args, call.function)
   }
 
   private stripToolCallReason(args: any): any {
