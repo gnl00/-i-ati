@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import React, { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
@@ -9,7 +9,7 @@ import { remarkPreserveLineBreaks } from '../markdown/markdown-plugins'
 import { MessageOperations } from '../message-operations'
 import { useEnterTransition } from '../typewriter/use-enter-transition'
 import { loadKatexStyles } from '@renderer/utils/styleLoaders'
-import { Send } from 'lucide-react'
+import { ChevronDown, Send } from 'lucide-react'
 
 export interface UserMessageProps {
   index: number
@@ -18,6 +18,131 @@ export interface UserMessageProps {
   isHovered: boolean
   onHover: (idx: number) => void
   onCopyClick: (content: string) => void
+}
+
+const COLLAPSED_USER_MESSAGE_HEIGHT = 280
+const COLLAPSE_OVERFLOW_BUFFER = 24
+
+const getContentSignature = (content: ChatMessage['content']): string => {
+  if (typeof content === 'string') {
+    return content
+  }
+
+  return content
+    .map((item) => `${item.type ?? 'unknown'}:${item.text ?? ''}:${item.image_url?.url ?? ''}`)
+    .join('\n')
+}
+
+const CollapsibleUserMessageContent: React.FC<{
+  children: React.ReactNode
+  contentSignature: string
+}> = ({ children, contentSignature }) => {
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [canCollapse, setCanCollapse] = useState(false)
+  const [measuredHeight, setMeasuredHeight] = useState(COLLAPSED_USER_MESSAGE_HEIGHT)
+
+  const measureContent = useCallback(() => {
+    const node = contentRef.current
+    if (!node) return
+
+    const nextHeight = node.scrollHeight
+    const nextCanCollapse = nextHeight > COLLAPSED_USER_MESSAGE_HEIGHT + COLLAPSE_OVERFLOW_BUFFER
+
+    setMeasuredHeight(Math.max(nextHeight, COLLAPSED_USER_MESSAGE_HEIGHT))
+    setCanCollapse(nextCanCollapse)
+
+    if (!nextCanCollapse) {
+      setExpanded(false)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    setExpanded(false)
+    measureContent()
+  }, [contentSignature, measureContent])
+
+  useLayoutEffect(() => {
+    const node = contentRef.current
+    if (!node) return
+
+    measureContent()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measureContent)
+      return () => window.removeEventListener('resize', measureContent)
+    }
+
+    const resizeObserver = new ResizeObserver(measureContent)
+    resizeObserver.observe(node)
+    return () => resizeObserver.disconnect()
+  }, [measureContent])
+
+  const maxHeight = canCollapse
+    ? expanded
+      ? `${measuredHeight}px`
+      : `${COLLAPSED_USER_MESSAGE_HEIGHT}px`
+    : undefined
+
+  return (
+    <div className="relative">
+      <div
+        ref={contentRef}
+        data-testid="user-message-collapsible-content"
+        data-expanded={expanded ? 'true' : 'false'}
+        className={cn(
+          "overflow-hidden transition-[max-height] duration-300 ease-out",
+          "motion-reduce:transition-none"
+        )}
+        style={maxHeight ? { maxHeight } : undefined}
+      >
+        {children}
+      </div>
+
+      {canCollapse && !expanded && (
+        <>
+          <div
+            aria-hidden="true"
+            data-testid="user-message-collapse-fade"
+            className={cn(
+              "pointer-events-none absolute inset-x-0 bottom-0 h-24",
+              "bg-linear-to-b from-slate-100/0 via-slate-100/72 to-slate-100",
+              "dark:from-gray-800/0 dark:via-gray-800/72 dark:to-gray-800"
+            )}
+          />
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-x-0 bottom-0 h-[72px]",
+              "bg-slate-100/38 backdrop-blur-[3px]",
+              "mask-[linear-gradient(to_bottom,transparent_0%,black_48%)]",
+              "[-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_48%)]",
+              "dark:bg-gray-800/42"
+            )}
+          />
+          <button
+            type="button"
+            data-testid="user-message-expand-button"
+            onClick={() => setExpanded(true)}
+            className={cn(
+              "absolute bottom-2 left-1/2 z-10 -translate-x-1/2",
+              "inline-flex h-7 items-center gap-1 rounded-full px-2.5",
+              "border bg-white/25 text-xs font-medium text-slate-600",
+              "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
+              "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
+              "hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
+              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
+              "dark:border-white/10 dark:bg-gray-950/58 dark:text-gray-300 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)]",
+              "dark:hover:border-white/16 dark:hover:bg-gray-950/78 dark:hover:text-white"
+            )}
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+            <span>Show More</span>
+          </button>
+        </>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -88,6 +213,7 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
   onCopyClick
 }) => {
   const telegramAttachmentCount = m.host?.attachments?.length ?? 0
+  const contentSignature = useMemo(() => getContentSignature(m.content), [m.content])
 
   const onCopy = () => {
     if (typeof m.content === 'string') {
@@ -131,14 +257,16 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
           isLatest && "animate-shine animate-message-in"
         )}
       >
-        {typeof m.content !== 'string' ? (
-          <VLMContentRenderer content={m.content} />
-        ) : (
-          <AnimatedMarkdown
-            markdown={m.content}
-            className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300")}
-          />
-        )}
+        <CollapsibleUserMessageContent contentSignature={contentSignature}>
+          {typeof m.content !== 'string' ? (
+            <VLMContentRenderer content={m.content} />
+          ) : (
+            <AnimatedMarkdown
+              markdown={m.content}
+              className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300")}
+            />
+          )}
+        </CollapsibleUserMessageContent>
       </div>
 
       <MessageOperations
