@@ -1032,7 +1032,7 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
 
 export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
   try {
-    const { path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
+    const { path, chat_uuid, pattern, regex = true, case_sensitive = true, max_results = 100, file_pattern } = args
     const absolutePath = resolveFilePath(path, chat_uuid)
     logger.info('grep.start', { path, absolutePath })
 

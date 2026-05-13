@@ -134,6 +134,41 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(result.matches?.[0].line).toBe(2)
   })
 
+  it('uses regex mode by default for grep patterns', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-5a')
+    const filePath = join(rootDir, 'src', 'events.ts')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, ['const source = RUN_EVENT', "emitter.emit('run:event')"].join('\n'), 'utf-8')
+
+    const result = await processGrep({
+      chat_uuid: 'chat-5a',
+      path: 'src',
+      pattern: 'RUN_EVENT|run:event'
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.matches).toHaveLength(2)
+    expect(result.matches?.map((match) => match.line)).toEqual([1, 2])
+  })
+
+  it('supports literal grep search when regex is false', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-5b')
+    const filePath = join(rootDir, 'src', 'events.ts')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, ['const source = RUN_EVENT', 'const literal = RUN_EVENT|run:event'].join('\n'), 'utf-8')
+
+    const result = await processGrep({
+      chat_uuid: 'chat-5b',
+      path: 'src',
+      pattern: 'RUN_EVENT|run:event',
+      regex: false
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.matches).toHaveLength(1)
+    expect(result.matches?.[0].line).toBe(2)
+  })
+
   it('matches files through glob patterns', async () => {
     const rootDir = join(userDataDir, 'workspaces', 'chat-6')
     const fileA = join(rootDir, 'src', 'alpha.test.ts')

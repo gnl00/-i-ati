@@ -170,8 +170,8 @@ export const fileOperationsTools = [
           },
           regex: {
             type: 'boolean',
-            description: 'Whether to use regex for searching (default: false).',
-            default: false
+            description: 'Whether to use regex for searching (default: true). Set false for literal text search.',
+            default: true
           },
           case_sensitive: {
             type: 'boolean',
