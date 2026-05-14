@@ -12,8 +12,10 @@ import { unifiedChatRequest } from '@main/request/index'
 import { buildCompressionPrompt } from '@shared/prompts'
 import DatabaseService from '@main/db/DatabaseService'
 import { createLogger } from '@main/logging/LogService'
+import { CompressionTranscriptBuilder } from './CompressionTranscriptBuilder'
 
 const DEFAULT_TRIGGER_TOKEN_RATIO = 0.7
+const RECENT_MESSAGE_PAIRS_TO_KEEP = 3
 const logger = createLogger('MessageCompressionService')
 
 export type CompressionJob = {
@@ -29,6 +31,8 @@ export type CompressionJob = {
 
 export class MessageCompressionService {
   private compressionInProgress: Map<number, boolean> = new Map()
+
+  constructor(private readonly transcriptBuilder = new CompressionTranscriptBuilder()) {}
 
   /**
    * 检查是否需要压缩
@@ -94,15 +98,15 @@ export class MessageCompressionService {
     const sortedMessages = [...uncompressedMessages].sort(
       (a, b) => (a.id || 0) - (b.id || 0)
     )
-    const messagesToCompress = sortedMessages
-      .map(m => m.id)
-      .filter((id): id is number => typeof id === 'number')
+    const { messagesToCompress, messagesToKeep } = this.selectRecentMessagePairWindow(
+      sortedMessages
+    )
 
     if (messagesToCompress.length === 0) {
       return {
         shouldCompress: false,
         messagesToCompress: [],
-        messagesToKeep: [],
+        messagesToKeep,
         existingSummaries
       }
     }
@@ -110,7 +114,7 @@ export class MessageCompressionService {
     return {
       shouldCompress: true,
       messagesToCompress,
-      messagesToKeep: [],
+      messagesToKeep,
       existingSummaries
     }
   }
@@ -159,6 +163,50 @@ export class MessageCompressionService {
     return compressedIds
   }
 
+  private selectRecentMessagePairWindow(messages: MessageEntity[]): {
+    messagesToCompress: number[]
+    messagesToKeep: number[]
+  } {
+    const pairs = this.splitIntoMessagePairs(messages)
+    const keepStartIndex = Math.max(0, pairs.length - RECENT_MESSAGE_PAIRS_TO_KEEP)
+    const compressPairs = pairs.slice(0, keepStartIndex)
+    const keepPairs = pairs.slice(keepStartIndex)
+
+    return {
+      messagesToCompress: compressPairs.flatMap(pair => this.collectMessageIds(pair)),
+      messagesToKeep: keepPairs.flatMap(pair => this.collectMessageIds(pair))
+    }
+  }
+
+  private splitIntoMessagePairs(messages: MessageEntity[]): MessageEntity[][] {
+    const pairs: MessageEntity[][] = []
+    let currentPair: MessageEntity[] = []
+
+    messages.forEach(message => {
+      if (message.body.role === 'user') {
+        if (currentPair.length > 0) {
+          pairs.push(currentPair)
+        }
+        currentPair = [message]
+        return
+      }
+
+      currentPair.push(message)
+    })
+
+    if (currentPair.length > 0) {
+      pairs.push(currentPair)
+    }
+
+    return pairs
+  }
+
+  private collectMessageIds(messages: MessageEntity[]): number[] {
+    return messages
+      .map(message => message.id)
+      .filter((id): id is number => typeof id === 'number')
+  }
+
   private buildCumulativeMessageIds(
     existingSummaries: CompressedSummaryEntity[],
     nextMessageIds: number[]
@@ -183,15 +231,7 @@ export class MessageCompressionService {
     previousSummary?: string
   ): Promise<string> {
     // 1. 构建对话文本
-    const conversationText = messages
-      .map(m => {
-        const role = m.body.role
-        const content = typeof m.body.content === 'string'
-          ? m.body.content
-          : JSON.stringify(m.body.content)
-        return `${role}: ${content}`
-      })
-      .join('\n\n')
+    const conversationText = this.transcriptBuilder.build(messages)
 
     // 2. 构建压缩 prompt（根据是否有旧摘要使用不同的 prompt）
     const userContent = buildCompressionPrompt({
