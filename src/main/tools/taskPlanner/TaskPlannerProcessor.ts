@@ -11,7 +11,7 @@ type PlanCreateArgs = {
 }
 
 type PlanUpdateArgs = {
-  plan: Plan
+  plan: Partial<Plan> & Pick<Plan, 'id'>
 }
 
 type PlanUpdateStatusArgs = {
@@ -40,6 +40,19 @@ type PlanStepUpsertArgs = {
   step: PlanStep
 }
 
+const mergePlanUpdate = (existing: Plan, update: PlanUpdateArgs['plan'], updatedAt: number): Plan => ({
+  id: existing.id,
+  chatUuid: update.chatUuid ?? existing.chatUuid,
+  goal: update.goal ?? existing.goal,
+  context: update.context ?? existing.context,
+  constraints: update.constraints ?? existing.constraints,
+  status: update.status ?? existing.status,
+  currentStepId: update.currentStepId ?? existing.currentStepId,
+  failureReason: update.failureReason ?? existing.failureReason,
+  steps: update.steps ?? existing.steps,
+  createdAt: existing.createdAt,
+  updatedAt
+})
 
 export async function processPlanCreate(args: PlanCreateArgs) {
   try {
@@ -83,9 +96,15 @@ export async function processPlanCreate(args: PlanCreateArgs) {
 
 export async function processPlanUpdate(args: PlanUpdateArgs) {
   try {
+    if (!args.plan?.id) {
+      return { success: false, message: 'plan.id is required' }
+    }
+    const existingPlan = planningDb.getTaskPlanById(args.plan.id)
+    if (!existingPlan) {
+      return { success: false, message: `Plan not found: ${args.plan.id}` }
+    }
     planningDb.updateTaskPlan({
-      ...args.plan,
-      updatedAt: Date.now()
+      ...mergePlanUpdate(existingPlan, args.plan, Date.now())
     })
     const plan = planningDb.getTaskPlanById(args.plan.id)
     return { success: true, plan }

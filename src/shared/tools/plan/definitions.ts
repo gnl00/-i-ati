@@ -75,7 +75,57 @@ export const planTools = [
       parameters: {
         type: 'object',
         properties: {
-          plan: { type: 'object' }
+          plan: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              chatUuid: { type: 'string' },
+              goal: { type: 'string' },
+              context: { type: 'object' },
+              constraints: {
+                type: 'object',
+                properties: {
+                  maxSteps: { type: 'number' },
+                  timeout: { type: 'string' },
+                  parallelize: {
+                    type: 'array',
+                    items: { type: 'string' }
+                  }
+                }
+              },
+              status: {
+                type: 'string',
+                enum: ['pending', 'pending_review', 'running', 'paused', 'completed', 'failed', 'cancelled']
+              },
+              currentStepId: { type: 'string' },
+              failureReason: { type: 'string' },
+              steps: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    title: { type: 'string' },
+                    status: {
+                      type: 'string',
+                      enum: ['todo', 'doing', 'done', 'failed', 'skipped']
+                    },
+                    dependsOn: {
+                      type: 'array',
+                      items: { type: 'string' }
+                    },
+                    tool: { type: 'string' },
+                    input: { type: 'object' },
+                    output: {},
+                    error: { type: 'string' },
+                    notes: { type: 'string' }
+                  },
+                  required: ['id', 'title', 'status']
+                }
+              }
+            },
+            required: ['id']
+          }
         },
         required: ['plan'],
         $schema: 'http://json-schema.org/draft-07/schema#'
