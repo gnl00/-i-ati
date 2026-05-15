@@ -20,7 +20,14 @@ import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
 import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotifications'
 
 const STREAMING_FOLLOW_RESTORE_THRESHOLD_PX = 24
-const CHAT_HEADER_SAFE_AREA_PX = 48
+const CHAT_HEADER_OCCLUSION_PX = 48
+const CHAT_HEADER_OCCLUSION_PADDING_STYLE: React.CSSProperties = {
+  paddingTop: CHAT_HEADER_OCCLUSION_PX
+}
+const CHAT_HEADER_OCCLUSION_HANDLE_STYLE: React.CSSProperties = {
+  marginTop: CHAT_HEADER_OCCLUSION_PX,
+  marginBottom: 8
+}
 type ScrollMode = 'tail-follow' | 'anchor-lock' | 'manual'
 
 type PendingAssistantModel = {
@@ -73,7 +80,7 @@ const ChatMessageRow: React.FC<{
 const ChatVirtuosoHeader: React.FC<{ context?: ChatVirtuosoFooterContext }> = memo(({
   context
 }) => (
-  <div style={{ height: context?.topSpacerHeight ?? CHAT_HEADER_SAFE_AREA_PX }} />
+  <div style={{ height: context?.topSpacerHeight ?? CHAT_HEADER_OCCLUSION_PX }} />
 ))
 
 const ChatVirtuosoFooter: React.FC<{ context?: ChatVirtuosoFooterContext }> = memo(({
@@ -190,7 +197,7 @@ const ChatWindowComponentNext: React.FC = () => {
   const displayPlans = pendingPlanReview
     ? [pendingPlanReview.plan, ...activePlans]
     : activePlans
-  const topOcclusionPx = displayPlans.length > 0 ? 0 : CHAT_HEADER_SAFE_AREA_PX
+  const topOcclusionPx = displayPlans.length > 0 ? 0 : CHAT_HEADER_OCCLUSION_PX
   const {
     scrollParentRef,
     virtuosoRef,
@@ -941,7 +948,8 @@ const ChatWindowComponentNext: React.FC = () => {
                 <AnimatePresence initial={false}>
                   {displayPlans.length > 0 && (
                     <motion.div
-                      className="shrink-0 px-2 pt-12 pb-1 bg-chat-light/95 dark:bg-chat-dark/95 backdrop-blur-sm overflow-hidden"
+                      className="shrink-0 px-2 pb-1 bg-chat-light/95 dark:bg-chat-dark/95 backdrop-blur-sm overflow-hidden"
+                      style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -1053,7 +1061,8 @@ const ChatWindowComponentNext: React.FC = () => {
               {artifactsPanelOpen && (
                 <>
                   <ResizableHandle
-                    className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 mt-2 mb-2 [&>div]:hidden [&::before]:hidden"
+                    className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden"
+                    style={CHAT_HEADER_OCCLUSION_HANDLE_STYLE}
                   />
                   <ResizablePanel
                     defaultSize={40}
@@ -1069,7 +1078,10 @@ const ChatWindowComponentNext: React.FC = () => {
                     className="bg-transparent overflow-hidden"
                     id="artifacts-panel"
                   >
-                    <div className="h-full w-full overflow-hidden">
+                    <div
+                      className="h-full w-full overflow-hidden"
+                      style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
+                    >
                       <ArtifactsPanel />
                     </div>
                   </ResizablePanel>
