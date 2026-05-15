@@ -1,5 +1,6 @@
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { knowledgebaseService } from '@main/services/knowledgebase/KnowledgebaseService'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 const AUTO_RAG_TOP_K = 4
 const AUTO_RAG_THRESHOLD = 0.42
@@ -13,12 +14,26 @@ function trimSnippet(text: string, limit = AUTO_RAG_SNIPPET_LIMIT): string {
   return `${normalized.slice(0, limit).trim()}...`
 }
 
-export class KnowledgebasePromptProvider {
+export class KnowledgebaseContextProvider {
   constructor(
     private readonly appConfigStore = new AppConfigStore()
   ) {}
 
-  async build(query?: string): Promise<string> {
+  async build(query?: string): Promise<ChatMessage | null> {
+    const content = await this.buildContent(query)
+    if (!content.trim()) {
+      return null
+    }
+
+    return {
+      role: 'user',
+      source: MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT,
+      content,
+      segments: []
+    }
+  }
+
+  private async buildContent(query?: string): Promise<string> {
     const config = this.appConfigStore.getConfig()?.knowledgebase
     if (!(config?.enabled ?? false) || (config?.folders?.length ?? 0) === 0) {
       return ''

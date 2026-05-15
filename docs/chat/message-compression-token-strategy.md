@@ -134,6 +134,7 @@ contextOccupancyTokens / contextWindowTokens >= triggerTokenRatio
 - active summary 的估算 token
 - 当前仍会发送给模型的未压缩消息估算 token
 - hidden skills context 的估算 token
+- hidden knowledgebase context 的估算 token
 - system prompt、tools schema、work context、attachments 的估算 token
 - 输出预留预算，例如 `maxTokens` 或模型默认输出上限
 

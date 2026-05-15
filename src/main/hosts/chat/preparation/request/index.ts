@@ -1,5 +1,6 @@
 export { CompressionSummaryResolver } from './CompressionSummaryResolver'
 export { EmotionPromptProvider } from './EmotionPromptProvider'
+export { KnowledgebaseContextProvider } from './KnowledgebaseContextProvider'
 export { SystemPromptComposer } from './SystemPromptComposer'
 export { ToolListBuilder } from './ToolListBuilder'
 export { UserInfoPromptProvider } from './UserInfoPromptProvider'

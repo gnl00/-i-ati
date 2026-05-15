@@ -137,6 +137,14 @@ const input = {
   }
 } as any
 
+function findUserMessageIndexByContent(messages: ChatMessage[], marker: string): number {
+  return messages.findIndex(message => (
+    message.role === 'user'
+    && typeof message.content === 'string'
+    && message.content.includes(marker)
+  ))
+}
+
 describe('ChatPreparationPipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -311,7 +319,7 @@ describe('ChatPreparationPipeline', () => {
     ]))
   })
 
-  it('injects retrieved knowledgebase context into the system prompt', async () => {
+  it('injects retrieved knowledgebase context as ephemeral user context', async () => {
     ;(DatabaseService.getConfig as any).mockReturnValue({
       ...config,
       knowledgebase: {
@@ -351,12 +359,22 @@ describe('ChatPreparationPipeline', () => {
       threshold: 0.42,
       folders: ['/workspace/docs']
     }))
-    expect(prepared.runSpec.request.systemPrompt).toContain('<knowledgebase_context>')
-    expect(prepared.runSpec.request.systemPrompt).toContain('/workspace/docs/guide.md')
-    expect(prepared.runSpec.request.systemPrompt).toContain('Knowledge base snippet for the current request.')
+    const messages = prepared.runSpec.request.messages
+    const knowledgebaseIndex = findUserMessageIndexByContent(messages, '<knowledgebase_context>')
+    const currentUserIndex = messages.findIndex(message => (
+      message.role === 'user'
+      && message.content === 'hello'
+    ))
+
+    expect(prepared.runSpec.request.systemPrompt).not.toContain('<knowledgebase_context>')
+    expect(knowledgebaseIndex).toBeGreaterThan(-1)
+    expect(currentUserIndex).toBeGreaterThan(knowledgebaseIndex)
+    expect(messages[knowledgebaseIndex].source).toBe('knowledgebase_context')
+    expect(messages[knowledgebaseIndex].content).toContain('/workspace/docs/guide.md')
+    expect(messages[knowledgebaseIndex].content).toContain('Knowledge base snippet for the current request.')
   })
 
-  it('adds tool-first retrieval policy without auto-searching the knowledgebase', async () => {
+  it('adds tool-first retrieval policy as ephemeral user context', async () => {
     ;(DatabaseService.getConfig as any).mockReturnValue({
       ...config,
       knowledgebase: {
@@ -375,8 +393,18 @@ describe('ChatPreparationPipeline', () => {
     const prepared = await service.prepare(input, emitter)
 
     expect(knowledgebaseSearchMock).not.toHaveBeenCalled()
-    expect(prepared.runSpec.request.systemPrompt).toContain('<knowledgebase_policy>')
-    expect(prepared.runSpec.request.systemPrompt).toContain('knowledgebase_search')
-    expect(prepared.runSpec.request.systemPrompt).not.toContain('<knowledgebase_context>')
+    const messages = prepared.runSpec.request.messages
+    const policyIndex = findUserMessageIndexByContent(messages, '<knowledgebase_policy>')
+    const currentUserIndex = messages.findIndex(message => (
+      message.role === 'user'
+      && message.content === 'hello'
+    ))
+
+    expect(prepared.runSpec.request.systemPrompt).not.toContain('<knowledgebase_policy>')
+    expect(policyIndex).toBeGreaterThan(-1)
+    expect(currentUserIndex).toBeGreaterThan(policyIndex)
+    expect(messages[policyIndex].source).toBe('knowledgebase_context')
+    expect(messages[policyIndex].content).toContain('knowledgebase_search')
+    expect(messages[policyIndex].content).not.toContain('<knowledgebase_context>')
   })
 })

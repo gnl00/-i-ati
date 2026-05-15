@@ -159,9 +159,10 @@ systemPrompt
 messages:
   1. user: [Previous conversation summary (... messages compressed)]
   2. user: hidden skills context
-  3. user: hidden awake state
-  4. uncompressed live messages, including latest 3 kept message pairs
-  5. latest user message
+  3. user: hidden knowledgebase context
+  4. user: hidden awake state
+  5. uncompressed live messages, including latest 3 kept message pairs
+  6. latest user message
 ```
 
 ## 结构化压缩输入

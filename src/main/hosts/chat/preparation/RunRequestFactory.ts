@@ -8,6 +8,7 @@ import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { AppConfigStore } from '../config'
 import {
   CompressionSummaryResolver,
+  KnowledgebaseContextProvider,
   SystemPromptComposer,
   ToolListBuilder
 } from './request'
@@ -27,7 +28,8 @@ export class RunRequestFactory {
     private readonly compressionSummaryResolver = new CompressionSummaryResolver(),
     private readonly systemPromptComposer = new SystemPromptComposer(),
     private readonly toolListBuilder = new ToolListBuilder(),
-    private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider()
+    private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
+    private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider()
   ) {}
 
   async build(
@@ -41,14 +43,19 @@ export class RunRequestFactory {
     const systemPrompts = await this.systemPromptComposer.compose(
       environment.workspacePath,
       environment.chat.id,
-      mergedUserInstruction,
-      input.textCtx
+      mergedUserInstruction
     )
-    const loadedSkillsContext = await this.loadedSkillsContextProvider.build(environment.chat.id)
+    const [loadedSkillsContext, knowledgebaseContext] = await Promise.all([
+      this.loadedSkillsContextProvider.build(environment.chat.id),
+      this.knowledgebaseContextProvider.build(input.textCtx)
+    ])
 
     const requestMessages = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
-      .setEphemeralContextMessages(loadedSkillsContext ? [loadedSkillsContext] : [])
+      .setEphemeralContextMessages(
+        [loadedSkillsContext, knowledgebaseContext]
+          .filter((message): message is ChatMessage => Boolean(message))
+      )
       .setUserInstruction(environment.chat.userInstruction)
       .setMessages(step.messageBuffer)
       .setCompressionSummary(compressionSummary)

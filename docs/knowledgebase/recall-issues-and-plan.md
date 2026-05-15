@@ -2,7 +2,16 @@
 
 ## 背景
 
-当前知识库已经支持本地目录索引、向量检索、设置页搜索测试，以及对话前的基础 RAG 注入。
+当前知识库已经支持本地目录索引、向量检索、设置页搜索测试，以及对话前的基础 RAG 上下文注入。
+
+运行时注入方式：
+
+- `SystemPromptComposer` 保持稳定的全局 prompt、skills discovery、用户资料和自定义指令。
+- `KnowledgebaseContextProvider` 根据 `knowledgebase.retrievalMode` 生成隐藏的 `role=user` 请求消息。
+- `tool-first` 模式生成 `<knowledgebase_policy>`，提示模型通过 `knowledgebase_search` 检索本地知识库。
+- `auto` 模式先用当前用户请求触发向量检索，再生成 `<knowledgebase_context>`，包含命中的文件路径、分数、chunk 范围和 excerpt。
+- `RequestMessageBuilder` 将这条 `source=knowledgebase_context` 的临时上下文插入到最新用户消息前，并跟随压缩摘要后的消息顺序进入模型请求。
+- `MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT` 属于隐藏来源，UI 渲染和历史搜索过滤这类 carrier message。
 
 在实际测试里，基于目录 `/Users/gnl/Workspace/code/notes` 构建索引后，搜索 `分布式锁` 时，前排结果出现了与目标主题关联较弱的文档，例如：
 
