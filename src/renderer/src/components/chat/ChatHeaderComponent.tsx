@@ -69,7 +69,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
 
         <div className="min-w-0 justify-self-center px-3">
           <div className="group relative max-w-[min(34rem,42vw)] min-w-0 px-2">
-            <span className="block truncate px-3 py-1 text-sm font-semibold text-slate-700 dark:text-zinc-100">
+            <span className="block truncate px-3 py-1 text-sm font-semibold text-slate-600 dark:text-zinc-100">
               {chatTitle}
             </span>
             <div className="absolute inset-x-0 bottom-0 h-px origin-center scale-x-75 bg-linear-to-r from-transparent via-blue-400/55 to-transparent opacity-80 transition-transform duration-300 group-hover:scale-x-100 dark:via-sky-300/40" />
