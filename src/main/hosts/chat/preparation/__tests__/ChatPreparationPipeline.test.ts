@@ -292,6 +292,60 @@ describe('ChatPreparationPipeline', () => {
     })
   })
 
+  it('uses default thinking level when a reasoning model host omits request options', async () => {
+    ;(DatabaseService.getConfig as any).mockReturnValue({
+      ...config,
+      accounts: [{
+        ...config.accounts[0],
+        models: [{
+          ...config.accounts[0].models[0],
+          modalities: ['text', 'reason']
+        }]
+      }]
+    })
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare(input, emitter)
+
+    expect(prepared.runSpec.request.options).toEqual({
+      thinkingLevel: 'medium'
+    })
+  })
+
+  it('preserves explicit thinking none for reasoning models', async () => {
+    ;(DatabaseService.getConfig as any).mockReturnValue({
+      ...config,
+      accounts: [{
+        ...config.accounts[0],
+        models: [{
+          ...config.accounts[0].models[0],
+          modalities: ['text', 'reason']
+        }]
+      }]
+    })
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare({
+      ...input,
+      input: {
+        ...input.input,
+        options: {
+          thinkingLevel: 'none'
+        }
+      }
+    }, emitter)
+
+    expect(prepared.runSpec.request.options).toEqual({
+      thinkingLevel: 'none'
+    })
+  })
+
   it('appends schedule execution context only for schedule-triggered runs', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {

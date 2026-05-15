@@ -1,7 +1,7 @@
 import { RequestMessageBuilder } from '@shared/services/RequestMessageBuilder'
 import {
-  getRequestAdapterThinkingCapability,
-  modelSupportsThinking
+  getEffectiveThinkingLevel,
+  getRequestAdapterThinkingCapability
 } from '@shared/plugins/requestAdapterThinking'
 import { pluginDb } from '@main/db/plugins'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
@@ -81,24 +81,25 @@ export class RunRequestFactory {
     environment: RunEnvironment,
     options: IUnifiedRequest['options'] | undefined
   ): IUnifiedRequest['options'] | undefined {
-    if (!options?.thinkingLevel) {
-      return options
-    }
-
     const thinkingCapability = getRequestAdapterThinkingCapability({
       plugins: pluginDb.getPlugins(),
       pluginId: environment.modelContext.providerDefinition.adapterPluginId
     })
+    const effectiveThinkingLevel = getEffectiveThinkingLevel(
+      environment.modelContext.model,
+      thinkingCapability,
+      options?.thinkingLevel
+    )
+    const { thinkingLevel: _thinkingLevel, ...restOptions } = options ?? {}
 
-    if (
-      modelSupportsThinking(environment.modelContext.model, thinkingCapability)
-      && thinkingCapability?.levels.includes(options.thinkingLevel)
-    ) {
-      return options
+    if (!effectiveThinkingLevel) {
+      return Object.keys(restOptions).length > 0 ? restOptions : undefined
     }
 
-    const { thinkingLevel: _thinkingLevel, ...restOptions } = options
-    return Object.keys(restOptions).length > 0 ? restOptions : undefined
+    return {
+      ...restOptions,
+      thinkingLevel: effectiveThinkingLevel
+    }
   }
 
   private mergeRequestUserInstruction(input: HostRunInputState): string | undefined {
