@@ -531,6 +531,27 @@ async function fetchPageContent(
     return await fetchPageContentViaHttp(url, mode)
   }
 
+  // SPA 内容等待：loadURL 在 DOM ready 时 resolve，但 SPA（如 Twitter/X）
+  // 需要额外时间通过 JS 渲染内容。等待 body.innerText 达到有效长度后再提取。
+  try {
+    await waitForCondition(
+      async () => {
+        try {
+          const textLength = await contentWindow.webContents.executeJavaScript(
+            '(document.body?.innerText || "").replace(/\\s+/g, "").length'
+          )
+          return (textLength as number) > 20
+        } catch {
+          return false
+        }
+      },
+      8000,
+      300
+    )
+  } catch {
+    logger.warn('web_fetch.content_ready_timeout', { url })
+  }
+
   try {
     // 只提取必要的原始数据：HTML、URL、标题
     // 直接使用 document.body，让 Cheerio 负责所有过滤工作
