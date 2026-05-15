@@ -59,7 +59,7 @@ Telegram 常用控制命令已经在 gateway 层直接处理，不再走 chat ru
 
 - `/newchat`
 - `/models`
-- `/model <name>`
+- `/model <provider> <model-id>`
 - `/tools`
 - `/status`
 - `/help`
@@ -81,7 +81,7 @@ Telegram 常用控制命令已经在 gateway 层直接处理，不再走 chat ru
 
 - `/models` 使用 HTML 输出
 - model id 使用 `<pre>` 块展示，便于复制
-- 列表中补充 provider / account 信息，减少同名模型歧义
+- 列表中补充 provider / account 信息，并提供完整 `/model <provider> <model-id>` 命令，减少同名模型歧义
 
 需要注意：
 
