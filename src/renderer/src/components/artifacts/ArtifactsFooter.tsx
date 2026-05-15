@@ -4,31 +4,39 @@ import { FolderOpen } from 'lucide-react'
 
 interface ArtifactsFooterProps {
   filesCount: number
+  isLoading: boolean
   onOpenWorkspaceFolder: () => void
 }
 
 export const ArtifactsFooter: React.FC<ArtifactsFooterProps> = ({
   filesCount,
+  isLoading,
   onOpenWorkspaceFolder,
 }) => {
+  const statusText = isLoading
+    ? 'Indexing workspace'
+    : filesCount === 1
+      ? '1 file ready'
+      : `${filesCount} files`
+
   return (
-    <div className="h-12 flex items-center justify-between px-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50 shrink-0">
+    <div className="h-9 flex items-center justify-between gap-3 border-t border-black/6 bg-white/70 px-2.5 text-[10px] text-zinc-500 dark:border-white/[0.08] dark:bg-zinc-950/70 dark:text-zinc-400 shrink-0">
       <div className="flex items-center gap-2">
-        <div className='select-none flex items-center gap-2'>
+        <div className="select-none flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
-            className="h-6 rounded-lg px-2.5 text-[10px] border-gray-100 dark:border-gray-700"
+            className="h-6 rounded-md border-black/8 bg-white/70 px-2 text-[10px] font-medium text-zinc-600 shadow-none transition-colors hover:bg-zinc-100 dark:border-white/[0.1] dark:bg-zinc-900/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
             onClick={onOpenWorkspaceFolder}
             title="Open workspace folder"
           >
-            <FolderOpen className="w-3 h-3 mr-1.5" />
+            <FolderOpen className="mr-1.5 h-3 w-3" />
             Open folder
           </Button>
-          <div className="h-5 inline-flex items-center rounded-lg px-2.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-[10px] font-semibold tracking-wide">
-            {filesCount} Files
-          </div>
         </div>
+      </div>
+      <div className="flex min-w-0 items-center gap-1.5 truncate font-medium select-none">
+        <span className="truncate">{statusText}</span>
       </div>
       {/* <div className="flex items-center gap-2">
         {activeTab === 'files' ? (

@@ -215,21 +215,21 @@ export const ArtifactsPreviewTab: React.FC<{
       <>
         {/* State 1: Idle - Show ready message */}
         {devServer.devServerStatus === 'idle' && (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="flex flex-col items-center gap-6 max-w-md">
+          <div className="flex-1 flex items-center justify-center bg-zinc-100/50 p-8 dark:bg-zinc-950">
+            <div className="flex max-w-md flex-col items-center gap-5">
               <button
                 onClick={devServer.handleStartDevServer}
-                className="w-20 h-20 rounded-full bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:scale-110 transition-all cursor-pointer group"
+                className="group flex h-16 w-16 cursor-pointer items-center justify-center rounded-full border border-blue-200/70 bg-blue-50 text-blue-600 shadow-xs transition-[background-color,border-color,color,transform] duration-200 hover:scale-105 hover:bg-blue-100 dark:border-blue-800/50 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/40"
                 title="Start Preview Server"
               >
-                <Play className="w-10 h-10 text-blue-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+                <Play className="h-7 w-7 fill-current transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                <h3 className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                   Preview Ready
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Click the Play button to start preview
+                <p className="max-w-56 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                  Start the local preview server for this workspace.
                 </p>
               </div>
             </div>
@@ -238,15 +238,15 @@ export const ArtifactsPreviewTab: React.FC<{
 
         {/* State 2: Starting - Show loading spinner */}
         {devServer.devServerStatus === 'starting' && (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="flex flex-col items-center gap-6">
-              <Loader2 className="w-16 h-16 animate-spin text-blue-500" />
+          <div className="flex-1 flex items-center justify-center bg-zinc-100/50 p-8 dark:bg-zinc-950">
+            <div className="flex flex-col items-center gap-5">
+              <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                <h3 className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                   Starting Development Server
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Please wait while the server initializes...
+                <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                  Preparing the workspace preview.
                 </p>
               </div>
             </div>

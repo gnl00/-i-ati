@@ -101,14 +101,14 @@ export const WorkspaceFileTree: React.FC<WorkspaceFileTreeProps> = ({
 
   if (filteredTree.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-400 text-xs">
+      <div className="p-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
         {searchQuery ? 'No files match your search' : 'Empty directory'}
       </div>
     )
   }
 
   return (
-    <div className="py-1">
+    <div className="py-1.5">
       {filteredTree.map(node => (
         <TreeNodeComponent
           key={node.path}
@@ -185,37 +185,38 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
         <button
           onClick={() => onToggleDir(node.path)}
           className={cn(
-            "w-full flex items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors group hover:bg-gray-100 dark:hover:bg-gray-800",
-            isExpanded && "bg-gray-50 dark:bg-gray-900/50",
-            isUtility && "opacity-50"
+            "group flex w-full items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors",
+            "hover:bg-zinc-100 dark:hover:bg-zinc-900",
+            isExpanded && "bg-zinc-50 dark:bg-zinc-900/70",
+            isUtility && "opacity-55"
           )}
           style={{ paddingLeft }}
         >
           {isExpanded ? (
             <ChevronDown className={cn(
-              "w-3 h-3 shrink-0",
-              isUtility ? "text-gray-300 dark:text-gray-600" : "text-gray-400"
+              "h-3 w-3 shrink-0",
+              isUtility ? "text-zinc-300 dark:text-zinc-700" : "text-zinc-400"
             )} />
           ) : (
             <ChevronRight className={cn(
-              "w-3 h-3 shrink-0",
-              isUtility ? "text-gray-300 dark:text-gray-600" : "text-gray-400"
+              "h-3 w-3 shrink-0",
+              isUtility ? "text-zinc-300 dark:text-zinc-700" : "text-zinc-400"
             )} />
           )}
           {isExpanded ? (
             <FolderOpen className={cn(
-              "w-3 h-3 shrink-0",
-              isUtility ? "text-gray-400 dark:text-gray-600" : "text-blue-500"
+              "h-3 w-3 shrink-0",
+              isUtility ? "text-zinc-400 dark:text-zinc-700" : "text-blue-500"
             )} />
           ) : (
             <Folder className={cn(
-              "w-3 h-3 shrink-0",
-              isUtility ? "text-gray-400 dark:text-gray-600" : "text-blue-400"
+              "h-3 w-3 shrink-0",
+              isUtility ? "text-zinc-400 dark:text-zinc-700" : "text-blue-400"
             )} />
           )}
           <span className={cn(
             "truncate font-medium",
-            isUtility ? "text-gray-400 dark:text-gray-600" : "text-gray-700 dark:text-gray-300"
+            isUtility ? "text-zinc-400 dark:text-zinc-600" : "text-zinc-700 dark:text-zinc-300"
           )}>
             {node.name}
           </span>
@@ -245,27 +246,27 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
     <button
       onClick={() => onSelectFile(node.path)}
       className={cn(
-        "w-full flex items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors group",
+        "group flex w-full items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors",
         isSelected
-          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-          : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800",
-        isUtility && "opacity-50"
+          ? "bg-blue-500/10 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900",
+        isUtility && "opacity-55"
       )}
       style={{ paddingLeft: `${level * 12 + 8 + 16}px` }} // Extra padding for file indentation
     >
       <FileCode
         className={cn(
-          "w-3 h-3 shrink-0",
+          "h-3 w-3 shrink-0",
           isUtility
-            ? "text-gray-300 dark:text-gray-600"
+            ? "text-zinc-300 dark:text-zinc-700"
             : isSelected
               ? "text-blue-500"
-              : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300"
+              : "text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300"
         )}
       />
       <span className={cn(
         "truncate",
-        isUtility && !isSelected && "text-gray-400 dark:text-gray-600"
+        isUtility && !isSelected && "text-zinc-400 dark:text-zinc-600"
       )}>{node.name}</span>
     </button>
   )

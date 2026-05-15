@@ -30,11 +30,10 @@ export const ArtifactsFilesTab: React.FC<{
   }
 
   return (
-    <div className="flex-1 flex w-full overflow-hidden">
-      {/* Left: File Tree */}
+    <div className="flex-1 flex w-full overflow-hidden bg-zinc-100/50 dark:bg-zinc-950">
       <div className={cn(
-        "border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 overflow-y-auto shrink-0",
-        files.selectedFilePath ? "w-48 border-r" : "flex-1"
+        "overflow-y-auto shrink-0 border-black/[0.06] bg-white/70 dark:border-white/[0.08] dark:bg-zinc-950",
+        files.selectedFilePath ? "w-52 border-r" : "flex-1"
       )}>
         <WorkspaceFileTree
           treeData={files.workspaceTree}
@@ -44,25 +43,27 @@ export const ArtifactsFilesTab: React.FC<{
         />
       </div>
 
-      {/* Right: Code Viewer - Only show when file is selected */}
       {files.selectedFilePath && (
-        <div className="flex-1 flex flex-col overflow-hidden bg-[#282a36]">
-          <div className="h-8 flex items-center justify-between px-3 bg-black/20 border-b border-white/5 shrink-0">
-            <span className="text-[10px] font-mono text-gray-400">{files.selectedFileName}</span>
+        <div className="flex-1 flex min-w-0 flex-col overflow-hidden bg-[#252735]">
+          <div className="h-9 flex items-center justify-between gap-3 border-b border-white/8 bg-[#202230] px-3 shrink-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileCode className="h-3.5 w-3.5 shrink-0 text-blue-300/80" />
+              <span className="truncate font-mono text-[10px] font-medium text-zinc-200">{files.selectedFileName}</span>
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 size="icon"
                 variant="ghost"
                 className={cn(
-                  "h-6 w-6 rounded-md",
-                  "text-gray-500 border border-transparent bg-transparent",
-                  "transition-all duration-200 ease-out",
-                  "hover:text-white hover:bg-white/10 hover:border-white/20 hover:-translate-y-px",
+                  "h-6 w-6 rounded-md border border-transparent bg-transparent text-zinc-500",
+                  "transition-[background-color,border-color,color,transform] duration-200 ease-out",
+                  "hover:-translate-y-px hover:border-white/15 hover:bg-white/10 hover:text-zinc-100",
                   "active:translate-y-0 active:scale-[0.97]"
                 )}
                 onClick={() => copyFileToClipboard(files.selectedFileContent || '', files.selectedFileName || '')}
+                title="Copy file"
               >
-                <Copy className="w-3 h-3" />
+                <Copy className="h-3 w-3" />
               </Button>
               {/* <Button
                 size="icon"
@@ -76,7 +77,7 @@ export const ArtifactsFilesTab: React.FC<{
           </div>
           <div className="flex-1 overflow-auto selection:bg-blue-500/30">
             {files.isLoadingFile ? (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              <div className="flex h-full items-center justify-center text-xs text-zinc-400">
                 Loading...
               </div>
             ) : (
@@ -115,24 +116,25 @@ export const FilesTabToolbar: React.FC<{
   isLoading: boolean
 }> = ({ searchQuery, onSearchChange, onRefresh, isLoading }) => {
   return (
-    <div className="h-10 flex items-center gap-2 px-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 shrink-0">
+    <div className="h-10 flex items-center gap-2 border-b border-black/[0.06] bg-zinc-50/90 px-2.5 dark:border-white/[0.08] dark:bg-zinc-950 shrink-0">
       <div className="relative flex-1">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+        <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-zinc-400" />
         <Input
           placeholder="Search files..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-7 pl-7 text-xs bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-blue-400 dark:focus:border-blue-600"
+          className="h-7 rounded-md border-black/[0.08] bg-white pl-7 text-xs text-zinc-700 shadow-none placeholder:text-zinc-400 focus:border-blue-400 focus-visible:ring-0 focus-visible:ring-offset-0 dark:border-white/[0.1] dark:bg-zinc-900 dark:text-zinc-200 dark:focus:border-blue-500"
         />
       </div>
       <Button
         size="icon"
         variant="ghost"
-        className="h-7 w-7"
+        className="h-7 w-7 rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-blue-600 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-blue-300"
         onClick={onRefresh}
         disabled={isLoading}
+        title="Refresh files"
       >
-        <RefreshCw className={cn("w-3 h-3", isLoading && "animate-spin")} />
+        <RefreshCw className={cn("h-3 w-3", isLoading && "animate-spin")} />
       </Button>
     </div>
   )

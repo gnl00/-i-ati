@@ -7,12 +7,12 @@ interface ArtifactsEmptyStateProps {
 }
 
 export const ArtifactsEmptyState: React.FC<ArtifactsEmptyStateProps> = ({ icon, title, description }) => (
-  <div className="flex-1 w-full flex flex-col items-center justify-center p-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-    <div className="w-20 h-20 rounded-3xl bg-gray-50/50 dark:bg-gray-900/50 border border-black/5 dark:border-white/5 flex items-center justify-center text-gray-300 dark:text-gray-700 mb-6 shadow-xs">
+  <div className="flex-1 w-full flex flex-col items-center justify-center bg-zinc-100/50 p-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500 dark:bg-zinc-950">
+    <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-black/[0.06] bg-white text-zinc-300 shadow-xs dark:border-white/[0.08] dark:bg-zinc-900 dark:text-zinc-700">
       {icon}
     </div>
-    <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2">{title}</h3>
-    <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[240px] leading-relaxed">
+    <h3 className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
+    <p className="max-w-[240px] text-xs leading-5 text-zinc-500 dark:text-zinc-400">
       {description}
     </p>
   </div>
