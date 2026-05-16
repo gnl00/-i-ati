@@ -252,6 +252,26 @@ export class TelegramGatewayService {
     }
   }
 
+  private async sendTypingAction(envelope: TelegramInboundEnvelope): Promise<void> {
+    const bot = this.bot
+    if (!bot) {
+      return
+    }
+
+    try {
+      await bot.api.sendChatAction(Number(envelope.chatId), 'typing', {
+        ...(envelope.threadId ? { message_thread_id: Number(envelope.threadId) } : {})
+      })
+    } catch (error) {
+      this.logger.warn('typing_action.failed', {
+        updateId: envelope.updateId,
+        chatId: envelope.chatId,
+        threadId: envelope.threadId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
   private async handleCommand(
     envelope: TelegramInboundEnvelope,
     command: NonNullable<ReturnType<typeof parseTelegramCommand>>,
@@ -296,6 +316,8 @@ export class TelegramGatewayService {
       textPreview: this.toPreview(envelope.text),
       mediaKinds: envelope.media.map((item) => item.kind)
     })
+
+    void this.sendTypingAction(envelope)
 
     const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, modelRef)
     const effectiveModelRef = this.resolveModelRefForChat(chat, modelRef)

@@ -18,6 +18,10 @@ type SentTelegramMessage = {
   lastText: string
 }
 
+type TelegramSendMessageOptions = {
+  parseMode?: 'HTML'
+}
+
 type TelegramToolState = {
   toolName: string
   args?: string
@@ -168,10 +172,11 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     this.flushTimer = undefined
   }
 
-  private async sendMessage(args: { text: string }): Promise<{ message_id: number }> {
+  private async sendMessage(args: { text: string } & TelegramSendMessageOptions): Promise<{ message_id: number }> {
     const baseOptions = {
       ...(this.envelope.threadId ? { message_thread_id: Number(this.envelope.threadId) } : {}),
-      ...(this.envelope.messageId ? { reply_parameters: { message_id: Number(this.envelope.messageId) } } : {})
+      ...(this.envelope.messageId ? { reply_parameters: { message_id: Number(this.envelope.messageId) } } : {}),
+      ...(args.parseMode ? { parse_mode: args.parseMode } : {})
     }
 
     return await this.bot.api.sendMessage(
@@ -357,7 +362,8 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     }
 
     const sent = await this.sendMessage({
-      text: this.formatToolStartMessage(args.toolName)
+      text: this.formatToolStartMessage(args.toolName),
+      parseMode: 'HTML'
     })
     this.toolStates.set(args.toolCallId, {
       ...state,
@@ -388,7 +394,8 @@ export class TelegramRenderResponder implements HostRenderEventSink {
 
     if (!state.startSent) {
       const startSent = await this.sendMessage({
-        text: this.formatToolStartMessage(state.toolName)
+        text: this.formatToolStartMessage(state.toolName),
+        parseMode: 'HTML'
       })
       this.toolStates.set(args.toolCallId, {
         ...state,
@@ -408,7 +415,8 @@ export class TelegramRenderResponder implements HostRenderEventSink {
         toolName: current.toolName,
         status: args.status,
         args: current.args
-      })
+      }),
+      parseMode: 'HTML'
     })
     this.toolStates.set(args.toolCallId, {
       ...current,
@@ -446,7 +454,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   }
 
   private formatToolStartMessage(toolName: string): string {
-    return `> tool ${this.formatToolLabel(toolName)} start`
+    return `<blockquote>${this.escapeHtml(`tool ${this.formatToolLabel(toolName)} start`)}</blockquote>`
   }
 
   private formatToolDoneMessage(args: {
@@ -456,10 +464,11 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   }): string {
     const label = this.formatToolLabel(args.toolName)
     const status = this.formatToolStatus(args.status)
-    const argsBlock = this.formatToolArgsBlock(args.args)
-    return argsBlock
-      ? `> tool ${label} ${status}\n\n${argsBlock}`
-      : `> tool ${label} ${status}`
+    const title = this.escapeHtml(`tool ${label} ${status}`)
+    const argsValue = this.formatToolArgsValue(args.args)
+    return argsValue
+      ? `<blockquote>${title}</blockquote>\n<pre>${this.escapeHtml(argsValue)}</pre>`
+      : `<blockquote>${title}</blockquote>`
   }
 
   private formatToolLabel(toolName: string): string {
@@ -479,7 +488,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     return 'running'
   }
 
-  private formatToolArgsBlock(args: string | undefined): string {
+  private formatToolArgsValue(args: string | undefined): string {
     const normalized = args?.replace(/\s+/g, ' ').trim()
     if (!normalized) {
       return ''
@@ -488,7 +497,15 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     const value = normalized.length <= MAX_TOOL_ARGS_DISPLAY_LENGTH
       ? normalized
       : `${normalized.slice(0, MAX_TOOL_ARGS_DISPLAY_LENGTH - 3)}...`
-    return `\`\`\`args\n${value}\n\`\`\``
+    return value
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
   }
 
   private toStableSegmentKey(segment: Pick<MessageSegment, 'segmentId'>): string {

@@ -257,17 +257,16 @@ describe('TelegramRenderResponder', () => {
       status: 'success'
     }))
 
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '> tool memory retrieval start', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool memory retrieval start</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
     expect(sendMessage).toHaveBeenNthCalledWith(2, 123, [
-      '> tool memory retrieval done',
-      '',
-      '```args',
-      '{"query":"latest api"}',
-      '```'
+      '<blockquote>tool memory retrieval done</blockquote>',
+      '<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>'
     ].join('\n'), {
-      reply_parameters: { message_id: 55 }
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
     expect(editMessageText).not.toHaveBeenCalled()
   })
@@ -287,8 +286,9 @@ describe('TelegramRenderResponder', () => {
     }))
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(sendMessage).toHaveBeenCalledWith(123, '> tool memory retrieval start', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenCalledWith(123, '<blockquote>tool memory retrieval start</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
     expect(editMessageText).not.toHaveBeenCalled()
   })
@@ -315,11 +315,13 @@ describe('TelegramRenderResponder', () => {
     expect(sendMessage).toHaveBeenNthCalledWith(1, 123, 'Looking it up', {
       reply_parameters: { message_id: 55 }
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '> tool memory retrieval start', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval start</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(3, 123, '> tool memory retrieval done', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenNthCalledWith(3, 123, '<blockquote>tool memory retrieval done</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
   })
 
@@ -357,11 +359,13 @@ describe('TelegramRenderResponder', () => {
     expect(sendMessage).toHaveBeenNthCalledWith(1, 123, 'Looking it up', {
       reply_parameters: { message_id: 55 }
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '> tool memory retrieval start', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval start</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(3, 123, '> tool memory retrieval done', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenNthCalledWith(3, 123, '<blockquote>tool memory retrieval done</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
     expect(editMessageText).not.toHaveBeenCalled()
   })
@@ -379,11 +383,13 @@ describe('TelegramRenderResponder', () => {
       status: 'error'
     }))
 
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '> tool web search start', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool web search start</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '> tool web search failed', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool web search failed</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
   })
 
@@ -419,17 +425,16 @@ describe('TelegramRenderResponder', () => {
     })))
 
     expect(sendMessage).toHaveBeenCalledTimes(3)
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '> tool memory retrieval start', {
-      reply_parameters: { message_id: 55 }
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool memory retrieval start</blockquote>', {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
     expect(sendMessage).toHaveBeenNthCalledWith(2, 123, [
-      '> tool memory retrieval done',
-      '',
-      '```args',
-      '{"query":"latest api"}',
-      '```'
+      '<blockquote>tool memory retrieval done</blockquote>',
+      '<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>'
     ].join('\n'), {
-      reply_parameters: { message_id: 55 }
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
     })
     expect(sendMessage).toHaveBeenNthCalledWith(3, 123, 'Looking it up', {
       reply_parameters: { message_id: 55 }
@@ -483,9 +488,33 @@ describe('TelegramRenderResponder', () => {
     }))
 
     const text = sendMessage.mock.calls[1][1] as string
-    expect(text).toMatch(/^> tool web search done\n\n```args\n/)
-    expect(text).toContain('...\n```')
+    expect(text).toMatch(/^<blockquote>tool web search done<\/blockquote>\n<pre>/)
+    expect(text).toContain('...</pre>')
     expect(text.length).toBeLessThan(longArgs.length)
+  })
+
+  it('escapes tool done args for telegram HTML messages', async () => {
+    const { responder, sendMessage } = createResponder()
+    const rawArgs = '{"query":"<tag>&\\"quote\\""}'
+
+    await responder.handle(toolDetected({
+      toolCallId: 'tool-1',
+      toolName: 'web_search',
+      toolArgs: rawArgs
+    }))
+    await responder.handle(toolResult({
+      toolCallId: 'tool-1',
+      toolName: 'web_search',
+      status: 'success'
+    }))
+
+    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, [
+      '<blockquote>tool web search done</blockquote>',
+      '<pre>{&quot;query&quot;:&quot;&lt;tag&gt;&amp;\\&quot;quote\\&quot;&quot;}</pre>'
+    ].join('\n'), {
+      reply_parameters: { message_id: 55 },
+      parse_mode: 'HTML'
+    })
   })
 
   it('flushes pending streamed text edits on completion', async () => {
