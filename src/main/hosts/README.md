@@ -88,6 +88,7 @@ host input adapter
 
 - [AgentRenderStateReducer.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/AgentRenderStateReducer.ts)
 - [HostRenderStateController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostRenderStateController.ts)
+- [AgentRenderSegmentMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/AgentRenderSegmentMapper.ts)
 - [CommittedAssistantMessageController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/CommittedAssistantMessageController.ts)
 
 ### 3. Host-Specific Mapper / Policy
@@ -97,8 +98,6 @@ host input adapter
 例子：
 
 - [ChatRenderMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/runtime/ChatRenderMapper.ts)
-- [TelegramRenderMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/runtime/TelegramRenderMapper.ts)
-- [TelegramTransportStateController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/runtime/TelegramTransportStateController.ts)
 
 ### 4. Host Output / Transport
 
@@ -138,6 +137,7 @@ chat
       -> HostRenderEvent
         -> ChatRenderResponder
           -> HostRenderStateController
+          -> AgentRenderSegmentMapper
           -> ChatRenderMapper
           -> CommittedAssistantMessageController
           -> ChatRenderOutput
@@ -151,9 +151,8 @@ telegram
       -> HostRenderEvent
         -> TelegramRenderResponder
           -> HostRenderStateController
-          -> TelegramTransportStateController
-          -> TelegramRenderMapper
-            -> telegram send/edit transport
+          -> AgentRenderSegmentMapper
+          -> telegram send/edit transport
 ```
 
 ## Recommended Extension Pattern

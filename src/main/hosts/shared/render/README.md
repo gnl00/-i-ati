@@ -87,6 +87,18 @@ AgentEvent
 - 维护 host-facing committed / preview / lifecycle / usage snapshot
 - 作为 chat / telegram 这类 host-specific policy 的共享状态真源
 
+### `AgentRenderSegmentMapper`
+
+文件：
+
+- [AgentRenderSegmentMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/AgentRenderSegmentMapper.ts)
+
+职责：
+
+- 把 `AgentRenderMessageState.blocks + toolCalls` 转成稳定 `MessageSegment[]`
+- 统一生成 text / reasoning / toolCall / error segment
+- 保持 preview / committed segment identity 稳定，供 chat、telegram 和后续 host 复用
+
 ### `CommittedAssistantMessageController`
 
 文件：
@@ -128,6 +140,7 @@ chat 侧当前大致是：
 ChatRenderResponder
   -> HostRenderStateController
   -> ChatRenderMapper
+  -> AgentRenderSegmentMapper
   -> CommittedAssistantMessageController
   -> ChatRenderOutput
 ```
@@ -137,8 +150,7 @@ telegram 侧当前大致是：
 ```text
 TelegramRenderResponder
   -> HostRenderStateController
-  -> TelegramTransportStateController
-  -> TelegramRenderMapper
+  -> AgentRenderSegmentMapper
   -> telegram send/edit
 ```
 

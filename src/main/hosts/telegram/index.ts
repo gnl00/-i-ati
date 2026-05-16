@@ -1,5 +1,5 @@
 export { TelegramAgentAdapter } from './TelegramAgentAdapter'
-export { TelegramRenderMapper, TelegramRenderResponder } from './runtime'
+export { TelegramRenderResponder } from './runtime'
 export type {
   TelegramInboundMedia,
   MainTelegramRunInput,

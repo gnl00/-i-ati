@@ -1,124 +1,16 @@
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { extractEmotionFromToolSegments } from '@main/services/emotion/emotion-state'
-import type {
-  AgentRenderBlock,
-  AgentRenderMessageState,
-  AgentRenderReasoningBlock,
-  AgentRenderTextBlock,
-  AgentRenderToolCallState
+import {
+  AgentRenderSegmentMapper,
+  type AgentRenderBlock,
+  type AgentRenderLayer,
+  type AgentRenderMessageState
 } from '@main/hosts/shared/render'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
-type RenderLayer = 'preview' | 'committed'
-
-const CHAT_TRANSCRIPT_HIDDEN_TOOLS = new Set(['emotion_report'])
-
-const toMessageToolCall = (toolCall: AgentRenderToolCallState): IToolCall => ({
-  id: toolCall.toolCallId,
-  index: toolCall.toolCallIndex,
-  type: 'function',
-  function: {
-    name: toolCall.name,
-    arguments: toolCall.args || ''
-  }
-})
-
-const buildReasoningSegment = (
-  block: AgentRenderReasoningBlock,
-  layer: RenderLayer
-): ReasoningSegment => ({
-  type: 'reasoning',
-  segmentId: `${layer}:${block.blockId}`,
-  content: block.content,
-  timestamp: block.startedAt,
-  endedAt: block.endedAt
-})
-
-const buildTextSegment = (
-  block: AgentRenderTextBlock,
-  layer: RenderLayer
-): TextSegment => ({
-  type: 'text',
-  segmentId: `${layer}:${block.blockId}`,
-  content: block.content,
-  timestamp: block.startedAt
-})
-
-const buildSegments = (input: {
-  state: AgentRenderMessageState
-  timestamp: number
-  includeText: boolean
-  layer: RenderLayer
-}): MessageSegment[] => {
-  const segments: MessageSegment[] = []
-  const toolCallMap = new Map(
-    input.state.toolCalls.map((call) => [call.toolCallId, call] as const)
-  )
-
-  for (const block of input.state.blocks) {
-    if (block.kind === 'reasoning') {
-      if (block.content.trim()) {
-        segments.push(buildReasoningSegment(block, input.layer))
-      }
-      continue
-    }
-
-    if (block.kind === 'text') {
-      if (input.includeText && block.content.trim()) {
-        segments.push(buildTextSegment(block, input.layer))
-      }
-      continue
-    }
-
-    const call = toolCallMap.get(block.toolCallId)
-    if (!call) {
-      continue
-    }
-
-    segments.push({
-      type: 'toolCall',
-      segmentId: `${input.layer}:${block.blockId}`,
-      name: call.name,
-      content: {
-        toolName: call.name,
-        args: call.args,
-        status: call.status,
-        ...(call.result !== undefined ? { result: call.result } : {}),
-        ...(call.error ? { error: call.error } : {})
-      },
-      ...(call.cost !== undefined ? { cost: call.cost } : {}),
-      isError: call.status === 'failed' || call.status === 'aborted',
-      timestamp: block.startedAt,
-      toolCallId: call.toolCallId,
-      toolCallIndex: call.toolCallIndex,
-      ...(CHAT_TRANSCRIPT_HIDDEN_TOOLS.has(call.name)
-        ? {
-            presentation: {
-              transcriptVisible: false
-            }
-          }
-        : {})
-    })
-  }
-
-  if (input.state.failure) {
-    const failure = input.state.failure
-    segments.push({
-      type: 'error',
-      segmentId: `${input.layer}:${input.state.stepId || 'unknown-step'}:error`,
-      error: {
-        name: 'name' in failure && failure.name ? failure.name : 'Error',
-        message: failure.message,
-        code: 'code' in failure ? failure.code : undefined,
-        timestamp: input.timestamp
-      }
-    })
-  }
-
-  return segments
-}
-
 export class ChatRenderMapper {
+  private readonly segments = new AgentRenderSegmentMapper()
+
   private attachDerivedMessageSemantics(message: ChatMessage): ChatMessage {
     const emotion = extractEmotionFromToolSegments(message)
 
@@ -158,46 +50,34 @@ export class ChatRenderMapper {
       ...baseBody,
       source: MESSAGE_SOURCE.STREAM_PREVIEW,
       content: state.content,
-      segments: buildSegments({
+      segments: this.buildSegments({
         state,
         timestamp,
         includeText: true,
         layer: 'preview'
       }),
       toolCalls: state.toolCalls.length > 0
-        ? state.toolCalls.map(toMessageToolCall)
+        ? state.toolCalls.map((toolCall) => this.segments.toMessageToolCall(toolCall))
         : undefined,
       typewriterCompleted: false
     })
   }
 
   buildPreviewTextPatch(state: AgentRenderMessageState): MessageSegmentPatch | null {
-    const textBlock = state.blocks.findLast(
-      (block): block is AgentRenderTextBlock => block.kind === 'text' && block.content.trim().length > 0
-    )
-    if (!textBlock) {
-      return null
-    }
-
-    return {
-      segment: buildTextSegment(textBlock, 'preview'),
+    return this.segments.buildTextPatch({
+      state,
+      layer: 'preview',
       content: state.content,
       typewriterCompleted: false
-    }
+    })
   }
 
   buildPreviewReasoningPatch(state: AgentRenderMessageState): MessageSegmentPatch | null {
-    const reasoningBlock = state.blocks.findLast(
-      (block): block is AgentRenderReasoningBlock => block.kind === 'reasoning' && block.content.trim().length > 0
-    )
-    if (!reasoningBlock) {
-      return null
-    }
-
-    return {
-      segment: buildReasoningSegment(reasoningBlock, 'preview'),
+    return this.segments.buildReasoningPatch({
+      state,
+      layer: 'preview',
       typewriterCompleted: false
-    }
+    })
   }
 
   buildCommittedBody(args: {
@@ -210,17 +90,26 @@ export class ChatRenderMapper {
     return this.attachDerivedMessageSemantics({
       ...baseBody,
       content: state.content,
-      segments: buildSegments({
+      segments: this.buildSegments({
         state,
         timestamp,
         includeText: Boolean(state.content.trim()),
         layer: 'committed'
       }),
       toolCalls: state.toolCalls.length > 0
-        ? state.toolCalls.map(toMessageToolCall)
+        ? state.toolCalls.map((toolCall) => this.segments.toMessageToolCall(toolCall))
         : undefined,
       typewriterCompleted
     })
+  }
+
+  buildSegments(input: {
+    state: AgentRenderMessageState
+    timestamp: number
+    includeText: boolean
+    layer: AgentRenderLayer
+  }): MessageSegment[] {
+    return this.segments.buildSegments(input)
   }
 
   private isSameOpenBlockTransition(

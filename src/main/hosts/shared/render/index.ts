@@ -8,6 +8,11 @@ export type {
   AgentRenderToolCallState,
   AgentRenderToolCallStatus
 } from './AgentRenderState'
+export { AgentRenderSegmentMapper } from './AgentRenderSegmentMapper'
+export type {
+  AgentRenderLayer,
+  AgentRenderSegmentMapperOptions
+} from './AgentRenderSegmentMapper'
 export { AgentRenderStateReducer } from './AgentRenderStateReducer'
 export {
   CommittedAssistantMessageController,
