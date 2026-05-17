@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createTestUnifiedRequest } from './helpers'
 
 const {
   getPluginConfigs,
@@ -78,14 +79,11 @@ describe('unifiedChatRequest logging', () => {
     const afterFetch = vi.fn()
     const { unifiedChatRequest } = await import('../index')
 
-    await expect(unifiedChatRequest({
+    await expect(unifiedChatRequest(createTestUnifiedRequest({
       adapterPluginId: 'openai-response-compatible-adapter',
       baseUrl: 'https://example.invalid/v1',
-      apiKey: 'test-key',
-      model: 'test-model',
-      messages: [{ role: 'user', content: 'hello', segments: [] }],
       stream: true
-    } as IUnifiedRequest, null, beforeFetch, afterFetch)).rejects.toThrow('fetch failed')
+    }), null, beforeFetch, afterFetch)).rejects.toThrow('fetch failed')
 
     expect(loggerInfoMock).toHaveBeenCalledWith('request.dispatch', expect.objectContaining({
       baseUrl: 'https://example.invalid/v1',
@@ -130,14 +128,11 @@ describe('unifiedChatRequest logging', () => {
 
     const { unifiedChatRequest } = await import('../index')
 
-    await expect(unifiedChatRequest({
+    await expect(unifiedChatRequest(createTestUnifiedRequest({
       adapterPluginId: 'openai-response-compatible-adapter',
       baseUrl: 'https://example.invalid/v1',
-      apiKey: 'test-key',
-      model: 'test-model',
-      messages: [{ role: 'user', content: 'hello', segments: [] }],
       stream: true
-    } as IUnifiedRequest, controller.signal, beforeFetch, afterFetch)).rejects.toThrow('The operation was aborted.')
+    }), controller.signal, beforeFetch, afterFetch)).rejects.toThrow('The operation was aborted.')
 
     expect(loggerErrorMock).toHaveBeenCalledWith('request.failed', expect.objectContaining({
       kind: 'abort',
@@ -167,14 +162,11 @@ describe('unifiedChatRequest logging', () => {
     const afterFetch = vi.fn()
     const { unifiedChatRequest } = await import('../index')
 
-    await expect(unifiedChatRequest({
+    await expect(unifiedChatRequest(createTestUnifiedRequest({
       adapterPluginId: 'openai-response-compatible-adapter',
       baseUrl: 'https://example.invalid/v1',
-      apiKey: 'test-key',
-      model: 'test-model',
-      messages: [{ role: 'user', content: 'hello', segments: [] }],
       stream: true
-    } as IUnifiedRequest, null, beforeFetch, afterFetch)).rejects.toThrow('HTTP 429 Too Many Requests')
+    }), null, beforeFetch, afterFetch)).rejects.toThrow('HTTP 429 Too Many Requests')
 
     expect(loggerErrorMock).toHaveBeenCalledTimes(1)
     expect(loggerErrorMock).toHaveBeenCalledWith('request.failed', expect.objectContaining({
@@ -239,14 +231,11 @@ describe('unifiedChatRequest logging', () => {
     const afterFetch = vi.fn()
     const { unifiedChatRequest, getRequestErrorMetadata } = await import('../index')
 
-    const response = await unifiedChatRequest({
+    const response = await unifiedChatRequest(createTestUnifiedRequest({
       adapterPluginId: 'openai-response-compatible-adapter',
       baseUrl: 'https://example.invalid/v1',
-      apiKey: 'test-key',
-      model: 'test-model',
-      messages: [{ role: 'user', content: 'hello', segments: [] }],
       stream: true
-    } as IUnifiedRequest, null, beforeFetch, afterFetch)
+    }), null, beforeFetch, afterFetch)
 
     const chunks: IUnifiedResponse[] = []
     await expect((async () => {

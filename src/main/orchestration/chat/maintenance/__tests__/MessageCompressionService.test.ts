@@ -362,7 +362,7 @@ describe('MessageCompressionService', () => {
       'previous summary'
     )
 
-    const request = unifiedChatRequestMock.mock.calls[0][0] as IUnifiedRequest
+    const request = unifiedChatRequestMock.mock.calls[0][0]
     const prompt = request.messages[0].content
 
     expect(prompt).toContain('<user id="1">')

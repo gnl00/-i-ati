@@ -9,6 +9,7 @@
  */
 
 import { unifiedChatRequest } from '@main/request/index'
+import { createUnifiedTextRequest } from '@main/request/UnifiedRequestFactory'
 import { buildCompressionPrompt } from '@shared/prompts'
 import DatabaseService from '@main/db/DatabaseService'
 import { createLogger } from '@main/logging/LogService'
@@ -240,16 +241,16 @@ export class MessageCompressionService {
     })
 
     // 3. 构建请求
-    const request: IUnifiedRequest = {
+    const request = createUnifiedTextRequest({
       adapterPluginId: providerDefinition.adapterPluginId,
       baseUrl: account.apiUrl,
-      messages: [{ role: 'user', content: userContent, segments: [] }],
       apiKey: account.apiKey,
       model: model.id,
       modelType: model.type,
+      content: userContent,
       tools: [],
       stream: false
-    }
+    })
 
     // 4. 调用 LLM API
     const response = await unifiedChatRequest(request, null, () => {}, () => {})

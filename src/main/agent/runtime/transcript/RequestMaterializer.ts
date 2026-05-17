@@ -24,14 +24,15 @@ export interface MaterializedUserProtocolMessage {
 export interface MaterializedAssistantProtocolMessage {
   role: 'assistant'
   content: string
+  reasoning?: string
   toolCalls?: IToolCall[]
 }
 
 export interface MaterializedToolProtocolMessage {
   role: 'tool'
   content: string
-  toolCallId?: string
-  toolName?: string
+  toolCallId: string
+  toolName: string
 }
 
 export type MaterializedProtocolMessage =
@@ -92,6 +93,7 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
           return {
             role: 'assistant',
             content: record.step.content,
+            reasoning: record.step.reasoning,
             toolCalls: record.step.toolCalls.length > 0 ? [...record.step.toolCalls] : undefined
           }
         case 'tool_result':

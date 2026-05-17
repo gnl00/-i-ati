@@ -25,10 +25,7 @@ export class OpenAIImage1Adapter extends BaseAdapter {
   buildRequest(req: IUnifiedRequest): any {
     return {
       model: req.model,
-      prompt: req.messages.map(m => {
-        const { model, ...msg } = m
-        return msg
-      })[req.messages.length - 1].content,
+      prompt: req.messages[req.messages.length - 1].content,
       size: '1024x1024',
       n: 1
     }

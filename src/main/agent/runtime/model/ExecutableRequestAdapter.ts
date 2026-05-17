@@ -59,38 +59,35 @@ export const partsToUnifiedContent = (parts: AgentContentPart[]): string | VLMCo
   return content
 }
 
-const createChatMessage = (
-  role: ChatMessage['role'],
-  content: ChatMessage['content'],
-  extra: Partial<ChatMessage> = {}
-): ChatMessage => ({
-  role,
-  content,
-  segments: [],
-  ...extra
-})
-
 export interface ExecutableRequestAdapter {
   adapt(request: MaterializedProtocolRequest): IUnifiedRequest
 }
 
 export class DefaultExecutableRequestAdapter implements ExecutableRequestAdapter {
   adapt(request: MaterializedProtocolRequest): IUnifiedRequest {
-    const messages: ChatMessage[] = request.messages.map((message) => {
+    const messages: UnifiedRequestMessage[] = request.messages.map((message) => {
       if (message.role === 'user') {
-        return createChatMessage('user', partsToUnifiedContent(message.content))
+        return {
+          role: 'user',
+          content: partsToUnifiedContent(message.content)
+        }
       }
 
       if (message.role === 'assistant') {
-        return createChatMessage('assistant', message.content, {
+        return {
+          role: 'assistant',
+          content: message.content,
+          reasoning: message.reasoning,
           toolCalls: message.toolCalls
-        })
+        }
       }
 
-      return createChatMessage('tool', message.content, {
-        name: message.toolName,
-        toolCallId: message.toolCallId
-      })
+      return {
+        role: 'tool',
+        content: message.content,
+        toolCallId: message.toolCallId,
+        toolName: message.toolName
+      }
     })
 
     return {

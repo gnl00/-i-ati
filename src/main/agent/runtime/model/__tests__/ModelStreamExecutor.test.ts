@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DefaultModelStreamExecutor } from '../ModelStreamExecutor'
 import type { ModelResponseChunk } from '../ModelResponseChunk'
+import { createTestUnifiedRequest } from '@main/request/__tests__/helpers'
 
 const { unifiedChatRequestMock, getRequestErrorMetadataMock, loggerWarnMock } = vi.hoisted(() => ({
   unifiedChatRequestMock: vi.fn(),
@@ -30,6 +31,12 @@ describe('DefaultModelStreamExecutor', () => {
     loggerWarnMock.mockReset()
   })
 
+  const createStreamRequest = (): IUnifiedRequest => createTestUnifiedRequest({
+    adapterPluginId: 'openai-response-compatible-adapter',
+    baseUrl: 'https://example.invalid/v1',
+    stream: true
+  })
+
   it('retries once for retriable pre-stream network failures', async () => {
     const networkError = new TypeError('fetch failed')
 
@@ -52,14 +59,7 @@ describe('DefaultModelStreamExecutor', () => {
     })
 
     const stream = await executor.execute({
-      request: {
-        adapterPluginId: 'openai-response-compatible-adapter',
-        baseUrl: 'https://example.invalid/v1',
-        apiKey: 'test-key',
-        model: 'test-model',
-        messages: [{ role: 'user', content: 'hello', segments: [] }],
-        stream: true
-      }
+      request: createStreamRequest()
     })
 
     const chunks: ModelResponseChunk[] = []
@@ -104,14 +104,7 @@ describe('DefaultModelStreamExecutor', () => {
     })
 
     await expect(executor.execute({
-      request: {
-        adapterPluginId: 'openai-response-compatible-adapter',
-        baseUrl: 'https://example.invalid/v1',
-        apiKey: 'test-key',
-        model: 'test-model',
-        messages: [{ role: 'user', content: 'hello', segments: [] }],
-        stream: true
-      }
+      request: createStreamRequest()
     })).rejects.toThrow('bad request')
 
     expect(unifiedChatRequestMock).toHaveBeenCalledTimes(1)
@@ -151,14 +144,7 @@ describe('DefaultModelStreamExecutor', () => {
     const executor = new DefaultModelStreamExecutor()
 
     const stream = await executor.execute({
-      request: {
-        adapterPluginId: 'openai-response-compatible-adapter',
-        baseUrl: 'https://example.invalid/v1',
-        apiKey: 'test-key',
-        model: 'test-model',
-        messages: [{ role: 'user', content: 'hello', segments: [] }],
-        stream: true
-      }
+      request: createStreamRequest()
     })
 
     const chunks: ModelResponseChunk[] = []
@@ -218,14 +204,7 @@ describe('DefaultModelStreamExecutor', () => {
     const executor = new DefaultModelStreamExecutor()
 
     const stream = await executor.execute({
-      request: {
-        adapterPluginId: 'openai-response-compatible-adapter',
-        baseUrl: 'https://example.invalid/v1',
-        apiKey: 'test-key',
-        model: 'test-model',
-        messages: [{ role: 'user', content: 'hello', segments: [] }],
-        stream: true
-      }
+      request: createStreamRequest()
     })
 
     const chunks: ModelResponseChunk[] = []
@@ -276,14 +255,7 @@ describe('DefaultModelStreamExecutor', () => {
     })
 
     const execution = executor.execute({
-      request: {
-        adapterPluginId: 'openai-response-compatible-adapter',
-        baseUrl: 'https://example.invalid/v1',
-        apiKey: 'test-key',
-        model: 'test-model',
-        messages: [{ role: 'user', content: 'hello', segments: [] }],
-        stream: true
-      },
+      request: createStreamRequest(),
       signal: controller.signal
     })
 

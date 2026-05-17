@@ -206,12 +206,13 @@ interface IUnifiedRequest {
   model: string
   userInstruction?: string
   systemPrompt?: string
-  messages: ChatMessage[]
+  messages: UnifiedRequestMessage[]
   stream?: boolean
   tools?: any[]
   requestOverrides?: Record<string, any>
   options?: {
     maxTokens?: number
+    thinkingLevel?: string
   }
 }
 ```
@@ -224,35 +225,52 @@ Field notes:
 - `model`: selected model id
 - `userInstruction`: request-level extra instruction text when provided
 - `systemPrompt`: composed system prompt, already separated from chat messages
-- `messages`: normalized conversation history without system messages
+- `messages`: provider-neutral conversation history without system messages
 - `stream`: defaults to `true` in most chat flows
 - `tools`: normalized tool definitions when tool calling is enabled
 - `options.maxTokens`: optional token budget
+- `options.thinkingLevel`: optional thinking/reasoning effort selected for
+  adapters that declare thinking support
 
-### `ChatMessage`
+### `UnifiedRequestMessage`
 
 ```ts
-interface ChatMessage {
-  role: string
-  content: string | VLMContent[]
-  name?: string
-  toolCallId?: string
-  toolCalls?: IToolCall[]
-  model?: string
-  modelRef?: { accountId: string; modelId: string }
-  typewriterCompleted?: boolean
-  source?: string
-  segments: MessageSegment[]
-}
+type UnifiedRequestMessageRole = 'system' | 'user' | 'assistant' | 'tool'
+
+type UnifiedRequestMessage =
+  | {
+      role: 'system' | 'user'
+      content: string | VLMContent[]
+    }
+  | {
+      role: 'assistant'
+      content: string | VLMContent[]
+      toolCalls?: IToolCall[]
+      reasoning?: string
+    }
+  | {
+      role: 'tool'
+      content: string | VLMContent[]
+      toolCallId: string
+      toolName: string
+    }
 ```
 
 Important fields:
 
-- `role`: typically `system`, `user`, `assistant`, or `tool`
+- `role`: one of `system`, `user`, `assistant`, or `tool`
 - `content`: plain text or multimodal content array
 - `toolCalls`: assistant tool calls already normalized to `IToolCall[]`
 - `toolCallId`: tool result messages refer back to the tool call id
-- `segments`: structured message segments; available if your adapter needs more detail
+- `toolName`: provider-neutral function name for tool result replay; native
+  Gemini function responses map it to `functionResponse.name`
+- `reasoning`: provider-neutral replay metadata for thinking-mode assistant
+  messages; adapters map it to provider-specific fields such as
+  `reasoning_content`
+
+Request adapter plugins receive `UnifiedRequestMessage`, not persisted
+`ChatMessage`. UI and database-only fields such as `segments`, `source`,
+`model`, and `modelRef` are stripped before adapter dispatch.
 
 ### `IToolCall`
 

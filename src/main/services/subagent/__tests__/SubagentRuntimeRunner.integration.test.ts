@@ -193,7 +193,7 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
         expect.objectContaining({
           role: 'tool',
           toolCallId: 'tool-1',
-          name: 'execute_command',
+          toolName: 'execute_command',
           content: 'parent denied'
         })
       ])

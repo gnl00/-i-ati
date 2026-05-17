@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { RequestMessageBuilder } from '../RequestMessageBuilder'
+import {
+  RequestMessageBuilder,
+  UnifiedRequestMessageMaterializer
+} from '../RequestMessageBuilder'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 describe('RequestMessageBuilder', () => {
@@ -41,7 +44,7 @@ describe('RequestMessageBuilder', () => {
       .setMessages(messages)
       .build()
 
-    expect(result.messages).toEqual([
+    expect(result.chatMessages).toEqual([
       {
         role: 'user',
         content: '[Previous image omitted from history]\nfirst image',
@@ -111,11 +114,73 @@ describe('RequestMessageBuilder', () => {
       }])
       .build()
 
-    expect(result.messages.map(message => message.content)).toEqual([
+    expect(result.chatMessages.map(message => message.content)).toEqual([
       '[Previous conversation summary (2 messages compressed)]\n\nold summary',
       '<loaded_skills_context>Skill content</loaded_skills_context>',
       'new user'
     ])
-    expect(result.messages[1].source).toBe(MESSAGE_SOURCE.SKILLS_CONTEXT)
+    expect(result.chatMessages[1].source).toBe(MESSAGE_SOURCE.SKILLS_CONTEXT)
+  })
+
+  it('materializes chat messages into provider-neutral request messages', () => {
+    const result = new UnifiedRequestMessageMaterializer().materialize({
+      systemPrompt: 'system prompt',
+      chatMessages: [
+        {
+          role: 'user',
+          source: MESSAGE_SOURCE.SKILLS_CONTEXT,
+          content: 'hello',
+          segments: []
+        },
+        {
+          role: 'assistant',
+          content: '',
+          toolCalls: [{
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{}'
+            }
+          }],
+          segments: []
+        },
+        {
+          role: 'tool',
+          toolCallId: 'tool-1',
+          content: 'tool output',
+          segments: []
+        }
+      ]
+    })
+
+    expect(result.systemPrompt).toBe('system prompt')
+    expect(result.messages).toEqual([
+      {
+        role: 'user',
+        content: 'hello'
+      },
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{}'
+          }
+        }]
+      },
+      {
+        role: 'tool',
+        content: 'tool output',
+        toolCallId: 'tool-1',
+        toolName: 'read'
+      }
+    ])
+    expect(result.messages[0]).not.toHaveProperty('source')
+    expect(result.messages[0]).not.toHaveProperty('segments')
+    expect(result.messages[2]).not.toHaveProperty('name')
   })
 })

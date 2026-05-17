@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createTestUnifiedRequest } from './helpers'
 
 const getPluginConfigs = vi.fn()
 const getPlugins = vi.fn()
@@ -105,14 +106,12 @@ describe('unifiedChatRequest plugin gating', () => {
     const afterFetch = vi.fn()
     const { unifiedChatRequest } = await import('../index')
 
-    await expect(unifiedChatRequest({
+    await expect(unifiedChatRequest(createTestUnifiedRequest({
       adapterPluginId: 'openai-chat-compatible-adapter',
       baseUrl: 'https://api.openai.com/v1',
-      apiKey: 'test-key',
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'hello', segments: [] }],
       stream: false
-    } as IUnifiedRequest, null, beforeFetch, afterFetch)).rejects.toThrow(
+    }), null, beforeFetch, afterFetch)).rejects.toThrow(
       'Request adapter plugin disabled: OpenAI Chat Compatible Adapter'
     )
 

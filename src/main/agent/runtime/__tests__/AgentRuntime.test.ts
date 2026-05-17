@@ -158,6 +158,7 @@ describe('DefaultAgentRuntime', () => {
             kind: 'delta',
             responseId: 'resp-1',
             model: 'test-model',
+            reasoning: 'Need a tool first. ',
             toolCalls: [
               {
                 argumentsMode: 'snapshot',
@@ -243,6 +244,18 @@ describe('DefaultAgentRuntime', () => {
       'assistant_step'
     ])
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
+    const secondRequest = vi.mocked(modelStreamExecutor.execute).mock.calls[1]?.[0].request
+    expect(secondRequest.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        role: 'assistant',
+        reasoning: 'Need a tool first. ',
+        toolCalls: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'tool-1'
+          })
+        ])
+      })
+    ]))
     expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(1)
   })
 

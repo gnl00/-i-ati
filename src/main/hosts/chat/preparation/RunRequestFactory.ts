@@ -1,4 +1,7 @@
-import { RequestMessageBuilder } from '@shared/services/RequestMessageBuilder'
+import {
+  RequestMessageBuilder,
+  UnifiedRequestMessageMaterializer
+} from '@shared/services/RequestMessageBuilder'
 import {
   getEffectiveThinkingLevel,
   getRequestAdapterThinkingCapability
@@ -31,7 +34,8 @@ export class RunRequestFactory {
     private readonly toolListBuilder = new ToolListBuilder(),
     private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
     private readonly awakeContextProvider = new AwakeContextProvider(),
-    private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider()
+    private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider(),
+    private readonly unifiedRequestMessageMaterializer = new UnifiedRequestMessageMaterializer()
   ) {}
 
   async build(
@@ -58,7 +62,7 @@ export class RunRequestFactory {
       })
     ])
 
-    const requestMessages = new RequestMessageBuilder()
+    const requestMessageBuild = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
       .setEphemeralContextMessages(
         [loadedSkillsContext, knowledgebaseContext, awakeContext]
@@ -68,6 +72,7 @@ export class RunRequestFactory {
       .setMessages(step.messageBuffer)
       .setCompressionSummary(compressionSummary)
       .build()
+    const requestMessages = this.unifiedRequestMessageMaterializer.materialize(requestMessageBuild)
 
     return {
       adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,

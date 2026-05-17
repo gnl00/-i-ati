@@ -10,6 +10,84 @@
  * 5. 验证消息合法性
  */
 
+export interface RequestMessageBuildResult {
+  systemPrompt?: string
+  chatMessages: ChatMessage[]
+}
+
+export interface UnifiedRequestMessageBuildResult {
+  systemPrompt?: string
+  messages: UnifiedRequestMessage[]
+}
+
+export class UnifiedRequestMessageMaterializer {
+  materialize(input: RequestMessageBuildResult): UnifiedRequestMessageBuildResult {
+    return {
+      systemPrompt: input.systemPrompt,
+      messages: this.materializeMessages(input.chatMessages)
+    }
+  }
+
+  materializeMessages(messages: ChatMessage[]): UnifiedRequestMessage[] {
+    const toolNamesByCallId = this.collectToolNamesByCallId(messages)
+    return messages.map(message => this.materializeMessage(message, toolNamesByCallId))
+  }
+
+  private collectToolNamesByCallId(messages: ChatMessage[]): Map<string, string> {
+    const namesByCallId = new Map<string, string>()
+
+    for (const message of messages) {
+      if (message.role !== 'assistant' || !message.toolCalls?.length) {
+        continue
+      }
+
+      for (const toolCall of message.toolCalls) {
+        const name = toolCall.function?.name
+        if (toolCall.id && name) {
+          namesByCallId.set(toolCall.id, name)
+        }
+      }
+    }
+
+    return namesByCallId
+  }
+
+  private materializeMessage(
+    message: ChatMessage,
+    toolNamesByCallId: Map<string, string>
+  ): UnifiedRequestMessage {
+    if (message.role === 'system' || message.role === 'user') {
+      return {
+        role: message.role,
+        content: message.content
+      }
+    }
+
+    if (message.role === 'assistant') {
+      return {
+        role: 'assistant',
+        content: message.content,
+        ...(message.toolCalls ? { toolCalls: message.toolCalls } : {})
+      }
+    }
+
+    if (message.role === 'tool') {
+      if (!message.toolCallId) {
+        throw new Error('[UnifiedRequestMessageMaterializer] Tool message is missing toolCallId')
+      }
+
+      return {
+        role: 'tool',
+        content: message.content,
+        toolCallId: message.toolCallId,
+        toolName: message.name || toolNamesByCallId.get(message.toolCallId) || 'tool'
+      }
+    }
+
+    throw new Error(`[UnifiedRequestMessageMaterializer] Unsupported request message role: ${message.role}`)
+  }
+}
+
 class RequestMessageBuilder {
   private messages: MessageEntity[] = []
   private systemPrompts: string[] = []
@@ -65,7 +143,7 @@ class RequestMessageBuilder {
    * 4. 插入系统提示词
    * 5. 验证消息合法性
    */
-  build(): { systemPrompt?: string; messages: ChatMessage[] } {
+  build(): RequestMessageBuildResult {
     // console.log('[RequestMessageBuilder] Starting message build pipeline')
 
     // Step 1: 应用压缩策略
@@ -97,7 +175,7 @@ class RequestMessageBuilder {
 
     return {
       systemPrompt,
-      messages: messagesWithInstruction
+      chatMessages: messagesWithInstruction
     }
   }
 

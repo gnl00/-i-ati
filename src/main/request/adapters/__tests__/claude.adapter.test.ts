@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ClaudeAdapter } from '../claude'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
+import { createTestUnifiedRequest } from '../../__tests__/helpers'
 
 vi.mock('@main/db/config', () => ({
   configDb: {
@@ -120,17 +121,14 @@ describe('ClaudeAdapter tool use parsing', () => {
 describe('ClaudeAdapter request mapping', () => {
   it('maps thinking level to Claude adaptive thinking fields', () => {
     const adapter = new ClaudeAdapter()
-    const requestBody = adapter.buildRequest({
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
       adapterPluginId: 'claude-compatible-adapter',
       baseUrl: 'https://api.anthropic.com/v1',
-      apiKey: 'test-key',
       model: 'claude-sonnet-4-5',
-      stream: false,
-      messages: [{ role: 'user', content: 'hello', segments: [] }],
       options: {
         thinkingLevel: 'xhigh'
       }
-    } as IUnifiedRequest)
+    }))
 
     expect(requestBody.thinking).toEqual({ type: 'adaptive' })
     expect(requestBody.output_config).toEqual({ effort: 'xhigh' })
@@ -138,13 +136,10 @@ describe('ClaudeAdapter request mapping', () => {
 
   it('requires tool_call_reason in Claude tool schemas', () => {
     const adapter = new ClaudeAdapter()
-    const requestBody = adapter.buildRequest({
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
       adapterPluginId: 'claude-compatible-adapter',
       baseUrl: 'https://api.anthropic.com/v1',
-      apiKey: 'test-key',
       model: 'claude-sonnet-4-5',
-      stream: false,
-      messages: [{ role: 'user', content: 'hello', segments: [] }],
       tools: [{
         name: 'search',
         description: 'Search',
@@ -156,7 +151,7 @@ describe('ClaudeAdapter request mapping', () => {
           required: ['query']
         }
       }]
-    } as IUnifiedRequest)
+    }))
 
     const inputSchema = requestBody.tools[0].input_schema
     expect(inputSchema.properties[TOOL_CALL_REASON_PARAMETER_NAME]).toEqual(expect.objectContaining({
@@ -168,10 +163,9 @@ describe('ClaudeAdapter request mapping', () => {
 
   it('maps assistant tool_use -> tool_result -> final answer chain in Claude Messages format', () => {
     const adapter = new ClaudeAdapter()
-    const requestBody = adapter.buildRequest({
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
       adapterPluginId: 'claude-compatible-adapter',
       baseUrl: 'https://api.anthropic.com/v1',
-      apiKey: 'test-key',
       model: 'claude-haiku',
       stream: true,
       messages: [
@@ -185,23 +179,21 @@ describe('ClaudeAdapter request mapping', () => {
               name: 'memory_retrieval',
               arguments: '{"query":"moltbook"}'
             }
-          }],
-          segments: []
+          }]
         },
         {
           role: 'tool',
           toolCallId: 'tool_1',
-          content: '{"result":"ok"}',
-          segments: []
+          toolName: 'memory_retrieval',
+          content: '{"result":"ok"}'
         },
         {
           role: 'assistant',
-          content: 'final answer',
-          segments: []
+          content: 'final answer'
         }
       ],
       options: {}
-    } as IUnifiedRequest)
+    }))
 
     expect(Array.isArray(requestBody.messages)).toBe(true)
     expect(requestBody.messages).toHaveLength(3)

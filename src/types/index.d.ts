@@ -178,6 +178,42 @@ declare interface IChatRequest {
 }
 
 declare type ProviderType = string | 'openai' | 'claude' | 'azure-openai'
+
+declare type UnifiedRequestMessageRole = 'system' | 'user' | 'assistant' | 'tool'
+
+declare type UnifiedRequestMessageContent = string | VLMContent[]
+
+declare interface UnifiedSystemRequestMessage {
+  role: 'system'
+  content: UnifiedRequestMessageContent
+}
+
+declare interface UnifiedUserRequestMessage {
+  role: 'user'
+  content: UnifiedRequestMessageContent
+}
+
+declare interface UnifiedAssistantRequestMessage {
+  role: 'assistant'
+  content: UnifiedRequestMessageContent
+  toolCalls?: IToolCall[]
+  reasoning?: string
+}
+
+declare interface UnifiedToolRequestMessage {
+  role: 'tool'
+  content: UnifiedRequestMessageContent
+  toolCallId: string
+  /** Provider-neutral function name for tool result replay. */
+  toolName: string
+}
+
+declare type UnifiedRequestMessage =
+  | UnifiedSystemRequestMessage
+  | UnifiedUserRequestMessage
+  | UnifiedAssistantRequestMessage
+  | UnifiedToolRequestMessage
+
 declare interface IUnifiedRequest {
   adapterPluginId: string
   /** API Base URL (endpoint path will be added by adapter) */
@@ -187,7 +223,7 @@ declare interface IUnifiedRequest {
   model: string
   userInstruction?: string
   systemPrompt?: string
-  messages: ChatMessage[]
+  messages: UnifiedRequestMessage[]
   stream?: boolean
   tools?: any[]
   requestOverrides?: Record<string, any>

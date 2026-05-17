@@ -4,6 +4,7 @@ import type { SmartMessageCandidateSummaryRow } from '@main/db/dao/SmartMessageD
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { createLogger } from '@main/logging/LogService'
 import { unifiedChatRequest } from '@main/request/index'
+import { createUnifiedTextRequest } from '@main/request/UnifiedRequestFactory'
 import { SMART_MESSAGE_TTL_MS } from '@shared/constants/smartMessages'
 import { buildSmartMessagePrompt } from '@shared/prompts'
 import { resolveNewChatModelRef } from '@shared/services/ChatModelResolver'
@@ -207,13 +208,13 @@ export class SmartMessageGenerationService {
         chatUpdatedAt: group.chatUpdateTime
       }))
     })
-    const request: IUnifiedRequest = {
+    const request = createUnifiedTextRequest({
       adapterPluginId: modelContext.providerDefinition.adapterPluginId,
       baseUrl: modelContext.account.apiUrl,
       apiKey: modelContext.account.apiKey,
       model: modelContext.model.id,
       modelType: modelContext.model.type,
-      messages: [{ role: 'user', content, segments: [] }],
+      content,
       tools: [generateSmartMessagesTool],
       stream: false,
       requestOverrides: {
@@ -225,7 +226,7 @@ export class SmartMessageGenerationService {
         }
       },
       options: {}
-    }
+    })
     const response = await unifiedChatRequest(request, null, () => {}, () => {})
     let drafts: SmartMessageDraft[]
     try {

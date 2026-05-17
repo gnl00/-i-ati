@@ -31,16 +31,34 @@ const toFiniteNumber = (value: unknown): number | undefined => (
   typeof value === 'number' && Number.isFinite(value) ? value : undefined
 )
 
-const mapOpenAIMessageFields = (message: ChatMessage): BaseChatMessage => ({
+type OpenAIRequestMessage = BaseChatMessage & {
+  reasoning_content?: string
+  tool_calls?: any[]
+  tool_call_id?: string
+}
+
+const mapOpenAIMessageFields = (
+  message: UnifiedRequestMessage,
+  options: { includeReasoningContent: boolean }
+): OpenAIRequestMessage => ({
   role: message.role,
   content: message.content,
-  ...(message.name && { name: message.name }),
-  ...(message.toolCalls && { tool_calls: normalizeOpenAIToolCalls(message.toolCalls) }),
-  ...(message.toolCallId && { tool_call_id: message.toolCallId })
+  ...(options.includeReasoningContent && message.role === 'assistant' && message.reasoning
+    ? { reasoning_content: message.reasoning }
+    : {}),
+  ...(message.role === 'assistant' && message.toolCalls
+    ? { tool_calls: normalizeOpenAIToolCalls(message.toolCalls) }
+    : {}),
+  ...(message.role === 'tool' ? { tool_call_id: message.toolCallId } : {})
 })
 
-const buildOpenAIMessages = (req: IUnifiedRequest): BaseChatMessage[] => {
-  const messages = req.messages.map(mapOpenAIMessageFields)
+const buildOpenAIMessages = (req: IUnifiedRequest): OpenAIRequestMessage[] => {
+  const includeReasoningContent = Boolean(
+    req.options?.thinkingLevel && req.options.thinkingLevel !== 'none'
+  )
+  const messages = req.messages.map((message) => mapOpenAIMessageFields(message, {
+    includeReasoningContent
+  }))
   if (!req.systemPrompt) {
     return messages
   }

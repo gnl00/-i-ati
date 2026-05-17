@@ -64,7 +64,7 @@ export class DefaultMainAgentHostRequestBuilder implements MainAgentHostRequestB
         runInput.input.mediaCtx
       ),
       metadata: {
-        initialMessages: prepared.runSpec.request.messages
+        initialMessages: prepared.runSpec.initialMessages
       } satisfies HostRunRequestMetadata
     }
   }

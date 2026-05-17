@@ -252,7 +252,7 @@ export class ClaudeAdapter extends BaseAdapter {
    * - assistant.toolCalls => assistant.content tool_use blocks
    * - role=tool => user.content tool_result block
    */
-  private transformClaudeMessages(messages: ChatMessage[]): any[] {
+  private transformClaudeMessages(messages: UnifiedRequestMessage[]): any[] {
     const claudeMessages: any[] = []
 
     for (const msg of messages) {
@@ -303,7 +303,7 @@ export class ClaudeAdapter extends BaseAdapter {
     return claudeMessages
   }
 
-  private toClaudeText(content: ChatMessage['content']): string {
+  private toClaudeText(content: UnifiedRequestMessage['content']): string {
     if (typeof content === 'string') {
       return content
     }

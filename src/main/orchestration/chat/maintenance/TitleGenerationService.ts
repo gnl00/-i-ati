@@ -1,6 +1,7 @@
 import { RunEventEmitterFactory } from '@main/orchestration/chat/run/infrastructure'
 import { createLogger } from '@main/logging/LogService'
 import { unifiedChatRequest } from '@main/request/index'
+import { createUnifiedTextRequest } from '@main/request/UnifiedRequestFactory'
 import { serializeError } from '@main/utils/serializeError'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
 import { generateTitlePrompt } from '@shared/prompts'
@@ -23,18 +24,18 @@ export async function generateTitle(
   })
 
   const prompt = generateTitlePrompt(content)
-  const titleReq: IUnifiedRequest = {
+  const titleReq = createUnifiedTextRequest({
     adapterPluginId: providerDefinition.adapterPluginId,
     baseUrl: account.apiUrl,
     apiKey: account.apiKey,
     model: model.id,
-    messages: [{ role: 'user', content: prompt, segments: [] }],
+    content: prompt,
     stream: false,
     requestOverrides: providerDefinition.requestOverrides,
     options: {
       maxTokens: 32
     }
-  }
+  })
 
   const response = await unifiedChatRequest(titleReq, null, () => {}, () => {})
   const rawTitle = response.content ?? ''
