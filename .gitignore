@@ -21,3 +21,5 @@ stats
 workspaces/**
 AGENTS.md
 .claude/
+
+.ati-kb
