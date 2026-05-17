@@ -5,6 +5,7 @@ export type TelegramCommandName =
   | 'tools'
   | 'workspace'
   | 'status'
+  | 'stop'
   | 'help'
 
 export type TelegramCommand = {
@@ -24,6 +25,7 @@ const KNOWN_COMMANDS = new Set<TelegramCommandName>([
   'tools',
   'workspace',
   'status',
+  'stop',
   'help'
 ])
 

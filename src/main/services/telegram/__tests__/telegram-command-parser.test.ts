@@ -18,6 +18,14 @@ describe('telegram-command-parser', () => {
     })
   })
 
+  it('parses the stop command', () => {
+    expect(parseTelegramCommand('/stop')).toEqual({
+      name: 'stop',
+      args: '',
+      raw: '/stop'
+    })
+  })
+
   it('ignores commands addressed to a different bot', () => {
     expect(parseTelegramCommand('/status@other_bot', 'atiapp_bot')).toBeNull()
   })
