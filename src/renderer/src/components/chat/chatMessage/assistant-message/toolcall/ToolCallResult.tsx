@@ -16,10 +16,32 @@ interface ToolCallResultProps {
 }
 
 type ToolCallRenderContent = Record<string, unknown> | undefined
+type ToolCallResponse = {
+  toolName?: string
+  args?: Record<string, unknown> | string
+  result?: any
+  status?: string
+  error?: string
+  raw?: any
+  results?: any[]
+}
 
 const TOOL_COST_TICK_MS = 1000
 const TOOL_COST_REDUCED_TICK_MS = 250
 const TOOL_COST_SETTLE_MS = 360
+const JSON_LINE_THRESHOLD = 24
+const CONTENT_CHAR_THRESHOLD = 1500
+const TOOL_CALL_ARGS_READY_STATUSES = new Set([
+  'running',
+  'success',
+  'completed',
+  'failed',
+  'error',
+  'aborted',
+  'denied',
+  'timeout',
+  'cancelled'
+])
 
 function filterDisplayParamEntries(entries: Array<[string, unknown]>): Array<[string, unknown]> {
   return entries.filter(([key]) => key !== TOOL_CALL_REASON_PARAMETER_NAME)
@@ -111,6 +133,46 @@ function getToolCallRenderContent(segment: ToolCallSegment): ToolCallRenderConte
   return segment.content as ToolCallRenderContent
 }
 
+function getNormalizedStatus(status: unknown): string | undefined {
+  return typeof status === 'string' ? status.toLowerCase() : undefined
+}
+
+function hasToolCallTerminalPayload(content: ToolCallRenderContent): boolean {
+  return content?.result !== undefined
+    || content?.raw !== undefined
+    || content?.error !== undefined
+}
+
+function areToolCallArgsReady(
+  content: ToolCallRenderContent,
+  segment?: Pick<ToolCallSegment, 'cost' | 'isError'>
+): boolean {
+  const status = getNormalizedStatus(content?.status)
+
+  if (status === 'pending') {
+    return false
+  }
+
+  if (status && TOOL_CALL_ARGS_READY_STATUSES.has(status)) {
+    return true
+  }
+
+  return Boolean(segment?.isError || segment?.cost !== undefined || hasToolCallTerminalPayload(content))
+}
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') {
+    return value.length > 200 ? `${value.slice(0, 200)}…` : value
+  }
+  try {
+    const json = JSON.stringify(value)
+    return json.length > 200 ? `${json.slice(0, 200)}…` : json
+  } catch {
+    return String(value)
+  }
+}
+
 function hasSameToolCallIdentity(previous: ToolCallSegment, next: ToolCallSegment): boolean {
   return previous.segmentId === next.segmentId
     && previous.name === next.name
@@ -123,12 +185,27 @@ function hasSameToolCallTiming(previous: ToolCallSegment, next: ToolCallSegment)
     && previous.cost === next.cost
 }
 
-function hasSameToolCallRenderState(previous: ToolCallRenderContent, next: ToolCallRenderContent): boolean {
-  return previous?.status === next?.status
-    && previous?.args === next?.args
-    && previous?.error === next?.error
-    && previous?.result === next?.result
-    && previous?.raw === next?.raw
+function hasSameToolCallRenderState(
+  previous: ToolCallRenderContent,
+  next: ToolCallRenderContent,
+  previousSegment: ToolCallSegment,
+  nextSegment: ToolCallSegment
+): boolean {
+  if (
+    previous?.status !== next?.status
+    || previous?.error !== next?.error
+    || previous?.result !== next?.result
+    || previous?.raw !== next?.raw
+  ) {
+    return false
+  }
+
+  const previousArgsReady = areToolCallArgsReady(previous, previousSegment)
+  const nextArgsReady = areToolCallArgsReady(next, nextSegment)
+
+  return previousArgsReady || nextArgsReady
+    ? previous?.args === next?.args
+    : true
 }
 
 const areToolCallSegmentsEqual = (
@@ -149,9 +226,102 @@ const areToolCallSegmentsEqual = (
 
   return hasSameToolCallRenderState(
     getToolCallRenderContent(previous),
-    getToolCallRenderContent(next)
+    getToolCallRenderContent(next),
+    previous,
+    next
   )
 }
+
+const ToolCallDuration = React.memo(({
+  cost,
+  isRunning,
+  className
+}: {
+  cost?: number
+  isRunning: boolean
+  className?: string
+}) => {
+  const displayCostMs = useAnimatedToolCost(cost, isRunning)
+
+  return (
+    <span className={className}>
+      {formatToolCost(displayCostMs)}
+    </span>
+  )
+})
+
+ToolCallDuration.displayName = 'ToolCallDuration'
+
+const ToolCallHeader = React.memo(({
+  name,
+  isError,
+  isRunning,
+  isPending,
+  isOpen,
+  cost
+}: {
+  name: string
+  isError: boolean
+  isRunning: boolean
+  isPending: boolean
+  isOpen: boolean
+  cost?: number
+}) => {
+  const statusTone = isError
+    ? 'bg-red-100/85 text-red-700 dark:bg-red-900/24 dark:text-red-300'
+    : isRunning || isPending
+      ? 'bg-amber-100/85 text-amber-600 dark:bg-amber-900/24 dark:text-amber-200'
+      : 'bg-emerald-100/85 text-emerald-700 dark:bg-emerald-900/24 dark:text-emerald-300'
+  const statusIcon = isError
+    ? <X className="w-2.5 h-2.5" />
+    : isRunning
+      ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+      : <Check className="w-2.5 h-2.5" />
+  const statusLabel = isError ? 'ERR' : isRunning ? 'RUNNING' : isPending ? 'PENDING' : 'OK'
+
+  return (
+    <div className={cn('flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit')}>
+      <span className="inline-flex items-center gap-2 rounded-xl px-2 py-1 transition-colors duration-200 ease-out group-hover:bg-slate-100/55 dark:group-hover:bg-white/4">
+        <span className={cn(
+          'inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none',
+          statusTone
+        )}>
+          {statusIcon}
+          {statusLabel}
+        </span>
+
+        <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100/60 px-2 py-1 dark:bg-white/4">
+          <Wrench className={cn(
+            'w-3 h-3 dark:text-zinc-500/70 transition-all duration-300',
+            isOpen && 'scale-110 rotate-6'
+          )} />
+        </span>
+
+        <span className={cn(
+          'text-[11px] font-semibold tracking-tight leading-none',
+          isError ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300'
+        )}>
+          <span className="uppercase">
+            {name}
+          </span>
+          <span className="text-slate-400/90 dark:text-slate-300 text-[10px]">
+            {' · '}
+            <ToolCallDuration cost={cost} isRunning={isRunning} />
+          </span>
+        </span>
+
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-900/35 select-none" />
+
+        <ChevronDown className={cn(
+          'w-3 h-3 transition-transform duration-300 text-zinc-500 dark:text-zinc-400',
+          isOpen && 'rotate-180 text-zinc-600 dark:text-zinc-300'
+        )} />
+      </span>
+    </div>
+  )
+})
+
+ToolCallHeader.displayName = 'ToolCallHeader'
 
 function SegmentedToggle({
   leftLabel,
@@ -208,18 +378,8 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
   const [openItem, setOpenItem] = useState<string>('')
   const [showDetails, setShowDetails] = useState(false)
   const isOpen = openItem === 'tool-result'
-  const shouldPrepareSummary = isOpen && !showDetails
-  const shouldPrepareDetails = isOpen && showDetails
 
-  const toolResponse = tc.content as {
-    toolName?: string
-    args?: Record<string, unknown> | string
-    result?: any
-    status?: string
-    error?: string
-    raw?: any
-    results?: any[]
-  } | undefined
+  const toolResponse = tc.content as ToolCallResponse | undefined
 
   const resultPayload = useMemo(() => {
     if (!isOpen) {
@@ -250,28 +410,14 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
   }, [isWebSearch, toolResponse])
   const isSubagentTool = toolName === 'subagent_spawn' || toolName === 'subagent_wait'
   const subagentData = isSubagentTool ? (resultPayload ?? toolResponse) : null
-  const isError = tc.isError
-  const status = typeof toolResponse?.status === 'string' ? toolResponse.status : undefined
+  const isError = Boolean(tc.isError)
+  const status = getNormalizedStatus(toolResponse?.status)
+  const isPending = !isError && status === 'pending'
   const isRunning = !isError && status === 'running'
-  const displayCostMs = useAnimatedToolCost(tc.cost, isRunning)
-  const displayCostLabel = formatToolCost(displayCostMs)
-  const shouldShowDuration = isRunning || typeof tc.cost === 'number'
+  const areArgsReady = areToolCallArgsReady(toolResponse, tc)
   const [isJsonExpanded, setIsJsonExpanded] = useState(false)
-  const jsonLineThreshold = 24
-  const contentCharThreshold = 1500
-
-  const formatValue = (value: unknown) => {
-    if (value === null || value === undefined) return ''
-    if (typeof value === 'string') {
-      return value.length > 200 ? `${value.slice(0, 200)}…` : value
-    }
-    try {
-      const json = JSON.stringify(value)
-      return json.length > 200 ? `${json.slice(0, 200)}…` : json
-    } catch {
-      return String(value)
-    }
-  }
+  const shouldPrepareSummary = isOpen && !showDetails && areArgsReady
+  const shouldPrepareDetails = isOpen && showDetails && areArgsReady
 
   const paramEntries = useMemo(() => {
     if (!shouldPrepareSummary) return []
@@ -301,13 +447,13 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
     return contentString ? contentString.split('\n').length : 0
   }, [contentString, shouldPrepareDetails])
 
-  const isContentLong = contentLineCount > jsonLineThreshold || contentString.length > contentCharThreshold
+  const isContentLong = contentLineCount > JSON_LINE_THRESHOLD || contentString.length > CONTENT_CHAR_THRESHOLD
 
   const jsonBaseContent = useMemo(() => {
     if (!shouldPrepareDetails) return ''
     if (!isJsonExpanded && isContentLong && resultPayload && typeof resultPayload === 'object') {
       const preview = contentString
-        ? `${contentString.slice(0, contentCharThreshold)}${contentString.length > contentCharThreshold ? '...' : ''}`
+        ? `${contentString.slice(0, CONTENT_CHAR_THRESHOLD)}${contentString.length > CONTENT_CHAR_THRESHOLD ? '...' : ''}`
         : contentString
       return JSON.stringify({ ...(resultPayload as Record<string, unknown>), content: preview }, null, 2)
     }
@@ -317,9 +463,9 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
   const jsonLines = useMemo(() => (
     shouldPrepareDetails ? jsonBaseContent.split('\n') : []
   ), [jsonBaseContent, shouldPrepareDetails])
-  const isJsonLong = isContentLong || jsonLines.length > jsonLineThreshold
+  const isJsonLong = isContentLong || jsonLines.length > JSON_LINE_THRESHOLD
   const visibleJsonContent = isJsonLong && !isJsonExpanded
-    ? jsonLines.slice(0, jsonLineThreshold).join('\n')
+    ? jsonLines.slice(0, JSON_LINE_THRESHOLD).join('\n')
     : jsonBaseContent
 
   const onCopyClick = (e: React.MouseEvent, content: any) => {
@@ -347,54 +493,14 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
       >
         <AccordionItem value="tool-result" className="border-0">
           <AccordionTrigger className="group inline-flex w-auto flex-none justify-start gap-2 py-0 hover:no-underline">
-            <div className={cn('flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit')}>
-              <span className="inline-flex items-center gap-2 rounded-xl px-2 py-1 transition-colors duration-200 ease-out group-hover:bg-slate-100/55 dark:group-hover:bg-white/4">
-                <span className={cn(
-                  'inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none',
-                  isError
-                    ? 'bg-red-100/85 text-red-700 dark:bg-red-900/24 dark:text-red-300'
-                    : isRunning
-                      ? 'bg-amber-100/85 text-amber-600 dark:bg-amber-900/24 dark:text-amber-200'
-                      : 'bg-emerald-100/85 text-emerald-700 dark:bg-emerald-900/24 dark:text-emerald-300'
-                )}>
-                  {isError
-                    ? <X className="w-2.5 h-2.5" />
-                    : isRunning
-                      ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                      : <Check className="w-2.5 h-2.5" />
-                  }
-                  {isError ? 'ERR' : isRunning ? 'RUNNING' : 'OK'}
-                </span>
-
-                <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100/60 px-2 py-1 dark:bg-white/4">
-                  <Wrench className={cn(
-                    'w-3 h-3 dark:text-zinc-500/70 transition-all duration-300',
-                    isOpen && 'scale-110 rotate-6'
-                  )} />
-                </span>
-
-                <span className={cn(
-                    'text-[11px] font-semibold tracking-tight leading-none',
-                    isError ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300'
-                  )}>
-                    <span className='uppercase'>
-                      {tc.name}
-                    </span>
-                    <span className='text-slate-400/90 dark:text-slate-300 text-[10px]'>
-                    {` · ${displayCostLabel}`}
-                    </span>
-                </span>
-
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-900/35 select-none">
-                  
-                </span>
-
-                <ChevronDown className={cn(
-                  'w-3 h-3 transition-transform duration-300 text-zinc-500 dark:text-zinc-400',
-                  isOpen && 'rotate-180 text-zinc-600 dark:text-zinc-300'
-                )} />
-              </span>
-            </div>
+            <ToolCallHeader
+              name={tc.name}
+              isError={isError}
+              isRunning={isRunning}
+              isPending={isPending}
+              isOpen={isOpen}
+              cost={tc.cost}
+            />
           </AccordionTrigger>
           <AccordionContent className="pt-0 pb-0">
             <motion.div
@@ -505,16 +611,18 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
                               <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Tool</span>
                               <span className="text-[13px] font-mono font-semibold text-zinc-600 dark:text-zinc-100">{toolResponse?.toolName ?? tc.name}</span>
                             </div>
-                            {shouldShowDuration && (
+                            {typeof tc.cost === 'number' && (
                               <div className="flex items-baseline gap-1">
                                 <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Duration</span>
-                                <span className="text-[13px] font-mono font-medium text-zinc-600 dark:text-zinc-300">{displayCostLabel}</span>
+                                <span className="text-[13px] font-mono font-medium text-zinc-600 dark:text-zinc-300">{formatToolCost(tc.cost)}</span>
                               </div>
                             )}
                           </div>
 
                           <div className="flex-1 overflow-hidden">
-                            {paramEntries.length > 0 ? (
+                            {!areArgsReady ? (
+                              <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing tool call parameters...</div>
+                            ) : paramEntries.length > 0 ? (
                               <div className="h-full overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
                                 {paramEntries.map(([key, value]) => (
                                   <div key={key} className="flex items-start gap-2 py-1">

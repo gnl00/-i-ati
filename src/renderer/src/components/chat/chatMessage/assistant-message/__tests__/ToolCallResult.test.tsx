@@ -116,4 +116,49 @@ describe('ToolCallResult cost display', () => {
     expect(container.textContent).not.toContain(TOOL_CALL_REASON_PARAMETER_NAME)
     expect(container.textContent).not.toContain('Explain why search is needed')
   })
+
+  it('hides streaming pending parameters until the tool call args are ready', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createToolCallSegment('pending', undefined, {
+            query: 'latest status',
+            content: 'large streaming payload'
+          })}
+          index={0}
+        />
+      )
+    })
+
+    const trigger = container.querySelector('button')
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(container.textContent).toContain('Preparing tool call parameters')
+    expect(container.textContent).not.toContain('latest status')
+    expect(container.textContent).not.toContain('large streaming payload')
+  })
+
+  it('shows parameters after the tool call starts running', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createToolCallSegment('running', undefined, {
+            query: 'latest status',
+            content: 'ready payload'
+          })}
+          index={0}
+        />
+      )
+    })
+
+    const trigger = container.querySelector('button')
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(container.textContent).toContain('latest status')
+    expect(container.textContent).toContain('ready payload')
+  })
 })

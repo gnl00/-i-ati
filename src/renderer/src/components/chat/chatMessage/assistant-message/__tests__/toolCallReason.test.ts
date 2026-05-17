@@ -141,4 +141,25 @@ describe('toolCallReason', () => {
       })
     ])).toBeUndefined()
   })
+
+  it('extracts escaped tool_call_reason values without parsing the full args payload', () => {
+    const baseItem = toolCallItem({
+      id: 'tool-1',
+      name: 'write',
+      order: 1
+    })
+    const baseSegment = baseItem.segment as ToolCallSegment
+
+    expect(buildToolCallReasonItem({
+      ...baseItem,
+      segment: {
+        ...baseSegment,
+        content: {
+          toolName: 'write',
+          args: '{"content":"large unfinished payload","tool_call_reason":"Write \\"quoted\\" content before running tests.","path":"src/file.ts"}',
+          status: 'pending'
+        }
+      }
+    })?.reason).toBe('Write "quoted" content before running tests.')
+  })
 })
