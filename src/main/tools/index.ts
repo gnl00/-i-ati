@@ -32,6 +32,7 @@ import {
   processImportSkills,
   processLoadSkill,
   processReadSkillFile,
+  processRunSkillScript,
   processUnloadSkill
 } from '@main/tools/skills/SkillToolsProcessor'
 import {
@@ -116,6 +117,7 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   import_skills: processImportSkills,
   unload_skill: processUnloadSkill,
   read_skill_file: processReadSkillFile,
+  run_skill_script: processRunSkillScript,
   plan_create: processPlanCreate,
   plan_update: processPlanUpdate,
   plan_update_status: processPlanUpdateStatus,

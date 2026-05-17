@@ -4,6 +4,8 @@ import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
+import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
+import type { ExecuteCommandResponse } from '@tools/command/index.d'
 
 interface LoadSkillArgs {
   name: string
@@ -33,6 +35,16 @@ interface ReadSkillFileArgs {
   encoding?: string
   start_line?: number
   end_line?: number
+  max_entries?: number
+  chat_uuid?: string
+}
+
+interface RunSkillScriptArgs {
+  name: string
+  script: string
+  args?: string[]
+  env?: Record<string, string>
+  timeout?: number
   chat_uuid?: string
 }
 
@@ -68,15 +80,31 @@ interface UnloadSkillResponse {
 
 interface ReadSkillFileResponse {
   success: boolean
+  skill_root?: string
   file_path?: string
+  absolute_path?: string
   content?: string
   lines?: number
+  total_entries?: number
+  truncated?: boolean
+  entries?: Array<{
+    name: string
+    type: 'file' | 'directory' | 'other'
+    path: string
+  }>
   message?: string
+}
+
+interface RunSkillScriptResponse extends ExecuteCommandResponse {
+  skill_root?: string
+  script_path?: string
 }
 
 const isUrl = (value: string): boolean => /^https?:\/\//i.test(value)
 const SKILL_NAME_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const SKILLS_DIR = 'skills'
+const DEFAULT_DIRECTORY_ENTRY_LIMIT = 100
+const MAX_DIRECTORY_ENTRY_LIMIT = 500
 
 const resolveSourcePath = (source: string, chatUuid?: string): string => {
   if (isUrl(source) || path.isAbsolute(source)) {
@@ -112,6 +140,52 @@ const resolveSkillFilePath = (name: string, relativePath: string): string => {
     throw new Error('path escapes skill directory')
   }
   return resolved
+}
+
+const resolveSkillRootPath = (name: string): string => {
+  if (!SKILL_NAME_REGEX.test(name)) {
+    throw new Error(`Invalid skill name: "${name}"`)
+  }
+  return path.join(app.getPath('userData'), 'skills', name)
+}
+
+const resolveSkillRelativePath = (name: string, relativePath: string): {
+  skillRoot: string
+  absolutePath: string
+} => {
+  const skillRoot = resolveSkillRootPath(name)
+  const absolutePath = resolveSkillFilePath(name, relativePath)
+  return { skillRoot, absolutePath }
+}
+
+const normalizeSkillRelativePath = (relativePath: string): string => {
+  const normalized = relativePath.replace(/\\/g, '/')
+  return normalized === '.' ? '' : normalized.replace(/^\.\//, '')
+}
+
+const getDirectoryEntryType = (
+  entry: { isDirectory: () => boolean; isFile: () => boolean }
+): 'file' | 'directory' | 'other' => {
+  if (entry.isDirectory()) return 'directory'
+  if (entry.isFile()) return 'file'
+  return 'other'
+}
+
+const normalizeDirectoryEntryLimit = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_DIRECTORY_ENTRY_LIMIT
+  }
+  return Math.max(1, Math.min(MAX_DIRECTORY_ENTRY_LIMIT, Math.floor(value)))
+}
+
+const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`
+
+const buildSkillScriptCommand = (scriptPath: string, args: string[] = []): string => {
+  const quotedArgs = args.map(shellQuote).join(' ')
+  const commandPrefix = scriptPath.endsWith('.ts')
+    ? `bun ${shellQuote(scriptPath)}`
+    : shellQuote(scriptPath)
+  return [commandPrefix, quotedArgs].filter(Boolean).join(' ')
 }
 
 export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillResponse> {
@@ -256,9 +330,42 @@ export async function processReadSkillFile(args: ReadSkillFileArgs): Promise<Rea
       return { success: false, message: 'path is required' }
     }
 
+    const skillRoot = resolveSkillRootPath(args.name)
     const absolutePath = resolveSkillFilePath(args.name, args.path)
     if (!existsSync(absolutePath)) {
       return { success: false, message: `File not found: ${args.path}` }
+    }
+
+    const stats = await fs.stat(absolutePath)
+    if (stats.isDirectory()) {
+      const entries = await fs.readdir(absolutePath, { withFileTypes: true })
+      const limit = normalizeDirectoryEntryLimit(args.max_entries)
+      const baseRelativePath = normalizeSkillRelativePath(args.path)
+      const mappedEntries = entries
+        .map(entry => {
+          return {
+            name: entry.name,
+            type: getDirectoryEntryType(entry),
+            path: [baseRelativePath, entry.name].filter(Boolean).join('/')
+          }
+        })
+        .sort((left, right) => {
+          if (left.type !== right.type) {
+            return left.type === 'directory' ? -1 : right.type === 'directory' ? 1 : 0
+          }
+          return left.name.localeCompare(right.name)
+        })
+      const limitedEntries = mappedEntries.slice(0, limit)
+
+      return {
+        success: true,
+        skill_root: skillRoot,
+        file_path: args.path,
+        absolute_path: absolutePath,
+        total_entries: mappedEntries.length,
+        truncated: mappedEntries.length > limitedEntries.length,
+        entries: limitedEntries
+      }
     }
 
     const encoding = args.encoding || 'utf-8'
@@ -275,7 +382,9 @@ export async function processReadSkillFile(args: ReadSkillFileArgs): Promise<Rea
 
     return {
       success: true,
+      skill_root: skillRoot,
       file_path: args.path,
+      absolute_path: absolutePath,
       content: resultContent,
       lines: totalLines
     }
@@ -285,6 +394,67 @@ export async function processReadSkillFile(args: ReadSkillFileArgs): Promise<Rea
     return {
       success: false,
       message
+    }
+  }
+}
+
+export async function processRunSkillScript(
+  args: RunSkillScriptArgs
+): Promise<RunSkillScriptResponse> {
+  try {
+    if (!args?.name) {
+      return { success: false, error: 'name is required' }
+    }
+    if (!args?.script) {
+      return { success: false, error: 'script is required' }
+    }
+    if (path.isAbsolute(args.script)) {
+      return { success: false, error: 'script must be a relative file path' }
+    }
+
+    const { skillRoot, absolutePath } = resolveSkillRelativePath(args.name, args.script)
+    if (!existsSync(absolutePath)) {
+      return {
+        success: false,
+        skill_root: skillRoot,
+        script_path: absolutePath,
+        error: `Script not found: ${args.script}`
+      }
+    }
+
+    const stats = await fs.stat(absolutePath)
+    if (stats.isDirectory()) {
+      return {
+        success: false,
+        skill_root: skillRoot,
+        script_path: absolutePath,
+        error: `Script path is a directory: ${args.script}`
+      }
+    }
+
+    const command = buildSkillScriptCommand(args.script, args.args)
+    const result = await processExecuteCommand({
+      command,
+      cwd: skillRoot,
+      timeout: args.timeout,
+      env: args.env,
+      execution_reason: `Run skill script ${args.name}/${args.script}`,
+      possible_risk: 'Runs an installed skill script with the working directory fixed to the skill root.',
+      risk_score: 3,
+      confirmed: true
+    })
+
+    return {
+      ...result,
+      skill_root: skillRoot,
+      script_path: absolutePath
+    }
+  } catch (error) {
+    console.error('[SkillTools] Failed to run skill script:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      success: false,
+      error: message
     }
   }
 }

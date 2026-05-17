@@ -32,7 +32,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'load_skill',
-      description: 'Load an already installed skill into the current chat context and return its full instruction content.',
+      description: 'Load an already installed skill into the current chat context. The skill document is injected through hidden loaded skills context on the next model turn.',
       parameters: {
         type: 'object',
         properties: {
@@ -86,7 +86,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'read_skill_file',
-      description: 'Read a file inside an installed skill (for example references/*.md or assets). Paths are relative to the skill root.',
+      description: 'Read a file or list a directory inside an installed skill. Paths are relative to the skill root.',
       parameters: {
         type: 'object',
         properties: {
@@ -96,7 +96,7 @@ export const skillTools = [
           },
           path: {
             type: 'string',
-            description: 'Relative path inside the skill directory (e.g. references/REFERENCE.md).'
+            description: 'Relative path inside the skill directory (e.g. SKILL.md, references/REFERENCE.md, scripts, or . for the skill root).'
           },
           encoding: {
             type: 'string',
@@ -109,9 +109,57 @@ export const skillTools = [
           end_line: {
             type: 'integer',
             description: 'Optional 1-based end line.'
+          },
+          max_entries: {
+            type: 'integer',
+            description: 'Maximum number of directory entries to return when path is a directory (default: 100, max: 500).',
+            minimum: 1,
+            maximum: 500
           }
         },
         required: ['name', 'path'],
+        $schema: 'http://json-schema.org/draft-07/schema#'
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_skill_script',
+      description: 'Run a script bundled inside an installed skill with the working directory fixed to that skill root. Use this instead of execute_command for scripts referenced by skill documents.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Installed skill name.'
+          },
+          script: {
+            type: 'string',
+            description: 'Relative script path inside the skill directory, e.g. scripts/amap.ts.'
+          },
+          args: {
+            type: 'array',
+            description: 'Command-line arguments passed to the script.',
+            items: {
+              type: 'string'
+            },
+            default: []
+          },
+          env: {
+            type: 'object',
+            description: 'Additional environment variables for the script.',
+            additionalProperties: {
+              type: 'string'
+            }
+          },
+          timeout: {
+            type: 'number',
+            description: 'Timeout in milliseconds (default: 30000).',
+            default: 30000
+          }
+        },
+        required: ['name', 'script'],
         $schema: 'http://json-schema.org/draft-07/schema#'
       }
     }

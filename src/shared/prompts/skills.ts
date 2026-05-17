@@ -19,6 +19,8 @@ export const buildSkillsSystemPrompt = (skillsContext: string): string => {
     '- Call `load_skill` when the current task clearly matches an available skill.',
     '- `load_skill` activates the skill for the current chat and the runtime injects the full active skill documents through hidden `<loaded_skills_context>` messages.',
     '- When `<loaded_skills_context>` is present, treat those skill documents as active task context and follow them as high-priority operational guidance unless they conflict with higher-level system or safety rules.',
+    '- Use `read_skill_file` with `path: "."` or a relative directory path to inspect files inside an installed skill; do not use broad filesystem searches to discover skill files.',
+    '- When a loaded skill document references a bundled script path such as `scripts/...`, run it with `run_skill_script` instead of `execute_command` so the runtime uses the installed skill root.',
     '',
     '### Skill Usage Policy',
     '- When the task clearly matches an available skill, proactively load and use it.',
