@@ -148,10 +148,17 @@ vi.mock('../TelegramCommandService', () => ({
   TelegramCommandService: vi.fn(function () {
     return {
       execute: vi.fn(),
-      executeCallback: vi.fn()
+      executeCallback: vi.fn(),
+      registerActiveSubmission: vi.fn(),
+      unregisterActiveSubmission: vi.fn(),
+      hasActiveSubmission: vi.fn(() => false)
     }
   })
 }))
+
+const flushPromises = async (): Promise<void> => {
+  await new Promise(process.nextTick)
+}
 
 const createEnvelope = (overrides: Partial<TelegramInboundEnvelope> = {}): TelegramInboundEnvelope => ({
   updateId: 42,
@@ -172,14 +179,17 @@ const createEnvelope = (overrides: Partial<TelegramInboundEnvelope> = {}): Teleg
 
 const createService = (args: {
   sendChatAction?: ReturnType<typeof vi.fn>
+  sendMessage?: ReturnType<typeof vi.fn>
   runExecute?: ReturnType<typeof vi.fn>
+  hasActiveSubmission?: ReturnType<typeof vi.fn>
 } = {}): TelegramGatewayService => {
   const service = new TelegramGatewayService()
 
   ;(service as any).logger = logger
   ;(service as any).bot = {
     api: {
-      sendChatAction: args.sendChatAction ?? vi.fn().mockResolvedValue(true)
+      sendChatAction: args.sendChatAction ?? vi.fn().mockResolvedValue(true),
+      sendMessage: args.sendMessage ?? vi.fn().mockResolvedValue({ message_id: 77 })
     }
   }
   ;(service as any).adapter = {
@@ -228,7 +238,11 @@ const createService = (args: {
   ;(service as any).runService = {
     execute: args.runExecute ?? vi.fn().mockResolvedValue({
       state: 'completed'
-    })
+    }),
+    resolveToolConfirmation: vi.fn()
+  }
+  if (args.hasActiveSubmission) {
+    ;(service as any).commandService.hasActiveSubmission = args.hasActiveSubmission
   }
 
   return service
@@ -262,6 +276,24 @@ describe('TelegramGatewayService', () => {
     expect(runExecute).toHaveBeenCalledTimes(1)
   })
 
+  it('returns after starting the agent run so stop commands can be handled', async () => {
+    let resolveRun: (value: { state: 'completed' }) => void = () => undefined
+    const runExecute = vi.fn(() => new Promise<{ state: 'completed' }>((resolve) => {
+      resolveRun = resolve
+    }))
+    const service = createService({ runExecute })
+
+    await (service as any).handleEnvelope(createEnvelope(), modelRef)
+
+    expect(runExecute).toHaveBeenCalledTimes(1)
+    expect(DatabaseService.updateChatHostBindingLastMessage).toHaveBeenCalledTimes(0)
+
+    resolveRun({ state: 'completed' })
+    await flushPromises()
+
+    expect(DatabaseService.updateChatHostBindingLastMessage).toHaveBeenCalledWith(11, '55')
+  })
+
   it('omits thread option for chats without a thread id', async () => {
     const sendChatAction = vi.fn().mockResolvedValue(true)
     const service = createService({ sendChatAction })
@@ -277,7 +309,7 @@ describe('TelegramGatewayService', () => {
     const service = createService({ sendChatAction, runExecute })
 
     await (service as any).handleEnvelope(createEnvelope(), modelRef)
-    await new Promise(process.nextTick)
+    await flushPromises()
 
     expect(logger.warn).toHaveBeenCalledWith('typing_action.failed', {
       updateId: 42,
@@ -287,5 +319,86 @@ describe('TelegramGatewayService', () => {
     })
     expect(runExecute).toHaveBeenCalledTimes(1)
     expect(DatabaseService.updateChatHostBindingLastMessage).toHaveBeenCalledWith(11, '55')
+  })
+
+  it('registers and unregisters active submissions with matching ids', async () => {
+    const runExecute = vi.fn().mockResolvedValue({ state: 'completed' })
+    const service = createService({ runExecute })
+    const commandService = (service as any).commandService
+
+    await (service as any).handleEnvelope(createEnvelope(), modelRef)
+
+    expect(commandService.registerActiveSubmission).toHaveBeenCalledWith('123:9', 'submission-id')
+
+    await flushPromises()
+
+    expect(commandService.unregisterActiveSubmission).toHaveBeenCalledWith('123:9', 'submission-id')
+  })
+
+  it('logs run failures and clears the matching active submission', async () => {
+    const runError = new Error('boom')
+    const runExecute = vi.fn().mockRejectedValue(runError)
+    const service = createService({ runExecute })
+    const commandService = (service as any).commandService
+
+    await (service as any).handleEnvelope(createEnvelope(), modelRef)
+    await flushPromises()
+
+    expect(logger.error).toHaveBeenCalledWith('update.run_failed', runError)
+    expect(commandService.unregisterActiveSubmission).toHaveBeenCalledWith('123:9', 'submission-id')
+  })
+
+  it('sends Telegram approval buttons for tool confirmation events', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ message_id: 91 })
+    const runExecute = vi.fn(async (_input, options) => {
+      await options.eventSinks[0].handleEvent({
+        type: 'tool.confirmation.required',
+        payload: {
+          toolCallId: 'call-1',
+          name: 'execute_command'
+        },
+        submissionId: 'submission-id',
+        sequence: 1,
+        timestamp: 1
+      })
+      return { state: 'completed' }
+    })
+    const service = createService({ sendMessage, runExecute })
+
+    await (service as any).handleEnvelope(createEnvelope(), modelRef)
+    await flushPromises()
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      123,
+      '<blockquote>tool execute command needs approval</blockquote>',
+      expect.objectContaining({
+        parse_mode: 'HTML',
+        message_thread_id: 9,
+        reply_parameters: { message_id: 55 },
+        reply_markup: {
+          inline_keyboard: [[
+            { text: 'Approve', callback_data: 'tgcmd:tool_confirm:approve:call-1' },
+            { text: 'Deny', callback_data: 'tgcmd:tool_confirm:deny:call-1' }
+          ]]
+        }
+      })
+    )
+  })
+
+  it('does not start a new run while the previous Telegram run is still active', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ message_id: 92 })
+    const runExecute = vi.fn().mockResolvedValue({ state: 'completed' })
+    const hasActiveSubmission = vi.fn(() => true)
+    const service = createService({ sendMessage, runExecute, hasActiveSubmission })
+
+    await (service as any).handleEnvelope(createEnvelope(), modelRef)
+
+    expect(hasActiveSubmission).toHaveBeenCalledWith('123:9')
+    expect((service as any).adapter.resolveOrCreateSession).toHaveBeenCalledTimes(0)
+    expect(runExecute).toHaveBeenCalledTimes(0)
+    expect(sendMessage).toHaveBeenCalledWith(123, 'Previous request is still stopping. Please wait a moment.', {
+      message_thread_id: 9,
+      reply_parameters: { message_id: 55 }
+    })
   })
 })

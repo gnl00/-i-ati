@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   saveMessageMock,
+  getMessageByIdMock,
   updateChatMock,
   getChatByIdMock,
   getChatByUuidMock,
@@ -9,6 +10,7 @@ const {
   upsertEmotionStateMock
 } = vi.hoisted(() => ({
   saveMessageMock: vi.fn(),
+  getMessageByIdMock: vi.fn(),
   updateChatMock: vi.fn(),
   getChatByIdMock: vi.fn(),
   getChatByUuidMock: vi.fn(),
@@ -19,6 +21,7 @@ const {
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     saveMessage: saveMessageMock,
+    getMessageById: getMessageByIdMock,
     updateChat: updateChatMock,
     getChatById: getChatByIdMock,
     getChatByUuid: getChatByUuidMock,
@@ -39,6 +42,8 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
   beforeEach(() => {
     saveMessageMock.mockReset()
     saveMessageMock.mockReturnValue(102)
+    getMessageByIdMock.mockReset()
+    getMessageByIdMock.mockReturnValue(undefined)
     updateChatMock.mockReset()
     getChatByIdMock.mockReset()
     getChatByIdMock.mockReturnValue(undefined)
@@ -153,6 +158,91 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
 
     expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
       messages: [104]
+    }))
+  })
+
+  it('skips aborted assistant messages with unanswered tool calls', async () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    const result = await store.settleAbortedAssistantMessage(chatEntity, {
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: [],
+        toolCalls: [{
+          id: 'call-1',
+          type: 'function',
+          function: {
+            name: 'execute_command',
+            arguments: '{}'
+          }
+        }]
+      }
+    } as MessageEntity)
+
+    expect(result).toBeUndefined()
+    expect(saveMessageMock).toHaveBeenCalledTimes(0)
+  })
+
+  it('settles aborted assistant messages when current run already has tool messages', async () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+    const toolResultMessage = {
+      id: 201,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'tool',
+        toolCallId: 'call-1',
+        name: 'execute_command',
+        content: 'aborted',
+        segments: []
+      }
+    } as MessageEntity
+
+    const result = await store.settleAbortedAssistantMessage(chatEntity, {
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: [],
+        toolCalls: [{
+          id: 'call-1',
+          type: 'function',
+          function: {
+            name: 'execute_command',
+            arguments: '{}'
+          }
+        }]
+      }
+    } as MessageEntity, [toolResultMessage])
+
+    expect(result?.id).toBe(102)
+    expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({
+        role: 'assistant',
+        toolCalls: expect.arrayContaining([
+          expect.objectContaining({ id: 'call-1' })
+        ])
+      })
     }))
   })
 })

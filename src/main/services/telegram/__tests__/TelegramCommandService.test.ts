@@ -10,6 +10,14 @@ vi.mock('@main/db/DatabaseService', () => ({
   }
 }))
 
+vi.mock('@main/orchestration/chat/run', () => ({
+  RunService: vi.fn(function () {
+    return {
+      cancel: vi.fn()
+    }
+  })
+}))
+
 const config: IAppConfig = {
   providerDefinitions: [
     {
@@ -85,7 +93,10 @@ const createChat = (modelRef: ModelRef = defaultModelRef): ChatEntity => ({
   updateTime: 1
 })
 
-const createService = (chat = createChat()): TelegramCommandService => {
+const createService = (
+  chat = createChat(),
+  runService = { cancel: vi.fn() }
+): TelegramCommandService => {
   const configStore = {
     requireConfig: () => config
   }
@@ -110,7 +121,8 @@ const createService = (chat = createChat()): TelegramCommandService => {
     configStore as any,
     new ChatModelContextResolver(),
     adapter as any,
-    {} as any
+    {} as any,
+    runService as any
   )
 }
 
@@ -206,5 +218,52 @@ describe('TelegramCommandService', () => {
     expect(response.text).toContain('Provider: openrouter (OpenRouter)')
     expect(response.text).toContain('Account: OpenRouter Account')
     expect(response.text).toContain('Command: /model openrouter gpt-4.1')
+  })
+
+  it('cancels the active submission for stop', async () => {
+    const runService = { cancel: vi.fn() }
+    const service = createService(createChat(), runService)
+
+    service.registerActiveSubmission('100', 'submission-id')
+
+    const response = await execute(service, {
+      name: 'stop',
+      args: '',
+      raw: '/stop'
+    })
+
+    expect(runService.cancel).toHaveBeenCalledWith('submission-id')
+    expect(response.text).toBe('Stopped current generation session.')
+  })
+
+  it('keeps a newer active submission when an older run unregisters', async () => {
+    const runService = { cancel: vi.fn() }
+    const service = createService(createChat(), runService)
+
+    service.registerActiveSubmission('100', 'old-submission')
+    service.registerActiveSubmission('100', 'new-submission')
+    service.unregisterActiveSubmission('100', 'old-submission')
+
+    await execute(service, {
+      name: 'stop',
+      args: '',
+      raw: '/stop'
+    })
+
+    expect(runService.cancel).toHaveBeenCalledWith('new-submission')
+  })
+
+  it('reports missing active submissions for stop', async () => {
+    const runService = { cancel: vi.fn() }
+    const service = createService(createChat(), runService)
+
+    const response = await execute(service, {
+      name: 'stop',
+      args: '',
+      raw: '/stop'
+    })
+
+    expect(runService.cancel).toHaveBeenCalledTimes(0)
+    expect(response.text).toBe('No active request to stop.')
   })
 })

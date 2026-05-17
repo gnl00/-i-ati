@@ -349,6 +349,40 @@ describe('ToolExecutor runtime context', () => {
     expect(result.error?.message).toContain('Denied by reviewer')
   })
 
+  it('returns an aborted command result when confirmation is cancelled', async () => {
+    handlerMock.mockClear()
+    assessExecuteCommandReviewMock.mockReturnValueOnce({
+      level: 'warning',
+      reason: 'Redirecting to /dev/null',
+      possibleRisk: 'May hide output',
+      normalizedRiskScore: 4
+    })
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'user_cancelled'
+    }))
+    const executor = new ToolExecutor({
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-8c',
+      function: 'execute_command',
+      args: JSON.stringify({
+        command: 'echo secret > /dev/null',
+        execution_reason: 'Verify command',
+        possible_risk: 'May hide output',
+        risk_score: 4
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+    expect(result.id).toBe('call-8c')
+    expect(result.error?.message).toContain('user_cancelled')
+  })
+
   it('passes confirmation source metadata to manual reviews', async () => {
     handlerMock.mockClear()
     assessExecuteCommandReviewMock.mockReturnValueOnce({

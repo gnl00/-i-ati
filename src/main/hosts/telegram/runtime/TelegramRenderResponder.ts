@@ -20,6 +20,7 @@ type SentTelegramMessage = {
 
 type TelegramSendMessageOptions = {
   parseMode?: 'HTML'
+  inlineKeyboard?: Array<Array<{ text: string; callbackData: string }>>
 }
 
 type TelegramToolState = {
@@ -126,6 +127,13 @@ export class TelegramRenderResponder implements HostRenderEventSink {
         })
         return
 
+      case 'host.tool.confirmation.required':
+        await this.sendToolConfirmationRequest({
+          toolCallId: event.toolCallId,
+          toolName: event.toolName
+        })
+        return
+
       case 'host.tool.result.available':
         await this.sendToolDone({
           toolCallId: event.result.toolCallId,
@@ -176,7 +184,17 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     const baseOptions = {
       ...(this.envelope.threadId ? { message_thread_id: Number(this.envelope.threadId) } : {}),
       ...(this.envelope.messageId ? { reply_parameters: { message_id: Number(this.envelope.messageId) } } : {}),
-      ...(args.parseMode ? { parse_mode: args.parseMode } : {})
+      ...(args.parseMode ? { parse_mode: args.parseMode } : {}),
+      ...(args.inlineKeyboard ? {
+        reply_markup: {
+          inline_keyboard: args.inlineKeyboard.map((row) =>
+            row.map((button) => ({
+              text: button.text,
+              callback_data: button.callbackData
+            }))
+          )
+        }
+      } : {})
     }
 
     return await this.bot.api.sendMessage(
@@ -427,6 +445,38 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       updateId: this.envelope.updateId,
       chatId: this.envelope.chatId,
       messageId: doneSent.message_id,
+      toolCallId: args.toolCallId
+    })
+  }
+
+  private async sendToolConfirmationRequest(args: {
+    toolCallId: string
+    toolName: string
+  }): Promise<void> {
+    if (TELEGRAM_HIDDEN_TOOL_MESSAGES.has(args.toolName)) {
+      return
+    }
+
+    const state = this.updateToolState(args)
+    const sent = await this.sendMessage({
+      text: `<blockquote>${this.escapeHtml(`tool ${this.formatToolLabel(state.toolName)} needs approval`)}</blockquote>`,
+      parseMode: 'HTML',
+      inlineKeyboard: [[
+        {
+          text: 'Approve',
+          callbackData: `tgcmd:tool_confirm:approve:${args.toolCallId}`
+        },
+        {
+          text: 'Deny',
+          callbackData: `tgcmd:tool_confirm:deny:${args.toolCallId}`
+        }
+      ]]
+    })
+
+    this.logger?.info?.('telegram.render_responder.tool_confirmation_sent', {
+      updateId: this.envelope.updateId,
+      chatId: this.envelope.chatId,
+      messageId: sent.message_id,
       toolCallId: args.toolCallId
     })
   }

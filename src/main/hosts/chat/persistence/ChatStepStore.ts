@@ -166,13 +166,46 @@ export class ChatStepStore implements ConversationStore {
 
   async settleAbortedAssistantMessage(
     chatEntity: ChatEntity,
-    lastAssistantMessage: MessageEntity
+    lastAssistantMessage: MessageEntity,
+    messageEntities: MessageEntity[] = []
   ): Promise<MessageEntity | undefined> {
+    if (this.hasUnansweredToolCalls(chatEntity, lastAssistantMessage.body, messageEntities)) {
+      return undefined
+    }
+
     if (this.hasPersistableAssistantPayload(lastAssistantMessage.body)) {
       return await this.finalizeAssistantMessage(chatEntity, lastAssistantMessage)
     }
 
     return undefined
+  }
+
+  private hasUnansweredToolCalls(
+    chatEntity: ChatEntity,
+    message: ChatMessage,
+    messageEntities: MessageEntity[]
+  ): boolean {
+    const toolCalls = message.toolCalls || []
+    if (toolCalls.length === 0) {
+      return false
+    }
+
+    const answeredToolCallIds = new Set<string>()
+    for (const entity of messageEntities) {
+      if (entity.body.role === 'tool' && entity.body.toolCallId) {
+        answeredToolCallIds.add(entity.body.toolCallId)
+      }
+    }
+
+    const chatMessages = this.resolveChatEntity(chatEntity.id, chatEntity.uuid)?.messages || chatEntity.messages || []
+    for (const messageId of chatMessages) {
+      const entity = DatabaseService.getMessageById(messageId)
+      if (entity?.body.role === 'tool' && entity.body.toolCallId) {
+        answeredToolCallIds.add(entity.body.toolCallId)
+      }
+    }
+
+    return toolCalls.some((toolCall) => !answeredToolCallIds.has(toolCall.id))
   }
 
   private hasPersistableAssistantPayload(message: ChatMessage): boolean {

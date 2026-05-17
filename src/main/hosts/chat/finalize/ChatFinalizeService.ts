@@ -16,9 +16,10 @@ export class ChatFinalizeService {
 
   async settleAbortedAssistantMessage(
     chatEntity: ChatEntity,
-    lastAssistantMessage: MessageEntity
+    lastAssistantMessage: MessageEntity,
+    messageEntities: MessageEntity[] = []
   ): Promise<MessageEntity | undefined> {
-    return this.chatStepStore.settleAbortedAssistantMessage(chatEntity, lastAssistantMessage)
+    return this.chatStepStore.settleAbortedAssistantMessage(chatEntity, lastAssistantMessage, messageEntities)
   }
 
   finalizeChatEntity(

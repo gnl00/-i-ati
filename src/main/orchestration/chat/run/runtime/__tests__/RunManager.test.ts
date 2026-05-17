@@ -40,6 +40,7 @@ vi.mock('../../infrastructure', () => ({
   ToolConfirmationManager: class {
     request = vi.fn(async () => ({ approved: true }))
     resolve = vi.fn()
+    cancelForSubmission = vi.fn()
   }
 }))
 
@@ -49,12 +50,14 @@ vi.mock('@main/orchestration/chat/postRun', () => ({
 
 import { RunManager } from '../RunManager'
 
-const createManager = () =>
-  new RunManager({
-    toolConfirmationManager: new (class {
-      request = vi.fn(async () => ({ approved: true }))
-      resolve = vi.fn()
-    })() as any,
+const createManagerWithDeps = () => {
+  const toolConfirmationManager = new (class {
+    request = vi.fn(async () => ({ approved: true }))
+    resolve = vi.fn()
+    cancelForSubmission = vi.fn()
+  })()
+  const manager = new RunManager({
+    toolConfirmationManager: toolConfirmationManager as any,
     eventEmitterFactory: new (class {
       create() {
         return {}
@@ -70,6 +73,10 @@ const createManager = () =>
     chatAgentAdapter: new (class {})() as any,
     postRunJobService: new (class {})() as any
   })
+  return { manager, toolConfirmationManager }
+}
+
+const createManager = () => createManagerWithDeps().manager
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -129,6 +136,40 @@ describe('RunManager', () => {
 
     deferred.resolve({ assistantMessageId: 11, state: 'completed' })
     await deferred.promise
+  })
+
+  it('releases pending confirmations when cancelling an active run', async () => {
+    const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as any)
+
+    const { manager, toolConfirmationManager } = createManagerWithDeps()
+    await manager.start(input)
+    manager.cancel(input.submissionId)
+
+    expect(toolConfirmationManager.cancelForSubmission).toHaveBeenCalledWith(input.submissionId)
+
+    deferred.resolve({ assistantMessageId: 11, state: 'completed' })
+    await deferred.promise
+  })
+
+  it('keeps a cancelled run active until its async cleanup completes', async () => {
+    const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as any)
+
+    const manager = createManager()
+    await manager.start({
+      ...input,
+      chatUuid: 'chat-1'
+    })
+    manager.cancel(input.submissionId)
+
+    expect(manager.hasActiveRunForChat('chat-1')).toBe(true)
+
+    deferred.resolve({ assistantMessageId: 11, state: 'completed' })
+    await deferred.promise
+    await Promise.resolve()
+
+    expect(manager.hasActiveRunForChat('chat-1')).toBe(false)
   })
 
   it('tracks whether a chat already has an active run', async () => {

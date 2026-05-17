@@ -82,10 +82,11 @@ export class RunManager {
   cancel(submissionId: string): void {
     const run = this.registry.get(submissionId)
     if (!run) {
+      this.deps.toolConfirmationManager.cancelForSubmission(submissionId)
       return
     }
     run.cancel()
-    this.registry.delete(submissionId)
+    this.deps.toolConfirmationManager.cancelForSubmission(submissionId)
   }
 
   hasActiveRunForChat(chatUuid: string): boolean {

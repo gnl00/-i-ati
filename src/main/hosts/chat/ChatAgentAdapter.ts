@@ -112,7 +112,8 @@ export class ChatAgentAdapter {
   }: Pick<FinalizeRunArgs, 'chatContext' | 'stepCommitter' | 'emitter'>): Promise<void> {
     const settledAssistantMessage = await this.finalizeService.settleAbortedAssistantMessage(
       chatContext.chat,
-      stepCommitter.getFinalAssistantMessage()
+      stepCommitter.getFinalAssistantMessage(),
+      chatContext.messageEntities
     )
     if (settledAssistantMessage) {
       new ChatEventMapper(emitter).emitMessageCreated(settledAssistantMessage)

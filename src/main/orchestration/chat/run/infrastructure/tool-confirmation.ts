@@ -7,6 +7,7 @@ import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 export type { ToolConfirmationDecision, ToolConfirmationRequest } from '@main/agent/contracts'
 
 type PendingConfirmation = {
+  submissionId: string
   promise: Promise<ToolConfirmationDecision>
   resolve: (decision: ToolConfirmationDecision) => void
   timeoutId: NodeJS.Timeout
@@ -32,14 +33,14 @@ export class ToolConfirmationManager {
     })
 
     const timeoutId = setTimeout(() => {
-      this.pending.delete(request.toolCallId)
-      resolvePromise({
+      this.resolve(request.toolCallId, {
         approved: false,
         reason: 'timeout'
       })
     }, DEFAULT_TIMEOUT_MS)
 
     this.pending.set(request.toolCallId, {
+      submissionId: emitter.submissionId,
       promise,
       resolve: resolvePromise!,
       timeoutId
@@ -64,5 +65,16 @@ export class ToolConfirmationManager {
     clearTimeout(pending.timeoutId)
     this.pending.delete(toolCallId)
     pending.resolve(decision)
+  }
+
+  cancelForSubmission(submissionId: string, reason = 'aborted'): void {
+    for (const [toolCallId, pending] of this.pending.entries()) {
+      if (pending.submissionId === submissionId) {
+        this.resolve(toolCallId, {
+          approved: false,
+          reason
+        })
+      }
+    }
   }
 }

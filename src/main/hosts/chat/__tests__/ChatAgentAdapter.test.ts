@@ -57,6 +57,7 @@ describe('ChatAgentAdapter', () => {
   let preparationPipeline: { prepare: ReturnType<typeof vi.fn> }
   let finalizeService: {
     finalizeAssistantMessage: ReturnType<typeof vi.fn>
+    settleAbortedAssistantMessage: ReturnType<typeof vi.fn>
     finalizeChatEntity: ReturnType<typeof vi.fn>
   }
 
@@ -66,6 +67,7 @@ describe('ChatAgentAdapter', () => {
     }
     finalizeService = {
       finalizeAssistantMessage: vi.fn(),
+      settleAbortedAssistantMessage: vi.fn(),
       finalizeChatEntity: vi.fn()
     }
   })
@@ -175,5 +177,34 @@ describe('ChatAgentAdapter', () => {
       finalizedAssistantMessage
     ])
     expect(result.postRunInput.usage).toEqual(usage)
+  })
+
+  it('passes run message entities when settling an aborted assistant message', async () => {
+    const adapter = new ChatAgentAdapter(preparationPipeline as any, finalizeService as any)
+    const finalAssistantMessage = {
+      body: {
+        role: 'assistant',
+        content: '',
+        toolCalls: []
+      }
+    }
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    await adapter.abortRun({
+      chatContext: prepared.chatContext as any,
+      emitter,
+      stepCommitter: {
+        getFinalAssistantMessage: () => finalAssistantMessage as any,
+        getLastUsage: () => undefined
+      }
+    })
+
+    expect(finalizeService.settleAbortedAssistantMessage).toHaveBeenCalledWith(
+      prepared.chatContext.chat,
+      finalAssistantMessage,
+      prepared.chatContext.messageEntities
+    )
   })
 })

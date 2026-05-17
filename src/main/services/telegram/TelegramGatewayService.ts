@@ -3,12 +3,15 @@ import { net } from 'electron'
 import { Bot } from 'grammy'
 import { configDb } from '@main/db/config'
 import { RunService } from '@main/orchestration/chat/run'
+import type { RunEventSink } from '@main/orchestration/chat/run/infrastructure'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
 import { TelegramRenderResponder } from '@main/hosts/telegram/runtime'
 import DatabaseService from '@main/db/DatabaseService'
 import { createLogger } from '@main/logging/LogService'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
+import type { RunEventEnvelope } from '@shared/run/events'
 import { TelegramUpdateMapper } from './TelegramUpdateMapper'
 import { TelegramFileService } from './TelegramFileService'
 import { TelegramCommandService } from './TelegramCommandService'
@@ -23,7 +26,9 @@ export class TelegramGatewayService {
   private readonly modelResolver = new ChatModelContextResolver()
   private readonly runService = new RunService()
   private readonly fileService = new TelegramFileService()
-  private readonly commandService = new TelegramCommandService()
+  private readonly commandService = new TelegramCommandService(
+    undefined, undefined, undefined, undefined, this.runService
+  )
   private bot: Bot | null = null
   private running = false
   private starting = false
@@ -37,6 +42,62 @@ export class TelegramGatewayService {
   private lastMessageProcessedAt?: number
   private static readonly START_TIMEOUT_MS = 30_000
   private static readonly POLLING_START_TIMEOUT_MS = 30_000
+
+  private createToolConfirmationSink(envelope: TelegramInboundEnvelope): RunEventSink {
+    return {
+      handleEvent: async (event: RunEventEnvelope) => {
+        if (event.type !== RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
+          return
+        }
+
+        const bot = this.bot
+        if (!bot) {
+          return
+        }
+        const payload = event.payload as RunEventEnvelope<typeof RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED>['payload']
+
+        await bot.api.sendMessage(
+          Number(envelope.chatId),
+          `<blockquote>${this.escapeHtml(`tool ${this.formatToolLabel(payload.name)} needs approval`)}</blockquote>`,
+          {
+            parse_mode: 'HTML',
+            ...(envelope.threadId ? { message_thread_id: Number(envelope.threadId) } : {}),
+            ...(envelope.messageId ? { reply_parameters: { message_id: Number(envelope.messageId) } } : {}),
+            reply_markup: {
+              inline_keyboard: [[
+                {
+                  text: 'Approve',
+                  callback_data: `tgcmd:tool_confirm:approve:${payload.toolCallId}`
+                },
+                {
+                  text: 'Deny',
+                  callback_data: `tgcmd:tool_confirm:deny:${payload.toolCallId}`
+                }
+              ]]
+            }
+          }
+        )
+      }
+    }
+  }
+
+  private formatToolLabel(toolName: string): string {
+    return toolName.replace(/_/g, ' ')
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  }
+
+  private buildChatKey(envelope: TelegramInboundEnvelope): string {
+    return envelope.threadId
+      ? `${envelope.chatId}:${envelope.threadId}`
+      : envelope.chatId
+  }
 
   private resolveFetch(): typeof fetch {
     if (typeof net?.fetch === 'function') {
@@ -319,6 +380,22 @@ export class TelegramGatewayService {
 
     void this.sendTypingAction(envelope)
 
+    const chatKey = this.buildChatKey(envelope)
+    if (this.commandService.hasActiveSubmission(chatKey)) {
+      await this.bot?.api.sendMessage(Number(envelope.chatId), 'Previous request is still stopping. Please wait a moment.', {
+        ...(envelope.threadId ? { message_thread_id: Number(envelope.threadId) } : {}),
+        ...(envelope.messageId ? { reply_parameters: { message_id: Number(envelope.messageId) } } : {})
+      }).catch((error) => {
+        this.logger.warn('active_run_notice.failed', {
+          updateId: envelope.updateId,
+          chatId: envelope.chatId,
+          error: error instanceof Error ? error.message : String(error)
+        })
+      })
+      this.lastMessageProcessedAt = Date.now()
+      return
+    }
+
     const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, modelRef)
     const effectiveModelRef = this.resolveModelRefForChat(chat, modelRef)
     const attachmentContext = this.bot
@@ -355,6 +432,8 @@ export class TelegramGatewayService {
       attachmentTextBlocks: attachmentContext.documentTextBlocks
     })
 
+    this.commandService.registerActiveSubmission(chatKey, input.submissionId)
+
     const responder = this.bot
       ? new TelegramRenderResponder({
         bot: this.bot,
@@ -363,19 +442,28 @@ export class TelegramGatewayService {
       })
       : null
 
-    await this.runService.execute(input, {
+    void this.runService.execute(input, {
+      eventSinks: [this.createToolConfirmationSink(envelope)],
       ...(responder ? { hostRenderSinks: [responder] } : {})
     })
+      .then(() => {
+        if (binding.id) {
+          DatabaseService.updateChatHostBindingLastMessage(binding.id, envelope.messageId)
+        }
 
-    if (binding.id) {
-      DatabaseService.updateChatHostBindingLastMessage(binding.id, envelope.messageId)
-    }
+        this.logger.info('update.accepted', {
+          updateId: envelope.updateId,
+          chatId: envelope.chatId,
+          chatUuid: chat.uuid
+        })
+      })
+      .catch((error) => {
+        this.logger.error('update.run_failed', error)
+      })
+      .finally(() => {
+        this.commandService.unregisterActiveSubmission(chatKey, input.submissionId)
+      })
 
-    this.logger.info('update.accepted', {
-      updateId: envelope.updateId,
-      chatId: envelope.chatId,
-      chatUuid: chat.uuid
-    })
     this.lastMessageProcessedAt = Date.now()
   }
 
@@ -648,6 +736,18 @@ export class TelegramGatewayService {
 
       if (!this.shouldHandleCommand(envelope)) {
         await ctx.answerCallbackQuery({ text: 'Command is not allowed in this chat.' }).catch(() => undefined)
+        return
+      }
+
+      if (callback.type === 'tool_confirmation') {
+        this.runService.resolveToolConfirmation(callback.toolCallId, {
+          approved: callback.approved,
+          reason: callback.approved ? undefined : 'denied from telegram'
+        })
+        await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined)
+        await ctx.answerCallbackQuery({
+          text: callback.approved ? 'Approved.' : 'Denied.'
+        }).catch(() => undefined)
         return
       }
 

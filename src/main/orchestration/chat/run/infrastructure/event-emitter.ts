@@ -25,6 +25,10 @@ export class RunEventEmitter {
     private readonly sinks: RunEventSink[] = []
   ) {}
 
+  get submissionId(): string {
+    return this.meta.submissionId
+  }
+
   setChatMeta(chat: { chatId?: number; chatUuid?: string }): void {
     this.meta.chatId = chat.chatId
     this.meta.chatUuid = chat.chatUuid

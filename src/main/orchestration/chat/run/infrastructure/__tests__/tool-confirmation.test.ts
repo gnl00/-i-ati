@@ -47,4 +47,53 @@ describe('ToolConfirmationManager', () => {
       })
     )
   })
+
+  it('resolves pending confirmations for a cancelled submission', async () => {
+    const manager = new ToolConfirmationManager()
+    const emit = vi.fn()
+
+    const decisionPromise = manager.request(
+      {
+        submissionId: 'submission-1',
+        emit
+      } as any,
+      {
+        toolCallId: 'call-1',
+        name: 'execute_command'
+      }
+    )
+
+    manager.cancelForSubmission('submission-1', 'user_cancelled')
+
+    await expect(decisionPromise).resolves.toEqual({
+      approved: false,
+      reason: 'user_cancelled'
+    })
+  })
+
+  it('keeps pending confirmations for other submissions', async () => {
+    const manager = new ToolConfirmationManager()
+    const emit = vi.fn()
+    let settled = false
+
+    const decisionPromise = manager.request(
+      {
+        submissionId: 'submission-1',
+        emit
+      } as any,
+      {
+        toolCallId: 'call-1',
+        name: 'execute_command'
+      }
+    ).then(() => {
+      settled = true
+    })
+
+    manager.cancelForSubmission('submission-2', 'user_cancelled')
+    await Promise.resolve()
+
+    expect(settled).toBe(false)
+    manager.resolve('call-1', { approved: false, reason: 'cleanup' })
+    await decisionPromise
+  })
 })

@@ -5,6 +5,7 @@ import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
 import { HostChatBindingService } from '@main/hosts/shared/HostChatBindingService'
+import { RunService } from '@main/orchestration/chat/run'
 import DatabaseService from '@main/db/DatabaseService'
 import { embeddedToolsRegistry } from '@tools/registry'
 import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
@@ -38,12 +39,29 @@ export type TelegramCommandResponse = {
 }
 
 export class TelegramCommandService {
+  private readonly activeRuns = new Map<string, string>()
+
   constructor(
     private readonly appConfigStore = new AppConfigStore(),
     private readonly modelResolver = new ChatModelContextResolver(),
     private readonly adapter = new TelegramAgentAdapter(),
-    private readonly hostChatBindingService = new HostChatBindingService()
+    private readonly hostChatBindingService = new HostChatBindingService(),
+    private readonly runService = new RunService()
   ) {}
+
+  registerActiveSubmission(chatKey: string, submissionId: string): void {
+    this.activeRuns.set(chatKey, submissionId)
+  }
+
+  unregisterActiveSubmission(chatKey: string, submissionId: string): void {
+    if (this.activeRuns.get(chatKey) === submissionId) {
+      this.activeRuns.delete(chatKey)
+    }
+  }
+
+  hasActiveSubmission(chatKey: string): boolean {
+    return this.activeRuns.has(chatKey)
+  }
 
   async execute(command: TelegramCommand, envelope: TelegramInboundEnvelope, defaultModelRef: ModelRef): Promise<TelegramCommandResponse> {
     switch (command.name) {
@@ -59,6 +77,8 @@ export class TelegramCommandService {
         return await this.handleWorkspace(command.args, envelope, defaultModelRef)
       case 'status':
         return await this.handleStatus(envelope, defaultModelRef)
+      case 'stop':
+        return this.handleStop(envelope)
       case 'help':
         return this.handleHelp()
       default:
@@ -328,6 +348,19 @@ export class TelegramCommandService {
     ].join('\n') }
   }
 
+  private handleStop(envelope: TelegramInboundEnvelope): TelegramCommandResponse {
+    const chatKey = this.buildChatKey(envelope)
+    const submissionId = this.activeRuns.get(chatKey)
+
+    if (!submissionId) {
+      return { text: 'No active request to stop.' }
+    }
+
+    this.runService.cancel(submissionId)
+
+    return { text: 'Stopped current generation session.' }
+  }
+
   private handleHelp(): TelegramCommandResponse {
     return { text: [
       'Available commands:',
@@ -337,8 +370,15 @@ export class TelegramCommandService {
       '/tools - List available tools',
       '/workspace get|set|clear - Manage the current workspace',
       '/status - Show current chat and model status',
+      '/stop - Stop the current generation session',
       '/help - Show bot commands and usage'
     ].join('\n') }
+  }
+
+  private buildChatKey(envelope: TelegramInboundEnvelope): string {
+    return envelope.threadId
+      ? `${envelope.chatId}:${envelope.threadId}`
+      : envelope.chatId
   }
 
   private getAvailableModels(): TelegramModelListItem[] {
