@@ -20,7 +20,7 @@ export interface UserMessageProps {
   onCopyClick: (content: string) => void
 }
 
-const COLLAPSED_USER_MESSAGE_HEIGHT = 280
+const COLLAPSED_USER_MESSAGE_HEIGHT = 140
 const COLLAPSE_OVERFLOW_BUFFER = 24
 
 const getContentSignature = (content: ChatMessage['content']): string => {
@@ -127,7 +127,7 @@ const CollapsibleUserMessageContent: React.FC<{
             className={cn(
               "absolute bottom-2 left-1/2 z-10 -translate-x-1/2",
               "inline-flex h-7 items-center gap-1 rounded-full px-2.5",
-              "border bg-white/25 text-xs font-medium text-slate-600",
+              "border border-gray-100 bg-white/25 text-xs font-medium text-slate-600",
               "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
               "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
               "hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
