@@ -8,6 +8,10 @@ interface ClaudeToolUseState {
   initialInput?: unknown
 }
 
+const toFiniteNumber = (value: unknown): number | undefined => (
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined
+)
+
 // Claude Messages API (v1) 适配器
 export class ClaudeAdapter extends BaseAdapter {
   providerType: ProviderType = 'claude'
@@ -30,11 +34,24 @@ export class ClaudeAdapter extends BaseAdapter {
     if (typeof usage.input_tokens !== 'number' || typeof usage.output_tokens !== 'number') {
       return undefined
     }
-    return {
+
+    const promptCacheHitTokens = toFiniteNumber(usage.cache_read_input_tokens)
+    const promptCacheWriteTokens = toFiniteNumber(usage.cache_creation_input_tokens)
+    const hasCacheBreakdown = promptCacheHitTokens !== undefined || promptCacheWriteTokens !== undefined
+    const promptCacheMissTokens = hasCacheBreakdown
+      ? Math.max(0, usage.input_tokens - (promptCacheHitTokens ?? 0) - (promptCacheWriteTokens ?? 0))
+      : undefined
+
+    const tokenUsage: ITokenUsage = {
       promptTokens: usage.input_tokens,
       completionTokens: usage.output_tokens,
       totalTokens: usage.input_tokens + usage.output_tokens
     }
+    if (promptCacheHitTokens !== undefined) tokenUsage.promptCacheHitTokens = promptCacheHitTokens
+    if (promptCacheMissTokens !== undefined) tokenUsage.promptCacheMissTokens = promptCacheMissTokens
+    if (promptCacheWriteTokens !== undefined) tokenUsage.promptCacheWriteTokens = promptCacheWriteTokens
+
+    return tokenUsage
   }
 
   getEndpoint(baseUrl: string): string {

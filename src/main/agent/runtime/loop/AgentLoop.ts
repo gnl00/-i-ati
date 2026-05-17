@@ -34,24 +34,12 @@ import type { AgentTranscript } from '../transcript/AgentTranscript'
 import type { ToolCallReadyFact } from '../tools/ToolCallReadyFact'
 import type { ToolResultFact } from '../tools/ToolResultFact'
 import type { LoopBudgetProgressSignal } from './LoopBudgetPolicy'
+import { mergeUsage } from './AgentLoopUsage'
 
 const logger = createLogger('AgentRuntimeLoop')
 
 export interface AgentLoop {
   run(input: AgentLoopInput, dependencies: AgentLoopDependencies): Promise<AgentLoopResult>
-}
-
-const mergeUsage = (
-  previous: ITokenUsage | undefined,
-  next: ITokenUsage | undefined
-): ITokenUsage | undefined => {
-  if (!previous) return next
-  if (!next) return previous
-  return {
-    promptTokens: previous.promptTokens + next.promptTokens,
-    completionTokens: previous.completionTokens + next.completionTokens,
-    totalTokens: previous.totalTokens + next.totalTokens
-  }
 }
 
 const isAbortError = (error: unknown, signal?: AbortSignal): boolean => (

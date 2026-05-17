@@ -6,6 +6,7 @@ import type { AssistantMessageCommandState } from './assistantMessageCommandStat
 import type { AssistantMessageFooterState } from './assistantMessageFooterState'
 import type { AssistantMessageHeaderProjection, AssistantMessageTranscriptProjection } from './assistantMessageMapper'
 import type { AssistantMessageTextPlaybackModel } from './assistantMessageTextPlayback'
+import { buildAssistantMessageTokenUsageDisplay } from './assistantMessageTokenUsage'
 
 export interface BuildAssistantMessageLayoutModelsInput {
   index: number
@@ -25,6 +26,7 @@ export interface BuildAssistantMessageLayoutModelsInput {
   onEditClick: () => void
   onConfirmCommand: () => void
   onCancelCommand: () => void
+  tokenUsage?: ITokenUsage
 }
 
 export interface AssistantMessageLayoutModels {
@@ -87,12 +89,14 @@ export function buildAssistantMessageFooterModel(
     | 'onCopyClick'
     | 'onRegenerateClick'
     | 'onEditClick'
+    | 'tokenUsage'
   >
 ): AssistantMessageFooterActionsModel {
   return {
     messageMeta: input.committedMessage.createdAt == null
       ? undefined
       : { createdAt: input.committedMessage.createdAt },
+    tokenUsageDisplay: buildAssistantMessageTokenUsageDisplay(input.tokenUsage),
     isHovered: input.isHovered,
     showOperations: input.footerState.showOperations,
     showRegenerate: input.footerState.showRegenerate,

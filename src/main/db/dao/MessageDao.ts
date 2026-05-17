@@ -6,6 +6,7 @@ interface MessageRow {
   chat_uuid: string | null
   body: string
   tokens: number | null
+  token_usage: string | null
 }
 
 class MessageDao {
@@ -24,8 +25,8 @@ class MessageDao {
     this.db = db
     this.stmts = {
       insertMessage: db.prepare(`
-        INSERT INTO messages (chat_id, chat_uuid, body, tokens)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO messages (chat_id, chat_uuid, body, tokens, token_usage)
+        VALUES (?, ?, ?, ?, ?)
       `),
       getAllMessages: db.prepare(`
         SELECT * FROM messages
@@ -40,7 +41,7 @@ class MessageDao {
         SELECT * FROM messages WHERE chat_uuid = ? ORDER BY id ASC
       `),
       updateMessage: db.prepare(`
-        UPDATE messages SET chat_id = ?, chat_uuid = ?, body = ?, tokens = ?
+        UPDATE messages SET chat_id = ?, chat_uuid = ?, body = ?, tokens = ?, token_usage = ?
         WHERE id = ?
       `),
       deleteMessage: db.prepare(`
@@ -50,7 +51,13 @@ class MessageDao {
   }
 
   insertMessage(row: Omit<MessageRow, 'id'>): number {
-    const result = this.stmts.insertMessage.run(row.chat_id, row.chat_uuid, row.body, row.tokens)
+    const result = this.stmts.insertMessage.run(
+      row.chat_id,
+      row.chat_uuid,
+      row.body,
+      row.tokens,
+      row.token_usage
+    )
     return Number(result.lastInsertRowid)
   }
 
@@ -77,7 +84,14 @@ class MessageDao {
   }
 
   updateMessage(row: MessageRow): void {
-    this.stmts.updateMessage.run(row.chat_id, row.chat_uuid, row.body, row.tokens, row.id)
+    this.stmts.updateMessage.run(
+      row.chat_id,
+      row.chat_uuid,
+      row.body,
+      row.tokens,
+      row.token_usage,
+      row.id
+    )
   }
 
   deleteMessage(id: number): void {

@@ -77,4 +77,20 @@ describe('AppDatabase', () => {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_skills_chat_skill_unique ON chat_skills(chat_id, skill_name)'
     )
   })
+
+  it('adds token usage detail storage to messages', async () => {
+    const { AppDatabase } = await import('../Database')
+
+    AppDatabase.getInstance().initialize()
+
+    const createMessagesSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) => typeof sql === 'string' && sql.includes('CREATE TABLE IF NOT EXISTS messages'))
+    const migrationSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) => typeof sql === 'string' && sql.includes('ALTER TABLE messages ADD COLUMN token_usage TEXT'))
+
+    expect(createMessagesSql).toContain('token_usage TEXT')
+    expect(migrationSql).toContain('ALTER TABLE messages ADD COLUMN token_usage TEXT')
+  })
 })

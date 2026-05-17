@@ -1,8 +1,10 @@
 import React, { memo } from 'react'
 import { MessageOperations } from '../message-operations'
+import type { AssistantMessageTokenUsageDisplay } from './model/assistantMessageTokenUsage'
 
 export interface AssistantMessageFooterActionsModel {
   messageMeta?: Pick<ChatMessage, 'createdAt'>
+  tokenUsageDisplay?: AssistantMessageTokenUsageDisplay
   isHovered: boolean
   showOperations: boolean
   showRegenerate: boolean
@@ -20,6 +22,7 @@ export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActio
 }) => {
   const {
     messageMeta,
+    tokenUsageDisplay,
     isHovered,
     showOperations,
     showRegenerate,
@@ -35,6 +38,7 @@ export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActio
   return (
     <MessageOperations
       message={messageMeta}
+      tokenUsageDisplay={tokenUsageDisplay}
       type="assistant"
       isHovered={isHovered}
       showRegenerate={showRegenerate}

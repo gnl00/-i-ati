@@ -73,15 +73,20 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     const usage: ITokenUsage = {
       promptTokens: 12,
       completionTokens: 8,
-      totalTokens: 20
+      totalTokens: 20,
+      promptCacheHitTokens: 10,
+      promptCacheMissTokens: 2,
+      reasoningTokens: 3
     }
 
     const result = await store.finalizeAssistantMessage(chatEntity, finalAssistantMessage, usage)
 
     expect(result.id).toBe(102)
     expect(result.tokens).toBe(20)
+    expect(result.tokenUsage).toEqual(usage)
     expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({
       tokens: 20,
+      tokenUsage: usage,
       body: expect.objectContaining({
         content: 'hello',
         typewriterCompleted: true

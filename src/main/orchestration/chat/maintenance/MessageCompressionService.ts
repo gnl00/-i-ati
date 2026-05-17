@@ -317,6 +317,10 @@ export class MessageCompressionService {
         runPromptTokens: usage?.promptTokens,
         runCompletionTokens: usage?.completionTokens,
         runTotalTokens: usage?.totalTokens,
+        runPromptCacheHitTokens: usage?.promptCacheHitTokens,
+        runPromptCacheMissTokens: usage?.promptCacheMissTokens,
+        runPromptCacheWriteTokens: usage?.promptCacheWriteTokens,
+        runReasoningTokens: usage?.reasoningTokens,
         decisionBasis: 'historical_uncompressed_message_tokens',
         shouldCompress: strategy.shouldCompress,
         decisionReason

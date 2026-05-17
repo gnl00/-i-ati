@@ -148,9 +148,11 @@ class AppDatabase {
         chat_uuid TEXT,
         body TEXT NOT NULL,
         tokens INTEGER,
+        token_usage TEXT,
         FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
       )
     `)
+    this.ensureColumn('messages', 'token_usage', 'TEXT')
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS emotion_states (

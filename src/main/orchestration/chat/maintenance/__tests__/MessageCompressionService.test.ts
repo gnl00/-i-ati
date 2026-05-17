@@ -286,7 +286,11 @@ describe('MessageCompressionService', () => {
       usage: {
         promptTokens: 600,
         completionTokens: 99,
-        totalTokens: 699
+        totalTokens: 699,
+        promptCacheHitTokens: 480,
+        promptCacheMissTokens: 120,
+        promptCacheWriteTokens: 32,
+        reasoningTokens: 12
       }
     })
 
@@ -302,6 +306,10 @@ describe('MessageCompressionService', () => {
       runPromptTokens: 600,
       runCompletionTokens: 99,
       runTotalTokens: 699,
+      runPromptCacheHitTokens: 480,
+      runPromptCacheMissTokens: 120,
+      runPromptCacheWriteTokens: 32,
+      runReasoningTokens: 12,
       decisionBasis: 'historical_uncompressed_message_tokens',
       shouldCompress: false,
       decisionReason: 'below_threshold'

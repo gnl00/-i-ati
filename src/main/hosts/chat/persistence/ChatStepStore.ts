@@ -136,7 +136,7 @@ export class ChatStepStore implements ConversationStore {
 
     const updated: MessageEntity = {
       ...finalAssistantMessage,
-      ...(usage ? { tokens: usage.totalTokens } : {}),
+      ...(usage ? { tokens: usage.totalTokens, tokenUsage: usage } : {}),
       body: {
         ...finalAssistantMessage.body,
         content,

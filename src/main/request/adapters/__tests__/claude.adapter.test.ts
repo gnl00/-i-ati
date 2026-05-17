@@ -51,9 +51,22 @@ describe('ClaudeAdapter tool use parsing', () => {
     const stopReasonChunk = adapter.parseStreamResponse(toDataChunk({
       type: 'message_delta',
       delta: { stop_reason: 'tool_use', stop_sequence: null },
-      usage: { input_tokens: 10, output_tokens: 1 }
+      usage: {
+        input_tokens: 10,
+        output_tokens: 1,
+        cache_read_input_tokens: 4,
+        cache_creation_input_tokens: 2
+      }
     }))
     expect(stopReasonChunk?.delta?.finishReason).toBe('tool_calls')
+    expect(stopReasonChunk?.usage).toEqual({
+      promptTokens: 10,
+      completionTokens: 1,
+      totalTokens: 11,
+      promptCacheHitTokens: 4,
+      promptCacheMissTokens: 4,
+      promptCacheWriteTokens: 2
+    })
 
     const messageStopChunk = adapter.parseStreamResponse(toDataChunk({ type: 'message_stop' }))
     expect(messageStopChunk).toBeNull()

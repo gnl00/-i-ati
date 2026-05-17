@@ -13,6 +13,7 @@ interface ChatMessageComponentProps {
     model?: string
     modelRef?: ModelRef
   }
+  tokenUsage?: ITokenUsage
   previewMessage?: ChatMessage
   isLatest: boolean
   onTypingChange?: () => void
@@ -26,6 +27,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
   index,
   message,
   pendingAssistantModel,
+  tokenUsage,
   previewMessage,
   isLatest,
   onTypingChange
@@ -103,6 +105,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
       <AssistantMessage
         index={index}
         committedMessage={message}
+        tokenUsage={tokenUsage}
         previewMessage={previewMessage}
         isLatest={isLatest}
         isHovered={hoverState.assistantMessageHovered}
@@ -131,6 +134,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
     <AssistantMessage
       index={index}
       committedMessage={message}
+      tokenUsage={tokenUsage}
       previewMessage={previewMessage}
       isLatest={isLatest}
       isHovered={hoverState.assistantMessageHovered}

@@ -22,6 +22,12 @@ describe('buildAssistantMessageLayoutModels', () => {
         content: 'hello',
         segments: []
       },
+      tokenUsage: {
+        promptTokens: 164842,
+        completionTokens: 331,
+        totalTokens: 165173,
+        promptCacheHitTokens: 88576
+      },
       headerProjection: {
         badgeModel: 'gpt-5',
         modelProvider: 'openai'
@@ -80,6 +86,17 @@ describe('buildAssistantMessageLayoutModels', () => {
     expect(models.body.onConfirmCommand).toBe(onConfirmCommand)
     expect(models.footer).toEqual({
       messageMeta: undefined,
+      tokenUsageDisplay: {
+        compactLabel: 'Usage 165.2k',
+        tooltipItems: [
+          'Total tokens: 165.2k',
+          'Input tokens: 164.8k',
+          'Output tokens: 0.3k',
+          'Cache hit tokens: 88.6k',
+          'Cache hit rate: 54%'
+        ],
+        ariaLabel: 'Total tokens 165.2k, Input tokens 164.8k, Output tokens 0.3k, Cache hit tokens 88.6k, Cache hit rate 54%'
+      },
       isHovered: true,
       showOperations: true,
       showRegenerate: true,

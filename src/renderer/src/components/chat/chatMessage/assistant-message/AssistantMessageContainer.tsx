@@ -31,6 +31,7 @@ export interface AssistantMessageProps {
     model?: string
     modelRef?: ModelRef
   }
+  tokenUsage?: ITokenUsage
   previewMessage?: ChatMessage
   isLatest: boolean
   isHovered: boolean
@@ -43,6 +44,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   index,
   committedMessage,
   pendingModel,
+  tokenUsage,
   previewMessage,
   isLatest,
   isHovered,
@@ -239,6 +241,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
 
   const footerModel = useMemo(() => buildAssistantMessageFooterModel({
     committedMessage: displayCommittedMessage,
+    tokenUsage,
     isHovered,
     footerState,
     onCopyClick: handleCopy,
@@ -246,6 +249,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     onEditClick: handleEdit
   }), [
     displayCommittedMessage.createdAt,
+    tokenUsage,
     isHovered,
     footerState,
     handleCopy,

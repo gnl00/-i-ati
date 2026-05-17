@@ -27,6 +27,10 @@ const normalizeOpenAIToolCalls = (toolCalls: any[] | undefined): any[] | undefin
   })
 }
 
+const toFiniteNumber = (value: unknown): number | undefined => (
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined
+)
+
 const mapOpenAIMessageFields = (message: ChatMessage): BaseChatMessage => ({
   role: message.role,
   content: message.content,
@@ -75,11 +79,30 @@ export class OpenAIAdapter extends BaseAdapter {
     ) {
       return undefined
     }
-    return {
+
+    const promptCacheHitTokens = toFiniteNumber(usage.prompt_cache_hit_tokens)
+      ?? toFiniteNumber(usage.prompt_tokens_details?.cached_tokens)
+    const promptCacheMissTokens = toFiniteNumber(usage.prompt_cache_miss_tokens)
+      ?? (
+        promptCacheHitTokens !== undefined
+          ? Math.max(0, usage.prompt_tokens - promptCacheHitTokens)
+          : undefined
+      )
+    const promptCacheWriteTokens = toFiniteNumber(usage.prompt_cache_write_tokens)
+      ?? toFiniteNumber(usage.prompt_tokens_details?.cache_write_tokens)
+    const reasoningTokens = toFiniteNumber(usage.completion_tokens_details?.reasoning_tokens)
+
+    const tokenUsage: ITokenUsage = {
       promptTokens: usage.prompt_tokens,
       completionTokens: usage.completion_tokens,
       totalTokens: usage.total_tokens
     }
+    if (promptCacheHitTokens !== undefined) tokenUsage.promptCacheHitTokens = promptCacheHitTokens
+    if (promptCacheMissTokens !== undefined) tokenUsage.promptCacheMissTokens = promptCacheMissTokens
+    if (promptCacheWriteTokens !== undefined) tokenUsage.promptCacheWriteTokens = promptCacheWriteTokens
+    if (reasoningTokens !== undefined) tokenUsage.reasoningTokens = reasoningTokens
+
+    return tokenUsage
   }
 
   getEndpoint(baseUrl: string): string {

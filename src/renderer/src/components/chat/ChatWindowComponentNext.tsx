@@ -69,6 +69,7 @@ const ChatMessageRow: React.FC<{
   return (
     <ChatMessageComponent
       message={message.body}
+      tokenUsage={message.tokenUsage}
       previewMessage={previewMessage}
       index={messageIndex}
       isLatest={isLatest}

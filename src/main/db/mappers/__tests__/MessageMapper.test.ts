@@ -16,21 +16,31 @@ describe('messageMapper', () => {
         role: 'assistant',
         content: 'hello'
       } as ChatMessage,
-      tokens: 12
+      tokens: 12,
+      tokenUsage: {
+        promptTokens: 8,
+        completionTokens: 4,
+        totalTokens: 12,
+        promptCacheHitTokens: 6,
+        promptCacheMissTokens: 2,
+        reasoningTokens: 1
+      }
     }
 
     expect(toMessageInsertRow(message)).toEqual({
       chat_id: 1,
       chat_uuid: 'chat-1',
       body: JSON.stringify(message.body),
-      tokens: 12
+      tokens: 12,
+      token_usage: JSON.stringify(message.tokenUsage)
     })
     expect(toMessageRow(message)).toEqual({
       id: 4,
       chat_id: 1,
       chat_uuid: 'chat-1',
       body: JSON.stringify(message.body),
-      tokens: 12
+      tokens: 12,
+      token_usage: JSON.stringify(message.tokenUsage)
     })
   })
 
@@ -43,7 +53,13 @@ describe('messageMapper', () => {
         role: 'assistant',
         content: 'hello'
       }),
-      tokens: 12
+      tokens: 12,
+      token_usage: JSON.stringify({
+        promptTokens: 8,
+        completionTokens: 4,
+        totalTokens: 12,
+        promptCacheHitTokens: 6
+      })
     }
 
     expect(toMessageEntity(row)).toEqual({
@@ -54,7 +70,13 @@ describe('messageMapper', () => {
         role: 'assistant',
         content: 'hello'
       },
-      tokens: 12
+      tokens: 12,
+      tokenUsage: {
+        promptTokens: 8,
+        completionTokens: 4,
+        totalTokens: 12,
+        promptCacheHitTokens: 6
+      }
     })
 
     expect(patchMessageRowUiState(row, { typewriterCompleted: true })).toEqual({
@@ -102,12 +124,38 @@ describe('messageMapper', () => {
       chat_id: 1,
       chat_uuid: 'chat-1',
       body: JSON.stringify(legacyMessage),
-      tokens: 12
+      tokens: 12,
+      token_usage: null
     })
 
     expect(entity.body.segments?.map((segment) => segment.segmentId)).toEqual([
       'db-message:4:reasoning:0',
       'db-message:4:toolCall:1'
     ])
+  })
+
+  it('skips malformed token usage JSON while preserving the message body', () => {
+    const entity = toMessageEntity({
+      id: 5,
+      chat_id: 1,
+      chat_uuid: 'chat-1',
+      body: JSON.stringify({
+        role: 'assistant',
+        content: 'hello'
+      }),
+      tokens: 12,
+      token_usage: '{bad json'
+    })
+
+    expect(entity).toEqual({
+      id: 5,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'hello'
+      },
+      tokens: 12
+    })
   })
 })

@@ -310,6 +310,10 @@ interface ITokenUsage {
   promptTokens: number
   completionTokens: number
   totalTokens: number
+  promptCacheHitTokens?: number
+  promptCacheMissTokens?: number
+  promptCacheWriteTokens?: number
+  reasoningTokens?: number
 }
 ```
 

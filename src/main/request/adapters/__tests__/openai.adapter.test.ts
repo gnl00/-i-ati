@@ -59,4 +59,63 @@ describe('OpenAIAdapter request mapping', () => {
     }))
     expect(parameters.required).toEqual(['query', TOOL_CALL_REASON_PARAMETER_NAME])
   })
+
+  it('extracts prompt cache and reasoning usage from stream chunks', () => {
+    const adapter = new OpenAIAdapter()
+
+    const chunk = adapter.parseStreamResponse(`data: ${JSON.stringify({
+      id: 'resp-usage',
+      model: 'deepseek-v4-flash',
+      choices: [],
+      usage: {
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        prompt_cache_hit_tokens: 80,
+        prompt_cache_miss_tokens: 20,
+        completion_tokens_details: {
+          reasoning_tokens: 7
+        }
+      }
+    })}`)
+
+    expect(chunk?.usage).toEqual({
+      promptTokens: 100,
+      completionTokens: 20,
+      totalTokens: 120,
+      promptCacheHitTokens: 80,
+      promptCacheMissTokens: 20,
+      reasoningTokens: 7
+    })
+  })
+
+  it('derives prompt cache miss tokens from cached token details', () => {
+    const adapter = new OpenAIAdapter()
+
+    const chunk = adapter.parseStreamResponse(`data: ${JSON.stringify({
+      id: 'resp-usage',
+      model: 'deepseek-v4-flash',
+      choices: [{
+        index: 0,
+        delta: {},
+        finish_reason: 'stop'
+      }],
+      usage: {
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        prompt_tokens_details: {
+          cached_tokens: 64
+        }
+      }
+    })}`)
+
+    expect(chunk?.usage).toEqual({
+      promptTokens: 100,
+      completionTokens: 20,
+      totalTokens: 120,
+      promptCacheHitTokens: 64,
+      promptCacheMissTokens: 36
+    })
+  })
 })
