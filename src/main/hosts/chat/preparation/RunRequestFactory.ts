@@ -13,6 +13,7 @@ import {
   AwakeContextProvider,
   CompressionSummaryResolver,
   KnowledgebaseContextProvider,
+  SystemEnvironmentContextProvider,
   SystemPromptComposer,
   ToolListBuilder
 } from './request'
@@ -33,6 +34,7 @@ export class RunRequestFactory {
     private readonly systemPromptComposer = new SystemPromptComposer(),
     private readonly toolListBuilder = new ToolListBuilder(),
     private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
+    private readonly systemEnvironmentContextProvider = new SystemEnvironmentContextProvider(),
     private readonly awakeContextProvider = new AwakeContextProvider(),
     private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider(),
     private readonly unifiedRequestMessageMaterializer = new UnifiedRequestMessageMaterializer()
@@ -46,11 +48,10 @@ export class RunRequestFactory {
     const mergedUserInstruction = this.mergeRequestUserInstruction(input)
     const config = this.appConfigStore.requireConfig()
     const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
-    const systemPrompts = await this.systemPromptComposer.compose(
-      environment.workspacePath,
-      environment.chat.id,
-      mergedUserInstruction
-    )
+    const systemPrompts = await this.systemPromptComposer.compose(environment.chat.id)
+    const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
+      workspacePath: environment.workspacePath
+    })
     const [loadedSkillsContext, knowledgebaseContext, awakeContext] = await Promise.all([
       this.loadedSkillsContextProvider.build(environment.chat.id),
       this.knowledgebaseContextProvider.build(input.textCtx),
@@ -65,10 +66,10 @@ export class RunRequestFactory {
     const requestMessageBuild = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
       .setEphemeralContextMessages(
-        [loadedSkillsContext, knowledgebaseContext, awakeContext]
+        [systemEnvironmentContext, loadedSkillsContext, knowledgebaseContext, awakeContext]
           .filter((message): message is ChatMessage => Boolean(message))
       )
-      .setUserInstruction(environment.chat.userInstruction)
+      .setUserInstruction(mergedUserInstruction)
       .setMessages(step.messageBuffer)
       .setCompressionSummary(compressionSummary)
       .build()

@@ -168,10 +168,10 @@ const input = {
   }
 } as any
 
-function chatContextContainsAwake(messages: MessageEntity[]): boolean {
+function chatContextContainsMarker(messages: MessageEntity[], marker: string): boolean {
   return messages.some(message => (
     typeof message.body.content === 'string'
-    && message.body.content.includes('<awake_state>')
+    && message.body.content.includes(marker)
   ))
 }
 
@@ -286,7 +286,7 @@ describe('ChatPreparationPipeline', () => {
     expect(runSpec.request.messages.some(message => 'segments' in message)).toBe(false)
   })
 
-  it('injects awake_state as ephemeral context before the current user input', async () => {
+  it('injects system environment and awake_state as ephemeral context before the current user input', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {
       emit: vi.fn()
@@ -294,6 +294,11 @@ describe('ChatPreparationPipeline', () => {
 
     const prepared = await service.prepare(input, emitter)
     const messages = prepared.runSpec.request.messages
+    const environmentIndex = messages.findIndex(message => (
+      message.role === 'user'
+      && typeof message.content === 'string'
+      && message.content.startsWith('<system-environment>')
+    ))
     const awakeIndex = messages.findIndex(message => (
       message.role === 'user'
       && typeof message.content === 'string'
@@ -304,11 +309,16 @@ describe('ChatPreparationPipeline', () => {
       && message.content === 'hello'
     ))
 
+    expect(environmentIndex).toBeGreaterThan(-1)
     expect(awakeIndex).toBeGreaterThan(-1)
+    expect(awakeIndex).toBeGreaterThan(environmentIndex)
     expect(currentUserIndex).toBeGreaterThan(awakeIndex)
+    expect(messages[environmentIndex].content).toContain('"workspacePath": "./workspaces/chat-1"')
+    expect(messages[environmentIndex].content).toContain('"currentTime"')
     expect(messages[awakeIndex].content).toContain('"version": 1')
     expect(messages[awakeIndex].content).toContain('"raw_query": "hello"')
-    expect(chatContextContainsAwake(prepared.chatContext.messageEntities)).toBe(false)
+    expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<system-environment>')).toBe(false)
+    expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<awake_state>')).toBe(false)
   })
 
   it('omits thinking level when the selected model has no reasoning capability', async () => {
@@ -432,7 +442,19 @@ describe('ChatPreparationPipeline', () => {
 
     expect(prepared.runSpec.request.userInstruction).toContain('Keep the answer concise.')
     expect(prepared.runSpec.request.userInstruction).toContain('## Schedule Execution Context')
-    expect(prepared.runSpec.request.systemPrompt).toContain('## Schedule Execution Context')
+    expect(prepared.runSpec.request.systemPrompt).not.toContain('## Schedule Execution Context')
+    expect(prepared.runSpec.request.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringContaining('Keep the answer concise.')
+      })
+    ]))
+    expect(prepared.runSpec.request.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringContaining('## Schedule Execution Context')
+      })
+    ]))
     expect(prepared.runSpec.request.messages).toEqual(expect.arrayContaining([
       expect.objectContaining({
         role: 'user',

@@ -37,11 +37,7 @@ export class SubagentRuntimeFactory {
       ? (DatabaseService.getWorkspacePathByUuid(input.chatUuid) || chat?.workspacePath || process.cwd())
       : process.cwd()
 
-    const composedSystemPrompts = await this.systemPromptComposer.compose(
-      workspacePath,
-      chat?.id,
-      undefined
-    )
+    const composedSystemPrompts = await this.systemPromptComposer.compose(chat?.id)
 
     const systemPrompt = [
       ...composedSystemPrompts,
