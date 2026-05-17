@@ -1,3 +1,4 @@
+export { AwakeContextProvider } from './AwakeContextProvider'
 export { CompressionSummaryResolver } from './CompressionSummaryResolver'
 export { EmotionPromptProvider } from './EmotionPromptProvider'
 export { KnowledgebaseContextProvider } from './KnowledgebaseContextProvider'

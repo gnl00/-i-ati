@@ -31,6 +31,8 @@ vi.mock('@main/db/DatabaseService', () => ({
     getMessagesByChatId: vi.fn(),
     getMessagesByChatUuid: vi.fn(),
     getEmotionStateByChatId: vi.fn(() => undefined),
+    getWorkContextByChatUuid: vi.fn(() => undefined),
+    listRecentSmartMessageCandidateSummaries: vi.fn(() => []),
     saveMessage: vi.fn(),
     saveChat: vi.fn(),
     updateChat: vi.fn(),
@@ -69,9 +71,38 @@ const { knowledgebaseSearchMock } = vi.hoisted(() => ({
   knowledgebaseSearchMock: vi.fn<(...args: any[]) => Promise<any[]>>(async () => [])
 }))
 
+const {
+  getAllMemoriesMock,
+  searchMemoriesMock,
+  listActivityEntriesMock,
+  searchActivityEntriesMock,
+  getActivityDateKeyMock
+} = vi.hoisted(() => ({
+  getAllMemoriesMock: vi.fn(),
+  searchMemoriesMock: vi.fn(),
+  listActivityEntriesMock: vi.fn(),
+  searchActivityEntriesMock: vi.fn(),
+  getActivityDateKeyMock: vi.fn()
+}))
+
 vi.mock('@main/services/knowledgebase/KnowledgebaseService', () => ({
   knowledgebaseService: {
     search: knowledgebaseSearchMock
+  }
+}))
+
+vi.mock('@main/services/memory/MemoryService', () => ({
+  default: {
+    getAllMemories: getAllMemoriesMock,
+    searchMemories: searchMemoriesMock
+  }
+}))
+
+vi.mock('@main/services/activityJournal/ActivityJournalService', () => ({
+  default: {
+    listEntries: listActivityEntriesMock,
+    searchEntries: searchActivityEntriesMock,
+    getDateKey: getActivityDateKeyMock
   }
 }))
 
@@ -137,6 +168,13 @@ const input = {
   }
 } as any
 
+function chatContextContainsAwake(messages: MessageEntity[]): boolean {
+  return messages.some(message => (
+    typeof message.body.content === 'string'
+    && message.body.content.includes('<awake_state>')
+  ))
+}
+
 function findUserMessageIndexByContent(messages: ChatMessage[], marker: string): number {
   return messages.findIndex(message => (
     message.role === 'user'
@@ -149,6 +187,11 @@ describe('ChatPreparationPipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     knowledgebaseSearchMock.mockResolvedValue([])
+    getAllMemoriesMock.mockResolvedValue([])
+    searchMemoriesMock.mockResolvedValue([])
+    listActivityEntriesMock.mockResolvedValue([])
+    searchActivityEntriesMock.mockResolvedValue([])
+    getActivityDateKeyMock.mockReturnValue('2026-05-14')
     ;(DatabaseService.getConfig as any).mockReturnValue(config)
     ;(DatabaseService.getChatById as any).mockReturnValue(chatEntity)
     ;(DatabaseService.getChatByUuid as any).mockReturnValue(undefined)
@@ -240,6 +283,31 @@ describe('ChatPreparationPipeline', () => {
         content: 'hello'
       })
     ]))
+  })
+
+  it('injects awake_state as ephemeral context before the current user input', async () => {
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare(input, emitter)
+    const messages = prepared.runSpec.request.messages
+    const awakeIndex = messages.findIndex(message => (
+      message.role === 'user'
+      && typeof message.content === 'string'
+      && message.content.startsWith('<awake_state>')
+    ))
+    const currentUserIndex = messages.findIndex(message => (
+      message.role === 'user'
+      && message.content === 'hello'
+    ))
+
+    expect(awakeIndex).toBeGreaterThan(-1)
+    expect(currentUserIndex).toBeGreaterThan(awakeIndex)
+    expect(messages[awakeIndex].content).toContain('"version": 1')
+    expect(messages[awakeIndex].content).toContain('"raw_query": "hello"')
+    expect(chatContextContainsAwake(prepared.chatContext.messageEntities)).toBe(false)
   })
 
   it('omits thinking level when the selected model has no reasoning capability', async () => {

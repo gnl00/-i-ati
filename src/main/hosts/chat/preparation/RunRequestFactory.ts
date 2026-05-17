@@ -7,6 +7,7 @@ import { pluginDb } from '@main/db/plugins'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { AppConfigStore } from '../config'
 import {
+  AwakeContextProvider,
   CompressionSummaryResolver,
   KnowledgebaseContextProvider,
   SystemPromptComposer,
@@ -29,6 +30,7 @@ export class RunRequestFactory {
     private readonly systemPromptComposer = new SystemPromptComposer(),
     private readonly toolListBuilder = new ToolListBuilder(),
     private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
+    private readonly awakeContextProvider = new AwakeContextProvider(),
     private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider()
   ) {}
 
@@ -45,15 +47,21 @@ export class RunRequestFactory {
       environment.chat.id,
       mergedUserInstruction
     )
-    const [loadedSkillsContext, knowledgebaseContext] = await Promise.all([
+    const [loadedSkillsContext, knowledgebaseContext, awakeContext] = await Promise.all([
       this.loadedSkillsContextProvider.build(environment.chat.id),
-      this.knowledgebaseContextProvider.build(input.textCtx)
+      this.knowledgebaseContextProvider.build(input.textCtx),
+      this.awakeContextProvider.build({
+        chat: environment.chat,
+        workspacePath: environment.workspacePath,
+        currentQuery: input.textCtx,
+        compressionSummary
+      })
     ])
 
     const requestMessages = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
       .setEphemeralContextMessages(
-        [loadedSkillsContext, knowledgebaseContext]
+        [loadedSkillsContext, knowledgebaseContext, awakeContext]
           .filter((message): message is ChatMessage => Boolean(message))
       )
       .setUserInstruction(environment.chat.userInstruction)
