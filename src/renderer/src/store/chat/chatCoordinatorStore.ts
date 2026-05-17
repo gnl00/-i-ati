@@ -8,7 +8,7 @@ export type ChatCoordinatorActions = {
   hydrateChat: (chatId: number) => Promise<void>
   selectChatShell: (chatId: number | null, chatUuid: string | null, chat?: ChatEntity | null) => void
   resetChatContext: () => void
-  applyReadyChat: (chatEntity: ChatEntity) => void
+  applyReadyChat: (chatEntity: ChatEntity, options?: { selectShell?: boolean }) => void
 }
 
 type ChatCoordinatorSliceState =
@@ -49,14 +49,20 @@ function applyChatShellSelection<T extends ChatCoordinatorSliceState>(
   const nextUserInstruction = resolvedChat?.userInstruction ?? ''
 
   if (currentChatId !== chatId || currentChatUuid !== chatUuid) {
+    const transcriptBuffer = chatUuid
+      ? get().transcriptBuffersByChatUuid[chatUuid]
+      : undefined
+    const runStatus = get().getRunStatusForChat(chatUuid)
+
     set({
       currentChatId: chatId,
       currentChatUuid: chatUuid,
       chatTitle: nextTitle,
-      messages: [] as MessageEntity[],
-      preview: {
-        message: null
-      },
+      messages: transcriptBuffer?.messages ?? ([] as MessageEntity[]),
+      preview: transcriptBuffer?.preview ?? { message: null },
+      runPhase: runStatus.runPhase,
+      postRunJobs: runStatus.postRunJobs,
+      lastRunOutcome: runStatus.lastRunOutcome,
       userInstruction: nextUserInstruction,
       scrollHint: { type: 'none' }
     } as Partial<T>)
@@ -87,17 +93,21 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
       }
 
       const messages = await get().fetchMessagesByChatUuid(chat.uuid)
+      const runStatus = get().getRunStatusForChat(chat.uuid)
 
       set({
         currentChatId: chat.id,
         currentChatUuid: chat.uuid,
         chatTitle: chat.title || 'NewChat',
         userInstruction: chat.userInstruction || '',
-        messages,
-        preview: {
-          message: null
-        },
+        runPhase: runStatus.runPhase,
+        postRunJobs: runStatus.postRunJobs,
+        lastRunOutcome: runStatus.lastRunOutcome,
         scrollHint: buildConversationScrollHint(chat.uuid, messages.length)
+      } as Partial<T>)
+      get().restoreTranscriptForChat(chat.uuid, messages)
+      set({
+        scrollHint: buildConversationScrollHint(chat.uuid, get().messages.length)
       } as Partial<T>)
 
       get().syncSelectedModelRefForChat(chat, messages)
@@ -116,6 +126,12 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
         preview: {
           message: null
         },
+        runPhase: 'idle',
+        postRunJobs: {
+          title: 'idle',
+          compression: 'idle'
+        },
+        lastRunOutcome: 'idle',
         userInstruction: '',
         scrollHint: { type: 'none' }
       } as Partial<T>)
@@ -123,8 +139,11 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
       get().syncSelectedModelRefForChat(null)
     },
 
-    applyReadyChat: (chatEntity) => {
+    applyReadyChat: (chatEntity, options = {}) => {
       get().updateChatList(chatEntity)
+      if (options.selectShell === false) {
+        return
+      }
       applyChatShellSelection(set, get, chatEntity.id ?? null, chatEntity.uuid ?? null, chatEntity)
     }
   }

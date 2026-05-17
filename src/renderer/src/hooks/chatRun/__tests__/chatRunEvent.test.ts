@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
+import { CHAT_HOST_EVENTS, CHAT_RENDER_EVENTS } from '@shared/run/events'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
@@ -7,11 +7,25 @@ import type { MessageSegmentPatch } from '@shared/chat/render-events'
 const latestStore = {
   currentChatUuid: 'chat-live',
   runPhase: 'idle' as 'idle' | 'submitting' | 'streaming' | 'post_run' | 'cancelling',
+  postRunJobs: { title: 'idle' as const, compression: 'idle' as const },
   upsertMessage: vi.fn(),
+  upsertMessageForChat: vi.fn(),
   setScrollHint: vi.fn(),
   patchMessageSegment: vi.fn(),
+  patchMessageSegmentForChat: vi.fn(),
   updateLastAssistantMessageWithError: vi.fn(),
-  settleLatestAssistantAfterAbort: vi.fn()
+  updateLastAssistantMessageWithErrorForChat: vi.fn(),
+  settleLatestAssistantAfterAbort: vi.fn(),
+  settleLatestAssistantAfterAbortForChat: vi.fn(),
+  getRunStatusForChat: vi.fn((_chatUuid: string) => ({
+    runPhase: latestStore.runPhase,
+    postRunJobs: latestStore.postRunJobs,
+    lastRunOutcome: 'idle'
+  })),
+  setRunPhaseForChat: vi.fn(),
+  setPostRunJobStateForChat: vi.fn(),
+  resetPostRunJobsForChat: vi.fn(),
+  setLastRunOutcomeForChat: vi.fn()
 }
 
 vi.mock('@renderer/store/chatStore', () => ({
@@ -60,17 +74,26 @@ function createInput() {
       applyReadyChat: vi.fn(),
       updateChatList: vi.fn(),
       resetPreview: vi.fn(),
+      resetPreviewForChat: vi.fn(),
       setMessages: vi.fn(),
+      setMessagesForChat: vi.fn(),
       setScrollHint: vi.fn(),
       clearScrollHint: vi.fn(),
       setRunPhase: vi.fn(),
+      setRunPhaseForChat: vi.fn(),
       replacePreviewMessage: vi.fn(),
+      replacePreviewMessageForChat: vi.fn(),
       applyPreviewSegmentPatch: vi.fn(),
+      applyPreviewSegmentPatchForChat: vi.fn(),
       applyPreviewSegmentPatches: vi.fn(),
+      applyPreviewSegmentPatchesForChat: vi.fn(),
       setPostRunJobState: vi.fn(),
+      setPostRunJobStateForChat: vi.fn(),
       setLastRunOutcome: vi.fn(),
+      setLastRunOutcomeForChat: vi.fn(),
       currentChatUuid: 'chat-stale'
     },
+    runChatUuidRef: { current: 'chat-1' },
     runCompletedRef: { current: false },
     lastErrorMessageRef: { current: null },
     clearedErrorMessageIdsRef: { current: new Set<number>() },
@@ -85,11 +108,21 @@ describe('handleChatRunEvent', () => {
   beforeEach(() => {
     latestStore.currentChatUuid = 'chat-live'
     latestStore.runPhase = 'idle'
+    latestStore.postRunJobs = { title: 'idle', compression: 'idle' }
     latestStore.upsertMessage.mockReset()
+    latestStore.upsertMessageForChat.mockReset()
     latestStore.setScrollHint.mockReset()
     latestStore.patchMessageSegment.mockReset()
+    latestStore.patchMessageSegmentForChat.mockReset()
     latestStore.updateLastAssistantMessageWithError.mockReset()
+    latestStore.updateLastAssistantMessageWithErrorForChat.mockReset()
     latestStore.settleLatestAssistantAfterAbort.mockReset()
+    latestStore.settleLatestAssistantAfterAbortForChat.mockReset()
+    latestStore.getRunStatusForChat.mockClear()
+    latestStore.setRunPhaseForChat.mockReset()
+    latestStore.setPostRunJobStateForChat.mockReset()
+    latestStore.resetPostRunJobsForChat.mockReset()
+    latestStore.setLastRunOutcomeForChat.mockReset()
     scheduleAssistantStreamingPerfRecentSessionFlush.mockReset()
     rendererLoggerError.mockReset()
   })
@@ -119,13 +152,46 @@ describe('handleChatRunEvent', () => {
       }
     })
 
-    expect(latestStore.upsertMessage).toHaveBeenCalledTimes(1)
-    expect(latestStore.setScrollHint).toHaveBeenCalledWith({
-      type: 'user-sent',
-      chatUuid: 'chat-live',
-      messageId: 11
-    })
+    expect(latestStore.upsertMessageForChat).toHaveBeenCalledWith('chat-1', expect.objectContaining({ id: 11 }))
+    expect(latestStore.setScrollHint).not.toHaveBeenCalled()
     expect(input.chatStore.setScrollHint).not.toHaveBeenCalled()
+  })
+
+  it('does not select a background chat shell when an existing chat becomes ready', async () => {
+    latestStore.currentChatUuid = 'chat-live'
+    latestStore.runPhase = 'streaming'
+    latestStore.getRunStatusForChat.mockReturnValueOnce({
+      runPhase: 'idle',
+      postRunJobs: { title: 'idle', compression: 'idle' },
+      lastRunOutcome: 'idle'
+    })
+    const input = createInput()
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_HOST_EVENTS.CHAT_READY,
+      payload: {
+        chatEntity: {
+          id: 1,
+          uuid: 'chat-1',
+          title: 'Background chat',
+          messages: [],
+          createTime: 1,
+          updateTime: 1
+        },
+        workspacePath: '/tmp/chat-1'
+      }
+    })
+
+    expect(input.chatStore.applyReadyChat).toHaveBeenCalledWith(
+      expect.objectContaining({ uuid: 'chat-1' }),
+      { selectShell: false }
+    )
+    expect(latestStore.setRunPhaseForChat).toHaveBeenCalledWith('chat-1', 'submitting')
   })
 
   it('moves submitting runs into streaming when the first assistant message arrives', async () => {
@@ -153,9 +219,9 @@ describe('handleChatRunEvent', () => {
       }
     })
 
-    expect(input.chatStore.setRunPhase).toHaveBeenCalledWith('streaming')
-    expect(input.chatStore.resetPreview).toHaveBeenCalledTimes(1)
-    expect(latestStore.upsertMessage).toHaveBeenCalledTimes(1)
+    expect(latestStore.setRunPhaseForChat).toHaveBeenCalledWith('chat-1', 'streaming')
+    expect(input.chatStore.resetPreviewForChat).toHaveBeenCalledWith('chat-1')
+    expect(latestStore.upsertMessageForChat).toHaveBeenCalledTimes(1)
   })
 
   it('moves submitting runs into streaming when the first preview arrives', async () => {
@@ -183,8 +249,11 @@ describe('handleChatRunEvent', () => {
       }
     })
 
-    expect(input.chatStore.setRunPhase).toHaveBeenCalledWith('streaming')
-    expect(input.chatStore.replacePreviewMessage).toHaveBeenCalledTimes(1)
+    expect(latestStore.setRunPhaseForChat).toHaveBeenCalledWith('chat-1', 'streaming')
+    expect(input.chatStore.replacePreviewMessageForChat).toHaveBeenCalledWith(
+      'chat-1',
+      expect.objectContaining({ chatUuid: 'chat-1' })
+    )
   })
 
   it('routes preview and committed segment patches to the correct store actions', async () => {
@@ -225,8 +294,8 @@ describe('handleChatRunEvent', () => {
       }
     })
 
-    expect(input.chatStore.applyPreviewSegmentPatch).toHaveBeenCalledWith(patch)
-    expect(latestStore.patchMessageSegment).toHaveBeenCalledWith(99, patch)
+    expect(input.chatStore.applyPreviewSegmentPatchForChat).toHaveBeenCalledWith('chat-1', patch)
+    expect(latestStore.patchMessageSegmentForChat).toHaveBeenCalledWith('chat-1', 99, patch)
   })
 
   it('queues preview segment patches when a preview patch batcher is available', async () => {
@@ -265,7 +334,7 @@ describe('handleChatRunEvent', () => {
     })
 
     expect(enqueue).toHaveBeenCalledWith(patch)
-    expect(input.chatStore.applyPreviewSegmentPatch).not.toHaveBeenCalled()
+    expect(input.chatStore.applyPreviewSegmentPatchForChat).not.toHaveBeenCalled()
   })
 
   it('logs event handler failures without rejecting the run event subscription', async () => {
@@ -348,7 +417,7 @@ describe('handleChatRunEvent', () => {
 
     expect(flush).toHaveBeenCalledWith('sync')
     expect(flushPerfSummary).toHaveBeenCalledWith('run_completed')
-    expect(input.chatStore.resetPreview).toHaveBeenCalledTimes(1)
+    expect(input.chatStore.resetPreviewForChat).toHaveBeenCalledWith('chat-1')
   })
 
   it('schedules a perf flush when the run completes', async () => {
@@ -369,7 +438,7 @@ describe('handleChatRunEvent', () => {
     expect(scheduleAssistantStreamingPerfRecentSessionFlush).toHaveBeenCalledWith({
       reason: 'run_completed'
     })
-    expect(input.chatStore.setLastRunOutcome).toHaveBeenCalledWith('completed')
+    expect(input.chatStore.setLastRunOutcomeForChat).toHaveBeenCalledWith('chat-1', 'completed')
   })
 
   it('keeps title-only post-run work from entering post_run phase', async () => {
@@ -389,10 +458,10 @@ describe('handleChatRunEvent', () => {
       }
     })
 
-    expect(input.chatStore.setPostRunJobState).toHaveBeenCalledWith('title', 'pending')
-    expect(input.chatStore.setPostRunJobState).toHaveBeenCalledWith('compression', 'idle')
-    expect(input.chatStore.setRunPhase).not.toHaveBeenCalledWith('post_run')
-    expect(input.maybeCleanupAfterBackgroundJobs).toHaveBeenCalledTimes(1)
+    expect(input.chatStore.setPostRunJobStateForChat).toHaveBeenCalledWith('chat-1', 'title', 'pending')
+    expect(input.chatStore.setPostRunJobStateForChat).toHaveBeenCalledWith('chat-1', 'compression', 'idle')
+    expect(input.chatStore.setRunPhaseForChat).not.toHaveBeenCalledWith('chat-1', 'post_run')
+    expect(input.maybeCleanupAfterBackgroundJobs).toHaveBeenCalledWith('chat-1')
   })
 
   it('enters post_run phase while compression is pending', async () => {
@@ -412,8 +481,8 @@ describe('handleChatRunEvent', () => {
       }
     })
 
-    expect(input.chatStore.setPostRunJobState).toHaveBeenCalledWith('compression', 'pending')
-    expect(input.chatStore.setRunPhase).toHaveBeenCalledWith('post_run')
+    expect(input.chatStore.setPostRunJobStateForChat).toHaveBeenCalledWith('chat-1', 'compression', 'pending')
+    expect(input.chatStore.setRunPhaseForChat).toHaveBeenCalledWith('chat-1', 'post_run')
     expect(input.maybeCleanupAfterBackgroundJobs).not.toHaveBeenCalled()
   })
 })

@@ -63,7 +63,7 @@ export const useChatStore = create<ChatState & ChatAction>((set, get) => ({
   // ============ UI 状态更新方法 ============
 
   ...createChatSessionActions(set, get),
-  ...createChatRunUiActions(set),
+  ...createChatRunUiActions(set, get),
   ...createChatViewActions(set),
 
   ...createChatTranscriptActions(set, get),

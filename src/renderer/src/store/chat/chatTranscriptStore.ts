@@ -12,11 +12,17 @@ export type ChatPreviewState = {
   message: MessageEntity | null
 }
 
+export type ChatTranscriptBufferState = {
+  messages: MessageEntity[]
+  preview: ChatPreviewState
+}
+
 export type ChatTranscriptState = {
   // Committed transcript history shown in the chat window.
   messages: MessageEntity[]
   // Ephemeral preview state used while a run is still streaming.
   preview: ChatPreviewState
+  transcriptBuffersByChatUuid: Record<string, ChatTranscriptBufferState>
 }
 
 export type ChatTranscriptActions = {
@@ -24,19 +30,31 @@ export type ChatTranscriptActions = {
   fetchMessagesByChatUuid: (chatUuid: string) => Promise<MessageEntity[]>
   addMessage: (message: MessageEntity) => Promise<number>
   updateMessage: (message: MessageEntity) => Promise<void>
+  updateMessageForChat: (chatUuid: string, message: MessageEntity) => Promise<void>
   patchMessageUiState: (id: number, uiState: { typewriterCompleted?: boolean }) => Promise<void>
   deleteMessage: (messageId: number) => Promise<void>
+  deleteMessageForChat: (chatUuid: string, messageId: number) => Promise<void>
   settleLatestAssistantAfterAbort: () => Promise<void>
   upsertMessage: (message: MessageEntity) => void
+  upsertMessageForChat: (chatUuid: string, message: MessageEntity) => void
   updateLastAssistantMessageWithError: (error: Error) => Promise<number | undefined>
   clearMessages: () => void
   patchMessageSegment: (messageId: number, patch: MessageSegmentPatch) => void
+  patchMessageSegmentForChat: (chatUuid: string, messageId: number, patch: MessageSegmentPatch) => void
+  settleLatestAssistantAfterAbortForChat: (chatUuid: string) => Promise<void>
   setMessages: (msgs: MessageEntity[]) => void
+  setMessagesForChat: (chatUuid: string, msgs: MessageEntity[]) => void
+  restoreTranscriptForChat: (chatUuid: string | null | undefined, persistedMessages: MessageEntity[]) => void
   // Preview is an ephemeral overlay driven by run-output ingress. It is never persisted as transcript history.
   replacePreviewMessage: (message: MessageEntity | null) => void
+  replacePreviewMessageForChat: (chatUuid: string, message: MessageEntity | null) => void
   applyPreviewSegmentPatch: (patch: MessageSegmentPatch) => void
+  applyPreviewSegmentPatchForChat: (chatUuid: string, patch: MessageSegmentPatch) => void
   applyPreviewSegmentPatches: (patches: MessageSegmentPatch[]) => void
+  applyPreviewSegmentPatchesForChat: (chatUuid: string, patches: MessageSegmentPatch[]) => void
   resetPreview: () => void
+  resetPreviewForChat: (chatUuid: string) => void
+  updateLastAssistantMessageWithErrorForChat: (chatUuid: string, error: Error) => Promise<number | undefined>
 }
 
 type ChatTranscriptContext = {
@@ -93,8 +111,75 @@ export const createInitialChatTranscriptState = (): ChatTranscriptState => ({
   messages: [],
   preview: {
     message: null
-  }
+  },
+  transcriptBuffersByChatUuid: {}
 })
+
+function createEmptyTranscriptBuffer(): ChatTranscriptBufferState {
+  return {
+    messages: [],
+    preview: {
+      message: null
+    }
+  }
+}
+
+function mergeMessagesByIdentity(
+  baseMessages: MessageEntity[],
+  incomingMessages: MessageEntity[]
+): MessageEntity[] {
+  const nextMessages = [...baseMessages]
+
+  for (const incoming of incomingMessages) {
+    if (!incoming.id) {
+      nextMessages.push(incoming)
+      continue
+    }
+
+    const index = nextMessages.findIndex(message => message.id === incoming.id)
+    if (index >= 0) {
+      nextMessages[index] = mergeMessageEntityPreservingSegments(nextMessages[index], incoming)
+    } else {
+      nextMessages.push(incoming)
+    }
+  }
+
+  return nextMessages
+}
+
+function upsertMessageIntoList(messages: MessageEntity[], message: MessageEntity): MessageEntity[] {
+  if (!message.id) {
+    return [...messages, message]
+  }
+
+  const index = messages.findIndex((m) => m.id === message.id)
+  if (index >= 0) {
+    return messages.map((m) => (
+      m.id === message.id ? mergeMessageEntityPreservingSegments(m, message) : m
+    ))
+  }
+
+  return [...messages, message]
+}
+
+function patchMessageSegmentInList(
+  messages: MessageEntity[],
+  messageId: number,
+  patch: MessageSegmentPatch
+): MessageEntity[] {
+  return messages.map((message) => (
+    message.id === messageId
+      ? applyMessageSegmentPatchToEntity(message, patch)
+      : message
+  ))
+}
+
+function getTranscriptBuffer(
+  state: ChatTranscriptState,
+  chatUuid: string
+): ChatTranscriptBufferState {
+  return state.transcriptBuffersByChatUuid[chatUuid] ?? createEmptyTranscriptBuffer()
+}
 
 export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
   set: Parameters<StateCreator<T>>[0],
@@ -105,10 +190,17 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
       const messages = await trimTrailingCompletedEmptyAssistantPlaceholders(
         await messagePersistence.getMessagesByChatUuid(chatUuid)
       )
+      const buffer = getTranscriptBuffer(get(), chatUuid)
+      const restoredMessages = mergeMessagesByIdentity(messages, buffer.messages)
       set({
-        messages,
-        preview: {
-          message: null
+        messages: restoredMessages,
+        preview: buffer.preview,
+        transcriptBuffersByChatUuid: {
+          ...get().transcriptBuffersByChatUuid,
+          [chatUuid]: {
+            messages: restoredMessages,
+            preview: buffer.preview
+          }
         }
       } as Partial<T>)
       return messages
@@ -122,16 +214,31 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
 
     addMessage: async (message) => {
       const state = get()
+      const chatId = message.chatId ?? state.currentChatId ?? undefined
+      const chatUuid = message.chatUuid ?? state.currentChatUuid ?? undefined
       const msgId = await messagePersistence.saveMessage({
         ...message,
-        chatId: state.currentChatId || undefined,
-        chatUuid: state.currentChatUuid || undefined
+        chatId,
+        chatUuid
       })
 
       message.id = msgId
+      message.chatId = chatId
+      message.chatUuid = chatUuid
 
       set((prevState) => ({
-        messages: [...prevState.messages, message]
+        messages: [...prevState.messages, message],
+        ...(chatUuid
+          ? {
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [chatUuid]: {
+                messages: [...getTranscriptBuffer(prevState, chatUuid).messages, message],
+                preview: getTranscriptBuffer(prevState, chatUuid).preview
+              }
+            }
+          }
+          : {})
       } as Partial<T>))
 
       return msgId
@@ -145,16 +252,45 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
 
       await messagePersistence.updateMessage(message)
 
-      set((prevState) => ({
-        messages: prevState.messages.map(m => (m.id === message.id ? message : m))
-      } as Partial<T>))
+      set((prevState) => {
+        const messages = prevState.messages.map(m => (m.id === message.id ? message : m))
+        return {
+          messages,
+          ...(prevState.currentChatUuid
+            ? {
+              transcriptBuffersByChatUuid: {
+                ...prevState.transcriptBuffersByChatUuid,
+                [prevState.currentChatUuid]: {
+                  messages,
+                  preview: prevState.preview
+                }
+              }
+            }
+            : {})
+        } as Partial<T>
+      })
+    },
+
+    updateMessageForChat: async (chatUuid, message) => {
+      if (!message.id) {
+        console.warn('[Store] Cannot update message without id')
+        return
+      }
+
+      const scopedMessage = {
+        ...message,
+        chatUuid: message.chatUuid ?? chatUuid
+      }
+
+      await messagePersistence.updateMessage(scopedMessage)
+      get().upsertMessageForChat(chatUuid, scopedMessage)
     },
 
     patchMessageUiState: async (id, uiState) => {
       await messagePersistence.patchMessageUiState(id, uiState)
 
-      set((prevState) => ({
-        messages: prevState.messages.map((message) => (
+      set((prevState) => {
+        const messages = prevState.messages.map((message) => (
           message.id === id
             ? {
               ...message,
@@ -167,15 +303,79 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
             }
             : message
         ))
-      } as Partial<T>))
+
+        return {
+          messages,
+          ...(prevState.currentChatUuid
+            ? {
+              transcriptBuffersByChatUuid: {
+                ...prevState.transcriptBuffersByChatUuid,
+                [prevState.currentChatUuid]: {
+                  messages,
+                  preview: prevState.preview
+                }
+              }
+            }
+            : {})
+        } as Partial<T>
+      })
     },
 
     deleteMessage: async (messageId) => {
       await messagePersistence.deleteMessage(messageId)
 
-      set((prevState) => ({
-        messages: prevState.messages.filter(m => m.id !== messageId)
-      } as Partial<T>))
+      set((prevState) => {
+        const messages = prevState.messages.filter(m => m.id !== messageId)
+        return {
+          messages,
+          ...(prevState.currentChatUuid
+            ? {
+              transcriptBuffersByChatUuid: {
+                ...prevState.transcriptBuffersByChatUuid,
+                [prevState.currentChatUuid]: {
+                  messages,
+                  preview: prevState.preview
+                }
+              }
+            }
+            : {})
+        } as Partial<T>
+      })
+    },
+
+    deleteMessageForChat: async (chatUuid, messageId) => {
+      await messagePersistence.deleteMessage(messageId)
+
+      set((prevState) => {
+        const buffer = getTranscriptBuffer(prevState, chatUuid)
+        const messages = (prevState.currentChatUuid === chatUuid
+          ? prevState.messages
+          : buffer.messages
+        ).filter(m => m.id !== messageId)
+
+        if (prevState.currentChatUuid === chatUuid) {
+          return {
+            messages,
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [chatUuid]: {
+                ...buffer,
+                messages
+              }
+            }
+          } as Partial<T>
+        }
+
+        return {
+          transcriptBuffersByChatUuid: {
+            ...prevState.transcriptBuffersByChatUuid,
+            [chatUuid]: {
+              ...buffer,
+              messages
+            }
+          }
+        } as Partial<T>
+      })
     },
 
     settleLatestAssistantAfterAbort: async () => {
@@ -221,24 +421,52 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
     },
 
     upsertMessage: (message) => {
+      const chatUuid = message.chatUuid ?? get().currentChatUuid
+      if (chatUuid) {
+        get().upsertMessageForChat(chatUuid, message)
+        return
+      }
+
       set((prevState) => {
-        if (!message.id) {
-          return {
-            messages: [...prevState.messages, message]
-          } as Partial<T>
+        return {
+          messages: upsertMessageIntoList(prevState.messages, message)
+        } as Partial<T>
+      })
+    },
+
+    upsertMessageForChat: (chatUuid, message) => {
+      const scopedMessage = {
+        ...message,
+        chatUuid: message.chatUuid ?? chatUuid
+      }
+
+      set((prevState) => {
+        const buffer = getTranscriptBuffer(prevState, chatUuid)
+        const bufferMessages = upsertMessageIntoList(buffer.messages, scopedMessage)
+        const nextBuffer = {
+          ...buffer,
+          messages: bufferMessages
         }
 
-        const index = prevState.messages.findIndex((m) => m.id === message.id)
-        if (index >= 0) {
+        if (prevState.currentChatUuid === chatUuid) {
+          const messages = upsertMessageIntoList(prevState.messages, scopedMessage)
           return {
-            messages: prevState.messages.map((m) => (
-              m.id === message.id ? mergeMessageEntityPreservingSegments(m, message) : m
-            ))
+            messages,
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [chatUuid]: {
+                ...nextBuffer,
+                messages
+              }
+            }
           } as Partial<T>
         }
 
         return {
-          messages: [...prevState.messages, message]
+          transcriptBuffersByChatUuid: {
+            ...prevState.transcriptBuffersByChatUuid,
+            [chatUuid]: nextBuffer
+          }
         } as Partial<T>
       })
     },
@@ -326,44 +554,335 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
       return updatedMessage.id
     },
 
-    clearMessages: () => set({
-      messages: [] as MessageEntity[],
-      preview: {
+    clearMessages: () => set((prevState) => {
+      const messages = [] as MessageEntity[]
+      const preview = {
         message: null
       }
-    } as Partial<T>),
+      return {
+        messages,
+        preview,
+        ...(prevState.currentChatUuid
+          ? {
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [prevState.currentChatUuid]: {
+                messages,
+                preview
+              }
+            }
+          }
+          : {})
+      } as Partial<T>
+    }),
 
-    patchMessageSegment: (messageId, patch) => set((prevState) => ({
-      messages: prevState.messages.map((message) => (
-        message.id === messageId
-          ? applyMessageSegmentPatchToEntity(message, patch)
-          : message
-      ))
-    } as Partial<T>)),
+    patchMessageSegment: (messageId, patch) => {
+      const chatUuid = get().currentChatUuid
+      if (chatUuid) {
+        get().patchMessageSegmentForChat(chatUuid, messageId, patch)
+        return
+      }
 
-    setMessages: (msgs) => set({
-      messages: msgs,
-      preview: {
+      set((prevState) => ({
+        messages: patchMessageSegmentInList(prevState.messages, messageId, patch)
+      } as Partial<T>))
+    },
+
+    patchMessageSegmentForChat: (chatUuid, messageId, patch) => set((prevState) => {
+      const buffer = getTranscriptBuffer(prevState, chatUuid)
+      const bufferMessages = patchMessageSegmentInList(buffer.messages, messageId, patch)
+      if (prevState.currentChatUuid === chatUuid) {
+        const messages = patchMessageSegmentInList(prevState.messages, messageId, patch)
+        return {
+          messages,
+          transcriptBuffersByChatUuid: {
+            ...prevState.transcriptBuffersByChatUuid,
+            [chatUuid]: {
+              ...buffer,
+              messages
+            }
+          }
+        } as Partial<T>
+      }
+
+      return {
+        transcriptBuffersByChatUuid: {
+          ...prevState.transcriptBuffersByChatUuid,
+          [chatUuid]: {
+            ...buffer,
+            messages: bufferMessages
+          }
+        }
+      } as Partial<T>
+    }),
+
+    settleLatestAssistantAfterAbortForChat: async (chatUuid) => {
+      const state = get()
+      const sourceMessages = state.currentChatUuid === chatUuid
+        ? state.messages
+        : getTranscriptBuffer(state, chatUuid).messages
+      const lastAssistantMessage = [...sourceMessages]
+        .reverse()
+        .find(msg => msg.body.role === 'assistant')
+
+      if (!lastAssistantMessage) {
+        return
+      }
+
+      if (!hasAssistantPayload(lastAssistantMessage.body)) {
+        if (lastAssistantMessage.id) {
+          await messagePersistence.deleteMessage(lastAssistantMessage.id)
+        }
+        set((prevState) => {
+          const buffer = getTranscriptBuffer(prevState, chatUuid)
+          const messages = (prevState.currentChatUuid === chatUuid
+            ? prevState.messages
+            : buffer.messages
+          ).filter(message => (
+            lastAssistantMessage.id
+              ? message.id !== lastAssistantMessage.id
+              : message !== lastAssistantMessage
+          ))
+
+          if (prevState.currentChatUuid === chatUuid) {
+            return {
+              messages,
+              transcriptBuffersByChatUuid: {
+                ...prevState.transcriptBuffersByChatUuid,
+                [chatUuid]: {
+                  ...buffer,
+                  messages
+                }
+              }
+            } as Partial<T>
+          }
+
+          return {
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [chatUuid]: {
+                ...buffer,
+                messages
+              }
+            }
+          } as Partial<T>
+        })
+        return
+      }
+
+      if (lastAssistantMessage.id && !lastAssistantMessage.body.typewriterCompleted) {
+        await messagePersistence.patchMessageUiState(lastAssistantMessage.id, { typewriterCompleted: true })
+        const updatedMessage = {
+          ...lastAssistantMessage,
+          body: {
+            ...lastAssistantMessage.body,
+            typewriterCompleted: true
+          }
+        }
+        get().upsertMessageForChat(chatUuid, updatedMessage)
+      }
+    },
+
+    setMessages: (msgs) => set((prevState) => {
+      const preview = {
         message: null
       }
-    } as Partial<T>),
 
-    replacePreviewMessage: (message) => set((prevState) => ({
-      preview: {
+      return {
+        messages: msgs,
+        preview,
+        ...(prevState.currentChatUuid
+          ? {
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [prevState.currentChatUuid]: {
+                messages: msgs,
+                preview
+              }
+            }
+          }
+          : {})
+      } as Partial<T>
+    }),
+
+    setMessagesForChat: (chatUuid, msgs) => set((prevState) => {
+      const nextBuffer = {
+        messages: msgs,
+        preview: {
+          message: null
+        }
+      }
+
+      if (prevState.currentChatUuid === chatUuid) {
+        return {
+          messages: msgs,
+          preview: nextBuffer.preview,
+          transcriptBuffersByChatUuid: {
+            ...prevState.transcriptBuffersByChatUuid,
+            [chatUuid]: nextBuffer
+          }
+        } as Partial<T>
+      }
+
+      return {
+        transcriptBuffersByChatUuid: {
+          ...prevState.transcriptBuffersByChatUuid,
+          [chatUuid]: nextBuffer
+        }
+      } as Partial<T>
+    }),
+
+    restoreTranscriptForChat: (chatUuid, persistedMessages) => set((prevState) => {
+      if (!chatUuid) {
+        return {
+          messages: [] as MessageEntity[],
+          preview: {
+            message: null
+          }
+        } as Partial<T>
+      }
+
+      const buffer = getTranscriptBuffer(prevState, chatUuid)
+      const messages = mergeMessagesByIdentity(persistedMessages, buffer.messages)
+      const preview = buffer.preview
+
+      return {
+        messages,
+        preview,
+        transcriptBuffersByChatUuid: {
+          ...prevState.transcriptBuffersByChatUuid,
+          [chatUuid]: {
+            messages,
+            preview
+          }
+        }
+      } as Partial<T>
+    }),
+
+    replacePreviewMessage: (message) => set((prevState) => {
+      const preview = {
         message: message && prevState.preview.message
           ? mergeMessageEntityPreservingSegments(prevState.preview.message, message)
           : message
       }
-    } as Partial<T>)),
+
+      return {
+        preview,
+        ...(prevState.currentChatUuid
+          ? {
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [prevState.currentChatUuid]: {
+                messages: prevState.messages,
+                preview
+              }
+            }
+          }
+          : {})
+      } as Partial<T>
+    }),
+
+    replacePreviewMessageForChat: (chatUuid, message) => set((prevState) => {
+      const buffer = getTranscriptBuffer(prevState, chatUuid)
+      const visiblePreviewMessage = prevState.preview.message
+      const bufferPreviewMessage = buffer.preview.message
+      const preview = {
+        message: message && bufferPreviewMessage
+          ? mergeMessageEntityPreservingSegments(bufferPreviewMessage, message)
+          : message
+      }
+
+      if (prevState.currentChatUuid === chatUuid) {
+        const visiblePreview = {
+          message: message && visiblePreviewMessage
+            ? mergeMessageEntityPreservingSegments(visiblePreviewMessage, message)
+            : message
+        }
+        return {
+          preview: visiblePreview,
+          transcriptBuffersByChatUuid: {
+            ...prevState.transcriptBuffersByChatUuid,
+            [chatUuid]: {
+              ...buffer,
+              preview: visiblePreview
+            }
+          }
+        } as Partial<T>
+      }
+
+      return {
+        transcriptBuffersByChatUuid: {
+          ...prevState.transcriptBuffersByChatUuid,
+          [chatUuid]: {
+            ...buffer,
+            preview
+          }
+        }
+      } as Partial<T>
+    }),
 
     applyPreviewSegmentPatch: (patch) => set((prevState) => {
       if (!prevState.preview.message) {
         return prevState as Partial<T>
       }
 
+      const preview = {
+        message: applyMessageSegmentPatchToEntity(prevState.preview.message, patch)
+      }
+
       return {
-        preview: {
+        preview,
+        ...(prevState.currentChatUuid
+          ? {
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [prevState.currentChatUuid]: {
+                messages: prevState.messages,
+                preview
+              }
+            }
+          }
+          : {})
+      } as Partial<T>
+    }),
+
+    applyPreviewSegmentPatchForChat: (chatUuid, patch) => set((prevState) => {
+      const buffer = getTranscriptBuffer(prevState, chatUuid)
+      const bufferPreviewMessage = buffer.preview.message
+
+      if (prevState.currentChatUuid === chatUuid) {
+        if (!prevState.preview.message) {
+          return prevState as Partial<T>
+        }
+
+        const preview = {
           message: applyMessageSegmentPatchToEntity(prevState.preview.message, patch)
+        }
+        return {
+          preview,
+          transcriptBuffersByChatUuid: {
+            ...prevState.transcriptBuffersByChatUuid,
+            [chatUuid]: {
+              ...buffer,
+              preview
+            }
+          }
+        } as Partial<T>
+      }
+
+      if (!bufferPreviewMessage) {
+        return prevState as Partial<T>
+      }
+
+      return {
+        transcriptBuffersByChatUuid: {
+          ...prevState.transcriptBuffersByChatUuid,
+          [chatUuid]: {
+            ...buffer,
+            preview: {
+              message: applyMessageSegmentPatchToEntity(bufferPreviewMessage, patch)
+            }
+          }
         }
       } as Partial<T>
     }),
@@ -373,20 +892,200 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
         return prevState as Partial<T>
       }
 
+      const preview = {
+        message: patches.reduce(
+          (message, patch) => applyMessageSegmentPatchToEntity(message, patch),
+          prevState.preview.message
+        )
+      }
+
       return {
-        preview: {
+        preview,
+        ...(prevState.currentChatUuid
+          ? {
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [prevState.currentChatUuid]: {
+                messages: prevState.messages,
+                preview
+              }
+            }
+          }
+          : {})
+      } as Partial<T>
+    }),
+
+    applyPreviewSegmentPatchesForChat: (chatUuid, patches) => set((prevState) => {
+      if (patches.length === 0) {
+        return prevState as Partial<T>
+      }
+
+      const buffer = getTranscriptBuffer(prevState, chatUuid)
+      const bufferPreviewMessage = buffer.preview.message
+
+      if (prevState.currentChatUuid === chatUuid) {
+        if (!prevState.preview.message) {
+          return prevState as Partial<T>
+        }
+
+        const preview = {
           message: patches.reduce(
             (message, patch) => applyMessageSegmentPatchToEntity(message, patch),
             prevState.preview.message
           )
         }
+        return {
+          preview,
+          transcriptBuffersByChatUuid: {
+            ...prevState.transcriptBuffersByChatUuid,
+            [chatUuid]: {
+              ...buffer,
+              preview
+            }
+          }
+        } as Partial<T>
+      }
+
+      if (!bufferPreviewMessage) {
+        return prevState as Partial<T>
+      }
+
+      return {
+        transcriptBuffersByChatUuid: {
+          ...prevState.transcriptBuffersByChatUuid,
+          [chatUuid]: {
+            ...buffer,
+            preview: {
+              message: patches.reduce(
+                (message, patch) => applyMessageSegmentPatchToEntity(message, patch),
+                bufferPreviewMessage
+              )
+            }
+          }
+        }
       } as Partial<T>
     }),
 
-    resetPreview: () => set({
-      preview: {
+    resetPreview: () => set((prevState) => {
+      const preview = {
         message: null
       }
-    } as Partial<T>)
+      return {
+        preview,
+        ...(prevState.currentChatUuid
+          ? {
+            transcriptBuffersByChatUuid: {
+              ...prevState.transcriptBuffersByChatUuid,
+              [prevState.currentChatUuid]: {
+                messages: prevState.messages,
+                preview
+              }
+            }
+          }
+          : {})
+      } as Partial<T>
+    }),
+
+    resetPreviewForChat: (chatUuid) => set((prevState) => {
+      const buffer = getTranscriptBuffer(prevState, chatUuid)
+      const preview = {
+        message: null
+      }
+
+      if (prevState.currentChatUuid === chatUuid) {
+        return {
+          preview,
+          transcriptBuffersByChatUuid: {
+            ...prevState.transcriptBuffersByChatUuid,
+            [chatUuid]: {
+              ...buffer,
+              preview
+            }
+          }
+        } as Partial<T>
+      }
+
+      return {
+        transcriptBuffersByChatUuid: {
+          ...prevState.transcriptBuffersByChatUuid,
+          [chatUuid]: {
+            ...buffer,
+            preview
+          }
+        }
+      } as Partial<T>
+    }),
+
+    updateLastAssistantMessageWithErrorForChat: async (chatUuid, error) => {
+      const state = get()
+      const sourceMessages = state.currentChatUuid === chatUuid
+        ? state.messages
+        : getTranscriptBuffer(state, chatUuid).messages
+      const lastAssistantMessage = [...sourceMessages]
+        .reverse()
+        .find(msg => msg.body.role === 'assistant')
+
+      const normalizeErrorCause = (value: unknown):
+        { name?: string; message?: string; stack?: string; code?: string } | undefined => {
+        if (!value || typeof value !== 'object') return undefined
+        const source = value as Record<string, unknown>
+        const cause: { name?: string; message?: string; stack?: string; code?: string } = {}
+        if (typeof source.name === 'string') cause.name = source.name
+        if (typeof source.message === 'string') cause.message = source.message
+        if (typeof source.stack === 'string') cause.stack = source.stack
+        if (typeof source.code === 'string') cause.code = source.code
+        if (!cause.name && !cause.message && !cause.stack && !cause.code) return undefined
+        return cause
+      }
+
+      const errorSegment: ErrorSegment = {
+        type: 'error',
+        segmentId: buildMessageSegmentId('error', 'renderer-chat-store', Date.now()),
+        error: {
+          name: error.name || 'Error',
+          message: error.message || 'Unknown error',
+          stack: error.stack,
+          code: (error as any).code,
+          cause: normalizeErrorCause((error as any).cause),
+          timestamp: Date.now()
+        }
+      }
+
+      if (!lastAssistantMessage) {
+        const fallbackMessage: MessageEntity = {
+          body: {
+            role: 'assistant',
+            model: state.selectedModelRef?.modelId || 'unknown',
+            modelRef: state.selectedModelRef
+              ? { accountId: state.selectedModelRef.accountId, modelId: state.selectedModelRef.modelId }
+              : undefined,
+            content: '',
+            segments: [errorSegment],
+            typewriterCompleted: true
+          },
+          chatId: state.currentChatUuid === chatUuid ? state.currentChatId || undefined : undefined,
+          chatUuid
+        }
+
+        const msgId = await messagePersistence.saveMessage(fallbackMessage)
+        fallbackMessage.id = msgId
+        get().upsertMessageForChat(chatUuid, fallbackMessage)
+        return msgId
+      }
+
+      const updatedMessage: MessageEntity = {
+        ...lastAssistantMessage,
+        body: {
+          ...lastAssistantMessage.body,
+          segments: [...(lastAssistantMessage.body.segments || []), errorSegment]
+        }
+      }
+
+      if (updatedMessage.id) {
+        await messagePersistence.updateMessage(updatedMessage)
+      }
+      get().upsertMessageForChat(chatUuid, updatedMessage)
+      return updatedMessage.id
+    }
   }
 }

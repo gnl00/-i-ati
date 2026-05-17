@@ -26,18 +26,47 @@ const logger = createRendererLogger('ChatRunEvent')
 
 type BindChatRunEventsInput = {
   submissionId: string
+  runChatUuidRef: MutableRefObject<string | null>
   chatStore: ChatStoreState
   runCompletedRef: MutableRefObject<boolean>
   lastErrorMessageRef: MutableRefObject<LastRunErrorMessage | null>
   clearedErrorMessageIdsRef: MutableRefObject<Set<number>>
-  hasPendingBlockingPostRunJobs: () => boolean
-  maybeCleanupAfterBackgroundJobs: () => void
-  resetRunLifecycle: (outcome?: ChatRunLifecycleOutcome) => void
-  cleanupActiveRun: () => void
+  hasPendingBlockingPostRunJobs: (chatUuid?: string | null) => boolean
+  maybeCleanupAfterBackgroundJobs: (chatUuid?: string | null) => void
+  resetRunLifecycle: (outcome?: ChatRunLifecycleOutcome, chatUuid?: string | null) => void
+  cleanupActiveRun: (chatUuid?: string | null) => void
   previewPatchBatcher?: PreviewPatchBatcher
 }
 
 const getLatestChatStore = (): ChatStoreState => useChatStore.getState()
+
+function resolveRunEventChatUuid(input: BindChatRunEventsInput, event: RunEvent): string | null {
+  if (event.chatUuid) {
+    return event.chatUuid
+  }
+
+  switch (event.type) {
+    case CHAT_HOST_EVENTS.CHAT_READY:
+      return event.payload.chatEntity.uuid ?? input.runChatUuidRef.current
+    case CHAT_HOST_EVENTS.MESSAGES_LOADED:
+      return event.payload.messages[0]?.chatUuid ?? input.runChatUuidRef.current
+    case CHAT_RENDER_EVENTS.MESSAGE_CREATED:
+    case CHAT_RENDER_EVENTS.MESSAGE_UPDATED:
+      return event.payload.message.chatUuid ?? input.runChatUuidRef.current
+    case CHAT_RENDER_EVENTS.PREVIEW_UPDATED:
+      return event.payload.message.chatUuid ?? input.runChatUuidRef.current
+    case CHAT_RENDER_EVENTS.PREVIEW_SEGMENT_UPDATED:
+      return event.payload.chatUuid ?? input.runChatUuidRef.current
+    default:
+      return input.runChatUuidRef.current
+  }
+}
+
+function rememberRunChatUuid(input: BindChatRunEventsInput, chatUuid: string | null): void {
+  if (chatUuid) {
+    input.runChatUuidRef.current = chatUuid
+  }
+}
 
 function normalizeUnknownError(error: unknown): { name?: string; message: string; stack?: string } {
   if (error instanceof Error) {
@@ -75,27 +104,53 @@ function getRunEventLogContext(event: RunEvent, error: unknown): Record<string, 
   }
 }
 
-function handleChatReady(chatStore: ChatStoreState, event: Extract<RunEvent, { type: typeof CHAT_HOST_EVENTS.CHAT_READY }>): void {
-  chatStore.applyReadyChat(event.payload.chatEntity)
+function handleChatReady(
+  input: BindChatRunEventsInput,
+  chatStore: ChatStoreState,
+  event: Extract<RunEvent, { type: typeof CHAT_HOST_EVENTS.CHAT_READY }>
+): void {
+  const hadRunChatUuid = Boolean(input.runChatUuidRef.current)
+  const chatUuid = event.payload.chatEntity.uuid ?? null
+  const latestStore = getLatestChatStore()
+  const shouldSelectShell = !hadRunChatUuid || latestStore.currentChatUuid === chatUuid
+  chatStore.applyReadyChat(event.payload.chatEntity, { selectShell: shouldSelectShell })
+  rememberRunChatUuid(input, chatUuid)
+  if (chatUuid) {
+    const runStatus = latestStore.getRunStatusForChat(chatUuid)
+    if (runStatus.runPhase === 'idle') {
+      getLatestChatStore().setRunPhaseForChat(chatUuid, 'submitting')
+    }
+  }
 }
 
-function handleMessagesLoaded(chatStore: ChatStoreState, event: Extract<RunEvent, { type: typeof CHAT_HOST_EVENTS.MESSAGES_LOADED }>): void {
-  chatStore.resetPreview()
-  chatStore.setMessages(event.payload.messages)
-  if (event.payload.messages.length > 0) {
+function handleMessagesLoaded(
+  chatUuid: string | null,
+  chatStore: ChatStoreState,
+  event: Extract<RunEvent, { type: typeof CHAT_HOST_EVENTS.MESSAGES_LOADED }>
+): void {
+  if (chatUuid) {
+    chatStore.resetPreviewForChat(chatUuid)
+    chatStore.setMessagesForChat(chatUuid, event.payload.messages)
+  } else {
+    chatStore.resetPreview()
+    chatStore.setMessages(event.payload.messages)
+  }
+
+  if (event.payload.messages.length > 0 && (!chatUuid || getLatestChatStore().currentChatUuid === chatUuid)) {
     const latestStore = getLatestChatStore()
     chatStore.setScrollHint({
       type: 'conversation-switch',
-      chatUuid: latestStore.currentChatUuid,
+      chatUuid: chatUuid ?? latestStore.currentChatUuid,
       index: event.payload.messages.length - 1,
       align: 'end'
     })
-  } else {
+  } else if (!chatUuid || getLatestChatStore().currentChatUuid === chatUuid) {
     chatStore.clearScrollHint()
   }
 }
 
 function handleRunMessageEvent(
+  chatUuid: string | null,
   chatStore: ChatStoreState,
   event: Extract<RunEvent, { type: typeof CHAT_RENDER_EVENTS.MESSAGE_CREATED | typeof CHAT_RENDER_EVENTS.MESSAGE_UPDATED }>,
   clearedErrorMessageIdsRef: MutableRefObject<Set<number>>
@@ -103,31 +158,56 @@ function handleRunMessageEvent(
   const { message } = event.payload
   const latestStore = getLatestChatStore()
 
-  if (message.body.role === 'assistant' && latestStore.runPhase === 'submitting') {
-    chatStore.setRunPhase('streaming')
+  if (message.body.role === 'assistant') {
+    const runStatus = chatUuid ? latestStore.getRunStatusForChat(chatUuid) : latestStore
+    if (runStatus.runPhase === 'submitting') {
+      if (chatUuid) {
+        latestStore.setRunPhaseForChat(chatUuid, 'streaming')
+      } else {
+        chatStore.setRunPhase('streaming')
+      }
+    }
   }
   if (message.id && clearedErrorMessageIdsRef.current.has(message.id)) {
     return
   }
 
-  latestStore.upsertMessage(message)
+  if (chatUuid) {
+    latestStore.upsertMessageForChat(chatUuid, message)
+  } else {
+    latestStore.upsertMessage(message)
+  }
 
-  if (event.type === CHAT_RENDER_EVENTS.MESSAGE_CREATED && message.body.role === 'user') {
+  if (
+    event.type === CHAT_RENDER_EVENTS.MESSAGE_CREATED
+    && message.body.role === 'user'
+    && (!chatUuid || latestStore.currentChatUuid === chatUuid)
+  ) {
     latestStore.setScrollHint({
       type: 'user-sent',
-      chatUuid: latestStore.currentChatUuid,
+      chatUuid: chatUuid ?? latestStore.currentChatUuid,
       messageId: message.id
     })
   }
 
   if (message.body.role === 'assistant') {
-    chatStore.resetPreview()
+    if (chatUuid) {
+      chatStore.resetPreviewForChat(chatUuid)
+    } else {
+      chatStore.resetPreview()
+    }
   }
 }
 
-function ensureStreamingPhaseOnPreview(chatStore: ChatStoreState): void {
-  if (getLatestChatStore().runPhase === 'submitting') {
-    chatStore.setRunPhase('streaming')
+function ensureStreamingPhaseOnPreview(chatUuid: string | null, chatStore: ChatStoreState): void {
+  const latestStore = getLatestChatStore()
+  const runStatus = chatUuid ? latestStore.getRunStatusForChat(chatUuid) : latestStore
+  if (runStatus.runPhase === 'submitting') {
+    if (chatUuid) {
+      latestStore.setRunPhaseForChat(chatUuid, 'streaming')
+    } else {
+      chatStore.setRunPhase('streaming')
+    }
   }
 }
 
@@ -136,24 +216,38 @@ function flushPreviewPatchBatch(input: BindChatRunEventsInput): void {
 }
 
 function handleMaintenancePending(
+  chatUuid: string | null,
   chatStore: ChatStoreState,
   job: 'title' | 'compression',
   runCompletedRef: MutableRefObject<boolean>,
   blocksSubmit: boolean
 ): void {
-  chatStore.setPostRunJobState(job, 'pending')
+  if (chatUuid) {
+    chatStore.setPostRunJobStateForChat(chatUuid, job, 'pending')
+  } else {
+    chatStore.setPostRunJobState(job, 'pending')
+  }
   if (blocksSubmit && runCompletedRef.current) {
-    chatStore.setRunPhase('post_run')
+    if (chatUuid) {
+      chatStore.setRunPhaseForChat(chatUuid, 'post_run')
+    } else {
+      chatStore.setRunPhase('post_run')
+    }
   }
 }
 
 function handleMaintenanceCompleted(
+  chatUuid: string | null,
   chatStore: ChatStoreState,
   job: 'title' | 'compression',
-  maybeCleanupAfterBackgroundJobs: () => void
+  maybeCleanupAfterBackgroundJobs: (chatUuid?: string | null) => void
 ): void {
-  chatStore.setPostRunJobState(job, 'idle')
-  maybeCleanupAfterBackgroundJobs()
+  if (chatUuid) {
+    chatStore.setPostRunJobStateForChat(chatUuid, job, 'idle')
+  } else {
+    chatStore.setPostRunJobState(job, 'idle')
+  }
+  maybeCleanupAfterBackgroundJobs(chatUuid)
 }
 
 export async function handleChatRunEvent(
@@ -176,78 +270,114 @@ export async function handleChatRunEvent(
     return
   }
 
+  const chatUuid = resolveRunEventChatUuid(input, event)
+  rememberRunChatUuid(input, chatUuid)
+
   switch (event.type) {
     case CHAT_HOST_EVENTS.CHAT_READY:
-      handleChatReady(chatStore, event)
+      handleChatReady(input, chatStore, event)
       return
     case CHAT_HOST_EVENTS.MESSAGES_LOADED:
       flushPreviewPatchBatch(input)
-      handleMessagesLoaded(chatStore, event)
+      handleMessagesLoaded(chatUuid, chatStore, event)
       return
     case CHAT_RENDER_EVENTS.MESSAGE_CREATED:
     case CHAT_RENDER_EVENTS.MESSAGE_UPDATED:
       flushPreviewPatchBatch(input)
-      handleRunMessageEvent(chatStore, event, clearedErrorMessageIdsRef)
+      handleRunMessageEvent(chatUuid, chatStore, event, clearedErrorMessageIdsRef)
       return
     case CHAT_RENDER_EVENTS.MESSAGE_SEGMENT_UPDATED:
-      getLatestChatStore().patchMessageSegment(event.payload.messageId, event.payload.patch)
+      if (chatUuid) {
+        getLatestChatStore().patchMessageSegmentForChat(chatUuid, event.payload.messageId, event.payload.patch)
+      } else {
+        getLatestChatStore().patchMessageSegment(event.payload.messageId, event.payload.patch)
+      }
       return
     case CHAT_RENDER_EVENTS.PREVIEW_UPDATED:
       flushPreviewPatchBatch(input)
-      ensureStreamingPhaseOnPreview(chatStore)
-      chatStore.replacePreviewMessage(event.payload.message)
+      ensureStreamingPhaseOnPreview(chatUuid, chatStore)
+      if (chatUuid) {
+        chatStore.replacePreviewMessageForChat(chatUuid, event.payload.message)
+      } else {
+        chatStore.replacePreviewMessage(event.payload.message)
+      }
       return
     case CHAT_RENDER_EVENTS.PREVIEW_SEGMENT_UPDATED:
-      ensureStreamingPhaseOnPreview(chatStore)
+      ensureStreamingPhaseOnPreview(chatUuid, chatStore)
       if (input.previewPatchBatcher) {
         input.previewPatchBatcher.enqueue(event.payload.patch)
       } else {
-        chatStore.applyPreviewSegmentPatch(event.payload.patch)
+        if (chatUuid) {
+          chatStore.applyPreviewSegmentPatchForChat(chatUuid, event.payload.patch)
+        } else {
+          chatStore.applyPreviewSegmentPatch(event.payload.patch)
+        }
       }
       return
     case CHAT_RENDER_EVENTS.PREVIEW_CLEARED:
       flushPreviewPatchBatch(input)
-      chatStore.resetPreview()
+      if (chatUuid) {
+        chatStore.resetPreviewForChat(chatUuid)
+      } else {
+        chatStore.resetPreview()
+      }
       return
     case CHAT_HOST_EVENTS.CHAT_UPDATED:
       chatStore.updateChatList(event.payload.chatEntity)
       return
     case RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_STARTED:
-      handleMaintenancePending(chatStore, 'title', runCompletedRef, false)
+      handleMaintenancePending(chatUuid, chatStore, 'title', runCompletedRef, false)
       return
     case RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_COMPLETED:
-      handleMaintenanceCompleted(chatStore, 'title', maybeCleanupAfterBackgroundJobs)
+      handleMaintenanceCompleted(chatUuid, chatStore, 'title', maybeCleanupAfterBackgroundJobs)
       return
     case RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_FAILED:
-      chatStore.setPostRunJobState('title', 'failed')
+      if (chatUuid) {
+        chatStore.setPostRunJobStateForChat(chatUuid, 'title', 'failed')
+      } else {
+        chatStore.setPostRunJobState('title', 'failed')
+      }
       toast.warning('Title generation failed', {
         description: getRunFailureDescription(event.payload.error)
       })
-      maybeCleanupAfterBackgroundJobs()
+      maybeCleanupAfterBackgroundJobs(chatUuid)
       return
     case RUN_MAINTENANCE_EVENTS.COMPRESSION_STARTED:
-      handleMaintenancePending(chatStore, 'compression', runCompletedRef, true)
+      handleMaintenancePending(chatUuid, chatStore, 'compression', runCompletedRef, true)
       return
     case RUN_MAINTENANCE_EVENTS.COMPRESSION_COMPLETED:
-      handleMaintenanceCompleted(chatStore, 'compression', maybeCleanupAfterBackgroundJobs)
+      handleMaintenanceCompleted(chatUuid, chatStore, 'compression', maybeCleanupAfterBackgroundJobs)
       return
     case RUN_MAINTENANCE_EVENTS.COMPRESSION_FAILED:
-      chatStore.setPostRunJobState('compression', 'failed')
+      if (chatUuid) {
+        chatStore.setPostRunJobStateForChat(chatUuid, 'compression', 'failed')
+      } else {
+        chatStore.setPostRunJobState('compression', 'failed')
+      }
       toast.warning('Message compression failed', {
         description: getRunFailureDescription(event.payload.error)
       })
-      maybeCleanupAfterBackgroundJobs()
+      maybeCleanupAfterBackgroundJobs(chatUuid)
       return
     case RUN_MAINTENANCE_EVENTS.POSTRUN_PLAN: {
       const { title, compression } = event.payload
-      chatStore.setPostRunJobState('title', title === 'pending' ? 'pending' : 'idle')
-      chatStore.setPostRunJobState('compression', compression === 'pending' ? 'pending' : 'idle')
+      if (chatUuid) {
+        chatStore.setPostRunJobStateForChat(chatUuid, 'title', title === 'pending' ? 'pending' : 'idle')
+        chatStore.setPostRunJobStateForChat(chatUuid, 'compression', compression === 'pending' ? 'pending' : 'idle')
+      } else {
+        chatStore.setPostRunJobState('title', title === 'pending' ? 'pending' : 'idle')
+        chatStore.setPostRunJobState('compression', compression === 'pending' ? 'pending' : 'idle')
+      }
 
       if (runCompletedRef.current) {
         if (compression === 'pending') {
-          chatStore.setRunPhase('post_run')
+          if (chatUuid) {
+            chatStore.setRunPhaseForChat(chatUuid, 'post_run')
+          } else {
+            chatStore.setRunPhase('post_run')
+          }
         } else {
-          maybeCleanupAfterBackgroundJobs()
+          maybeCleanupAfterBackgroundJobs(chatUuid)
         }
       }
       return
@@ -265,12 +395,21 @@ export async function handleChatRunEvent(
         lastErrorMessageRef.current = nextLastErrorMessage
       })
       runCompletedRef.current = true
-      chatStore.resetPreview()
-      chatStore.setLastRunOutcome('completed')
-      if (hasPendingBlockingPostRunJobs()) {
-        chatStore.setRunPhase('post_run')
+      if (chatUuid) {
+        chatStore.resetPreviewForChat(chatUuid)
+        chatStore.setLastRunOutcomeForChat(chatUuid, 'completed')
       } else {
-        maybeCleanupAfterBackgroundJobs()
+        chatStore.resetPreview()
+        chatStore.setLastRunOutcome('completed')
+      }
+      if (hasPendingBlockingPostRunJobs(chatUuid)) {
+        if (chatUuid) {
+          chatStore.setRunPhaseForChat(chatUuid, 'post_run')
+        } else {
+          chatStore.setRunPhase('post_run')
+        }
+      } else {
+        maybeCleanupAfterBackgroundJobs(chatUuid)
       }
       return
     case RUN_LIFECYCLE_EVENTS.RUN_FAILED: {
@@ -279,19 +418,26 @@ export async function handleChatRunEvent(
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_failed'
       })
-      chatStore.resetPreview()
-      chatStore.setLastRunOutcome('failed')
+      if (chatUuid) {
+        chatStore.resetPreviewForChat(chatUuid)
+        chatStore.setLastRunOutcomeForChat(chatUuid, 'failed')
+      } else {
+        chatStore.resetPreview()
+        chatStore.setLastRunOutcome('failed')
+      }
       const error = normalizeRunError(event.payload.error)
       const latestStore = getLatestChatStore()
-      const errorMessageId = await latestStore.updateLastAssistantMessageWithError(error)
+      const errorMessageId = chatUuid
+        ? await latestStore.updateLastAssistantMessageWithErrorForChat(chatUuid, error)
+        : await latestStore.updateLastAssistantMessageWithError(error)
       if (errorMessageId) {
         lastErrorMessageRef.current = {
           id: errorMessageId,
-          chatUuid: getLatestChatStore().currentChatUuid
+          chatUuid: chatUuid ?? getLatestChatStore().currentChatUuid
         }
       }
-      resetRunLifecycle('failed')
-      cleanupActiveRun()
+      resetRunLifecycle('failed', chatUuid)
+      cleanupActiveRun(chatUuid)
       return
     }
     case RUN_LIFECYCLE_EVENTS.RUN_ABORTED:
@@ -300,11 +446,17 @@ export async function handleChatRunEvent(
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_aborted'
       })
-      chatStore.resetPreview()
-      chatStore.setLastRunOutcome('aborted')
-      await getLatestChatStore().settleLatestAssistantAfterAbort()
-      resetRunLifecycle('aborted')
-      cleanupActiveRun()
+      if (chatUuid) {
+        chatStore.resetPreviewForChat(chatUuid)
+        chatStore.setLastRunOutcomeForChat(chatUuid, 'aborted')
+        await getLatestChatStore().settleLatestAssistantAfterAbortForChat(chatUuid)
+      } else {
+        chatStore.resetPreview()
+        chatStore.setLastRunOutcome('aborted')
+        await getLatestChatStore().settleLatestAssistantAfterAbort()
+      }
+      resetRunLifecycle('aborted', chatUuid)
+      cleanupActiveRun(chatUuid)
       return
     default:
       return
@@ -325,7 +477,12 @@ export async function handleChatRunEventSafely(
 export function bindChatRunEvents(input: BindChatRunEventsInput): () => void {
   const previewPatchBatcher = new PreviewPatchBatcher({
     applyPatches: (patches) => {
-      useChatStore.getState().applyPreviewSegmentPatches(patches)
+      const chatUuid = input.runChatUuidRef.current
+      if (chatUuid) {
+        useChatStore.getState().applyPreviewSegmentPatchesForChat(chatUuid, patches)
+      } else {
+        useChatStore.getState().applyPreviewSegmentPatches(patches)
+      }
     }
   })
   const boundInput = {

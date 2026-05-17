@@ -39,15 +39,19 @@ export async function clearPreviousErrorMessage(input: {
   }
 
   const state = useChatStore.getState()
+  const sourceMessages = lastErrorMessage.chatUuid && state.currentChatUuid !== lastErrorMessage.chatUuid
+    ? state.transcriptBuffersByChatUuid[lastErrorMessage.chatUuid]?.messages ?? []
+    : state.messages
   if (
     lastErrorMessage.chatUuid
     && state.currentChatUuid
     && lastErrorMessage.chatUuid !== state.currentChatUuid
+    && sourceMessages.length === 0
   ) {
     return null
   }
 
-  const message = state.messages.find(item => item.id === lastErrorMessage.id)
+  const message = sourceMessages.find(item => item.id === lastErrorMessage.id)
   if (!message || message.body.role !== 'assistant') {
     return null
   }
@@ -64,7 +68,11 @@ export async function clearPreviousErrorMessage(input: {
     : Array.isArray(message.body.content) && message.body.content.length > 0
 
   if (!hasNonErrorSegments && !hasContent) {
-    await state.deleteMessage(lastErrorMessage.id)
+    if (lastErrorMessage.chatUuid && state.currentChatUuid !== lastErrorMessage.chatUuid) {
+      await state.deleteMessageForChat(lastErrorMessage.chatUuid, lastErrorMessage.id)
+    } else {
+      await state.deleteMessage(lastErrorMessage.id)
+    }
     clearedErrorMessageIds.add(lastErrorMessage.id)
     return null
   }
@@ -76,6 +84,10 @@ export async function clearPreviousErrorMessage(input: {
       segments: segments.filter(segment => (segment as any).type !== 'error')
     }
   }
-  await state.updateMessage(updated)
+  if (lastErrorMessage.chatUuid && state.currentChatUuid !== lastErrorMessage.chatUuid) {
+    await state.updateMessageForChat(lastErrorMessage.chatUuid, updated)
+  } else {
+    await state.updateMessage(updated)
+  }
   return null
 }
