@@ -343,6 +343,7 @@ declare interface ChatEntity {
   modelRef?: ModelRef // 最近使用的模型引用
   workspacePath?: string // 自定义工作空间路径（绝对路径）
   userInstruction?: string // Chat-level user instruction
+  hostBindings?: ChatHostBindingSummary[] // Optional host metadata for renderer list display
   updateTime: number // 更新时间
   createTime: number // 创建时间
 }
@@ -375,6 +376,14 @@ declare interface ChatHostBindingEntity {
   metadata?: Record<string, unknown>
   createTime: number
   updateTime: number
+}
+
+declare interface ChatHostBindingSummary {
+  hostType: string
+  hostChatId: string
+  hostThreadId?: string
+  status: 'active' | 'archived'
+  metadata?: Record<string, unknown>
 }
 
 declare interface MessageEntity {

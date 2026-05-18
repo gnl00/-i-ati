@@ -17,6 +17,11 @@ interface ChatTitleListProps {
 const SEARCH_RESULT_LIMIT = 50
 const SEARCH_BAR_CLEARANCE_CLASS = 'pt-11'
 
+type TelegramBadgeMeta = {
+  label: string
+  peerType?: string
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -112,6 +117,85 @@ function getSearchResultHitCount(result: ChatSearchResult): number {
 
 function formatHitCountLabel(hitCount: number): string {
   return `${hitCount === 1 ? '' : '+'}${hitCount}`
+}
+
+function getMetadataString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = metadata?.[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function getTelegramBadgeMeta(chat: ChatEntity): TelegramBadgeMeta | undefined {
+  const binding = chat.hostBindings?.find(item => item.hostType === 'telegram' && item.status === 'active')
+  if (!binding) {
+    return undefined
+  }
+
+  const username = getMetadataString(binding.metadata, 'username')?.replace(/^@/, '')
+  const displayName = getMetadataString(binding.metadata, 'displayName')
+  const chatType = getMetadataString(binding.metadata, 'chatType')
+
+  if (username) {
+    return {
+      label: `@${username}`,
+      peerType: chatType
+    }
+  }
+
+  if (displayName) {
+    return {
+      label: displayName,
+      peerType: chatType
+    }
+  }
+
+  if (chatType === 'group' || chatType === 'supergroup') {
+    return {
+      label: 'Group',
+      peerType: chatType
+    }
+  }
+
+  if (chatType === 'channel') {
+    return {
+      label: 'Channel',
+      peerType: chatType
+    }
+  }
+
+  return {
+    label: 'Telegram',
+    peerType: chatType
+  }
+}
+
+function TelegramChatBadge({ meta, compact = false }: { meta?: TelegramBadgeMeta; compact?: boolean }): React.ReactNode {
+  if (!meta) {
+    return null
+  }
+
+  const peerLabel = meta.peerType === 'group' || meta.peerType === 'supergroup'
+    ? 'Group'
+    : meta.peerType === 'channel'
+      ? 'Channel'
+      : undefined
+
+  return (
+    <span
+      className={cn(
+        'inline-flex min-w-0 max-w-full items-center gap-1.5 text-[11px] leading-none text-gray-500 dark:text-gray-400',
+        compact && 'text-[10.5px]'
+      )}
+      title={`Telegram ${meta.label}`}
+    >
+      <span className="shrink-0 rounded-[5px] border border-sky-200/70 bg-sky-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-sky-700 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300">
+        TG
+      </span>
+      <span className="min-w-0 truncate">{meta.label}</span>
+      {peerLabel && (
+        <span className="shrink-0 text-gray-400 dark:text-gray-500">{peerLabel}</span>
+      )}
+    </span>
+  )
 }
 
 const getDate = (timestamp: number): string => {
@@ -400,6 +484,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
               const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
               const isActive = item.id === chatId
               const hitCount = getSearchResultHitCount(result)
+              const telegramMeta = getTelegramBadgeMeta(item)
 
               return (
                 <div
@@ -435,6 +520,11 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                         {formatSearchResultDateTime(getSearchResultTimestamp(result))}
                       </span>
                     </div>
+                    {telegramMeta && (
+                      <div className="mt-1 flex min-w-0">
+                        <TelegramChatBadge meta={telegramMeta} compact />
+                      </div>
+                    )}
                     {result.snippet && (
                       <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
                         {renderHighlightedSnippet(result.snippet, searchQuery)}
@@ -468,6 +558,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                 const item = result.chat
                 const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
                 const isActive = item.id === chatId
+                const telegramMeta = getTelegramBadgeMeta(item)
 
                 return (
                   <div
@@ -477,14 +568,14 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     onMouseLeave={onMouseLeaveSheetChat}
                     onClick={event => onChatClick(event, result)}
                     className={cn(
-                      'group relative flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5',
+                      'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5',
                       'transition-all duration-200 ease-out',
                       isActive
                         ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent dark:hover:from-blue-900/25 dark:hover:via-blue-900/15"
                         : 'hover:scale-[1.01] hover:bg-gray-100 hover:shadow-xs dark:hover:bg-gray-800'
                     )}
                   >
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 pt-0.5">
                       {showChatItemEditConform && chatItemEditId === item.id ? (
                         <Input
                           className="h-7 border-0 bg-transparent px-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -503,9 +594,14 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                           {item.title}
                         </span>
                       )}
+                      {telegramMeta && !(showChatItemEditConform && chatItemEditId === item.id) && (
+                        <div className="mt-1 flex min-w-0">
+                          <TelegramChatBadge meta={telegramMeta} />
+                        </div>
+                      )}
                     </div>
 
-                    <div className="relative flex h-7 w-16 shrink-0 items-center gap-1">
+                    <div className="relative flex h-7 w-16 shrink-0 items-center gap-1 pt-0.5">
                       <span
                         className={cn(
                           'absolute inset-0 flex items-center justify-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 transition-all duration-200 ease-out dark:bg-gray-800 dark:text-gray-400',

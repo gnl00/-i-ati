@@ -33,6 +33,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     saveChat: vi.fn(),
     getAllChats: vi.fn(),
     getChatById: vi.fn(),
+    getChatHostBindingsByChatUuid: vi.fn(() => []),
     searchChats: vi.fn(),
     updateChat: vi.fn(),
     deleteChat: vi.fn(),

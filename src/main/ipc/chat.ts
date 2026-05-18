@@ -40,6 +40,38 @@ const LEGACY_RUN_TOOL_CONFIRM = 'chat-run:tool-confirm'
 const LEGACY_RUN_COMPRESSION_EXECUTE = 'chat-compression:execute'
 const LEGACY_RUN_TITLE_GENERATE = 'chat-title:generate'
 
+function toChatHostBindingSummary(binding: ChatHostBindingEntity): ChatHostBindingSummary {
+  return {
+    hostType: binding.hostType,
+    hostChatId: binding.hostChatId,
+    hostThreadId: binding.hostThreadId,
+    status: binding.status,
+    metadata: binding.metadata
+  }
+}
+
+function attachHostBindingSummaries(chat: ChatEntity | undefined): ChatEntity | undefined {
+  if (!chat?.uuid) {
+    return chat
+  }
+
+  const hostBindings = DatabaseService.getChatHostBindingsByChatUuid(chat.uuid)
+    .filter(binding => binding.status === 'active')
+    .map(toChatHostBindingSummary)
+
+  return {
+    ...chat,
+    hostBindings
+  }
+}
+
+function attachSearchHostBindingSummaries(result: ChatSearchResult): ChatSearchResult {
+  return {
+    ...result,
+    chat: attachHostBindingSummaries(result.chat) ?? result.chat
+  }
+}
+
 export function registerChatHandlers(): void {
   const handleRunStart = async (_event: Electron.IpcMainInvokeEvent, data: MainAgentRunInput) => {
     console.log(`[ChatSubmit IPC] Submit: ${data.submissionId}`)
@@ -75,12 +107,12 @@ export function registerChatHandlers(): void {
 
   ipcMain.handle(DB_CHAT_GET_ALL, async (_event) => {
     logger.info('chat.get_all')
-    return DatabaseService.getAllChats()
+    return DatabaseService.getAllChats().map(chat => attachHostBindingSummaries(chat) ?? chat)
   })
 
   ipcMain.handle(DB_CHAT_GET_BY_ID, async (_event, id) => {
     logger.info('chat.get_by_id', { id })
-    return DatabaseService.getChatById(id)
+    return attachHostBindingSummaries(DatabaseService.getChatById(id))
   })
 
   ipcMain.handle(DB_CHAT_SEARCH, async (_event, args: ChatSearchRequest) => {
@@ -88,7 +120,7 @@ export function registerChatHandlers(): void {
       queryLength: args?.query?.trim().length ?? 0,
       limit: args?.limit
     })
-    return DatabaseService.searchChats(args)
+    return DatabaseService.searchChats(args).map(attachSearchHostBindingSummaries)
   })
 
   ipcMain.handle(DB_CHAT_UPDATE, async (_event, data) => {
