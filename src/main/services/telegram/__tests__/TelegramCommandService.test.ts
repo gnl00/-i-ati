@@ -86,7 +86,7 @@ const defaultModelRef: ModelRef = {
 const createChat = (modelRef: ModelRef = defaultModelRef): ChatEntity => ({
   id: 1,
   uuid: 'chat-uuid',
-  title: 'Telegram Chat',
+  title: 'NewChat',
   messages: [],
   modelRef,
   createTime: 1,
@@ -95,7 +95,23 @@ const createChat = (modelRef: ModelRef = defaultModelRef): ChatEntity => ({
 
 const createService = (
   chat = createChat(),
-  runService = { cancel: vi.fn() }
+  runService = { cancel: vi.fn() },
+  hostChatBindingService = {
+    createAndBind: vi.fn().mockResolvedValue({
+      chat,
+      binding: {
+        id: 1,
+        hostType: 'telegram',
+        hostChatId: envelope.chatId,
+        chatId: chat.id,
+        chatUuid: chat.uuid,
+        status: 'active',
+        createTime: 1,
+        updateTime: 1
+      },
+      created: true
+    })
+  }
 ): TelegramCommandService => {
   const configStore = {
     requireConfig: () => config
@@ -121,7 +137,7 @@ const createService = (
     configStore as any,
     new ChatModelContextResolver(),
     adapter as any,
-    {} as any,
+    hostChatBindingService as any,
     runService as any
   )
 }
@@ -134,6 +150,44 @@ const execute = async (
 describe('TelegramCommandService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('creates Telegram chats with the default title so post-run title generation can run', async () => {
+    const hostChatBindingService = {
+      createAndBind: vi.fn().mockResolvedValue({
+        chat: createChat(),
+        binding: {
+          id: 1,
+          hostType: 'telegram',
+          hostChatId: envelope.chatId,
+          chatId: 1,
+          chatUuid: 'chat-uuid',
+          status: 'active',
+          createTime: 1,
+          updateTime: 1
+        },
+        created: true
+      })
+    }
+    const service = createService(createChat(), undefined, hostChatBindingService)
+
+    await execute(service, {
+      name: 'newchat',
+      args: '',
+      raw: '/newchat'
+    })
+
+    expect(hostChatBindingService.createAndBind).toHaveBeenCalledWith(expect.objectContaining({
+      hostType: 'telegram',
+      hostChatId: envelope.chatId,
+      hostUserId: envelope.fromUserId,
+      title: 'NewChat',
+      metadata: {
+        chatType: envelope.chatType,
+        username: envelope.username,
+        displayName: envelope.displayName
+      }
+    }))
   })
 
   it('switches duplicate model ids by provider token', async () => {

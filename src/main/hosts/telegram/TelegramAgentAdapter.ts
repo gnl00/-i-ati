@@ -16,7 +16,7 @@ export class TelegramAgentAdapter {
       hostChatId: envelope.chatId,
       hostThreadId: envelope.threadId,
       hostUserId: envelope.fromUserId,
-      title: this.buildInitialChatTitle(envelope),
+      title: 'NewChat',
       modelRef,
       metadata: {
         chatType: envelope.chatType,
@@ -118,13 +118,6 @@ export class TelegramAgentAdapter {
       messageId: args.sentMessageId,
       replyToMessageId: args.envelope.messageId
     }
-  }
-
-  private buildInitialChatTitle(envelope: TelegramInboundEnvelope): string {
-    if (envelope.chatType === 'private') {
-      return envelope.displayName || envelope.username || 'Telegram Chat'
-    }
-    return envelope.displayName || envelope.username || 'Telegram Group'
   }
 
   private buildInputText(envelope: TelegramInboundEnvelope, attachmentTextBlocks: string[] = []): string {

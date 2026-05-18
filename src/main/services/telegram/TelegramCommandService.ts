@@ -107,7 +107,7 @@ export class TelegramCommandService {
       hostChatId: envelope.chatId,
       hostThreadId: envelope.threadId,
       hostUserId: envelope.fromUserId,
-      title: this.buildInitialChatTitle(envelope),
+      title: 'NewChat',
       modelRef: defaultModelRef,
       metadata: {
         chatType: envelope.chatType,
@@ -504,13 +504,6 @@ export class TelegramCommandService {
 
   private describeModelForPlainText(item: TelegramModelListItem): string {
     return `${item.model.label} [${item.model.id}] · ${this.describeProviderForPlainText(item)} · ${item.account.label}`
-  }
-
-  private buildInitialChatTitle(envelope: TelegramInboundEnvelope): string {
-    if (envelope.chatType === 'private') {
-      return envelope.displayName || envelope.username || 'Telegram Chat'
-    }
-    return envelope.displayName || envelope.username || 'Telegram Group'
   }
 
   private buildPagerKeyboard(

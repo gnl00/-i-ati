@@ -18,7 +18,7 @@ const {
   const chat = {
     id: 10,
     uuid: 'chat-uuid',
-    title: 'Telegram Chat',
+    title: 'NewChat',
     messages: [],
     modelRef,
     createTime: 1,
