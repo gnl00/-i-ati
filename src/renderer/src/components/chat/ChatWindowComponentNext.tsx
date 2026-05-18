@@ -28,6 +28,7 @@ const CHAT_HEADER_OCCLUSION_HANDLE_STYLE: React.CSSProperties = {
   marginTop: CHAT_HEADER_OCCLUSION_PX,
   marginBottom: 8
 }
+const PENDING_USER_MESSAGE_ID = -1
 type ScrollMode = 'tail-follow' | 'anchor-lock' | 'manual'
 
 type PendingAssistantModel = {
@@ -60,8 +61,9 @@ const ChatMessageRow: React.FC<{
   previewMessage?: ChatMessage
   lastAssistantIndex: number
   lastMessageIndex: number
+  isPending?: boolean
   onTypingChange?: () => void
-}> = memo(({ messageIndex, message, previewMessage, lastAssistantIndex, lastMessageIndex, onTypingChange }) => {
+}> = memo(({ messageIndex, message, previewMessage, lastAssistantIndex, lastMessageIndex, isPending = false, onTypingChange }) => {
   const isLatest = message.body.role === 'assistant'
     ? messageIndex === lastAssistantIndex
     : messageIndex === lastMessageIndex
@@ -73,6 +75,7 @@ const ChatMessageRow: React.FC<{
       previewMessage={previewMessage}
       index={messageIndex}
       isLatest={isLatest}
+      isPending={isPending}
       onTypingChange={onTypingChange}
     />
   )
@@ -120,6 +123,7 @@ const CHAT_VIRTUOSO_COMPONENTS: Components<MessageEntity, ChatVirtuosoFooterCont
 const ChatWindowComponentNext: React.FC = () => {
   const messages = useChatStore(state => state.messages)
   const previewMessage = useChatStore(state => state.preview.message)
+  const pendingUserMessage = useChatStore(state => state.pendingUserMessage)
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
@@ -175,9 +179,54 @@ const ChatWindowComponentNext: React.FC = () => {
   const previewRenderIndex = previewMessage
     ? (hasCurrentTurnAssistant ? committedLastAssistantIndex : -1)
     : -1
-  const displayMessages = messages
+  const pendingUserMessageEntity = useMemo<MessageEntity | null>(() => {
+    if (!pendingUserMessage) return null
+    if (messages.length > 0) return null
+    if (pendingUserMessage.chatUuid !== (chatUuid ?? null)) return null
+
+    const mediaUrls: string[] = []
+    for (const item of pendingUserMessage.mediaCtx) {
+      if (typeof item === 'string' && item.length > 0) {
+        mediaUrls.push(item)
+      }
+    }
+
+    const mediaContent = mediaUrls.map((url): VLMContent => ({
+      type: 'image_url',
+      image_url: {
+        url,
+        detail: 'auto'
+      }
+    }))
+
+    const content: ChatMessage['content'] = mediaContent.length > 0
+      ? [
+          {
+            type: 'text',
+            text: pendingUserMessage.text
+          },
+          ...mediaContent
+        ]
+      : pendingUserMessage.text
+
+    return {
+      id: PENDING_USER_MESSAGE_ID,
+      chatId: undefined,
+      chatUuid,
+      body: {
+        role: 'user',
+        content,
+        segments: [],
+        createdAt: pendingUserMessage.createdAt
+      }
+    }
+  }, [chatUuid, messages.length, pendingUserMessage])
+  const displayMessages = useMemo(
+    () => pendingUserMessageEntity ? [pendingUserMessageEntity] : messages,
+    [messages, pendingUserMessageEntity]
+  )
   const lastAssistantIndex = shouldRenderPendingAssistant
-    ? messages.length
+    ? displayMessages.length
     : previewRenderIndex >= 0
       ? previewRenderIndex
       : committedLastAssistantIndex
@@ -745,7 +794,7 @@ const ChatWindowComponentNext: React.FC = () => {
       scrollModeRef.current = 'manual'
       lockedAnchorMessageIdRef.current = null
       hasInitialAnchorScrollDoneRef.current = true
-      spacerDisabledAtLengthRef.current = messages.length
+      spacerDisabledAtLengthRef.current = displayMessages.length
       disableTailSpacerRef.current = true
       spacerHeightRef.current = 0
       setDisableTailSpacer(true)
@@ -755,7 +804,7 @@ const ChatWindowComponentNext: React.FC = () => {
     return () => {
       onUserScrollUpIntentRef.current = null
     }
-  }, [cancelScheduledLayoutPass, chatUuid, getLatestMessageMetrics, messages.length, isRunStreaming, scrollParentRef])
+  }, [cancelScheduledLayoutPass, chatUuid, getLatestMessageMetrics, displayMessages.length, isRunStreaming, scrollParentRef])
 
   const handleJumpToLatestClick = useCallback(() => {
     const lastAssistantMessage = renderedLatestAssistant
@@ -782,7 +831,7 @@ const ChatWindowComponentNext: React.FC = () => {
         void patchMessageUiState(updatedMessage.id, { typewriterCompleted: true })
       }
     }
-    spacerDisabledAtLengthRef.current = messages.length
+    spacerDisabledAtLengthRef.current = displayMessages.length
     disableTailSpacerRef.current = true
     spacerHeightRef.current = 0
     setDisableTailSpacer(true)
@@ -792,13 +841,15 @@ const ChatWindowComponentNext: React.FC = () => {
     cancelScheduledLayoutPass()
     // Button targets the latest message (confirmed behavior).
     scrollToMessageIndex(latestMessageIndex, true, 'end')
-  }, [cancelScheduledLayoutPass, renderedLatestAssistant, displayMessages.length, latestMessageIndex, isRunStreaming, scrollToMessageIndex, patchMessageUiState, upsertMessage, lastMessageIndex, messages.length])
+  }, [cancelScheduledLayoutPass, renderedLatestAssistant, displayMessages.length, latestMessageIndex, isRunStreaming, scrollToMessageIndex, patchMessageUiState, upsertMessage, lastMessageIndex])
 
   
 
   // Detect first message - trigger exit animation then hide welcome
+  const hasVisibleTranscript = displayMessages.length > 0
+
   useLayoutEffect(() => {
-    if (messages.length > 0 && showWelcome && !hasShownWelcomeRef.current) {
+    if (hasVisibleTranscript && showWelcome && !hasShownWelcomeRef.current) {
       hasShownWelcomeRef.current = true
       // Start exit animation immediately
       setIsWelcomeExiting(true)
@@ -806,18 +857,18 @@ const ChatWindowComponentNext: React.FC = () => {
       setTimeout(() => {
         setShowWelcome(false)
         setIsWelcomeExiting(false)
-      }, 260) // Match animation duration
+      }, 220) // Match animation duration
     }
-  }, [messages.length, showWelcome])
+  }, [hasVisibleTranscript, showWelcome])
 
   // Reset welcome page on chat switch
   useEffect(() => {
-    if (messages.length === 0) {
+    if (!hasVisibleTranscript) {
       setShowWelcome(true)
       setIsWelcomeExiting(false)
       hasShownWelcomeRef.current = false
     }
-  }, [chatUuid, messages.length])
+  }, [chatUuid, hasVisibleTranscript])
 
   useEffect(() => {
     cancelScheduledLayoutPass()
@@ -835,11 +886,11 @@ const ChatWindowComponentNext: React.FC = () => {
 
   useEffect(() => {
     if (!disableTailSpacer) return
-    if (messages.length > spacerDisabledAtLengthRef.current) {
+    if (displayMessages.length > spacerDisabledAtLengthRef.current) {
       disableTailSpacerRef.current = false
       setDisableTailSpacer(false)
     }
-  }, [disableTailSpacer, messages.length])
+  }, [disableTailSpacer, displayMessages.length])
 
   useEffect(() => {
     disableTailSpacerRef.current = disableTailSpacer
@@ -856,7 +907,7 @@ const ChatWindowComponentNext: React.FC = () => {
     latestAssistantNonTextSignature,
     latestAssistantTextSignature,
     latestMessageIndex,
-    messages.length,
+    displayMessages.length,
     bottomSpacerHeight,
     isRunStreaming,
     requestLayoutPass
@@ -899,7 +950,7 @@ const ChatWindowComponentNext: React.FC = () => {
     topSpacerHeight: topOcclusionPx,
     bottomSpacerHeight,
     shouldRenderPendingAssistant,
-    messagesLength: messages.length,
+    messagesLength: displayMessages.length,
     pendingAssistantModel,
     previewMessage: !hasCurrentTurnAssistant ? previewMessage?.body : undefined,
     onTypingChange: handleLatestAssistantTyping
@@ -907,7 +958,7 @@ const ChatWindowComponentNext: React.FC = () => {
     topOcclusionPx,
     bottomSpacerHeight,
     shouldRenderPendingAssistant,
-    messages.length,
+    displayMessages.length,
     pendingAssistantModel,
     hasCurrentTurnAssistant,
     previewMessage,
@@ -1019,6 +1070,7 @@ const ChatWindowComponentNext: React.FC = () => {
                           }
                           lastAssistantIndex={lastAssistantIndex}
                           lastMessageIndex={lastMessageIndex}
+                          isPending={message.id === PENDING_USER_MESSAGE_ID}
                           onTypingChange={handleLatestAssistantTyping}
                         />
                       </div>

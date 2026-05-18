@@ -126,6 +126,7 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
         preview: {
           message: null
         },
+        pendingUserMessage: null,
         runPhase: 'idle',
         postRunJobs: {
           title: 'idle',

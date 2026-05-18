@@ -12,6 +12,14 @@ export type ChatPreviewState = {
   message: MessageEntity | null
 }
 
+export type PendingUserMessageState = {
+  submissionId: string
+  chatUuid: string | null
+  text: string
+  mediaCtx: ClipbordImg[] | string[]
+  createdAt: number
+}
+
 export type ChatTranscriptBufferState = {
   messages: MessageEntity[]
   preview: ChatPreviewState
@@ -22,6 +30,7 @@ export type ChatTranscriptState = {
   messages: MessageEntity[]
   // Ephemeral preview state used while a run is still streaming.
   preview: ChatPreviewState
+  pendingUserMessage: PendingUserMessageState | null
   transcriptBuffersByChatUuid: Record<string, ChatTranscriptBufferState>
 }
 
@@ -45,6 +54,8 @@ export type ChatTranscriptActions = {
   setMessages: (msgs: MessageEntity[]) => void
   setMessagesForChat: (chatUuid: string, msgs: MessageEntity[]) => void
   restoreTranscriptForChat: (chatUuid: string | null | undefined, persistedMessages: MessageEntity[]) => void
+  setPendingUserMessage: (message: PendingUserMessageState | null) => void
+  clearPendingUserMessage: (submissionId?: string) => void
   // Preview is an ephemeral overlay driven by run-output ingress. It is never persisted as transcript history.
   replacePreviewMessage: (message: MessageEntity | null) => void
   replacePreviewMessageForChat: (chatUuid: string, message: MessageEntity | null) => void
@@ -112,6 +123,7 @@ export const createInitialChatTranscriptState = (): ChatTranscriptState => ({
   preview: {
     message: null
   },
+  pendingUserMessage: null,
   transcriptBuffersByChatUuid: {}
 })
 
@@ -691,6 +703,7 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
       return {
         messages: msgs,
         preview,
+        pendingUserMessage: null,
         ...(prevState.currentChatUuid
           ? {
             transcriptBuffersByChatUuid: {
@@ -738,7 +751,8 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
           messages: [] as MessageEntity[],
           preview: {
             message: null
-          }
+          },
+          pendingUserMessage: null
         } as Partial<T>
       }
 
@@ -756,6 +770,23 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
             preview
           }
         }
+      } as Partial<T>
+    }),
+
+    setPendingUserMessage: (message) => set({
+      pendingUserMessage: message
+    } as Partial<T>),
+
+    clearPendingUserMessage: (submissionId) => set((prevState) => {
+      if (!prevState.pendingUserMessage) {
+        return prevState as Partial<T>
+      }
+      if (submissionId && prevState.pendingUserMessage.submissionId !== submissionId) {
+        return prevState as Partial<T>
+      }
+
+      return {
+        pendingUserMessage: null
       } as Partial<T>
     }),
 

@@ -15,6 +15,7 @@ export interface UserMessageProps {
   index: number
   message: ChatMessage
   isLatest: boolean
+  isPending?: boolean
   isHovered: boolean
   onHover: (idx: number) => void
   onCopyClick: (content: string) => void
@@ -208,6 +209,7 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
   index,
   message: m,
   isLatest,
+  isPending = false,
   isHovered,
   onHover,
   onCopyClick
@@ -254,7 +256,8 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
         id="usr-msg-content"
         className={cn(
           "max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-800",
-          isLatest && "animate-shine animate-message-in"
+          isLatest && "animate-shine animate-message-in",
+          isPending && "opacity-75 saturate-90 shadow-sm shadow-slate-900/5 transition-[opacity,filter,box-shadow] duration-200 ease-out dark:shadow-black/20"
         )}
       >
         <CollapsibleUserMessageContent contentSignature={contentSignature}>
@@ -269,16 +272,18 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
         </CollapsibleUserMessageContent>
       </div>
 
-      <MessageOperations
-        type="user"
-        message={m}
-        isHovered={isHovered}
-        onCopyClick={onCopy}
-        onEditClick={() => {
-          // TODO: 实现编辑用户消息功能
-          console.log('Edit user message:', index)
-        }}
-      />
+      {!isPending && (
+        <MessageOperations
+          type="user"
+          message={m}
+          isHovered={isHovered}
+          onCopyClick={onCopy}
+          onEditClick={() => {
+            // TODO: 实现编辑用户消息功能
+            console.log('Edit user message:', index)
+          }}
+        />
+      )}
     </div>
   )
 })

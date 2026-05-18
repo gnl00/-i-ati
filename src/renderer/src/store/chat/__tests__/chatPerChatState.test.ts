@@ -124,4 +124,22 @@ describe('chat per-chat state buffers', () => {
     expect(messagePersistenceMocks.deleteMessage).toHaveBeenCalledWith(1)
     expect(useChatStore.getState().transcriptBuffersByChatUuid['chat-1'].messages).toEqual([])
   })
+
+  it('tracks and clears optimistic pending user messages', () => {
+    useChatStore.getState().setPendingUserMessage({
+      submissionId: 'submission-1',
+      chatUuid: null,
+      text: 'hello',
+      mediaCtx: [],
+      createdAt: 100
+    })
+
+    expect(useChatStore.getState().pendingUserMessage?.text).toBe('hello')
+
+    useChatStore.getState().clearPendingUserMessage('other-submission')
+    expect(useChatStore.getState().pendingUserMessage?.submissionId).toBe('submission-1')
+
+    useChatStore.getState().clearPendingUserMessage('submission-1')
+    expect(useChatStore.getState().pendingUserMessage).toBeNull()
+  })
 })

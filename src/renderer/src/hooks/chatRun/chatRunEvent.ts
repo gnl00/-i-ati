@@ -183,6 +183,7 @@ function handleRunMessageEvent(
     && message.body.role === 'user'
     && (!chatUuid || latestStore.currentChatUuid === chatUuid)
   ) {
+    latestStore.clearPendingUserMessage(event.submissionId)
     latestStore.setScrollHint({
       type: 'user-sent',
       chatUuid: chatUuid ?? latestStore.currentChatUuid,
@@ -428,6 +429,7 @@ export async function handleChatRunEvent(
       }
       const error = normalizeRunError(event.payload.error)
       const latestStore = getLatestChatStore()
+      latestStore.clearPendingUserMessage(submissionId)
       const errorMessageId = chatUuid
         ? await latestStore.updateLastAssistantMessageWithErrorForChat(chatUuid, error)
         : await latestStore.updateLastAssistantMessageWithError(error)
@@ -447,6 +449,7 @@ export async function handleChatRunEvent(
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_aborted'
       })
+      getLatestChatStore().clearPendingUserMessage(submissionId)
       if (chatUuid) {
         chatStore.resetPreviewForChat(chatUuid)
         chatStore.setLastRunOutcomeForChat(chatUuid, 'aborted')

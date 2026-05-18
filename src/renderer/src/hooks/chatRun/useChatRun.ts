@@ -195,6 +195,15 @@ export default function useChatRun() {
       cleanupActiveRun
     })
 
+    if (textCtx.trim()) {
+      chatStore.setPendingUserMessage({
+        submissionId,
+        chatUuid: state.currentChatUuid ?? null,
+        text: textCtx,
+        mediaCtx,
+        createdAt: Date.now()
+      })
+    }
     chatStore.resetPostRunJobs()
     chatStore.setLastRunOutcome('idle')
     if (state.currentChatUuid) {
@@ -222,6 +231,7 @@ export default function useChatRun() {
         chatUuid: state.currentChatUuid ?? undefined
       })
     } catch (error) {
+      chatStore.clearPendingUserMessage(submissionId)
       resetRunLifecycle('idle', runChatUuidRef.current)
       cleanupRunHandle(handle)
       throw error

@@ -16,6 +16,7 @@ interface ChatMessageComponentProps {
   tokenUsage?: ITokenUsage
   previewMessage?: ChatMessage
   isLatest: boolean
+  isPending?: boolean
   onTypingChange?: () => void
 }
 
@@ -30,6 +31,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
   tokenUsage,
   previewMessage,
   isLatest,
+  isPending = false,
   onTypingChange
 }) => {
   const hoverState = useMessageHover()
@@ -123,6 +125,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
         index={index}
         message={message}
         isLatest={isLatest}
+        isPending={isPending}
         isHovered={hoverState.userMessageOperationIdx === index}
         onHover={hoverState.onMouseHoverUsrMsg}
         onCopyClick={onCopyClick}

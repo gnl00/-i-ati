@@ -25,7 +25,8 @@ const latestStore = {
   setRunPhaseForChat: vi.fn(),
   setPostRunJobStateForChat: vi.fn(),
   resetPostRunJobsForChat: vi.fn(),
-  setLastRunOutcomeForChat: vi.fn()
+  setLastRunOutcomeForChat: vi.fn(),
+  clearPendingUserMessage: vi.fn()
 }
 
 vi.mock('@renderer/store/chatStore', () => ({
@@ -123,6 +124,7 @@ describe('handleChatRunEvent', () => {
     latestStore.setPostRunJobStateForChat.mockReset()
     latestStore.resetPostRunJobsForChat.mockReset()
     latestStore.setLastRunOutcomeForChat.mockReset()
+    latestStore.clearPendingUserMessage.mockReset()
     scheduleAssistantStreamingPerfRecentSessionFlush.mockReset()
     rendererLoggerError.mockReset()
   })
@@ -155,6 +157,38 @@ describe('handleChatRunEvent', () => {
     expect(latestStore.upsertMessageForChat).toHaveBeenCalledWith('chat-1', expect.objectContaining({ id: 11 }))
     expect(latestStore.setScrollHint).not.toHaveBeenCalled()
     expect(input.chatStore.setScrollHint).not.toHaveBeenCalled()
+  })
+
+  it('clears optimistic pending user message when the visible user message is committed', async () => {
+    latestStore.currentChatUuid = 'chat-1'
+    const input = createInput()
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_RENDER_EVENTS.MESSAGE_CREATED,
+      payload: {
+        message: {
+          id: 11,
+          chatId: 1,
+          chatUuid: 'chat-1',
+          body: {
+            role: 'user',
+            content: 'hello',
+            segments: []
+          }
+        }
+      }
+    })
+
+    expect(latestStore.clearPendingUserMessage).toHaveBeenCalledWith('submission-1')
+    expect(latestStore.setScrollHint).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'user-sent',
+      messageId: 11
+    }))
   })
 
   it('does not select a background chat shell when an existing chat becomes ready', async () => {
