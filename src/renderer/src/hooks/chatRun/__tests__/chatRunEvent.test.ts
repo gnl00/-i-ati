@@ -194,6 +194,44 @@ describe('handleChatRunEvent', () => {
     expect(latestStore.setRunPhaseForChat).toHaveBeenCalledWith('chat-1', 'submitting')
   })
 
+  it('selects the chat shell when a new chat becomes ready for a pending run', async () => {
+    latestStore.currentChatUuid = null as unknown as string
+    latestStore.runPhase = 'submitting'
+    latestStore.getRunStatusForChat.mockReturnValueOnce({
+      runPhase: 'idle',
+      postRunJobs: { title: 'idle', compression: 'idle' },
+      lastRunOutcome: 'idle'
+    })
+    const input = createInput()
+    input.runChatUuidRef.current = null
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_HOST_EVENTS.CHAT_READY,
+      payload: {
+        chatEntity: {
+          id: 1,
+          uuid: 'chat-1',
+          title: 'New chat',
+          messages: [],
+          createTime: 1,
+          updateTime: 1
+        },
+        workspacePath: '/tmp/chat-1'
+      }
+    })
+
+    expect(input.chatStore.applyReadyChat).toHaveBeenCalledWith(
+      expect.objectContaining({ uuid: 'chat-1' }),
+      { selectShell: true }
+    )
+    expect(input.runChatUuidRef.current).toBe('chat-1')
+    expect(latestStore.setRunPhaseForChat).toHaveBeenCalledWith('chat-1', 'submitting')
+  })
+
   it('moves submitting runs into streaming when the first assistant message arrives', async () => {
     latestStore.runPhase = 'submitting'
     const input = createInput()

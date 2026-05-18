@@ -107,12 +107,12 @@ function getRunEventLogContext(event: RunEvent, error: unknown): Record<string, 
 function handleChatReady(
   input: BindChatRunEventsInput,
   chatStore: ChatStoreState,
-  event: Extract<RunEvent, { type: typeof CHAT_HOST_EVENTS.CHAT_READY }>
+  event: Extract<RunEvent, { type: typeof CHAT_HOST_EVENTS.CHAT_READY }>,
+  hadRunChatUuidBeforeEvent: boolean
 ): void {
-  const hadRunChatUuid = Boolean(input.runChatUuidRef.current)
   const chatUuid = event.payload.chatEntity.uuid ?? null
   const latestStore = getLatestChatStore()
-  const shouldSelectShell = !hadRunChatUuid || latestStore.currentChatUuid === chatUuid
+  const shouldSelectShell = !hadRunChatUuidBeforeEvent || latestStore.currentChatUuid === chatUuid
   chatStore.applyReadyChat(event.payload.chatEntity, { selectShell: shouldSelectShell })
   rememberRunChatUuid(input, chatUuid)
   if (chatUuid) {
@@ -270,12 +270,13 @@ export async function handleChatRunEvent(
     return
   }
 
+  const hadRunChatUuidBeforeEvent = Boolean(input.runChatUuidRef.current)
   const chatUuid = resolveRunEventChatUuid(input, event)
   rememberRunChatUuid(input, chatUuid)
 
   switch (event.type) {
     case CHAT_HOST_EVENTS.CHAT_READY:
-      handleChatReady(input, chatStore, event)
+      handleChatReady(input, chatStore, event, hadRunChatUuidBeforeEvent)
       return
     case CHAT_HOST_EVENTS.MESSAGES_LOADED:
       flushPreviewPatchBatch(input)
