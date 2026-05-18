@@ -9,10 +9,12 @@ import {
     SelectValue
 } from '@renderer/components/ui/select'
 import { cn } from '@renderer/lib/utils'
+import { getProviderIcon } from '@renderer/utils/providerIcons'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { Eye, EyeOff } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { ProviderAdvanceConfigDrawer } from '@renderer/components/settings/providers/ProviderAdvanceConfigDrawer'
+import { ProviderIconConfigDrawer } from '@renderer/components/settings/providers/ProviderIconConfigDrawer'
 
 interface ProviderConfigurationsProps {
     plugins?: PluginEntity[]
@@ -47,6 +49,7 @@ const ProviderConfigurations = ({
     const [apiKey, setApiKey] = useState<string>(account?.apiKey ?? '')
     const [showApiKey, setShowApiKey] = useState<boolean>(false)
     const [payloadDrawerOpen, setPayloadDrawerOpen] = useState<boolean>(false)
+    const [iconDrawerOpen, setIconDrawerOpen] = useState<boolean>(false)
 
     useEffect(() => {
         setLabel(account?.label ?? '')
@@ -57,6 +60,7 @@ const ProviderConfigurations = ({
     useEffect(() => {
         if (!providerDefinition) {
             setPayloadDrawerOpen(false)
+            setIconDrawerOpen(false)
         }
     }, [providerDefinition?.id])
 
@@ -67,6 +71,7 @@ const ProviderConfigurations = ({
     const currentAdapterOption = adapterOptions.find(option => option.pluginId === (providerDefinition?.adapterPluginId ?? 'openai-chat-compatible-adapter'))
     const currentAdapterDisabled = Boolean(currentAdapterOption && !currentAdapterOption.enabled)
     const providerEnabled = providerDefinition?.enabled !== false
+    const providerIconSrc = getProviderIcon(providerDefinition?.iconKey || providerDefinition?.id)
 
     return (
         <div className='px-4 pt-3 pb-2.5 border-b border-gray-200/70 dark:border-gray-700/60 space-y-2.5'>
@@ -234,42 +239,85 @@ const ProviderConfigurations = ({
                 </div>
             </div>
 
-            {/* Request Payload — flat row */}
-            <div className='flex items-center justify-start space-x-2 pt-0.5'>
-                <span className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
-                    Request Payload
-                </span>
-                <ProviderAdvanceConfigDrawer
-                    open={payloadDrawerOpen}
-                    onOpenChange={setPayloadDrawerOpen}
-                    providerDefinition={providerDefinition}
-                    onSave={(payload) => {
-                        if (!providerDefinition) return
-                        onUpdateProviderDefinition(providerDefinition.id, {
-                            requestOverrides: payload
-                        })
-                    }}
-                    trigger={
-                        <button
-                            type="button"
-                            disabled={!providerDefinition}
-                            className={cn(
-                                'h-6 px-2 flex items-center gap-1 rounded-md shrink-0',
-                                'text-[11px] font-medium',
-                                'text-gray-500 dark:text-gray-400',
-                                'border border-gray-200 dark:border-gray-700',
-                                'hover:text-gray-800 dark:hover:text-gray-100',
-                                'hover:bg-gray-50 dark:hover:bg-gray-700/50',
-                                'hover:border-gray-300 dark:hover:border-gray-600',
-                                'disabled:opacity-40 disabled:pointer-events-none',
-                                'transition-colors duration-150'
-                            )}
-                        >
-                            <i className="ri-code-line text-[11px]" />
-                            Configure
-                        </button>
-                    }
-                />
+            {/* Header actions — flat row */}
+            <div className='flex flex-wrap items-center justify-start gap-x-3 gap-y-2 pt-0.5'>
+                <div className='flex items-center justify-start space-x-2'>
+                    <span className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                        Request Payload
+                    </span>
+                    <ProviderAdvanceConfigDrawer
+                        open={payloadDrawerOpen}
+                        onOpenChange={setPayloadDrawerOpen}
+                        providerDefinition={providerDefinition}
+                        onSave={(payload) => {
+                            if (!providerDefinition) return
+                            onUpdateProviderDefinition(providerDefinition.id, {
+                                requestOverrides: payload
+                            })
+                        }}
+                        trigger={
+                            <button
+                                type="button"
+                                disabled={!providerDefinition}
+                                className={cn(
+                                    'h-6 px-2 flex items-center gap-1 rounded-md shrink-0',
+                                    'text-[11px] font-medium',
+                                    'text-gray-500 dark:text-gray-400',
+                                    'border border-gray-200 dark:border-gray-700',
+                                    'hover:text-gray-800 dark:hover:text-gray-100',
+                                    'hover:bg-gray-50 dark:hover:bg-gray-700/50',
+                                    'hover:border-gray-300 dark:hover:border-gray-600',
+                                    'disabled:opacity-40 disabled:pointer-events-none',
+                                    'transition-colors duration-150'
+                                )}
+                            >
+                                <i className="ri-code-line text-[11px]" />
+                                Configure
+                            </button>
+                        }
+                    />
+                </div>
+                <div className='flex items-center justify-start space-x-2'>
+                    <span className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                        Icon
+                    </span>
+                    <ProviderIconConfigDrawer
+                        open={iconDrawerOpen}
+                        onOpenChange={setIconDrawerOpen}
+                        providerDefinition={providerDefinition}
+                        onSave={(iconKey) => {
+                            if (!providerDefinition) return
+                            onUpdateProviderDefinition(providerDefinition.id, {
+                                iconKey
+                            })
+                        }}
+                        trigger={
+                            <button
+                                type="button"
+                                disabled={!providerDefinition}
+                                className={cn(
+                                    'h-6 px-2 flex items-center gap-1 rounded-md shrink-0',
+                                    'text-[11px] font-medium',
+                                    'text-gray-500 dark:text-gray-400',
+                                    'border border-gray-200 dark:border-gray-700',
+                                    'hover:text-gray-800 dark:hover:text-gray-100',
+                                    'hover:bg-gray-50 dark:hover:bg-gray-700/50',
+                                    'hover:border-gray-300 dark:hover:border-gray-600',
+                                    'disabled:opacity-40 disabled:pointer-events-none',
+                                    'transition-colors duration-150'
+                                )}
+                            >
+                                <img
+                                    src={providerIconSrc}
+                                    alt=""
+                                    className="h-3 w-3 select-none dark:invert dark:brightness-90"
+                                    draggable={false}
+                                />
+                                Configure
+                            </button>
+                        }
+                    />
+                </div>
             </div>
         </div>
     )

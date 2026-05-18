@@ -31,6 +31,7 @@ import { useAppConfigStore } from '@renderer/store/appConfig'
 import { invokeModelsGetModelCapabilities } from '@renderer/invoker/ipcInvoker'
 import InlineDeleteConfirm from '@renderer/components/settings/common/InlineDeleteConfirm'
 import { toast } from 'sonner'
+import { Button } from '@renderer/components/ui/button'
 
 type ProviderModelsListProps = {
   selectedProviderId?: string
@@ -415,14 +416,15 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
             />
           </div>
         </div>
-        <button
+        <Button
           onClick={onOpenFetchModels}
           disabled={isFetchDisabled}
-          className='h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10 disabled:opacity-40 disabled:pointer-events-none shrink-0'
+          variant={'ghost'}
+          className='h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium active:scale-[0.97] transition-all duration-150 shadow-gray-900/10 disabled:opacity-40 disabled:pointer-events-none shrink-0 text-gray-700 dark:text-gray-300'
         >
           <i className="ri-download-cloud-line text-[12px]"></i>
           Fetch Models
-        </button>
+        </Button>
       </div>
 
       {/* ── Add row ──────────────────────────────────────────── */}
@@ -497,7 +499,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
         <div className='px-4 py-2.5 flex items-center justify-center'>
           <button
             onClick={handleAddModel}
-            className='h-7 w-full max-w-[84px] px-2.5 flex items-center justify-center gap-1 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10'
+            className='h-7 w-full max-w-[84px] px-2.5 flex items-center justify-center gap-1 rounded-2xl text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10'
           >
             <i className="ri-add-line text-[12px]"></i>
             Add
