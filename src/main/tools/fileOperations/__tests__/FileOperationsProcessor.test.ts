@@ -169,6 +169,22 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(result.matches?.[0].line).toBe(2)
   })
 
+  it('rejects grep paths outside the workspace', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-5c')
+    await mkdir(rootDir, { recursive: true })
+
+    const result = await processGrep({
+      chat_uuid: 'chat-5c',
+      path: '/',
+      pattern: 'sandbox',
+      case_sensitive: false,
+      max_results: 50
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('Path must stay inside workspace')
+  })
+
   it('matches files through glob patterns', async () => {
     const rootDir = join(userDataDir, 'workspaces', 'chat-6')
     const fileA = join(rootDir, 'src', 'alpha.test.ts')

@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'fs/promises'
 import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
-import { existsSync, statSync, accessSync, constants } from 'fs'
+import { existsSync, statSync, accessSync, constants, realpathSync } from 'fs'
 import { lookup } from 'mime-types'
 import DatabaseService from '@main/db/DatabaseService'
 import { createLogger } from '@main/logging/LogService'
@@ -124,37 +124,61 @@ function resolveWorkspaceBaseDir(chatUuid?: string): string {
   return join(userDataPath, 'workspaces', chatUuid)
 }
 
+function isPathInside(childPath: string, parentPath: string): boolean {
+  const childRelativePath = relative(parentPath, childPath)
+  return childRelativePath === '' || (
+    Boolean(childRelativePath)
+    && !childRelativePath.startsWith('..')
+    && !isAbsolute(childRelativePath)
+  )
+}
+
+function canonicalizePathForBoundary(path: string): string {
+  let current = resolve(path)
+
+  while (!existsSync(current)) {
+    const parent = dirname(current)
+    if (parent === current) {
+      return resolve(path)
+    }
+    current = parent
+  }
+
+  return resolve(realpathSync(current), relative(current, resolve(path)))
+}
+
+function assertPathInsideWorkspace(targetPath: string, baseDir: string): void {
+  const workspaceRoot = canonicalizePathForBoundary(baseDir)
+  const canonicalTarget = canonicalizePathForBoundary(targetPath)
+
+  if (!isPathInside(canonicalTarget, workspaceRoot)) {
+    throw new Error(`Path must stay inside workspace: ${targetPath}`)
+  }
+}
+
 /**
  * Resolve file path with workspace support
  * Supports:
- * 1. Absolute paths (returned as-is, with a warning if outside baseDir)
+ * 1. Absolute paths inside baseDir
  * 2. New format: relative path based on baseDir (e.g., "test.txt")
  * 3. Legacy format: workspace prefix included (e.g., "workspaces/123/test.txt")
  */
 function resolveFilePath(relativePath: string, chatUuid?: string, baseDirOverride?: string): string {
   const userDataPath = app.getPath('userData')
   const baseDir = baseDirOverride ?? resolveWorkspaceBaseDir(chatUuid)
+  let resolvedPath: string
 
-  // Allow absolute paths (used by custom workspace selection)
   if (isAbsolute(relativePath)) {
-    const resolvedBase = resolve(baseDir)
-    const target = resolve(relativePath)
-    const rel = relative(resolvedBase, target)
-    if (rel.startsWith('..') || isAbsolute(rel)) {
-      logger.warn('workspace.absolute_path_outside_base', { relativePath, baseDir })
-    }
-    return target
-  }
-
-  // Detect legacy format: paths starting with "workspaces/" or "./workspaces/"
-  if (relativePath.startsWith('workspaces/') || relativePath.startsWith('./workspaces/')) {
+    resolvedPath = resolve(relativePath)
+  } else if (relativePath.startsWith('workspaces/') || relativePath.startsWith('./workspaces/')) {
     logger.debug('path.legacy_format_detected', { relativePath })
     const cleanPath = relativePath.startsWith('./') ? relativePath.slice(2) : relativePath
-    return join(userDataPath, cleanPath)
+    resolvedPath = join(userDataPath, cleanPath)
+  } else {
+    resolvedPath = join(baseDir, relativePath)
   }
 
-  // New format: resolve relative to baseDir
-  const resolvedPath = join(baseDir, relativePath)
+  assertPathInsideWorkspace(resolvedPath, baseDir)
   logger.debug('path.resolved', { relativePath, resolvedPath, chatUuid: chatUuid ?? 'none' })
   return resolvedPath
 }
