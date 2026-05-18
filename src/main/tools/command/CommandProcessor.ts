@@ -14,6 +14,7 @@ import type {
   ExecuteCommandArgs,
   ExecuteCommandResponse
 } from '@tools/command/index.d'
+import { assessCommandFilesystemScope } from './filesystemScope'
 import { assessExecuteCommandReview } from './risk'
 
 const execAsync = promisify(exec)
@@ -208,17 +209,26 @@ class CommandExecutor {
     try {
       // 1. 评估命令风险
       const riskAssessment = assessExecuteCommandReview({ command, possible_risk, risk_score })
+      const filesystemScopeAssessment = assessCommandFilesystemScope({
+        command,
+        filesystem_scope: args.filesystem_scope,
+        filesystem_scope_reason: args.filesystem_scope_reason
+      })
       logger.info('command.risk_assessed', {
         command,
         riskLevel: riskAssessment.level,
-        riskScore: riskAssessment.normalizedRiskScore
+        riskScore: riskAssessment.normalizedRiskScore,
+        filesystemScope: filesystemScopeAssessment.declaredScope,
+        inferredFilesystemScope: filesystemScopeAssessment.inferredScope
       })
 
       // 2. 如果是危险或警告级别命令，且未确认，则要求确认
-      if ((riskAssessment.level === 'dangerous' || riskAssessment.level === 'warning') && !confirmed) {
+      if ((riskAssessment.level === 'dangerous' || riskAssessment.level === 'warning' || filesystemScopeAssessment.requiresConfirmation) && !confirmed) {
         logger.info('command.requires_confirmation', {
           command,
-          riskLevel: riskAssessment.level
+          riskLevel: riskAssessment.level,
+          filesystemScope: filesystemScopeAssessment.declaredScope,
+          inferredFilesystemScope: filesystemScopeAssessment.inferredScope
         })
         return {
           success: false,
@@ -226,6 +236,8 @@ class CommandExecutor {
           requires_confirmation: true,
           risk_level: riskAssessment.level,
           risk_reason: riskAssessment.reason,
+          filesystem_scope: filesystemScopeAssessment.declaredScope,
+          filesystem_scope_reason: filesystemScopeAssessment.reason,
           execution_reason,
           possible_risk,
           risk_score: riskAssessment.normalizedRiskScore,

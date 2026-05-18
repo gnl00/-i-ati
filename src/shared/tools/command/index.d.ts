@@ -8,6 +8,7 @@
 // ============================================
 
 export type RiskLevel = 'safe' | 'warning' | 'dangerous'
+export type FilesystemScope = 'workspace' | 'outside_workspace' | 'unknown'
 
 // ============================================
 // Execute Command
@@ -18,6 +19,8 @@ export interface ExecuteCommandArgs {
   execution_reason: string
   possible_risk: string
   risk_score: number
+  filesystem_scope?: FilesystemScope
+  filesystem_scope_reason?: string
   cwd?: string
   timeout?: number
   env?: Record<string, string>
@@ -37,6 +40,8 @@ export interface ExecuteCommandResponse {
   requires_confirmation?: boolean
   risk_level?: RiskLevel
   risk_reason?: string
+  filesystem_scope?: FilesystemScope
+  filesystem_scope_reason?: string
   execution_reason?: string
   possible_risk?: string
   risk_score?: number

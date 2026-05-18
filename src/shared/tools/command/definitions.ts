@@ -27,6 +27,15 @@ export const commandTools = [
             minimum: 0,
             maximum: 10
           },
+          filesystem_scope: {
+            type: 'string',
+            enum: ['workspace', 'outside_workspace', 'unknown'],
+            description: "Declare whether this command's filesystem access stays inside the current workspace. Use outside_workspace for paths such as ~/.zshrc or /etc/hosts. Use unknown when shell expansion, variables, scripts, or command behavior make the boundary unclear."
+          },
+          filesystem_scope_reason: {
+            type: 'string',
+            description: 'Explain why the declared filesystem_scope is accurate. Mention any outside-workspace paths or uncertainty.'
+          },
           cwd: {
             type: 'string',
             description: 'Working directory relative to workspace base directory (optional). If not specified, uses the workspace root.'
@@ -44,7 +53,7 @@ export const commandTools = [
             }
           }
         },
-        required: ['command', 'execution_reason', 'possible_risk', 'risk_score'],
+        required: ['command', 'execution_reason', 'possible_risk', 'risk_score', 'filesystem_scope', 'filesystem_scope_reason'],
         $schema: 'http://json-schema.org/draft-07/schema#'
       }
     }

@@ -1,4 +1,5 @@
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
+import { assessCommandFilesystemScope } from '@main/tools/command/filesystemScope'
 import { assessExecuteCommandReview } from '@main/tools/command/risk'
 import { embeddedToolsRegistry } from '@tools/registry'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
@@ -135,7 +136,12 @@ export class ToolExecutor implements IToolExecutor {
           possible_risk: possibleRisk,
           risk_score: riskScore
         })
-        if (risk.level === 'dangerous' || risk.level === 'warning') {
+        const filesystemScope = assessCommandFilesystemScope({
+          command,
+          filesystem_scope: runtimeArgs?.filesystem_scope,
+          filesystem_scope_reason: runtimeArgs?.filesystem_scope_reason
+        })
+        if (risk.level === 'dangerous' || risk.level === 'warning' || filesystemScope.requiresConfirmation) {
           const decision = await this.requestConfirmation({
             toolCallId: toolId,
             name: toolName,
@@ -147,7 +153,10 @@ export class ToolExecutor implements IToolExecutor {
               reason: risk.reason,
               executionReason,
               possibleRisk: risk.possibleRisk,
-              riskScore: risk.normalizedRiskScore
+              riskScore: risk.normalizedRiskScore,
+              filesystemScope: filesystemScope.declaredScope,
+              inferredFilesystemScope: filesystemScope.inferredScope,
+              filesystemReason: filesystemScope.reason
             }
           })
           if (!decision.approved) {

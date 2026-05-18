@@ -41,6 +41,9 @@ export interface ToolExecutorConfig {
       executionReason?: string
       possibleRisk?: string
       riskScore?: number
+      filesystemScope?: 'workspace' | 'outside_workspace' | 'unknown'
+      inferredFilesystemScope?: 'workspace' | 'outside_workspace' | 'unknown'
+      filesystemReason?: string
     }
   }) => Promise<{ approved: boolean; reason?: string; args?: unknown }>
 }

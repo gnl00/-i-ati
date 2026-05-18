@@ -15,6 +15,9 @@ export type ToolConfirmationRequest = {
     executionReason?: string
     possibleRisk?: string
     riskScore?: number
+    filesystemScope?: 'workspace' | 'outside_workspace' | 'unknown'
+    inferredFilesystemScope?: 'workspace' | 'outside_workspace' | 'unknown'
+    filesystemReason?: string
   }
 }
 

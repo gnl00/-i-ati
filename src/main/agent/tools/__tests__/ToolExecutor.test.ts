@@ -113,6 +113,8 @@ describe('ToolExecutor runtime context', () => {
         execution_reason: 'Check escaping',
         possible_risk: 'Low risk',
         risk_score: 0,
+        filesystem_scope: 'workspace',
+        filesystem_scope_reason: 'Runs inside the workspace.',
         metadata: {
           note: 'line1\\nline2'
         }
@@ -188,7 +190,9 @@ describe('ToolExecutor runtime context', () => {
         command: 'pwd',
         execution_reason: 'Check working directory',
         possible_risk: 'Low risk',
-        risk_score: 0
+        risk_score: 0,
+        filesystem_scope: 'workspace',
+        filesystem_scope_reason: 'Reads the current workspace directory.'
       })
     } as any])
 
@@ -238,6 +242,8 @@ describe('ToolExecutor runtime context', () => {
           execution_reason: 'Check working directory',
           possible_risk: 'Low risk',
           risk_score: 0,
+          filesystem_scope: 'workspace',
+          filesystem_scope_reason: 'Reads the current workspace directory.',
           [TOOL_CALL_REASON_PARAMETER_NAME]: 'Need to inspect the active working directory.'
         })
       } as any,
@@ -381,6 +387,45 @@ describe('ToolExecutor runtime context', () => {
     expect(result.status).toBe('aborted')
     expect(result.id).toBe('call-8c')
     expect(result.error?.message).toContain('user_cancelled')
+  })
+
+  it('requires confirmation for outside workspace filesystem access even with low command risk', async () => {
+    handlerMock.mockClear()
+    assessExecuteCommandReviewMock.mockReturnValueOnce({
+      level: 'safe',
+      reason: 'safe',
+      possibleRisk: 'Read-only command',
+      normalizedRiskScore: 0
+    })
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'outside workspace denied'
+    }))
+    const executor = new ToolExecutor({
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-8d',
+      function: 'execute_command',
+      args: JSON.stringify({
+        command: 'cat ~/.zshrc',
+        execution_reason: 'Inspect shell config',
+        possible_risk: 'Read-only command',
+        risk_score: 0,
+        filesystem_scope: 'workspace',
+        filesystem_scope_reason: 'The model expected a read-only command.'
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    const request = (requestConfirmation.mock.calls as any[])[0][0]
+    expect(request.ui.filesystemScope).toBe('workspace')
+    expect(request.ui.inferredFilesystemScope).toBe('outside_workspace')
+    expect(request.ui.filesystemReason).toContain('home directory')
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+    expect(result.error?.message).toContain('outside workspace denied')
   })
 
   it('passes confirmation source metadata to manual reviews', async () => {
