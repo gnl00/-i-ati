@@ -216,13 +216,14 @@ export const ArtifactsPreviewTab: React.FC<{
         {/* State 1: Idle - Show ready message */}
         {devServer.devServerStatus === 'idle' && (
           <div className="flex-1 flex items-center justify-center bg-zinc-100/50 p-8 dark:bg-zinc-950">
-            <div className="flex max-w-md flex-col items-center gap-5">
+            <div className="flex max-w-md flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
               <button
+                type="button"
                 onClick={devServer.handleStartDevServer}
-                className="group flex h-16 w-16 cursor-pointer items-center justify-center rounded-full border border-blue-200/70 bg-blue-50 text-blue-600 shadow-xs transition-[background-color,border-color,color,transform] duration-200 hover:scale-105 hover:bg-blue-100 dark:border-blue-800/50 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                className="group flex h-16 w-16 cursor-pointer items-center justify-center rounded-full border border-blue-100/70 bg-blue-50 text-blue-500/90 shadow-xs transition-[background-color,border-color,color,box-shadow,transform] duration-100 hover:scale-105 hover:bg-blue-100/50 hover:shadow-sm active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30 motion-reduce:transition-none motion-reduce:hover:scale-100 dark:border-blue-800/50 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/40"
                 title="Start Preview Server"
               >
-                <Play className="h-7 w-7 fill-current transition-transform duration-200 group-hover:translate-x-0.5" />
+                <Play className="h-7 w-7 fill-current" />
               </button>
               <div className="text-center">
                 <h3 className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -239,8 +240,10 @@ export const ArtifactsPreviewTab: React.FC<{
         {/* State 2: Starting - Show loading spinner */}
         {devServer.devServerStatus === 'starting' && (
           <div className="flex-1 flex items-center justify-center bg-zinc-100/50 p-8 dark:bg-zinc-950">
-            <div className="flex flex-col items-center gap-5">
-              <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+            <div className="flex flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-blue-200/70 bg-blue-50 text-blue-500 shadow-xs dark:border-blue-800/50 dark:bg-blue-950/40 dark:text-blue-300">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
               <div className="text-center">
                 <h3 className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                   Starting Development Server
@@ -264,14 +267,16 @@ export const ArtifactsPreviewTab: React.FC<{
             onOpenExternal={() => window.open(`http://localhost:${devServer.devServerPort}`, '_blank')}
             onStop={devServer.handleStopDevServer}
           >
-            <iframe
-              ref={devIframeRef}
-              src={`http://localhost:${devServer.devServerPort}`}
-              title="dev-server-preview"
-              className="w-full flex-1 bg-white dark:bg-gray-900"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
-              allow="fullscreen"
-            />
+            <div className="flex-1 min-h-0 overflow-hidden animate-in fade-in duration-200 motion-reduce:animate-none">
+              <iframe
+                ref={devIframeRef}
+                src={`http://localhost:${devServer.devServerPort}`}
+                title="dev-server-preview"
+                className="h-full w-full bg-white dark:bg-gray-900"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+                allow="fullscreen"
+              />
+            </div>
           </ArtifactsPreviewShell>
         )}
 
@@ -307,13 +312,15 @@ export const ArtifactsPreviewTab: React.FC<{
           window.open(url, '_blank')
         }}
       >
-        <iframe
-          ref={staticIframeRef}
-          srcDoc={previewContent}
-          title="artifact-preview"
-          className="w-full flex-1 bg-white dark:bg-gray-900"
-          sandbox="allow-scripts allow-same-origin"
-        />
+        <div className="flex-1 min-h-0 overflow-hidden animate-in fade-in duration-200 motion-reduce:animate-none">
+          <iframe
+            ref={staticIframeRef}
+            srcDoc={previewContent}
+            title="artifact-preview"
+            className="h-full w-full bg-white dark:bg-gray-900"
+            sandbox="allow-scripts allow-same-origin"
+          />
+        </div>
       </ArtifactsPreviewShell>
     )
   }
