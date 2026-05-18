@@ -53,6 +53,9 @@ export const FILE_LIST_ALLOWED_DIRS_ACTION = 'file-list-allowed-dirs-action'
 export const FILE_CREATE_DIR_ACTION = 'file-create-dir-action'
 export const FILE_MOVE_ACTION = 'file-move-action'
 
+// Workspace Operations Actions
+export const WORKSPACE_ENSURE_DIRECTORY = 'workspace:ensure-directory'
+
 // DevServer Operations Actions
 export const DEV_SERVER_CHECK_PREVIEW_SH = 'dev-server-check-preview-sh'
 export const DEV_SERVER_START = 'dev-server-start'

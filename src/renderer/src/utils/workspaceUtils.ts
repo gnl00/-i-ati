@@ -3,7 +3,7 @@
  * 管理基于 chatUUID 的工作空间目录
  */
 
-import { invokeCreateDirectory } from '@renderer/tools/fileOperations/renderer/FileOperationsInvoker'
+import { invokeEnsureWorkspaceDirectory } from '@renderer/tools/workspace/renderer/WorkspaceInvoker'
 import {
   DEFAULT_WORKSPACE_DIR,
   DEFAULT_WORKSPACE_NAME,
@@ -38,6 +38,7 @@ export function getWorkspacePath(chatUuid?: string, customPath?: string): string
 export async function createWorkspace(chatUuid?: string, customPath?: string): Promise<{
   success: boolean
   path: string
+  created?: boolean
   error?: string
 }> {
   const workspacePath = getWorkspacePath(chatUuid, customPath)
@@ -45,17 +46,18 @@ export async function createWorkspace(chatUuid?: string, customPath?: string): P
   try {
     console.log(`[Workspace] Creating workspace: ${workspacePath}`)
 
-    const result = await invokeCreateDirectory({
-      directory_path: workspacePath,
+    const result = await invokeEnsureWorkspaceDirectory({
       chat_uuid: chatUuid,
-      recursive: true
+      workspace_path: workspacePath
     })
 
     if (result.success) {
-      console.log(`[Workspace] Workspace created successfully: ${workspacePath}`)
+      const ensuredPath = result.path || workspacePath
+      console.log(`[Workspace] Workspace created successfully: ${ensuredPath}`)
       return {
         success: true,
-        path: workspacePath
+        path: ensuredPath,
+        created: result.created ?? true
       }
     } else {
       console.error(`[Workspace] Failed to create workspace: ${result.error}`)
@@ -94,15 +96,15 @@ export async function switchWorkspace(chatUuid?: string, customPath?: string): P
   try {
     console.log(`[Workspace] Switching to workspace: ${workspacePath}`)
 
-    // 尝试创建工作空间（如果已存在，create_directory 应该返回成功或提示已存在）
+    // 尝试确保工作空间存在
     const createResult = await createWorkspace(chatUuid, customPath)
 
     if (createResult.success) {
       console.log(`[Workspace] Switched to workspace: ${workspacePath}`)
       return {
         success: true,
-        path: workspacePath,
-        created: true
+        path: createResult.path,
+        created: createResult.created ?? true
       }
     } else {
       // 如果创建失败但是因为目录已存在，仍然认为切换成功

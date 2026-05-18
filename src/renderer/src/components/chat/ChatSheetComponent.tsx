@@ -261,7 +261,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             toggleWebSearch(false)
 
             // 切换 workspace
-            const workspaceResult = await switchWorkspace(chat.uuid)
+            const workspaceResult = await switchWorkspace(chat.uuid, chat.workspacePath)
             if (!workspaceResult.success) {
                 logger.warn('workspace.switch_for_chat_failed', { chatUuid: chat.uuid, error: workspaceResult.error })
             }

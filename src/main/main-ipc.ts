@@ -14,10 +14,12 @@ import { registerTelegramHandlers } from '@main/ipc/telegram'
 import { registerTaskPlanHandlers } from '@main/ipc/task-planner'
 import { registerScheduledTaskHandlers } from '@main/ipc/scheduled-tasks'
 import { registerSmartMessageHandlers } from '@main/ipc/smart-messages'
+import { registerWorkspaceHandlers } from '@main/ipc/workspace'
 
 function mainIPCSetup() {
   registerLoggingHandlers()
   registerSystemHandlers()
+  registerWorkspaceHandlers()
   registerEmotionHandlers()
   registerToolHandlers()
   registerTelegramHandlers()
