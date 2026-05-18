@@ -14,6 +14,7 @@ import openaiIcon from '@renderer/assets/provider-icons/openai.svg'
 import openrouterIcon from '@renderer/assets/provider-icons/openrouter.svg'
 import robotIcon from '@renderer/assets/provider-icons/robot-2-line.svg'
 import siliconcloudIcon from '@renderer/assets/provider-icons/siliconcloud.svg'
+import xiaomiMiMoIcon from '@renderer/assets/provider-icons/xiaomimimo.svg'
 import zaiIcon from '@renderer/assets/provider-icons/zai.svg'
 import zerooneIcon from '@renderer/assets/provider-icons/zeroone.svg'
 import zhipuIcon from '@renderer/assets/provider-icons/zhipu.svg'
@@ -58,6 +59,10 @@ export const PROVIDER_ICON_MAP: Record<string, string> = {
   // 01.AI
   zeroone: zerooneIcon,
   '01ai': zerooneIcon,
+  // Xiaomi MiMo
+  xiaomi: xiaomiMiMoIcon,
+  xiaomimimo: xiaomiMiMoIcon,
+  mimo: xiaomiMiMoIcon,
 }
 
 /**
