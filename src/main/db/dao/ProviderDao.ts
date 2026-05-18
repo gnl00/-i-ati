@@ -28,6 +28,7 @@ interface ProviderModelRow {
   label: string
   type: string
   modalities_json: string | null
+  capabilities_json: string | null
   context_window_tokens: number | null
   enabled: number
   created_at: number
@@ -115,12 +116,13 @@ class ProviderDao {
       `),
       upsertProviderModel: db.prepare(`
         INSERT INTO provider_models (
-          account_id, model_id, label, type, modalities_json, context_window_tokens, enabled, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          account_id, model_id, label, type, modalities_json, capabilities_json, context_window_tokens, enabled, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(account_id, model_id) DO UPDATE SET
           label = excluded.label,
           type = excluded.type,
           modalities_json = excluded.modalities_json,
+          capabilities_json = excluded.capabilities_json,
           context_window_tokens = excluded.context_window_tokens,
           enabled = excluded.enabled,
           updated_at = excluded.updated_at
@@ -214,6 +216,7 @@ class ProviderDao {
       row.label,
       row.type,
       row.modalities_json ?? null,
+      row.capabilities_json ?? null,
       row.context_window_tokens ?? null,
       row.enabled,
       row.created_at,

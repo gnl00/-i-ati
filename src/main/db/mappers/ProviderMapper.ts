@@ -29,6 +29,19 @@ const parseModalities = (value: string | null): string[] | undefined => {
   }
 }
 
+const parseStringArray = (value: string | null): string[] | undefined => {
+  if (!value) {
+    return undefined
+  }
+
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export const toProviderDefinitionEntity = (row: ProviderDefinitionRow): ProviderDefinition => ({
   id: row.id,
   displayName: row.display_name,
@@ -59,6 +72,7 @@ export const toAccountModelEntity = (row: ProviderModelRow): AccountModel => ({
   label: row.label,
   type: row.type as ModelType,
   modalities: parseModalities(row.modalities_json),
+  capabilities: parseStringArray(row.capabilities_json),
   contextWindowTokens: row.context_window_tokens ?? undefined,
   enabled: row.enabled === 1
 })
@@ -98,6 +112,7 @@ export const toProviderModelRow = (
   label: model.label,
   type: model.type,
   modalities_json: model.modalities?.length ? JSON.stringify(model.modalities) : null,
+  capabilities_json: model.capabilities?.length ? JSON.stringify(model.capabilities) : null,
   context_window_tokens: model.contextWindowTokens ?? null,
   enabled: model.enabled ? 1 : 0,
   created_at: now,

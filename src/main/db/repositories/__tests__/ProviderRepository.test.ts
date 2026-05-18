@@ -74,4 +74,34 @@ describe('ProviderRepository', () => {
       1710000000000
     )
   })
+
+  it('persists model capabilities through ProviderDao helpers', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1710000000000)
+
+    const providerRepo = {
+      upsertProviderModel: vi.fn()
+    }
+    const repository = new ProviderRepository({
+      hasDb: () => true,
+      getDb: () => createDb() as any,
+      getProviderRepo: () => providerRepo as any
+    })
+
+    repository.saveProviderModel('acct-openai', {
+      id: 'gpt-4.1',
+      label: 'GPT-4.1',
+      type: 'llm',
+      modalities: ['text'],
+      capabilities: ['tool', 'reasoning'],
+      enabled: true
+    } as AccountModel)
+
+    expect(providerRepo.upsertProviderModel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account_id: 'acct-openai',
+        model_id: 'gpt-4.1',
+        capabilities_json: JSON.stringify(['tool', 'reasoning'])
+      })
+    )
+  })
 })

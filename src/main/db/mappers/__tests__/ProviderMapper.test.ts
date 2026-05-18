@@ -58,6 +58,7 @@ describe('providerMapper', () => {
       label: 'GPT-4.1',
       type: 'llm',
       modalities_json: JSON.stringify(['text', 'image']),
+      capabilities_json: JSON.stringify(['tool', 'reasoning']),
       context_window_tokens: 1047576,
       enabled: 1,
       created_at: 1,
@@ -69,6 +70,7 @@ describe('providerMapper', () => {
       label: 'GPT-4.1',
       type: 'llm',
       modalities: ['text', 'image'],
+      capabilities: ['tool', 'reasoning'],
       contextWindowTokens: 1047576,
       enabled: true
     })
@@ -112,6 +114,7 @@ describe('providerMapper', () => {
       label: 'GPT-4.1',
       type: 'llm',
       modalities: ['text', 'image'],
+      capabilities: ['tool', 'reasoning'],
       contextWindowTokens: 1047576,
       enabled: true
     }, 10)).toEqual({
@@ -120,6 +123,7 @@ describe('providerMapper', () => {
       label: 'GPT-4.1',
       type: 'llm',
       modalities_json: JSON.stringify(['text', 'image']),
+      capabilities_json: JSON.stringify(['tool', 'reasoning']),
       context_window_tokens: 1047576,
       enabled: 1,
       created_at: 10,

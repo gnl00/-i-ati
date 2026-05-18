@@ -287,6 +287,7 @@ class AppDatabase {
         label TEXT NOT NULL,
         type TEXT NOT NULL,
         modalities_json TEXT,
+        capabilities_json TEXT,
         context_window_tokens INTEGER,
         enabled INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
@@ -296,6 +297,7 @@ class AppDatabase {
     `)
 
     this.ensureColumn('provider_models', 'modalities_json', 'TEXT')
+    this.ensureColumn('provider_models', 'capabilities_json', 'TEXT')
     this.ensureColumn('provider_models', 'context_window_tokens', 'INTEGER')
 
     this.db.exec(`

@@ -27,7 +27,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setAppConfig,
         accounts,
         providerDefinitions,
-        providersRevision,
         defaultModel,
         titleGenerateModel,
         titleGenerateEnabled,
@@ -242,7 +241,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const pluginsDirty = pluginsLoaded
         && JSON.stringify(plugins) !== JSON.stringify(savedPlugins)
 
-    const hasUnsavedChanges = providersRevision > 0 || toolsDirty || knowledgebaseDirty || compressionDirty || mcpDirty || pluginsDirty
+    const hasUnsavedChanges = toolsDirty || knowledgebaseDirty || compressionDirty || mcpDirty || pluginsDirty
 
     return (
         <div className="grid gap-4 w-full min-w-0">
