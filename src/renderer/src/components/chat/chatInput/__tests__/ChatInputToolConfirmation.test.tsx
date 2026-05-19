@@ -16,9 +16,36 @@ const commandConfirmationProps: Array<{
   }
   onConfirm: () => void | Promise<void>
   onCancel: () => void | Promise<void>
+  disabled?: boolean
 }> = []
 
 const invokeRunToolConfirm = vi.fn(async () => ({ ok: true }))
+
+vi.mock('framer-motion', async () => {
+  const React = await import('react')
+
+  const passthrough = (tag: string) => (
+    React.forwardRef<HTMLElement, Record<string, unknown> & { children?: React.ReactNode }>(({
+      children,
+      animate: _animate,
+      exit: _exit,
+      initial: _initial,
+      layout: _layout,
+      transition: _transition,
+      whileHover: _whileHover,
+      whileTap: _whileTap,
+      ...props
+    }, ref) => React.createElement(tag, { ...props, ref } as any, children as React.ReactNode))
+  )
+
+  return {
+    AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+    motion: {
+      div: passthrough('div')
+    },
+    useReducedMotion: () => false
+  }
+})
 
 vi.mock('@renderer/invoker/ipcInvoker', () => ({
   invokeRunToolConfirm: (data: unknown) => invokeRunToolConfirm(data)
@@ -30,6 +57,7 @@ vi.mock('../../chatMessage/assistant-message/CommandConfirmation', () => ({
     return (
       <div data-testid="command-confirmation">
         {props.request.command}
+        {props.disabled ? ' disabled' : ''}
       </div>
     )
   }
@@ -149,6 +177,85 @@ describe('ChatInputToolConfirmation', () => {
       toolCallId: 'call-2',
       approved: false,
       reason: 'user abort'
+    })
+  })
+
+  it('switches to the next queued confirmation when the active request changes', async () => {
+    useToolConfirmationStore.setState({
+      pendingRequests: [
+        {
+          toolCallId: 'call-1',
+          name: 'execute_command',
+          args: {
+            command: 'git reset --hard'
+          }
+        },
+        {
+          toolCallId: 'call-2',
+          name: 'execute_command',
+          args: {
+            command: 'git clean -fd'
+          }
+        }
+      ]
+    })
+
+    await act(async () => {
+      root.render(<ChatInputToolConfirmation />)
+    })
+
+    expect(container.textContent).toContain('git reset --hard')
+
+    await act(async () => {
+      useToolConfirmationStore.setState({
+        pendingRequests: [
+          {
+            toolCallId: 'call-2',
+            name: 'execute_command',
+            args: {
+              command: 'git clean -fd'
+            }
+          }
+        ]
+      })
+    })
+
+    expect(container.textContent).toContain('git clean -fd')
+  })
+
+  it('marks the card disabled while the active confirmation is settling', async () => {
+    let resolveConfirm: (() => void) | undefined
+    invokeRunToolConfirm.mockImplementationOnce(() => new Promise(resolve => {
+      resolveConfirm = () => resolve({ ok: true })
+    }))
+
+    useToolConfirmationStore.setState({
+      pendingRequests: [
+        {
+          toolCallId: 'call-1',
+          name: 'execute_command',
+          args: {
+            command: 'git push --force'
+          }
+        }
+      ]
+    })
+
+    await act(async () => {
+      root.render(<ChatInputToolConfirmation />)
+    })
+
+    await act(async () => {
+      void commandConfirmationProps[0].onConfirm()
+      await Promise.resolve()
+    })
+
+    expect(commandConfirmationProps.at(-1)?.disabled).toBe(true)
+    expect(container.textContent).toContain('disabled')
+
+    await act(async () => {
+      resolveConfirm?.()
+      await Promise.resolve()
     })
   })
 })

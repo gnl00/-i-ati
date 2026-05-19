@@ -1,13 +1,16 @@
 import React, { useCallback, useMemo } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { CommandConfirmation } from '../chatMessage/assistant-message/CommandConfirmation'
 import { buildCommandConfirmationRequest } from '../toolConfirmation/commandConfirmationPresenter'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 
 export const ChatInputToolConfirmation: React.FC = () => {
+  const shouldReduceMotion = useReducedMotion()
   const pendingToolConfirm = useToolConfirmationStore(state => state.pendingRequests[0] ?? null)
   const pendingToolConfirmCount = useToolConfirmationStore(state => state.pendingRequests.length)
   const confirm = useToolConfirmationStore(state => state.confirm)
   const cancel = useToolConfirmationStore(state => state.cancel)
+  const [settlingToolCallId, setSettlingToolCallId] = React.useState<string | null>(null)
 
   const commandConfirmationRequest = useMemo(() => {
     if (pendingToolConfirm?.name !== 'execute_command') {
@@ -20,28 +23,80 @@ export const ChatInputToolConfirmation: React.FC = () => {
     })
   }, [pendingToolConfirm, pendingToolConfirmCount])
 
-  const handleConfirmCommand = useCallback(() => {
+  const isSettling = Boolean(pendingToolConfirm && settlingToolCallId === pendingToolConfirm.toolCallId)
+  const motionTransition = shouldReduceMotion
+    ? { duration: 0 }
+    : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
+  const exitTransition = shouldReduceMotion
+    ? { duration: 0 }
+    : { duration: 0.14, ease: [0.25, 1, 0.5, 1] }
+
+  const handleConfirmCommand = useCallback(async () => {
     if (!pendingToolConfirm) return Promise.resolve()
-    return confirm(pendingToolConfirm.toolCallId)
+    setSettlingToolCallId(pendingToolConfirm.toolCallId)
+    try {
+      await confirm(pendingToolConfirm.toolCallId)
+    } finally {
+      setSettlingToolCallId(current => (
+        current === pendingToolConfirm.toolCallId ? null : current
+      ))
+    }
   }, [confirm, pendingToolConfirm])
 
-  const handleCancelCommand = useCallback(() => {
+  const handleCancelCommand = useCallback(async () => {
     if (!pendingToolConfirm) return Promise.resolve()
-    return cancel('user abort', pendingToolConfirm.toolCallId)
+    setSettlingToolCallId(pendingToolConfirm.toolCallId)
+    try {
+      await cancel('user abort', pendingToolConfirm.toolCallId)
+    } finally {
+      setSettlingToolCallId(current => (
+        current === pendingToolConfirm.toolCallId ? null : current
+      ))
+    }
   }, [cancel, pendingToolConfirm])
 
-  if (!commandConfirmationRequest) {
-    return null
-  }
-
   return (
-    <div className="shrink-0 px-2 pb-1">
-      <CommandConfirmation
-        request={commandConfirmationRequest}
-        onConfirm={handleConfirmCommand}
-        onCancel={handleCancelCommand}
-        className="my-0 max-h-[30vh] overflow-y-auto"
-      />
-    </div>
+    <AnimatePresence initial={false} mode="wait">
+      {pendingToolConfirm && commandConfirmationRequest && (
+        <motion.div
+          key={pendingToolConfirm.toolCallId}
+          className="grid shrink-0 px-2 pb-1"
+          initial={{
+            opacity: 0,
+            y: shouldReduceMotion ? 0 : 6,
+            scale: shouldReduceMotion ? 1 : 0.985,
+            gridTemplateRows: '0fr'
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            gridTemplateRows: '1fr'
+          }}
+          exit={{
+            opacity: 0,
+            y: shouldReduceMotion ? 0 : 4,
+            scale: shouldReduceMotion ? 1 : 0.99,
+            gridTemplateRows: '0fr'
+          }}
+          transition={motionTransition}
+          style={{ overflow: 'hidden' }}
+        >
+          <motion.div
+            className="min-h-0 overflow-hidden"
+            exit={{ opacity: 0 }}
+            transition={exitTransition}
+          >
+            <CommandConfirmation
+              request={commandConfirmationRequest}
+              onConfirm={handleConfirmCommand}
+              onCancel={handleCancelCommand}
+              disabled={isSettling}
+              className="my-0 max-h-[30vh] overflow-y-auto"
+            />
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

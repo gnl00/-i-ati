@@ -16,9 +16,10 @@ export interface CommandConfirmationRequest {
 
 interface CommandConfirmationProps {
   request: CommandConfirmationRequest
-  onConfirm: () => void
-  onCancel: () => void
+  onConfirm: () => void | Promise<void>
+  onCancel: () => void | Promise<void>
   className?: string
+  disabled?: boolean
 }
 
 function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
@@ -71,7 +72,8 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
   request,
   onConfirm,
   onCancel,
-  className
+  className,
+  disabled = false
 }) => {
   const config = getRiskLevelConfig(request.risk_level)
   const Icon = config.icon
@@ -97,9 +99,11 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
 
   return (
     <div
+      aria-busy={disabled || undefined}
       className={cn(
         'my-2 transition-all duration-300 ease-out',
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
+        disabled && 'pointer-events-none opacity-80',
         className
       )}
     >
@@ -178,6 +182,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={onCancel}
+                  disabled={disabled}
                   className={cn(
                     'h-6 rounded-full px-2.5 text-[10px] font-medium shadow-none transition-colors',
                     config.cancelButton
@@ -189,6 +194,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                 <Button
                   size="sm"
                   onClick={onConfirm}
+                  disabled={disabled}
                   className={cn(
                     'h-6 rounded-full px-2.5 text-[10px] font-semibold shadow-none transition-colors',
                     config.executeButton
