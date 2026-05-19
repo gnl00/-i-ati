@@ -4,6 +4,11 @@ import { taskPlannerService } from '@renderer/services/taskPlanner/TaskPlannerSe
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { Plan } from '@shared/task-planner/schemas'
 
+const sortPlanStepsById = (plan: Plan): Plan => ({
+  ...plan,
+  steps: [...plan.steps].sort((a, b) => a.id.localeCompare(b.id))
+})
+
 type UseTaskPlanResult = {
   activePlans: Plan[]
   pendingPlanReview: { toolCallId: string; plan: Plan } | null
@@ -26,7 +31,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
       .then(plans => {
         const filtered = plans.filter(plan => plan.status !== 'completed' && plan.status !== 'cancelled')
         filtered.sort((a, b) => b.updatedAt - a.updatedAt)
-        setActivePlans(filtered)
+        setActivePlans(filtered.map(sortPlanStepsById))
       })
       .catch(() => {
         setActivePlans([])
@@ -83,7 +88,7 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
             createdAt: Date.now(),
             updatedAt: Date.now()
           }
-          setPendingPlanReview({ toolCallId: payload.toolCallId, plan: draftPlan })
+          setPendingPlanReview({ toolCallId: payload.toolCallId, plan: sortPlanStepsById(draftPlan) })
         }
       }
 
