@@ -1,4 +1,5 @@
 export const SCHEDULE_EVENTS = {
+  STARTED: 'schedule.started',
   UPDATED: 'schedule.updated',
   MESSAGE_CREATED: 'message.created',
   MESSAGE_UPDATED: 'message.updated'
@@ -7,6 +8,11 @@ export const SCHEDULE_EVENTS = {
 export type ScheduleEventType = typeof SCHEDULE_EVENTS[keyof typeof SCHEDULE_EVENTS]
 
 export type ScheduleEventPayloads = {
+  [SCHEDULE_EVENTS.STARTED]: {
+    task: import('@shared/tools/schedule').ScheduleTask
+    submissionId: string
+    attempt: number
+  }
   [SCHEDULE_EVENTS.UPDATED]: { task: import('@shared/tools/schedule').ScheduleTask }
   [SCHEDULE_EVENTS.MESSAGE_CREATED]: { message: MessageEntity }
   [SCHEDULE_EVENTS.MESSAGE_UPDATED]: { message: MessageEntity }

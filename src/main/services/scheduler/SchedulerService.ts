@@ -13,8 +13,12 @@ type ScheduledTaskPayload = {
   modelRef?: ModelRef
 }
 
+const MAX_TIMEOUT_DELAY_MS = 2_147_483_647
+const MIN_DUE_RETRY_DELAY_MS = 1000
+
 export class SchedulerService {
   private timer: NodeJS.Timeout | null = null
+  private dueTimer: NodeJS.Timeout | null = null
   private isTicking = false
   private readonly runService = new RunService()
   private readonly logger = createLogger('SchedulerService')
@@ -22,17 +26,60 @@ export class SchedulerService {
   start(intervalMs: number = 10000): void {
     if (this.timer) return
     this.timer = setInterval(() => {
-      void this.tick()
+      void this.runTickAndReschedule()
     }, intervalMs)
-    void this.tick()
+    void this.runTickAndReschedule()
     this.logger.info('scheduler.started', { intervalMs })
   }
 
   stop(): void {
+    const wasRunning = Boolean(this.timer || this.dueTimer)
     if (this.timer) {
       clearInterval(this.timer)
       this.timer = null
+    }
+    this.clearDueTimer()
+    if (wasRunning) {
       this.logger.info('scheduler.stopped')
+    }
+  }
+
+  private async runTickAndReschedule(): Promise<void> {
+    await this.tick()
+    this.scheduleNextDueTask()
+  }
+
+  private clearDueTimer(): void {
+    if (!this.dueTimer) return
+    clearTimeout(this.dueTimer)
+    this.dueTimer = null
+  }
+
+  private scheduleNextDueTask(): void {
+    this.clearDueTimer()
+
+    try {
+      const nextTask = planningDb.getScheduledTasksByStatus('pending', 1)[0]
+      if (!nextTask) return
+
+      const rawDelayMs = nextTask.run_at - Date.now()
+      const delayMs = Math.min(
+        MAX_TIMEOUT_DELAY_MS,
+        rawDelayMs <= 0 ? MIN_DUE_RETRY_DELAY_MS : rawDelayMs
+      )
+
+      this.dueTimer = setTimeout(() => {
+        this.dueTimer = null
+        void this.runTickAndReschedule()
+      }, delayMs)
+
+      this.logger.debug('next_due_task.scheduled', {
+        taskId: nextTask.id,
+        runAt: nextTask.run_at,
+        delayMs
+      })
+    } catch (error) {
+      this.logger.error('next_due_task.schedule_failed', error)
     }
   }
 
@@ -89,6 +136,18 @@ export class SchedulerService {
         attempt: nextAttempt
       })
       planningDb.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
+      emitter.emit(SCHEDULE_EVENTS.STARTED, {
+        task: planningDb.getScheduledTaskById(task.id) ?? {
+          ...task,
+          status: 'running',
+          attempt_count: nextAttempt,
+          last_error: null,
+          result_message_id: null,
+          updated_at: Date.now()
+        },
+        submissionId,
+        attempt: nextAttempt
+      })
 
       const submitResult = await this.runService.execute({
         submissionId,

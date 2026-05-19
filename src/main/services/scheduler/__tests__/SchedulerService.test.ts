@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
+import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { SchedulerService } from '../SchedulerService'
 import DatabaseService from '@main/db/DatabaseService'
 import { planningDb } from '@main/db/planning'
 
 const taskStore: ScheduledTaskRow[] = []
-const { mockSubmit, mockHasActiveRunForChat } = vi.hoisted(() => ({
+const { mockSubmit, mockHasActiveRunForChat, mockScheduleEmit } = vi.hoisted(() => ({
   mockSubmit: vi.fn().mockResolvedValue({ assistantMessageId: 42 }),
-  mockHasActiveRunForChat: vi.fn(() => false)
+  mockHasActiveRunForChat: vi.fn(() => false),
+  mockScheduleEmit: vi.fn()
 }))
 
 vi.mock('@main/db/DatabaseService', () => ({
@@ -62,6 +64,13 @@ vi.mock('@main/db/planning', () => ({
       const task = taskStore.find(item => item.id === id)
       return task ? { ...task } : undefined
     }),
+    getScheduledTasksByStatus: vi.fn((status: ScheduleTaskStatus, limit: number) => {
+      return taskStore
+        .filter(task => task.status === status)
+        .sort((left, right) => left.run_at - right.run_at)
+        .slice(0, limit)
+        .map(task => ({ ...task }))
+    }),
     updateScheduledTaskStatus: vi.fn(
       (id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
         const task = taskStore.find(item => item.id === id)
@@ -78,7 +87,7 @@ vi.mock('@main/db/planning', () => ({
 
 vi.mock('@main/services/scheduler/event-emitter', () => ({
   ScheduleEventEmitter: class {
-    emit = vi.fn()
+    emit = mockScheduleEmit
   }
 }))
 
@@ -121,8 +130,10 @@ const buildTask = (overrides: Partial<ScheduledTaskRow> = {}): ScheduledTaskRow 
 
 describe('SchedulerService', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     taskStore.length = 0
     mockSubmit.mockClear()
+    mockScheduleEmit.mockClear()
     mockHasActiveRunForChat.mockReset()
     mockHasActiveRunForChat.mockReturnValue(false)
     vi.clearAllMocks()
@@ -143,6 +154,18 @@ describe('SchedulerService', () => {
       1,
       undefined,
       undefined
+    )
+    expect(mockScheduleEmit).toHaveBeenCalledWith(
+      SCHEDULE_EVENTS.STARTED,
+      expect.objectContaining({
+        task: expect.objectContaining({
+          id: dueTask.id,
+          status: 'running',
+          attempt_count: 1
+        }),
+        submissionId: expect.any(String),
+        attempt: 1
+      })
     )
     expect(planningDb.updateScheduledTaskStatus).toHaveBeenNthCalledWith(
       2,
@@ -285,5 +308,28 @@ describe('SchedulerService', () => {
       undefined
     )
     expect(taskStore[0].status).toBe('failed')
+  })
+
+  it('uses a due timer to trigger the next pending task before the fallback interval', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-19T10:00:00.000Z'))
+    const futureTask = buildTask({
+      id: 'task-next-due',
+      run_at: Date.now() + 5000
+    })
+    planningDb.saveScheduledTask(futureTask)
+
+    const scheduler = new SchedulerService()
+    scheduler.start()
+    await vi.advanceTimersByTimeAsync(4999)
+
+    expect(mockSubmit).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1)
+
+    expect(planningDb.getScheduledTasksByStatus).toHaveBeenCalledWith('pending', 1)
+    expect(mockSubmit).toHaveBeenCalledTimes(1)
+    expect(taskStore[0].status).toBe('completed')
+    scheduler.stop()
   })
 })
