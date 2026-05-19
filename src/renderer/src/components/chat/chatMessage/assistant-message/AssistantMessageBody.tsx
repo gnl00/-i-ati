@@ -1,5 +1,4 @@
 import React, { memo } from 'react'
-import { CommandConfirmation, type CommandConfirmationRequest } from './CommandConfirmation'
 import { AssistantTextSegmentList } from './renderers/AssistantTextSegmentList'
 import { AssistantSupportSegmentList } from './renderers/AssistantSupportSegmentList'
 import type { AssistantMessageTranscriptProjection } from './model/assistantMessageMapper'
@@ -11,9 +10,6 @@ export interface AssistantMessageBodyModel {
   onTypingChange?: () => void
   transcript: AssistantMessageTranscriptProjection
   textPlayback: AssistantMessageTextPlaybackModel
-  commandConfirmationRequest?: CommandConfirmationRequest
-  onConfirmCommand: () => void
-  onCancelCommand: () => void
 }
 
 export interface AssistantMessageBodyProps {
@@ -28,10 +24,7 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
     isLatest,
     onTypingChange,
     transcript,
-    textPlayback,
-    commandConfirmationRequest,
-    onConfirmCommand,
-    onCancelCommand
+    textPlayback
   } = model
 
   return (
@@ -49,13 +42,6 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
         <AssistantSupportSegmentList items={transcript.supportItems} />
       </div>
 
-      {commandConfirmationRequest && (
-        <CommandConfirmation
-          request={commandConfirmationRequest}
-          onConfirm={onConfirmCommand}
-          onCancel={onCancelCommand}
-        />
-      )}
     </>
   )
 })

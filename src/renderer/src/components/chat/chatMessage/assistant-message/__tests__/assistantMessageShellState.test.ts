@@ -27,8 +27,7 @@ describe('buildAssistantMessageShellState', () => {
         ]
       },
       isLatest: true,
-      isResponseActive: false,
-      isCommandConfirmPending: false
+      isResponseActive: false
     })
 
     expect(shellState.shouldRender).toBe(true)
@@ -42,8 +41,7 @@ describe('buildAssistantMessageShellState', () => {
         segments: []
       },
       isLatest: true,
-      isResponseActive: true,
-      isCommandConfirmPending: false
+      isResponseActive: true
     })
 
     expect(shellState.shouldRender).toBe(true)

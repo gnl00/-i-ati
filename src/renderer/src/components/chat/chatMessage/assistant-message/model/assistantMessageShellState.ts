@@ -6,7 +6,6 @@ export interface AssistantMessageShellStateInput {
   previewMessage?: ChatMessage
   isLatest: boolean
   isResponseActive: boolean
-  isCommandConfirmPending: boolean
 }
 
 export interface AssistantMessageShellState {
@@ -20,8 +19,7 @@ export function buildAssistantMessageShellState(
     committedMessage,
     previewMessage,
     isLatest,
-    isResponseActive,
-    isCommandConfirmPending
+    isResponseActive
   } = input
 
   const facts = buildAssistantMessageFacts({
@@ -34,7 +32,7 @@ export function buildAssistantMessageShellState(
       hasContent: facts.presence.hasContent,
       hasSegments: facts.presence.hasSegments,
       hasToolCalls: facts.presence.hasToolCalls,
-      isCommandConfirmPending,
+      isCommandConfirmPending: false,
       isLatest,
       isResponseActive
     })

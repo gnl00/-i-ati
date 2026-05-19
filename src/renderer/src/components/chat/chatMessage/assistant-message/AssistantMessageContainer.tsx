@@ -1,7 +1,6 @@
 import React, { memo, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useChatStore } from '@renderer/store/chatStore'
-import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 import useChatRun from '@renderer/hooks/useChatRun'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import {
@@ -13,7 +12,6 @@ import {
   findLatestRegeneratableUserMessage,
   getAssistantCopyContent
 } from './model/assistantMessageContent'
-import { buildAssistantMessageCommandState } from './model/assistantMessageCommandState'
 import { buildAssistantMessageFooterState } from './model/assistantMessageFooterState'
 import { buildAssistantMessageShellState } from './model/assistantMessageShellState'
 import { buildAssistantMessageTextPlaybackModel } from './model/assistantMessageTextPlayback'
@@ -59,12 +57,6 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   const accounts = useAppConfigStore(state => state.accounts)
   const { onSubmit: handleChatSubmit } = useChatRun()
 
-  const pendingToolConfirm = useToolConfirmationStore(state => state.pendingRequests[0] ?? null)
-  const pendingToolConfirmCount = useToolConfirmationStore(state => state.pendingRequests.length)
-  const confirm = useToolConfirmationStore(state => state.confirm)
-  const cancel = useToolConfirmationStore(state => state.cancel)
-
-  const isCommandConfirmPending = isLatest && pendingToolConfirm?.name === 'execute_command'
   const isRunBusy = runPhase !== 'idle'
   const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
   const isStreaming = runPhase === 'streaming'
@@ -97,13 +89,11 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   const shellState = useMemo(() => buildAssistantMessageShellState({
     committedMessage: displayCommittedMessage,
     previewMessage,
-    isCommandConfirmPending,
     isLatest,
     isResponseActive: isAssistantResponseActive
   }), [
     displayCommittedMessage,
     previewMessage,
-    isCommandConfirmPending,
     isLatest,
     isAssistantResponseActive
   ])
@@ -111,16 +101,6 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   if (!shellState.shouldRender) {
     return null
   }
-
-  const commandState = useMemo(() => buildAssistantMessageCommandState({
-    isCommandConfirmPending,
-    pendingToolConfirm,
-    pendingToolConfirmCount
-  }), [
-    isCommandConfirmPending,
-    pendingToolConfirm,
-    pendingToolConfirmCount
-  ])
 
   const footerState = useMemo(() => buildAssistantMessageFooterState({
     committedMessage: displayCommittedMessage,
@@ -168,16 +148,6 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     void handleChatSubmit(payload.text, payload.images, {})
   }, [handleChatSubmit, isRunBusy, messages, selectedModelRef])
 
-  const handleConfirmCommand = useCallback(() => {
-    if (!pendingToolConfirm) return
-    confirm(pendingToolConfirm.toolCallId)
-  }, [confirm, pendingToolConfirm])
-
-  const handleCancelCommand = useCallback(() => {
-    if (!pendingToolConfirm) return
-    cancel('user abort', pendingToolConfirm.toolCallId)
-  }, [cancel, pendingToolConfirm])
-
   const handleCopy = useCallback(() => {
     onCopyClick(copyContentRef.current)
   }, [onCopyClick])
@@ -224,19 +194,13 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     isLatest,
     onTypingChange,
     transcriptProjection: renderState.transcript,
-    textPlayback,
-    commandState,
-    onConfirmCommand: handleConfirmCommand,
-    onCancelCommand: handleCancelCommand
+    textPlayback
   }), [
     index,
     isLatest,
     onTypingChange,
     renderState.transcript,
-    textPlayback,
-    commandState,
-    handleConfirmCommand,
-    handleCancelCommand
+    textPlayback
   ])
 
   const footerModel = useMemo(() => buildAssistantMessageFooterModel({

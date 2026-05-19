@@ -2,7 +2,6 @@ import type { AssistantMessageBodyModel } from '../AssistantMessageBody'
 import type { AssistantMessageFooterActionsModel } from '../AssistantMessageFooterActions'
 import type { AssistantMessageHeaderModel } from '../AssistantMessageHeader'
 import type { AssistantMessageShellModel } from '../AssistantMessageLayout'
-import type { AssistantMessageCommandState } from './assistantMessageCommandState'
 import type { AssistantMessageFooterState } from './assistantMessageFooterState'
 import type { AssistantMessageHeaderProjection, AssistantMessageTranscriptProjection } from './assistantMessageMapper'
 import type { AssistantMessageTextPlaybackModel } from './assistantMessageTextPlayback'
@@ -18,14 +17,11 @@ export interface BuildAssistantMessageLayoutModelsInput {
   headerProjection: AssistantMessageHeaderProjection
   transcriptProjection: AssistantMessageTranscriptProjection
   textPlayback: AssistantMessageTextPlaybackModel
-  commandState: AssistantMessageCommandState
   footerState: AssistantMessageFooterState
   badgeAnimate: boolean
   onCopyClick: () => void
   onRegenerateClick: () => void
   onEditClick: () => void
-  onConfirmCommand: () => void
-  onCancelCommand: () => void
   tokenUsage?: ITokenUsage
 }
 
@@ -63,9 +59,6 @@ export function buildAssistantMessageBodyModel(
     | 'onTypingChange'
     | 'transcriptProjection'
     | 'textPlayback'
-    | 'commandState'
-    | 'onConfirmCommand'
-    | 'onCancelCommand'
   >
 ): AssistantMessageBodyModel {
   return {
@@ -73,10 +66,7 @@ export function buildAssistantMessageBodyModel(
     isLatest: input.isLatest,
     onTypingChange: input.onTypingChange,
     transcript: input.transcriptProjection,
-    textPlayback: input.textPlayback,
-    commandConfirmationRequest: input.commandState.commandConfirmationRequest,
-    onConfirmCommand: input.onConfirmCommand,
-    onCancelCommand: input.onCancelCommand
+    textPlayback: input.textPlayback
   }
 }
 

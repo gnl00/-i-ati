@@ -8,8 +8,6 @@ describe('buildAssistantMessageLayoutModels', () => {
     const onCopyClick = vi.fn()
     const onRegenerateClick = vi.fn()
     const onEditClick = vi.fn()
-    const onConfirmCommand = vi.fn()
-    const onCancelCommand = vi.fn()
 
     const models = buildAssistantMessageLayoutModels({
       index: 3,
@@ -48,15 +46,6 @@ describe('buildAssistantMessageLayoutModels', () => {
           segments: []
         }
       },
-      commandState: {
-        commandConfirmationRequest: {
-          command: 'ls',
-          risk_level: 'risky',
-          execution_reason: 'Inspect files',
-          possible_risk: 'Reads local files',
-          pending_count: 1
-        },
-      },
       footerState: {
         showOperations: true,
         showRegenerate: true
@@ -64,9 +53,7 @@ describe('buildAssistantMessageLayoutModels', () => {
       badgeAnimate: true,
       onCopyClick,
       onRegenerateClick,
-      onEditClick,
-      onConfirmCommand,
-      onCancelCommand
+      onEditClick
     })
 
     expect(models.shell).toEqual({
@@ -82,8 +69,6 @@ describe('buildAssistantMessageLayoutModels', () => {
       badgeAnimate: true
     })
     expect(models.body.transcript.isOverlayPreview).toBe(true)
-    expect(models.body.commandConfirmationRequest?.command).toBe('ls')
-    expect(models.body.onConfirmCommand).toBe(onConfirmCommand)
     expect(models.footer).toEqual({
       messageMeta: undefined,
       tokenUsageDisplay: {

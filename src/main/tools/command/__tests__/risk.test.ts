@@ -26,6 +26,35 @@ describe('command risk helpers', () => {
     expect(result.reason).toBeTruthy()
   })
 
+  it('detects ordinary file deletion as warning', () => {
+    const result = assessCommandRisk('rm test.txt')
+    expect(result.level).toBe('warning')
+    expect(result.reason).toContain('File deletion')
+  })
+
+  it('detects interactive deletion as warning', () => {
+    const result = assessCommandRisk('rm -i test.txt')
+    expect(result.level).toBe('warning')
+    expect(result.reason).toContain('File deletion')
+  })
+
+  it.each([
+    ['git reset --hard', 'hard reset'],
+    ['git clean -fd', 'clean'],
+    ['git clean -df', 'clean'],
+    ['git push --force', 'force push'],
+    ['git push -f origin main', 'force push'],
+    ['git branch -D feature/demo', 'branch deletion'],
+    ['git checkout -- .', 'checkout'],
+    ['git stash drop', 'stash drop'],
+    ['git rebase main', 'rebase'],
+    ['git commit --amend', 'amend']
+  ])('detects destructive git command as warning: %s', (command, reasonPart) => {
+    const result = assessCommandRisk(command)
+    expect(result.level).toBe('warning')
+    expect(result.reason?.toLowerCase()).toContain(reasonPart)
+  })
+
   it('escalates to warning when llm risk score is high even without pattern match', () => {
     const result = assessExecuteCommandReview({
       command: 'git clean -fd',

@@ -21,11 +21,20 @@ export const DANGEROUS_PATTERNS = [
 
 export const WARNING_PATTERNS = [
   { pattern: /rm\s+-r/i, reason: 'Recursive deletion' },
+  { pattern: /(^|[;&|]\s*)rm\s+(?!.*\s-rf(?:\s|$))(?!.*\s+-rf(?:\s|$))\S+/i, reason: 'File deletion' },
   { pattern: /rm\s+.*\*/i, reason: 'Deletion with wildcard' },
-  { pattern: /git\s+push\s+.*--force/i, reason: 'Force push to git repository' },
+  { pattern: /git\s+reset\s+--hard(?:\s|$)/i, reason: 'Git hard reset discards uncommitted changes' },
+  { pattern: /git\s+clean\s+(?=[^\n;&|]*-[A-Za-z]*f)(?=[^\n;&|]*-[A-Za-z]*d)/i, reason: 'Git clean removes untracked files and directories' },
+  { pattern: /git\s+push\s+(?=[^\n;&|]*(?:--force|-f)(?:\s|$))/i, reason: 'Git force push can overwrite remote history' },
+  { pattern: /git\s+branch\s+-D(?:\s|$)/i, reason: 'Git force branch deletion can discard branch work' },
+  { pattern: /git\s+checkout\s+--\s+\.(?:\s|$)/i, reason: 'Git checkout discards uncommitted changes' },
+  { pattern: /git\s+stash\s+drop(?:\s|$)/i, reason: 'Git stash drop discards stashed changes' },
+  { pattern: /git\s+rebase(?:\s|$)/i, reason: 'Git rebase rewrites commit history and may conflict' },
+  { pattern: /git\s+commit\s+--amend(?:\s|$)/i, reason: 'Git commit amend rewrites the latest commit' },
   { pattern: /npm\s+publish/i, reason: 'Publishing to npm registry' },
   { pattern: /curl.*\|\s*bash/i, reason: 'Executing downloaded script' },
   { pattern: /wget.*\|\s*sh/i, reason: 'Executing downloaded script' },
+  { pattern: /\b(rm|cp|mv)\s+[^;&|]*\s-[A-Za-z]*i[A-Za-z]*(?:\s|$)/i, reason: 'Interactive shell command requires terminal input' },
   { pattern: />\s*\/dev\/null/i, reason: 'Redirecting to /dev/null' }
 ] as const
 
@@ -103,4 +112,3 @@ export function assessExecuteCommandReview(
     normalizedRiskScore
   }
 }
-

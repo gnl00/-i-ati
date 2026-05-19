@@ -17,6 +17,7 @@ import { CustomCaretOverlay, CustomCaretRef } from '../common/CustomCaretOverlay
 import CommandPalette from './CommandPalette'
 import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
+import { ChatInputToolConfirmation } from './ChatInputToolConfirmation'
 import { invokeCheckIsDirectory } from '@renderer/invoker/ipcInvoker'
 import { ArrowBigUp, CornerDownLeft } from 'lucide-react'
 import {
@@ -552,6 +553,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
             isSubmitBlocked && 'opacity-80'
           )}
         >
+          <ChatInputToolConfirmation />
+
           <ChatInputToolbar
             selectedModel={selectedModel}
             modelOptions={modelOptions}
