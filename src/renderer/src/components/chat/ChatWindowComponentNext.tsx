@@ -233,6 +233,7 @@ const ChatWindowComponentNext: React.FC = () => {
 
   const isRunStreaming = runPhase === 'streaming'
   const inputAreaRef = useRef<HTMLDivElement>(null)
+  const topOverlayRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<ChatInputAreaHandle>(null)
   const latestVisibleRef = useRef<boolean>(true)
   const scrollModeRef = useRef<ScrollMode>('tail-follow')
@@ -247,7 +248,8 @@ const ChatWindowComponentNext: React.FC = () => {
   const displayPlans = pendingPlanReview
     ? [pendingPlanReview.plan, ...activePlans]
     : activePlans
-  const topOcclusionPx = displayPlans.length > 0 ? 0 : CHAT_HEADER_OCCLUSION_PX
+  const [topOverlayHeight, setTopOverlayHeight] = useState<number>(CHAT_HEADER_OCCLUSION_PX)
+  const topOcclusionPx = displayPlans.length > 0 ? topOverlayHeight : CHAT_HEADER_OCCLUSION_PX
   const {
     scrollParentRef,
     virtuosoRef,
@@ -928,6 +930,36 @@ const ChatWindowComponentNext: React.FC = () => {
     }
   }, [artifactsPanelOpen, requestLayoutPass, scrollParentRef])
 
+  useLayoutEffect(() => {
+    if (displayPlans.length === 0) {
+      setTopOverlayHeight(CHAT_HEADER_OCCLUSION_PX)
+      requestLayoutPass('top-overlay-hidden')
+      return
+    }
+
+    const overlay = topOverlayRef.current
+    if (!overlay) return
+
+    const measureOverlay = () => {
+      const nextHeight = Math.max(
+        CHAT_HEADER_OCCLUSION_PX,
+        Math.ceil(overlay.getBoundingClientRect().height)
+      )
+      setTopOverlayHeight(currentHeight => (
+        currentHeight === nextHeight ? currentHeight : nextHeight
+      ))
+      requestLayoutPass('top-overlay-resize')
+    }
+
+    measureOverlay()
+    const overlayObserver = new ResizeObserver(measureOverlay)
+    overlayObserver.observe(overlay)
+
+    return () => {
+      overlayObserver.disconnect()
+    }
+  }, [displayPlans.length, requestLayoutPass])
+
   useEffect(() => {
     return () => {
       cancelScheduledLayoutPass()
@@ -997,43 +1029,52 @@ const ChatWindowComponentNext: React.FC = () => {
                 className="flex flex-col overflow-hidden relative"
                 id="chat-panel"
               >
-                <AnimatePresence initial={false}>
-                  {displayPlans.length > 0 && (
-                    <motion.div
-                      className="shrink-0 px-2 pb-1 bg-chat-light/95 dark:bg-chat-dark/95 backdrop-blur-sm overflow-hidden"
-                      style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    >
-                      <div className="space-y-2">
-                        {displayPlans.map((plan, index) => {
-                          const isPendingReview = pendingPlanReview?.plan.id === plan.id
-                          return (
-                            <motion.div
-                              key={plan.id}
-                              initial={{ opacity: 0, y: -30 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{
-                                duration: 0.3,
-                                ease: [0.25, 0.46, 0.45, 0.94],
-                                delay: index * 0.05
-                              }}
-                            >
-                              <TaskPlanBar
-                                plan={plan}
-                                onPlanUpdated={refreshPlans}
-                                onApprove={isPendingReview ? approvePlanReview : undefined}
-                                onAbort={isPendingReview ? abortPlanReview : undefined}
-                              />
-                            </motion.div>
-                          )
-                        })}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-40 overflow-hidden">
+                  <AnimatePresence initial={false}>
+                    {displayPlans.length > 0 && (
+                      <motion.div
+                        ref={topOverlayRef}
+                        className={cn(
+                          'pointer-events-none relative px-2 pb-2',
+                          'bg-chat-light/72 backdrop-blur-xl',
+                          'dark:bg-chat-dark/72',
+                          'after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-white/45',
+                          'dark:after:bg-white/10'
+                        )}
+                        style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
+                        initial={{ y: -12, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -12, opacity: 0 }}
+                        transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <div className="pointer-events-auto space-y-2">
+                          {displayPlans.map((plan, index) => {
+                            const isPendingReview = pendingPlanReview?.plan.id === plan.id
+                            return (
+                              <motion.div
+                                key={plan.id}
+                                initial={{ opacity: 0, y: -16 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{
+                                  duration: 0.24,
+                                  ease: [0.22, 1, 0.36, 1],
+                                  delay: index * 0.04
+                                }}
+                              >
+                                <TaskPlanBar
+                                  plan={plan}
+                                  onPlanUpdated={refreshPlans}
+                                  onApprove={isPendingReview ? approvePlanReview : undefined}
+                                  onAbort={isPendingReview ? abortPlanReview : undefined}
+                                />
+                              </motion.div>
+                            )
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 <div
                   ref={scrollParentRef}

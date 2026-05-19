@@ -125,7 +125,7 @@ export function TaskPlanBar({
       layout
       transition={{ layout: { duration: 0.26, ease: [0.22, 1, 0.36, 1] } }}
       className={cn(
-        'overflow-hidden rounded-2xl border border-white/55 bg-white/52 shadow-[0_22px_60px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl',
+        'overflow-hidden rounded-2xl border border-white/35 bg-white/52 shadow-xs backdrop-blur-3xl',
         'dark:border-white/10 dark:bg-slate-950/38 dark:shadow-[0_24px_70px_-42px_rgba(2,6,23,0.8)]',
         className
       )}
@@ -155,7 +155,7 @@ export function TaskPlanBar({
             </div>
 
             <div className="shrink-0">
-              <div className="flex items-center gap-1 rounded-full border border-white/60 bg-white/55 p-1 shadow-[0_10px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md dark:border-white/10 dark:bg-slate-900/55">
+              <div className="flex items-center gap-1 rounded-full border border-white/30 bg-gray-100 p-1 shadow-[0_10px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md dark:border-white/10 dark:bg-slate-900/55">
                 <Button
                   onClick={handleAbort}
                   disabled={isUpdating}
@@ -244,22 +244,26 @@ export function TaskPlanBar({
               animate={{ y: 0, filter: 'blur(0px)' }}
               exit={{ y: -6, filter: 'blur(4px)' }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="border-t border-white/45 bg-white/32 px-4 py-2 backdrop-blur-md dark:border-white/10 dark:bg-slate-950/24"
+              className="border-t border-white/45 bg-transparent px-4 py-2 dark:border-white/10 dark:bg-slate-950/24"
             >
               {!isPendingReview && (
-                <div className="mb-2 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
-                  <span className="font-medium text-slate-700 dark:text-slate-200">{plan.goal}</span>
+                <div className="mb-2 text-[12px] leading-5 text-slate-600 dark:text-slate-300">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{plan.goal}</span>
                   {plan.failureReason && (
                     <span className="ml-2 text-rose-600 dark:text-rose-300">{plan.failureReason}</span>
                   )}
                 </div>
               )}
 
-              <div className="space-y-1">
+              <div className="space-y-1 bg-transparent">
                 {plan.steps.map((step, index) => (
                   <div
                     key={step.id}
-                    className="flex items-start gap-2 rounded-lg px-2 py-1 hover:bg-white/45 dark:hover:bg-slate-950/35"
+                    className={cn(
+                      'flex items-start gap-2 rounded-lg px-2 py-1 backdrop-blur-3xl transition-colors',
+                      'bg-white/60 hover:border-white/50 hover:bg-white/38',
+                      'dark:border-white/8 dark:bg-slate-950/16 dark:hover:border-white/14 dark:hover:bg-slate-950/28'
+                    )}
                   >
                     <div className="mt-0.5 shrink-0">{stepIconMap[step.status]}</div>
                     <div className="min-w-0 flex-1">
