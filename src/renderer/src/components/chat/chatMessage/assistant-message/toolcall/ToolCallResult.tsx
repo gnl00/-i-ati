@@ -606,19 +606,6 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
                     ) : (
                       <div className={cn('px-3 py-2.5')}>
                         <div className="flex h-full flex-col">
-                          <div className="flex items-center gap-4 mb-2.5 pb-2 border-b border-zinc-200/45 dark:border-zinc-700/35">
-                            <div className="flex items-baseline gap-1.5">
-                              <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Tool</span>
-                              <span className="text-[13px] font-mono font-semibold text-zinc-600 dark:text-zinc-100">{toolResponse?.toolName ?? tc.name}</span>
-                            </div>
-                            {typeof tc.cost === 'number' && (
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Duration</span>
-                                <span className="text-[13px] font-mono font-medium text-zinc-600 dark:text-zinc-300">{formatToolCost(tc.cost)}</span>
-                              </div>
-                            )}
-                          </div>
-
                           <div className="flex-1 overflow-hidden">
                             {!areArgsReady ? (
                               <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing tool call parameters...</div>
