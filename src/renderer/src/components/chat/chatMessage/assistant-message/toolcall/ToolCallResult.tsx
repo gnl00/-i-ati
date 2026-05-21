@@ -583,7 +583,7 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
                         <div
                           className={cn(
                             detailViewportHeightClass,
-                            'overflow-y-auto custom-scrollbar w-full bg-white/70 dark:bg-[#09090b] overscroll-contain'
+                            'overflow-hidden w-full bg-white/70 dark:bg-[#09090b] overscroll-contain'
                           )}
                           onWheel={(e) => e.stopPropagation()}
                           onTouchMove={(e) => e.stopPropagation()}
@@ -591,6 +591,7 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
                           <SpeedCodeHighlight
                             code={visibleJsonContent}
                             language="json"
+                            className="h-full min-h-full overflow-auto custom-scrollbar"
                             themeOverride="github-dim"
                           />
                         </div>

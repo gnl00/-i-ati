@@ -161,4 +161,26 @@ describe('ToolCallResult cost display', () => {
     expect(container.textContent).toContain('latest status')
     expect(container.textContent).toContain('ready payload')
   })
+
+  it('lets the detail code viewer fill its viewport', async () => {
+    await act(async () => {
+      root.render(<ToolCallResult toolCall={createToolCallSegment('completed', 1680)} index={0} />)
+    })
+
+    const trigger = container.querySelector('button')
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const detailButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent === 'Detail')
+    await act(async () => {
+      detailButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const codeViewer = container.querySelector('.shj-lang-json')
+    expect(codeViewer?.className).toContain('h-full')
+    expect(codeViewer?.className).toContain('min-h-full')
+    expect(codeViewer?.className).toContain('overflow-auto')
+  })
 })
