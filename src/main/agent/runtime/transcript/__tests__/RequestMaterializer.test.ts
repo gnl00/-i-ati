@@ -47,4 +47,44 @@ describe('DefaultRequestMaterializer', () => {
       }
     ])
   })
+
+  it('compacts inline image tool results during protocol replay', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [
+        {
+          recordId: 'tool-1',
+          kind: 'tool_result',
+          timestamp: 2,
+          stepId: 'step-1',
+          toolCallId: 'call-1',
+          toolCallIndex: 0,
+          toolName: 'vision_tool',
+          status: 'success',
+          content: `{"image":"data:image/png;base64,${'a'.repeat(200)}"}`
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    expect(request.messages[0]).toMatchObject({
+      role: 'tool',
+      content: expect.stringContaining('[Tool result compacted for model request]'),
+      toolCallId: 'call-1',
+      toolName: 'vision_tool'
+    })
+    expect((request.messages[0] as { content: string }).content).not.toContain('data:image/png;base64')
+  })
 })

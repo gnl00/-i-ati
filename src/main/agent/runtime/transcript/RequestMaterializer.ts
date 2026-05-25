@@ -15,6 +15,8 @@
 import type { AgentRequestOptions, AgentRequestSpec } from '../request/AgentRequestSpec'
 import type { AgentContentPart } from './AgentContentPart'
 import type { AgentTranscript } from './AgentTranscript'
+import { compactToolContentForModelRequest } from '@shared/tools/toolResultContent'
+import { isNormalizedToolResultContent } from '../tools/result-normalization'
 
 export interface MaterializedUserProtocolMessage {
   role: 'user'
@@ -65,8 +67,12 @@ export interface RequestMaterializer {
 }
 
 const stringifyToolResultContent = (content: unknown, error?: { message: string }): string => {
+  if (isNormalizedToolResultContent(content)) {
+    return content.modelContent
+  }
+
   if (typeof content === 'string') {
-    return content
+    return compactToolContentForModelRequest(content)
   }
 
   if (content === undefined || content === null) {
@@ -74,9 +80,9 @@ const stringifyToolResultContent = (content: unknown, error?: { message: string 
   }
 
   try {
-    return JSON.stringify(content)
+    return compactToolContentForModelRequest(JSON.stringify(content))
   } catch {
-    return String(content)
+    return compactToolContentForModelRequest(String(content))
   }
 }
 

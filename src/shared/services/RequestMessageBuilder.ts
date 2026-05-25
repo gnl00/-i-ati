@@ -9,6 +9,7 @@
  * 4. 插入系统提示词
  * 5. 验证消息合法性
  */
+import { compactToolContentForModelRequest } from '@shared/tools/toolResultContent'
 
 export interface RequestMessageBuildResult {
   systemPrompt?: string
@@ -78,7 +79,9 @@ export class UnifiedRequestMessageMaterializer {
 
       return {
         role: 'tool',
-        content: message.content,
+        content: typeof message.content === 'string'
+          ? compactToolContentForModelRequest(message.content)
+          : message.content,
         toolCallId: message.toolCallId,
         toolName: message.name || toolNamesByCallId.get(message.toolCallId) || 'tool'
       }

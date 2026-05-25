@@ -183,4 +183,38 @@ describe('RequestMessageBuilder', () => {
     expect(result.messages[0]).not.toHaveProperty('segments')
     expect(result.messages[2]).not.toHaveProperty('name')
   })
+
+  it('compacts legacy tool messages with inline image data', () => {
+    const result = new UnifiedRequestMessageMaterializer().materialize({
+      chatMessages: [
+        {
+          role: 'assistant',
+          content: '',
+          toolCalls: [{
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'get_window_state',
+              arguments: '{}'
+            }
+          }],
+          segments: []
+        },
+        {
+          role: 'tool',
+          toolCallId: 'tool-1',
+          content: `data:image/png;base64,${'a'.repeat(200)}`,
+          segments: []
+        }
+      ]
+    })
+
+    expect(result.messages[1]).toMatchObject({
+      role: 'tool',
+      content: expect.stringContaining('[Tool result compacted for model request]'),
+      toolCallId: 'tool-1',
+      toolName: 'get_window_state'
+    })
+    expect(result.messages[1].content).not.toContain('data:image/png;base64')
+  })
 })

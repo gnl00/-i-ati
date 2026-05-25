@@ -43,6 +43,7 @@ import { DefaultToolResultRecordMaterializer } from './transcript/ToolResultReco
 import { DefaultExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
 import { DefaultModelResponseParser } from './model/ModelResponseParser'
 import { DefaultModelStreamExecutor } from './model/ModelStreamExecutor'
+import { DefaultToolResultNormalizer, type ToolResultNormalizer } from './tools/result-normalization'
 
 export interface AgentLoopDependenciesFactory {
   create(runtimeInfrastructure: RuntimeInfrastructure): AgentLoopDependencies
@@ -64,6 +65,8 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   toolBatchAssembler?: ToolBatchAssembler
   toolExecutorDispatcher?: ToolExecutorDispatcher
   toolResultRecordMaterializer?: ToolResultRecordMaterializer
+  toolResultNormalizer?: ToolResultNormalizer
+  toolResultNormalizationScopeId?: string
   loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
   executeToolCalls?: DefaultToolExecutorDispatcherOptions['executeToolCalls']
   abortedResultDisposition?: DefaultToolExecutorDispatcherOptions['abortedResultDisposition']
@@ -79,6 +82,9 @@ implements AgentLoopDependenciesFactory {
   create(runtimeInfrastructure: RuntimeInfrastructure): AgentLoopDependencies {
     const agentEventBus = this.options.agentEventBus ?? new DefaultAgentEventBus()
     const agentEventEmitter = this.options.agentEventEmitter ?? new DefaultAgentEventEmitter(agentEventBus)
+    const toolResultNormalizer = this.options.toolResultNormalizer ?? new DefaultToolResultNormalizer({
+      scopeId: this.options.toolResultNormalizationScopeId
+    })
 
     return {
       loopIdentityProvider: runtimeInfrastructure.loopIdentityProvider,
@@ -108,11 +114,14 @@ implements AgentLoopDependenciesFactory {
           agentEventEmitter,
           runtimeClock: runtimeInfrastructure.runtimeClock,
           executeToolCalls: this.options.executeToolCalls,
+          toolResultNormalizer,
           abortedResultDisposition: this.options.abortedResultDisposition,
           requestConfirmation: this.options.requestConfirmation
         }),
       toolResultRecordMaterializer:
-        this.options.toolResultRecordMaterializer ?? new DefaultToolResultRecordMaterializer(),
+        this.options.toolResultRecordMaterializer ?? new DefaultToolResultRecordMaterializer({
+          toolResultNormalizer
+        }),
       loadedSkillsTranscriptContextProvider: this.options.loadedSkillsTranscriptContextProvider,
       agentEventEmitter
     }

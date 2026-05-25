@@ -97,6 +97,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
           }
         ),
         executeToolCalls: (calls) => this.executeToolCalls(calls, input),
+        toolResultNormalizationScopeId: input.prepared.runSpec.runtimeContext.chatUuid,
         loadedSkillsTranscriptContextProvider: new ChatLoadedSkillsTranscriptContextProvider(
           input.prepared.runSpec.runtimeContext.chatId
         ),

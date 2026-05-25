@@ -10,6 +10,7 @@
  * - denied / aborted tool result 也应通过同一条 write-back 链路进入 transcript
  */
 import type { ToolResultFact } from '../tools/ToolResultFact'
+import type { ToolResultNormalizer } from '../tools/result-normalization'
 import type { AgentTranscriptToolResultRecord } from './AgentTranscriptRecord'
 
 export interface ToolResultRecordMaterializerInput {
@@ -24,9 +25,17 @@ export interface ToolResultRecordMaterializer {
 
 export class DefaultToolResultRecordMaterializer
 implements ToolResultRecordMaterializer {
+  constructor(
+    private readonly options: {
+      toolResultNormalizer?: ToolResultNormalizer
+    } = {}
+  ) {}
+
   materialize(input: ToolResultRecordMaterializerInput): AgentTranscriptToolResultRecord {
+    const result = this.options.toolResultNormalizer?.normalize(input.result) ?? input.result
+
     return {
-      ...input.result,
+      ...result,
       recordId: input.recordId,
       kind: 'tool_result',
       timestamp: input.timestamp

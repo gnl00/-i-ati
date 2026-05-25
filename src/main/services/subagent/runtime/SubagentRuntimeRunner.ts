@@ -138,6 +138,7 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
           }
         ),
         executeToolCalls,
+        toolResultNormalizationScopeId: 'subagent',
         abortedResultDisposition: 'non_terminal'
       })
     })
