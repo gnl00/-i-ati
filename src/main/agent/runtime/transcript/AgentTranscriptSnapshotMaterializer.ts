@@ -10,18 +10,41 @@
  * - 它不负责 request materialization
  */
 import type { AgentTranscript, AgentTranscriptSnapshot } from './AgentTranscript'
+import type { AgentTranscriptRecord, AgentTranscriptToolResultRecord } from './AgentTranscriptRecord'
+import type { ToolResultNormalizer } from '../tools/result-normalization'
 
 export interface AgentTranscriptSnapshotMaterializer {
   materialize(transcript: AgentTranscript): AgentTranscriptSnapshot
 }
 
 export class DefaultAgentTranscriptSnapshotMaterializer implements AgentTranscriptSnapshotMaterializer {
+  constructor(
+    private readonly options: {
+      toolResultNormalizer?: ToolResultNormalizer
+    } = {}
+  ) {}
+
   materialize(transcript: AgentTranscript): AgentTranscriptSnapshot {
     return {
       transcriptId: transcript.transcriptId,
       createdAt: transcript.createdAt,
       updatedAt: transcript.updatedAt,
-      records: [...transcript.records]
+      records: transcript.records.map(record => this.materializeRecord(record))
     }
+  }
+
+  private materializeRecord(record: AgentTranscriptRecord): AgentTranscriptRecord {
+    if (record.kind !== 'tool_result') {
+      return record
+    }
+
+    const normalized = this.options.toolResultNormalizer?.normalize(record) ?? record
+    return {
+      ...normalized,
+      recordId: record.recordId,
+      kind: 'tool_result',
+      timestamp: record.timestamp,
+      replayMode: 'cold'
+    } satisfies AgentTranscriptToolResultRecord
   }
 }

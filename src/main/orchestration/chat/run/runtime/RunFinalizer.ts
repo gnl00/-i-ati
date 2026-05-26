@@ -38,7 +38,9 @@ export class RunFinalizer {
       await chatAgentAdapter.abortRun({
         chatContext,
         emitter,
-        stepCommitter
+        stepCommitter,
+        submissionId: input.submissionId,
+        reason: 'user_cancelled'
       })
       lifecycle.emitAborted()
       return { state: 'aborted' }

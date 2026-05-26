@@ -37,6 +37,7 @@ vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
 }))
 
 import { ChatStepStore } from '../ChatStepStore'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 describe('ChatStepStore.finalizeAssistantMessage', () => {
   beforeEach(() => {
@@ -244,5 +245,98 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
         ])
       })
     }))
+  })
+
+  it('persists a hidden run-stopped boundary message', () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    const result = store.persistRunStoppedBoundaryMessage(chatEntity, {
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        model: 'model-1',
+        modelRef: {
+          accountId: 'account-1',
+          modelId: 'model-1'
+        },
+        content: '',
+        segments: []
+      }
+    } as MessageEntity, {
+      submissionId: 'submission-1'
+    })
+
+    expect(result.id).toBe(102)
+    expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({
+        role: 'assistant',
+        source: MESSAGE_SOURCE.RUN_STOPPED,
+        model: 'model-1',
+        modelRef: {
+          accountId: 'account-1',
+          modelId: 'model-1'
+        },
+        content: expect.stringContaining('<run_boundary status="stopped" reason="user_cancelled">'),
+        runBoundary: expect.objectContaining({
+          status: 'stopped',
+          reason: 'user_cancelled',
+          submissionId: 'submission-1',
+          stoppedAt: expect.any(Number)
+        }),
+        typewriterCompleted: true
+      })
+    }))
+    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [102]
+    }))
+  })
+
+  it('reuses an existing run-stopped boundary for the same submission', () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [201],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+    const existingBoundary = {
+      id: 201,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        source: MESSAGE_SOURCE.RUN_STOPPED,
+        content: '<run_boundary status="stopped" reason="user_cancelled"></run_boundary>',
+        runBoundary: {
+          status: 'stopped',
+          reason: 'user_cancelled',
+          submissionId: 'submission-1',
+          stoppedAt: 1
+        },
+        segments: []
+      }
+    } as MessageEntity
+
+    getChatByIdMock.mockReturnValue(chatEntity)
+    getMessageByIdMock.mockReturnValue(existingBoundary)
+
+    const result = store.persistRunStoppedBoundaryMessage(chatEntity, undefined, {
+      submissionId: 'submission-1'
+    })
+
+    expect(result).toBe(existingBoundary)
+    expect(saveMessageMock).not.toHaveBeenCalled()
+    expect(updateChatMock).not.toHaveBeenCalled()
   })
 })

@@ -17,6 +17,7 @@ import type { AgentContentPart } from './AgentContentPart'
 import type { AgentTranscript } from './AgentTranscript'
 import { compactToolContentForModelRequest } from '@shared/tools/toolResultContent'
 import { isNormalizedToolResultContent } from '../tools/result-normalization'
+import type { AgentTranscriptToolResultRecord } from './AgentTranscriptRecord'
 
 export interface MaterializedUserProtocolMessage {
   role: 'user'
@@ -66,9 +67,33 @@ export interface RequestMaterializer {
   materialize(input: RequestMaterializerInput): MaterializedProtocolRequest
 }
 
-const stringifyToolResultContent = (content: unknown, error?: { message: string }): string => {
+const safeStringifyToolContent = (content: unknown, error?: { message: string }): string => {
+  if (typeof content === 'string') {
+    return content
+  }
+
+  if (content === undefined || content === null) {
+    return error?.message ?? ''
+  }
+
+  try {
+    return JSON.stringify(content)
+  } catch {
+    return String(content)
+  }
+}
+
+const stringifyToolResultContent = (
+  content: unknown,
+  error?: { message: string },
+  options: { replayMode?: AgentTranscriptToolResultRecord['replayMode'] } = {}
+): string => {
   if (isNormalizedToolResultContent(content)) {
     return content.modelContent
+  }
+
+  if (options.replayMode === 'hot') {
+    return safeStringifyToolContent(content, error)
   }
 
   if (typeof content === 'string') {
@@ -105,7 +130,9 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
         case 'tool_result':
           return {
             role: 'tool',
-            content: stringifyToolResultContent(record.content, record.error),
+            content: stringifyToolResultContent(record.content, record.error, {
+              replayMode: record.replayMode
+            }),
             toolCallId: record.toolCallId,
             toolName: record.toolName
           }

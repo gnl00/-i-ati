@@ -17,6 +17,11 @@ type FinalizeRunArgs = {
   }
 }
 
+type AbortRunArgs = Pick<FinalizeRunArgs, 'chatContext' | 'stepCommitter' | 'emitter'> & {
+  submissionId?: string
+  reason?: string
+}
+
 type FinalizeRunResult = {
   runResult: RunResult
   postRunInput: {
@@ -108,15 +113,28 @@ export class ChatAgentAdapter {
   async abortRun({
     chatContext,
     emitter,
-    stepCommitter
-  }: Pick<FinalizeRunArgs, 'chatContext' | 'stepCommitter' | 'emitter'>): Promise<void> {
+    stepCommitter,
+    submissionId,
+    reason = 'user_cancelled'
+  }: AbortRunArgs): Promise<void> {
+    const finalAssistantMessage = stepCommitter.getFinalAssistantMessage()
     const settledAssistantMessage = await this.finalizeService.settleAbortedAssistantMessage(
       chatContext.chat,
-      stepCommitter.getFinalAssistantMessage(),
+      finalAssistantMessage,
       chatContext.messageEntities
     )
     if (settledAssistantMessage) {
       new ChatEventMapper(emitter).emitMessageCreated(settledAssistantMessage)
     }
+
+    const boundaryMessage = this.finalizeService.createRunStoppedBoundaryMessage(
+      chatContext.chat,
+      finalAssistantMessage,
+      {
+        submissionId,
+        reason
+      }
+    )
+    new ChatEventMapper(emitter).emitMessageCreated(boundaryMessage)
   }
 }

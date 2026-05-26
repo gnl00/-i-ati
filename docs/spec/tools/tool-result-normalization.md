@@ -1,6 +1,6 @@
 # Tool Result Normalization
 
-Tool results pass through a shared normalization layer before they enter chat state, transcript replay, and persisted history. The layer keeps model-facing content bounded while preserving original payloads as local artifacts.
+Tool results use a hot/cold replay policy. Results created during the active run stay readable for immediate model continuation. Results that leave the active run are normalized into compact model content plus local artifacts.
 
 ## Problem
 
@@ -14,11 +14,12 @@ When these payloads are written directly to tool messages, every subsequent requ
 
 ## Runtime Boundaries
 
-The normalization layer sits on three boundaries:
+The normalization layer sits on four boundaries:
 
-- Tool execution event: `DefaultToolExecutorDispatcher` normalizes completed results before host render events receive them.
-- Transcript write-back: `DefaultToolResultRecordMaterializer` applies the same normalizer as an idempotent guard.
-- Request replay: `RequestMaterializer` and `UnifiedRequestMessageMaterializer` apply a final model-request guard for legacy history and custom runtime injectors.
+- Tool execution event: `DefaultToolExecutorDispatcher` returns raw tool results so the active run can continue with the full payload.
+- Transcript write-back: `DefaultToolResultRecordMaterializer` writes active-run results as `replayMode: "hot"`.
+- Active request replay: `RequestMaterializer` sends `hot` tool results to the next model step without the size/image guard.
+- Terminal snapshot and history replay: `DefaultAgentTranscriptSnapshotMaterializer`, `RequestMaterializer`, and `UnifiedRequestMessageMaterializer` apply normalization or final request guards for cold history and legacy messages.
 
 This keeps the policy tool-agnostic. Tool processors can return rich outputs, and the runtime decides how much content is allowed to flow into the model window.
 
@@ -66,35 +67,35 @@ Large or image-bearing results are replaced with a compact object:
 }
 ```
 
-Small text and small JSON continue to pass through unchanged.
+Small text and small JSON continue to pass through unchanged. Hot results also pass through unchanged during the active run.
 
 ## Image Policy
 
 Current phase:
 
 - Extract inline image bytes into local artifacts.
-- Keep model-facing content as summary plus artifact references.
+- Keep active-run tool results available to the next model step with original content.
+- Keep cold model-facing content as summary plus artifact references.
 - Keep `metadata.json` ready for visual summaries.
 
 Planned VLM phase:
 
-- Current running tool result can provide raw image content to a model adapter that supports multimodal tool responses.
 - Historical image-bearing tool results are represented by VLM summaries plus artifact paths.
 - The VLM summary cache is keyed by image hash, tool name, and normalization version.
 
 ## Request Guard
 
-The request guard is a last line of defense. It compacts tool message content when either condition is true:
+The request guard is a last line of defense for cold and legacy tool messages. It compacts tool message content when either condition is true:
 
 - The string exceeds the configured character budget.
 - The string contains inline image data.
 
-The guard returns a short note with original length and compaction reason. New normalized records should already be compact, so this primarily protects older DB messages and custom materializers.
+The guard returns a short note with original length and compaction reason. New normalized records should already be compact, so this primarily protects older DB messages and custom materializers. `replayMode: "hot"` records bypass this guard for the active run.
 
 ## Phased Plan
 
-1. Phase 1: Add artifact store, classifier, normalizer, transcript/event integration, request guard, and targeted tests.
-2. Phase 2: Add VLM caption service, hash cache, and cold-history materialization.
+1. Phase 1: Add artifact store, classifier, hot/cold replay policy, terminal snapshot normalization, request guard, and targeted tests.
+2. Phase 2: Add VLM caption service and hash cache for cold image history.
 3. Phase 3: Add artifact lifecycle management, retention policy, and UI artifact affordances.
 4. Phase 4: Add adapter-level multimodal tool result support for hot images.
 
@@ -103,17 +104,18 @@ The guard returns a short note with original length and compaction reason. New n
 Phase 1 is implemented in:
 
 - `src/main/agent/runtime/tools/result-normalization/`
-- `src/main/agent/runtime/tools/ToolExecutorDispatcher.ts`
+- `src/main/agent/runtime/transcript/AgentTranscriptSnapshotMaterializer.ts`
 - `src/main/agent/runtime/transcript/ToolResultRecordMaterializer.ts`
 - `src/main/agent/runtime/transcript/RequestMaterializer.ts`
 - `src/shared/tools/toolResultContent.ts`
 - `src/shared/services/RequestMessageBuilder.ts`
 
-The current request content uses `modelContent`, a compact text representation with artifact references. VLM summaries and multimodal hot-image adapter support are tracked as Phase 2 and Phase 4 work.
+Active-run replay uses raw tool result content. Terminal snapshots and cold history use `modelContent`, a compact text representation with artifact references. VLM summaries and multimodal hot-image adapter support are tracked as Phase 2 and Phase 4 work.
 
 ## Acceptance
 
-- Inline image tool results are persisted as artifacts and model-facing content contains no base64 image data.
-- Large tool results are replaced by compact metadata and a raw-result artifact.
+- Active-run tool results remain available to the next model step with original content.
+- Terminal snapshots persist inline image tool results as artifacts and cold model-facing content contains compact references.
+- Terminal snapshots replace large cold tool results with compact metadata and a raw-result artifact.
 - Legacy tool messages with inline images are compacted during request replay.
 - The design works for all tool names, including computer-use tools.

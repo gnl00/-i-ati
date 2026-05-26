@@ -107,6 +107,7 @@ vi.mock('@main/services/activityJournal/ActivityJournalService', () => ({
 }))
 
 import DatabaseService from '@main/db/DatabaseService'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import {
   ChatPreparationPipeline,
   RunEnvironmentService,
@@ -267,7 +268,24 @@ describe('ChatPreparationPipeline', () => {
       chatUuid: 'chat-1',
       workspacePath: './workspaces/chat-1'
     })
-    expect(runSpec.initialMessages).toEqual(chatContext.messageEntities.map(entity => entity.body))
+    expect(runSpec.initialMessages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        role: 'user',
+        source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT
+      }),
+      expect.objectContaining({
+        role: 'user',
+        source: MESSAGE_SOURCE.AWAKE_CONTEXT
+      }),
+      expect.objectContaining({
+        role: 'user',
+        content: 'hello'
+      })
+    ]))
+    expect(runSpec.initialMessages.filter(message => (
+      message.role === 'user'
+      && message.content === 'hello'
+    ))).toHaveLength(1)
     expect(emitter.emit).not.toHaveBeenCalled()
     expect(runSpec.request).toEqual(expect.objectContaining({
       adapterPluginId: 'openai-chat-compatible-adapter',
@@ -317,8 +335,51 @@ describe('ChatPreparationPipeline', () => {
     expect(messages[environmentIndex].content).toContain('"currentTime"')
     expect(messages[awakeIndex].content).toContain('"version": 1')
     expect(messages[awakeIndex].content).toContain('"raw_query": "hello"')
+    expect(prepared.runSpec.initialMessages[environmentIndex].source).toBe(MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT)
+    expect(prepared.runSpec.initialMessages[awakeIndex].source).toBe(MESSAGE_SOURCE.AWAKE_CONTEXT)
     expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<system-environment>')).toBe(false)
     expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<awake_state>')).toBe(false)
+  })
+
+  it('uses compressed canonical messages as runtime initial messages', async () => {
+    ;(DatabaseService.getConfig as any).mockReturnValue({
+      ...config,
+      compression: {
+        enabled: true
+      }
+    })
+    ;(DatabaseService.getActiveCompressedSummariesByChatId as any).mockReturnValue([{
+      id: 1,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      messageIds: [11],
+      startMessageId: 11,
+      endMessageId: 11,
+      summary: 'compressed history',
+      compressedAt: 1,
+      status: 'active'
+    }])
+
+    const service = new ChatPreparationPipeline()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare(input, emitter)
+    const summaryMessage = prepared.runSpec.initialMessages.find(message => (
+      message.role === 'user'
+      && message.source === MESSAGE_SOURCE.COMPRESSION_SUMMARY
+    ))
+
+    expect(summaryMessage?.content).toContain('compressed history')
+    expect(prepared.runSpec.initialMessages.some(message => (
+      message.role === 'assistant'
+      && message.content === 'history'
+    ))).toBe(false)
+    expect(prepared.runSpec.initialMessages.filter(message => (
+      message.role === 'user'
+      && message.content === 'hello'
+    ))).toHaveLength(1)
   })
 
   it('omits thinking level when the selected model has no reasoning capability', async () => {

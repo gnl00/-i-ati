@@ -29,6 +29,7 @@ export type AgentTranscriptToolResultRecord = ToolResultFact & {
   recordId: string
   kind: 'tool_result'
   timestamp: number
+  replayMode?: 'hot' | 'cold'
 }
 
 export interface AgentTranscriptAssistantStepRecord {

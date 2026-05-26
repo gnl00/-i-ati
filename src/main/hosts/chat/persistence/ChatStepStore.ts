@@ -2,12 +2,34 @@ import { extractContentFromSegments } from '@main/services/messages/MessageSegme
 import type { ConversationStore } from '@main/agent/contracts'
 import DatabaseService from '@main/db/DatabaseService'
 import EmotionInferenceService from '@main/services/emotion/EmotionInferenceService'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import {
   buildNextEmotionStateSnapshot,
   extractEmotionToolStateFromSegments,
   hasVisibleAssistantText
 } from '@main/services/emotion/emotion-state'
 import type { HostRunInputState } from '../preparation'
+
+type RunStoppedBoundaryOptions = {
+  submissionId?: string
+  reason?: string
+}
+
+const RUN_STOPPED_DEFAULT_REASON = 'user_cancelled'
+
+const escapeXmlAttribute = (value: string): string => (
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+)
+
+const buildRunStoppedBoundaryContent = (reason: string): string => [
+  `<run_boundary status="stopped" reason="${escapeXmlAttribute(reason)}">`,
+  'The previous assistant run was stopped by the user before completion. Treat any in-progress task from that run as ended.',
+  '</run_boundary>'
+].join('\n')
 
 const buildUserMessage = (
   model: AccountModel,
@@ -175,6 +197,68 @@ export class ChatStepStore implements ConversationStore {
 
     if (this.hasPersistableAssistantPayload(lastAssistantMessage.body)) {
       return await this.finalizeAssistantMessage(chatEntity, lastAssistantMessage)
+    }
+
+    return undefined
+  }
+
+  persistRunStoppedBoundaryMessage(
+    chatEntity: ChatEntity,
+    lastAssistantMessage?: MessageEntity,
+    options: RunStoppedBoundaryOptions = {}
+  ): MessageEntity {
+    const existing = this.findRunStoppedBoundaryMessage(chatEntity, options.submissionId)
+    if (existing) {
+      return existing
+    }
+
+    const reason = options.reason || RUN_STOPPED_DEFAULT_REASON
+    const stoppedAt = Date.now()
+    const body: ChatMessage = {
+      createdAt: stoppedAt,
+      role: 'assistant',
+      source: MESSAGE_SOURCE.RUN_STOPPED,
+      model: lastAssistantMessage?.body.model,
+      modelRef: lastAssistantMessage?.body.modelRef,
+      content: buildRunStoppedBoundaryContent(reason),
+      runBoundary: {
+        status: 'stopped',
+        reason,
+        ...(options.submissionId ? { submissionId: options.submissionId } : {}),
+        stoppedAt
+      },
+      segments: [],
+      typewriterCompleted: true
+    }
+
+    const entity: MessageEntity = {
+      chatId: chatEntity.id,
+      chatUuid: chatEntity.uuid,
+      body
+    }
+
+    entity.id = DatabaseService.saveMessage(entity)
+    this.attachMessageToChat(chatEntity, entity.id)
+    return entity
+  }
+
+  private findRunStoppedBoundaryMessage(
+    chatEntity: ChatEntity,
+    submissionId?: string
+  ): MessageEntity | undefined {
+    if (!submissionId) {
+      return undefined
+    }
+
+    const latestChat = this.resolveChatEntity(chatEntity.id, chatEntity.uuid) ?? chatEntity
+    for (const messageId of latestChat.messages || []) {
+      const entity = DatabaseService.getMessageById(messageId)
+      if (
+        entity?.body.source === MESSAGE_SOURCE.RUN_STOPPED
+        && entity.body.runBoundary?.submissionId === submissionId
+      ) {
+        return entity
+      }
     }
 
     return undefined

@@ -51,7 +51,7 @@ export class SystemEnvironmentContextProvider {
 
     return {
       role: 'user',
-      source: MESSAGE_SOURCE.SYSTEM_PROMPT,
+      source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT,
       content: [
         '<system-environment>',
         JSON.stringify(snapshot, null, 2),

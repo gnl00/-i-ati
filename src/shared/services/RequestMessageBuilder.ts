@@ -10,6 +10,7 @@
  * 5. 验证消息合法性
  */
 import { compactToolContentForModelRequest } from '@shared/tools/toolResultContent'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 export interface RequestMessageBuildResult {
   systemPrompt?: string
@@ -239,6 +240,7 @@ class RequestMessageBuilder {
   private buildCompressedMessage(summary: CompressedSummaryEntity): ChatMessage {
     return {
       role: 'user',
+      source: MESSAGE_SOURCE.COMPRESSION_SUMMARY,
       content: `[Previous conversation summary (${summary.messageIds.length} messages compressed)]\n\n${summary.summary}`,
       segments: []
     }

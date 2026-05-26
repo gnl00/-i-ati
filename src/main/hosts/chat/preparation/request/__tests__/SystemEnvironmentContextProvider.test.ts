@@ -19,7 +19,7 @@ describe('SystemEnvironmentContextProvider', () => {
     })
 
     expect(message.role).toBe('user')
-    expect(message.source).toBe(MESSAGE_SOURCE.SYSTEM_PROMPT)
+    expect(message.source).toBe(MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT)
     expect(message.content).toContain('<system-environment>')
     expect(message.content).toContain('</system-environment>')
 

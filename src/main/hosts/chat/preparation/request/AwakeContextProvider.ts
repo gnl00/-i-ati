@@ -1,4 +1,5 @@
 import { awakeSnapshotService, type AwakeSnapshotService } from '@main/services/awake/AwakeSnapshotService'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 export class AwakeContextProvider {
   constructor(
@@ -20,6 +21,7 @@ export class AwakeContextProvider {
 
     return {
       role: 'user',
+      source: MESSAGE_SOURCE.AWAKE_CONTEXT,
       content: [
         '<awake_state>',
         JSON.stringify(snapshot, null, 2),

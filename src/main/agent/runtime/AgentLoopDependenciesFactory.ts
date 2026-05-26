@@ -93,7 +93,9 @@ implements AgentLoopDependenciesFactory {
       agentStepMaterializer: this.options.agentStepMaterializer ?? new DefaultAgentStepMaterializer(),
       transcriptAppender: this.options.transcriptAppender ?? new DefaultAgentTranscriptAppender(),
       transcriptSnapshotMaterializer:
-        this.options.transcriptSnapshotMaterializer ?? new DefaultAgentTranscriptSnapshotMaterializer(),
+        this.options.transcriptSnapshotMaterializer ?? new DefaultAgentTranscriptSnapshotMaterializer({
+          toolResultNormalizer
+        }),
       assistantStepRecordMaterializer:
         this.options.assistantStepRecordMaterializer ?? new DefaultAssistantStepRecordMaterializer(),
       requestMaterializer: this.options.requestMaterializer ?? new DefaultRequestMaterializer(),
@@ -114,14 +116,11 @@ implements AgentLoopDependenciesFactory {
           agentEventEmitter,
           runtimeClock: runtimeInfrastructure.runtimeClock,
           executeToolCalls: this.options.executeToolCalls,
-          toolResultNormalizer,
           abortedResultDisposition: this.options.abortedResultDisposition,
           requestConfirmation: this.options.requestConfirmation
         }),
       toolResultRecordMaterializer:
-        this.options.toolResultRecordMaterializer ?? new DefaultToolResultRecordMaterializer({
-          toolResultNormalizer
-        }),
+        this.options.toolResultRecordMaterializer ?? new DefaultToolResultRecordMaterializer(),
       loadedSkillsTranscriptContextProvider: this.options.loadedSkillsTranscriptContextProvider,
       agentEventEmitter
     }

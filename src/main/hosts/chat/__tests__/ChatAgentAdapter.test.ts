@@ -58,6 +58,7 @@ describe('ChatAgentAdapter', () => {
   let finalizeService: {
     finalizeAssistantMessage: ReturnType<typeof vi.fn>
     settleAbortedAssistantMessage: ReturnType<typeof vi.fn>
+    createRunStoppedBoundaryMessage: ReturnType<typeof vi.fn>
     finalizeChatEntity: ReturnType<typeof vi.fn>
   }
 
@@ -68,6 +69,14 @@ describe('ChatAgentAdapter', () => {
     finalizeService = {
       finalizeAssistantMessage: vi.fn(),
       settleAbortedAssistantMessage: vi.fn(),
+      createRunStoppedBoundaryMessage: vi.fn(() => ({
+        id: 103,
+        body: {
+          role: 'assistant',
+          source: 'run_stopped',
+          content: '<run_boundary status="stopped" reason="user_cancelled"></run_boundary>'
+        }
+      })),
       finalizeChatEntity: vi.fn()
     }
   })
@@ -194,6 +203,7 @@ describe('ChatAgentAdapter', () => {
 
     await adapter.abortRun({
       chatContext: prepared.chatContext as any,
+      submissionId: 'submission-1',
       emitter,
       stepCommitter: {
         getFinalAssistantMessage: () => finalAssistantMessage as any,
@@ -206,5 +216,73 @@ describe('ChatAgentAdapter', () => {
       finalAssistantMessage,
       prepared.chatContext.messageEntities
     )
+    expect(finalizeService.createRunStoppedBoundaryMessage).toHaveBeenCalledWith(
+      prepared.chatContext.chat,
+      finalAssistantMessage,
+      {
+        submissionId: 'submission-1',
+        reason: 'user_cancelled'
+      }
+    )
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
+      message: expect.objectContaining({
+        id: 103,
+        body: expect.objectContaining({
+          source: 'run_stopped'
+        })
+      })
+    })
+  })
+
+  it('emits settled aborted assistant messages and then adds a stop boundary', async () => {
+    const adapter = new ChatAgentAdapter(preparationPipeline as any, finalizeService as any)
+    const finalAssistantMessage = {
+      body: {
+        role: 'assistant',
+        content: 'partial',
+        toolCalls: []
+      }
+    }
+    const settledMessage = {
+      id: 104,
+      body: {
+        role: 'assistant',
+        content: 'partial'
+      }
+    }
+    finalizeService.settleAbortedAssistantMessage.mockResolvedValue(settledMessage)
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    await adapter.abortRun({
+      chatContext: prepared.chatContext as any,
+      submissionId: 'submission-2',
+      emitter,
+      stepCommitter: {
+        getFinalAssistantMessage: () => finalAssistantMessage as any,
+        getLastUsage: () => undefined
+      }
+    })
+
+    expect(finalizeService.createRunStoppedBoundaryMessage).toHaveBeenCalledWith(
+      prepared.chatContext.chat,
+      finalAssistantMessage,
+      {
+        submissionId: 'submission-2',
+        reason: 'user_cancelled'
+      }
+    )
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
+      message: settledMessage
+    })
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
+      message: expect.objectContaining({
+        id: 103,
+        body: expect.objectContaining({
+          source: 'run_stopped'
+        })
+      })
+    })
   })
 })

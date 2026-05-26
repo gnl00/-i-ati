@@ -17,14 +17,14 @@ export class ChatPreparationPipeline {
   ): Promise<RunPreparationResult> {
     const environment = await this.runEnvironmentService.prepare(input, emitter)
     const step = this.stepBootstrapService.bootstrap(environment, input, emitter)
-    const request = await this.runRequestFactory.build(environment, step, input.input)
+    const requestBuild = await this.runRequestFactory.build(environment, step, input.input)
 
     return {
       runSpec: {
         submissionId: input.submissionId,
         modelContext: environment.modelContext,
-        request,
-        initialMessages: step.messageBuffer.map(entity => entity.body),
+        request: requestBuild.request,
+        initialMessages: requestBuild.chatMessages,
         runtimeContext: {
           chatId: environment.chat.id,
           chatUuid: environment.chat.uuid,

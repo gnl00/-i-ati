@@ -24,7 +24,6 @@ import type {
 } from './ToolResultFact'
 import type { ToolExecutionResult } from '@main/agent/tools'
 import type { RuntimeClock } from '../loop/RuntimeClock'
-import type { ToolResultNormalizer } from './result-normalization'
 
 export interface ToolExecutorDispatcher {
   dispatch(batch: ToolBatch): Promise<ToolDispatchOutcome>
@@ -35,7 +34,6 @@ export interface DefaultToolExecutorDispatcherOptions {
   signal?: AbortSignal
   runtimeClock: RuntimeClock
   executeToolCalls?: (calls: ToolCallProps[]) => Promise<ToolExecutionResult[]>
-  toolResultNormalizer?: ToolResultNormalizer
   abortedResultDisposition?: 'terminal' | 'non_terminal'
   requestConfirmation?: (input: {
     stepId: string
@@ -205,8 +203,7 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
         signal: this.options.signal
       }).execute([toToolCallProps(call)])
     const executionResult = executionResults[0]
-    const rawResult = toToolResultFact(call.stepId, executionResult)
-    const result = this.options.toolResultNormalizer?.normalize(rawResult) ?? rawResult
+    const result = toToolResultFact(call.stepId, executionResult)
 
     if (result.status === 'aborted') {
       await this.options.agentEventEmitter?.emitToolExecutionAborted({

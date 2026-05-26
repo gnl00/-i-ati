@@ -463,9 +463,17 @@ declare interface ChatMessage extends BaseChatMessage {
   source?: string // message source, e.g. 'schedule' | 'telegram'
   emotion?: ChatEmotionState
   host?: ChatMessageHostMeta
+  runBoundary?: ChatMessageRunBoundaryMeta
   // ==================== Message Segments ====================
   // 使用segments替代原有的content、reasoning、toolCallResults字段
   segments: MessageSegment[]  // 强制字段，所有消息必须有segments
+}
+
+declare interface ChatMessageRunBoundaryMeta {
+  status: 'stopped'
+  reason: string
+  submissionId?: string
+  stoppedAt: number
 }
 
 declare interface ChatMessageHostMeta {

@@ -22,6 +22,17 @@ export class ChatFinalizeService {
     return this.chatStepStore.settleAbortedAssistantMessage(chatEntity, lastAssistantMessage, messageEntities)
   }
 
+  createRunStoppedBoundaryMessage(
+    chatEntity: ChatEntity,
+    lastAssistantMessage?: MessageEntity,
+    options: {
+      submissionId?: string
+      reason?: string
+    } = {}
+  ): MessageEntity {
+    return this.chatStepStore.persistRunStoppedBoundaryMessage(chatEntity, lastAssistantMessage, options)
+  }
+
   finalizeChatEntity(
     chatEntity: ChatEntity,
     inputText: string,

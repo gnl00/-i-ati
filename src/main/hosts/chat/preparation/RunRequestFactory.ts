@@ -27,6 +27,11 @@ const SCHEDULE_EXECUTION_INSTRUCTION = [
   'Do not call schedule_create again unless the user explicitly asks to create a new or recurring schedule.'
 ].join('\n')
 
+export type RunRequestBuildResult = {
+  request: IUnifiedRequest
+  chatMessages: ChatMessage[]
+}
+
 export class RunRequestFactory {
   constructor(
     private readonly appConfigStore = new AppConfigStore(),
@@ -44,7 +49,7 @@ export class RunRequestFactory {
     environment: RunEnvironment,
     step: StepBootstrap,
     input: HostRunInputState
-  ): Promise<IUnifiedRequest> {
+  ): Promise<RunRequestBuildResult> {
     const mergedUserInstruction = this.mergeRequestUserInstruction(input)
     const config = this.appConfigStore.requireConfig()
     const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
@@ -76,18 +81,21 @@ export class RunRequestFactory {
     const requestMessages = this.unifiedRequestMessageMaterializer.materialize(requestMessageBuild)
 
     return {
-      adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
-      baseUrl: environment.modelContext.account.apiUrl,
-      systemPrompt: requestMessages.systemPrompt,
-      messages: requestMessages.messages,
-      apiKey: environment.modelContext.account.apiKey,
-      model: environment.modelContext.model.id,
-      modelType: environment.modelContext.model.type,
-      userInstruction: mergedUserInstruction,
-      tools: this.toolListBuilder.build(input.tools),
-      options: this.resolveRequestOptions(environment, input.options),
-      stream: input.stream,
-      requestOverrides: environment.modelContext.providerDefinition.requestOverrides
+      request: {
+        adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
+        baseUrl: environment.modelContext.account.apiUrl,
+        systemPrompt: requestMessages.systemPrompt,
+        messages: requestMessages.messages,
+        apiKey: environment.modelContext.account.apiKey,
+        model: environment.modelContext.model.id,
+        modelType: environment.modelContext.model.type,
+        userInstruction: mergedUserInstruction,
+        tools: this.toolListBuilder.build(input.tools),
+        options: this.resolveRequestOptions(environment, input.options),
+        stream: input.stream,
+        requestOverrides: environment.modelContext.providerDefinition.requestOverrides
+      },
+      chatMessages: requestMessageBuild.chatMessages
     }
   }
 

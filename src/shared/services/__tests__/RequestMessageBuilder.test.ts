@@ -119,6 +119,7 @@ describe('RequestMessageBuilder', () => {
       '<loaded_skills_context>Skill content</loaded_skills_context>',
       'new user'
     ])
+    expect(result.chatMessages[0].source).toBe(MESSAGE_SOURCE.COMPRESSION_SUMMARY)
     expect(result.chatMessages[1].source).toBe(MESSAGE_SOURCE.SKILLS_CONTEXT)
   })
 
