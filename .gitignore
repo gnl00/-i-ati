@@ -23,3 +23,7 @@ AGENTS.md
 .claude/
 
 .ati-kb
+
+# SwiftPM native helpers
+native/**/.build/
+resources/native/kwwk-computer-use-bridge

@@ -5,6 +5,7 @@
 
 import { activityJournalTools } from '../activityJournal/definitions'
 import { commandTools } from '../command/definitions'
+import { computerUseTools } from '../computerUse/definitions'
 import { emotionTools } from '../emotion/definitions'
 import { fileOperationsTools } from '../fileOperations/definitions'
 import { historyTools } from '../history/definitions'
@@ -35,6 +36,7 @@ export const tools = mergeToolDefinitions(
   workContextTools,
   memoryTools,
   historyTools,
+  computerUseTools,
   commandTools,
   skillTools,
   planTools,

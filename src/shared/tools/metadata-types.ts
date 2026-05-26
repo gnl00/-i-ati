@@ -9,6 +9,7 @@ export type EmbeddedToolCapability =
   | 'memory'
   | 'journal'
   | 'command'
+  | 'computer_use'
   | 'plan'
   | 'schedule'
   | 'skill'

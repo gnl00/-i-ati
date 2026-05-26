@@ -1,0 +1,26 @@
+{
+  "scenarios": [
+    {
+      "name": "finder-state",
+      "app": "com.apple.finder",
+      "appCandidates": [
+        "Finder"
+      ],
+      "action": "state",
+      "includeScreenshot": true
+    },
+    {
+      "name": "chrome-address-field",
+      "app": "Google Chrome",
+      "expectChange": false,
+      "includeScreenshot": true,
+      "target": {
+        "role": "AXTextField",
+        "descriptionIncludes": [
+          "Address",
+          "地址"
+        ]
+      }
+    }
+  ]
+}

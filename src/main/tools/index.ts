@@ -87,8 +87,25 @@ import {
   processSubagentWait
 } from '@main/tools/subagent/SubagentToolsProcessor'
 import { processLogSearch } from '@main/tools/log/LogToolsProcessor'
+import {
+  processComputerUseApps,
+  processComputerUseClickCoordinate,
+  processComputerUseClickElement,
+  processComputerUseDrag,
+  processComputerUseFinish,
+  processComputerUseOpenApp,
+  processComputerUsePressKey,
+  processComputerUseRequestPermissions,
+  processComputerUseRunningApps,
+  processComputerUseScroll,
+  processComputerUseSetValue,
+  processComputerUseState,
+  processComputerUseStatus,
+  processComputerUseTypeText,
+  processComputerUseWindows
+} from '@main/tools/computerUse/ComputerUseToolsProcessor'
 
-const toolHandlers: Record<string, (args: any) => Promise<any>> = {
+export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
   search_tools: (args) => embeddedToolsRegistry.searchTools(args),
   web_search: processWebSearch,
@@ -109,6 +126,21 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   memory_save: processMemorySave,
   memory_update: processMemoryUpdate,
   history_search: processHistorySearch,
+  computer_use_status: processComputerUseStatus,
+  computer_use_request_permissions: processComputerUseRequestPermissions,
+  computer_use_apps: processComputerUseApps,
+  computer_use_running_apps: processComputerUseRunningApps,
+  computer_use_open_app: processComputerUseOpenApp,
+  computer_use_windows: processComputerUseWindows,
+  computer_use_state: processComputerUseState,
+  computer_use_click_element: processComputerUseClickElement,
+  computer_use_click_coordinate: processComputerUseClickCoordinate,
+  computer_use_type_text: processComputerUseTypeText,
+  computer_use_set_value: processComputerUseSetValue,
+  computer_use_press_key: processComputerUsePressKey,
+  computer_use_scroll: processComputerUseScroll,
+  computer_use_drag: processComputerUseDrag,
+  computer_use_finish: processComputerUseFinish,
   work_context_get: processWorkContextGet,
   work_context_set: processWorkContextSet,
   execute_command: processExecuteCommand,

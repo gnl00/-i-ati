@@ -1,5 +1,6 @@
 import { activityJournalToolMetadata } from './activityJournal/metadata'
 import { commandToolMetadata } from './command/metadata'
+import { computerUseToolMetadata } from './computerUse/metadata'
 import { emotionToolMetadata } from './emotion/metadata'
 import { fileOperationsToolMetadata } from './fileOperations/metadata'
 import { historyToolMetadata } from './history/metadata'
@@ -34,6 +35,7 @@ export const embeddedToolMetadata = mergeEmbeddedToolMetadata(
   workContextToolMetadata,
   memoryToolMetadata,
   historyToolMetadata,
+  computerUseToolMetadata,
   commandToolMetadata,
   skillToolMetadata,
   planToolMetadata,
