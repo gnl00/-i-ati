@@ -221,6 +221,11 @@ declare interface IUnifiedRequest {
   apiKey: string
   modelType?: string
   model: string
+  /**
+   * @deprecated Chat runtime materializes user instruction into `messages` as
+   * a `<user_instruction>` carrier. Request-adapter plugins should read
+   * model-visible instructions from `systemPrompt` and `messages`.
+   */
   userInstruction?: string
   systemPrompt?: string
   messages: UnifiedRequestMessage[]

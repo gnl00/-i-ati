@@ -7,7 +7,7 @@
  * 预期内容：
  * - model / provider selection
  * - baseUrl / apiKey 等认证与路由信息
- * - systemPrompt / userInstruction
+ * - systemPrompt
  * - tools
  * - stream / options / requestOverrides
  *
@@ -29,7 +29,6 @@ export interface AgentRequestSpec {
   model: string
   modelType?: string
   systemPrompt?: string
-  userInstruction?: string
   tools?: unknown[]
   stream?: boolean
   requestOverrides?: Record<string, unknown>

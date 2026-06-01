@@ -97,7 +97,6 @@ export class DefaultExecutableRequestAdapter implements ExecutableRequestAdapter
       model: request.model,
       modelType: request.modelType,
       systemPrompt: request.systemPrompt,
-      userInstruction: request.userInstruction,
       messages,
       stream: request.stream,
       tools: request.tools as any[] | undefined,

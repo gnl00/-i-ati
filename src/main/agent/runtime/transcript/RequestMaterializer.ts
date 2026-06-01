@@ -50,7 +50,6 @@ export interface MaterializedProtocolRequest {
   model: string
   modelType?: string
   systemPrompt?: string
-  userInstruction?: string
   messages: MaterializedProtocolMessage[]
   tools?: unknown[]
   stream?: boolean
@@ -146,7 +145,6 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
       model: input.requestSpec.model,
       modelType: input.requestSpec.modelType,
       systemPrompt: input.requestSpec.systemPrompt,
-      userInstruction: input.requestSpec.userInstruction,
       messages,
       tools: input.requestSpec.tools,
       stream: input.requestSpec.stream,

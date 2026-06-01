@@ -34,8 +34,9 @@ Host submit
            -> insert ephemeral context
            -> insert user instruction
            -> validate messages
-        -> UnifiedRequestMessageMaterializer
-        -> IUnifiedRequest
+        -> RunRequestBuildResult
+           -> requestSpec
+           -> initialMessages
   -> DefaultMainAgentRuntimeRunner
      -> DefaultMainAgentHostRequestBuilder
         -> HostRunRequest.metadata.initialMessages
@@ -142,7 +143,7 @@ RequestMessageBuildResult
 
 IUnifiedRequest
   - Provider-adapter boundary.
-  - Current preparation code builds it once, then runtime builds another executable instance before dispatch.
+  - Runtime builds the executable instance immediately before dispatch.
 
 AgentTranscript
   - Runtime protocol history.
@@ -162,9 +163,9 @@ HostRenderEvent / AgentRenderMessageState
 
 ## Redundant Or High-Friction Steps
 
-### 1. Preparation Builds Provider Messages That Runtime Rebuilds
+### 1. Preparation Provider Message Pre-Materialization
 
-`RunRequestFactory.build()` creates `request.messages` through:
+Earlier `RunRequestFactory.build()` created `request.messages` through:
 
 ```text
 RequestMessageBuilder
@@ -183,11 +184,11 @@ initialMessages
   -> IUnifiedRequest.messages
 ```
 
-The second path is the effective dispatch path. This means the preparation-side `IUnifiedRequest.messages` has low ownership value and increases drift risk.
+The runtime path is now the dispatch path. Preparation returns `initialMessages` and `requestSpec`, and runtime generates `IUnifiedRequest.messages`.
 
-### 2. `RunSpec.request` Mixes Request Spec And Executable Request
+### 2. Request Spec And Executable Request Boundary
 
-`RunSpec.request` currently stores an `IUnifiedRequest`. Runtime then extracts only request-spec fields through `toRequestSpec()`:
+Earlier `RunSpec.request` stored an `IUnifiedRequest`. Runtime extracted only request-spec fields:
 
 ```text
 adapterPluginId
@@ -196,14 +197,13 @@ apiKey
 model
 modelType
 systemPrompt
-userInstruction
 tools
 stream
 requestOverrides
 options
 ```
 
-`messages` remains outside the effective send path because runtime uses `initialMessages` and `AgentTranscript`.
+`RunSpec.requestSpec` now carries these fields directly. `messages` stays in `initialMessages` and `AgentTranscript` until runtime materialization.
 
 ### 3. Tool Result Compaction Policy Appears In Multiple Request Materializers
 
@@ -216,14 +216,17 @@ RequestMaterializer
 
 Runtime materialization is the effective model-send path. A shared tool-result model-content policy would make this easier to reason about.
 
-### 4. User Instruction Has Two Carriers
+### 4. User Instruction Carrier
 
-`RequestMessageBuilder` inserts a `<user_instruction>` user message. `RunRequestFactory` also stores `userInstruction` on the request object. Provider adapters may interpret request-level user instruction independently from message history. This needs an explicit contract:
+`RequestMessageBuilder` inserts a `<user_instruction>` user message during preparation. That message becomes part of `initialMessages`, enters `AgentTranscript`, and reaches the final provider request through `IUnifiedRequest.messages`.
 
 ```text
-request-level userInstruction: request metadata / adapter option
-message-level <user_instruction>: model-visible context in transcript history
+runtime model-visible input = systemPrompt + messages + tools + options
+user instruction carrier = message-level <user_instruction>
+IUnifiedRequest.userInstruction = deprecated plugin compatibility metadata
 ```
+
+`RunRequestFactory.mergeRequestUserInstruction()` still combines chat-level instruction with schedule execution context. The merged value is passed only to `RequestMessageBuilder.setUserInstruction()`.
 
 ## Necessary Boundaries
 
@@ -240,7 +243,7 @@ Keep these boundaries stable:
 
 ### Step 1: Split Request Spec From Executable Unified Request
 
-Target shape:
+Implemented shape:
 
 ```ts
 type MainAgentRequestSpec = {
@@ -250,7 +253,6 @@ type MainAgentRequestSpec = {
   model: string
   modelType?: string
   systemPrompt?: string
-  userInstruction?: string
   tools?: unknown[]
   stream?: boolean
   requestOverrides?: Record<string, unknown>
@@ -258,7 +260,7 @@ type MainAgentRequestSpec = {
 }
 ```
 
-`RunSpec` should carry:
+`RunSpec` carries:
 
 ```ts
 {
@@ -278,7 +280,7 @@ Expected effects:
 
 ### Step 2: Return Initial Messages And Request Spec From `RunRequestFactory`
 
-Target preparation output:
+Implemented preparation output:
 
 ```ts
 type RunRequestBuildResult = {
@@ -298,7 +300,7 @@ tool list building
 thinking option resolution
 ```
 
-`RunRequestFactory.build()` can return the request spec and initial messages directly. `UnifiedRequestMessageMaterializer` can move out of the main chat run path after tests are updated.
+`RunRequestFactory.build()` returns the request spec and initial messages directly. `UnifiedRequestMessageMaterializer` is outside the main chat run path.
 
 Expected effects:
 
@@ -337,9 +339,14 @@ pnpm test:run src/main/orchestration/chat/run/runtime/__tests__/AgentRunCompleti
 pnpm test:run src/main/agent/runtime/__tests__/AgentRuntime.test.ts
 ```
 
+## Resolved Contract
+
+- Runtime request generation treats `systemPrompt + messages + tools + options` as the model-visible input surface.
+- `userInstruction` is materialized as a `<user_instruction>` user message before the current user message.
+- `AgentRequestSpec`, `MaterializedProtocolRequest`, and runtime-created `IUnifiedRequest` omit active `userInstruction` pass-through.
+
 ## Open Questions
 
-- Should request-level `userInstruction` remain in `AgentRequestSpec` after message-level insertion, or should adapters treat only `systemPrompt + messages` as model-visible input?
 - Should `UnifiedRequestMessageMaterializer` remain as a utility for non-runtime callers such as title/compression/smart message paths?
 - Should bootstrap evolve from `ChatMessage[]` to `AgentTranscriptRecord[]` so preparation produces a direct runtime seed?
 - Should `StepResult.requestHistoryMessages` remain part of `StepResult`, or move into debug artifacts?

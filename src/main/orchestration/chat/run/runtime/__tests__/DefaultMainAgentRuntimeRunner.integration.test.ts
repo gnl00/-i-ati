@@ -175,10 +175,14 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
         requestSpec: {
           ...prepared.runSpec.requestSpec,
           tools: [{ type: 'function', function: { name: 'read' } }],
-          options: { maxTokens: 42 },
-          userInstruction: 'Be precise.'
+          options: { maxTokens: 42 }
         },
         initialMessages: [
+          {
+            role: 'user',
+            content: '<user_instruction>\nBe precise.\n</user_instruction>',
+            segments: []
+          },
           {
             role: 'user',
             content: '<system-environment>{"workspacePath":"./workspaces/chat-1"}</system-environment>',
@@ -236,10 +240,10 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       model: 'model-1',
       modelType: 'llm',
       systemPrompt: 'system prompt',
-      userInstruction: 'Be precise.',
       stream: true,
       options: { maxTokens: 42 }
     }))
+    expect(request).not.toHaveProperty('userInstruction')
     expect(request.tools).toEqual([{ type: 'function', function: { name: 'read' } }])
 
     const contextIndex = request.messages.findIndex(message => (
@@ -247,15 +251,25 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       && typeof message.content === 'string'
       && message.content.startsWith('<system-environment>')
     ))
+    const userInstructionIndex = request.messages.findIndex(message => (
+      message.role === 'user'
+      && typeof message.content === 'string'
+      && message.content.includes('<user_instruction>')
+      && message.content.includes('Be precise.')
+    ))
     const currentUserIndex = request.messages.findIndex(message => (
       message.role === 'user'
       && message.content === 'hello'
     ))
 
     expect(contextIndex).toBeGreaterThan(-1)
+    expect(userInstructionIndex).toBeGreaterThan(-1)
+    expect(contextIndex).toBeGreaterThan(userInstructionIndex)
     expect(currentUserIndex).toBeGreaterThan(contextIndex)
     expect(request.messages[contextIndex]).not.toHaveProperty('source')
     expect(request.messages[contextIndex]).not.toHaveProperty('segments')
+    expect(request.messages[userInstructionIndex]).not.toHaveProperty('source')
+    expect(request.messages[userInstructionIndex]).not.toHaveProperty('segments')
   })
 
   it('keeps assistant text visible for a completed step that also contains tool calls', async () => {

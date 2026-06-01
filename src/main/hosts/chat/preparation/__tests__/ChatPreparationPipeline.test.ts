@@ -500,21 +500,15 @@ describe('ChatPreparationPipeline', () => {
       }
     }, emitter)
 
-    expect(prepared.runSpec.requestSpec.userInstruction).toContain('Keep the answer concise.')
-    expect(prepared.runSpec.requestSpec.userInstruction).toContain('## Schedule Execution Context')
     expect(prepared.runSpec.requestSpec.systemPrompt).not.toContain('## Schedule Execution Context')
-    expect(prepared.runSpec.initialMessages).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        role: 'user',
-        content: expect.stringContaining('Keep the answer concise.')
-      })
-    ]))
-    expect(prepared.runSpec.initialMessages).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        role: 'user',
-        content: expect.stringContaining('## Schedule Execution Context')
-      })
-    ]))
+    const userInstructionMessageIndex = prepared.runSpec.initialMessages.findIndex(message => (
+      message.role === 'user'
+      && typeof message.content === 'string'
+      && message.content.includes('<user_instruction>')
+      && message.content.includes('Keep the answer concise.')
+      && message.content.includes('## Schedule Execution Context')
+    ))
+    expect(userInstructionMessageIndex).toBeGreaterThan(-1)
     expect(prepared.runSpec.initialMessages).toEqual(expect.arrayContaining([
       expect.objectContaining({
         role: 'user',
@@ -524,6 +518,10 @@ describe('ChatPreparationPipeline', () => {
     const currentUserMessage = prepared.runSpec.initialMessages.find(message => (
       message.role === 'user' && message.content === 'hello'
     ))
+    const currentUserMessageIndex = prepared.runSpec.initialMessages.findIndex(message => (
+      message.role === 'user' && message.content === 'hello'
+    ))
+    expect(currentUserMessageIndex).toBeGreaterThan(userInstructionMessageIndex)
     expect(currentUserMessage).toEqual(expect.objectContaining({
       source: MESSAGE_SOURCE.SCHEDULE,
       segments: []

@@ -84,7 +84,6 @@ export class RunRequestFactory {
         apiKey: environment.modelContext.account.apiKey,
         model: environment.modelContext.model.id,
         modelType: environment.modelContext.model.type,
-        userInstruction: mergedUserInstruction,
         tools: this.toolListBuilder.build(input.tools),
         options: this.resolveRequestOptions(environment, input.options),
         stream: input.stream,

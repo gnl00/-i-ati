@@ -6,7 +6,7 @@
 
 - 这一轮要用哪个模型
 - 走哪个 base URL，用哪份认证信息
-- 带哪些 system prompt / user instruction
+- 带哪些 system prompt
 - 开哪些 tools
 - 带哪些 stream / options / request overrides
 

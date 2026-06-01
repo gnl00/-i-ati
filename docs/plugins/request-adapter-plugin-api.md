@@ -204,6 +204,7 @@ interface IUnifiedRequest {
   apiKey: string
   modelType?: string
   model: string
+  /** @deprecated Runtime chat requests leave this unset and carry user instructions in messages. */
   userInstruction?: string
   systemPrompt?: string
   messages: UnifiedRequestMessage[]
@@ -223,7 +224,7 @@ Field notes:
 - `baseUrl`: provider base URL configured by the user
 - `apiKey`: upstream API key
 - `model`: selected model id
-- `userInstruction`: request-level extra instruction text when provided
+- `userInstruction`: deprecated compatibility field. Runtime chat requests leave this unset and carry user instructions as `<user_instruction>` messages.
 - `systemPrompt`: composed system prompt, already separated from chat messages
 - `messages`: provider-neutral conversation history without system messages
 - `stream`: defaults to `true` in most chat flows
