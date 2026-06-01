@@ -176,7 +176,7 @@ function chatContextContainsMarker(messages: MessageEntity[], marker: string): b
   ))
 }
 
-function findUserMessageIndexByContent(messages: UnifiedRequestMessage[], marker: string): number {
+function findUserMessageIndexByContent(messages: ChatMessage[], marker: string): number {
   return messages.findIndex(message => (
     message.role === 'user'
     && typeof message.content === 'string'
@@ -287,21 +287,20 @@ describe('ChatPreparationPipeline', () => {
       && message.content === 'hello'
     ))).toHaveLength(1)
     expect(emitter.emit).not.toHaveBeenCalled()
-    expect(runSpec.request).toEqual(expect.objectContaining({
+    expect(runSpec.requestSpec).toEqual(expect.objectContaining({
       adapterPluginId: 'openai-chat-compatible-adapter',
       model: 'model-1',
       modelType: 'llm',
       stream: true,
       baseUrl: 'https://example.com/v1'
     }))
-    expect(runSpec.request.systemPrompt).toContain('system prompt')
-    expect(runSpec.request.messages).toEqual(expect.arrayContaining([
+    expect(runSpec.requestSpec.systemPrompt).toContain('system prompt')
+    expect(runSpec.initialMessages).toEqual(expect.arrayContaining([
       expect.objectContaining({
         role: 'user',
         content: 'hello'
       })
     ]))
-    expect(runSpec.request.messages.some(message => 'segments' in message)).toBe(false)
   })
 
   it('injects system environment and awake_state as ephemeral context before the current user input', async () => {
@@ -311,7 +310,7 @@ describe('ChatPreparationPipeline', () => {
     } as any
 
     const prepared = await service.prepare(input, emitter)
-    const messages = prepared.runSpec.request.messages
+    const messages = prepared.runSpec.initialMessages
     const environmentIndex = messages.findIndex(message => (
       message.role === 'user'
       && typeof message.content === 'string'
@@ -398,7 +397,7 @@ describe('ChatPreparationPipeline', () => {
       }
     }, emitter)
 
-    expect(prepared.runSpec.request.options).toBeUndefined()
+    expect(prepared.runSpec.requestSpec.options).toBeUndefined()
   })
 
   it('keeps thinking level when adapter and selected model both support reasoning', async () => {
@@ -427,7 +426,7 @@ describe('ChatPreparationPipeline', () => {
       }
     }, emitter)
 
-    expect(prepared.runSpec.request.options).toEqual({
+    expect(prepared.runSpec.requestSpec.options).toEqual({
       thinkingLevel: 'high'
     })
   })
@@ -450,7 +449,7 @@ describe('ChatPreparationPipeline', () => {
 
     const prepared = await service.prepare(input, emitter)
 
-    expect(prepared.runSpec.request.options).toEqual({
+    expect(prepared.runSpec.requestSpec.options).toEqual({
       thinkingLevel: 'medium'
     })
   })
@@ -481,7 +480,7 @@ describe('ChatPreparationPipeline', () => {
       }
     }, emitter)
 
-    expect(prepared.runSpec.request.options).toEqual({
+    expect(prepared.runSpec.requestSpec.options).toEqual({
       thinkingLevel: 'none'
     })
   })
@@ -501,32 +500,34 @@ describe('ChatPreparationPipeline', () => {
       }
     }, emitter)
 
-    expect(prepared.runSpec.request.userInstruction).toContain('Keep the answer concise.')
-    expect(prepared.runSpec.request.userInstruction).toContain('## Schedule Execution Context')
-    expect(prepared.runSpec.request.systemPrompt).not.toContain('## Schedule Execution Context')
-    expect(prepared.runSpec.request.messages).toEqual(expect.arrayContaining([
+    expect(prepared.runSpec.requestSpec.userInstruction).toContain('Keep the answer concise.')
+    expect(prepared.runSpec.requestSpec.userInstruction).toContain('## Schedule Execution Context')
+    expect(prepared.runSpec.requestSpec.systemPrompt).not.toContain('## Schedule Execution Context')
+    expect(prepared.runSpec.initialMessages).toEqual(expect.arrayContaining([
       expect.objectContaining({
         role: 'user',
         content: expect.stringContaining('Keep the answer concise.')
       })
     ]))
-    expect(prepared.runSpec.request.messages).toEqual(expect.arrayContaining([
+    expect(prepared.runSpec.initialMessages).toEqual(expect.arrayContaining([
       expect.objectContaining({
         role: 'user',
         content: expect.stringContaining('## Schedule Execution Context')
       })
     ]))
-    expect(prepared.runSpec.request.messages).toEqual(expect.arrayContaining([
+    expect(prepared.runSpec.initialMessages).toEqual(expect.arrayContaining([
       expect.objectContaining({
         role: 'user',
         content: 'hello'
       })
     ]))
-    const currentUserMessage = prepared.runSpec.request.messages.find(message => (
+    const currentUserMessage = prepared.runSpec.initialMessages.find(message => (
       message.role === 'user' && message.content === 'hello'
     ))
-    expect(currentUserMessage).not.toHaveProperty('source')
-    expect(currentUserMessage).not.toHaveProperty('segments')
+    expect(currentUserMessage).toEqual(expect.objectContaining({
+      source: MESSAGE_SOURCE.SCHEDULE,
+      segments: []
+    }))
   })
 
   it('injects retrieved knowledgebase context as ephemeral user context', async () => {
@@ -569,18 +570,20 @@ describe('ChatPreparationPipeline', () => {
       threshold: 0.42,
       folders: ['/workspace/docs']
     }))
-    const messages = prepared.runSpec.request.messages
+    const messages = prepared.runSpec.initialMessages
     const knowledgebaseIndex = findUserMessageIndexByContent(messages, '<knowledgebase_context>')
     const currentUserIndex = messages.findIndex(message => (
       message.role === 'user'
       && message.content === 'hello'
     ))
 
-    expect(prepared.runSpec.request.systemPrompt).not.toContain('<knowledgebase_context>')
+    expect(prepared.runSpec.requestSpec.systemPrompt).not.toContain('<knowledgebase_context>')
     expect(knowledgebaseIndex).toBeGreaterThan(-1)
     expect(currentUserIndex).toBeGreaterThan(knowledgebaseIndex)
-    expect(messages[knowledgebaseIndex]).not.toHaveProperty('source')
-    expect(messages[knowledgebaseIndex]).not.toHaveProperty('segments')
+    expect(messages[knowledgebaseIndex]).toEqual(expect.objectContaining({
+      source: MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT,
+      segments: []
+    }))
     expect(messages[knowledgebaseIndex].content).toContain('/workspace/docs/guide.md')
     expect(messages[knowledgebaseIndex].content).toContain('Knowledge base snippet for the current request.')
   })
@@ -604,18 +607,20 @@ describe('ChatPreparationPipeline', () => {
     const prepared = await service.prepare(input, emitter)
 
     expect(knowledgebaseSearchMock).not.toHaveBeenCalled()
-    const messages = prepared.runSpec.request.messages
+    const messages = prepared.runSpec.initialMessages
     const policyIndex = findUserMessageIndexByContent(messages, '<knowledgebase_policy>')
     const currentUserIndex = messages.findIndex(message => (
       message.role === 'user'
       && message.content === 'hello'
     ))
 
-    expect(prepared.runSpec.request.systemPrompt).not.toContain('<knowledgebase_policy>')
+    expect(prepared.runSpec.requestSpec.systemPrompt).not.toContain('<knowledgebase_policy>')
     expect(policyIndex).toBeGreaterThan(-1)
     expect(currentUserIndex).toBeGreaterThan(policyIndex)
-    expect(messages[policyIndex]).not.toHaveProperty('source')
-    expect(messages[policyIndex]).not.toHaveProperty('segments')
+    expect(messages[policyIndex]).toEqual(expect.objectContaining({
+      source: MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT,
+      segments: []
+    }))
     expect(messages[policyIndex].content).toContain('knowledgebase_search')
     expect(messages[policyIndex].content).not.toContain('<knowledgebase_context>')
   })

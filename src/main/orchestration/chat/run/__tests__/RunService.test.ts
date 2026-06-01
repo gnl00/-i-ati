@@ -166,7 +166,8 @@ vi.mock('@main/db/DatabaseService', () => ({
     upsertEmotionState: vi.fn(),
     getActiveCompressedSummariesByChatId: vi.fn(() => []),
     getSkills: vi.fn(() => []),
-    getConfigValue: vi.fn(() => undefined)
+    getConfigValue: vi.fn(() => undefined),
+    getPlugins: vi.fn(() => [])
   }
 }))
 

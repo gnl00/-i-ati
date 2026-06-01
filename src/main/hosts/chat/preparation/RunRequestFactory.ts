@@ -1,7 +1,4 @@
-import {
-  RequestMessageBuilder,
-  UnifiedRequestMessageMaterializer
-} from '@shared/services/RequestMessageBuilder'
+import { RequestMessageBuilder } from '@shared/services/RequestMessageBuilder'
 import {
   getEffectiveThinkingLevel,
   getRequestAdapterThinkingCapability
@@ -19,6 +16,7 @@ import {
 } from './request'
 import { LoadedSkillsContextProvider } from './request/LoadedSkillsContextProvider'
 import type { HostRunInputState, RunEnvironment, StepBootstrap } from './types'
+import type { AgentRequestSpec } from '@main/agent/runtime/request/AgentRequestSpec'
 
 const SCHEDULE_EXECUTION_INSTRUCTION = [
   '## Schedule Execution Context',
@@ -28,8 +26,8 @@ const SCHEDULE_EXECUTION_INSTRUCTION = [
 ].join('\n')
 
 export type RunRequestBuildResult = {
-  request: IUnifiedRequest
-  chatMessages: ChatMessage[]
+  requestSpec: AgentRequestSpec
+  initialMessages: ChatMessage[]
 }
 
 export class RunRequestFactory {
@@ -41,8 +39,7 @@ export class RunRequestFactory {
     private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
     private readonly systemEnvironmentContextProvider = new SystemEnvironmentContextProvider(),
     private readonly awakeContextProvider = new AwakeContextProvider(),
-    private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider(),
-    private readonly unifiedRequestMessageMaterializer = new UnifiedRequestMessageMaterializer()
+    private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider()
   ) {}
 
   async build(
@@ -78,14 +75,12 @@ export class RunRequestFactory {
       .setMessages(step.messageBuffer)
       .setCompressionSummary(compressionSummary)
       .build()
-    const requestMessages = this.unifiedRequestMessageMaterializer.materialize(requestMessageBuild)
 
     return {
-      request: {
+      requestSpec: {
         adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
         baseUrl: environment.modelContext.account.apiUrl,
-        systemPrompt: requestMessages.systemPrompt,
-        messages: requestMessages.messages,
+        systemPrompt: requestMessageBuild.systemPrompt,
         apiKey: environment.modelContext.account.apiKey,
         model: environment.modelContext.model.id,
         modelType: environment.modelContext.model.type,
@@ -95,7 +90,7 @@ export class RunRequestFactory {
         stream: input.stream,
         requestOverrides: environment.modelContext.providerDefinition.requestOverrides
       },
-      chatMessages: requestMessageBuild.chatMessages
+      initialMessages: requestMessageBuild.chatMessages
     }
   }
 

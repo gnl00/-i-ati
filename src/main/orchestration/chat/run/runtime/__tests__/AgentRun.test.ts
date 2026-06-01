@@ -29,9 +29,11 @@ const prepared = {
       },
       providerDefinition: { id: 'provider-1', adapterPluginId: 'openai-chat-compatible-adapter' }
     },
-    request: {
+    requestSpec: {
+      adapterPluginId: 'openai-chat-compatible-adapter',
+      baseUrl: 'https://example.com',
+      apiKey: 'key',
       model: 'model-1',
-      messages: [],
       stream: true
     },
     initialMessages: [],

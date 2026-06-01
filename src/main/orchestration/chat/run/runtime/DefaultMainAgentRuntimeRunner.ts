@@ -8,7 +8,6 @@ import { DefaultInitialTranscriptMaterializer } from '@main/agent/runtime/transc
 import { DefaultUserRecordMaterializer } from '@main/agent/runtime/transcript/UserRecordMaterializer'
 import { DefaultToolBatchAssembler } from '@main/agent/runtime/tools/ToolBatchAssembler'
 import { DefaultAgentLoop } from '@main/agent/runtime/loop/AgentLoop'
-import type { RunPreparationResult } from '@main/hosts/chat/preparation/types'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import {
   ChatRenderResponder,
@@ -29,20 +28,6 @@ const DEFAULT_MAIN_AGENT_EXECUTION = {
   hardMaxSteps: 80,
   extensionStepSize: 5
 } as const
-
-const toRequestSpec = (prepared: RunPreparationResult['runSpec']) => ({
-  adapterPluginId: prepared.modelContext.providerDefinition.adapterPluginId,
-  baseUrl: prepared.modelContext.account.apiUrl,
-  apiKey: prepared.modelContext.account.apiKey,
-  model: prepared.request.model,
-  modelType: prepared.request.modelType,
-  systemPrompt: prepared.request.systemPrompt,
-  userInstruction: prepared.request.userInstruction,
-  tools: prepared.request.tools,
-  stream: prepared.request.stream,
-  requestOverrides: prepared.request.requestOverrides,
-  options: prepared.request.options
-})
 
 export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
   constructor(
@@ -75,7 +60,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
 
     const runtime = new DefaultAgentRuntime({
       requestSpecSource: {
-        resolve: () => toRequestSpec(input.prepared.runSpec)
+        resolve: () => input.prepared.runSpec.requestSpec
       },
       runDescriptorSource: {
         create: () => ({

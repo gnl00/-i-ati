@@ -23,8 +23,8 @@ export class ChatPreparationPipeline {
       runSpec: {
         submissionId: input.submissionId,
         modelContext: environment.modelContext,
-        request: requestBuild.request,
-        initialMessages: requestBuild.chatMessages,
+        requestSpec: requestBuild.requestSpec,
+        initialMessages: requestBuild.initialMessages,
         runtimeContext: {
           chatId: environment.chat.id,
           chatUuid: environment.chat.uuid,

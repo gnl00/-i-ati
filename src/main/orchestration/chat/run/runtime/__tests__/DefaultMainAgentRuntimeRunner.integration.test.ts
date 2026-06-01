@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponseChunk'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
@@ -112,10 +113,14 @@ const prepared = {
         adapterPluginId: 'openai-chat-compatible-adapter'
       }
     },
-    request: {
+    requestSpec: {
+      adapterPluginId: 'openai-chat-compatible-adapter',
+      baseUrl: 'https://example.com',
+      apiKey: 'key',
       model: 'model-1',
-      messages: [],
-      stream: true
+      modelType: 'llm',
+      stream: true,
+      systemPrompt: 'system prompt'
     },
     initialMessages: [],
     runtimeContext: {
@@ -160,6 +165,97 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     executeMock.mockReset()
     vi.mocked(DatabaseService.getSkills).mockReturnValue([])
     vi.mocked(SkillService.getSkillContent).mockResolvedValue('')
+  })
+
+  it('builds executable unified request messages from prepared initial messages', async () => {
+    const localPrepared = {
+      ...prepared,
+      runSpec: {
+        ...prepared.runSpec,
+        requestSpec: {
+          ...prepared.runSpec.requestSpec,
+          tools: [{ type: 'function', function: { name: 'read' } }],
+          options: { maxTokens: 42 },
+          userInstruction: 'Be precise.'
+        },
+        initialMessages: [
+          {
+            role: 'user',
+            content: '<system-environment>{"workspacePath":"./workspaces/chat-1"}</system-environment>',
+            source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT,
+            segments: []
+          },
+          {
+            role: 'user',
+            content: 'hello',
+            segments: []
+          }
+        ]
+      }
+    } as any
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => createAsyncStream([
+        {
+          kind: 'delta',
+          responseId: 'resp-1',
+          model: 'model-1',
+          content: 'Done',
+          finishReason: 'stop'
+        },
+        {
+          kind: 'final',
+          responseId: 'resp-1',
+          model: 'model-1'
+        }
+      ]))
+    }
+    const emitter = {
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
+    } as any
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor
+    })
+
+    await runner.run({
+      runInput: input,
+      prepared: localPrepared,
+      emitter,
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(1)
+    const request = vi.mocked(modelStreamExecutor.execute).mock.calls[0][0].request
+    expect(request).toEqual(expect.objectContaining({
+      adapterPluginId: 'openai-chat-compatible-adapter',
+      baseUrl: 'https://example.com',
+      apiKey: 'key',
+      model: 'model-1',
+      modelType: 'llm',
+      systemPrompt: 'system prompt',
+      userInstruction: 'Be precise.',
+      stream: true,
+      options: { maxTokens: 42 }
+    }))
+    expect(request.tools).toEqual([{ type: 'function', function: { name: 'read' } }])
+
+    const contextIndex = request.messages.findIndex(message => (
+      message.role === 'user'
+      && typeof message.content === 'string'
+      && message.content.startsWith('<system-environment>')
+    ))
+    const currentUserIndex = request.messages.findIndex(message => (
+      message.role === 'user'
+      && message.content === 'hello'
+    ))
+
+    expect(contextIndex).toBeGreaterThan(-1)
+    expect(currentUserIndex).toBeGreaterThan(contextIndex)
+    expect(request.messages[contextIndex]).not.toHaveProperty('source')
+    expect(request.messages[contextIndex]).not.toHaveProperty('segments')
   })
 
   it('keeps assistant text visible for a completed step that also contains tool calls', async () => {

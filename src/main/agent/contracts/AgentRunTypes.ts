@@ -1,4 +1,5 @@
 import type { SerializedError } from '@shared/run/lifecycle-events'
+import type { AgentRequestSpec } from '@main/agent/runtime/request/AgentRequestSpec'
 
 export type ToolCallStatus = 'pending' | 'executing' | 'success' | 'failed' | 'aborted'
 
@@ -45,7 +46,7 @@ export type StepArtifact =
 export type RunSpec = {
   submissionId: string
   modelContext: RunModelContext
-  request: IUnifiedRequest
+  requestSpec: AgentRequestSpec
   initialMessages: ChatMessage[]
   runtimeContext: {
     chatId?: number
