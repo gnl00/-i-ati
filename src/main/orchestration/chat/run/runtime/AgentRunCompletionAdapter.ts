@@ -22,9 +22,7 @@ export class DefaultAgentRunCompletionAdapter implements AgentRunCompletionAdapt
   adapt(input: AgentRunCompletionAdapterInput): MainAgentRuntimeTerminalResult {
     if (input.result.status === 'completed') {
       const stepResult: StepResult = {
-        usage: input.result.usage ?? input.result.finalStep.usage,
-        completed: true,
-        finishReason: input.result.finalStep.finishReason
+        usage: input.result.usage ?? input.result.finalStep.usage
       }
 
       return {

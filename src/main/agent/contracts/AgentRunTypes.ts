@@ -41,8 +41,6 @@ export type RunSpec = {
 
 export type StepResult = {
   usage?: ITokenUsage
-  completed: boolean
-  finishReason?: string
 }
 
 export type RunResult = {

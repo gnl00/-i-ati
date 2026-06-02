@@ -155,8 +155,6 @@ describe('ChatAgentAdapter', () => {
       runSpec: prepared.runSpec as any,
       chatContext: prepared.chatContext as any,
       stepResult: {
-        completed: true,
-        finishReason: 'completed',
         usage
       },
       emitter,

@@ -96,20 +96,20 @@ Rules:
 
 ### Request message stages
 
-`RequestMessageBuilder` now has an explicit two-stage output path:
+`RequestMessageBuilder` now feeds the runtime transcript path:
 
-1. `RequestMessageBuilder.build()` returns `RequestMessageBuildResult`.
-   This stage stays in chat-domain shape with `systemPrompt` and
-   `chatMessages: ChatMessage[]`. It applies compression, historical image
-   trimming, ephemeral context insertion, user instruction insertion, and tool
-   pair repair.
-2. `UnifiedRequestMessageMaterializer.materialize()` returns
-   `UnifiedRequestMessageBuildResult`. This stage converts `ChatMessage[]` to
-   `UnifiedRequestMessage[]`, strips UI and persistence fields, and derives
-   `toolName` for tool result replay from the persisted tool message name or
-   the paired assistant tool call.
+1. `RequestMessageBuilder.build()` returns `RequestMessageBuildResult` with
+   `systemPrompt` and `chatMessages: ChatMessage[]`. It applies compression,
+   historical image trimming, ephemeral context insertion, user instruction
+   insertion, and tool pair repair.
+2. `InitialTranscriptMaterializer` seeds `AgentTranscript` from the builder's
+   chat messages.
+3. `RequestMaterializer` converts `AgentTranscript` into provider-neutral
+   request messages and derives tool replay fields for model dispatch.
 
-`RunRequestFactory` composes both stages before creating `IUnifiedRequest`.
+`UnifiedRequestMessageMaterializer` was the legacy preparation-side projection
+and has been deleted. `RunRequestFactory` now returns request spec plus initial
+messages, and runtime creates `IUnifiedRequest.messages`.
 
 ## Implementation Plan
 

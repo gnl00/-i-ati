@@ -19,7 +19,7 @@ The normalization layer sits on four boundaries:
 - Tool execution event: `DefaultToolExecutorDispatcher` returns raw tool results so the active run can continue with the full payload.
 - Transcript write-back: `DefaultToolResultRecordMaterializer` writes active-run results as `replayMode: "hot"`.
 - Active request replay: `RequestMaterializer` sends `hot` tool results to the next model step without the size/image guard.
-- Terminal snapshot and history replay: `DefaultAgentTranscriptSnapshotMaterializer`, `RequestMaterializer`, and `UnifiedRequestMessageMaterializer` apply normalization or final request guards for cold history and legacy messages.
+- Terminal snapshot and history replay: `DefaultAgentTranscriptSnapshotMaterializer` and `RequestMaterializer` apply normalization or final request guards for cold history and legacy messages.
 
 This keeps the policy tool-agnostic. Tool processors can return rich outputs, and the runtime decides how much content is allowed to flow into the model window.
 

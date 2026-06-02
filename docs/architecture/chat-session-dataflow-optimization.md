@@ -172,6 +172,8 @@ RequestMessageBuilder
   -> IUnifiedRequest.messages
 ```
 
+`UnifiedRequestMessageMaterializer` was a legacy preparation-side projection and has been deleted after production callers reached zero.
+
 The actual dispatch path later uses:
 
 ```text
@@ -204,16 +206,26 @@ options
 
 `RunSpec.requestSpec` now carries these fields directly. `messages` stays in `initialMessages` and `AgentTranscript` until runtime materialization.
 
-### 3. Tool Result Compaction Policy Appears In Multiple Request Materializers
+### 3. Tool Result Compaction Policy Sits In Runtime Request Materialization
 
-Tool result content compaction exists in both preparation and runtime materialization paths:
+Tool result content compaction is applied in runtime materialization:
 
 ```text
-UnifiedRequestMessageMaterializer
 RequestMaterializer
 ```
 
-Runtime materialization is the effective model-send path. A shared tool-result model-content policy would make this easier to reason about.
+Runtime materialization is the effective model-send path. The canonical path is:
+
+```text
+RequestMessageBuilder
+  -> initialMessages
+  -> InitialTranscriptMaterializer
+  -> AgentTranscript
+  -> RequestMaterializer
+  -> IUnifiedRequest.messages
+```
+
+Tool result model-content projection is now concentrated in the runtime request path.
 
 ### 4. User Instruction Carrier
 
@@ -331,7 +343,7 @@ tool list building
 thinking option resolution
 ```
 
-`RunRequestFactory.build()` returns the request spec and initial messages directly. `UnifiedRequestMessageMaterializer` is outside the main chat run path.
+`RunRequestFactory.build()` returns the request spec and initial messages directly. The deleted legacy `UnifiedRequestMessageMaterializer` is outside the main chat run path history.
 
 Expected effects:
 
@@ -345,9 +357,9 @@ Expected effects:
 2. Update `DefaultMainAgentRuntimeRunner` to use `prepared.runSpec.requestSpec`.
 3. Update `RunRequestFactory` return shape to `{ requestSpec, initialMessages }`.
 4. Update `ChatPreparationPipeline` to store `runSpec.requestSpec` and `runSpec.initialMessages`.
-5. Remove preparation-side `UnifiedRequestMessageMaterializer` usage from chat run preparation.
+5. Removed preparation-side `UnifiedRequestMessageMaterializer` usage from chat run preparation.
 6. Update tests around `ChatPreparationPipeline`, `RunService`, `DefaultMainAgentRuntimeRunner`, and request message building.
-7. Evaluate follow-up removal or relocation of `UnifiedRequestMessageMaterializer` after confirming external callers.
+7. Deleted legacy `UnifiedRequestMessageMaterializer` after confirming external callers are gone.
 
 ## Verification Targets
 
@@ -379,10 +391,10 @@ pnpm test:run src/main/agent/runtime/__tests__/AgentRuntime.test.ts
 - Provider `raw` data has a short response-normalization lifecycle.
 - `ToolResultContentProjector` owns model replay / history import / display projection modes.
 - `TranscriptRecordFactory` owns assistant_step and tool_result write-back record creation.
+- Legacy `UnifiedRequestMessageMaterializer` is deleted. Canonical model-message materialization flows through `RequestMessageBuilder -> AgentTranscript -> RequestMaterializer`.
 
 ## Open Questions
 
-- Should `UnifiedRequestMessageMaterializer` remain as a utility for non-runtime callers such as title/compression/smart message paths?
 - Should bootstrap evolve from `ChatMessage[]` to `AgentTranscriptRecord[]` so preparation produces a direct runtime seed?
 - Should transcript bootstrap move closer to preparation so runtime starts from protocol records directly?
 - Should response debug capture get an explicit artifact channel outside `StepResult`?

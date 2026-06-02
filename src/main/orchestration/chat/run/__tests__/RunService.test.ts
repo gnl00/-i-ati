@@ -13,10 +13,7 @@ const {
   runtimeRunnerMock: vi.fn(async () => ({
     runtimeResult: {
       state: 'completed' as const,
-      stepResult: {
-        completed: true,
-        finishReason: 'completed'
-      }
+      stepResult: {}
     },
     stepCommitter: {
       getFinalAssistantMessage: vi.fn(() => ({
@@ -237,10 +234,7 @@ describe('RunService', () => {
     runtimeRunnerMock.mockResolvedValue({
       runtimeResult: {
         state: 'completed',
-        stepResult: {
-          completed: true,
-          finishReason: 'completed'
-        }
+        stepResult: {}
       },
       stepCommitter: {
         getFinalAssistantMessage: vi.fn(() => ({
@@ -322,10 +316,7 @@ describe('RunService', () => {
     deferred.resolve({
       runtimeResult: {
         state: 'completed',
-        stepResult: {
-          completed: true,
-          finishReason: 'completed'
-        }
+        stepResult: {}
       },
       stepCommitter: {
         getFinalAssistantMessage: vi.fn(() => ({

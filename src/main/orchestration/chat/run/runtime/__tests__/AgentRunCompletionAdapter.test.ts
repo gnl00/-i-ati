@@ -45,9 +45,7 @@ describe('AgentRunCompletionAdapter', () => {
     }
 
     expect(runtimeResult.stepResult).toEqual({
-      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-      completed: true,
-      finishReason: 'stop'
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 }
     })
   })
 

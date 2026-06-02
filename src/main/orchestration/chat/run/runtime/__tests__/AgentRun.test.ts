@@ -119,11 +119,7 @@ describe('AgentRun', () => {
         run: vi.fn(async () => ({
           runtimeResult: {
             state: 'completed',
-            stepResult: {
-              completed: true,
-              finishReason: 'completed',
-              messages: []
-            }
+            stepResult: {}
           },
           stepCommitter
         }))
@@ -206,9 +202,7 @@ describe('AgentRun', () => {
         runtimeResult: {
           state: 'completed',
           stepResult: {
-            usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-            completed: true,
-            finishReason: 'stop'
+            usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 }
           }
         },
         stepCommitter: {
