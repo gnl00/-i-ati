@@ -1,5 +1,6 @@
 import type { LoopInputBootstrapper, LoopInputBootstrapperInput } from '@main/agent/runtime/host/bootstrap/LoopInputBootstrapper'
 import type { AgentLoopInput } from '@main/agent/runtime/loop/AgentLoopInput'
+import { projectToolResultContentForHistoryImport } from '@main/agent/runtime/tools/ToolResultContentProjector'
 import type { AgentContentPart } from '@main/agent/runtime/transcript/AgentContentPart'
 import type {
   AgentTranscriptAssistantStepRecord,
@@ -44,21 +45,6 @@ const stringifyAssistantContent = (content: string | VLMContent[]): string => {
     .filter(part => part.type === 'text')
     .map(part => part.text || '')
     .join('')
-}
-
-const stringifyToolContent = (content: string | VLMContent[]): string => {
-  if (typeof content === 'string') {
-    return content
-  }
-
-  try {
-    return JSON.stringify(content)
-  } catch {
-    return content
-      .filter(part => part.type === 'text')
-      .map(part => part.text || '')
-      .join('')
-  }
 }
 
 const extractReasoning = (message: ChatMessage): string | undefined => {
@@ -145,7 +131,7 @@ export class MainAgentLoopInputBootstrapper implements LoopInputBootstrapper {
         toolCallIndex: matchedToolCall?.index ?? 0,
         toolName: message.name || matchedToolCall?.function.name || 'tool',
         status: 'success',
-        content: stringifyToolContent(message.content)
+        content: projectToolResultContentForHistoryImport(message.content)
       }
       records.push(toolRecord)
     }

@@ -173,6 +173,7 @@ describe('DefaultModelStreamExecutor', () => {
         model: 'test-model'
       })
     ])
+    expect(chunks.some(chunk => 'raw' in chunk)).toBe(false)
   })
 
   it('normalizes response.function_call_arguments.done tool calls as snapshot arguments', async () => {
@@ -232,6 +233,7 @@ describe('DefaultModelStreamExecutor', () => {
         model: 'test-model'
       })
     ])
+    expect(chunks.some(chunk => 'raw' in chunk)).toBe(false)
   })
 
   it('aborts immediately during retry backoff', async () => {

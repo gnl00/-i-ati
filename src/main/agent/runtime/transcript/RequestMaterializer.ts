@@ -15,9 +15,7 @@
 import type { AgentRequestOptions, AgentRequestSpec } from '../request/AgentRequestSpec'
 import type { AgentContentPart } from './AgentContentPart'
 import type { AgentTranscript } from './AgentTranscript'
-import { compactToolContentForModelRequest } from '@shared/tools/toolResultContent'
-import { isNormalizedToolResultContent } from '../tools/result-normalization'
-import type { AgentTranscriptToolResultRecord } from './AgentTranscriptRecord'
+import { projectToolResultContentForModelReplay } from '../tools/ToolResultContentProjector'
 
 export interface MaterializedUserProtocolMessage {
   role: 'user'
@@ -66,50 +64,6 @@ export interface RequestMaterializer {
   materialize(input: RequestMaterializerInput): MaterializedProtocolRequest
 }
 
-const safeStringifyToolContent = (content: unknown, error?: { message: string }): string => {
-  if (typeof content === 'string') {
-    return content
-  }
-
-  if (content === undefined || content === null) {
-    return error?.message ?? ''
-  }
-
-  try {
-    return JSON.stringify(content)
-  } catch {
-    return String(content)
-  }
-}
-
-const stringifyToolResultContent = (
-  content: unknown,
-  error?: { message: string },
-  options: { replayMode?: AgentTranscriptToolResultRecord['replayMode'] } = {}
-): string => {
-  if (isNormalizedToolResultContent(content)) {
-    return content.modelContent
-  }
-
-  if (options.replayMode === 'hot') {
-    return safeStringifyToolContent(content, error)
-  }
-
-  if (typeof content === 'string') {
-    return compactToolContentForModelRequest(content)
-  }
-
-  if (content === undefined || content === null) {
-    return error?.message ?? ''
-  }
-
-  try {
-    return compactToolContentForModelRequest(JSON.stringify(content))
-  } catch {
-    return compactToolContentForModelRequest(String(content))
-  }
-}
-
 export class DefaultRequestMaterializer implements RequestMaterializer {
   materialize(input: RequestMaterializerInput): MaterializedProtocolRequest {
     const messages: MaterializedProtocolMessage[] = input.transcript.records.map((record) => {
@@ -129,7 +83,9 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
         case 'tool_result':
           return {
             role: 'tool',
-            content: stringifyToolResultContent(record.content, record.error, {
+            content: projectToolResultContentForModelReplay({
+              content: record.content,
+              error: record.error,
               replayMode: record.replayMode
             }),
             toolCallId: record.toolCallId,

@@ -2,7 +2,6 @@ export type {
   RunModelContext,
   RunResult,
   RunSpec,
-  StepArtifact,
   StepResult,
   ToolCall,
   ToolCallProps,

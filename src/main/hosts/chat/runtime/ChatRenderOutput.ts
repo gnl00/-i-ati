@@ -1,7 +1,7 @@
 import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import { projectToolResultContentForDisplay } from '@main/agent/runtime/tools/ToolResultContentProjector'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
-import type { StepArtifact } from '@main/agent/contracts'
 import {
   CommittedAssistantMessageController,
   type AgentRenderMessageState
@@ -9,20 +9,6 @@ import {
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import { ChatRenderMapper } from './ChatRenderMapper'
-
-const stringifyToolContent = (content: unknown, error?: { message?: string }): string => {
-  if (typeof content === 'string') {
-    return content
-  }
-  if (content == null) {
-    return error?.message || ''
-  }
-  try {
-    return JSON.stringify(content)
-  } catch {
-    return String(content)
-  }
-}
 
 const hasPersistableAssistantPayload = (body: ChatMessage): boolean => {
   const hasContent = typeof body.content === 'string'
@@ -38,7 +24,6 @@ const hasPersistableAssistantPayload = (body: ChatMessage): boolean => {
 export class ChatRenderOutput {
   readonly messageEvents: ChatEventMapper
   private readonly mapper: ChatRenderMapper
-  private readonly artifacts: StepArtifact[] = []
   private readonly committedAssistant: CommittedAssistantMessageController
 
   constructor(
@@ -58,10 +43,6 @@ export class ChatRenderOutput {
 
   getFinalAssistantMessage(): MessageEntity {
     return this.committedAssistant.getFinalAssistantMessage()
-  }
-
-  getArtifacts(): StepArtifact[] {
-    return [...this.artifacts]
   }
 
   getCommittedTypewriterCompleted(): boolean {
@@ -145,9 +126,8 @@ export class ChatRenderOutput {
   }
 
   commitAssistantMessage(body: ChatMessage): void {
-    const { message, artifact } = this.committedAssistant.commit(body)
+    const { message } = this.committedAssistant.commit(body)
     assertMessageEntitySegmentsHaveIds(message, 'next-agent-ui-adapter:message-commit')
-    this.artifacts.push(artifact)
 
     if (message.id == null && hasPersistableAssistantPayload(message.body)) {
       const persistedMessage = this.stepStore.persistAssistantMessage(message)
@@ -178,7 +158,10 @@ export class ChatRenderOutput {
       role: 'tool',
       name: result.toolName,
       toolCallId: result.toolCallId,
-      content: stringifyToolContent(result.content, result.error),
+      content: projectToolResultContentForDisplay({
+        content: result.content,
+        error: result.error
+      }),
       segments: []
     }
 
@@ -188,12 +171,6 @@ export class ChatRenderOutput {
       this.committedAssistant.getFinalAssistantMessage().chatUuid
     )
     this.messageEntities.push(entity)
-    this.artifacts.push({
-      kind: 'tool_result_created',
-      toolCallId: result.toolCallId,
-      messageId: entity.id,
-      message: entity.body
-    })
     this.messageEvents.emitToolResultAttached(result.toolCallId, entity)
   }
 }

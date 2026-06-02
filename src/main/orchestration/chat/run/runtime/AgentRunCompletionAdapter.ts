@@ -1,50 +1,10 @@
-import type { StepArtifact, StepResult } from '@main/agent/contracts'
+import type { StepResult } from '@main/agent/contracts'
 import type { AgentLoopFailureInfo, AgentLoopResult } from '@main/agent/runtime/loop/AgentLoopResult'
-import { partsToUnifiedContent } from '@main/agent/runtime/model/ExecutableRequestAdapter'
-import type { AgentTranscriptSnapshot } from '@main/agent/runtime/transcript/AgentTranscript'
 import type { MainAgentRuntimeTerminalResult } from './MainAgentRuntimeResult'
 import type { SerializedError } from '@shared/run/lifecycle-events'
 
-const transcriptToMessages = (transcript: AgentTranscriptSnapshot): ChatMessage[] => (
-  transcript.records.map((record) => {
-    if (record.kind === 'user') {
-      return {
-        role: 'user',
-        content: partsToUnifiedContent(record.content),
-        segments: []
-      }
-    }
-
-    if (record.kind === 'assistant_step') {
-      return {
-        role: 'assistant',
-        content: record.step.content,
-        toolCalls: record.step.toolCalls.length > 0 ? [...record.step.toolCalls] : undefined,
-        segments: []
-      }
-    }
-
-    return {
-      role: 'tool',
-      name: record.toolName,
-      toolCallId: record.toolCallId,
-      content: typeof record.content === 'string'
-        ? record.content
-        : (() => {
-            try {
-              return JSON.stringify(record.content)
-            } catch {
-              return String(record.content)
-            }
-          })(),
-      segments: []
-    }
-  })
-)
-
 export interface AgentRunCompletionAdapterInput {
   result: AgentLoopResult
-  artifacts: StepArtifact[]
 }
 
 export interface AgentRunCompletionAdapter {
@@ -64,9 +24,7 @@ export class DefaultAgentRunCompletionAdapter implements AgentRunCompletionAdapt
       const stepResult: StepResult = {
         usage: input.result.usage ?? input.result.finalStep.usage,
         completed: true,
-        finishReason: input.result.finalStep.finishReason,
-        requestHistoryMessages: transcriptToMessages(input.result.transcript),
-        artifacts: input.artifacts
+        finishReason: input.result.finalStep.finishReason
       }
 
       return {

@@ -299,6 +299,77 @@ describe('ChatRenderResponder', () => {
     )
   })
 
+  it('serializes object tool results for persisted tool messages', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const messageEntities = [placeholder]
+    const adapter = new ChatRenderResponder(emitter, messageEntities, placeholder)
+
+    await dispatchAgentEvent(adapter, {
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    await dispatchAgentEvent(adapter, {
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 124,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read',
+        content: {
+          ok: true
+        }
+      }
+    })
+
+    expect(messageEntities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: expect.objectContaining({
+            role: 'tool',
+            toolCallId: 'tool-1',
+            content: '{"ok":true}'
+          })
+        })
+      ])
+    )
+  })
+
   it('does not re-emit tool confirmation outward events from chat host', async () => {
     const emitter = {
       emit: vi.fn()

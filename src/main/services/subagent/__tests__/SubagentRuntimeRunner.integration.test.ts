@@ -6,6 +6,31 @@ import { subagentRuntimeBridge } from '../subagent-runtime-bridge'
 
 const executeMock = vi.fn()
 
+vi.mock('electron', () => ({
+  app: {
+    isReady: () => false,
+    getPath: () => '/tmp'
+  },
+  BrowserWindow: class {},
+  shell: {
+    openExternal: vi.fn()
+  },
+  ipcMain: {
+    handle: vi.fn(),
+    on: vi.fn()
+  },
+  session: {}
+}))
+
+vi.mock('@main/main-window', () => ({
+  mainWindow: {
+    webContents: {
+      send: vi.fn()
+    }
+  },
+  getMainWindow: vi.fn(() => null)
+}))
+
 vi.mock('@main/agent/tools/ToolExecutor', () => ({
   ToolExecutor: class {
     constructor(private readonly config: any) {}

@@ -36,7 +36,6 @@ export interface AgentStepBase {
   toolCalls: IToolCall[]
   finishReason?: IUnifiedResponse['finishReason']
   usage?: ITokenUsage
-  raw?: unknown
 }
 
 export interface CompletedAgentStep extends AgentStepBase {

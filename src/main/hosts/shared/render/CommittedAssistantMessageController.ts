@@ -1,11 +1,9 @@
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { buildDifferentialSegmentPatches } from '@shared/run/messagePatch'
-import type { StepArtifact } from '@main/agent/contracts'
 
 export type CommitAssistantMessageResult = {
   message: MessageEntity
   patches: MessageSegmentPatch[]
-  artifact: StepArtifact
 }
 
 export class CommittedAssistantMessageController {
@@ -45,15 +43,7 @@ export class CommittedAssistantMessageController {
 
     return {
       message: this.finalAssistantMessage,
-      patches: buildDifferentialSegmentPatches(previousBody, body),
-      artifact: {
-        kind: 'assistant_message_updated',
-        messageId: this.finalAssistantMessage.id,
-        role: 'assistant',
-        content: typeof body.content === 'string' ? body.content : '',
-        segments: body.segments || [],
-        toolCalls: body.toolCalls
-      }
+      patches: buildDifferentialSegmentPatches(previousBody, body)
     }
   }
 }

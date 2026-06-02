@@ -15,9 +15,7 @@ const {
       state: 'completed' as const,
       stepResult: {
         completed: true,
-        finishReason: 'completed',
-        requestHistoryMessages: [],
-        artifacts: []
+        finishReason: 'completed'
       }
     },
     stepCommitter: {
@@ -241,9 +239,7 @@ describe('RunService', () => {
         state: 'completed',
         stepResult: {
           completed: true,
-          finishReason: 'completed',
-          requestHistoryMessages: [],
-          artifacts: []
+          finishReason: 'completed'
         }
       },
       stepCommitter: {
@@ -328,9 +324,7 @@ describe('RunService', () => {
         state: 'completed',
         stepResult: {
           completed: true,
-          finishReason: 'completed',
-          requestHistoryMessages: [],
-          artifacts: []
+          finishReason: 'completed'
         }
       },
       stepCommitter: {

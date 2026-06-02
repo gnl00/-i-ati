@@ -122,8 +122,7 @@ describe('AgentRun', () => {
             stepResult: {
               completed: true,
               finishReason: 'completed',
-              messages: [],
-              artifacts: []
+              messages: []
             }
           },
           stepCommitter
@@ -209,9 +208,7 @@ describe('AgentRun', () => {
           stepResult: {
             usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
             completed: true,
-            finishReason: 'stop',
-            requestHistoryMessages: [],
-            artifacts: []
+            finishReason: 'stop'
           }
         },
         stepCommitter: {

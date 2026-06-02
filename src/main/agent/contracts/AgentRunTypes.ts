@@ -27,22 +27,6 @@ export type RunModelContext = {
   providerDefinition: ProviderDefinition
 }
 
-export type StepArtifact =
-  | {
-      kind: 'assistant_message_updated'
-      messageId?: number
-      role: 'assistant'
-      content: string
-      segments: MessageSegment[]
-      toolCalls?: IToolCall[]
-    }
-  | {
-      kind: 'tool_result_created'
-      toolCallId: string
-      messageId?: number
-      message: ChatMessage
-    }
-
 export type RunSpec = {
   submissionId: string
   modelContext: RunModelContext
@@ -59,8 +43,6 @@ export type StepResult = {
   usage?: ITokenUsage
   completed: boolean
   finishReason?: string
-  requestHistoryMessages: ChatMessage[]
-  artifacts: StepArtifact[]
 }
 
 export type RunResult = {

@@ -98,8 +98,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
 
     return {
       runtimeResult: this.completionAdapter.adapt({
-        result,
-        artifacts: chatResponder.getArtifacts()
+        result
       }),
       stepCommitter: chatResponder
     }

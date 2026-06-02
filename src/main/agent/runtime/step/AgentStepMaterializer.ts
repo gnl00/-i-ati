@@ -27,7 +27,6 @@ export type MaterializableAbortedStepDraft = AgentStepDraft & {
 export interface CompletedAgentStepMaterializerInput {
   draft: MaterializableCompletedStepDraft
   completedAt: number
-  raw?: unknown
   failure?: never
   abortReason?: never
 }
@@ -35,7 +34,6 @@ export interface CompletedAgentStepMaterializerInput {
 export interface FailedAgentStepMaterializerInput {
   draft: MaterializableFailedStepDraft
   completedAt: number
-  raw?: unknown
   failure: AgentStepFailureInfo
   abortReason?: never
 }
@@ -43,7 +41,6 @@ export interface FailedAgentStepMaterializerInput {
 export interface AbortedAgentStepMaterializerInput {
   draft: MaterializableAbortedStepDraft
   completedAt: number
-  raw?: unknown
   failure?: never
   abortReason: string
 }
@@ -70,8 +67,7 @@ export class DefaultAgentStepMaterializer implements AgentStepMaterializer {
       reasoning: input.draft.snapshot.reasoning,
       toolCalls: [...input.draft.snapshot.toolCalls],
       finishReason: input.draft.snapshot.finishReason,
-      usage: input.draft.snapshot.usage,
-      raw: input.raw
+      usage: input.draft.snapshot.usage
     }
 
     if (input.draft.status === 'failed') {

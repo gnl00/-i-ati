@@ -157,9 +157,7 @@ describe('ChatAgentAdapter', () => {
       stepResult: {
         completed: true,
         finishReason: 'completed',
-        usage,
-        requestHistoryMessages: [],
-        artifacts: []
+        usage
       },
       emitter,
       stepCommitter: {

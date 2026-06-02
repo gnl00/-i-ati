@@ -3,7 +3,6 @@ import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
-import type { StepArtifact } from '@main/agent/contracts'
 import {
   HostRenderStateController,
   type AgentRenderMessageState,
@@ -52,10 +51,6 @@ export class ChatRenderResponder implements HostRenderEventSink {
 
   getLastUsage(): ITokenUsage | undefined {
     return this.state.snapshot().lastUsage
-  }
-
-  getArtifacts(): StepArtifact[] {
-    return this.output.getArtifacts()
   }
 
   private shouldEmitPreviewTextPatch(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DefaultRequestMaterializer } from '../RequestMaterializer'
 import type { AgentTranscript } from '../AgentTranscript'
+import type { NormalizedToolResultContent } from '../../tools/result-normalization'
 
 describe('DefaultRequestMaterializer', () => {
   it('preserves assistant reasoning for protocol replay', () => {
@@ -129,6 +130,59 @@ describe('DefaultRequestMaterializer', () => {
       content: largeContent,
       toolCallId: 'call-1',
       toolName: 'computer_use_state'
+    })
+  })
+
+  it('uses normalized model content during protocol replay', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const normalizedContent: NormalizedToolResultContent = {
+      __atiToolResultNormalized: true,
+      version: 1,
+      toolName: 'read',
+      toolCallId: 'call-1',
+      status: 'success',
+      summary: 'large result',
+      original: {
+        characters: 100_000,
+        triggers: ['large_content']
+      },
+      artifacts: [],
+      modelContent: '[normalized model content]'
+    }
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [
+        {
+          recordId: 'tool-1',
+          kind: 'tool_result',
+          timestamp: 2,
+          stepId: 'step-1',
+          toolCallId: 'call-1',
+          toolCallIndex: 0,
+          toolName: 'read',
+          status: 'success',
+          content: normalizedContent
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    expect(request.messages[0]).toMatchObject({
+      role: 'tool',
+      content: '[normalized model content]',
+      toolCallId: 'call-1',
+      toolName: 'read'
     })
   })
 })

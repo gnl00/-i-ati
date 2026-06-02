@@ -12,7 +12,6 @@
 export interface ModelResponseChunkBase {
   responseId?: string
   model?: string
-  raw?: unknown
 }
 
 export interface ModelToolCallChunk {
@@ -32,7 +31,7 @@ export interface ModelDeltaResponseChunk extends ModelResponseChunkBase {
 /**
  * final chunk 的约束：
  * - 它不重复携带 content / reasoning / toolCalls
- * - 它只是一个终止信号，以及可选的终态 metadata / raw payload
+ * - 它只是一个终止信号，以及可选的终态 metadata
  * - parser 不应把它当作第二份正文来源
  */
 export interface ModelFinalResponseChunk extends ModelResponseChunkBase {

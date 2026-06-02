@@ -89,15 +89,13 @@ const toDeltaChunk = (response: IUnifiedResponse): ModelResponseChunk => ({
   reasoning: response.reasoning,
   toolCalls: normalizeToolCalls(response),
   finishReason: response.finishReason,
-  usage: response.usage,
-  raw: response.raw
+  usage: response.usage
 })
 
-const toFinalChunk = (response?: Pick<IUnifiedResponse, 'id' | 'model' | 'raw'>): ModelResponseChunk => ({
+const toFinalChunk = (response?: Pick<IUnifiedResponse, 'id' | 'model'>): ModelResponseChunk => ({
   kind: 'final',
   responseId: response?.id,
-  model: response?.model,
-  raw: response?.raw
+  model: response?.model
 })
 
 export class DefaultModelStreamExecutor implements ModelStreamExecutor {

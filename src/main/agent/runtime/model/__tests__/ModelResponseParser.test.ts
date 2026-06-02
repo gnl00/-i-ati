@@ -52,8 +52,7 @@ describe('DefaultModelResponseParser', () => {
       chunk: {
         kind: 'final',
         responseId: 'resp-final',
-        model: 'final-model',
-        raw: { done: true }
+        model: 'final-model'
       },
       state: createInitialModelResponseParserState(),
       toolCalls: []

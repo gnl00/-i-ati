@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DefaultAgentRunCompletionAdapter } from '../AgentRunCompletionAdapter'
 
 describe('AgentRunCompletionAdapter', () => {
-  it('keeps file input semantics aligned with executable request adaptation', () => {
+  it('adapts completed loop results into step results', () => {
     const adapter = new DefaultAgentRunCompletionAdapter()
 
     const runtimeResult = adapter.adapt({
@@ -33,10 +33,10 @@ describe('AgentRunCompletionAdapter', () => {
           completedAt: 2,
           content: 'done',
           toolCalls: [],
+          usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
           finishReason: 'stop'
         }
-      },
-      artifacts: []
+      }
     })
 
     expect(runtimeResult.state).toBe('completed')
@@ -44,12 +44,10 @@ describe('AgentRunCompletionAdapter', () => {
       throw new Error('Expected completed runtime result')
     }
 
-    expect(runtimeResult.stepResult.requestHistoryMessages[0]).toMatchObject({
-      role: 'user',
-      content: [{
-        type: 'text',
-        text: '[file:spec.md]'
-      }]
+    expect(runtimeResult.stepResult).toEqual({
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      completed: true,
+      finishReason: 'stop'
     })
   })
 
@@ -72,8 +70,7 @@ describe('AgentRunCompletionAdapter', () => {
           message: 'terminated',
           code: 'UND_ERR_SOCKET'
         }
-      },
-      artifacts: []
+      }
     })
 
     expect(runtimeResult).toEqual({

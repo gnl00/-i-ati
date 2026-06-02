@@ -258,7 +258,6 @@ export class DefaultAgentLoop implements AgentLoop {
       const stepId = dependencies.loopIdentityProvider.nextStepId()
       const stepStartedAt = dependencies.runtimeClock.now()
       let draft = createDraft(stepId, stepIndex, stepStartedAt)
-      let latestRaw: unknown
       const progressSignals: LoopBudgetProgressSignal[] = []
 
       await dependencies.agentEventEmitter.emitStepStarted({
@@ -280,7 +279,6 @@ export class DefaultAgentLoop implements AgentLoop {
         let parserState = createInitialModelResponseParserState()
 
         for await (const chunk of responseStream) {
-          latestRaw = chunk.raw ?? latestRaw
           if (input.signal?.aborted) {
             return this.finalizeAborted({
               startedAt,
@@ -339,8 +337,7 @@ export class DefaultAgentLoop implements AgentLoop {
         const failedStep = dependencies.agentStepMaterializer.materialize({
           draft: failedDraft,
           completedAt,
-          failure: toStepFailureInfo(error),
-          raw: latestRaw
+          failure: toStepFailureInfo(error)
         }) as Extract<AgentStep, { status: 'failed' }>
         await dependencies.agentEventEmitter.emitStepFailed({
           timestamp: completedAt,
@@ -379,8 +376,7 @@ export class DefaultAgentLoop implements AgentLoop {
       }
       const step = dependencies.agentStepMaterializer.materialize({
         draft: completedDraft,
-        completedAt,
-        raw: latestRaw
+        completedAt
       }) as Extract<AgentStep, { status: 'completed' }>
       lastStableStep = step
       usage = mergeUsage(usage, step.usage)
