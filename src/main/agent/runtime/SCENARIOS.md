@@ -40,7 +40,7 @@
 
 1. 第一个 `AgentStep` 完成后：
    - loop 先通过 `AgentStepMaterializer` 把当前 `AgentStepDraft` 收成稳定 `AgentStep`
-   - loop 通过 `AssistantStepRecordMaterializer` 生成一条 `assistant_step` record
+   - loop 通过 `TranscriptRecordFactory` 生成一条 `assistant_step` record
    - loop 通过 `AgentTranscriptAppender` 把它写回 live transcript
 2. 在 tool 执行前，loop 可以短暂把 draft 标成 `awaiting_tools`
    - 这只是内部过渡态，不能直接 materialize
@@ -52,7 +52,7 @@
    - `ToolBatchAssembler` 组装出 `ToolBatch`
 4. `ToolExecutorDispatcher` 执行 `ToolBatch`
    - 返回 `completed` `ToolDispatchOutcome`
-5. loop 把 outcome 中的 `ToolResultFact[]` 通过 `ToolResultRecordMaterializer` 写回 transcript：
+5. loop 把 outcome 中的 `ToolResultFact[]` 通过 `TranscriptRecordFactory` 写回 transcript：
    - 先生成一条或多条 `tool_result` record
    - 再通过 `AgentTranscriptAppender` 追加进 live transcript
 6. loop 基于最新 transcript 重新构造下一次协议请求：
@@ -119,7 +119,7 @@
 
 1. 当前 `AgentStep` 完成后：
    - loop 先通过 `AgentStepMaterializer` 把当前 `AgentStepDraft` 收成稳定 `AgentStep`
-   - loop 通过 `AssistantStepRecordMaterializer` 生成一条 `assistant_step` record
+   - loop 通过 `TranscriptRecordFactory` 生成一条 `assistant_step` record
    - loop 通过 `AgentTranscriptAppender` 把它写回 live transcript
 2. 在 tool 执行前，loop 可以短暂把 draft 标成 `awaiting_tools`
    - 这只是内部过渡态，不能直接 materialize
@@ -131,7 +131,7 @@
    - `ToolBatchAssembler` 组装 `ToolBatch`
 4. `ToolExecutorDispatcher` 执行 `ToolBatch`
    - 返回 `completed` `ToolDispatchOutcome`
-5. loop 把 outcome 中的 `ToolResultFact[]` 通过 `ToolResultRecordMaterializer` 生成 `tool_result` records
+5. loop 把 outcome 中的 `ToolResultFact[]` 通过 `TranscriptRecordFactory` 生成 `tool_result` records
 6. loop 再通过 `AgentTranscriptAppender` 写回 live transcript
 7. loop 通过 `RequestMaterializer` 重新构造包含 `tool_result` 的 `MaterializedProtocolRequest`
 8. `ExecutableRequestAdapter` 把协议请求适配成真实模型调用请求
@@ -228,7 +228,7 @@
 
 - `tool.awaiting_confirmation` 不进入 transcript
 - dispatcher / approval flow 应产出稳定的 denied `ToolResultFact`
-- loop 通过 `ToolResultRecordMaterializer` 生成 denied `tool_result` record
+- loop 通过 `TranscriptRecordFactory` 生成 denied `tool_result` record
 - loop 再通过 `AgentTranscriptAppender` 写回 live transcript
 - loop 将这条 `tool_result` 通过 `RequestMaterializer` 回传到新的 `MaterializedProtocolRequest`
 - `ExecutableRequestAdapter` 把它适配成真实模型调用请求

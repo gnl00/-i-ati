@@ -14,11 +14,10 @@ import type { AgentStepMaterializer } from '../step/AgentStepMaterializer'
 import type { ReadyToolCallMaterializer } from '../tools/ReadyToolCallMaterializer'
 import type { ToolBatchAssembler } from '../tools/ToolBatchAssembler'
 import type { ToolExecutorDispatcher } from '../tools/ToolExecutorDispatcher'
-import type { AssistantStepRecordMaterializer } from '../transcript/AssistantStepRecordMaterializer'
 import type { AgentTranscriptAppender } from '../transcript/AgentTranscriptAppender'
 import type { AgentTranscriptSnapshotMaterializer } from '../transcript/AgentTranscriptSnapshotMaterializer'
 import type { RequestMaterializer } from '../transcript/RequestMaterializer'
-import type { ToolResultRecordMaterializer } from '../transcript/ToolResultRecordMaterializer'
+import type { TranscriptRecordFactory } from '../transcript/TranscriptRecordFactory'
 import type { ExecutableRequestAdapter } from '../model/ExecutableRequestAdapter'
 import type { ModelResponseParser } from '../model/ModelResponseParser'
 import type { ModelStreamExecutor } from '../model/ModelStreamExecutor'
@@ -34,7 +33,7 @@ export interface AgentLoopDependencies {
   agentStepMaterializer: AgentStepMaterializer
   transcriptAppender: AgentTranscriptAppender
   transcriptSnapshotMaterializer: AgentTranscriptSnapshotMaterializer
-  assistantStepRecordMaterializer: AssistantStepRecordMaterializer
+  transcriptRecordFactory: TranscriptRecordFactory
   requestMaterializer: RequestMaterializer
   executableRequestAdapter: ExecutableRequestAdapter
   modelStreamExecutor: ModelStreamExecutor
@@ -42,7 +41,6 @@ export interface AgentLoopDependencies {
   readyToolCallMaterializer: ReadyToolCallMaterializer
   toolBatchAssembler: ToolBatchAssembler
   toolExecutorDispatcher: ToolExecutorDispatcher
-  toolResultRecordMaterializer: ToolResultRecordMaterializer
   loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
   agentEventEmitter: AgentEventEmitter
 }

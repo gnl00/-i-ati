@@ -46,10 +46,8 @@
   - 把稳定 records 追加进 live transcript
 - `AgentTranscriptSnapshotMaterializer.ts`
   - 把 live transcript 物化成终态 `AgentTranscriptSnapshot`
-- `AssistantStepRecordMaterializer.ts`
-  - 把 `AgentStep` 物化成稳定的 `assistant_step` record
-- `ToolResultRecordMaterializer.ts`
-  - 把 `ToolResultFact` 物化成稳定的 `tool_result` record
+- `TranscriptRecordFactory.ts`
+  - 把 `AgentStep` / `ToolResultFact` 物化成稳定的 write-back records
 - `RequestMaterializer.ts`
   - 从 transcript 构造协议层请求 contract
 
@@ -101,8 +99,9 @@
   - 当 kind 为 `assistant_step` 时，它应该包住一个 `AgentStep`
 - `UserRecordMaterializer`
   - 负责 bootstrap 阶段的首条 `user` record 生成
-- `AssistantStepRecordMaterializer`
+- `TranscriptRecordFactory`
   - 负责 `AgentStep -> AgentTranscriptAssistantStepRecord`
+  - 负责 `ToolResultFact -> AgentTranscriptToolResultRecord`
 
 也就是说：
 
@@ -127,8 +126,8 @@
 - transcript 只保存会影响后续模型请求的 tool 结果
 - confirmation denied 如果需要让模型感知，应先被规范化成稳定的 denied/aborted tool result，再进入 transcript
 - 纯进度、日志、spinner 状态不进入 transcript
-- `AgentStep -> AgentTranscriptAssistantStepRecord` 的 write-back 应通过显式 materializer 完成
-- `ToolResultFact -> AgentTranscriptToolResultRecord` 的 write-back 应通过显式 materializer 完成
+- `AgentStep -> AgentTranscriptAssistantStepRecord` 的 write-back 应通过显式 factory 完成
+- `ToolResultFact -> AgentTranscriptToolResultRecord` 的 write-back 应通过同一个显式 factory 完成
 - records 进入 live transcript 的 append/update 也应通过显式 appender 完成
 
 一句话：

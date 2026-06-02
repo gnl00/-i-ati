@@ -18,11 +18,10 @@ import type { ReadyToolCallMaterializer } from './tools/ReadyToolCallMaterialize
 import type { ToolBatchAssembler } from './tools/ToolBatchAssembler'
 import type { ToolExecutorDispatcher } from './tools/ToolExecutorDispatcher'
 import type { DefaultToolExecutorDispatcherOptions } from './tools/ToolExecutorDispatcher'
-import type { AssistantStepRecordMaterializer } from './transcript/AssistantStepRecordMaterializer'
 import type { AgentTranscriptAppender } from './transcript/AgentTranscriptAppender'
 import type { AgentTranscriptSnapshotMaterializer } from './transcript/AgentTranscriptSnapshotMaterializer'
 import type { RequestMaterializer } from './transcript/RequestMaterializer'
-import type { ToolResultRecordMaterializer } from './transcript/ToolResultRecordMaterializer'
+import type { TranscriptRecordFactory } from './transcript/TranscriptRecordFactory'
 import type { ExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
 import type { ModelResponseParser } from './model/ModelResponseParser'
 import type { ModelStreamExecutor } from './model/ModelStreamExecutor'
@@ -35,11 +34,10 @@ import { DefaultAgentStepMaterializer } from './step/AgentStepMaterializer'
 import { DefaultReadyToolCallMaterializer } from './tools/ReadyToolCallMaterializer'
 import { DefaultToolBatchAssembler } from './tools/ToolBatchAssembler'
 import { DefaultToolExecutorDispatcher } from './tools/ToolExecutorDispatcher'
-import { DefaultAssistantStepRecordMaterializer } from './transcript/AssistantStepRecordMaterializer'
 import { DefaultAgentTranscriptAppender } from './transcript/AgentTranscriptAppender'
 import { DefaultAgentTranscriptSnapshotMaterializer } from './transcript/AgentTranscriptSnapshotMaterializer'
 import { DefaultRequestMaterializer } from './transcript/RequestMaterializer'
-import { DefaultToolResultRecordMaterializer } from './transcript/ToolResultRecordMaterializer'
+import { DefaultTranscriptRecordFactory } from './transcript/TranscriptRecordFactory'
 import { DefaultExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
 import { DefaultModelResponseParser } from './model/ModelResponseParser'
 import { DefaultModelStreamExecutor } from './model/ModelStreamExecutor'
@@ -56,7 +54,7 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   agentStepMaterializer?: AgentStepMaterializer
   transcriptAppender?: AgentTranscriptAppender
   transcriptSnapshotMaterializer?: AgentTranscriptSnapshotMaterializer
-  assistantStepRecordMaterializer?: AssistantStepRecordMaterializer
+  transcriptRecordFactory?: TranscriptRecordFactory
   requestMaterializer?: RequestMaterializer
   executableRequestAdapter?: ExecutableRequestAdapter
   modelStreamExecutor?: ModelStreamExecutor
@@ -64,7 +62,6 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   readyToolCallMaterializer?: ReadyToolCallMaterializer
   toolBatchAssembler?: ToolBatchAssembler
   toolExecutorDispatcher?: ToolExecutorDispatcher
-  toolResultRecordMaterializer?: ToolResultRecordMaterializer
   toolResultNormalizer?: ToolResultNormalizer
   toolResultNormalizationScopeId?: string
   loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
@@ -96,8 +93,8 @@ implements AgentLoopDependenciesFactory {
         this.options.transcriptSnapshotMaterializer ?? new DefaultAgentTranscriptSnapshotMaterializer({
           toolResultNormalizer
         }),
-      assistantStepRecordMaterializer:
-        this.options.assistantStepRecordMaterializer ?? new DefaultAssistantStepRecordMaterializer(),
+      transcriptRecordFactory:
+        this.options.transcriptRecordFactory ?? new DefaultTranscriptRecordFactory(),
       requestMaterializer: this.options.requestMaterializer ?? new DefaultRequestMaterializer(),
       executableRequestAdapter:
         this.options.executableRequestAdapter ?? new DefaultExecutableRequestAdapter(),
@@ -119,8 +116,6 @@ implements AgentLoopDependenciesFactory {
           abortedResultDisposition: this.options.abortedResultDisposition,
           requestConfirmation: this.options.requestConfirmation
         }),
-      toolResultRecordMaterializer:
-        this.options.toolResultRecordMaterializer ?? new DefaultToolResultRecordMaterializer(),
       loadedSkillsTranscriptContextProvider: this.options.loadedSkillsTranscriptContextProvider,
       agentEventEmitter
     }

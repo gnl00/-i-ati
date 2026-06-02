@@ -98,8 +98,7 @@ provider raw SSE/json
         -> committed.updated
         -> tool result persistence
   -> AgentLoop
-     -> assistant step record append
-     -> tool result record append
+     -> transcript record factory write-back
      -> loaded skills context refresh after load_skill/unload_skill
   -> RunFinalizer
      -> ChatFinalizeService
@@ -119,10 +118,10 @@ unifiedChatRequest
     applyDeltaToDraft
     agentEventEmitter.emitStepDelta
     agentStepMaterializer.materialize
-    assistantStepRecordMaterializer.materialize
+    transcriptRecordFactory.createAssistantStep
     transcriptAppender.append
     toolExecutorDispatcher.dispatch
-    toolResultRecordMaterializer.materialize
+    transcriptRecordFactory.createToolResult
   HostRenderEventForwarder
     HostRenderEventMapper.map
     ChatRenderResponder.handle
@@ -227,6 +226,38 @@ IUnifiedRequest.userInstruction = deprecated plugin compatibility metadata
 ```
 
 `RunRequestFactory.mergeRequestUserInstruction()` still combines chat-level instruction with schedule execution context. The merged value is passed only to `RequestMessageBuilder.setUserInstruction()`.
+
+### 5. Response-Side Carrier Trim
+
+Implemented response-side cleanup:
+
+```text
+RunResult
+  -> StepResult.requestHistoryMessages removed
+
+RunStepResponse
+  -> raw lifecycle narrowed to response normalization boundary
+
+StepResult
+  -> artifacts removed from response carrier
+
+ToolResultContentProjector
+  -> model mode
+  -> history import mode
+  -> display mode
+
+AgentLoopDependencies
+  -> transcriptRecordFactory
+     -> createAssistantStep
+     -> createToolResult
+```
+
+Effects:
+
+- Runtime continuation reads from `AgentTranscript`.
+- Response carriers hold current step output and provider boundary facts.
+- Tool result content projection is named by consumer.
+- Transcript write-back has one factory dependency for assistant steps and tool results.
 
 ## Necessary Boundaries
 
@@ -344,9 +375,14 @@ pnpm test:run src/main/agent/runtime/__tests__/AgentRuntime.test.ts
 - Runtime request generation treats `systemPrompt + messages + tools + options` as the model-visible input surface.
 - `userInstruction` is materialized as a `<user_instruction>` user message before the current user message.
 - `AgentRequestSpec`, `MaterializedProtocolRequest`, and runtime-created `IUnifiedRequest` omit active `userInstruction` pass-through.
+- `StepResult` omits historical request messages and artifact payloads.
+- Provider `raw` data has a short response-normalization lifecycle.
+- `ToolResultContentProjector` owns model replay / history import / display projection modes.
+- `TranscriptRecordFactory` owns assistant_step and tool_result write-back record creation.
 
 ## Open Questions
 
 - Should `UnifiedRequestMessageMaterializer` remain as a utility for non-runtime callers such as title/compression/smart message paths?
 - Should bootstrap evolve from `ChatMessage[]` to `AgentTranscriptRecord[]` so preparation produces a direct runtime seed?
-- Should `StepResult.requestHistoryMessages` remain part of `StepResult`, or move into debug artifacts?
+- Should transcript bootstrap move closer to preparation so runtime starts from protocol records directly?
+- Should response debug capture get an explicit artifact channel outside `StepResult`?

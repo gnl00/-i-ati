@@ -386,7 +386,7 @@ export class DefaultAgentLoop implements AgentLoop {
         step
       })
 
-      const assistantRecord = dependencies.assistantStepRecordMaterializer.materialize({
+      const assistantRecord = dependencies.transcriptRecordFactory.createAssistantStep({
         recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
         timestamp: completedAt,
         step
@@ -541,7 +541,7 @@ export class DefaultAgentLoop implements AgentLoop {
     timestamp: number
   ) {
     return results.map(result => (
-      dependencies.toolResultRecordMaterializer.materialize({
+      dependencies.transcriptRecordFactory.createToolResult({
         recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
         timestamp,
         result

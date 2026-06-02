@@ -117,16 +117,15 @@
 - `AgentEventEmitter`
   - 负责把 runtime facts 组装成稳定 `AgentEvent`
   - loop 不应直接手写 event union payload
-- `AssistantStepRecordMaterializer`
+- `TranscriptRecordFactory`
   - 负责 `AgentStep -> AgentTranscriptAssistantStepRecord`
+  - 负责 `ToolResultFact -> AgentTranscriptToolResultRecord`
 - `AgentTranscriptAppender`
   - 负责把稳定 records 追加进 live transcript，并推进 `updatedAt`
 - `AgentTranscriptSnapshotMaterializer`
   - 负责把 live transcript 收成终态 `AgentTranscriptSnapshot`
 - `AgentTranscriptRecord`
   - `kind`、record id、timestamp、payload
-- `ToolResultRecordMaterializer`
-  - 负责 `ToolResultFact -> AgentTranscriptToolResultRecord`
 - `AgentContentPart`
   - `input_text` / `input_image` / `input_file` 以及 file metadata
 - `AgentLoopResult`
@@ -294,7 +293,7 @@
 - `ToolEvent`
   - `tool.awaiting_confirmation`
   - `tool.confirmation_denied`
-- `ToolResultRecordMaterializer`
+- `TranscriptRecordFactory`
   - denied `ToolResultFact` 也应通过同一条 write-back 链写入 transcript
 - `AgentTranscriptRecord`
   - denied/aborted `tool_result` 的记录形态
