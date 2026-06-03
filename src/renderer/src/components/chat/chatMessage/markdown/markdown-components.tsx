@@ -101,6 +101,8 @@ export const markdownCodeComponents = {
   }
 }
 
+const codeBlockBackground = '#1e1e1e'
+
 const SpeedCodeBlock: React.FC<{
   code: string
   language: string
@@ -119,12 +121,15 @@ const SpeedCodeBlock: React.FC<{
   return (
     <div
       className={cn(
-        "not-prose rounded-lg overflow-hidden shadow-xs bg-[#1e1e1e] text-slate-100 border border-slate-200/60 dark:bg-[#0f1115] dark:text-slate-100 dark:border-slate-700/50",
+        "not-prose rounded-lg overflow-hidden shadow-xs bg-[#1e1e1e] text-slate-100 border border-slate-200/60 dark:text-slate-100 dark:border-slate-700/50",
         containerClassName
       )}
     >
-      <div className="flex justify-between items-center bg-[#141414] dark:bg-[#0f1115] px-2 py-0.5 border-b border-white/5">
-        <span className="px-2 py-0.5 text-xs font-mono font-semibold text-slate-200 select-none tracking-wide bg-white/5 rounded-md">
+      <div
+        className="flex justify-between items-center px-2 py-0.5 border-b border-white/[0.03]"
+        style={{ backgroundColor: codeBlockBackground }}
+      >
+        <span className="px-2 py-0.5 text-xs font-mono font-semibold text-slate-300 select-none tracking-wide bg-white/[0.04] rounded-md">
           {language}
         </span>
         <div className="flex items-center gap-1">
@@ -132,9 +137,9 @@ const SpeedCodeBlock: React.FC<{
             size="sm"
             variant="ghost"
             onClick={copyToClipboard}
-            className="h-7 px-2 hover:bg-white/10 rounded-md transition-all duration-200"
+            className="h-7 px-2 hover:bg-white/[0.08] rounded-md transition-all duration-200"
           >
-            <CopyIcon className="w-3.5 h-3.5 text-slate-300" />
+            <CopyIcon className="w-3.5 h-3.5 text-slate-400" />
           </Button>
         </div>
       </div>
@@ -142,7 +147,7 @@ const SpeedCodeBlock: React.FC<{
         code={code}
         language={language}
         themeOverride={themeOverride}
-        backgroundColor="#1e1e1e"
+        backgroundColor={codeBlockBackground}
         hideLineNumbers={false}
       />
     </div>
