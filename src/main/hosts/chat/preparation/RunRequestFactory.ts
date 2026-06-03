@@ -1,7 +1,8 @@
 import { RequestMessageBuilder } from '@shared/services/RequestMessageBuilder'
 import {
   getEffectiveThinkingLevel,
-  getRequestAdapterThinkingCapability
+  getRequestAdapterThinkingCapability,
+  toUnifiedRequestThinkingOption
 } from '@shared/plugins/requestAdapterThinking'
 import { pluginDb } from '@main/db/plugins'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
@@ -102,22 +103,33 @@ export class RunRequestFactory {
   ): IUnifiedRequest['options'] | undefined {
     const thinkingCapability = getRequestAdapterThinkingCapability({
       plugins: pluginDb.getPlugins(),
-      pluginId: environment.modelContext.providerDefinition.adapterPluginId
+      pluginId: environment.modelContext.providerDefinition.adapterPluginId,
+      baseUrl: environment.modelContext.account.apiUrl,
+      modelId: environment.modelContext.model.id
     })
+    const requestedThinkingLevel = options?.thinking
+      ? options.thinking.enabled === false
+        ? 'none'
+        : options.thinking.effort
+      : undefined
     const effectiveThinkingLevel = getEffectiveThinkingLevel(
       environment.modelContext.model,
       thinkingCapability,
-      options?.thinkingLevel
+      requestedThinkingLevel
     )
-    const { thinkingLevel: _thinkingLevel, ...restOptions } = options ?? {}
+    const { thinking: _thinking, ...restOptions } = options ?? {}
 
     if (!effectiveThinkingLevel) {
+      return Object.keys(restOptions).length > 0 ? restOptions : undefined
+    }
+    const thinking = toUnifiedRequestThinkingOption(effectiveThinkingLevel)
+    if (!thinking) {
       return Object.keys(restOptions).length > 0 ? restOptions : undefined
     }
 
     return {
       ...restOptions,
-      thinkingLevel: effectiveThinkingLevel
+      thinking
     }
   }
 

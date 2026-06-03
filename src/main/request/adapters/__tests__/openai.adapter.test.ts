@@ -18,13 +18,59 @@ describe('OpenAIAdapter request mapping', () => {
       baseUrl: 'https://api.openai.com/v1',
       model: 'gpt-5',
       options: {
-        thinkingLevel: 'high'
+        thinking: {
+          enabled: true,
+          effort: 'high'
+        }
       }
     }))
 
     expect(adapter.getThinkingLevels()).toEqual(['none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
     expect(requestBody.reasoning_effort).toBe('high')
     expect(requestBody.reasoning).toBeUndefined()
+  })
+
+  it('disables DeepSeek thinking when thinking is disabled', () => {
+    const adapter = new OpenAIAdapter()
+
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
+      adapterPluginId: 'openai-chat-compatible-adapter',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-v4-flash',
+      messages: [{
+        role: 'assistant',
+        content: 'previous answer',
+        reasoning: 'previous reasoning'
+      }],
+      options: {
+        thinking: {
+          enabled: false
+        }
+      }
+    }))
+
+    expect(requestBody.thinking).toEqual({ type: 'disabled' })
+    expect(requestBody.reasoning_effort).toBeUndefined()
+    expect(requestBody.messages[0]).not.toHaveProperty('reasoning_content')
+  })
+
+  it('maps DeepSeek enabled thinking and max effort to OpenAI-compatible fields', () => {
+    const adapter = new OpenAIAdapter()
+
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
+      adapterPluginId: 'openai-chat-compatible-adapter',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-v4-flash',
+      options: {
+        thinking: {
+          enabled: true,
+          effort: 'max'
+        }
+      }
+    }))
+
+    expect(requestBody.thinking).toEqual({ type: 'enabled' })
+    expect(requestBody.reasoning_effort).toBe('max')
   })
 
   it('replays assistant reasoning_content for thinking chat completions', () => {
@@ -54,7 +100,10 @@ describe('OpenAIAdapter request mapping', () => {
         }
       ],
       options: {
-        thinkingLevel: 'high'
+        thinking: {
+          enabled: true,
+          effort: 'high'
+        }
       }
     }))
 

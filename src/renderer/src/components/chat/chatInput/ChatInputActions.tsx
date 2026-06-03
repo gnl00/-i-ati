@@ -1,13 +1,6 @@
 import { PaperPlaneIcon, StopIcon } from '@radix-ui/react-icons'
 import { Button } from '@renderer/components/ui/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger
-} from '@renderer/components/ui/dropdown-menu'
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -16,22 +9,16 @@ import {
 import { cn } from '@renderer/lib/utils'
 import { useChatStore, type RunPhase } from '@renderer/store/chatStore'
 import { useAssistantStore } from '@renderer/store/assistant'
-import { useAppConfigStore } from '@renderer/store/appConfig'
 import { invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/utils/chatWorkspace'
 import { saveChat } from '@renderer/db/ChatRepository'
 import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
-import {
-  getEffectiveThinkingLevel,
-  getRequestAdapterThinkingCapability
-} from '@shared/plugins/requestAdapterThinking'
 import { v4 as uuidv4 } from 'uuid'
 import {
   BadgePlus,
   CornerDownLeft,
   Package,
-  FolderOpen,
-  Lightbulb
+  FolderOpen
 } from 'lucide-react'
 import React, { useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
@@ -60,16 +47,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const canCancelRun = runPhase === 'submitting' || runPhase === 'streaming'
   const isCancelling = runPhase === 'cancelling'
   const messages = useChatStore(state => state.messages)
-  const selectedModelRef = useChatStore(state => state.selectedModelRef)
-  const selectedThinkingLevel = useChatStore(state => state.selectedThinkingLevel)
-  const setSelectedThinkingLevel = useChatStore(state => state.setSelectedThinkingLevel)
   const { setCurrentAssistant } = useAssistantStore()
-  const {
-    defaultModel,
-    plugins,
-    providersRevision,
-    resolveModelRef
-  } = useAppConfigStore()
   const {
     currentChatId: chatId,
     currentChatUuid: chatUuid,
@@ -88,38 +66,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     const isDefaultPath = defaultSuffixes.some(suffix => normalizedPath.endsWith(suffix))
     return !isDefaultPath
   }, [currentWorkspacePath, chatUuid])
-  const selectedModel = useMemo(() => {
-    return resolveModelRef(selectedModelRef ?? defaultModel)
-  }, [defaultModel, providersRevision, resolveModelRef, selectedModelRef])
-  const thinkingCapability = useMemo(() => {
-    if (!selectedModel) {
-      return undefined
-    }
-
-    return getRequestAdapterThinkingCapability({
-      plugins,
-      pluginId: selectedModel.definition.adapterPluginId
-    })
-  }, [plugins, selectedModel])
-  const activeThinkingLevel = getEffectiveThinkingLevel(
-    selectedModel?.model,
-    thinkingCapability,
-    selectedThinkingLevel
-  )
-  const shouldShowThinkingLevel = Boolean(activeThinkingLevel)
-
-  useEffect(() => {
-    if (!activeThinkingLevel) {
-      if (selectedThinkingLevel) {
-        setSelectedThinkingLevel(undefined)
-      }
-      return
-    }
-
-    if (selectedThinkingLevel !== activeThinkingLevel) {
-      setSelectedThinkingLevel(activeThinkingLevel)
-    }
-  }, [activeThinkingLevel, selectedThinkingLevel, setSelectedThinkingLevel])
 
   // 获取目录名（路径的最后一部分）
   const getDirectoryName = (path: string | undefined): string => {
@@ -311,72 +257,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-
-        {shouldShowThinkingLevel && thinkingCapability && activeThinkingLevel && (
-          <DropdownMenu>
-            <TooltipProvider delayDuration={400}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        "group relative h-8 px-2.5 rounded-xl flex items-center gap-1.5 overflow-hidden",
-                        "transition-all duration-300 ease-out",
-                        "bg-linear-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30",
-                        "text-amber-700 dark:text-amber-300",
-                        "border border-amber-300/60 dark:border-amber-700/60",
-                        "shadow-xs shadow-amber-500/10 dark:shadow-amber-500/20",
-                        "hover:shadow-sm hover:shadow-amber-500/25 dark:hover:shadow-amber-500/35",
-                        "hover:text-amber-600 dark:hover:text-amber-200",
-                        "active:scale-[0.98]"
-                      )}
-                    >
-                      <div className="absolute inset-0 bg-linear-to-r from-amber-100/0 via-amber-100/50 to-orange-100/0 dark:from-amber-900/0 dark:via-amber-900/30 dark:to-orange-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <Lightbulb
-                        className="relative z-10 w-4 h-4 transition-transform duration-300 ease-out group-hover:scale-110"
-                        strokeWidth={2}
-                      />
-                      <span className="relative z-10 text-[10px] font-medium capitalize">
-                        {activeThinkingLevel}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20">
-                  <p className="font-medium">Thinking level: {activeThinkingLevel}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <DropdownMenuContent
-              align="start"
-              sideOffset={6}
-              className={cn(
-                "min-w-[150px] rounded-xl border border-slate-200/80 dark:border-slate-700/80",
-                "bg-white/20 dark:bg-slate-900/95 backdrop-blur-3xl",
-                "shadow-xl shadow-slate-900/10 dark:shadow-black/30 p-1"
-              )}
-            >
-              <DropdownMenuRadioGroup
-                value={activeThinkingLevel}
-                onValueChange={(value) => setSelectedThinkingLevel(value as ThinkingLevel)}
-              >
-                {thinkingCapability.levels.map(level => (
-                  <DropdownMenuRadioItem
-                    key={level}
-                    value={level}
-                    className={cn(
-                      "capitalize rounded-lg text-xs font-medium cursor-pointer",
-                      "focus:bg-amber-50 focus:text-amber-800 dark:focus:bg-amber-950/40 dark:focus:text-amber-200"
-                    )}
-                  >
-                    {level}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
 
         {/* Workspace Selection Button */}
         <TooltipProvider delayDuration={400}>

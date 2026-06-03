@@ -1,4 +1,5 @@
 import { BaseAdapter } from '../base'
+import { isDeepSeekOpenAICompatibleRequest } from '@shared/plugins/requestAdapterThinking'
 
 const normalizeOpenAIToolCalls = (toolCalls: any[] | undefined): any[] | undefined => {
   if (!toolCalls || toolCalls.length === 0) return undefined
@@ -31,10 +32,16 @@ const toFiniteNumber = (value: unknown): number | undefined => (
   typeof value === 'number' && Number.isFinite(value) ? value : undefined
 )
 
+const DEEPSEEK_REASONING_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'max', 'xhigh'])
+
 type OpenAIRequestMessage = BaseChatMessage & {
   reasoning_content?: string
   tool_calls?: any[]
   tool_call_id?: string
+}
+
+const getRequestThinkingOption = (req: IUnifiedRequest): UnifiedRequestThinkingOption | undefined => {
+  return req.options?.thinking
 }
 
 const mapOpenAIMessageFields = (
@@ -53,9 +60,7 @@ const mapOpenAIMessageFields = (
 })
 
 const buildOpenAIMessages = (req: IUnifiedRequest): OpenAIRequestMessage[] => {
-  const includeReasoningContent = Boolean(
-    req.options?.thinkingLevel && req.options.thinkingLevel !== 'none'
-  )
+  const includeReasoningContent = getRequestThinkingOption(req)?.enabled === true
   const messages = req.messages.map((message) => mapOpenAIMessageFields(message, {
     includeReasoningContent
   }))
@@ -139,8 +144,32 @@ export class OpenAIAdapter extends BaseAdapter {
       requestBody.tools = this.transformToolDefinitions(req.tools)
     }
 
-    if (req.options?.thinkingLevel && this.getThinkingLevels().includes(req.options.thinkingLevel)) {
-      requestBody.reasoning_effort = req.options.thinkingLevel
+    const thinking = getRequestThinkingOption(req)
+    const isDeepSeekRequest = isDeepSeekOpenAICompatibleRequest({
+      pluginId: req.adapterPluginId,
+      baseUrl: req.baseUrl,
+      modelId: req.model
+    })
+
+    if (isDeepSeekRequest && thinking?.enabled === false) {
+      requestBody.thinking = { type: 'disabled' }
+    }
+
+    if (thinking?.enabled === true) {
+      if (isDeepSeekRequest) {
+        requestBody.thinking = { type: 'enabled' }
+      }
+
+      if (
+        thinking.effort &&
+        (
+          isDeepSeekRequest
+            ? DEEPSEEK_REASONING_EFFORT_LEVELS.has(thinking.effort)
+            : this.getThinkingLevels().includes(thinking.effort)
+        )
+      ) {
+        requestBody.reasoning_effort = thinking.effort
+      }
     }
 
     return requestBody

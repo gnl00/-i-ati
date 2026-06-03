@@ -9,7 +9,11 @@ interface ChatInputToolbarProps {
   // Model selector props
   selectedModel: ModelOption | undefined
   modelOptions: ModelOption[]
+  plugins?: PluginEntity[]
+  selectedThinkingLevel?: ThinkingLevel
+  modelMenuCollisionBoundary?: HTMLElement | null
   setSelectedModelRef: (ref: ModelRef) => void
+  setSelectedThinkingLevel: (level: ThinkingLevel | undefined) => void
 
   // MCP selector props
   selectedMcpServerNames: string[]
@@ -26,7 +30,11 @@ interface ChatInputToolbarProps {
 const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   selectedModel,
   modelOptions,
+  plugins,
+  selectedThinkingLevel,
+  modelMenuCollisionBoundary,
   setSelectedModelRef,
+  setSelectedThinkingLevel,
   selectedMcpServerNames,
   mcpServerConfig,
   toggleMcpConnection,
@@ -96,8 +104,9 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
     "focus-visible:ring-0 focus-visible:ring-offset-0"
   )
 
-  const handleModelSelect = (ref: ModelRef) => {
+  const handleModelSelect = (ref: ModelRef, thinkingLevel?: ThinkingLevel) => {
     setSelectedModelRef(ref)
+    setSelectedThinkingLevel(thinkingLevel)
     setSelectModelPopoutState(false)
   }
 
@@ -142,6 +151,9 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
         <ChatToolbarModelSelector
           selectedModel={selectedModel}
           modelOptions={modelOptions}
+          plugins={plugins}
+          selectedThinkingLevel={selectedThinkingLevel}
+          collisionBoundary={modelMenuCollisionBoundary}
           isOpen={selectModelPopoutState}
           onOpenChange={setSelectModelPopoutState}
           onModelSelect={handleModelSelect}

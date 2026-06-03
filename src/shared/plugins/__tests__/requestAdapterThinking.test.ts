@@ -90,6 +90,37 @@ describe('requestAdapterThinking', () => {
     })
   })
 
+  it('uses DeepSeek OpenAI-compatible thinking levels when provider context matches DeepSeek', () => {
+    const capability = getRequestAdapterThinkingCapability({
+      plugins: [{
+        pluginId: 'openai-chat-compatible-adapter',
+        name: 'OpenAI Chat Compatible Adapter',
+        source: 'built-in',
+        enabled: true,
+        status: 'installed',
+        capabilities: [{
+          kind: 'request-adapter',
+          data: {
+            providerType: 'openai',
+            modelTypes: ['llm', 'vlm'],
+            thinking: {
+              levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+              defaultLevel: 'medium'
+            }
+          }
+        }]
+      }],
+      pluginId: 'openai-chat-compatible-adapter',
+      baseUrl: 'https://api.deepseek.com/v1',
+      modelId: 'deepseek-v4-flash'
+    })
+
+    expect(capability).toEqual({
+      levels: ['none', 'low', 'medium', 'high', 'max', 'xhigh'],
+      defaultLevel: 'medium'
+    })
+  })
+
   it('normalizes invalid defaults to a valid level', () => {
     expect(normalizeThinkingCapability({
       levels: ['low', 'high'],

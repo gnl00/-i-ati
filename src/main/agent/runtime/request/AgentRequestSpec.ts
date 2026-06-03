@@ -19,7 +19,7 @@
  */
 export interface AgentRequestOptions {
   maxTokens?: number
-  thinkingLevel?: ThinkingLevel
+  thinking?: UnifiedRequestThinkingOption
 }
 
 export interface AgentRequestSpec {

@@ -7,7 +7,42 @@ const MODEL_REASONING_CAPABILITY_KEYS = new Set([
   'thinking'
 ])
 
+const OPENAI_CHAT_COMPATIBLE_ADAPTER_ID = 'openai-chat-compatible-adapter'
+
+const DEEPSEEK_OPENAI_THINKING_CAPABILITY: RequestAdapterThinkingCapability = {
+  levels: ['none', 'low', 'medium', 'high', 'max', 'xhigh'],
+  defaultLevel: 'medium'
+}
+
 const normalizeCapabilityKey = (value: string): string => value.trim().toLowerCase().replace(/[_\s-]+/g, '')
+
+export const isDeepSeekOpenAICompatibleRequest = (
+  args: {
+    pluginId?: string
+    baseUrl?: string
+    modelId?: string
+  }
+): boolean => {
+  if (args.pluginId !== OPENAI_CHAT_COMPATIBLE_ADAPTER_ID) {
+    return false
+  }
+
+  const normalizedModelId = args.modelId?.trim().toLowerCase()
+  if (normalizedModelId?.startsWith('deepseek-')) {
+    return true
+  }
+
+  if (!args.baseUrl) {
+    return false
+  }
+
+  try {
+    const hostname = new URL(args.baseUrl).hostname.toLowerCase()
+    return hostname === 'deepseek.com' || hostname.endsWith('.deepseek.com')
+  } catch {
+    return args.baseUrl.toLowerCase().includes('deepseek')
+  }
+}
 
 export const normalizeThinkingCapability = (
   value: unknown
@@ -43,9 +78,15 @@ export const getRequestAdapterThinkingCapability = (
   args: {
     plugins?: PluginEntity[]
     pluginId?: string
+    baseUrl?: string
+    modelId?: string
     providerType?: string
   }
 ): RequestAdapterThinkingCapability | undefined => {
+  if (isDeepSeekOpenAICompatibleRequest(args)) {
+    return DEEPSEEK_OPENAI_THINKING_CAPABILITY
+  }
+
   const plugin = args.pluginId
     ? args.plugins?.find(item => item.pluginId === args.pluginId)
     : undefined
@@ -113,4 +154,21 @@ export const getEffectiveThinkingLevel = (
   return selectedLevel && capability.levels.includes(selectedLevel)
     ? selectedLevel
     : getDefaultThinkingLevel(capability)
+}
+
+export const toUnifiedRequestThinkingOption = (
+  level: ThinkingLevel | undefined
+): UnifiedRequestThinkingOption | undefined => {
+  if (!level) {
+    return undefined
+  }
+
+  if (level === 'none') {
+    return { enabled: false }
+  }
+
+  return {
+    enabled: true,
+    effort: level
+  }
 }

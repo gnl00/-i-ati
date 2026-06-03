@@ -1,6 +1,11 @@
 declare type ModelType = 'llm' | 'vlm' | 'mllm' | 'img_gen'
 declare type ThinkingLevel = string
 
+declare interface UnifiedRequestThinkingOption {
+  enabled: boolean
+  effort?: ThinkingLevel
+}
+
 declare interface AccountModel {
   id: string
   label: string
@@ -234,7 +239,7 @@ declare interface IUnifiedRequest {
   requestOverrides?: Record<string, any>
   options?: {
     maxTokens?: number
-    thinkingLevel?: ThinkingLevel
+    thinking?: UnifiedRequestThinkingOption
   }
 }
 

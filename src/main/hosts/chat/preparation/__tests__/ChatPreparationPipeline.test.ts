@@ -392,7 +392,10 @@ describe('ChatPreparationPipeline', () => {
       input: {
         ...input.input,
         options: {
-          thinkingLevel: 'high'
+          thinking: {
+            enabled: true,
+            effort: 'high'
+          }
         }
       }
     }, emitter)
@@ -421,13 +424,19 @@ describe('ChatPreparationPipeline', () => {
       input: {
         ...input.input,
         options: {
-          thinkingLevel: 'high'
+          thinking: {
+            enabled: true,
+            effort: 'high'
+          }
         }
       }
     }, emitter)
 
     expect(prepared.runSpec.requestSpec.options).toEqual({
-      thinkingLevel: 'high'
+      thinking: {
+        enabled: true,
+        effort: 'high'
+      }
     })
   })
 
@@ -450,11 +459,14 @@ describe('ChatPreparationPipeline', () => {
     const prepared = await service.prepare(input, emitter)
 
     expect(prepared.runSpec.requestSpec.options).toEqual({
-      thinkingLevel: 'medium'
+      thinking: {
+        enabled: true,
+        effort: 'medium'
+      }
     })
   })
 
-  it('preserves explicit thinking none for reasoning models', async () => {
+  it('preserves explicit disabled thinking for reasoning models', async () => {
     ;(DatabaseService.getConfig as any).mockReturnValue({
       ...config,
       accounts: [{
@@ -475,13 +487,17 @@ describe('ChatPreparationPipeline', () => {
       input: {
         ...input.input,
         options: {
-          thinkingLevel: 'none'
+          thinking: {
+            enabled: false
+          }
         }
       }
     }, emitter)
 
     expect(prepared.runSpec.requestSpec.options).toEqual({
-      thinkingLevel: 'none'
+      thinking: {
+        enabled: false
+      }
     })
   })
 

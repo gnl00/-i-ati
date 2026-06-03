@@ -126,7 +126,10 @@ describe('ClaudeAdapter request mapping', () => {
       baseUrl: 'https://api.anthropic.com/v1',
       model: 'claude-sonnet-4-5',
       options: {
-        thinkingLevel: 'xhigh'
+        thinking: {
+          enabled: true,
+          effort: 'xhigh'
+        }
       }
     }))
 

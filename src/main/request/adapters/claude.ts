@@ -12,6 +12,10 @@ const toFiniteNumber = (value: unknown): number | undefined => (
   typeof value === 'number' && Number.isFinite(value) ? value : undefined
 )
 
+const getRequestThinkingOption = (req: IUnifiedRequest): UnifiedRequestThinkingOption | undefined => {
+  return req.options?.thinking
+}
+
 // Claude Messages API (v1) 适配器
 export class ClaudeAdapter extends BaseAdapter {
   providerType: ProviderType = 'claude'
@@ -85,9 +89,18 @@ export class ClaudeAdapter extends BaseAdapter {
       requestBody.tools = this.transformClaudeTools(req.tools)
     }
 
-    if (req.options?.thinkingLevel && this.getThinkingLevels().includes(req.options.thinkingLevel)) {
+    const thinking = getRequestThinkingOption(req)
+    if (thinking?.enabled === false) {
+      requestBody.thinking = { type: 'disabled' }
+    }
+
+    if (
+      thinking?.enabled === true &&
+      thinking.effort &&
+      this.getThinkingLevels().includes(thinking.effort)
+    ) {
       requestBody.thinking = { type: 'adaptive' }
-      requestBody.output_config = { effort: req.options.thinkingLevel }
+      requestBody.output_config = { effort: thinking.effort }
     }
 
     return requestBody

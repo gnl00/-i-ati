@@ -11,7 +11,8 @@ import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, us
 import { toast } from 'sonner'
 import {
   getEffectiveThinkingLevel,
-  getRequestAdapterThinkingCapability
+  getRequestAdapterThinkingCapability,
+  toUnifiedRequestThinkingOption
 } from '@shared/plugins/requestAdapterThinking'
 import { CustomCaretOverlay, CustomCaretRef } from '../common/CustomCaretOverlay'
 import CommandPalette from './CommandPalette'
@@ -53,6 +54,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const selectedThinkingLevel = useChatStore(state => state.selectedThinkingLevel)
   const setSelectedModelRef = useChatStore(state => state.setSelectedModelRef)
+  const setSelectedThinkingLevel = useChatStore(state => state.setSelectedThinkingLevel)
   const ensureSelectedModelRef = useChatStore(state => state.ensureSelectedModelRef)
   const editUserInstructionDraft = useChatStore(state => state.editUserInstructionDraft)
 
@@ -79,7 +81,9 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
     return getRequestAdapterThinkingCapability({
       plugins,
-      pluginId: selectedModel.definition.adapterPluginId
+      pluginId: selectedModel.definition.adapterPluginId,
+      baseUrl: selectedModel.account.apiUrl,
+      modelId: selectedModel.model.id
     })
   }, [plugins, selectedModel])
   const effectiveThinkingLevel = getEffectiveThinkingLevel(
@@ -87,6 +91,19 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     thinkingCapability,
     selectedThinkingLevel
   )
+
+  useEffect(() => {
+    if (!effectiveThinkingLevel) {
+      if (selectedThinkingLevel) {
+        setSelectedThinkingLevel(undefined)
+      }
+      return
+    }
+
+    if (selectedThinkingLevel !== effectiveThinkingLevel) {
+      setSelectedThinkingLevel(effectiveThinkingLevel)
+    }
+  }, [effectiveThinkingLevel, selectedThinkingLevel, setSelectedThinkingLevel])
 
   useEffect(() => {
     if (!selectedModel) {
@@ -121,6 +138,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const [currentUserInstruction, setCurrentUserInstruction] = useState<string>('')
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
+  const [modelMenuCollisionBoundary, setModelMenuCollisionBoundary] = useState<HTMLElement | null>(null)
 
   // Apply currentAssistant's systemPrompt to the request-level user instruction
   useEffect(() => {
@@ -197,6 +215,10 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     fillInput
   }), [fillInput])
 
+  const setInputAreaContentRef = useCallback((node: HTMLDivElement | null) => {
+    setModelMenuCollisionBoundary(node)
+  }, [])
+
   // Extend startNewChat to include local state reset
   const startNewChat = useCallback(() => {
     startNewChatBase()
@@ -214,9 +236,10 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   }, [handleChatSubmit])
   const submitMessage = useCallback((payload: QueuedChatMessage) => {
     onMessagesUpdate?.()
+    const thinking = toUnifiedRequestThinkingOption(effectiveThinkingLevel)
     handleChatSubmitCallback(payload.text, payload.images, {
       userInstruction: payload.userInstruction,
-      options: effectiveThinkingLevel ? { thinkingLevel: effectiveThinkingLevel } : undefined
+      options: thinking ? { thinking } : undefined
     })
   }, [effectiveThinkingLevel, handleChatSubmitCallback, onMessagesUpdate])
 
@@ -546,7 +569,11 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         <ChatImgGalleryComponent />
       </div>
 
-      <div id="inputAreaContent" className='relative flex flex-col px-2 flex-1 overflow-hidden bg-transparent'>
+      <div
+        ref={setInputAreaContentRef}
+        id="inputAreaContent"
+        className='relative flex flex-col px-2 flex-1 overflow-hidden bg-transparent'
+      >
         <div
           className={cn(
             'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out bg-transparent',
@@ -558,7 +585,11 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           <ChatInputToolbar
             selectedModel={selectedModel}
             modelOptions={modelOptions}
+            plugins={plugins}
+            selectedThinkingLevel={selectedThinkingLevel}
+            modelMenuCollisionBoundary={modelMenuCollisionBoundary}
             setSelectedModelRef={setSelectedModelRef}
+            setSelectedThinkingLevel={setSelectedThinkingLevel}
             selectedMcpServerNames={selectedMcpServerNames}
             mcpServerConfig={mcpServerConfig}
             toggleMcpConnection={toggleMcpConnection}
