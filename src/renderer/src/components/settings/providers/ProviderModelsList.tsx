@@ -630,7 +630,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                       }}
                       ariaLabel={`Remove model ${m.label}`}
                       title="Remove model"
-                      idleLabel="Del"
+                      idleLabel="Delete"
                       width={58}
                       height={24}
                       iconClassName='text-[12px]'

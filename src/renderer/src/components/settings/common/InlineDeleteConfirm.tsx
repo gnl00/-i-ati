@@ -54,7 +54,7 @@ const InlineDeleteConfirm: React.FC<InlineDeleteConfirmProps> = ({
         disabled={disabled || loading}
         className={cn(
           'absolute inset-0 flex items-center justify-center rounded',
-          'text-gray-400 hover:text-rose-500 dark:hover:text-rose-400',
+          'text-red-300 hover:text-rose-500 dark:hover:text-rose-400',
           'hover:bg-rose-50 dark:hover:bg-rose-900/20',
           revealOnGroupHover ? 'opacity-0 group-hover:opacity-100 focus:opacity-100' : '',
           disabled || loading ? 'opacity-30' : ''
