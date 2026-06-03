@@ -11,10 +11,12 @@ import {
 import { cn } from '@renderer/lib/utils'
 import { getProviderIcon } from '@renderer/utils/providerIcons'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
-import { Eye, EyeOff } from 'lucide-react'
+import type { ProviderTestConnectionResponse } from '@shared/providers/testConnection'
+import { Eye, EyeOff, LoaderCircle, TestTube2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { ProviderAdvanceConfigDrawer } from '@renderer/components/settings/providers/ProviderAdvanceConfigDrawer'
 import { ProviderIconConfigDrawer } from '@renderer/components/settings/providers/ProviderIconConfigDrawer'
+import { toast } from 'sonner'
 
 interface ProviderConfigurationsProps {
     plugins?: PluginEntity[]
@@ -23,6 +25,7 @@ interface ProviderConfigurationsProps {
     defaultApiUrl?: string
     onUpdateAccount: (updates: Partial<ProviderAccount>) => void
     onUpdateProviderDefinition: (providerId: string, updates: Partial<ProviderDefinition>) => void
+    onTestProvider: () => Promise<ProviderTestConnectionResponse>
     onResetAccount: () => void
 }
 
@@ -42,6 +45,7 @@ const ProviderConfigurations = ({
     defaultApiUrl,
     onUpdateAccount,
     onUpdateProviderDefinition,
+    onTestProvider,
     onResetAccount
 }: ProviderConfigurationsProps) => {
     const [label, setLabel] = useState<string>(account?.label ?? '')
@@ -50,6 +54,7 @@ const ProviderConfigurations = ({
     const [showApiKey, setShowApiKey] = useState<boolean>(false)
     const [payloadDrawerOpen, setPayloadDrawerOpen] = useState<boolean>(false)
     const [iconDrawerOpen, setIconDrawerOpen] = useState<boolean>(false)
+    const [isTestingProvider, setIsTestingProvider] = useState<boolean>(false)
 
     useEffect(() => {
         setLabel(account?.label ?? '')
@@ -62,6 +67,7 @@ const ProviderConfigurations = ({
             setPayloadDrawerOpen(false)
             setIconDrawerOpen(false)
         }
+        setIsTestingProvider(false)
     }, [providerDefinition?.id])
 
     const adapterOptions = useMemo(() => {
@@ -72,6 +78,31 @@ const ProviderConfigurations = ({
     const currentAdapterDisabled = Boolean(currentAdapterOption && !currentAdapterOption.enabled)
     const providerEnabled = providerDefinition?.enabled !== false
     const providerIconSrc = getProviderIcon(providerDefinition?.iconKey || providerDefinition?.id)
+    const canTestProvider = Boolean(
+        providerDefinition
+        && account
+        && account.apiUrl.trim()
+        && account.apiKey.trim()
+        && account.models.some(model => model.enabled === true)
+    )
+
+    const handleTestProvider = async () => {
+        if (!canTestProvider || isTestingProvider) return
+
+        setIsTestingProvider(true)
+        try {
+            const result = await onTestProvider()
+            if (result.ok) {
+                toast.success(`Provider responded with ${result.modelId}`)
+                return
+            }
+            toast.error(result.error || 'Provider test failed')
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Provider test failed')
+        } finally {
+            setIsTestingProvider(false)
+        }
+    }
 
     return (
         <div className='px-4 pt-3 pb-2.5 border-b border-gray-200/70 dark:border-gray-700/60 space-y-2.5'>
@@ -81,6 +112,25 @@ const ProviderConfigurations = ({
                     {providerDefinition?.displayName || 'Provider'}
                 </h3>
                 <div className='flex items-center gap-2'>
+                    <button
+                        type="button"
+                        disabled={!canTestProvider || isTestingProvider}
+                        onClick={handleTestProvider}
+                        className={cn(
+                            'h-6 px-2 flex items-center gap-1 rounded-md text-[11px] font-medium',
+                            'text-gray-500 dark:text-gray-400',
+                            'hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800/70',
+                            'disabled:opacity-40 disabled:pointer-events-none',
+                            'transition-colors duration-150'
+                        )}
+                    >
+                        {isTestingProvider ? (
+                            <LoaderCircle className="h-3 w-3 animate-spin" />
+                        ) : (
+                            <TestTube2 className="h-3 w-3" />
+                        )}
+                        {isTestingProvider ? 'Testing' : 'Test'}
+                    </button>
                     <button
                         type="button"
                         disabled={!account}

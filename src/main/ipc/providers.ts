@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { configDb } from '@main/db/config'
 import { createLogger } from '@main/logging/LogService'
+import { ProviderConnectionTestService } from '@main/services/providers/ProviderConnectionTestService'
 import {
   DB_PROVIDER_DEFINITIONS_GET_ALL,
   DB_PROVIDER_DEFINITION_SAVE,
@@ -10,10 +11,16 @@ import {
   DB_PROVIDER_ACCOUNT_DELETE,
   DB_PROVIDER_MODEL_SAVE,
   DB_PROVIDER_MODEL_DELETE,
-  DB_PROVIDER_MODEL_SET_ENABLED
+  DB_PROVIDER_MODEL_SET_ENABLED,
+  PROVIDER_TEST_CONNECTION
 } from '@shared/constants'
+import type {
+  ProviderTestConnectionRequest,
+  ProviderTestConnectionResponse
+} from '@shared/providers/testConnection'
 
 const logger = createLogger('DatabaseIPC')
+const providerConnectionTestService = new ProviderConnectionTestService()
 
 export function registerProviderHandlers(): void {
   ipcMain.handle(DB_PROVIDER_DEFINITIONS_GET_ALL, async (_event) => {
@@ -60,4 +67,15 @@ export function registerProviderHandlers(): void {
     logger.info('provider_model.set_enabled', { accountId: data.accountId, modelId: data.modelId, enabled: data.enabled })
     return configDb.setProviderModelEnabled(data.accountId, data.modelId, data.enabled)
   })
+
+  ipcMain.handle(
+    PROVIDER_TEST_CONNECTION,
+    async (_event, request: ProviderTestConnectionRequest): Promise<ProviderTestConnectionResponse> => {
+      logger.info('provider.test_connection', {
+        providerId: request.providerDefinition?.id,
+        accountId: request.account?.id
+      })
+      return providerConnectionTestService.testConnection(request)
+    }
+  )
 }

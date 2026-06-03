@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { invokeProviderTestConnection } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { toast } from 'sonner'
@@ -295,6 +296,15 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                                 defaultApiUrl={defaultApiUrl}
                                 onUpdateAccount={updateCurrentAccount}
                                 onUpdateProviderDefinition={updateProviderDefinition}
+                                onTestProvider={() => {
+                                    if (!selectedDefinition || !currentAccount) {
+                                        throw new Error('Provider configuration is incomplete')
+                                    }
+                                    return invokeProviderTestConnection({
+                                        providerDefinition: selectedDefinition,
+                                        account: currentAccount
+                                    })
+                                }}
                                 onResetAccount={() => {
                                     if (!currentAccount) return
                                     onAccountDeleteClick(undefined as any, currentAccount)
