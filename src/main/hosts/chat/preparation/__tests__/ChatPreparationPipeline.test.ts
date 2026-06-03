@@ -113,6 +113,7 @@ import {
   RunEnvironmentService,
   type RunEnvironment
 } from '..'
+import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 
 const config = {
   accounts: [{
@@ -176,9 +177,9 @@ function chatContextContainsMarker(messages: MessageEntity[], marker: string): b
   ))
 }
 
-function findUserMessageIndexByContent(messages: ChatMessage[], marker: string): number {
+function findUserSeedIndexByContent(messages: ChatInitialTranscriptSeed[], marker: string): number {
   return messages.findIndex(message => (
-    message.role === 'user'
+    message.kind === 'user'
     && typeof message.content === 'string'
     && message.content.includes(marker)
   ))
@@ -268,22 +269,22 @@ describe('ChatPreparationPipeline', () => {
       chatUuid: 'chat-1',
       workspacePath: './workspaces/chat-1'
     })
-    expect(runSpec.initialMessages).toEqual(expect.arrayContaining([
+    expect(runSpec.initialTranscriptSeed).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        role: 'user',
-        source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT
+        kind: 'user',
+        content: expect.stringContaining('<system-environment>')
       }),
       expect.objectContaining({
-        role: 'user',
-        source: MESSAGE_SOURCE.AWAKE_CONTEXT
+        kind: 'user',
+        content: expect.stringContaining('<awake_state>')
       }),
       expect.objectContaining({
-        role: 'user',
+        kind: 'user',
         content: 'hello'
       })
     ]))
-    expect(runSpec.initialMessages.filter(message => (
-      message.role === 'user'
+    expect(runSpec.initialTranscriptSeed.filter(message => (
+      message.kind === 'user'
       && message.content === 'hello'
     ))).toHaveLength(1)
     expect(emitter.emit).not.toHaveBeenCalled()
@@ -295,9 +296,9 @@ describe('ChatPreparationPipeline', () => {
       baseUrl: 'https://example.com/v1'
     }))
     expect(runSpec.requestSpec.systemPrompt).toContain('system prompt')
-    expect(runSpec.initialMessages).toEqual(expect.arrayContaining([
+    expect(runSpec.initialTranscriptSeed).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        role: 'user',
+        kind: 'user',
         content: 'hello'
       })
     ]))
@@ -310,19 +311,19 @@ describe('ChatPreparationPipeline', () => {
     } as any
 
     const prepared = await service.prepare(input, emitter)
-    const messages = prepared.runSpec.initialMessages
+    const messages = prepared.runSpec.initialTranscriptSeed
     const environmentIndex = messages.findIndex(message => (
-      message.role === 'user'
+      message.kind === 'user'
       && typeof message.content === 'string'
       && message.content.startsWith('<system-environment>')
     ))
     const awakeIndex = messages.findIndex(message => (
-      message.role === 'user'
+      message.kind === 'user'
       && typeof message.content === 'string'
       && message.content.startsWith('<awake_state>')
     ))
     const currentUserIndex = messages.findIndex(message => (
-      message.role === 'user'
+      message.kind === 'user'
       && message.content === 'hello'
     ))
 
@@ -334,8 +335,6 @@ describe('ChatPreparationPipeline', () => {
     expect(messages[environmentIndex].content).toContain('"currentTime"')
     expect(messages[awakeIndex].content).toContain('"version": 1')
     expect(messages[awakeIndex].content).toContain('"raw_query": "hello"')
-    expect(prepared.runSpec.initialMessages[environmentIndex].source).toBe(MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT)
-    expect(prepared.runSpec.initialMessages[awakeIndex].source).toBe(MESSAGE_SOURCE.AWAKE_CONTEXT)
     expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<system-environment>')).toBe(false)
     expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<awake_state>')).toBe(false)
   })
@@ -365,18 +364,19 @@ describe('ChatPreparationPipeline', () => {
     } as any
 
     const prepared = await service.prepare(input, emitter)
-    const summaryMessage = prepared.runSpec.initialMessages.find(message => (
-      message.role === 'user'
-      && message.source === MESSAGE_SOURCE.COMPRESSION_SUMMARY
+    const summaryMessage = prepared.runSpec.initialTranscriptSeed.find(message => (
+      message.kind === 'user'
+      && typeof message.content === 'string'
+      && message.content.includes('compressed history')
     ))
 
     expect(summaryMessage?.content).toContain('compressed history')
-    expect(prepared.runSpec.initialMessages.some(message => (
-      message.role === 'assistant'
+    expect(prepared.runSpec.initialTranscriptSeed.some(message => (
+      message.kind === 'assistant'
       && message.content === 'history'
     ))).toBe(false)
-    expect(prepared.runSpec.initialMessages.filter(message => (
-      message.role === 'user'
+    expect(prepared.runSpec.initialTranscriptSeed.filter(message => (
+      message.kind === 'user'
       && message.content === 'hello'
     ))).toHaveLength(1)
   })
@@ -501,31 +501,24 @@ describe('ChatPreparationPipeline', () => {
     }, emitter)
 
     expect(prepared.runSpec.requestSpec.systemPrompt).not.toContain('## Schedule Execution Context')
-    const userInstructionMessageIndex = prepared.runSpec.initialMessages.findIndex(message => (
-      message.role === 'user'
+    const userInstructionMessageIndex = prepared.runSpec.initialTranscriptSeed.findIndex(message => (
+      message.kind === 'user'
       && typeof message.content === 'string'
       && message.content.includes('<user_instruction>')
       && message.content.includes('Keep the answer concise.')
       && message.content.includes('## Schedule Execution Context')
     ))
     expect(userInstructionMessageIndex).toBeGreaterThan(-1)
-    expect(prepared.runSpec.initialMessages).toEqual(expect.arrayContaining([
+    expect(prepared.runSpec.initialTranscriptSeed).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        role: 'user',
+        kind: 'user',
         content: 'hello'
       })
     ]))
-    const currentUserMessage = prepared.runSpec.initialMessages.find(message => (
-      message.role === 'user' && message.content === 'hello'
-    ))
-    const currentUserMessageIndex = prepared.runSpec.initialMessages.findIndex(message => (
-      message.role === 'user' && message.content === 'hello'
+    const currentUserMessageIndex = prepared.runSpec.initialTranscriptSeed.findIndex(message => (
+      message.kind === 'user' && message.content === 'hello'
     ))
     expect(currentUserMessageIndex).toBeGreaterThan(userInstructionMessageIndex)
-    expect(currentUserMessage).toEqual(expect.objectContaining({
-      source: MESSAGE_SOURCE.SCHEDULE,
-      segments: []
-    }))
   })
 
   it('injects retrieved knowledgebase context as ephemeral user context', async () => {
@@ -568,20 +561,16 @@ describe('ChatPreparationPipeline', () => {
       threshold: 0.42,
       folders: ['/workspace/docs']
     }))
-    const messages = prepared.runSpec.initialMessages
-    const knowledgebaseIndex = findUserMessageIndexByContent(messages, '<knowledgebase_context>')
+    const messages = prepared.runSpec.initialTranscriptSeed
+    const knowledgebaseIndex = findUserSeedIndexByContent(messages, '<knowledgebase_context>')
     const currentUserIndex = messages.findIndex(message => (
-      message.role === 'user'
+      message.kind === 'user'
       && message.content === 'hello'
     ))
 
     expect(prepared.runSpec.requestSpec.systemPrompt).not.toContain('<knowledgebase_context>')
     expect(knowledgebaseIndex).toBeGreaterThan(-1)
     expect(currentUserIndex).toBeGreaterThan(knowledgebaseIndex)
-    expect(messages[knowledgebaseIndex]).toEqual(expect.objectContaining({
-      source: MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT,
-      segments: []
-    }))
     expect(messages[knowledgebaseIndex].content).toContain('/workspace/docs/guide.md')
     expect(messages[knowledgebaseIndex].content).toContain('Knowledge base snippet for the current request.')
   })
@@ -605,20 +594,16 @@ describe('ChatPreparationPipeline', () => {
     const prepared = await service.prepare(input, emitter)
 
     expect(knowledgebaseSearchMock).not.toHaveBeenCalled()
-    const messages = prepared.runSpec.initialMessages
-    const policyIndex = findUserMessageIndexByContent(messages, '<knowledgebase_policy>')
+    const messages = prepared.runSpec.initialTranscriptSeed
+    const policyIndex = findUserSeedIndexByContent(messages, '<knowledgebase_policy>')
     const currentUserIndex = messages.findIndex(message => (
-      message.role === 'user'
+      message.kind === 'user'
       && message.content === 'hello'
     ))
 
     expect(prepared.runSpec.requestSpec.systemPrompt).not.toContain('<knowledgebase_policy>')
     expect(policyIndex).toBeGreaterThan(-1)
     expect(currentUserIndex).toBeGreaterThan(policyIndex)
-    expect(messages[policyIndex]).toEqual(expect.objectContaining({
-      source: MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT,
-      segments: []
-    }))
     expect(messages[policyIndex].content).toContain('knowledgebase_search')
     expect(messages[policyIndex].content).not.toContain('<knowledgebase_context>')
   })

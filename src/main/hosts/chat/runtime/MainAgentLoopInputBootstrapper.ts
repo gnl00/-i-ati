@@ -4,7 +4,7 @@ import {
   DefaultChatInitialTranscriptRecordFactory,
   type ChatInitialTranscriptRecordFactory
 } from './ChatInitialTranscriptRecordFactory'
-import type { ChatInitialTranscriptSeed } from './ChatInitialTranscriptSeed'
+import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 
 type HostRequestMetadata = {
   initialTranscriptSeed?: ChatInitialTranscriptSeed[]

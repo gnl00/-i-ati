@@ -12,11 +12,13 @@ import {
   KnowledgebaseContextProvider,
   SystemEnvironmentContextProvider,
   SystemPromptComposer,
+  InitialTranscriptSeedBuilder,
   ToolListBuilder
 } from './request'
 import { LoadedSkillsContextProvider } from './request/LoadedSkillsContextProvider'
 import type { HostRunInputState, RunEnvironment, StepBootstrap } from './types'
 import type { AgentRequestSpec } from '@main/agent/runtime/request/AgentRequestSpec'
+import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 
 const SCHEDULE_EXECUTION_INSTRUCTION = [
   '## Schedule Execution Context',
@@ -27,7 +29,7 @@ const SCHEDULE_EXECUTION_INSTRUCTION = [
 
 export type RunRequestBuildResult = {
   requestSpec: AgentRequestSpec
-  initialMessages: ChatMessage[]
+  initialTranscriptSeed: ChatInitialTranscriptSeed[]
 }
 
 export class RunRequestFactory {
@@ -36,6 +38,7 @@ export class RunRequestFactory {
     private readonly compressionSummaryResolver = new CompressionSummaryResolver(),
     private readonly systemPromptComposer = new SystemPromptComposer(),
     private readonly toolListBuilder = new ToolListBuilder(),
+    private readonly initialTranscriptSeedBuilder = new InitialTranscriptSeedBuilder(),
     private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
     private readonly systemEnvironmentContextProvider = new SystemEnvironmentContextProvider(),
     private readonly awakeContextProvider = new AwakeContextProvider(),
@@ -89,7 +92,7 @@ export class RunRequestFactory {
         stream: input.stream,
         requestOverrides: environment.modelContext.providerDefinition.requestOverrides
       },
-      initialMessages: requestMessageBuild.chatMessages
+      initialTranscriptSeed: this.initialTranscriptSeedBuilder.build(requestMessageBuild.chatMessages)
     }
   }
 

@@ -36,11 +36,10 @@ Host submit
            -> validate messages
         -> RunRequestBuildResult
            -> requestSpec
-           -> initialMessages
+           -> initialTranscriptSeed
   -> DefaultMainAgentRuntimeRunner
      -> DefaultMainAgentHostRequestBuilder
         -> HostRunRequest.metadata.initialTranscriptSeed
-           -> ChatMessage[] to ChatInitialTranscriptSeed[]
      -> MainAgentLoopInputBootstrapper
         -> ChatInitialTranscriptRecordFactory
            -> ChatInitialTranscriptSeed[] to AgentTranscriptRecord[]
@@ -142,7 +141,11 @@ MessageEntity / ChatMessage
 
 RequestMessageBuildResult
   - Preparation-side canonical chat message list after compression and context insertion.
-  - Feeds current initialMessages.
+  - Feeds preparation-side transcript seed creation.
+
+ChatInitialTranscriptSeed
+  - Preparation-to-runtime bootstrap carrier.
+  - Carries user, assistant, and tool history records after ChatMessage-specific fields have been projected.
 
 IUnifiedRequest
   - Provider-adapter boundary.
@@ -181,9 +184,9 @@ RequestMessageBuilder
 The actual dispatch path later uses:
 
 ```text
-initialMessages
+initialTranscriptSeed
   -> DefaultMainAgentHostRequestBuilder
-  -> initialTranscriptSeed
+  -> HostRunRequest.metadata.initialTranscriptSeed
   -> MainAgentLoopInputBootstrapper
   -> AgentTranscript
   -> RequestMaterializer
@@ -191,9 +194,19 @@ initialMessages
   -> IUnifiedRequest.messages
 ```
 
-The runtime path is now the dispatch path. Preparation returns `initialMessages` and `requestSpec`, and runtime generates `IUnifiedRequest.messages`.
+The runtime path is now the dispatch path. Preparation returns `initialTranscriptSeed` and `requestSpec`, and runtime generates `IUnifiedRequest.messages`.
 
-Phase 1 extracted bootstrap conversion into `ChatInitialTranscriptRecordFactory`, and phase 2 narrowed the host runtime carrier to `ChatInitialTranscriptSeed[]`:
+Phase 1 extracted bootstrap conversion into `ChatInitialTranscriptRecordFactory`, phase 2 narrowed the host runtime carrier to `ChatInitialTranscriptSeed[]`, and phase 3 moved seed creation into preparation:
+
+```text
+RunRequestFactory
+  -> InitialTranscriptSeedBuilder
+  -> RunSpec.initialTranscriptSeed
+  -> DefaultMainAgentHostRequestBuilder
+  -> HostRunRequest.metadata.initialTranscriptSeed
+```
+
+Runtime bootstrap consumes the prepared seed:
 
 ```text
 HostRunRequest.metadata.initialTranscriptSeed
@@ -204,7 +217,7 @@ HostRunRequest.metadata.initialTranscriptSeed
   -> AgentTranscript
 ```
 
-`DefaultMainAgentHostRequestBuilder` maps preparation `ChatMessage[]` into transcript seed records before crossing into host runtime metadata. Reasoning is extracted from assistant message segments during this mapping. `MainAgentLoopInputBootstrapper` keeps transcript container assembly and fallback user-record materialization when no initial records exist. `ChatInitialTranscriptRecordFactory` owns seed-to-transcript conversion details: user content parts, assistant content/tool calls, assistant step indexing, and tool result projection through `projectToolResultContentForHistoryImport()`.
+`RunRequestFactory` maps preparation `ChatMessage[]` into transcript seed records through `InitialTranscriptSeedBuilder`. Reasoning is extracted from assistant message segments during this mapping. `DefaultMainAgentHostRequestBuilder` passes `RunSpec.initialTranscriptSeed` into host runtime metadata. `MainAgentLoopInputBootstrapper` keeps transcript container assembly and fallback user-record materialization when empty initial records arrive. `ChatInitialTranscriptRecordFactory` owns seed-to-transcript conversion details: user content parts, assistant content/tool calls, assistant step indexing, and tool result projection through `projectToolResultContentForHistoryImport()`.
 
 ### 2. Request Spec And Executable Request Boundary
 
@@ -223,7 +236,7 @@ requestOverrides
 options
 ```
 
-`RunSpec.requestSpec` now carries these fields directly. `messages` stays in `initialMessages` and `AgentTranscript` until runtime materialization.
+`RunSpec.requestSpec` now carries these fields directly. Bootstrap history stays in `initialTranscriptSeed` and `AgentTranscript` until runtime materialization.
 
 ### 3. Tool Result Compaction Policy Sits In Runtime Request Materialization
 
@@ -237,7 +250,8 @@ Runtime materialization is the effective model-send path. The canonical path is:
 
 ```text
 RequestMessageBuilder
-  -> initialMessages
+  -> InitialTranscriptSeedBuilder
+  -> initialTranscriptSeed
   -> InitialTranscriptMaterializer
   -> AgentTranscript
   -> RequestMaterializer
@@ -248,7 +262,7 @@ Tool result model-content projection is now concentrated in the runtime request 
 
 ### 4. User Instruction Carrier
 
-`RequestMessageBuilder` inserts a `<user_instruction>` user message during preparation. That message becomes part of `initialMessages`, enters `AgentTranscript`, and reaches the final provider request through `IUnifiedRequest.messages`.
+`RequestMessageBuilder` inserts a `<user_instruction>` user message during preparation. That message becomes part of `initialTranscriptSeed`, enters `AgentTranscript`, and reaches the final provider request through `IUnifiedRequest.messages`.
 
 ```text
 runtime model-visible input = systemPrompt + messages + tools + options
@@ -329,7 +343,7 @@ type MainAgentRequestSpec = {
   submissionId: string
   modelContext: RunModelContext
   requestSpec: MainAgentRequestSpec
-  initialMessages: ChatMessage[]
+  initialTranscriptSeed: ChatInitialTranscriptSeed[]
   runtimeContext: ...
 }
 ```
@@ -338,7 +352,7 @@ Expected effects:
 
 - `DefaultMainAgentRuntimeRunner.toRequestSpec()` becomes a thin pass-through or disappears.
 - `RunSpec` communicates that executable provider messages are generated inside runtime.
-- Tests can assert request-spec fields and initial messages independently.
+- Tests can assert request-spec fields and initial transcript seed independently.
 
 ### Step 2: Return Initial Messages And Request Spec From `RunRequestFactory`
 
@@ -347,7 +361,7 @@ Implemented preparation output:
 ```ts
 type RunRequestBuildResult = {
   requestSpec: MainAgentRequestSpec
-  initialMessages: ChatMessage[]
+  initialTranscriptSeed: ChatInitialTranscriptSeed[]
 }
 ```
 
@@ -362,20 +376,20 @@ tool list building
 thinking option resolution
 ```
 
-`RunRequestFactory.build()` returns the request spec and initial messages directly. The deleted legacy `UnifiedRequestMessageMaterializer` is outside the main chat run path history.
+`RunRequestFactory.build()` returns the request spec and initial transcript seed directly. The deleted legacy `UnifiedRequestMessageMaterializer` is outside the main chat run path history.
 
 Expected effects:
 
 - The request path has one model-message materialization source: runtime transcript.
-- `initialMessages` remains the preparation output and includes compression/context repair effects. Host runtime metadata receives `initialTranscriptSeed` after host request builder mapping.
+- `initialTranscriptSeed` is the preparation output and includes compression/context repair effects. Host runtime metadata receives the prepared seed through host request builder passthrough.
 - Preparation keeps provider credentials and model options in a request spec.
 
 ## Suggested Implementation Order
 
 1. Introduce a request-spec type and update `RunSpec`.
 2. Update `DefaultMainAgentRuntimeRunner` to use `prepared.runSpec.requestSpec`.
-3. Update `RunRequestFactory` return shape to `{ requestSpec, initialMessages }`.
-4. Update `ChatPreparationPipeline` to store `runSpec.requestSpec` and `runSpec.initialMessages`.
+3. Update `RunRequestFactory` return shape to `{ requestSpec, initialTranscriptSeed }`.
+4. Update `ChatPreparationPipeline` to store `runSpec.requestSpec` and `runSpec.initialTranscriptSeed`.
 5. Removed preparation-side `UnifiedRequestMessageMaterializer` usage from chat run preparation.
 6. Update tests around `ChatPreparationPipeline`, `RunService`, `DefaultMainAgentRuntimeRunner`, and request message building.
 7. Deleted legacy `UnifiedRequestMessageMaterializer` after confirming external callers are gone.
@@ -409,13 +423,13 @@ pnpm test:run src/main/agent/runtime/__tests__/AgentRuntime.test.ts
 - `StepResult` omits historical request messages and artifact payloads.
 - Provider `raw` data has a short response-normalization lifecycle.
 - `ToolResultContentProjector` owns model replay / history import / display projection modes.
-- `DefaultMainAgentHostRequestBuilder` owns `ChatMessage[]` to `ChatInitialTranscriptSeed[]` mapping at the preparation-to-runtime boundary.
+- `InitialTranscriptSeedBuilder` owns `ChatMessage[]` to `ChatInitialTranscriptSeed[]` mapping during preparation.
+- `DefaultMainAgentHostRequestBuilder` owns `RunSpec.initialTranscriptSeed` passthrough to host runtime metadata.
 - `ChatInitialTranscriptRecordFactory` owns `ChatInitialTranscriptSeed[]` to `AgentTranscriptRecord[]` conversion during bootstrap.
 - `TranscriptRecordFactory` owns assistant_step and tool_result write-back record creation.
 - Legacy `UnifiedRequestMessageMaterializer` is deleted. Canonical model-message materialization flows through `RequestMessageBuilder -> AgentTranscript -> RequestMaterializer`.
 
 ## Open Questions
 
-- Next phase: move transcript seed production into preparation so host builder can pass through the seed directly.
 - Should transcript bootstrap move closer to preparation so runtime starts from protocol records directly?
 - Should response debug capture get an explicit artifact channel outside `StepResult`?

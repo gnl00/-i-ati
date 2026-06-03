@@ -36,7 +36,7 @@ const prepared = {
       model: 'model-1',
       stream: true
     },
-    initialMessages: [],
+    initialTranscriptSeed: [],
     runtimeContext: {
       chatId: 1,
       chatUuid: 'chat-1',

@@ -7,7 +7,7 @@ import type {
   AgentTranscriptToolResultRecord,
   AgentTranscriptUserRecord
 } from '@main/agent/runtime/transcript/AgentTranscriptRecord'
-import type { ChatInitialTranscriptSeed } from './ChatInitialTranscriptSeed'
+import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 
 export interface ChatInitialTranscriptRecordFactoryInput {
   initialTranscriptSeed: ChatInitialTranscriptSeed[]

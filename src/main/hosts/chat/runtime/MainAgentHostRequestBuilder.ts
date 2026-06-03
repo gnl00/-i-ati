@@ -1,53 +1,11 @@
 import type { HostRunRequest } from '@main/agent/runtime/host/bootstrap/HostRunRequest'
 import type { AgentContentPart } from '@main/agent/runtime/transcript/AgentContentPart'
 import type { MainAgentRunInput, RunPreparationResult } from '../preparation'
-import type { ChatInitialTranscriptSeed } from './ChatInitialTranscriptSeed'
+import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 
 type HostRunRequestMetadata = {
   initialTranscriptSeed: ChatInitialTranscriptSeed[]
 }
-
-const extractReasoning = (message: ChatMessage): string | undefined => {
-  const reasoning = (message.segments || [])
-    .filter((segment): segment is ReasoningSegment => segment.type === 'reasoning')
-    .map(segment => segment.content)
-    .join('')
-
-  return reasoning || undefined
-}
-
-const toInitialTranscriptSeed = (messages: ChatMessage[]): ChatInitialTranscriptSeed[] => (
-  messages.map((message): ChatInitialTranscriptSeed => {
-    const timestamp = message.createdAt
-
-    if (message.role === 'user') {
-      return {
-        kind: 'user',
-        timestamp,
-        content: message.content
-      }
-    }
-
-    if (message.role === 'assistant') {
-      return {
-        kind: 'assistant',
-        timestamp,
-        model: message.model,
-        content: message.content,
-        reasoning: extractReasoning(message),
-        toolCalls: message.toolCalls ? [...message.toolCalls] : undefined
-      }
-    }
-
-    return {
-      kind: 'tool',
-      timestamp,
-      toolCallId: message.toolCallId,
-      toolName: message.name,
-      content: message.content
-    }
-  })
-)
 
 const toAgentContentParts = (
   modelType: string | undefined,
@@ -107,7 +65,7 @@ export class DefaultMainAgentHostRequestBuilder implements MainAgentHostRequestB
         runInput.input.mediaCtx
       ),
       metadata: {
-        initialTranscriptSeed: toInitialTranscriptSeed(prepared.runSpec.initialMessages)
+        initialTranscriptSeed: prepared.runSpec.initialTranscriptSeed
       } satisfies HostRunRequestMetadata
     }
   }

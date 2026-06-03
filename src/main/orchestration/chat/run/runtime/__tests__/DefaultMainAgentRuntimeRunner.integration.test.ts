@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponseChunk'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
-import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
@@ -122,7 +121,7 @@ const prepared = {
       stream: true,
       systemPrompt: 'system prompt'
     },
-    initialMessages: [],
+    initialTranscriptSeed: [],
     runtimeContext: {
       chatId: 1,
       chatUuid: 'chat-1',
@@ -167,7 +166,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     vi.mocked(SkillService.getSkillContent).mockResolvedValue('')
   })
 
-  it('builds executable unified request messages from prepared initial messages', async () => {
+  it('builds executable unified request messages from prepared transcript seed', async () => {
     const localPrepared = {
       ...prepared,
       runSpec: {
@@ -177,22 +176,18 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
           tools: [{ type: 'function', function: { name: 'read' } }],
           options: { maxTokens: 42 }
         },
-        initialMessages: [
+        initialTranscriptSeed: [
           {
-            role: 'user',
-            content: '<user_instruction>\nBe precise.\n</user_instruction>',
-            segments: []
+            kind: 'user',
+            content: '<user_instruction>\nBe precise.\n</user_instruction>'
           },
           {
-            role: 'user',
-            content: '<system-environment>{"workspacePath":"./workspaces/chat-1"}</system-environment>',
-            source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT,
-            segments: []
+            kind: 'user',
+            content: '<system-environment>{"workspacePath":"./workspaces/chat-1"}</system-environment>'
           },
           {
-            role: 'user',
-            content: 'hello',
-            segments: []
+            kind: 'user',
+            content: 'hello'
           }
         ]
       }

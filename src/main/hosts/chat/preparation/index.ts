@@ -24,7 +24,7 @@ export class ChatPreparationPipeline {
         submissionId: input.submissionId,
         modelContext: environment.modelContext,
         requestSpec: requestBuild.requestSpec,
-        initialMessages: requestBuild.initialMessages,
+        initialTranscriptSeed: requestBuild.initialTranscriptSeed,
         runtimeContext: {
           chatId: environment.chat.id,
           chatUuid: environment.chat.uuid,

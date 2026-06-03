@@ -4,9 +4,5 @@ export {
   DefaultChatInitialTranscriptRecordFactory,
   type ChatInitialTranscriptRecordFactory
 } from './ChatInitialTranscriptRecordFactory'
-export type {
-  ChatInitialTranscriptSeed,
-  ChatInitialTranscriptSeedContent
-} from './ChatInitialTranscriptSeed'
 export { MainAgentLoopInputBootstrapper } from './MainAgentLoopInputBootstrapper'
 export { DefaultMainAgentHostRequestBuilder } from './MainAgentHostRequestBuilder'
