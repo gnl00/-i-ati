@@ -45,6 +45,7 @@ type ProviderModelsListProps = {
 // fr units: allocated after container width is known → never overflows
 const GRID_COLS = '50fr 14fr 16fr 20fr'
 const ADD_ROW_GRID_COLS = '30fr 34fr 20fr 16fr'
+const MODEL_TOOLTIP_CLASS_NAME = 'bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
 
 const MODALITY_OPTIONS = [
   { value: 'text', label: 'Text' },
@@ -510,7 +511,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
       {/* ── Scrollable model rows ─────────────────────────────── */}
       <div className='flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'>
         {filteredModels.length > 0 ? (
-          <TooltipProvider>
+          <TooltipProvider delayDuration={400}>
             {filteredModels.map((m, idx) => {
               const displayModalities = m.modalities ?? getDefaultModalitiesForType(m.type)
 
@@ -539,7 +540,9 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                           {m.label}
                         </p>
                       </TooltipTrigger>
-                      <TooltipContent><p>{m.label}</p></TooltipContent>
+                      <TooltipContent className={MODEL_TOOLTIP_CLASS_NAME}>
+                        <p className="font-medium">{m.label}</p>
+                      </TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -550,7 +553,9 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                           {m.id}
                         </p>
                       </TooltipTrigger>
-                      <TooltipContent><p>{m.id}</p></TooltipContent>
+                      <TooltipContent className={MODEL_TOOLTIP_CLASS_NAME}>
+                        <p className="font-medium">{m.id}</p>
+                      </TooltipContent>
                     </Tooltip>
                     <div className='flex flex-wrap gap-1 min-h-[18px]'>
                       {displayModalities.length > 0 ? (
