@@ -93,6 +93,47 @@ function isCompletedEmptyAssistantPlaceholder(message: MessageEntity): boolean {
     && !hasAssistantPayload(message.body)
 }
 
+function normalizeErrorCause(value: unknown):
+  { name?: string; message?: string; stack?: string; code?: string } | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const source = value as Record<string, unknown>
+  const cause: { name?: string; message?: string; stack?: string; code?: string } = {}
+  if (typeof source.name === 'string') cause.name = source.name
+  if (typeof source.message === 'string') cause.message = source.message
+  if (typeof source.stack === 'string') cause.stack = source.stack
+  if (typeof source.code === 'string') cause.code = source.code
+  if (!cause.name && !cause.message && !cause.stack && !cause.code) return undefined
+  return cause
+}
+
+function buildErrorSegment(error: Error): ErrorSegment {
+  return {
+    type: 'error',
+    segmentId: buildMessageSegmentId('error', 'renderer-chat-store', Date.now()),
+    error: {
+      name: error.name || 'Error',
+      message: error.message || 'Unknown error',
+      stack: error.stack,
+      code: (error as any).code,
+      cause: normalizeErrorCause((error as any).cause),
+      timestamp: Date.now()
+    }
+  }
+}
+
+function messageHasMatchingErrorSegment(message: MessageEntity, error: Error): boolean {
+  const expectedName = error.name || 'Error'
+  const expectedMessage = error.message || 'Unknown error'
+  const expectedCode = (error as any).code
+
+  return (message.body.segments || []).some(segment => (
+    segment.type === 'error'
+    && segment.error.name === expectedName
+    && segment.error.message === expectedMessage
+    && segment.error.code === expectedCode
+  ))
+}
+
 async function trimTrailingCompletedEmptyAssistantPlaceholders(
   messages: MessageEntity[]
 ): Promise<MessageEntity[]> {
@@ -490,31 +531,7 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
         .reverse()
         .find(msg => msg.body.role === 'assistant')
 
-      const normalizeErrorCause = (value: unknown):
-        { name?: string; message?: string; stack?: string; code?: string } | undefined => {
-        if (!value || typeof value !== 'object') return undefined
-        const source = value as Record<string, unknown>
-        const cause: { name?: string; message?: string; stack?: string; code?: string } = {}
-        if (typeof source.name === 'string') cause.name = source.name
-        if (typeof source.message === 'string') cause.message = source.message
-        if (typeof source.stack === 'string') cause.stack = source.stack
-        if (typeof source.code === 'string') cause.code = source.code
-        if (!cause.name && !cause.message && !cause.stack && !cause.code) return undefined
-        return cause
-      }
-
-      const errorSegment: ErrorSegment = {
-        type: 'error',
-        segmentId: buildMessageSegmentId('error', 'renderer-chat-store', Date.now()),
-        error: {
-          name: error.name || 'Error',
-          message: error.message || 'Unknown error',
-          stack: error.stack,
-          code: (error as any).code,
-          cause: normalizeErrorCause((error as any).cause),
-          timestamp: Date.now()
-        }
-      }
+      const errorSegment = buildErrorSegment(error)
 
       if (!lastAssistantMessage) {
         const fallbackMessage: MessageEntity = {
@@ -538,6 +555,10 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
           messages: [...prevState.messages, fallbackMessage]
         } as Partial<T>))
         return msgId
+      }
+
+      if (messageHasMatchingErrorSegment(lastAssistantMessage, error)) {
+        return lastAssistantMessage.id
       }
 
       const updatedMessage: MessageEntity = {
@@ -1056,31 +1077,7 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
         .reverse()
         .find(msg => msg.body.role === 'assistant')
 
-      const normalizeErrorCause = (value: unknown):
-        { name?: string; message?: string; stack?: string; code?: string } | undefined => {
-        if (!value || typeof value !== 'object') return undefined
-        const source = value as Record<string, unknown>
-        const cause: { name?: string; message?: string; stack?: string; code?: string } = {}
-        if (typeof source.name === 'string') cause.name = source.name
-        if (typeof source.message === 'string') cause.message = source.message
-        if (typeof source.stack === 'string') cause.stack = source.stack
-        if (typeof source.code === 'string') cause.code = source.code
-        if (!cause.name && !cause.message && !cause.stack && !cause.code) return undefined
-        return cause
-      }
-
-      const errorSegment: ErrorSegment = {
-        type: 'error',
-        segmentId: buildMessageSegmentId('error', 'renderer-chat-store', Date.now()),
-        error: {
-          name: error.name || 'Error',
-          message: error.message || 'Unknown error',
-          stack: error.stack,
-          code: (error as any).code,
-          cause: normalizeErrorCause((error as any).cause),
-          timestamp: Date.now()
-        }
-      }
+      const errorSegment = buildErrorSegment(error)
 
       if (!lastAssistantMessage) {
         const fallbackMessage: MessageEntity = {
@@ -1102,6 +1099,10 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
         fallbackMessage.id = msgId
         get().upsertMessageForChat(chatUuid, fallbackMessage)
         return msgId
+      }
+
+      if (messageHasMatchingErrorSegment(lastAssistantMessage, error)) {
+        return lastAssistantMessage.id
       }
 
       const updatedMessage: MessageEntity = {

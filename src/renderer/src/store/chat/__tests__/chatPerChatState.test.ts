@@ -19,14 +19,19 @@ vi.mock('@renderer/services/messages/MessagePersistenceService', () => ({
 
 let useChatStore: ChatStoreHook
 
-function createMessage(id: number, chatUuid: string, content: string): MessageEntity {
+function createMessage(
+  id: number,
+  chatUuid: string,
+  content: string,
+  segments: MessageSegment[] = []
+): MessageEntity {
   return {
     id,
     chatUuid,
     body: {
       role: 'assistant',
       content,
-      segments: []
+      segments
     }
   }
 }
@@ -123,6 +128,61 @@ describe('chat per-chat state buffers', () => {
 
     expect(messagePersistenceMocks.deleteMessage).toHaveBeenCalledWith(1)
     expect(useChatStore.getState().transcriptBuffersByChatUuid['chat-1'].messages).toEqual([])
+  })
+
+  it('skips appending a duplicate run error segment to an assistant message', async () => {
+    const existingError: ErrorSegment = {
+      type: 'error',
+      segmentId: 'committed:step-1:error',
+      error: {
+        name: 'Error',
+        message: 'HTTP 400 Bad Request',
+        timestamp: 100
+      }
+    }
+    const original = createMessage(1, 'chat-1', '', [existingError])
+    useChatStore.getState().upsertMessageForChat('chat-1', original)
+
+    const error = new Error('HTTP 400 Bad Request')
+    const messageId = await useChatStore.getState().updateLastAssistantMessageWithErrorForChat('chat-1', error)
+
+    const message = useChatStore.getState().transcriptBuffersByChatUuid['chat-1'].messages[0]
+    expect(messageId).toBe(1)
+    expect(message.body.segments).toHaveLength(1)
+    expect(message.body.segments?.[0]).toBe(existingError)
+    expect(messagePersistenceMocks.updateMessage).not.toHaveBeenCalled()
+  })
+
+  it('appends a distinct run error segment to the last assistant message', async () => {
+    const existingError: ErrorSegment = {
+      type: 'error',
+      segmentId: 'committed:step-1:error',
+      error: {
+        name: 'Error',
+        message: 'HTTP 400 Bad Request',
+        timestamp: 100
+      }
+    }
+    const original = createMessage(1, 'chat-1', '', [existingError])
+    useChatStore.getState().upsertMessageForChat('chat-1', original)
+
+    await useChatStore.getState().updateLastAssistantMessageWithErrorForChat('chat-1', new Error('HTTP 429 Too Many Requests'))
+
+    const message = useChatStore.getState().transcriptBuffersByChatUuid['chat-1'].messages[0]
+    expect(message.body.segments).toHaveLength(2)
+    expect(messagePersistenceMocks.updateMessage).toHaveBeenCalledWith(expect.objectContaining({
+      id: 1,
+      body: expect.objectContaining({
+        segments: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'error',
+            error: expect.objectContaining({
+              message: 'HTTP 429 Too Many Requests'
+            })
+          })
+        ])
+      })
+    }))
   })
 
   it('tracks and clears optimistic pending user messages', () => {
