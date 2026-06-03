@@ -45,7 +45,10 @@ describe('generateTitle', () => {
     expect(title).toBe('Generated title')
     expect(unifiedChatRequestMock).toHaveBeenCalledWith(expect.objectContaining({
       stream: false,
-      options: { maxTokens: 32 },
+      options: {
+        maxTokens: 32,
+        thinking: { enabled: false }
+      },
       messages: [
         expect.objectContaining({
           role: 'user',
@@ -64,7 +67,7 @@ describe('generateTitle', () => {
     }))
   })
 
-  it('passes provider request overrides into the title-generation request', async () => {
+  it('sanitizes provider reasoning overrides for title-generation requests', async () => {
     await generateTitle(
       '优化标题生成',
       { id: 'model-1' } as AccountModel,
@@ -74,14 +77,27 @@ describe('generateTitle', () => {
         displayName: 'Provider 1',
         adapterPluginId: 'openai-chat-compatible-adapter',
         requestOverrides: {
-          thinking: { type: 'disabled' }
+          temperature: 0.2,
+          thinking: { type: 'enabled' },
+          reasoning: { effort: 'high' },
+          reasoning_effort: 'high',
+          output_config: {
+            effort: 'max',
+            customFlag: true
+          }
         }
       } as ProviderDefinition
     )
 
     expect(unifiedChatRequestMock).toHaveBeenCalledWith(expect.objectContaining({
+      options: expect.objectContaining({
+        thinking: { enabled: false }
+      }),
       requestOverrides: {
-        thinking: { type: 'disabled' }
+        temperature: 0.2,
+        output_config: {
+          customFlag: true
+        }
       }
     }), null, expect.any(Function), expect.any(Function))
   })

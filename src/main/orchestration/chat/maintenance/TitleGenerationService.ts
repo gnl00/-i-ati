@@ -9,6 +9,44 @@ import type { TitleGenerationInput } from './types'
 
 const logger = createLogger('TitleGenerator')
 
+const TITLE_THINKING_OPTION: UnifiedRequestThinkingOption = { enabled: false }
+
+const isPlainObject = (value: unknown): value is Record<string, any> => (
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+)
+
+const sanitizeTitleOutputConfigOverride = (value: unknown): unknown => {
+  if (!isPlainObject(value)) {
+    return value
+  }
+
+  const { effort: _effort, ...rest } = value
+  return Object.keys(rest).length > 0 ? rest : undefined
+}
+
+const buildTitleGenerationRequestOverrides = (
+  providerOverrides: ProviderDefinition['requestOverrides']
+): ProviderDefinition['requestOverrides'] => {
+  if (!isPlainObject(providerOverrides)) {
+    return undefined
+  }
+
+  const {
+    thinking: _thinking,
+    reasoning: _reasoning,
+    reasoning_effort: _reasoningEffort,
+    output_config: outputConfig,
+    ...rest
+  } = providerOverrides
+  const sanitizedOutputConfig = sanitizeTitleOutputConfigOverride(outputConfig)
+  const requestOverrides = {
+    ...rest,
+    ...(sanitizedOutputConfig === undefined ? {} : { output_config: sanitizedOutputConfig })
+  }
+
+  return Object.keys(requestOverrides).length > 0 ? requestOverrides : undefined
+}
+
 export async function generateTitle(
   content: string,
   model: AccountModel,
@@ -31,9 +69,10 @@ export async function generateTitle(
     model: model.id,
     content: prompt,
     stream: false,
-    requestOverrides: providerDefinition.requestOverrides,
+    requestOverrides: buildTitleGenerationRequestOverrides(providerDefinition.requestOverrides),
     options: {
-      maxTokens: 32
+      maxTokens: 32,
+      thinking: TITLE_THINKING_OPTION
     }
   })
 
