@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { ModelOption } from '@renderer/store/appConfig'
-import { resolveChatToolbarModelSelection } from '../ChatToolbarModelSelector'
+import {
+  filterModelSelectorGroups,
+  groupModelSelectorOptions,
+  resolveChatToolbarModelSelection
+} from '../ChatToolbarModelSelector.utils'
 
 const plugin: PluginEntity = {
   pluginId: 'openai-chat-compatible-adapter',
@@ -23,7 +27,11 @@ const plugin: PluginEntity = {
 
 const createModelOption = (
   model: Partial<AccountModel>,
-  adapterPluginId = 'openai-chat-compatible-adapter'
+  adapterPluginId = 'openai-chat-compatible-adapter',
+  overrides: {
+    account?: Partial<ProviderAccount>
+    definition?: Partial<ProviderDefinition>
+  } = {}
 ): ModelOption => ({
   account: {
     id: 'account-1',
@@ -31,12 +39,14 @@ const createModelOption = (
     providerId: 'openai',
     apiUrl: 'https://api.openai.com/v1',
     apiKey: 'test-key',
-    models: []
+    models: [],
+    ...overrides.account
   } as ProviderAccount,
   definition: {
     id: 'openai',
     displayName: 'OpenAI',
-    adapterPluginId
+    adapterPluginId,
+    ...overrides.definition
   } as ProviderDefinition,
   model: {
     id: 'gpt-5',
@@ -80,5 +90,52 @@ describe('resolveChatToolbarModelSelection', () => {
       ref: { accountId: 'account-1', modelId: 'gpt-4o' },
       thinkingLevel: undefined
     })
+  })
+})
+
+describe('filterModelSelectorGroups', () => {
+  it('filters models by label or id', () => {
+    const groups = groupModelSelectorOptions([
+      createModelOption({ id: 'gpt-5', label: 'GPT-5' }),
+      createModelOption({ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' })
+    ])
+
+    const filteredGroups = filterModelSelectorGroups(groups, 'flash')
+
+    expect(filteredGroups).toHaveLength(1)
+    expect(filteredGroups[0].options.map(option => option.model.id)).toEqual(['deepseek-v4-flash'])
+  })
+
+  it('keeps all group models when provider matches query', () => {
+    const groups = groupModelSelectorOptions([
+      createModelOption({ id: 'gpt-5', label: 'GPT-5' }, 'openai-chat-compatible-adapter', {
+        account: { id: 'deepseek-account', label: 'DeepSeek Primary', providerId: 'deepseek' },
+        definition: { id: 'deepseek', displayName: 'DeepSeek' }
+      }),
+      createModelOption({ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' }, 'openai-chat-compatible-adapter', {
+        account: { id: 'deepseek-account', label: 'DeepSeek Primary', providerId: 'deepseek' },
+        definition: { id: 'deepseek', displayName: 'DeepSeek' }
+      })
+    ])
+
+    const filteredGroups = filterModelSelectorGroups(groups, 'primary')
+
+    expect(filteredGroups).toHaveLength(1)
+    expect(filteredGroups[0].options.map(option => option.model.id)).toEqual([
+      'gpt-5',
+      'deepseek-v4-flash'
+    ])
+  })
+
+  it('normalizes case and surrounding spaces', () => {
+    const groups = groupModelSelectorOptions([
+      createModelOption({ id: 'gpt-5', label: 'GPT-5' }),
+      createModelOption({ id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' })
+    ])
+
+    const filteredGroups = filterModelSelectorGroups(groups, '  CLAUDE  ')
+
+    expect(filteredGroups).toHaveLength(1)
+    expect(filteredGroups[0].options.map(option => option.model.id)).toEqual(['claude-sonnet-4-5'])
   })
 })

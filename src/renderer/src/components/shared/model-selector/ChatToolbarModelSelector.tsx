@@ -21,8 +21,13 @@ import {
   getRequestAdapterThinkingCapability,
   modelSupportsThinking
 } from '@shared/plugins/requestAdapterThinking'
-import { Check, ChevronsUpDown, Eye, Lightbulb } from 'lucide-react'
-import React, { useMemo } from 'react'
+import {
+  filterModelSelectorGroups,
+  groupModelSelectorOptions,
+  resolveChatToolbarModelSelection
+} from './ChatToolbarModelSelector.utils'
+import { Check, ChevronsUpDown, Eye, Lightbulb, Search } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
 
 interface ChatToolbarModelSelectorProps {
   selectedModel: ModelOption | undefined
@@ -36,54 +41,15 @@ interface ChatToolbarModelSelectorProps {
   triggerClassName?: string
 }
 
-type ModelSelectorGroup = {
-  account: ProviderAccount
-  definition: ProviderDefinition
-  options: ModelOption[]
-}
-
-export type ChatToolbarModelSelection = {
-  ref: ModelRef
-  thinkingLevel?: ThinkingLevel
-}
-
-export const resolveChatToolbarModelSelection = (
-  option: ModelOption,
-  plugins: PluginEntity[] | undefined,
-  requestedThinkingLevel?: ThinkingLevel
-): ChatToolbarModelSelection => {
-  const capability = getRequestAdapterThinkingCapability({
-    plugins,
-    pluginId: option.definition.adapterPluginId,
-    baseUrl: option.account.apiUrl,
-    modelId: option.model.id
-  })
-  const thinkingLevel = modelSupportsThinking(option.model, capability) && capability
-    ? requestedThinkingLevel ?? getDefaultThinkingLevel(capability)
-    : undefined
-
-  return {
-    ref: { accountId: option.account.id, modelId: option.model.id },
-    thinkingLevel
-  }
-}
-
 const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props) => {
+  const [searchQuery, setSearchQuery] = useState('')
+
   const groupedOptions = useMemo(() => {
-    const groups = new Map<string, ModelSelectorGroup>()
-    props.modelOptions.forEach(option => {
-      const accountId = option.account.id
-      if (!groups.has(accountId)) {
-        groups.set(accountId, {
-          account: option.account,
-          definition: option.definition,
-          options: []
-        })
-      }
-      groups.get(accountId)!.options.push(option)
-    })
-    return Array.from(groups.values())
+    return groupModelSelectorOptions(props.modelOptions)
   }, [props.modelOptions])
+  const filteredGroups = useMemo(() => {
+    return filterModelSelectorGroups(groupedOptions, searchQuery)
+  }, [groupedOptions, searchQuery])
 
   const getThinkingCapability = (option: ModelOption) => {
     const capability = getRequestAdapterThinkingCapability({
@@ -105,15 +71,27 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
       && props.selectedModel?.model.id === option.model.id
   }
 
-  const collisionProps = {
+  const mainCollisionProps = {
     avoidCollisions: true,
-    collisionBoundary: props.collisionBoundary ?? undefined,
-    collisionPadding: 8,
+    collisionPadding: 12,
     sticky: 'always' as const
   }
 
+  const subCollisionProps = {
+    avoidCollisions: true,
+    collisionPadding: 12,
+    sticky: 'always' as const
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    props.onOpenChange(open)
+    if (!open) {
+      setSearchQuery('')
+    }
+  }
+
   return (
-    <DropdownMenu open={props.isOpen} onOpenChange={props.onOpenChange}>
+    <DropdownMenu open={props.isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
@@ -155,29 +133,47 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
       <DropdownMenuContent
         align="start"
         sideOffset={8}
-        {...collisionProps}
+        {...mainCollisionProps}
         className={cn(
           'w-80 overflow-visible rounded-xl p-0',
-          'border border-slate-200/80 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10 backdrop-blur-xl',
-          'dark:border-slate-700/80 dark:bg-slate-900/95 dark:text-slate-100 dark:shadow-black/30'
+          'border border-white/65 bg-white/92 text-slate-800 shadow-xl shadow-slate-900/10 backdrop-blur-2xl',
+          'dark:border-white/10 dark:bg-gray-900/94 dark:text-slate-100 dark:shadow-black/30'
         )}
         style={{
           maxWidth: 'min(calc(100vw - 2rem), var(--radix-dropdown-menu-content-available-width))'
         }}
       >
+        <div className="border-b border-slate-200/70 p-2 dark:border-slate-800">
+          <div className="flex h-8 items-center gap-2 rounded-lg border border-slate-200/80 bg-slate-50/80 px-2 text-slate-500 dark:border-slate-700/80 dark:bg-slate-950/50 dark:text-slate-400">
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => event.stopPropagation()}
+              placeholder="Search model"
+              className="h-full min-w-0 flex-1 bg-transparent text-xs font-medium text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
+            />
+          </div>
+        </div>
         <div
           className="overflow-y-auto p-1"
           style={{
-            maxHeight: 'min(420px, var(--radix-dropdown-menu-content-available-height))'
+            maxHeight: 'clamp(280px, calc(100vh - 8rem), 520px)'
           }}
         >
-          {groupedOptions.length === 0 && (
+          {props.modelOptions.length === 0 && (
             <DropdownMenuItem disabled className="rounded-lg text-xs text-slate-500">
               No model found.
             </DropdownMenuItem>
           )}
 
-          {groupedOptions.map((group, groupIndex) => {
+          {props.modelOptions.length > 0 && filteredGroups.length === 0 && (
+            <DropdownMenuItem disabled className="rounded-lg text-xs text-slate-500">
+              No matching model.
+            </DropdownMenuItem>
+          )}
+
+          {filteredGroups.map((group, groupIndex) => {
             const displayName = group.definition.displayName
             const showAccountLabel = group.account.label !== displayName
 
@@ -215,16 +211,16 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
                         <DropdownMenuSubTrigger
                           className={cn(
                             'rounded-lg px-2 py-2 text-xs font-medium cursor-pointer',
-                            'focus:bg-emerald-50 focus:text-emerald-800 data-[state=open]:bg-emerald-50 data-[state=open]:text-emerald-800',
-                            'dark:focus:bg-emerald-950/30 dark:focus:text-emerald-200 dark:data-[state=open]:bg-emerald-950/30 dark:data-[state=open]:text-emerald-200'
+                            'focus:bg-slate-100/80 focus:text-slate-900 data-[state=open]:bg-slate-100/80 data-[state=open]:text-slate-900',
+                            'dark:focus:bg-slate-800/70 dark:focus:text-slate-100 dark:data-[state=open]:bg-slate-800/70 dark:data-[state=open]:text-slate-100'
                           )}
                         >
                           <span className="flex min-w-0 flex-1 items-center gap-2">
                             <span className="truncate">{option.model.label}</span>
                             {(option.model.type === 'vlm' || option.model.type === 'mllm') && (
-                              <Eye className="h-3 w-3 shrink-0 text-emerald-500 dark:text-emerald-400" />
+                              <Eye className="size-3.5! shrink-0 text-emerald-500 dark:text-emerald-400" />
                             )}
-                            <Lightbulb className="h-3 w-3 shrink-0 text-amber-500 dark:text-amber-300" />
+                            <Lightbulb className="size-3.5! shrink-0 text-amber-500 dark:text-amber-300" />
                             {levelValue && (
                               <span className="rounded-md bg-slate-100/80 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800/70 dark:text-slate-300">
                                 {levelValue}
@@ -238,10 +234,10 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
                         <DropdownMenuSubContent
                           sideOffset={6}
                           alignOffset={-4}
-                          {...collisionProps}
+                          {...subCollisionProps}
                           className={cn(
-                            'min-w-36 rounded-xl border border-slate-200/80 bg-white/95 p-1 text-slate-800 shadow-xl shadow-slate-900/10 backdrop-blur-xl',
-                            'dark:border-slate-700/80 dark:bg-slate-900/95 dark:text-slate-100 dark:shadow-black/30'
+                            'min-w-36 rounded-xl border border-white/65 bg-white/94 p-1 text-slate-800 shadow-xl shadow-slate-900/10 backdrop-blur-2xl',
+                            'dark:border-white/10 dark:bg-gray-900/94 dark:text-slate-100 dark:shadow-black/30'
                           )}
                           style={{
                             maxWidth: 'var(--radix-dropdown-menu-content-available-width)'
@@ -261,7 +257,7 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
                                 onSelect={() => handleModelSelect(option, level)}
                                 className={cn(
                                   'rounded-lg text-xs font-medium capitalize cursor-pointer',
-                                  'focus:bg-emerald-50 focus:text-emerald-800 dark:focus:bg-emerald-950/30 dark:focus:text-emerald-200'
+                                  'focus:bg-slate-100/80 focus:text-slate-900 dark:focus:bg-slate-800/70 dark:focus:text-slate-100'
                                 )}
                               >
                                 {level}
@@ -278,14 +274,14 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
                       key={`${option.account.id}/${option.model.id}`}
                       className={cn(
                         'rounded-lg px-2 py-2 text-xs font-medium cursor-pointer',
-                        'focus:bg-emerald-50 focus:text-emerald-800 dark:focus:bg-emerald-950/30 dark:focus:text-emerald-200'
+                        'focus:bg-slate-100/80 focus:text-slate-900 dark:focus:bg-slate-800/70 dark:focus:text-slate-100'
                       )}
                       onSelect={() => handleModelSelect(option)}
                     >
                       <span className="flex min-w-0 flex-1 items-center gap-2">
                         <span className="truncate">{option.model.label}</span>
                         {(option.model.type === 'vlm' || option.model.type === 'mllm') && (
-                          <Eye className="h-3 w-3 shrink-0 text-emerald-500 dark:text-emerald-400" />
+                          <Eye className="size-3.5! shrink-0 text-emerald-500 dark:text-emerald-400" />
                         )}
                       </span>
                       {isSelected && (
