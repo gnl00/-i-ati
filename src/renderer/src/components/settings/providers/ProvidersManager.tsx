@@ -199,6 +199,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
         setAccounts(remainingAccounts)
 
         if (selectedProviderId === definition.id) {
+            setCurrentAccount(undefined)
             setSelectedProviderId(remainingDefinitions[0]?.id)
             setCurrentAccountId(undefined)
         }

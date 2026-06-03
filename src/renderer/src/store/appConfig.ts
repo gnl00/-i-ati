@@ -86,6 +86,28 @@ const normalizeAccounts = (
   return deduped
 }
 
+const serializeProviderAccountForPersistence = (account: ProviderAccount): string => {
+  return JSON.stringify({
+    id: account.id,
+    providerId: account.providerId,
+    label: account.label,
+    apiUrl: account.apiUrl,
+    apiKey: account.apiKey,
+    models: account.models
+  })
+}
+
+const hasProviderAccountChanged = (
+  previous: ProviderAccount | undefined,
+  next: ProviderAccount
+): boolean => {
+  if (!previous) {
+    return true
+  }
+
+  return serializeProviderAccountForPersistence(previous) !== serializeProviderAccountForPersistence(next)
+}
+
 const buildProviderEntries = (
   providerDefinitions: ProviderDefinition[] = [],
   accounts: ProviderAccount[] = []
@@ -124,11 +146,13 @@ const persistProviderAccounts = async (
   try {
     const { saveProviderAccount, deleteProviderAccount } = await import('../db/ProviderRepository')
     const prevIds = new Set(previous.map(account => account.id))
+    const previousById = new Map(previous.map(account => [account.id, account]))
     const nextIds = new Set(next.map(account => account.id))
-
-    await Promise.all(next.map(account => saveProviderAccount(account)))
     const removed = Array.from(prevIds).filter(id => !nextIds.has(id))
+    const changed = next.filter(account => hasProviderAccountChanged(previousById.get(account.id), account))
+
     await Promise.all(removed.map(id => deleteProviderAccount(id)))
+    await Promise.all(changed.map(account => saveProviderAccount(account)))
   } catch (error) {
     logger.error('provider_accounts.persist_failed', error)
     if (error instanceof Error && error.message.includes('Provider not found')) {

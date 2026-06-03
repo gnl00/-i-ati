@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Cross1Icon } from '@radix-ui/react-icons'
 import { Eye, EyeOff } from 'lucide-react'
 
@@ -44,6 +44,19 @@ interface ProviderListSidebarProps {
     }
 }
 
+const getProviderSortName = (entry: ProviderEntry): string => {
+    return entry.definition.displayName || entry.definition.id
+}
+
+const compareProviderEntriesByName = (left: ProviderEntry, right: ProviderEntry): number => {
+    const result = getProviderSortName(left).localeCompare(getProviderSortName(right), undefined, {
+        sensitivity: 'base',
+        numeric: true
+    })
+
+    return result || left.definition.id.localeCompare(right.definition.id)
+}
+
 const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
     plugins,
     providers,
@@ -52,8 +65,105 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
     onDeleteProvider,
     addProvider
 }) => {
-    const [hoverProviderCardIdx, setHoverProviderCardIdx] = useState<number>(-1)
+    const [hoverProviderId, setHoverProviderId] = useState<string | undefined>(undefined)
     const adapterOptions = getRequestAdapterOptionsFromPlugins(plugins)
+    const providerGroups = useMemo(() => {
+        return {
+            enabled: providers
+                .filter(entry => entry.definition.enabled !== false)
+                .sort(compareProviderEntriesByName),
+            disabled: providers
+                .filter(entry => entry.definition.enabled === false)
+                .sort(compareProviderEntriesByName)
+        }
+    }, [providers])
+
+    const renderProviderEntry = ({ definition }: ProviderEntry) => {
+        const iconKey = definition.iconKey || definition.id
+        const iconSrc = getProviderIcon(iconKey)
+        const isActive = definition.id === selectedProviderId
+        const isProviderEnabled = definition.enabled !== false
+        const isHovered = hoverProviderId === definition.id
+
+        return (
+            <div
+                key={definition.id}
+                className={cn(
+                    'flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer select-none relative group',
+                    'transition-all duration-200 ease-out',
+                    isActive
+                        ? 'bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-["" ] after:absolute after:bottom-0.5 after:left-3 after:w-28 after:h-0.5 after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                )}
+                onMouseEnter={() => setHoverProviderId(definition.id)}
+                onMouseLeave={() => setHoverProviderId(undefined)}
+                onClick={() => onSelectProvider(definition)}
+            >
+                {iconSrc && (
+                    <img
+                        id="providerIcon"
+                        draggable={false}
+                        src={iconSrc}
+                        alt={definition.displayName}
+                        className={cn(
+                            'w-5 h-5 flex-none dark:invert dark:brightness-90 transition-all duration-200 ease-out',
+                            isProviderEnabled ? 'opacity-90' : 'opacity-35 grayscale',
+                            isHovered && 'scale-110',
+                            isActive && 'scale-125'
+                        )}
+                    />
+                )}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div className="flex-1 min-w-0">
+                            <p className={cn(
+                                'truncate font-medium text-sm transition-colors duration-200 ease-out',
+                                isProviderEnabled
+                                    ? 'text-gray-700 dark:text-gray-300'
+                                    : 'text-gray-400 dark:text-gray-500',
+                                isHovered && (
+                                    isProviderEnabled
+                                        ? 'text-gray-900 dark:text-gray-100'
+                                        : 'text-gray-500 dark:text-gray-400'
+                                )
+                            )}>
+                                {definition.displayName}
+                            </p>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>{definition.displayName}</p>
+                    </TooltipContent>
+                </Tooltip>
+                <button
+                    className={cn(
+                        'absolute -top-1 -right-1 z-10',
+                        'transition-all duration-200 ease-out',
+                        'opacity-0 scale-75 translate-x-2 pointer-events-none',
+                        isHovered && 'opacity-100 scale-100 translate-x-0 pointer-events-auto'
+                    )}
+                    onClick={(event) => onDeleteProvider(event, definition)}
+                    title="Delete provider"
+                >
+                    <div className={cn(
+                        'relative p-1.5 rounded-xl',
+                        'bg-rose-50/80 dark:bg-rose-950/40',
+                        'text-rose-600 dark:text-rose-400',
+                        'border border-rose-200/50 dark:border-rose-800/50',
+                        'shadow-inner',
+                        'transition-all duration-300 ease-out',
+                        'hover:scale-110 hover:rotate-90',
+                        'hover:bg-rose-100 dark:hover:bg-rose-900/50',
+                        'hover:shadow-lg hover:shadow-rose-500/10',
+                        'hover:-translate-y-0.5',
+                        'active:scale-95 active:shadow-inner active:translate-y-0 active:rotate-90'
+                    )}>
+                        <Cross1Icon className="w-2.5 h-2.5" />
+                    </div>
+                </button>
+            </div>
+        )
+    }
 
     return (
         <div className='w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-md shadow-xs'>
@@ -193,92 +303,22 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
             </div>
             <div className='flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1'>
                 <TooltipProvider>
-                    {providers.map(({ definition }, idx) => {
-                        const iconKey = definition.iconKey || definition.id
-                        const iconSrc = getProviderIcon(iconKey)
-                        const isActive = definition.id === selectedProviderId
-                        const isProviderEnabled = definition.enabled !== false
-
-                        return (
-                            <div
-                                key={definition.id}
-                                className={cn(
-                                    'flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer select-none relative group',
-                                    'transition-all duration-200 ease-out',
-                                    isActive
-                                        ? 'bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-["" ] after:absolute after:bottom-0.5 after:left-3 after:w-28 after:h-0.5 after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15'
-                                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                                )}
-                                onMouseEnter={() => setHoverProviderCardIdx(idx)}
-                                onMouseLeave={() => setHoverProviderCardIdx(-1)}
-                                onClick={() => onSelectProvider(definition)}
-                            >
-                                {iconSrc && (
-                                    <img
-                                        id="providerIcon"
-                                        draggable={false}
-                                        src={iconSrc}
-                                        alt={definition.displayName}
-                                        className={cn(
-                                            'w-5 h-5 flex-none dark:invert dark:brightness-90 transition-all duration-200 ease-out',
-                                            isProviderEnabled ? 'opacity-90' : 'opacity-35 grayscale',
-                                            hoverProviderCardIdx === idx && 'scale-110',
-                                            isActive && 'scale-125'
-                                        )}
-                                    />
-                                )}
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div className="flex-1 min-w-0">
-                                            <p className={cn(
-                                                'truncate font-medium text-sm transition-colors duration-200 ease-out',
-                                                isProviderEnabled
-                                                    ? 'text-gray-700 dark:text-gray-300'
-                                                    : 'text-gray-400 dark:text-gray-500',
-                                                hoverProviderCardIdx === idx && (
-                                                    isProviderEnabled
-                                                        ? 'text-gray-900 dark:text-gray-100'
-                                                        : 'text-gray-500 dark:text-gray-400'
-                                                )
-                                            )}>
-                                                {definition.displayName}
-                                            </p>
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{definition.displayName}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                                <button
-                                    className={cn(
-                                        'absolute -top-1 -right-1 z-10',
-                                        'transition-all duration-200 ease-out',
-                                        'opacity-0 scale-75 translate-x-2 pointer-events-none',
-                                        hoverProviderCardIdx === idx &&
-                                            'opacity-100 scale-100 translate-x-0 pointer-events-auto'
-                                    )}
-                                    onClick={(event) => onDeleteProvider(event, definition)}
-                                    title="Delete provider"
-                                >
-                                    <div className={cn(
-                                        'relative p-1.5 rounded-xl',
-                                        'bg-rose-50/80 dark:bg-rose-950/40',
-                                        'text-rose-600 dark:text-rose-400',
-                                        'border border-rose-200/50 dark:border-rose-800/50',
-                                        'shadow-inner',
-                                        'transition-all duration-300 ease-out',
-                                        'hover:scale-110 hover:rotate-90',
-                                        'hover:bg-rose-100 dark:hover:bg-rose-900/50',
-                                        'hover:shadow-lg hover:shadow-rose-500/10',
-                                        'hover:-translate-y-0.5',
-                                        'active:scale-95 active:shadow-inner active:translate-y-0 active:rotate-90'
-                                    )}>
-                                        <Cross1Icon className="w-2.5 h-2.5" />
-                                    </div>
-                                </button>
+                    {providerGroups.enabled.length > 0 && (
+                        <div className="space-y-1">
+                            <div className="px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                Enabled
                             </div>
-                        )
-                    })}
+                            {providerGroups.enabled.map(renderProviderEntry)}
+                        </div>
+                    )}
+                    {providerGroups.disabled.length > 0 && (
+                        <div className="space-y-1 pt-2">
+                            <div className="px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                Disabled
+                            </div>
+                            {providerGroups.disabled.map(renderProviderEntry)}
+                        </div>
+                    )}
                 </TooltipProvider>
             </div>
         </div>
