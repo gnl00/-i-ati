@@ -29,7 +29,7 @@ const SKILLS_DIR = 'skills'
 const BUILT_IN_SKILL_SOURCE = 'built-in'
 const SKILL_METADATA_CACHE_KEY = 'skillsMetadataCache'
 const SKILL_SOURCE_FILE = '.skill-source.json'
-const SKILL_METADATA_CACHE_VERSION = 1
+const SKILL_METADATA_CACHE_VERSION = 2
 
 const skillMetadataCache: {
   root: string | null

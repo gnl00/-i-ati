@@ -2,15 +2,20 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { listAvailableSkills } from '@renderer/services/skills/SkillService'
 import { getChatSkills } from '@renderer/db/ChatSkillRepository'
 import { useChatStore } from '@renderer/store/chatStore'
-import { invokeCheckIsDirectory, invokeImportSkills, invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
+import {
+  invokeCheckIsDirectory,
+  invokeDeleteSkill,
+  invokeImportSkills,
+  invokeRevealSkillInFolder,
+  invokeSelectDirectory
+} from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { toast } from 'sonner'
-import { invokeDeleteSkill } from '@renderer/invoker/ipcInvoker'
 import { Badge } from '@renderer/components/ui/badge'
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
 import { Label } from '@renderer/components/ui/label'
 import { Input } from '@renderer/components/ui/input'
-import { Search, X } from 'lucide-react'
+import { FolderOpen, Search, X } from 'lucide-react'
 
 type ImportSkillsResult = {
   installed: SkillMetadata[]
@@ -225,15 +230,29 @@ const SkillsManager: React.FC = () => {
     }
   }
 
+  const handleRevealSkill = async (name: string): Promise<void> => {
+    try {
+      const result = await invokeRevealSkillInFolder(name)
+      if (!result.success) {
+        toast.error(result.error || `Failed to open skill: ${name}`)
+        return
+      }
+      toast.success('Skill file shown')
+    } catch (error: any) {
+      console.error('[SkillsManager] Failed to reveal skill:', error)
+      toast.error(error?.message || `Failed to open skill: ${name}`)
+    }
+  }
+
   return (
-    <div className="w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0">
-      <div className="w-full h-full p-1 pr-2">
-        <div className="h-full bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden flex flex-col">
+    <div className="w-full max-w-[700px] h-[600px] overflow-x-hidden focus:ring-0 focus-visible:ring-0">
+      <div className="w-full h-full min-w-0 p-1 pr-2">
+        <div className="h-full min-w-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden flex flex-col">
 
           {/* ── Header ─────────────────────────────────────────── */}
-          <div className="px-4 py-4 flex items-start justify-between gap-3">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
+          <div className="px-4 py-4 flex items-start justify-between gap-3 min-w-0">
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
                 <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
                   Skills
                 </Label>
@@ -246,7 +265,7 @@ const SkillsManager: React.FC = () => {
                   </Badge>
                 )}
               </div>
-              <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
+              <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed break-words">
                 Manage skill folders and toggle skills for the current chat.
               </p>
             </div>
@@ -270,7 +289,7 @@ const SkillsManager: React.FC = () => {
           </div>
 
           {/* ── Folders strip ───────────────────────────────────── */}
-          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 bg-gray-50/40 dark:bg-gray-900/20 flex items-center gap-2 flex-wrap min-h-[40px]">
+          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 bg-gray-50/40 dark:bg-gray-900/20 flex items-center gap-2 flex-wrap min-h-[40px] min-w-0 overflow-x-hidden">
             {folders.length === 0 ? (
               <span className="text-[11px] text-gray-400/70 dark:text-gray-600 italic">
                 No folders added — click Add Folder to scan for skills.
@@ -321,8 +340,8 @@ const SkillsManager: React.FC = () => {
           </div>
 
           {/* ── Search ──────────────────────────────────────────── */}
-          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 flex items-center gap-2">
-            <div className="relative flex-1">
+          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 flex items-center gap-2 min-w-0">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
               <Input
                 placeholder="Search skills... Enter to search"
@@ -355,7 +374,7 @@ const SkillsManager: React.FC = () => {
           </div>
 
           {/* ── Skills list ─────────────────────────────────────── */}
-          <div className="border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/40 dark:bg-gray-900/30 flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+          <div className="border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/40 dark:bg-gray-900/30 flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
 
               {filteredSkills.length === 0 && (
                 <div className="py-10 flex flex-col items-center gap-2.5 text-center">
@@ -397,7 +416,7 @@ const SkillsManager: React.FC = () => {
                 return (
                   <div
                     key={skill.name}
-                    className="group flex items-start justify-between gap-4 px-4 py-3.5 border-b border-gray-100 dark:border-gray-800/70 last:border-b-0 hover:bg-white/70 dark:hover:bg-gray-800/40 transition-colors duration-150"
+                    className="group flex w-full min-w-0 items-start justify-between gap-4 px-4 py-3.5 border-b border-gray-100 dark:border-gray-800/70 last:border-b-0 hover:bg-white/70 dark:hover:bg-gray-800/40 transition-colors duration-150"
                   >
                     <div className="flex-1 space-y-1.5 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -421,16 +440,16 @@ const SkillsManager: React.FC = () => {
                         )}
                       </div>
                       {skill.description && (
-                        <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed">
+                        <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed break-words">
                           {skill.description}
                         </p>
                       )}
                       {skill.allowedTools && skill.allowedTools.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-0.5">
+                        <div className="flex flex-wrap gap-1 pt-0.5 min-w-0 max-w-full">
                           {skill.allowedTools.map(tool => (
                             <span
                               key={tool}
-                              className="inline-flex px-1.5 py-0.5 rounded font-mono text-[9.5px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700/60"
+                              className="inline-flex max-w-full break-all px-1.5 py-0.5 rounded font-mono text-[9.5px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700/60"
                             >
                               {tool}
                             </span>
@@ -438,18 +457,29 @@ const SkillsManager: React.FC = () => {
                         </div>
                       )}
                       {skill.compatibility && (
-                        <p className="text-[10.5px] text-gray-400 dark:text-gray-500 italic">
+                        <p className="text-[10.5px] text-gray-400 dark:text-gray-500 italic break-words">
                           {skill.compatibility}
                         </p>
                       )}
                     </div>
-                    {!isBuiltIn && (
-                      <InlineDeleteConfirm
-                        onConfirm={() => handleDeleteSkill(skill.name)}
-                        ariaLabel="Remove skill"
-                        revealOnGroupHover
-                      />
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => void handleRevealSkill(skill.name)}
+                        className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-150"
+                        aria-label={`Show ${skill.name} in folder`}
+                        title="Show in folder"
+                      >
+                        <FolderOpen className="h-3.5 w-3.5" />
+                      </button>
+                      {!isBuiltIn && (
+                        <InlineDeleteConfirm
+                          onConfirm={() => handleDeleteSkill(skill.name)}
+                          ariaLabel="Remove skill"
+                          revealOnGroupHover
+                        />
+                      )}
+                    </div>
                   </div>
                 )
               })}

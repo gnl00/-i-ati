@@ -1,6 +1,8 @@
-import { ipcMain } from 'electron'
+import { ipcMain, shell } from 'electron'
+import path from 'path'
 import { createLogger } from '@main/logging/LogService'
 import { SkillService } from '@main/services/skills/SkillService'
+import { SKILL_FILE } from '@main/services/skills/SkillParser'
 import { processImportSkills, processInstallSkill, processLoadSkill, processReadSkillFile, processUnloadSkill } from '@main/tools/skills/SkillToolsProcessor'
 import {
   SKILL_LIST_ACTION,
@@ -10,7 +12,8 @@ import {
   SKILL_UNLOAD_ACTION,
   SKILL_IMPORT_ACTION,
   SKILL_READ_FILE_ACTION,
-  SKILL_DELETE_ACTION
+  SKILL_DELETE_ACTION,
+  SKILL_REVEAL_ACTION
 } from '@shared/constants'
 
 const logger = createLogger('SkillIPC')
@@ -54,5 +57,16 @@ export function registerSkillHandlers(): void {
   ipcMain.handle(SKILL_DELETE_ACTION, async (_event, { name }) => {
     logger.info('skill.delete', { name })
     await SkillService.deleteSkill(name)
+  })
+
+  ipcMain.handle(SKILL_REVEAL_ACTION, async (_event, { name }) => {
+    logger.info('skill.reveal', { name })
+    try {
+      const skillRoot = await SkillService.resolveSkillRootPath(name)
+      shell.showItemInFolder(path.join(skillRoot, SKILL_FILE))
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
   })
 }

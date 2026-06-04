@@ -1,3 +1,5 @@
+import { parse as parseYaml } from 'yaml'
+
 export type SkillFrontmatter = {
   name: string
   description: string
@@ -22,15 +24,87 @@ export type ParsedSkillMetadata = {
 export const SKILL_FILE = 'SKILL.md'
 export const SKILL_NAME_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
-const parseScalar = (value: string): string => {
-  const trimmed = value.trim()
-  if (trimmed.length >= 2) {
-    const quote = trimmed[0]
-    if ((quote === '"' || quote === '\'') && trimmed[trimmed.length - 1] === quote) {
-      return trimmed.slice(1, -1)
-    }
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+const normalizeString = (value: unknown, field: string): string | undefined => {
+  if (value === undefined || value === null) {
+    return undefined
   }
-  return trimmed
+
+  if (typeof value === 'string') {
+    return value.trim()
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  throw new Error(`SKILL.md frontmatter field "${field}" must be a string`)
+}
+
+const normalizeMetadata = (value: unknown): Record<string, string> | undefined => {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+
+  if (!isRecord(value)) {
+    throw new Error('SKILL.md frontmatter field "metadata" must be an object')
+  }
+
+  const metadata: Record<string, string> = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (item === undefined || item === null) {
+      continue
+    }
+
+    metadata[key] = isRecord(item) || Array.isArray(item)
+      ? JSON.stringify(item)
+      : String(item)
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined
+}
+
+const normalizeAllowedTools = (value: unknown): string[] | undefined => {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+
+  if (typeof value === 'string') {
+    return value.split(/\s+/).filter(Boolean)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      const tool = normalizeString(item, 'allowed-tools')
+      return tool ?? ''
+    }).filter(Boolean)
+  }
+
+  throw new Error('SKILL.md frontmatter field "allowed-tools" must be a string or string array')
+}
+
+const normalizeFrontmatter = (value: unknown): SkillFrontmatter => {
+  if (!isRecord(value)) {
+    throw new Error('SKILL.md frontmatter must be a YAML object')
+  }
+
+  const frontmatter: Partial<SkillFrontmatter> = {
+    name: normalizeString(value.name, 'name'),
+    description: normalizeString(value.description, 'description'),
+    license: normalizeString(value.license, 'license'),
+    compatibility: normalizeString(value.compatibility, 'compatibility'),
+    metadata: normalizeMetadata(value.metadata),
+    allowedTools: normalizeAllowedTools(value['allowed-tools'])
+  }
+
+  if (!frontmatter.name || !frontmatter.description) {
+    throw new Error('SKILL.md frontmatter must include name and description')
+  }
+
+  return frontmatter as SkillFrontmatter
 }
 
 export const parseFrontmatter = (content: string): ParsedSkill => {
@@ -41,82 +115,10 @@ export const parseFrontmatter = (content: string): ParsedSkill => {
 
   const frontmatterRaw = match[1]
   const body = match[2] ?? ''
-  const lines = frontmatterRaw.split(/\r?\n/)
-
-  const frontmatter: Partial<SkillFrontmatter> = {}
-  const metadata: Record<string, string> = {}
-  let inMetadata = false
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i]
-    if (!line.trim()) {
-      continue
-    }
-
-    if (inMetadata) {
-      if (/^\s+/.test(line)) {
-        const idx = line.indexOf(':')
-        if (idx !== -1) {
-          const key = line.slice(0, idx).trim()
-          const value = parseScalar(line.slice(idx + 1))
-          if (key) {
-            metadata[key] = value
-          }
-        }
-        continue
-      }
-      inMetadata = false
-    }
-
-    const keyEnd = line.indexOf(':')
-    if (keyEnd === -1) {
-      continue
-    }
-    const key = line.slice(0, keyEnd).trim()
-    const value = line.slice(keyEnd + 1).trim()
-
-    if (key === 'metadata') {
-      inMetadata = true
-      continue
-    }
-
-    if (key === 'allowed-tools') {
-      const parsed = parseScalar(value)
-      frontmatter.allowedTools = parsed ? parsed.split(/\s+/).filter(Boolean) : []
-      continue
-    }
-
-    if (key === 'name') {
-      frontmatter.name = parseScalar(value)
-      continue
-    }
-
-    if (key === 'description') {
-      frontmatter.description = parseScalar(value)
-      continue
-    }
-
-    if (key === 'license') {
-      frontmatter.license = parseScalar(value)
-      continue
-    }
-
-    if (key === 'compatibility') {
-      frontmatter.compatibility = parseScalar(value)
-      continue
-    }
-  }
-
-  if (Object.keys(metadata).length > 0) {
-    frontmatter.metadata = metadata
-  }
-
-  if (!frontmatter.name || !frontmatter.description) {
-    throw new Error('SKILL.md frontmatter must include name and description')
-  }
+  const frontmatter = normalizeFrontmatter(parseYaml(frontmatterRaw))
 
   return {
-    frontmatter: frontmatter as SkillFrontmatter,
+    frontmatter,
     body
   }
 }
