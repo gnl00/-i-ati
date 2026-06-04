@@ -9,7 +9,7 @@ import { remarkPreserveLineBreaks } from '../markdown/markdown-plugins'
 import { MessageOperations } from '../message-operations'
 import { useEnterTransition } from '../typewriter/use-enter-transition'
 import { loadKatexStyles } from '@renderer/utils/styleLoaders'
-import { ChevronDown, Send } from 'lucide-react'
+import { ChevronDown, ChevronUp, Send } from 'lucide-react'
 
 export interface UserMessageProps {
   index: number
@@ -128,7 +128,7 @@ const CollapsibleUserMessageContent: React.FC<{
             className={cn(
               "absolute bottom-2 left-1/2 z-10 -translate-x-1/2",
               "inline-flex h-7 items-center gap-1 rounded-full px-2.5",
-              "border border-gray-100 bg-white/25 text-xs font-medium text-slate-600",
+              "bg-white/25 text-xs font-medium text-slate-600",
               "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
               "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
               "hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
@@ -141,6 +141,29 @@ const CollapsibleUserMessageContent: React.FC<{
             <span>Show More</span>
           </button>
         </>
+      )}
+
+      {canCollapse && expanded && (
+        <div className="mt-2 flex justify-center">
+          <button
+            type="button"
+            data-testid="user-message-collapse-button"
+            onClick={() => setExpanded(false)}
+            className={cn(
+              "inline-flex h-7 items-center gap-1 rounded-full px-2.5",
+              "bg-white/25 text-xs font-medium text-slate-600",
+              "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
+              "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
+              "hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
+              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
+              "dark:border-white/10 dark:bg-gray-950/58 dark:text-gray-300 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)]",
+              "dark:hover:border-white/16 dark:hover:bg-gray-950/78 dark:hover:text-white"
+            )}
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+            <span>Hide</span>
+          </button>
+        </div>
       )}
     </div>
   )

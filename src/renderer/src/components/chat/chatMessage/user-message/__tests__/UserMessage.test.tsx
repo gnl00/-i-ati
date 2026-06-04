@@ -119,7 +119,7 @@ describe('UserMessage collapse behavior', () => {
     expect(container.querySelector<HTMLElement>('[data-testid="user-message-collapsible-content"]')?.style.maxHeight).toBe('')
   })
 
-  it('collapses long user messages by default and expands them on click', async () => {
+  it('collapses long user messages by default and toggles expanded content', async () => {
     await act(async () => {
       root.render(
         <UserMessage
@@ -137,7 +137,7 @@ describe('UserMessage collapse behavior', () => {
     const expandButton = container.querySelector<HTMLButtonElement>('[data-testid="user-message-expand-button"]')
 
     expect(content?.dataset.expanded).toBe('false')
-    expect(content?.style.maxHeight).toBe('280px')
+    expect(content?.style.maxHeight).toBe('140px')
     expect(container.querySelector('[data-testid="user-message-collapse-fade"]')).not.toBeNull()
     expect(expandButton).not.toBeNull()
 
@@ -149,5 +149,19 @@ describe('UserMessage collapse behavior', () => {
     expect(content?.style.maxHeight).toBe('420px')
     expect(container.querySelector('[data-testid="user-message-expand-button"]')).toBeNull()
     expect(container.querySelector('[data-testid="user-message-collapse-fade"]')).toBeNull()
+
+    const collapseButton = container.querySelector<HTMLButtonElement>('[data-testid="user-message-collapse-button"]')
+
+    expect(collapseButton).not.toBeNull()
+
+    await act(async () => {
+      collapseButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(content?.dataset.expanded).toBe('false')
+    expect(content?.style.maxHeight).toBe('140px')
+    expect(container.querySelector('[data-testid="user-message-expand-button"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="user-message-collapse-fade"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="user-message-collapse-button"]')).toBeNull()
   })
 })
