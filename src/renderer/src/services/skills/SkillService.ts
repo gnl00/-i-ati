@@ -1,6 +1,6 @@
 import { invokeSkillGetContent, invokeSkillList } from '@renderer/invoker/ipcInvoker'
 
-const listInstalledSkills = async (): Promise<SkillMetadata[]> => {
+const listAvailableSkills = async (): Promise<SkillMetadata[]> => {
   return await invokeSkillList()
 }
 
@@ -9,6 +9,6 @@ const getSkillContent = async (name: string): Promise<string> => {
 }
 
 export {
-  listInstalledSkills,
+  listAvailableSkills,
   getSkillContent
 }

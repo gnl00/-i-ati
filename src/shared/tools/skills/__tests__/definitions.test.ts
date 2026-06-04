@@ -29,7 +29,7 @@ describe('skill tool definitions', () => {
     const description = getToolDescription('run_skill_script')
     const tool = skillTools.find(item => item.function.name === 'run_skill_script')
 
-    expect(description).toContain('Run a script bundled inside an installed skill')
+    expect(description).toContain('Run a script bundled inside an available skill')
     expect(tool?.function.parameters.required).toEqual(['name', 'script'])
     expect(tool?.function.parameters.properties.args).toEqual(expect.objectContaining({
       type: 'array'

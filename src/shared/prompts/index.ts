@@ -213,6 +213,7 @@ Current-chat Markdown context used to record:
 **Core Rules**：
 - Use tools for real-time information, external verification, or uncertain facts.
 - Never invent unavailable tools or parameters.
+- When the user asks to search, web search, browse, look up, find latest/current information, verify facts, cite sources, or use \`web_search\`/\`web_fetch\`, first load \`search-general\`, then follow its workflow.
 - Retrieval tool selection follows the Context Refresh Policy.
 - User profile maintenance follows the User Info Updates rule in \`memory_system\`.
 - Durable action-item maintenance follows the Todos rule in \`user_configuration\`.
@@ -227,11 +228,6 @@ Current-chat Markdown context used to record:
 | Raw chat titles or message content from the recent 3 days | \`history_search\`; user requests for longer recall may use \`withinDays: 7\` |
 | Long-term preferences, long-term rules, or stable cross-chat facts | \`memory_retrieval\` |
 | Recent completed work nodes, decisions, or blockers | \`activity_journal_search\` |
-
-**Web Search: Two-Stage Depth Strategy**
-- **Stage 1**: snippetsOnly=true for a quick overview.
-- **Stage 2**: snippetsOnly=false only when snippets are insufficient.
-- Stop at stage 1 when the user asked for a brief answer or snippets already settle the answer.
 
 ### Command Execution
 - **Working path**: run all commands under current chat's specified workspace path.

@@ -32,7 +32,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'load_skill',
-      description: 'Load an already installed skill into the current chat context. The skill document is injected through hidden loaded skills context on the next model turn.',
+      description: 'Load an available skill into the current chat context. The skill document is injected through hidden loaded skills context on the next model turn.',
       parameters: {
         type: 'object',
         properties: {
@@ -86,7 +86,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'read_skill_file',
-      description: 'Read a file or list a directory inside an installed skill. Paths are relative to the skill root.',
+      description: 'Read a file or list a directory inside an available skill. Paths are relative to the skill root.',
       parameters: {
         type: 'object',
         properties: {
@@ -126,7 +126,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'run_skill_script',
-      description: 'Run a script bundled inside an installed skill with the working directory fixed to that skill root. Use this instead of execute_command for scripts referenced by skill documents.',
+      description: 'Run a script bundled inside an available skill with the working directory fixed to that skill root. Use this instead of execute_command for scripts referenced by skill documents.',
       parameters: {
         type: 'object',
         properties: {

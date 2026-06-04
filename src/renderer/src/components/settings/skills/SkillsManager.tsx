@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { listInstalledSkills } from '@renderer/services/skills/SkillService'
+import { listAvailableSkills } from '@renderer/services/skills/SkillService'
 import { getChatSkills } from '@renderer/db/ChatSkillRepository'
 import { useChatStore } from '@renderer/store/chatStore'
 import { invokeCheckIsDirectory, invokeImportSkills, invokeSelectDirectory } from '@renderer/invoker/ipcInvoker'
@@ -89,11 +89,11 @@ const SkillsManager: React.FC = () => {
   const refreshSkills = async (): Promise<void> => {
     setIsRefreshing(true)
     try {
-      const result = await listInstalledSkills()
+      const result = await listAvailableSkills()
       setSkills(result)
     } catch (error) {
       console.error('[SkillsManager] Failed to list skills:', error)
-      toast.error('Failed to load installed skills')
+      toast.error('Failed to load skills')
     } finally {
       setIsRefreshing(false)
     }
@@ -238,7 +238,7 @@ const SkillsManager: React.FC = () => {
                   Skills
                 </Label>
                 <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-500 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                  {skills.length} installed
+                  {skills.length} available
                 </Badge>
                 {activeCount > 0 && (
                   <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
@@ -383,7 +383,7 @@ const SkillsManager: React.FC = () => {
                         <i className="ri-magic-line text-[15px] text-gray-400 dark:text-gray-500" />
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No skills installed</p>
+                        <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No skills available</p>
                         <p className="text-[11.5px] text-gray-400 dark:text-gray-500">Add a folder above to scan for skills.</p>
                       </div>
                     </>
@@ -393,6 +393,7 @@ const SkillsManager: React.FC = () => {
 
               {filteredSkills.map(skill => {
                 const isActive = activeSkills.includes(skill.name)
+                const isBuiltIn = skill.source === 'built-in'
                 return (
                   <div
                     key={skill.name}
@@ -406,6 +407,11 @@ const SkillsManager: React.FC = () => {
                         {isActive && (
                           <Badge variant="secondary" className="text-[9.5px] h-[18px] px-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-0">
                             Active
+                          </Badge>
+                        )}
+                        {isBuiltIn && (
+                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-600 border-gray-200/80 bg-white/80 dark:bg-gray-800/80 dark:text-gray-300 dark:border-gray-700/70">
+                            Built-in
                           </Badge>
                         )}
                         {skill.allowedTools && skill.allowedTools.length > 0 && (
@@ -437,11 +443,13 @@ const SkillsManager: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    <InlineDeleteConfirm
-                      onConfirm={() => handleDeleteSkill(skill.name)}
-                      ariaLabel="Remove skill"
-                      revealOnGroupHover
-                    />
+                    {!isBuiltIn && (
+                      <InlineDeleteConfirm
+                        onConfirm={() => handleDeleteSkill(skill.name)}
+                        ariaLabel="Remove skill"
+                        revealOnGroupHover
+                      />
+                    )}
                   </div>
                 )
               })}

@@ -26,6 +26,7 @@ type SkillSourceInfo = {
 }
 
 const SKILLS_DIR = 'skills'
+const BUILT_IN_SKILL_SOURCE = 'built-in'
 const SKILL_METADATA_CACHE_KEY = 'skillsMetadataCache'
 const SKILL_SOURCE_FILE = '.skill-source.json'
 const SKILL_METADATA_CACHE_VERSION = 1
@@ -57,6 +58,13 @@ export const ensureSkillsDir = async (): Promise<string> => {
   await fs.mkdir(root, { recursive: true })
   ensureCacheRoot(root)
   return root
+}
+
+export const resolveBuiltInSkillsDir = (): string => {
+  const resourcesRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.join(process.cwd(), 'resources')
+  return path.join(resourcesRoot, SKILLS_DIR)
 }
 
 export const skillDirExists = async (dirPath: string): Promise<boolean> => {
@@ -109,7 +117,10 @@ const canUseDbCache = (): boolean => {
   }
 }
 
-const readSkillMetadata = async (skillDir: string): Promise<SkillMetadataCacheItem | null> => {
+const readSkillMetadata = async (
+  skillDir: string,
+  source?: string
+): Promise<SkillMetadataCacheItem | null> => {
   const skillFile = path.join(skillDir, SKILL_FILE)
   if (!existsSync(skillFile)) {
     return null
@@ -123,7 +134,7 @@ const readSkillMetadata = async (skillDir: string): Promise<SkillMetadataCacheIt
     return {
       ...parsed.metadata,
       mtimeMs: stat.mtimeMs,
-      source: sourceInfo?.source
+      source: source ?? sourceInfo?.source
     }
   } catch (error) {
     console.warn(`[SkillService] Failed to parse skill in ${path.basename(skillDir)}:`, error)
@@ -204,18 +215,11 @@ const isCacheValid = async (root: string, cache: SkillMetadataCacheFile): Promis
   return seen.size === cachedByName.size
 }
 
-export const listSkillMetadata = async (): Promise<SkillMetadata[]> => {
+export const listInstalledSkillMetadata = async (): Promise<SkillMetadata[]> => {
   const root = await ensureSkillsDir()
-  if (!skillMetadataCache.dirty) {
-    return [...skillMetadataCache.items]
-  }
-
   const cached = await readMetadataCacheFile(root)
   if (cached && await isCacheValid(root, cached)) {
-    const items = cached.items.map(({ mtimeMs: _mtimeMs, ...rest }) => rest)
-    skillMetadataCache.items = items
-    skillMetadataCache.dirty = false
-    return [...items]
+    return cached.items.map(({ mtimeMs: _mtimeMs, ...rest }) => rest)
   }
 
   const entries = await fs.readdir(root, { withFileTypes: true })
@@ -235,16 +239,79 @@ export const listSkillMetadata = async (): Promise<SkillMetadata[]> => {
 
   const sorted = results.sort((a, b) => a.name.localeCompare(b.name))
   await writeMetadataCacheFile(root, sorted)
-  const items = sorted.map(({ mtimeMs: _mtimeMs, ...rest }) => rest)
+  return sorted.map(({ mtimeMs: _mtimeMs, ...rest }) => rest)
+}
+
+const listBuiltInSkillMetadata = async (): Promise<SkillMetadata[]> => {
+  const root = resolveBuiltInSkillsDir()
+  if (!existsSync(root)) {
+    return []
+  }
+
+  const entries = await fs.readdir(root, { withFileTypes: true })
+  const results: SkillMetadataCacheItem[] = []
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue
+    }
+
+    const skillDir = path.join(root, entry.name)
+    const metadata = await readSkillMetadata(skillDir, BUILT_IN_SKILL_SOURCE)
+    if (metadata) {
+      results.push(metadata)
+    }
+  }
+
+  const sorted = results.sort((a, b) => a.name.localeCompare(b.name))
+  return sorted.map(({ mtimeMs: _mtimeMs, ...rest }) => rest)
+}
+
+const mergeSkillMetadata = (
+  builtInSkills: SkillMetadata[],
+  installedSkills: SkillMetadata[]
+): SkillMetadata[] => {
+  const byName = new Map<string, SkillMetadata>()
+  builtInSkills.forEach(skill => byName.set(skill.name, skill))
+  installedSkills.forEach(skill => byName.set(skill.name, skill))
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export const listSkillMetadata = async (): Promise<SkillMetadata[]> => {
+  await ensureSkillsDir()
+  if (!skillMetadataCache.dirty) {
+    return [...skillMetadataCache.items]
+  }
+
+  const [installedSkills, builtInSkills] = await Promise.all([
+    listInstalledSkillMetadata(),
+    listBuiltInSkillMetadata()
+  ])
+  const items = mergeSkillMetadata(builtInSkills, installedSkills)
   skillMetadataCache.items = items
   skillMetadataCache.dirty = false
   return [...items]
 }
 
-export const readSkillContent = async (name: string): Promise<string> => {
+export const resolveSkillRootPath = async (name: string): Promise<string> => {
   validateSkillName(name)
-  const root = await ensureSkillsDir()
-  const skillFile = path.join(root, name, SKILL_FILE)
+  const installedRoot = await ensureSkillsDir()
+  const installedSkillRoot = path.join(installedRoot, name)
+  if (existsSync(path.join(installedSkillRoot, SKILL_FILE))) {
+    return installedSkillRoot
+  }
+
+  const builtInSkillRoot = path.join(resolveBuiltInSkillsDir(), name)
+  if (existsSync(path.join(builtInSkillRoot, SKILL_FILE))) {
+    return builtInSkillRoot
+  }
+
+  throw new Error(`Skill "${name}" not found`)
+}
+
+export const readSkillContent = async (name: string): Promise<string> => {
+  const skillRoot = await resolveSkillRootPath(name)
+  const skillFile = path.join(skillRoot, SKILL_FILE)
   return await fs.readFile(skillFile, 'utf-8')
 }
 

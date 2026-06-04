@@ -24,6 +24,10 @@ extraResources:
     to: native
     filter:
       - '**/*'
+  - from: resources/skills
+    to: skills
+    filter:
+      - '**/*'
 win:
   executableName: at-i-app
 nsis:

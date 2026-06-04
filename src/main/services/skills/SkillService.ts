@@ -1,4 +1,10 @@
-import { listSkillMetadata, readSkillContent, deleteInstalledSkill } from './SkillCache'
+import {
+  listInstalledSkillMetadata,
+  listSkillMetadata,
+  readSkillContent,
+  deleteInstalledSkill,
+  resolveSkillRootPath as resolveSkillRootPathImpl
+} from './SkillCache'
 import { loadSkill as installSkill, type LoadSkillArgs } from './SkillInstaller'
 import {
   importSkillsFromFolder as importSkillsFromFolderImpl,
@@ -10,8 +16,16 @@ class SkillService {
     return await listSkillMetadata()
   }
 
+  static async listInstalledSkills(): Promise<SkillMetadata[]> {
+    return await listInstalledSkillMetadata()
+  }
+
   static async getSkillContent(name: string): Promise<string> {
     return await readSkillContent(name)
+  }
+
+  static async resolveSkillRootPath(name: string): Promise<string> {
+    return await resolveSkillRootPathImpl(name)
   }
 
   static async deleteSkill(name: string): Promise<void> {
@@ -23,7 +37,7 @@ class SkillService {
   }
 
   static async importSkillsFromFolder(folderPath: string): Promise<SkillImportSummary> {
-    return await importSkillsFromFolderImpl(folderPath, () => SkillService.listSkills())
+    return await importSkillsFromFolderImpl(folderPath, () => SkillService.listInstalledSkills())
   }
 
   static async initializeFromConfig(config?: IAppConfig): Promise<void> {

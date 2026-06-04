@@ -38,7 +38,8 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('@main/services/skills/SkillService', () => ({
   SkillService: {
-    getSkillContent: vi.fn()
+    getSkillContent: vi.fn(),
+    resolveSkillRootPath: vi.fn()
   }
 }))
 
@@ -64,6 +65,7 @@ describe('SkillToolsProcessor', () => {
     vi.mocked(SkillService.getSkillContent).mockResolvedValue(
       '---\nname: pdf-processing\ndescription: Handle PDFs.\n---\nUse PDF workflow.'
     )
+    vi.mocked(SkillService.resolveSkillRootPath).mockResolvedValue('/tmp/user-data/skills/amap')
   })
 
   it('fails when name is missing', async () => {
@@ -196,6 +198,27 @@ describe('SkillToolsProcessor', () => {
     })
   })
 
+  it('reads files from a built-in skill root', async () => {
+    vi.mocked(SkillService.resolveSkillRootPath).mockResolvedValue(
+      '/app/resources/skills/search-general'
+    )
+
+    const result = await processReadSkillFile({
+      name: 'search-general',
+      path: 'SKILL.md',
+      start_line: 1,
+      end_line: 2
+    })
+
+    expect(result).toMatchObject({
+      success: true,
+      skill_root: '/app/resources/skills/search-general',
+      file_path: 'SKILL.md',
+      absolute_path: '/app/resources/skills/search-general/SKILL.md',
+      content: 'line 1\nline 2'
+    })
+  })
+
   it('runs a TypeScript skill script from the skill root', async () => {
     const result = await processRunSkillScript({
       name: 'amap',
@@ -206,13 +229,14 @@ describe('SkillToolsProcessor', () => {
       chat_uuid: 'chat-1'
     })
 
+    expect(SkillService.resolveSkillRootPath).toHaveBeenCalledWith('amap')
     expect(processExecuteCommand).toHaveBeenCalledWith({
       command: "bun 'scripts/amap.ts' 'geocode' '--address' 'Bob'\\''s house'",
       cwd: '/tmp/user-data/skills/amap',
       timeout: 10000,
       env: { AMAP_MAPS_API_KEY: 'key' },
       execution_reason: 'Run skill script amap/scripts/amap.ts',
-      possible_risk: 'Runs an installed skill script with the working directory fixed to the skill root.',
+      possible_risk: 'Runs an available skill script with the working directory fixed to the skill root.',
       risk_score: 3,
       confirmed: true
     })

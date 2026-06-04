@@ -1,10 +1,10 @@
 # Skills
 
-This app supports Agent Skills as file-based capability packages. A skill is installed into the Electron app data directory, appears in the system prompt as an available capability, and can be activated on demand through the `load_skill` tool. Activated skill documents are injected into model context as hidden user messages sourced from the current chat's `chat_skills` rows.
+This app supports Agent Skills as file-based capability packages. Skills can come from built-in app resources or the Electron app data directory, appear in the system prompt as available capabilities, and can be activated on demand through the `load_skill` tool. Activated skill documents are injected into model context as hidden user messages sourced from the current chat's `chat_skills` rows.
 
 ## File Format
 
-Installed skills live under `app.getPath('userData')/skills`:
+User-installed skills live under `app.getPath('userData')/skills`:
 
 ```text
 skills/
@@ -27,6 +27,25 @@ skills/
 
 Installed metadata is represented by `SkillMetadata` in [src/types/index.d.ts](/Users/gnl/Workspace/code/-i-ati/src/types/index.d.ts:286). The app keeps both `name` and `frontmatterName` because the directory name can be normalized or conflict-renamed while the original frontmatter name remains useful for display/debugging.
 
+## Built-In Skills
+
+Built-in skills are app resources under `resources/skills` in development and `process.resourcesPath/skills` in packaged builds:
+
+```text
+resources/
+  skills/
+    search-general/
+      SKILL.md
+```
+
+`electron-builder.yml` ships this directory as an `extraResources` entry with target `skills`.
+
+Built-in skills use the same `SKILL.md` format as user-installed skills. `SkillService.listSkills()` merges built-in metadata with user-installed metadata, marks built-in entries with `source: 'built-in'`, and lets a user-installed skill with the same normalized name take precedence for listing and content reads.
+
+The current built-in skill is:
+
+- `search-general`: mandatory workflow for any user request that asks to search, web search, look up, browse, find latest/current information, verify facts, cite sources, or use `web_search`/`web_fetch`.
+
 ## Main-Process Service
 
 [SkillService](/Users/gnl/Workspace/code/-i-ati/src/main/services/skills/SkillService.ts:1) owns installation, listing, content reading, deletion, startup sync, and metadata caching.
@@ -44,7 +63,11 @@ Installation validates frontmatter, normalizes the skill name with `^[a-z0-9]+(?
 
 Archive installation extracts to a temporary directory, rejects unsafe archive paths, scans up to depth 5 for `SKILL.md`, and requires exactly one skill directory for single-skill archive installs. Local extraction uses system `tar`/`unzip`.
 
-`listSkills()` reads installed skill directories and returns sorted `SkillMetadata[]`. It uses an in-memory cache and a config DB cache keyed by `skillsMetadataCache`; cache validity is based on installed `SKILL.md` mtimes and root path. Invalid skill directories are skipped with a warning.
+`listSkills()` reads built-in and user-installed skill directories and returns sorted `SkillMetadata[]`. User-installed metadata uses an in-memory cache and a config DB cache keyed by `skillsMetadataCache`; cache validity is based on installed `SKILL.md` mtimes and root path. Built-in metadata is read from the app resource directory and merged into the returned list. Invalid skill directories are skipped with a warning.
+
+`listInstalledSkills()` returns only user-installed skill metadata and is used by folder import conflict detection.
+
+`getSkillContent(name)` and `resolveSkillRootPath(name)` use the same precedence rule: user-installed skill first, then built-in skill.
 
 `importSkillsFromFolder(folderPath)` recursively finds skill directories under a configured folder. It overwrites a previously imported skill when `.skill-source.json` points to the same source path. When a new source conflicts by normalized name, it creates a unique name by appending the scanned folder name and, if needed, a numeric suffix.
 
@@ -57,19 +80,21 @@ The model-facing tool definitions live in [src/shared/tools/skills/definitions.t
 The available skill tools are:
 
 - `install_skill`: install one skill from a URL, file, directory, or archive.
-- `load_skill`: activate an installed skill for the current chat and return a lightweight status result.
+- `load_skill`: activate an available skill for the current chat and return a lightweight status result.
 - `import_skills`: recursively import all skills from a folder.
 - `unload_skill`: remove a skill from the current chat.
-- `read_skill_file`: read a text file inside an installed skill directory.
+- `read_skill_file`: read a text file inside an available skill directory.
+- `run_skill_script`: run a script bundled inside an available skill directory.
 
 [SkillToolsProcessor](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/SkillToolsProcessor.ts:1) adapts tool calls to services and database writes:
 
 - Relative install/import sources resolve against the current chat workspace when `chat_uuid` is available, then fall back to `userData`.
-- `load_skill` requires `chat_uuid`, verifies the installed `SKILL.md`, resolves the chat row, writes the skill name to `chat_skills` when it is absent, and returns `{ success, name, loaded, contextInjected }`.
+- `load_skill` requires `chat_uuid`, verifies the available `SKILL.md`, resolves the chat row, writes the skill name to `chat_skills` when it is absent, and returns `{ success, name, loaded, contextInjected }`.
 - `unload_skill` requires `chat_uuid`, resolves the chat row, and deletes the row from `chat_skills`.
-- `read_skill_file` accepts only a relative path inside the installed skill root and rejects path traversal.
+- `read_skill_file` accepts only a relative path inside the resolved skill root and rejects path traversal.
+- `run_skill_script` accepts only a relative script path inside the resolved skill root and runs it with that root as the working directory.
 
-The tool metadata marks `install_skill`, `import_skills`, `load_skill`, and `unload_skill` as `riskLevel: 'warning'`; `read_skill_file` is `riskLevel: 'none'`.
+The tool metadata marks `install_skill`, `import_skills`, `load_skill`, `unload_skill`, and `run_skill_script` as `riskLevel: 'warning'`; `read_skill_file` is `riskLevel: 'none'`.
 
 ## IPC And Renderer UI
 
@@ -88,13 +113,14 @@ Renderer helpers live in [src/renderer/src/services/skills/SkillService.ts](/Use
 
 [SkillsManager](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/components/settings/skills/SkillsManager.tsx:1) is the Settings UI for skills. It:
 
-- lists installed skills and active skills for the current chat
+- lists available skills and active skills for the current chat
+- labels built-in skills and keeps their delete action hidden
 - stores watched folders in `appConfig.skills.folders`
 - lets users add a folder through the directory picker
 - imports one folder immediately after adding it
 - validates and rescans all configured folders
 - removes invalid folder paths from config
-- filters installed skills by name, description, compatibility, and allowed tools
+- filters available skills by name, description, compatibility, and allowed tools
 - deletes installed skills
 
 The current UI displays active status. Chat activation and deactivation are handled by the model-facing `load_skill` and `unload_skill` tools or by DB helpers.
@@ -111,15 +137,17 @@ Loaded skill state is stored per chat in SQLite. The `chat_skills` table contain
 
 The chat request pipeline uses [SkillsPromptProvider](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/SkillsPromptProvider.ts:1). For each request it:
 
-1. Lists all installed skills through `SkillService.listSkills()`.
+1. Lists all available skills through `SkillService.listSkills()`.
 2. Builds `<skills_context>` with [buildSkillsPrompt](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/SkillPromptBuilder.ts:1).
 3. Wraps it in `<skills_system>` policy text through [buildSkillsSystemPrompt](/Users/gnl/Workspace/code/-i-ati/src/shared/prompts/skills.ts:1).
 
 The generated context has one data section:
 
-- `Available Skills`: every installed skill as `name: description`, plus `allowed-tools` when present.
+- `Available Skills`: every available skill as `name: description`, plus `allowed-tools` when present.
 
 The system prompt tells the model that available skills are discoverable options. When the current task clearly matches an available skill, the model should call `load_skill`; the tool result confirms activation, and the runtime injects the active skill documents through a hidden user context message.
+
+General web search details live in the built-in `search-general` skill. The static system prompt keeps only the minimal trigger rule: when the user asks to search, web search, browse, look up, find latest/current information, verify facts, cite sources, or use `web_search`/`web_fetch`, first load `search-general`, then follow its workflow.
 
 ## Loaded Skills Context Injection
 
@@ -180,7 +208,7 @@ Model loads a skill:
 ```text
 tool call load_skill
   -> processLoadSkill()
-  -> verify userData/skills/<name>/SKILL.md
+  -> verify resolved skill root contains SKILL.md
   -> DatabaseService.getChatByUuid(chat_uuid)
   -> SkillService.getSkillContent(name)
   -> DatabaseService.addSkill(chat.id, name)
@@ -208,7 +236,8 @@ Reference file reading:
 ```text
 tool call read_skill_file
   -> processReadSkillFile()
-  -> resolve userData/skills/<name>/<relative-path>
+  -> resolve available skill root
+  -> resolve <relative-path> inside that root
   -> reject absolute paths and traversal
   -> return full file or selected line range
 ```

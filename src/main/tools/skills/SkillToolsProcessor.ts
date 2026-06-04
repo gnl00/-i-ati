@@ -102,7 +102,6 @@ interface RunSkillScriptResponse extends ExecuteCommandResponse {
 
 const isUrl = (value: string): boolean => /^https?:\/\//i.test(value)
 const SKILL_NAME_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const SKILLS_DIR = 'skills'
 const DEFAULT_DIRECTORY_ENTRY_LIMIT = 100
 const MAX_DIRECTORY_ENTRY_LIMIT = 500
 
@@ -121,11 +120,7 @@ const resolveSourcePath = (source: string, chatUuid?: string): string => {
   return path.join(app.getPath('userData'), source)
 }
 
-const resolveInstalledSkillPath = (name: string): string => {
-  return path.join(app.getPath('userData'), SKILLS_DIR, name, 'SKILL.md')
-}
-
-const resolveSkillFilePath = (name: string, relativePath: string): string => {
+const resolveSkillFilePath = (skillRoot: string, name: string, relativePath: string): string => {
   if (!SKILL_NAME_REGEX.test(name)) {
     throw new Error(`Invalid skill name: "${name}"`)
   }
@@ -133,28 +128,27 @@ const resolveSkillFilePath = (name: string, relativePath: string): string => {
     throw new Error('path must be a relative file path')
   }
 
-  const skillDir = path.join(app.getPath('userData'), 'skills', name)
-  const resolved = path.resolve(skillDir, relativePath)
-  const rel = path.relative(skillDir, resolved)
+  const resolved = path.resolve(skillRoot, relativePath)
+  const rel = path.relative(skillRoot, resolved)
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
     throw new Error('path escapes skill directory')
   }
   return resolved
 }
 
-const resolveSkillRootPath = (name: string): string => {
+const resolveSkillRootPath = async (name: string): Promise<string> => {
   if (!SKILL_NAME_REGEX.test(name)) {
     throw new Error(`Invalid skill name: "${name}"`)
   }
-  return path.join(app.getPath('userData'), 'skills', name)
+  return await SkillService.resolveSkillRootPath(name)
 }
 
-const resolveSkillRelativePath = (name: string, relativePath: string): {
+const resolveSkillRelativePath = async (name: string, relativePath: string): Promise<{
   skillRoot: string
   absolutePath: string
-} => {
-  const skillRoot = resolveSkillRootPath(name)
-  const absolutePath = resolveSkillFilePath(name, relativePath)
+}> => {
+  const skillRoot = await resolveSkillRootPath(name)
+  const absolutePath = resolveSkillFilePath(skillRoot, name, relativePath)
   return { skillRoot, absolutePath }
 }
 
@@ -195,11 +189,6 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
     }
     if (!args.chat_uuid) {
       return { success: false, loaded: false, message: 'chat_uuid is required' }
-    }
-
-    const installedSkillFile = resolveInstalledSkillPath(args.name)
-    if (!existsSync(installedSkillFile)) {
-      return { success: false, loaded: false, message: `Skill "${args.name}" is not installed` }
     }
 
     const chat = DatabaseService.getChatByUuid(args.chat_uuid)
@@ -330,8 +319,8 @@ export async function processReadSkillFile(args: ReadSkillFileArgs): Promise<Rea
       return { success: false, message: 'path is required' }
     }
 
-    const skillRoot = resolveSkillRootPath(args.name)
-    const absolutePath = resolveSkillFilePath(args.name, args.path)
+    const skillRoot = await resolveSkillRootPath(args.name)
+    const absolutePath = resolveSkillFilePath(skillRoot, args.name, args.path)
     if (!existsSync(absolutePath)) {
       return { success: false, message: `File not found: ${args.path}` }
     }
@@ -412,7 +401,7 @@ export async function processRunSkillScript(
       return { success: false, error: 'script must be a relative file path' }
     }
 
-    const { skillRoot, absolutePath } = resolveSkillRelativePath(args.name, args.script)
+    const { skillRoot, absolutePath } = await resolveSkillRelativePath(args.name, args.script)
     if (!existsSync(absolutePath)) {
       return {
         success: false,
@@ -439,7 +428,7 @@ export async function processRunSkillScript(
       timeout: args.timeout,
       env: args.env,
       execution_reason: `Run skill script ${args.name}/${args.script}`,
-      possible_risk: 'Runs an installed skill script with the working directory fixed to the skill root.',
+      possible_risk: 'Runs an available skill script with the working directory fixed to the skill root.',
       risk_score: 3,
       confirmed: true
     })

@@ -11,6 +11,7 @@ let userDataPath = ''
 
 vi.mock('electron', () => ({
   app: {
+    isPackaged: false,
     getPath: vi.fn(() => userDataPath)
   }
 }))
@@ -55,6 +56,45 @@ describe('SkillService', () => {
     if (userDataPath) {
       await fs.rm(userDataPath, { recursive: true, force: true })
     }
+  })
+
+  it('lists the built-in search skill from resources', async () => {
+    const list = await SkillService.listSkills()
+    const searchSkill = list.find(item => item.name === 'search-general')
+
+    expect(searchSkill).toMatchObject({
+      name: 'search-general',
+      source: 'built-in'
+    })
+    expect(searchSkill?.description).toContain('any user request that asks to search')
+    expect(searchSkill?.allowedTools).toEqual(['web_search', 'web_fetch'])
+
+    const content = await SkillService.getSkillContent('search-general')
+    expect(content).toContain('name: search-general')
+    expect(content).toContain('## Trigger Conditions')
+    expect(content).toContain('snippetsOnly: true')
+  })
+
+  it('lets an installed skill override a built-in skill with the same name', async () => {
+    const sourcePath = path.join(userDataPath, 'search-skill.md')
+    const content = [
+      '---',
+      'name: search-general',
+      'description: User override skill.',
+      '---',
+      '',
+      '# User Search'
+    ].join('\n')
+    await fs.writeFile(sourcePath, content, 'utf-8')
+
+    await SkillService.loadSkill({ source: sourcePath })
+
+    const list = await SkillService.listSkills()
+    const searchSkill = list.find(item => item.name === 'search-general')
+    expect(searchSkill?.description).toBe('User override skill.')
+
+    const storedContent = await SkillService.getSkillContent('search-general')
+    expect(storedContent).toContain('# User Search')
   })
 
   it('loads a skill from SKILL.md and supports list/get', async () => {
