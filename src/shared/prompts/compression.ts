@@ -17,27 +17,27 @@ Before writing the final summary, internally analyze the conversation chronologi
 
 const COMPACT_INSTRUCTIONS = `Compact Instructions:
 
-保留优先级：
-1. 架构决策、用户约束、安全约束和需求边界，完整保留
-2. 用户纠错、错误假设、错误原因、修复方式，完整保留
-3. 已修改文件、关键代码段、函数签名、数据结构、schema/status 字段
-4. 验证状态，保留命令、pass/fail、失败位置和错误片段
-5. 未解决的 TODO、rollback notes、pending tasks、next steps
-6. Tool outputs 可降噪，保留决策需要的事实、路径、行号、id、状态、count、错误片段
+Preservation priority:
+1. Preserve architecture decisions, user constraints, security constraints, and requirement boundaries in full.
+2. Preserve user corrections, wrong assumptions, root causes, and fixes in full.
+3. Preserve modified files, key code sections, function signatures, data structures, schemas, and status fields.
+4. Preserve verification state, including commands, pass/fail results, failure locations, and error excerpts.
+5. Preserve unresolved TODOs, rollback notes, pending tasks, and next steps.
+6. Tool outputs may be compressed for noise reduction, but preserve facts, paths, line numbers, ids, statuses, counts, and error excerpts needed for decisions.
 
-标识符保留规则：
-- UUID、hash、IP、端口、URL、文件名、PR 编号、commit hash 必须原样保留
-- 代码符号、命令、路径、环境变量必须原样保留
+Identifier preservation rules:
+- Preserve UUIDs, hashes, IPs, ports, URLs, file names, PR numbers, and commit hashes exactly as written.
+- Preserve code symbols, commands, paths, and environment variables exactly as written.
 
-状态保真规则：
+State fidelity rules:
 - Stateful tools include plan_*, todo_*, schedule_*, work_context_*, task/workflow tools, approval tools, notification tools, and automation run tools.
 - Stateful tool results are source-of-truth records. Preserve entity ids, status, step status, currentStepId, activeStepId, failureReason, error, timestamps, owner, assignee, dependencies, and schedule times verbatim.
 - For plans and todos, preserve every visible step/item id, title, status, dependsOn, owner/assignee, currentStepId, and failureReason.
-- pending、todo、doing、in_progress、pending_review、blocked 表示仍有后续动作；摘要写成“计划已创建/等待执行/正在执行/阻塞中”，并放入 Pending Tasks。
-- done、completed、success、failed、cancelled 需要引用明确事实来源：tool result、command output、test output、or explicit user confirmation.
+- pending, todo, doing, in_progress, pending_review, and blocked indicate open follow-up work. Record them as plan created, waiting to run, in progress, or blocked, and place them in Pending Tasks.
+- done, completed, success, failed, and cancelled require an explicit source of truth: tool result, command output, test output, or explicit user confirmation.
 - If assistant text conflicts with a stateful tool result, use the tool result as the state source in Tool Facts and Pending Tasks.
-- assistant 的计划、设想、准备执行、询问确认，摘要写成意图或待执行事项。
-- 工具调用和工具结果需要配对描述；工具结果里的 success=true 只代表该工具调用成功。`
+- Summarize assistant plans, proposed approaches, intended actions, and confirmation requests as intent or pending work.
+- Pair tool calls with their tool results. success=true in a tool result only means that tool call succeeded.`
 
 const SUMMARY_OUTPUT_FORMAT = `Output only the final summary. Use this exact structure:
 
