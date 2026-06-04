@@ -236,7 +236,7 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
                           alignOffset={-4}
                           {...subCollisionProps}
                           className={cn(
-                            'min-w-36 rounded-xl border border-white/65 bg-white/94 p-1 text-slate-800 shadow-xl shadow-slate-900/10 backdrop-blur-2xl',
+                            'min-w-36 rounded-xl border border-white/65 bg-white p-1 text-slate-800 shadow-xl shadow-slate-900/10 backdrop-blur-3xl',
                             'dark:border-white/10 dark:bg-gray-900/94 dark:text-slate-100 dark:shadow-black/30'
                           )}
                           style={{
