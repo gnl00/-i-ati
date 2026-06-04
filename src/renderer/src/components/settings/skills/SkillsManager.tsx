@@ -17,6 +17,13 @@ import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
 import { Label } from '@renderer/components/ui/label'
 import { Input } from '@renderer/components/ui/input'
 import { FolderOpen, Search, X } from 'lucide-react'
+import { cn } from '@renderer/lib/utils'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from '@renderer/components/ui/tooltip'
 
 type ImportSkillsResult = {
   installed: SkillMetadata[]
@@ -42,6 +49,8 @@ const summarizeImport = (result: ImportSkillsResult): string => {
   if (parts.length === 0) return 'No skills found'
   return parts.join(', ')
 }
+
+const SKILL_TOOLTIP_CLASS_NAME = 'bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
 
 const getFolderDisplayParts = (folder: string): { parent?: string; name: string } => {
   const segments = folder
@@ -284,14 +293,26 @@ const SkillsManager: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={scanAllFolders}
-                disabled={folders.length === 0 || pendingFolders.size > 0}
-                className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
-              >
-                <i className="ri-refresh-line text-[12px]" />
-                Rescan
-              </button>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex shrink-0">
+                      <button
+                        onClick={scanAllFolders}
+                        disabled={folders.length === 0 || pendingFolders.size > 0}
+                        className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
+                        aria-label="Rescan skill folders"
+                      >
+                        <i className="ri-folder-history-line text-[12px]" />
+                        Rescan
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className={SKILL_TOOLTIP_CLASS_NAME}>
+                    <p className="font-medium">Scan configured folders for new or updated skills.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <button
                 onClick={handleAddFolder}
                 className="h-7 px-3 flex items-center gap-1.5 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10"
@@ -369,16 +390,23 @@ const SkillsManager: React.FC = () => {
 
           {/* ── Search ──────────────────────────────────────────── */}
           <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 flex items-center gap-2 min-w-0">
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+            <div
+              className={cn(
+                'group/skill-search relative flex-1 min-w-0 rounded-lg',
+                'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
+                'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
+                'transition-colors duration-200',
+                'focus-within:bg-white dark:focus-within:bg-slate-900'
+              )}
+            >
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/skill-search:text-gray-500 dark:text-gray-500 dark:group-focus-within/skill-search:text-gray-300" />
               <Input
                 placeholder="Search skills... Enter to search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-8 h-8 text-[12px] bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700/60 dark:text-gray-200
-                  focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0
-                  focus-visible:border-gray-400 dark:focus-visible:border-gray-500
-                  transition-all duration-200 rounded-lg placeholder:text-gray-400/60 dark:placeholder:text-gray-600 shadow-none"
+                className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none
+                  placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600
+                  focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               {searchQuery && (
                 <button
@@ -391,14 +419,26 @@ const SkillsManager: React.FC = () => {
                 </button>
               )}
             </div>
-            <button
-              onClick={refreshSkills}
-              disabled={isRefreshing}
-              className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 disabled:opacity-40 transition-all duration-150 shrink-0"
-            >
-              <i className={`ri-refresh-line text-[12px] ${isRefreshing ? 'animate-spin' : ''}`} />
-              Reload
-            </button>
+            <TooltipProvider delayDuration={400}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex shrink-0">
+                    <button
+                      onClick={refreshSkills}
+                      disabled={isRefreshing}
+                      className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 disabled:opacity-40 transition-all duration-150"
+                      aria-label="Reload skills list"
+                    >
+                      <i className={`ri-refresh-line text-[12px] ${isRefreshing ? 'animate-spin' : ''}`} />
+                      Reload
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className={SKILL_TOOLTIP_CLASS_NAME}>
+                  <p className="font-medium">Refresh the currently loaded skills list.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* ── Skills list ─────────────────────────────────────── */}

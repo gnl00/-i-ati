@@ -398,21 +398,24 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
       <div className='flex justify-between items-center gap-3 px-4 py-2.5 border-b border-gray-200/70 dark:border-gray-700/60 bg-gray-50/40 dark:bg-gray-900/20 shrink-0'>
         <h3 className='text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100 shrink-0'>Models</h3>
         <div className='flex-1 flex items-center'>
-          <div className='relative w-full max-w-[240px]'>
-            <Search className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500' />
+          <div
+            className={cn(
+              'group/model-search relative w-full max-w-[240px] rounded-lg',
+              'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
+              'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
+              'transition-colors duration-200',
+              'focus-within:bg-white dark:focus-within:bg-slate-900'
+            )}
+          >
+            <Search className='pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/model-search:text-gray-500 dark:text-gray-500 dark:group-focus-within/model-search:text-gray-300' />
             <Input
               value={modelSearchQuery}
               onChange={e => setModelSearchQuery(e.target.value)}
               placeholder="Search models..."
               className={cn(
-                'h-7 pl-8 pr-3 text-[12px]',
-                'bg-white/80 dark:bg-gray-800/60',
-                'border border-gray-200 dark:border-gray-700',
-                'rounded-lg',
-                'text-gray-700 dark:text-gray-200',
-                'placeholder:text-gray-400 dark:placeholder:text-gray-500',
-                'focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0',
-                'focus-visible:border-gray-400 dark:focus-visible:border-gray-500',
+                'h-7 rounded-lg border-transparent bg-transparent pl-8 pr-3 text-[12px] text-slate-700 shadow-none',
+                'placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600',
+                'focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0'
               )}
             />
           </div>
