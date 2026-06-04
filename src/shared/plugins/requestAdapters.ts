@@ -3,6 +3,7 @@ import {
   type BuiltInAppPluginDefinition,
   type BuiltInAppPluginId
 } from './builtInRegistry'
+import { isRetiredRequestAdapterPluginId } from './adapterPluginIds'
 
 export { builtInPluginRegistry } from './builtInRegistry'
 export type { BuiltInAppPluginId, BuiltInAppPluginDefinition } from './builtInRegistry'
@@ -70,6 +71,9 @@ export const getRequestAdapterOptionsFromPlugins = (
 
   return (plugins ?? []).flatMap((plugin) =>
     plugin.capabilities.flatMap((capability) => {
+      if (isRetiredRequestAdapterPluginId(plugin.pluginId)) {
+        return []
+      }
       if (capability.kind !== 'request-adapter' || !isRequestAdapterCapabilityData(capability.data)) {
         return []
       }

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion, type Transition } from 'framer-motion'
 import { CommandConfirmation } from '../chatMessage/assistant-message/CommandConfirmation'
 import { buildCommandConfirmationRequest } from '../toolConfirmation/commandConfirmationPresenter'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
@@ -24,10 +24,10 @@ export const ChatInputToolConfirmation: React.FC = () => {
   }, [pendingToolConfirm, pendingToolConfirmCount])
 
   const isSettling = Boolean(pendingToolConfirm && settlingToolCallId === pendingToolConfirm.toolCallId)
-  const motionTransition = shouldReduceMotion
+  const motionTransition: Transition = shouldReduceMotion
     ? { duration: 0 }
     : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
-  const exitTransition = shouldReduceMotion
+  const exitTransition: Transition = shouldReduceMotion
     ? { duration: 0 }
     : { duration: 0.14, ease: [0.25, 1, 0.5, 1] }
 

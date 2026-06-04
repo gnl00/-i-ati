@@ -10,11 +10,16 @@ import {
   isRequestAdapterPluginEnabledFromPlugins,
   type BuiltInAppPluginId
 } from '@shared/plugins/requestAdapters'
+import {
+  GOOGLE_GEMINI_COMPATIBLE_ADAPTER_ID,
+  OPENAI_RESPONSES_COMPATIBLE_ADAPTER_ID
+} from '@shared/plugins/adapterPluginIds'
 import { builtInPluginRegistry } from '@shared/plugins/builtInRegistry'
 import type { BaseAdapter } from './base'
 import { ClaudeAdapter } from './claude'
+import { GeminiAdapter } from './gemini'
 import { RequestAdapterPluginWrapper } from './RequestAdapterPluginWrapper'
-import { OpenAIAdapter, OpenAIImage1Adapter } from './openai/index'
+import { OpenAIAdapter, OpenAIImage1Adapter, OpenAIResponsesAdapter } from './openai/index'
 
 type RequestAdapterFactory = () => BaseAdapter
 
@@ -28,30 +33,14 @@ type RequestAdapterPluginModule = {
 const requestAdapterFactories = new Map<BuiltInAppPluginId, RequestAdapterFactory>([
   ['openai-chat-compatible-adapter', () => new OpenAIAdapter()],
   ['openai-image-compatible-adapter', () => new OpenAIImage1Adapter()],
-  ['claude-compatible-adapter', () => new ClaudeAdapter()]
+  ['claude-compatible-adapter', () => new ClaudeAdapter()],
+  [OPENAI_RESPONSES_COMPATIBLE_ADAPTER_ID, () => new OpenAIResponsesAdapter()],
+  [GOOGLE_GEMINI_COMPATIBLE_ADAPTER_ID, () => new GeminiAdapter()]
 ])
 
 export const createBuiltInRequestAdapter = (pluginId: string): BaseAdapter | null => {
   const createAdapter = requestAdapterFactories.get(pluginId as BuiltInAppPluginId)
   return createAdapter ? createAdapter() : null
-}
-
-export const withBuiltInAdapterCapabilities = <T extends { thinking?: { levels: ThinkingLevel[]; defaultLevel?: ThinkingLevel } }>(
-  pluginId: string,
-  capability: T
-): T => {
-  const thinkingLevels = createBuiltInRequestAdapter(pluginId)?.getThinkingLevels() ?? []
-  if (thinkingLevels.length === 0) {
-    return capability
-  }
-
-  return {
-    ...capability,
-    thinking: {
-      levels: thinkingLevels,
-      defaultLevel: thinkingLevels.includes('medium') ? 'medium' : thinkingLevels[0]
-    }
-  }
 }
 
 export const registerEnabledBuiltInRequestAdapters = (

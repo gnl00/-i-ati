@@ -2,7 +2,7 @@ import type { ToolConfirmationRequest } from '@renderer/store/toolConfirmation'
 import type { CommandConfirmationRequest } from '../chatMessage/assistant-message/CommandConfirmation'
 
 export function buildCommandConfirmationRequest(input: {
-  pendingToolConfirm: Pick<ToolConfirmationRequest, 'ui' | 'args' | 'agent'> | null
+  pendingToolConfirm: Pick<ToolConfirmationRequest, 'toolCallId' | 'name' | 'ui' | 'args' | 'agent'> | null
   pendingToolConfirmCount: number
 }): CommandConfirmationRequest | undefined {
   const {

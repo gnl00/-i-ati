@@ -102,9 +102,11 @@ describe('PluginRepository', () => {
     expect(configs.map(plugin => plugin.id)).toEqual([
       'openai-chat-compatible-adapter',
       'openai-image-compatible-adapter',
-      'claude-compatible-adapter'
+      'claude-compatible-adapter',
+      'openai-responses-compatible-adapter',
+      'google-gemini-compatible-adapter'
     ])
-    expect(plugins).toHaveLength(3)
+    expect(plugins).toHaveLength(5)
     expect(plugins[0]?.capabilities.length).toBeGreaterThan(0)
   })
 

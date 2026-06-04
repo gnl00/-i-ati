@@ -19,7 +19,7 @@ const commandConfirmationProps: Array<{
   disabled?: boolean
 }> = []
 
-const invokeRunToolConfirm = vi.fn(async () => ({ ok: true }))
+const invokeRunToolConfirm = vi.fn(async (_data: unknown) => ({ ok: true }))
 
 vi.mock('framer-motion', async () => {
   const React = await import('react')

@@ -86,9 +86,11 @@ describe('PluginBootstrapService', () => {
     expect(configs.map(plugin => plugin.id)).toEqual([
       'openai-chat-compatible-adapter',
       'openai-image-compatible-adapter',
-      'claude-compatible-adapter'
+      'claude-compatible-adapter',
+      'openai-responses-compatible-adapter',
+      'google-gemini-compatible-adapter'
     ])
-    expect(plugins).toHaveLength(3)
+    expect(plugins).toHaveLength(5)
     expect(plugins[0]?.capabilities.length).toBeGreaterThan(0)
     expect(
       plugins
@@ -169,6 +171,8 @@ describe('PluginBootstrapService', () => {
     expect(configs.find(plugin => plugin.id === 'openai-chat-compatible-adapter')?.enabled).toBe(false)
     expect(configs.find(plugin => plugin.id === 'openai-image-compatible-adapter')?.enabled).toBe(false)
     expect(configs.find(plugin => plugin.id === 'claude-compatible-adapter')?.enabled).toBe(true)
+    expect(configs.find(plugin => plugin.id === 'openai-responses-compatible-adapter')?.enabled).toBe(true)
+    expect(configs.find(plugin => plugin.id === 'google-gemini-compatible-adapter')?.enabled).toBe(true)
     expect(JSON.parse(savedConfigValue)).toEqual({
       version: 2,
       tools: { maxWebSearchItems: 3 }

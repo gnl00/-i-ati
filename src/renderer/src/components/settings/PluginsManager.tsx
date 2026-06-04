@@ -1,5 +1,6 @@
 import React from 'react'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
+import { isRetiredRequestAdapterPluginId } from '@shared/plugins/adapterPluginIds'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import InlineDeleteConfirm from './common/InlineDeleteConfirm'
@@ -55,6 +56,10 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
   const installedPlugins = React.useMemo(
     () => plugins.filter(plugin => plugin.source !== 'built-in'),
     [plugins]
+  )
+  const visibleRemotePlugins = React.useMemo(
+    () => remotePlugins.filter(plugin => !isRetiredRequestAdapterPluginId(plugin.pluginId)),
+    [remotePlugins]
   )
   const activeCount = installedPlugins.filter(plugin => plugin.enabled).length
   const [isRefreshing, setIsRefreshing] = React.useState(false)
@@ -321,7 +326,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                       registry
                     </Badge>
                     <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-                      {remotePluginsLoaded ? `${remotePlugins.length} available` : 'Loading...'}
+                      {remotePluginsLoaded ? `${visibleRemotePlugins.length} available` : 'Loading...'}
                     </Badge>
                   </div>
                   <p className="mt-1 text-[11.5px] text-gray-400 dark:text-gray-500 leading-relaxed">
@@ -343,7 +348,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
             </div>
 
             <div className="divide-y divide-gray-100 dark:divide-gray-800/70">
-              {remotePlugins.length === 0 && (
+              {visibleRemotePlugins.length === 0 && (
                 <div className="px-5 py-8 text-center">
                   <p className="text-[12px] text-gray-400 dark:text-gray-500">
                     {remotePluginsLoaded ? 'No remote plugins available.' : 'Loading registry...'}
@@ -351,7 +356,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                 </div>
               )}
 
-              {remotePlugins.map((plugin) => {
+              {visibleRemotePlugins.map((plugin) => {
                 const installedPlugin = plugins.find(item => item.pluginId === plugin.pluginId)
                 const hasUpdateAvailable = installedPlugin
                   ? compareVersions(plugin.version, installedPlugin.version) > 0

@@ -2,6 +2,8 @@ export type BuiltInAppPluginId =
   | 'openai-chat-compatible-adapter'
   | 'openai-image-compatible-adapter'
   | 'claude-compatible-adapter'
+  | 'openai-responses-compatible-adapter'
+  | 'google-gemini-compatible-adapter'
 
 import type {
   AppPluginSource,
@@ -9,6 +11,10 @@ import type {
   PluginCapabilityKind,
   RequestAdapterPluginCapability
 } from './types'
+import {
+  GOOGLE_GEMINI_COMPATIBLE_ADAPTER_ID,
+  OPENAI_RESPONSES_COMPATIBLE_ADAPTER_ID
+} from './adapterPluginIds'
 
 export interface BuiltInAppPluginDefinition {
   id: BuiltInAppPluginId
@@ -33,7 +39,11 @@ const BUILT_IN_APP_PLUGINS: BuiltInAppPluginDefinition[] = [
     capabilities: [{
       kind: 'request-adapter',
       providerType: 'openai',
-      modelTypes: ['llm', 'vlm']
+      modelTypes: ['llm', 'vlm'],
+      thinking: {
+        levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+        defaultLevel: 'medium'
+      }
     }]
   },
   {
@@ -61,7 +71,47 @@ const BUILT_IN_APP_PLUGINS: BuiltInAppPluginDefinition[] = [
     capabilities: [{
       kind: 'request-adapter',
       providerType: 'claude',
-      modelTypes: ['llm', 'vlm']
+      modelTypes: ['llm', 'vlm'],
+      thinking: {
+        levels: ['low', 'medium', 'high', 'xhigh', 'max'],
+        defaultLevel: 'medium'
+      }
+    }]
+  },
+  {
+    id: OPENAI_RESPONSES_COMPATIBLE_ADAPTER_ID,
+    name: 'OpenAI Responses Compatible Adapter',
+    displayLabel: 'OpenAI Responses Compatible',
+    description: 'Built-in adapter for OpenAI Responses API.',
+    kind: 'request-adapter',
+    builtIn: true,
+    source: 'built-in',
+    capabilities: [{
+      kind: 'request-adapter',
+      providerType: 'openai-response',
+      modelTypes: ['llm', 'vlm'],
+      thinking: {
+        levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+        defaultLevel: 'medium'
+      }
+    }]
+  },
+  {
+    id: GOOGLE_GEMINI_COMPATIBLE_ADAPTER_ID,
+    name: 'Google Gemini Compatible Adapter',
+    displayLabel: 'Google Gemini Compatible',
+    description: 'Built-in adapter for Google Gemini GenerateContent APIs.',
+    kind: 'request-adapter',
+    builtIn: true,
+    source: 'built-in',
+    capabilities: [{
+      kind: 'request-adapter',
+      providerType: 'gemini',
+      modelTypes: ['llm', 'vlm'],
+      thinking: {
+        levels: ['minimal', 'low', 'medium', 'high'],
+        defaultLevel: 'high'
+      }
     }]
   }
 ]

@@ -1,7 +1,8 @@
 export { BaseAdapter } from './base'
 export { RequestAdapterPluginWrapper } from './RequestAdapterPluginWrapper'
-export { OpenAIAdapter, OpenAIImage1Adapter } from './openai/index'
+export { OpenAIAdapter, OpenAIImage1Adapter, OpenAIResponsesAdapter } from './openai/index'
 export { ClaudeAdapter } from './claude'
+export { GeminiAdapter } from './gemini'
 export { adapterManager } from './manager'
 export {
   getRequestAdapterPluginById,

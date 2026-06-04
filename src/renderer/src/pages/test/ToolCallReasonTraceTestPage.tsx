@@ -212,9 +212,7 @@ function buildAssistantModel(args: {
           typewriterCompleted: true,
           segments: []
         }
-      },
-      onConfirmCommand: noop,
-      onCancelCommand: noop
+      }
     },
     footer: {
       isHovered: true,

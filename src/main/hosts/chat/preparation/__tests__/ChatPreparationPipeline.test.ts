@@ -107,7 +107,6 @@ vi.mock('@main/services/activityJournal/ActivityJournalService', () => ({
 }))
 
 import DatabaseService from '@main/db/DatabaseService'
-import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import {
   ChatPreparationPipeline,
   RunEnvironmentService,

@@ -76,9 +76,9 @@ describe('ToolResultContentProjector', () => {
       '[{"type":"text","text":"hello"},{"type":"image_url","image_url":{"url":"file://image.png","detail":"auto"}}]'
     )
 
-    const circularContent = [
+    const circularContent: unknown[] = [
       { type: 'text', text: 'fallback' }
-    ] as unknown as Array<VLMContent | VLMContent[]>
+    ]
     circularContent.push(circularContent)
 
     expect(projectToolResultContentForHistoryImport(
