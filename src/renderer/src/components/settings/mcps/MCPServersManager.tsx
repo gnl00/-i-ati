@@ -430,18 +430,24 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           )}
 
           {activeTab === 'registry' && (
-            <div className="relative flex-1 max-w-[280px]">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+            <div
+              className={cn(
+                'group/search relative flex-1 max-w-[280px] rounded-lg',
+                'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
+                'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
+                'transition-colors duration-200',
+                'focus-within:bg-white dark:focus-within:bg-slate-900'
+              )}
+            >
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/search:text-gray-500 dark:text-gray-500 dark:group-focus-within/search:text-gray-300" />
               <Input
                 placeholder="Search registry… Enter"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                className="pl-8 h-8 text-[12px] bg-white dark:bg-gray-900/40 border-gray-200 dark:border-gray-700/60 dark:text-gray-200
-                  placeholder:text-gray-400/60 dark:placeholder:text-gray-600 shadow-none rounded-lg
-                  focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0
-                  focus-visible:border-gray-400 dark:focus-visible:border-gray-500
-                  transition-all duration-200"
+                className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none
+                  placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600
+                  focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
                 disabled={isFetching}
               />
               {isSearching && (
@@ -458,7 +464,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           loadingState={registryLoadingState}
           empty={isRegistryEmpty}
           emptyState={registryEmptyState}
-          contentClassName="space-y-1.5"
+          contentClassName="space-y-2"
         >
           {filteredServers.map((item, idx) => {
             const installed = isInstalled(item.server.name)
@@ -497,7 +503,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           value="local"
           empty={editMode === 'visual' && isInstalledEmpty}
           emptyState={installedEmptyState}
-          contentClassName={editMode === 'visual' ? 'grid grid-cols-1 gap-3' : 'h-full flex flex-col gap-3'}
+          contentClassName={editMode === 'visual' ? 'grid grid-cols-1 gap-2.5' : 'h-full flex flex-col gap-3'}
         >
           {editMode === 'visual' ? (
             installedServers.map(([name, config], index) => {
