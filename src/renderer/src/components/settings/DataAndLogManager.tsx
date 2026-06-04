@@ -151,11 +151,11 @@ const DataAndLogManager: React.FC<DataAndLogManagerProps> = ({
                   Debug Mode
                 </Label>
                 <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-rose-600 border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800">
-                  STREAM
+                  REQUEST
                 </Badge>
               </div>
               <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                Log raw stream chunks from request adapters into the daily log file. Keep this off unless you are actively debugging streaming or parser behavior.
+                Log provider request bodies into the request log and raw stream chunks into the daily log. Use this while debugging streaming, parser, or provider request behavior.
               </p>
             </div>
             <Switch

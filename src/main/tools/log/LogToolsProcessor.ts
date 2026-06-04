@@ -87,7 +87,9 @@ function splitLines(content: string): string[] {
 }
 
 function resolveLogPrefix(target: LogSearchTarget): string {
-  return target === 'app' ? 'app' : 'perf'
+  if (target === 'app') return 'app'
+  if (target === 'perf') return 'perf'
+  return 'request'
 }
 
 async function resolveLogFile(target: LogSearchTarget, date: string): Promise<string | null> {
@@ -278,12 +280,12 @@ export async function processLogSearch(args: LogSearchArgs): Promise<LogSearchRe
   const target = args.target
   const date = normalizeOptionalText(args.date) ?? logFileManager.getDateKey()
 
-  if (target !== 'app' && target !== 'perf') {
+  if (target !== 'app' && target !== 'perf' && target !== 'request') {
     return {
       success: false,
       target,
       date,
-      error: 'target must be either "app" or "perf"'
+      error: 'target must be one of "app", "perf", or "request"'
     }
   }
 

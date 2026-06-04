@@ -7,6 +7,7 @@ import { promisify } from 'util'
 const gzip = promisify(gzipCallback)
 const LOG_FILE_PREFIX = 'app-'
 const PERF_LOG_FILE_PREFIX = 'perf-'
+const REQUEST_LOG_FILE_PREFIX = 'request-'
 const LOG_FILE_SUFFIX = '.log'
 const LOG_FILE_GZIP_SUFFIX = '.log.gz'
 
@@ -17,26 +18,27 @@ function toDateKey(input: Date): string {
   return `${year}-${month}-${day}`
 }
 
-function extractDateKey(fileName: string): string | null {
-  if (!fileName.startsWith(LOG_FILE_PREFIX)) return null
+function extractDateKeyByPrefix(fileName: string, prefix: string): string | null {
+  if (!fileName.startsWith(prefix)) return null
   if (fileName.endsWith(LOG_FILE_SUFFIX)) {
-    return fileName.slice(LOG_FILE_PREFIX.length, -LOG_FILE_SUFFIX.length)
+    return fileName.slice(prefix.length, -LOG_FILE_SUFFIX.length)
   }
   if (fileName.endsWith(LOG_FILE_GZIP_SUFFIX)) {
-    return fileName.slice(LOG_FILE_PREFIX.length, -LOG_FILE_GZIP_SUFFIX.length)
+    return fileName.slice(prefix.length, -LOG_FILE_GZIP_SUFFIX.length)
   }
   return null
 }
 
+function extractDateKey(fileName: string): string | null {
+  return extractDateKeyByPrefix(fileName, LOG_FILE_PREFIX)
+}
+
 function extractPerfDateKey(fileName: string): string | null {
-  if (!fileName.startsWith(PERF_LOG_FILE_PREFIX)) return null
-  if (fileName.endsWith(LOG_FILE_SUFFIX)) {
-    return fileName.slice(PERF_LOG_FILE_PREFIX.length, -LOG_FILE_SUFFIX.length)
-  }
-  if (fileName.endsWith(LOG_FILE_GZIP_SUFFIX)) {
-    return fileName.slice(PERF_LOG_FILE_PREFIX.length, -LOG_FILE_GZIP_SUFFIX.length)
-  }
-  return null
+  return extractDateKeyByPrefix(fileName, PERF_LOG_FILE_PREFIX)
+}
+
+function extractRequestDateKey(fileName: string): string | null {
+  return extractDateKeyByPrefix(fileName, REQUEST_LOG_FILE_PREFIX)
 }
 
 export class LogFileManager {
@@ -61,6 +63,10 @@ export class LogFileManager {
     return path.join(this.getLogsDir(), `${PERF_LOG_FILE_PREFIX}${dateKey}${LOG_FILE_SUFFIX}`)
   }
 
+  getRequestLogFilePath(dateKey = this.getDateKey()): string {
+    return path.join(this.getLogsDir(), `${REQUEST_LOG_FILE_PREFIX}${dateKey}${LOG_FILE_SUFFIX}`)
+  }
+
   async ensureLogsDir(): Promise<string> {
     const logsDir = this.getLogsDir()
     await mkdir(logsDir, { recursive: true })
@@ -72,11 +78,13 @@ export class LogFileManager {
     const files = await readdir(logsDir)
 
     for (const fileName of files) {
-      if (!fileName.startsWith(LOG_FILE_PREFIX) && !fileName.startsWith(PERF_LOG_FILE_PREFIX)) continue
+      if (
+        !fileName.startsWith(LOG_FILE_PREFIX) &&
+        !fileName.startsWith(PERF_LOG_FILE_PREFIX) &&
+        !fileName.startsWith(REQUEST_LOG_FILE_PREFIX)
+      ) continue
 
-      const dateKey = fileName.startsWith(LOG_FILE_PREFIX)
-        ? extractDateKey(fileName)
-        : extractPerfDateKey(fileName)
+      const dateKey = this.extractManagedDateKey(fileName)
       if (!dateKey) continue
 
       const absolutePath = path.join(logsDir, fileName)
@@ -91,6 +99,13 @@ export class LogFileManager {
         await rm(absolutePath, { force: true })
       }
     }
+  }
+
+  private extractManagedDateKey(fileName: string): string | null {
+    if (fileName.startsWith(LOG_FILE_PREFIX)) return extractDateKey(fileName)
+    if (fileName.startsWith(PERF_LOG_FILE_PREFIX)) return extractPerfDateKey(fileName)
+    if (fileName.startsWith(REQUEST_LOG_FILE_PREFIX)) return extractRequestDateKey(fileName)
+    return null
   }
 
   private calculateAgeInDays(dateKey: string, currentDateKey: string): number {

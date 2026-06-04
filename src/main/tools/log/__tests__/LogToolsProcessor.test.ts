@@ -19,6 +19,15 @@ vi.mock('electron', () => ({
   }
 }))
 
+vi.mock('@main/logging/LogService', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }))
+}))
+
 import { processLogSearch } from '../LogToolsProcessor'
 
 describe('LogToolsProcessor', () => {
@@ -147,6 +156,33 @@ describe('LogToolsProcessor', () => {
     expect(result.total_matches).toBe(1)
     expect(result.blocks?.[0].match_lines).toEqual([2])
     expect(result.blocks?.[0].lines.some(line => line.text === 'perf-2')).toBe(true)
+  })
+
+  it('reads request log files as searchable plain text', async () => {
+    const filePath = join(logsDir, 'request-2026-04-17.log')
+    await writeFile(filePath, [
+      '===== request 2026-04-17T08:00:00.000+08:00 requestLogId=req-1 =====',
+      'endpoint: https://example.invalid/v1/chat/completions',
+      '{',
+      '  "messages": [',
+      '    { "role": "user", "content": "debug me" }',
+      '  ]',
+      '}',
+      '===== end request requestLogId=req-1 ====='
+    ].join('\n'), 'utf-8')
+
+    const result = await processLogSearch({
+      target: 'request',
+      date: '2026-04-17',
+      query: 'debug me',
+      context_before: 1,
+      context_after: 1
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.file_name).toBe('request-2026-04-17.log')
+    expect(result.total_matches).toBe(1)
+    expect(result.blocks?.[0].lines.some(line => line.text.includes('debug me'))).toBe(true)
   })
 
   it('returns an empty result when no search match is found', async () => {

@@ -9,6 +9,7 @@
 ```text
 <userData>/logs/app-YYYY-MM-DD.log
 <userData>/logs/perf-YYYY-MM-DD.log
+<userData>/logs/request-YYYY-MM-DD.log
 ```
 
 例如：
@@ -16,6 +17,7 @@
 ```text
 ~/Library/Application Support/at-i-app/logs/app-2026-03-20.log
 ~/Library/Application Support/at-i-app/logs/perf-2026-03-20.log
+~/Library/Application Support/at-i-app/logs/request-2026-03-20.log
 ```
 
 设置页 `Tools -> Logs -> Open Logs` 可以直接打开这个目录。
@@ -30,6 +32,9 @@
   - 启动性能日志
   - 主要记录 `[Startup]` 和 renderer startup mark
   - 用于排查 app 启动慢、首屏加载慢、renderer ready 延迟等问题
+- `request-YYYY-MM-DD.log`
+  - Debug Mode 下的 provider request body 文本日志
+  - 使用可读文本块和 pretty JSON body，方便排查 provider 请求内容
 
 ## 文件格式
 
@@ -54,6 +59,7 @@
 - 前一天及更早的 `.log` 会自动压缩成 `.log.gz`
 - 超过保留期的旧日志会自动删除
 - `perf-YYYY-MM-DD.log` 和普通日志一样按天切分，并参与压缩与清理
+- `request-YYYY-MM-DD.log` 和普通日志一样按天切分，并参与压缩与清理
 
 当前保留策略：
 
@@ -187,12 +193,49 @@ logger.error('load_failed', error)
 - 把整段 stream chunk 原样写满日志
 - 把大请求体或响应体全部塞进日志文件
 
+## Debug Mode 请求日志
+
+设置页 `Data & Log -> Debug Mode` 开启后，请求发送链会额外记录 provider request body。
+
+请求 body 日志由 [RequestDebugLogger.ts](/Users/gnl/Workspace/code/-i-ati/src/main/request/RequestDebugLogger.ts) 生成，写入 `request-YYYY-MM-DD.log`：
+
+```text
+===== request 2026-06-04T10:28:39.429+08:00 requestLogId=... =====
+baseUrl: https://api.deepseek.com/v1
+endpoint: https://api.deepseek.com/v1/chat/completions
+adapterPluginId: openai-chat-compatible-adapter
+model: deepseek-v4-flash
+stream: false
+bodyBytes: 12345
+bodySha256: ...
+messageCount: 3
+toolCount: 12
+mediaCount: 0
+redactionCount: 0
+truncated: false
+
+{
+  "model": "deepseek-v4-flash",
+  "messages": []
+}
+===== end request requestLogId=... =====
+```
+
+Debug request body 使用专用清洗策略：
+
+- 敏感键写为 `[REDACTED]`
+- `data:*;base64,...` 媒体内容写为 `[media:<mime>;base64 bytes=<n> sha256=<hash>]`
+- 清洗后的 body 最多写出 512 KiB，超出部分通过 `truncated` 和 `omittedChars` 标记
+
+Debug Mode 会记录模型可见消息内容、system prompt、tool call 参数和 tool result。开启后日志更适合本地调试 provider 请求行为。Raw stream chunks 仍按 `stream.chunk` 写入 `app-YYYY-MM-DD.log`。
+
 ## 测试
 
 当前 logging 基础设施测试：
 
 - [redact.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/__tests__/redact.test.ts)
 - [LogFileManager.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/__tests__/LogFileManager.test.ts)
+- [RequestDebugLogger.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/request/__tests__/RequestDebugLogger.test.ts)
 
 覆盖：
 
@@ -200,6 +243,7 @@ logger.error('load_failed', error)
 - 截断
 - 错误序列化
 - 压缩清理
+- Debug request body 摘要、文本块写入、媒体压缩
 
 ## 后续建议
 

@@ -84,10 +84,21 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).toContain('currentStepId')
     expect(prompt).toContain('failureReason')
     expect(prompt).toContain('dependsOn')
-    expect(prompt).toContain('pending、todo、doing、in_progress、pending_review、blocked')
+    expect(prompt).toContain('pending, todo, doing, in_progress, pending_review, and blocked')
     expect(prompt).toContain('tool result as the state source')
     expect(prompt).toContain('source message id')
     expect(prompt).toContain('record it as open work in Pending Tasks')
+  })
+
+  it('keeps the compression prompt instructions in English', () => {
+    const prompt = buildCompressionPrompt({
+      conversationText: '<user>Hello</user>'
+    })
+
+    expect(prompt).not.toMatch(/\p{Script=Han}/u)
+    expect(prompt).toContain('Preservation priority:')
+    expect(prompt).toContain('Identifier preservation rules:')
+    expect(prompt).toContain('State fidelity rules:')
   })
 
   it('describes skills as hidden loaded context after load_skill activation', () => {

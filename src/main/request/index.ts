@@ -1,12 +1,17 @@
+import { randomUUID } from 'crypto'
+import { configDb } from '@main/db/config'
 import { pluginDb } from '@main/db/plugins'
 import { createLogger } from '@main/logging/LogService'
+import { formatLocalIsoTimestamp } from '@main/logging/time'
 import {
   getRequestAdapterPluginById,
   isRequestAdapterPluginEnabled,
   resolveAdapterForRequest
 } from './adapters/index'
+import { RequestDebugLogger } from './RequestDebugLogger'
 
 const logger = createLogger('UnifiedRequest')
+const requestDebugLogger = new RequestDebugLogger()
 const REQUEST_ERROR_METADATA = '__requestErrorMetadata'
 
 type RequestErrorKind = 'abort' | 'http' | 'network' | 'unknown'
@@ -162,6 +167,41 @@ const attachRequestErrorMetadata = (
   return errorWithMetadata
 }
 
+const isRequestDebugLogEnabled = (): boolean => {
+  try {
+    return configDb.getConfig()?.tools?.streamChunkDebugEnabled ?? false
+  } catch {
+    return false
+  }
+}
+
+const logRequestBodyIfDebugEnabled = async (
+  requestBody: unknown,
+  serializedBody: string,
+  requestLogId: string,
+  context: {
+    baseUrl: string
+    adapterPluginId: string
+    model: string
+    endpoint: string
+    stream: boolean
+  }
+): Promise<void> => {
+  if (!isRequestDebugLogEnabled()) return
+
+  try {
+    await requestDebugLogger.writeRequestBody({
+      requestLogId,
+      time: formatLocalIsoTimestamp(),
+      ...context,
+      body: requestBody,
+      serializedBody
+    })
+  } catch (error) {
+    logger.warn('request_debug.write_failed', error)
+  }
+}
+
 const logRequestFailure = (
   req: IUnifiedRequest,
   adapterPluginId: string,
@@ -273,27 +313,34 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   beforeFetch()
   let endpoint: string | undefined
   let shouldRunAfterFetch = true
+  const requestLogId = randomUUID()
   try {
     // Use adapter to construct complete endpoint URL
     const resolvedEndpoint: string = adapter.getEndpoint(req.baseUrl, req)
     endpoint = resolvedEndpoint
+    const outboundRequestBody = { ...requestBody }
+    const serializedRequestBody = JSON.stringify(outboundRequestBody)
 
     logger.info('request.dispatch', {
       baseUrl: req.baseUrl,
       adapterPluginId,
       model: req.model,
       endpoint: resolvedEndpoint,
-      stream: req.stream ?? true,
-      // body: JSON.stringify(requestBody)
+      stream: req.stream ?? true
+    })
+    await logRequestBodyIfDebugEnabled(outboundRequestBody, serializedRequestBody, requestLogId, {
+      baseUrl: req.baseUrl,
+      adapterPluginId,
+      model: req.model,
+      endpoint: resolvedEndpoint,
+      stream: req.stream ?? true
     })
 
     const fetchResponse = await fetch(resolvedEndpoint, {
       method: 'POST',
       headers,
       signal,
-      body: JSON.stringify({
-        ...requestBody
-      })
+      body: serializedRequestBody
     })
 
     if (!fetchResponse.ok) {
