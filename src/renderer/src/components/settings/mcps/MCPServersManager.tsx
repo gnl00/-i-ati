@@ -8,8 +8,6 @@ import {
   DrawerTitle
 } from '@renderer/components/ui/drawer'
 import { Input } from '@renderer/components/ui/input'
-import { Label } from '@renderer/components/ui/label'
-import { Switch } from '@renderer/components/ui/switch'
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs'
 import { cn } from '@renderer/lib/utils'
 import { useMcpConnection } from '@renderer/hooks/useMcpConnection'
@@ -24,7 +22,7 @@ import {
   Search,
   Server
 } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type {
   CachedServers,
@@ -104,6 +102,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   const [editMode, setEditMode] = useState<'visual' | 'json'>('visual')
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<RegistryServerItem[]>([])
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const selectedServerNames = useMcpRuntimeStore(state => state.selectedServerNames)
   const connectingServerNames = useMcpRuntimeStore(state => state.connectingServerNames)
   const availableMcpTools = useMcpRuntimeStore(state => state.availableMcpTools)
@@ -187,9 +186,29 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
     searchServers(searchQuery)
   }
 
-  const loadMore = (): void => {
-    if (nextCursor && !isFetching) fetchServers(nextCursor)
-  }
+  useEffect(() => {
+    if (activeTab !== 'registry' || searchQuery.trim() || !hasMore || isFetching) {
+      return
+    }
+
+    const node = loadMoreRef.current
+    if (!node) {
+      return
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && nextCursor && !isFetching) {
+        fetchServers(nextCursor)
+      }
+    }, {
+      root: null,
+      rootMargin: '120px 0px',
+      threshold: 0
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [activeTab, searchQuery, hasMore, isFetching, nextCursor])
 
   const isInstalled = (serverName: string): boolean => {
     return !!mcpServerConfig.mcpServers?.[serverName]
@@ -382,7 +401,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   )
 
   return (
-    <div className="flex flex-col h-full bg-gray-50/50 dark:bg-neutral-950/30">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-950">
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as MCPServersTabValue)}
@@ -390,7 +409,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
       >
 
         {/* ── Tab bar + toolbar ─────────────────────────────────── */}
-        <div className="flex items-center justify-between mx-4 mt-4 mb-0">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/60 px-4 py-3 dark:border-slate-900 dark:bg-slate-900/30">
           <MCPTabSwitcher
             value={activeTab}
             installedCount={Object.keys(mcpServerConfig.mcpServers || {}).length}
@@ -398,61 +417,59 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           />
 
           {activeTab === 'local' && (
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 justify-end gap-2">
               <button
                 onClick={handleAddFromClipboard}
-                className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-150"
+                className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-[12px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800 transition-colors duration-150"
               >
                 <Clipboard className="h-3 w-3" />
                 From Clipboard
               </button>
-              <div className="flex items-center gap-2">
-                <Code className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
-                <Label
-                  htmlFor="edit-mode"
-                  className={cn(
-                    "text-[11px] font-medium transition-colors duration-150 cursor-pointer select-none",
-                    editMode === 'json'
-                      ? "text-gray-700 dark:text-gray-200"
-                      : "text-gray-400 dark:text-gray-500"
-                  )}
-                >
-                  JSON
-                </Label>
-                <Switch
-                  id="edit-mode"
-                  checked={editMode === 'json'}
-                  onCheckedChange={(checked) => setEditMode(checked ? 'json' : 'visual')}
-                  className="scale-90 data-[state=checked]:bg-gray-700 dark:data-[state=checked]:bg-gray-300"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => setEditMode(editMode === 'json' ? 'visual' : 'json')}
+                aria-pressed={editMode === 'json'}
+                className={cn(
+                  'h-8 px-2.5 flex items-center gap-1.5 rounded-md text-[12px] font-medium transition-colors duration-150',
+                  editMode === 'json'
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950'
+                    : 'text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                )}
+              >
+                <Code className="h-3.5 w-3.5" />
+                JSON
+              </button>
             </div>
           )}
 
           {activeTab === 'registry' && (
-            <div
-              className={cn(
-                'group/search relative flex-1 max-w-[280px] rounded-lg',
-                'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
-                'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
-                'transition-colors duration-200',
-                'focus-within:bg-white dark:focus-within:bg-slate-900'
-              )}
-            >
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/search:text-gray-500 dark:text-gray-500 dark:group-focus-within/search:text-gray-300" />
-              <Input
-                placeholder="Search registry… Enter"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none
-                  placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600
-                  focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                disabled={isFetching}
-              />
-              {isSearching && (
-                <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
-              )}
+            <div className="flex min-w-0 flex-1 justify-end">
+              <div
+                className={cn(
+                  'group/search relative flex-1 max-w-[300px] rounded-lg',
+                  'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
+                  'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
+                  'transition-colors duration-200',
+                  'focus-within:bg-white dark:focus-within:bg-slate-900'
+                )}
+              >
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 transition-colors group-focus-within/search:text-slate-500 dark:text-slate-500 dark:group-focus-within/search:text-slate-300" />
+                <Input
+                  placeholder="Search from registry"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                  className={cn(
+                    'h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none',
+                    'placeholder:text-slate-400/70 dark:text-slate-200 dark:placeholder:text-slate-600',
+                    'focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0'
+                  )}
+                  disabled={isFetching}
+                />
+                {isSearching && (
+                  <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-slate-400" />
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -485,15 +502,15 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           })}
 
           {!searchQuery && hasMore && (
-            <div className="flex justify-center pt-4 pb-2">
-              <button
-                onClick={loadMore}
-                disabled={isFetching}
-                className="h-8 px-5 flex items-center gap-2 rounded-lg text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/60 border border-gray-200 dark:border-gray-700/60 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
-              >
-                {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
-                {isFetching ? 'Loading…' : 'Load more'}
-              </button>
+            <div ref={loadMoreRef} className="flex justify-center pt-4 pb-2">
+              <span className="inline-flex h-8 items-center gap-2 rounded-md px-3 text-[12px] font-medium text-slate-400 dark:text-slate-500">
+                {isFetching ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Globe className="h-3.5 w-3.5" />
+                )}
+                {isFetching ? 'Loading more…' : 'Scroll for more'}
+              </span>
             </div>
           )}
         </MCPServersTabContent>
@@ -605,24 +622,24 @@ const MCPServersManager: React.FC<MCPServersManagerProps> = ({
 }) => {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh] flex flex-col bg-white dark:bg-neutral-950 border-gray-200 dark:border-gray-800 shadow-2xl">
-        <DrawerHeader className="border-b border-gray-100 dark:border-gray-900 px-6 py-4">
+      <DrawerContent className="max-h-[90vh] flex flex-col bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-2xl">
+        <DrawerHeader className="border-b border-slate-100 dark:border-slate-900 px-5 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-xl bg-gray-900 dark:bg-gray-100 flex items-center justify-center shadow-xs">
-                <Server className="h-5 w-5 text-white dark:text-black" />
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-700 dark:text-slate-200">
+                <Server className="h-4 w-4" />
               </div>
-              <div>
-                <DrawerTitle className="text-xl font-black tracking-tight text-gray-900 dark:text-neutral-50 uppercase">
-                  MCP Registry
+              <div className="min-w-0">
+                <DrawerTitle className="text-[15px] font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                  MCP Servers
                 </DrawerTitle>
-                <DrawerDescription className="text-xs font-semibold text-muted-foreground/60 tracking-wider">
-                  EXTEND YOUR WORKSPACE WITH MODEL CONTEXT PROTOCOL
+                <DrawerDescription className="truncate text-[12px] text-slate-500 dark:text-slate-400">
+                  Manage installed servers, registry discovery, and manual JSON configuration.
                 </DrawerDescription>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-              <i className="ri-close-line text-[18px] text-gray-500 dark:text-gray-400" />
+            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-md hover:bg-slate-100 dark:hover:bg-slate-900">
+              <i className="ri-close-line text-[18px] text-slate-500 dark:text-slate-400" />
             </Button>
           </div>
         </DrawerHeader>
@@ -634,12 +651,12 @@ const MCPServersManager: React.FC<MCPServersManagerProps> = ({
           />
         </div>
 
-        <DrawerFooter className="border-t border-gray-100 dark:border-gray-900 px-6 py-3 bg-gray-50/50 dark:bg-transparent">
+        <DrawerFooter className="border-t border-slate-100 dark:border-slate-900 px-5 py-3 bg-slate-50/60 dark:bg-slate-950">
           <div className="flex justify-end w-full">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg px-5 font-medium border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all h-8 text-[12px]"
+              className="rounded-lg px-5 font-medium border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all h-8 text-[12px]"
             >
               Close
             </Button>

@@ -5,6 +5,8 @@ import type { RegistryServerItem } from './MCPServersManager.types'
 import {
   AlertCircle,
   Check,
+  Copy,
+  Download,
   ExternalLink,
   Loader2,
   PackageOpen,
@@ -184,13 +186,13 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
             </div>
 
             {mode === 'registry' && isInstalled ? (
-              <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-emerald-50 px-1.5 text-[9.5px] font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
-                <Check className="h-2.5 w-2.5" />
+              <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md bg-emerald-50 px-2 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                <Check className="h-3 w-3" />
                 Added
               </span>
             ) : (
               <span className={cn(
-                'inline-flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 text-[9.5px] font-medium',
+                'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium',
                 runtimeMeta.tone,
                 runtimeMeta.background
               )}>
@@ -244,7 +246,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
               </span>
             )}
             {typeof toolCount === 'number' && isInstalled && (
-              <span className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md bg-slate-100 px-1.5 text-[9.5px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              <span className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md bg-white px-1.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
                 <SquareTerminal className="h-2.5 w-2.5" />
                 {toolCount} tools
               </span>
@@ -266,8 +268,9 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
               ) : (
                 <button
                   onClick={props.onInstall}
-                  className="h-6 rounded-md bg-slate-900 px-2.5 text-[10.5px] font-medium text-white transition-colors duration-150 hover:bg-slate-700 active:scale-[0.97] dark:bg-blue-900 dark:hover:bg-blue-800"
+                  className="h-6 rounded-md bg-slate-900 px-2.5 inline-flex items-center gap-1.5 text-[10.5px] font-medium text-white transition-colors duration-150 hover:bg-slate-700 active:scale-[0.97] dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
                 >
+                  <Download className="h-3 w-3" />
                   Install
                 </button>
               )
@@ -275,9 +278,10 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
               <>
                 <button
                   onClick={props.onCopyConfig}
-                  className="h-6 rounded-md px-2 text-[10.5px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  className="h-6 rounded-md px-2 inline-flex items-center gap-1.5 text-[10.5px] font-medium text-slate-500 transition-colors hover:bg-white hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   title="Copy JSON configuration"
                 >
+                  <Copy className="h-3 w-3" />
                   Copy
                 </button>
 
