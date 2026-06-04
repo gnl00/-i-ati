@@ -6,6 +6,7 @@ import {
   invokeCheckIsDirectory,
   invokeDeleteSkill,
   invokeImportSkills,
+  invokeOpenPath,
   invokeRevealSkillInFolder,
   invokeSelectDirectory
 } from '@renderer/invoker/ipcInvoker'
@@ -162,6 +163,19 @@ const SkillsManager: React.FC = () => {
     updateFolders(folders.filter(item => item !== folder))
   }
 
+  const handleOpenFolder = async (folder: string): Promise<void> => {
+    try {
+      const result = await invokeOpenPath(folder)
+      if (!result.success) {
+        toast.error(result.error || 'Failed to open folder')
+        return
+      }
+    } catch (error: any) {
+      console.error('[SkillsManager] Failed to open folder:', error)
+      toast.error(error?.message || 'Failed to open folder')
+    }
+  }
+
   const scanAllFolders = async (): Promise<void> => {
     if (folders.length === 0) return
     setPendingFolders(new Set(folders))
@@ -301,9 +315,18 @@ const SkillsManager: React.FC = () => {
                   const display = getFolderDisplayParts(folder)
                   return (
                     <div
+                      role="button"
+                      tabIndex={0}
                       key={folder}
                       title={folder}
-                      className="group/f flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/60 max-w-[240px] transition-colors duration-150 hover:border-gray-300 dark:hover:border-gray-600"
+                      onClick={() => void handleOpenFolder(folder)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          void handleOpenFolder(folder)
+                        }
+                      }}
+                      className="group/f flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/60 max-w-[240px] cursor-pointer transition-colors duration-150 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/40"
                     >
                       <i className={`ri-folder-3-line text-[12px] shrink-0 ${isPending ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`} />
                       <span className="min-w-0 flex items-baseline gap-1 truncate font-mono text-[10.5px]">
@@ -325,7 +348,12 @@ const SkillsManager: React.FC = () => {
                         <span className="text-[9px] text-amber-500 shrink-0 pr-1">…</span>
                       ) : (
                         <button
-                          onClick={() => handleRemoveFolder(folder)}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleRemoveFolder(folder)
+                          }}
                           className="h-4 w-4 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover/f:opacity-100 transition-all duration-150 shrink-0"
                           aria-label="Remove folder"
                         >
