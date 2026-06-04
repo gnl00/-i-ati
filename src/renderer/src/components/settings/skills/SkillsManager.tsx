@@ -401,7 +401,7 @@ const SkillsManager: React.FC = () => {
             >
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/skill-search:text-gray-500 dark:text-gray-500 dark:group-focus-within/skill-search:text-gray-300" />
               <Input
-                placeholder="Search skills... Enter to search"
+                placeholder="Search installed skills"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none
