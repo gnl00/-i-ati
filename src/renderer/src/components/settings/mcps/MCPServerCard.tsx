@@ -1,6 +1,10 @@
 import React from 'react'
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
 import { cn } from '@renderer/lib/utils'
+import {
+  settingsOutlineButtonClassName,
+  settingsPrimaryButtonClassName
+} from '../common/SettingsLayout'
 import type { RegistryServerItem } from './MCPServersManager.types'
 import {
   AlertCircle,
@@ -48,12 +52,12 @@ export type MCPServerCardMode = 'registry' | 'installed'
 export type MCPServerCardProps = RegistryMCPServerCardProps | InstalledMCPServerCardProps
 
 const getConnectionTone = (connectionType?: string): string => {
-  if (!connectionType) return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+  if (!connectionType) return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
   if (connectionType === 'sse') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-200'
   if (connectionType === 'npm') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-200'
   if (connectionType === 'STDIO') return 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200'
   if (connectionType === 'streamableHttp') return 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-200'
-  return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+  return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
 }
 
 const getRuntimeMeta = (
@@ -100,9 +104,9 @@ const getRuntimeMeta = (
     default:
       return {
         label: 'Idle',
-        tone: 'text-slate-500 dark:text-slate-400',
+        tone: 'text-gray-500 dark:text-gray-400',
         icon: <PackageOpen className="h-2.5 w-2.5" />,
-        background: 'bg-slate-100 dark:bg-slate-800'
+        background: 'bg-gray-100 dark:bg-gray-700'
       }
   }
 }
@@ -156,9 +160,9 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
     <div
       className={cn(
         'group relative overflow-hidden rounded-xl border transition-all duration-200',
-        'bg-white dark:bg-slate-950',
-        'border-slate-100 dark:border-slate-800',
-        'hover:bg-slate-50/70 hover:shadow-xs dark:hover:bg-slate-900/60'
+        'bg-white dark:bg-gray-800',
+        'border-gray-200 dark:border-gray-700',
+        'hover:bg-gray-50/70 hover:shadow-xs dark:hover:bg-gray-700/40'
       )}
       style={animationDelay !== undefined ? {
         animationDelay: `${animationDelay}ms`,
@@ -171,16 +175,16 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-0.5">
               <div className="flex min-w-0 items-baseline gap-1.5">
-                <h4 className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                <h4 className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">
                   {displayName}
                 </h4>
                 {version && (
-                  <span className="shrink-0 rounded-sm bg-slate-100 px-1.5 text-[9.5px] font-medium leading-4 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  <span className="shrink-0 rounded-sm bg-gray-100 px-1.5 text-[9.5px] font-medium leading-4 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
                     v{version}
                   </span>
                 )}
               </div>
-              <p className="truncate font-mono text-[10px] tracking-tight text-slate-400 dark:text-slate-500">
+              <p className="truncate font-mono text-[10px] tracking-tight text-gray-400 dark:text-gray-500">
                 @{name}
               </p>
             </div>
@@ -207,7 +211,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
               href={repository.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-w-0 items-center gap-1 text-[11px] leading-5 text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              className="inline-flex min-w-0 items-center gap-1 text-[11px] leading-5 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={(e) => e.stopPropagation()}
             >
               <ExternalLink className="h-3 w-3 shrink-0" />
@@ -215,13 +219,13 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
             </a>
           ) : mode === 'installed' && configDisplay ? (
             <code
-              className="block min-w-0 truncate font-mono text-[10.5px] leading-5 text-slate-500 dark:text-slate-400"
+              className="block min-w-0 truncate font-mono text-[10.5px] leading-5 text-gray-500 dark:text-gray-400"
               title={configDisplay}
             >
               {detailText}
             </code>
           ) : (
-            <span className="line-clamp-1 text-[11.5px] leading-5 text-slate-500 dark:text-slate-400">
+            <span className="line-clamp-1 text-[11.5px] leading-5 text-gray-500 dark:text-gray-400">
               {detailText}
             </span>
           )}
@@ -233,7 +237,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
           )}
         </div>
 
-        <div className="mt-auto flex min-w-0 items-center justify-between gap-3 bg-slate-50/80 px-3 py-2 transition-colors duration-200 group-hover:bg-slate-100/70 dark:bg-slate-900/70 dark:group-hover:bg-slate-900">
+        <div className="mt-auto flex min-w-0 items-center justify-between gap-3 bg-gray-50/80 px-3 py-2 transition-colors duration-200 group-hover:bg-gray-100/70 dark:bg-gray-900/40 dark:group-hover:bg-gray-900/60">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {connectionType && (
               <span
@@ -246,7 +250,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
               </span>
             )}
             {typeof toolCount === 'number' && isInstalled && (
-              <span className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md bg-white px-1.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
+              <span className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md bg-white px-1.5 text-[10px] font-medium text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700">
                 <SquareTerminal className="h-2.5 w-2.5" />
                 {toolCount} tools
               </span>
@@ -268,7 +272,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
               ) : (
                 <button
                   onClick={props.onInstall}
-                  className="h-6 rounded-md bg-slate-900 px-2.5 inline-flex items-center gap-1.5 text-[10.5px] font-medium text-white transition-colors duration-150 hover:bg-slate-700 active:scale-[0.97] dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                  className={cn(settingsPrimaryButtonClassName, 'h-6 px-2.5 text-[10.5px]')}
                 >
                   <Download className="h-3 w-3" />
                   Install
@@ -278,7 +282,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
               <>
                 <button
                   onClick={props.onCopyConfig}
-                  className="h-6 rounded-md px-2 inline-flex items-center gap-1.5 text-[10.5px] font-medium text-slate-500 transition-colors hover:bg-white hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  className={cn(settingsOutlineButtonClassName, 'h-6 px-2 text-[10.5px] border-transparent')}
                   title="Copy JSON configuration"
                 >
                   <Copy className="h-3 w-3" />

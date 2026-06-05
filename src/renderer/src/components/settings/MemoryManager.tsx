@@ -5,6 +5,16 @@ import { Label } from '@renderer/components/ui/label'
 import { Switch } from '@renderer/components/ui/switch'
 import { toast } from 'sonner'
 import { MEMORY_DELETE, MEMORY_GET_ALL } from '@shared/constants'
+import {
+  SettingsEmptyState,
+  SettingsList,
+  SettingsListItem,
+  SettingsPageShell,
+  SettingsSectionHeader,
+  SettingsToolbar,
+  SettingsToolbarLabel,
+  settingsSecondaryButtonClassName
+} from './common/SettingsLayout'
 
 interface MemoryManagerProps {
   memoryEnabled: boolean
@@ -73,103 +83,82 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
   }, [])
 
   return (
-    <div className="w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0">
-      <div className="w-full h-full p-1 pr-2">
-        <div className="h-full bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden flex flex-col">
+    <SettingsPageShell>
+      <SettingsSectionHeader
+        title={(
+          <Label htmlFor="toggle-memory" className="cursor-default">
+            Long-term Memory
+          </Label>
+        )}
+        badges={(
+          <>
+            <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-indigo-600 border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800">
+              MEMORY
+            </Badge>
+          </>
+        )}
+        description="Semantic memory storage and retrieval using vector embeddings. Remembers important context across conversations."
+        actions={(
+          <Switch
+            checked={memoryEnabled}
+            onCheckedChange={setMemoryEnabled}
+            id="toggle-memory"
+            className="data-[state=checked]:bg-indigo-600 mt-0.5 shrink-0"
+          />
+        )}
+      />
 
-          {/* ── Header ─────────────────────────────────────────── */}
-          <div className="px-4 py-4 flex items-start justify-between gap-3">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="toggle-memory" className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
-                  Long-term Memory
-                </Label>
-                {memoryItems.length > 0 && (
-                  <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-indigo-600 border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800">
-                    {memoryItems.length} stored
-                  </Badge>
-                )}
-              </div>
-              <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                Semantic memory storage and retrieval using vector embeddings. Remembers important context across conversations.
-              </p>
-            </div>
-            <Switch
-              checked={memoryEnabled}
-              onCheckedChange={setMemoryEnabled}
-              id="toggle-memory"
-              className="data-[state=checked]:bg-indigo-600 mt-0.5 shrink-0"
-            />
-          </div>
+      <SettingsToolbar className="flex items-center justify-between gap-3">
+        <SettingsToolbarLabel>Stored Memories ({memoryItems.length} stored)</SettingsToolbarLabel>
+        <button
+          onClick={loadMemories}
+          disabled={isMemoryLoading}
+          className={settingsSecondaryButtonClassName}
+        >
+          <i className={`ri-refresh-line text-[12px] ${isMemoryLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </SettingsToolbar>
 
-          {/* ── List header ─────────────────────────────────────── */}
-          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 bg-gray-50/40 dark:bg-gray-900/20 flex items-center justify-between gap-3">
-            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              Stored Memories
-            </span>
-            <button
-              onClick={loadMemories}
-              disabled={isMemoryLoading}
-              className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
-            >
-              <i className={`ri-refresh-line text-[12px] ${isMemoryLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-
-          {/* ── Memory list ─────────────────────────────────────── */}
-          <div className="border-t border-gray-100 dark:border-gray-700/50 flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-            {memoryItems.length === 0 ? (
-              <div className="py-10 flex flex-col items-center gap-2.5 text-center">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                  <i className="ri-brain-line text-[15px] text-gray-400 dark:text-gray-500" />
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">
-                    {isMemoryLoading ? 'Loading memories…' : 'No memories stored'}
-                  </p>
-                  {!isMemoryLoading && (
-                    <p className="text-[11.5px] text-gray-400 dark:text-gray-500">
-                      Enable memory above and start a conversation.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              memoryItems.map(item => {
-                const role = roleMeta[item.role] ?? roleMeta.system
-                return (
-                  <div
-                    key={item.id}
-                    className="group flex items-start gap-3 px-4 py-3.5 border-b border-gray-100 dark:border-gray-800/70 last:border-b-0 hover:bg-white/70 dark:hover:bg-gray-800/40 transition-colors duration-150"
-                  >
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium border ${role.className}`}>
-                          {role.label}
-                        </span>
-                        <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                          {new Date(item.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="text-[12px] text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2">
-                        {item.context_origin}
-                      </p>
-                    </div>
-                    <InlineDeleteConfirm
-                      onConfirm={() => handleDeleteMemory(item.id)}
-                      ariaLabel="Delete memory"
-                      revealOnGroupHover
-                    />
+      <SettingsList className="bg-transparent dark:bg-transparent">
+        {memoryItems.length === 0 ? (
+          <SettingsEmptyState
+            icon={<i className="ri-brain-line text-[15px] text-gray-400 dark:text-gray-500" />}
+            title={isMemoryLoading ? 'Loading memories…' : 'No memories stored'}
+            description={isMemoryLoading ? undefined : 'Enable memory above and start a conversation.'}
+          />
+        ) : (
+          memoryItems.map(item => {
+            const role = roleMeta[item.role] ?? roleMeta.system
+            return (
+              <SettingsListItem
+                key={item.id}
+                className="gap-3"
+              >
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium border ${role.className}`}>
+                      {role.label}
+                    </span>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </span>
                   </div>
-                )
-              })
-            )}
-          </div>
-
-        </div>
-      </div>
-    </div>
+                  <p className="text-[12px] text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2">
+                    {item.context_origin}
+                  </p>
+                </div>
+                <InlineDeleteConfirm
+                  onConfirm={() => handleDeleteMemory(item.id)}
+                  ariaLabel="Delete memory"
+                  revealOnGroupHover
+                />
+              </SettingsListItem>
+            )
+          })
+        )}
+      </SettingsList>
+    </SettingsPageShell>
   )
 }
 

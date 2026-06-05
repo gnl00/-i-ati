@@ -24,6 +24,16 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
+import {
+  SettingsEmptyState,
+  SettingsList,
+  SettingsListItem,
+  SettingsPageShell,
+  SettingsSectionHeader,
+  SettingsToolbar,
+  settingsPrimaryButtonClassName,
+  settingsSecondaryButtonClassName
+} from '../common/SettingsLayout'
 
 type ImportSkillsResult = {
   installed: SkillMetadata[]
@@ -268,31 +278,24 @@ const SkillsManager: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-[700px] h-[600px] overflow-x-hidden focus:ring-0 focus-visible:ring-0">
-      <div className="w-full h-full min-w-0 p-1 pr-2">
-        <div className="h-full min-w-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden flex flex-col">
-
-          {/* ── Header ─────────────────────────────────────────── */}
-          <div className="px-4 py-4 flex items-start justify-between gap-3 min-w-0">
-            <div className="space-y-1.5 min-w-0 flex-1">
-              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
-                  Skills
-                </Label>
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-500 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                  {skills.length} available
+    <SettingsPageShell>
+      <SettingsSectionHeader
+        title={<Label className="cursor-default">Skills</Label>}
+          badges={(
+            <>
+              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-500 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                {skills.length} available
+              </Badge>
+              {activeCount > 0 && (
+                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                  {activeCount} active
                 </Badge>
-                {activeCount > 0 && (
-                  <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                    {activeCount} active
-                  </Badge>
-                )}
-              </div>
-              <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed break-words">
-                Manage skill folders and toggle skills for the current chat.
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+              )}
+            </>
+          )}
+          description="Manage skill folders and toggle skills for the current chat."
+          actions={(
+            <>
               <TooltipProvider delayDuration={400}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -300,7 +303,7 @@ const SkillsManager: React.FC = () => {
                       <button
                         onClick={scanAllFolders}
                         disabled={folders.length === 0 || pendingFolders.size > 0}
-                        className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
+                        className={settingsSecondaryButtonClassName}
                         aria-label="Rescan skill folders"
                       >
                         <i className="ri-folder-history-line text-[12px]" />
@@ -315,248 +318,234 @@ const SkillsManager: React.FC = () => {
               </TooltipProvider>
               <button
                 onClick={handleAddFolder}
-                className="h-7 px-3 flex items-center gap-1.5 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10"
+                className={settingsPrimaryButtonClassName}
               >
                 <i className="ri-folder-add-line text-[12px]" />
                 Add Folder
               </button>
-            </div>
-          </div>
+            </>
+          )}
+        />
 
-          {/* ── Folders strip ───────────────────────────────────── */}
-          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 bg-gray-50/40 dark:bg-gray-900/20 flex items-center gap-2 flex-wrap min-h-[40px] min-w-0 overflow-x-hidden">
-            {folders.length === 0 ? (
-              <span className="text-[11px] text-gray-400/70 dark:text-gray-600 italic">
-                No folders added — click Add Folder to scan for skills.
-              </span>
-            ) : (
-              <>
-                {folders.map(folder => {
-                  const isPending = pendingFolders.has(folder)
-                  const display = getFolderDisplayParts(folder)
-                  return (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      key={folder}
-                      title={folder}
-                      onClick={() => void handleOpenFolder(folder)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          void handleOpenFolder(folder)
-                        }
-                      }}
-                      className="group/f flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/60 max-w-[240px] cursor-pointer transition-colors duration-150 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/40"
-                    >
-                      <i className={`ri-folder-3-line text-[12px] shrink-0 ${isPending ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`} />
-                      <span className="min-w-0 flex items-baseline gap-1 truncate font-mono text-[10.5px]">
-                        {display.parent && (
-                          <span className="truncate text-gray-400 dark:text-gray-500">
-                            {display.parent}
-                          </span>
-                        )}
-                        {display.parent && (
-                          <span className="shrink-0 text-gray-300 dark:text-gray-600">
-                            /
-                          </span>
-                        )}
-                        <span className="truncate text-gray-700 dark:text-gray-200">
-                          {display.name}
-                        </span>
-                      </span>
-                      {isPending ? (
-                        <span className="text-[9px] text-amber-500 shrink-0 pr-1">…</span>
-                      ) : (
-                        <button
-                          onPointerDown={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            handleRemoveFolder(folder)
-                          }}
-                          className="h-4 w-4 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover/f:opacity-100 transition-all duration-150 shrink-0"
-                          aria-label="Remove folder"
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </>
-            )}
-          </div>
-
-          {/* ── Search ──────────────────────────────────────────── */}
-          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 flex items-center gap-2 min-w-0">
-            <div
-              className={cn(
-                'group/skill-search relative flex-1 min-w-0 rounded-lg',
-                'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
-                'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
-                'transition-colors duration-200',
-                'focus-within:bg-white dark:focus-within:bg-slate-900'
-              )}
-            >
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/skill-search:text-gray-500 dark:text-gray-500 dark:group-focus-within/skill-search:text-gray-300" />
-              <Input
-                placeholder="Search installed skills"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none
-                  placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600
-                  focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-            <TooltipProvider delayDuration={400}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex shrink-0">
-                    <button
-                      onClick={refreshSkills}
-                      disabled={isRefreshing}
-                      className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 disabled:opacity-40 transition-all duration-150"
-                      aria-label="Reload skills list"
-                    >
-                      <i className={`ri-refresh-line text-[12px] ${isRefreshing ? 'animate-spin' : ''}`} />
-                      Reload
-                    </button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent className={SKILL_TOOLTIP_CLASS_NAME}>
-                  <p className="font-medium">Refresh the currently loaded skills list.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          {/* ── Skills list ─────────────────────────────────────── */}
-          <div className="border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/40 dark:bg-gray-900/30 flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-
-              {filteredSkills.length === 0 && (
-                <div className="py-10 flex flex-col items-center gap-2.5 text-center">
-                  {searchQuery ? (
-                    <>
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                        <Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No skills match</p>
-                        <p className="text-[11.5px] text-gray-400 dark:text-gray-500">
-                          Try a different keyword or{' '}
-                          <button
-                            onClick={() => setSearchQuery('')}
-                            className="underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                          >
-                            clear search
-                          </button>
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                        <i className="ri-magic-line text-[15px] text-gray-400 dark:text-gray-500" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No skills available</p>
-                        <p className="text-[11.5px] text-gray-400 dark:text-gray-500">Add a folder above to scan for skills.</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {filteredSkills.map(skill => {
-                const isActive = activeSkills.includes(skill.name)
-                const isBuiltIn = skill.source === 'built-in'
+        <SettingsToolbar className="flex items-center gap-2 flex-wrap min-h-[40px] min-w-0 overflow-x-hidden">
+          {folders.length === 0 ? (
+            <span className="text-[11px] text-gray-400/70 dark:text-gray-600 italic">
+              No folders added — click Add Folder to scan for skills.
+            </span>
+          ) : (
+            <>
+              {folders.map(folder => {
+                const isPending = pendingFolders.has(folder)
+                const display = getFolderDisplayParts(folder)
                 return (
                   <div
-                    key={skill.name}
-                    className="group flex w-full min-w-0 items-start justify-between gap-4 px-4 py-3.5 border-b border-gray-100 dark:border-gray-800/70 last:border-b-0 hover:bg-white/70 dark:hover:bg-gray-800/40 transition-colors duration-150"
+                    role="button"
+                    tabIndex={0}
+                    key={folder}
+                    title={folder}
+                    onClick={() => void handleOpenFolder(folder)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        void handleOpenFolder(folder)
+                      }
+                    }}
+                    className="group/f flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/60 max-w-[240px] cursor-pointer transition-colors duration-150 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/40"
                   >
-                    <div className="flex-1 space-y-1.5 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 tracking-tight">
-                          {skill.name}
+                    <i className={`ri-folder-3-line text-[12px] shrink-0 ${isPending ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`} />
+                    <span className="min-w-0 flex items-baseline gap-1 truncate font-mono text-[10.5px]">
+                      {display.parent && (
+                        <span className="truncate text-gray-400 dark:text-gray-500">
+                          {display.parent}
                         </span>
-                        {isActive && (
-                          <Badge variant="secondary" className="text-[9.5px] h-[18px] px-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-0">
-                            Active
-                          </Badge>
-                        )}
-                        {isBuiltIn && (
-                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-600 border-gray-200/80 bg-white/80 dark:bg-gray-800/80 dark:text-gray-300 dark:border-gray-700/70">
-                            Built-in
-                          </Badge>
-                        )}
-                        {skill.allowedTools && skill.allowedTools.length > 0 && (
-                          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200/80 bg-blue-50/80 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/60">
-                            {skill.allowedTools.length} tools
-                          </Badge>
-                        )}
-                      </div>
-                      {skill.description && (
-                        <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed break-words">
-                          {skill.description}
-                        </p>
                       )}
-                      {skill.allowedTools && skill.allowedTools.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-0.5 min-w-0 max-w-full">
-                          {skill.allowedTools.map(tool => (
-                            <span
-                              key={tool}
-                              className="inline-flex max-w-full break-all px-1.5 py-0.5 rounded font-mono text-[9.5px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700/60"
-                            >
-                              {tool}
-                            </span>
-                          ))}
-                        </div>
+                      {display.parent && (
+                        <span className="shrink-0 text-gray-300 dark:text-gray-600">
+                          /
+                        </span>
                       )}
-                      {skill.compatibility && (
-                        <p className="text-[10.5px] text-gray-400 dark:text-gray-500 italic break-words">
-                          {skill.compatibility}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="truncate text-gray-700 dark:text-gray-200">
+                        {display.name}
+                      </span>
+                    </span>
+                    {isPending ? (
+                      <span className="text-[9px] text-amber-500 shrink-0 pr-1">…</span>
+                    ) : (
                       <button
-                        type="button"
-                        onClick={() => void handleRevealSkill(skill.name)}
-                        className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-150"
-                        aria-label={`Show ${skill.name} in folder`}
-                        title="Show in folder"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleRemoveFolder(folder)
+                        }}
+                        className="h-4 w-4 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover/f:opacity-100 transition-all duration-150 shrink-0"
+                        aria-label="Remove folder"
                       >
-                        <FolderOpen className="h-3.5 w-3.5" />
+                        <X className="h-2.5 w-2.5" />
                       </button>
-                      {!isBuiltIn && (
-                        <InlineDeleteConfirm
-                          onConfirm={() => handleDeleteSkill(skill.name)}
-                          ariaLabel="Remove skill"
-                          revealOnGroupHover
-                        />
-                      )}
-                    </div>
+                    )}
                   </div>
                 )
               })}
+            </>
+          )}
+        </SettingsToolbar>
 
+        <SettingsToolbar className="flex items-center gap-2 min-w-0 bg-transparent dark:bg-transparent">
+          <div
+            className={cn(
+              'group/skill-search relative flex-1 min-w-0 rounded-lg',
+              'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
+              'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
+              'transition-colors duration-200',
+              'focus-within:bg-white dark:focus-within:bg-slate-900'
+            )}
+          >
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/skill-search:text-gray-500 dark:text-gray-500 dark:group-focus-within/skill-search:text-gray-300" />
+            <Input
+              placeholder="Search installed skills"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none
+                  placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600
+                  focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
+          <TooltipProvider delayDuration={400}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex shrink-0">
+                  <button
+                    onClick={refreshSkills}
+                    disabled={isRefreshing}
+                    className={cn(settingsSecondaryButtonClassName, 'h-8')}
+                    aria-label="Reload skills list"
+                  >
+                    <i className={`ri-refresh-line text-[12px] ${isRefreshing ? 'animate-spin' : ''}`} />
+                    Reload
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className={SKILL_TOOLTIP_CLASS_NAME}>
+                <p className="font-medium">Refresh the currently loaded skills list.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </SettingsToolbar>
 
-        </div>
-      </div>
-    </div>
+      <SettingsList>
+
+          {filteredSkills.length === 0 && (
+            <>
+              {searchQuery ? (
+                <SettingsEmptyState
+                  icon={<Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />}
+                  title="No skills match"
+                >
+                  <p className="text-[11.5px] text-gray-400 dark:text-gray-500">
+                    Try a different keyword or{' '}
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    >
+                      clear search
+                    </button>
+                  </p>
+                </SettingsEmptyState>
+              ) : (
+                <SettingsEmptyState
+                  icon={<i className="ri-magic-line text-[15px] text-gray-400 dark:text-gray-500" />}
+                  title="No skills available"
+                  description="Add a folder above to scan for skills."
+                />
+              )}
+            </>
+          )}
+
+          {filteredSkills.map(skill => {
+            const isActive = activeSkills.includes(skill.name)
+            const isBuiltIn = skill.source === 'built-in'
+            return (
+              <SettingsListItem
+                key={skill.name}
+              >
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                      {skill.name}
+                    </span>
+                    {isActive && (
+                      <Badge variant="secondary" className="text-[9.5px] h-[18px] px-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-0">
+                        Active
+                      </Badge>
+                    )}
+                    {isBuiltIn && (
+                      <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-600 border-gray-200/80 bg-white/80 dark:bg-gray-800/80 dark:text-gray-300 dark:border-gray-700/70">
+                        Built-in
+                      </Badge>
+                    )}
+                    {skill.allowedTools && skill.allowedTools.length > 0 && (
+                      <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200/80 bg-blue-50/80 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/60">
+                        {skill.allowedTools.length} tools
+                      </Badge>
+                    )}
+                  </div>
+                  {skill.description && (
+                    <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed break-words">
+                      {skill.description}
+                    </p>
+                  )}
+                  {skill.allowedTools && skill.allowedTools.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5 min-w-0 max-w-full">
+                      {skill.allowedTools.map(tool => (
+                        <span
+                          key={tool}
+                          className="inline-flex max-w-full break-all px-1.5 py-0.5 rounded font-mono text-[9.5px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700/60"
+                        >
+                          {tool}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {skill.compatibility && (
+                    <p className="text-[10.5px] text-gray-400 dark:text-gray-500 italic break-words">
+                      {skill.compatibility}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => void handleRevealSkill(skill.name)}
+                    className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-150"
+                    aria-label={`Show ${skill.name} in folder`}
+                    title="Show in folder"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                  </button>
+                  {!isBuiltIn && (
+                    <InlineDeleteConfirm
+                      onConfirm={() => handleDeleteSkill(skill.name)}
+                      ariaLabel="Remove skill"
+                      revealOnGroupHover
+                    />
+                  )}
+                </div>
+              </SettingsListItem>
+            )
+          })}
+        </SettingsList>
+    </SettingsPageShell>
   )
 }
 

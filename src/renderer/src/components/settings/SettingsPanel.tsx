@@ -1,5 +1,6 @@
 import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
 import { Tabs, TabsContent } from "@renderer/components/ui/tabs"
+import { cn } from '@renderer/lib/utils'
 import React, { useEffect, useRef, useState } from 'react'
 
 import { Badge } from '@renderer/components/ui/badge'
@@ -17,6 +18,11 @@ import ToolsManager from './ToolsManager'
 import SkillsManager from './skills/SkillsManager'
 import PluginsManager from './PluginsManager'
 import DataAndLogManager from './DataAndLogManager'
+import {
+    SettingsLoadingState,
+    SettingsPageShell,
+    settingsPrimaryButtonClassName
+} from './common/SettingsLayout'
 
 interface PreferenceProps { }
 
@@ -244,143 +250,148 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const hasUnsavedChanges = toolsDirty || knowledgebaseDirty || compressionDirty || mcpDirty || pluginsDirty
 
     return (
-        <div className="grid gap-4 w-full min-w-0">
-            <div className="flex items-start justify-between gap-4 min-w-0">
-                <div id="title" className="space-y-2 select-none min-w-0 flex-1">
-                    <h4 className="font-medium leading-none space-x-2 text-gray-900 dark:text-gray-100">
-                        <span>@i</span>
-                        <Badge variant="secondary" className='bg-slate-100 dark:bg-slate-800 text-gray-800 dark:text-gray-200'>{appVersion}</Badge>
-                    </h4>
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">Shape how @i works and connects.</p>
-                </div>
-                <div id="changes-indicator" className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-linear-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-xs shrink-0">
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex h-1.5 w-1.5">
-                            {hasUnsavedChanges && (
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                            )}
-                            <span className={hasUnsavedChanges
-                                ? "relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"
-                                : "relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"
-                            }></span>
-                        </div>
-                        <span className='text-xs font-medium text-gray-600 dark:text-gray-300 select-none'>
-                            {hasUnsavedChanges ? 'Unsaved changes' : 'All saved'}
-                        </span>
-                    </div>
-                    <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
-                    <Button
-                        size="lg"
-                        onClick={saveConfigurationClick}
-                        disabled={!hasUnsavedChanges}
-                        className="h-7 px-3 py-4 bg-gray-900 rounded-3xl hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-50 text-white dark:text-gray-900 shadow-xs hover:shadow-md active:scale-90 transition-all duration-300 scale-105 font-medium will-change-transform"
-                    >
-                        <i className="ri-save-line mr-1.5 text-sm"></i>
-                        Save
-                    </Button>
-                </div>
-            </div>
+        <div className="w-full max-w-[700px] min-w-0 overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list" className="w-full min-w-0">
-                <div className="flex items-center justify-between mb-2 min-w-0">
-                    <AnimatedTabsList
-                        tabs={preferenceTabs}
-                        value={activeTab}
-                        scrollable
-                        autoScrollActive
-                        className="flex-1 min-w-0"
-                        tabsListClassName="h-10 shadow-xs border border-gray-200/50 dark:border-gray-700/50"
-                    />
-                </div>
-
-                <TabsContent value="provider-list">
-                    <ProvidersManager plugins={plugins} />
-                </TabsContent>
-
-                <TabsContent value="tools">
-                    <ToolsManager
-                        maxWebSearchItems={maxWebSearchItems}
-                        setMaxWebSearchItems={setMaxWebSearchItems}
-                        telegramEnabled={telegramEnabled}
-                        setTelegramEnabled={setTelegramEnabled}
-                        telegramBotToken={telegramBotToken}
-                        setTelegramBotToken={setTelegramBotToken}
-                        emotionAssetPack={emotionAssetPack}
-                        setEmotionAssetPack={setEmotionAssetPack}
-                        compressionEnabled={compressionEnabled}
-                        setCompressionEnabled={setCompressionEnabled}
-                        compressionTriggerTokenRatio={compressionTriggerTokenRatio}
-                        setCompressionTriggerTokenRatio={setCompressionTriggerTokenRatio}
-                    />
-                </TabsContent>
-
-                <TabsContent value="memory">
-                    <MemoryManager
-                        memoryEnabled={memoryEnabled}
-                        setMemoryEnabled={setMemoryEnabled}
-                    />
-                </TabsContent>
-
-                <TabsContent value="knowledgebase">
-                    <KnowledgebaseManager
-                        enabled={knowledgebaseEnabled}
-                        setEnabled={setKnowledgebaseEnabled}
-                        folders={knowledgebaseFolders}
-                        setFolders={setKnowledgebaseFolders}
-                        retrievalMode={knowledgebaseRetrievalMode}
-                        setRetrievalMode={setKnowledgebaseRetrievalMode}
-                        autoIndexOnStartup={knowledgebaseAutoIndexOnStartup}
-                        setAutoIndexOnStartup={setKnowledgebaseAutoIndexOnStartup}
-                        chunkSize={knowledgebaseChunkSize}
-                        setChunkSize={setKnowledgebaseChunkSize}
-                        chunkOverlap={knowledgebaseChunkOverlap}
-                        setChunkOverlap={setKnowledgebaseChunkOverlap}
-                        maxResults={knowledgebaseMaxResults}
-                        setMaxResults={setKnowledgebaseMaxResults}
-                    />
-                </TabsContent>
-
-                <TabsContent value="mcp-servers" className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
-                    <div className="w-full h-full bg-gray-50 dark:bg-gray-900 p-2 rounded-md">
-                        <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-                            {!mcpConfigLoaded ? (
-                                <div className="w-full h-full flex items-center justify-center text-[12px] text-gray-400 dark:text-gray-500">
-                                    Loading MCP configuration...
+                <div className="w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xs">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3">
+                        <div id="title" className="min-w-[180px] flex-1 select-none space-y-1.5">
+                            <h4 className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold leading-none tracking-tight text-gray-900 dark:text-gray-100">
+                                <span className="truncate">@i Settings</span>
+                                <Badge variant="secondary" className="h-5 shrink-0 rounded-md bg-gray-100 px-1.5 text-[10.5px] font-medium text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+                                    {appVersion}
+                                </Badge>
+                            </h4>
+                            <p className="text-[12px] leading-relaxed text-gray-400 dark:text-gray-500">
+                                Shape how @i works and connects.
+                            </p>
+                        </div>
+                        <div id="changes-indicator" className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/35 px-2 py-1.5">
+                            <div className="flex h-7 min-w-0 items-center gap-2 px-1">
+                                <div className="relative flex h-1.5 w-1.5 shrink-0">
+                                    {hasUnsavedChanges && (
+                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                                    )}
+                                    <span className={hasUnsavedChanges
+                                        ? "relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500"
+                                        : "relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400"
+                                    }></span>
                                 </div>
-                            ) : (
-                                <MCPServersManagerContent
-                                    mcpServerConfig={mcpServerConfig}
-                                    setMcpServerConfig={setMcpServerConfig}
-                                />
-                            )}
+                                <span className="select-none truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                    {hasUnsavedChanges ? 'Unsaved changes' : 'All saved'}
+                                </span>
+                            </div>
+                            <div className="hidden h-4 w-px bg-gray-200 dark:bg-gray-700 sm:block"></div>
+                            <Button
+                                size="sm"
+                                onClick={saveConfigurationClick}
+                                disabled={!hasUnsavedChanges}
+                                className={cn(settingsPrimaryButtonClassName, 'h-7 rounded-md px-3 py-0 shadow-none')}
+                            >
+                                <i className="ri-save-line text-[13px]"></i>
+                                Save
+                            </Button>
                         </div>
                     </div>
-                </TabsContent>
+                    <div className="min-w-0 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/25 p-1">
+                        <AnimatedTabsList
+                            tabs={preferenceTabs}
+                            value={activeTab}
+                            scrollable
+                            autoScrollActive
+                            className="w-full min-w-0"
+                            tabsListClassName="h-9 shadow-none border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/70"
+                            tabsTriggerClassName="h-7 px-3 text-[11.5px] font-medium"
+                        />
+                    </div>
 
-                <TabsContent value="skills">
-                    <SkillsManager />
-                </TabsContent>
+                    <TabsContent value="provider-list" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                        <ProvidersManager plugins={plugins} />
+                    </TabsContent>
 
-                <TabsContent value="plugins">
-                    <PluginsManager
-                        plugins={plugins}
-                        remotePlugins={remotePlugins as RemotePluginCatalogItem[]}
-                        pluginsLoaded={pluginsLoaded}
-                        remotePluginsLoaded={remotePluginsLoaded}
-                        setPlugins={setPlugins}
-                        refreshPlugins={refreshPlugins}
-                        refreshRemotePlugins={refreshRemotePlugins}
-                        installRemotePlugin={installRemotePlugin}
-                        importLocalPlugin={importLocalPlugin}
-                        uninstallLocalPlugin={uninstallLocalPlugin}
-                    />
-                </TabsContent>
+                    <TabsContent value="tools" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                        <ToolsManager
+                            maxWebSearchItems={maxWebSearchItems}
+                            setMaxWebSearchItems={setMaxWebSearchItems}
+                            telegramEnabled={telegramEnabled}
+                            setTelegramEnabled={setTelegramEnabled}
+                            telegramBotToken={telegramBotToken}
+                            setTelegramBotToken={setTelegramBotToken}
+                            emotionAssetPack={emotionAssetPack}
+                            setEmotionAssetPack={setEmotionAssetPack}
+                            compressionEnabled={compressionEnabled}
+                            setCompressionEnabled={setCompressionEnabled}
+                            compressionTriggerTokenRatio={compressionTriggerTokenRatio}
+                            setCompressionTriggerTokenRatio={setCompressionTriggerTokenRatio}
+                        />
+                    </TabsContent>
 
-                <TabsContent value="data-log">
-                    <DataAndLogManager
-                        streamChunkDebugEnabled={streamChunkDebugEnabled}
-                        setStreamChunkDebugEnabled={setStreamChunkDebugEnabled}
-                    />
-                </TabsContent>
+                    <TabsContent value="memory" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                        <MemoryManager
+                            memoryEnabled={memoryEnabled}
+                            setMemoryEnabled={setMemoryEnabled}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="knowledgebase" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                        <KnowledgebaseManager
+                            enabled={knowledgebaseEnabled}
+                            setEnabled={setKnowledgebaseEnabled}
+                            folders={knowledgebaseFolders}
+                            setFolders={setKnowledgebaseFolders}
+                            retrievalMode={knowledgebaseRetrievalMode}
+                            setRetrievalMode={setKnowledgebaseRetrievalMode}
+                            autoIndexOnStartup={knowledgebaseAutoIndexOnStartup}
+                            setAutoIndexOnStartup={setKnowledgebaseAutoIndexOnStartup}
+                            chunkSize={knowledgebaseChunkSize}
+                            setChunkSize={setKnowledgebaseChunkSize}
+                            chunkOverlap={knowledgebaseChunkOverlap}
+                            setChunkOverlap={setKnowledgebaseChunkOverlap}
+                            maxResults={knowledgebaseMaxResults}
+                            setMaxResults={setKnowledgebaseMaxResults}
+                        />
+                    </TabsContent>
+
+                <TabsContent value="mcp-servers" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                    <SettingsPageShell>
+                        {!mcpConfigLoaded ? (
+                            <SettingsLoadingState className="h-full">
+                                Loading MCP configuration...
+                            </SettingsLoadingState>
+                        ) : (
+                            <MCPServersManagerContent
+                                mcpServerConfig={mcpServerConfig}
+                                setMcpServerConfig={setMcpServerConfig}
+                            />
+                        )}
+                    </SettingsPageShell>
+                    </TabsContent>
+
+                    <TabsContent value="skills" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                        <SkillsManager />
+                    </TabsContent>
+
+                    <TabsContent value="plugins" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                        <PluginsManager
+                            plugins={plugins}
+                            remotePlugins={remotePlugins as RemotePluginCatalogItem[]}
+                            pluginsLoaded={pluginsLoaded}
+                            remotePluginsLoaded={remotePluginsLoaded}
+                            setPlugins={setPlugins}
+                            refreshPlugins={refreshPlugins}
+                            refreshRemotePlugins={refreshRemotePlugins}
+                            installRemotePlugin={installRemotePlugin}
+                            importLocalPlugin={importLocalPlugin}
+                            uninstallLocalPlugin={uninstallLocalPlugin}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="data-log" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                        <DataAndLogManager
+                            streamChunkDebugEnabled={streamChunkDebugEnabled}
+                            setStreamChunkDebugEnabled={setStreamChunkDebugEnabled}
+                        />
+                    </TabsContent>
+                </div>
             </Tabs>
         </div>
     )

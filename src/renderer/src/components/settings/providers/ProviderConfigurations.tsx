@@ -18,6 +18,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { ProviderAdvanceConfigDrawer } from '@renderer/components/settings/providers/ProviderAdvanceConfigDrawer'
 import { ProviderIconConfigDrawer } from '@renderer/components/settings/providers/ProviderIconConfigDrawer'
 import { toast } from 'sonner'
+import {
+    settingsDangerButtonClassName,
+    settingsInputClassName,
+    settingsOutlineButtonClassName,
+    settingsSecondaryButtonClassName
+} from '../common/SettingsLayout'
 
 interface ProviderConfigurationsProps {
     plugins?: PluginEntity[]
@@ -32,11 +38,7 @@ interface ProviderConfigurationsProps {
 
 const fieldClassName = cn(
     'h-8 text-[12.5px]',
-    'bg-white dark:bg-gray-800/60',
-    'border-gray-200 dark:border-gray-700',
-    'focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0',
-    'focus-visible:border-gray-400 dark:focus-visible:border-gray-500',
-    'transition-colors duration-150'
+    settingsInputClassName
 )
 
 const NO_THINKING_PAYLOAD_EXTENSION = 'none'
@@ -124,13 +126,7 @@ const ProviderConfigurations = ({
                         type="button"
                         disabled={!canTestProvider || isTestingProvider}
                         onClick={handleTestProvider}
-                        className={cn(
-                            'h-6 px-2 flex items-center gap-1 rounded-md text-[11px] font-medium',
-                            'text-gray-500 dark:text-gray-400',
-                            'hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800/70',
-                            'disabled:opacity-40 disabled:pointer-events-none',
-                            'transition-colors duration-150'
-                        )}
+                        className={cn(settingsSecondaryButtonClassName, 'h-6 px-2')}
                     >
                         {isTestingProvider ? (
                             <LoaderCircle className="h-3 w-3 animate-spin" />
@@ -143,7 +139,7 @@ const ProviderConfigurations = ({
                         type="button"
                         disabled={!account}
                         onClick={onResetAccount}
-                        className='h-6 px-2 flex items-center gap-1 rounded-md text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-40 transition-colors duration-150'
+                        className={cn(settingsDangerButtonClassName, 'h-6 px-2 border-transparent')}
                     >
                         <i className="ri-refresh-line text-[11px]"></i>
                         Reset
@@ -207,11 +203,11 @@ const ProviderConfigurations = ({
                         <SelectTrigger
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => event.stopPropagation()}
-                            className={cn(fieldClassName, 'w-full', 'focus:ring-2 focus:ring-gray-300/80 dark:focus:ring-gray-600/80 focus:ring-offset-0 focus:border-gray-400 dark:focus:border-gray-500')}
+                            className={cn(fieldClassName, 'w-full')}
                         >
                             <SelectValue placeholder="Select adapter" />
                         </SelectTrigger>
-                        <SelectContent className='bg-white/20 rounded-lg shadow-xs backdrop-blur-3xl font-medium'>
+                        <SelectContent className='bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium'>
                             {adapterOptions.map(option => (
                                 <SelectItem
                                     key={option.pluginId}
@@ -253,11 +249,11 @@ const ProviderConfigurations = ({
                         <SelectTrigger
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => event.stopPropagation()}
-                            className={cn(fieldClassName, 'w-full', 'focus:ring-2 focus:ring-gray-300/80 dark:focus:ring-gray-600/80 focus:ring-offset-0 focus:border-gray-400 dark:focus:border-gray-500')}
+                            className={cn(fieldClassName, 'w-full')}
                         >
                             <SelectValue placeholder="Select thinking payload" />
                         </SelectTrigger>
-                        <SelectContent className='bg-white/20 rounded-lg shadow-xs backdrop-blur-3xl font-medium'>
+                        <SelectContent className='bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium'>
                             <SelectItem
                                 value={NO_THINKING_PAYLOAD_EXTENSION}
                                 className='text-[11px] tracking-tight'
@@ -372,15 +368,8 @@ const ProviderConfigurations = ({
                                 type="button"
                                 disabled={!providerDefinition}
                                 className={cn(
-                                    'h-6 px-2 flex items-center gap-1 rounded-md shrink-0',
-                                    'text-[11px] font-medium',
-                                    'text-gray-500 dark:text-gray-400',
-                                    'border border-gray-200 dark:border-gray-700',
-                                    'hover:text-gray-800 dark:hover:text-gray-100',
-                                    'hover:bg-gray-50 dark:hover:bg-gray-700/50',
-                                    'hover:border-gray-300 dark:hover:border-gray-600',
-                                    'disabled:opacity-40 disabled:pointer-events-none',
-                                    'transition-colors duration-150'
+                                    settingsOutlineButtonClassName,
+                                    'h-6 px-2 shrink-0'
                                 )}
                             >
                                 <i className="ri-code-line text-[11px]" />
@@ -408,15 +397,8 @@ const ProviderConfigurations = ({
                                 type="button"
                                 disabled={!providerDefinition}
                                 className={cn(
-                                    'h-6 px-2 flex items-center gap-1 rounded-md shrink-0',
-                                    'text-[11px] font-medium',
-                                    'text-gray-500 dark:text-gray-400',
-                                    'border border-gray-200 dark:border-gray-700',
-                                    'hover:text-gray-800 dark:hover:text-gray-100',
-                                    'hover:bg-gray-50 dark:hover:bg-gray-700/50',
-                                    'hover:border-gray-300 dark:hover:border-gray-600',
-                                    'disabled:opacity-40 disabled:pointer-events-none',
-                                    'transition-colors duration-150'
+                                    settingsOutlineButtonClassName,
+                                    'h-6 px-2 shrink-0'
                                 )}
                             >
                                 <img

@@ -13,10 +13,31 @@ import {
   invokeOpenPath,
   invokeSelectDirectory
 } from '@renderer/invoker/ipcInvoker'
+import { cn } from '@renderer/lib/utils'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { AlertCircle, BookOpen, Database, FileText, FolderOpen, LoaderCircle, RefreshCw, Search, Trash2 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import {
+  SettingsControlGroup,
+  SettingsEmptyState,
+  SettingsFieldRow,
+  SettingsLoadingState,
+  SettingsMetricGrid,
+  SettingsMetricItem,
+  SettingsNotice,
+  SettingsPageShell,
+  SettingsSection,
+  SettingsSectionHeader,
+  SettingsToolbar,
+  SettingsToolbarLabel,
+  settingsDangerButtonClassName,
+  settingsIconButtonClassName,
+  settingsInputClassName,
+  settingsOutlineButtonClassName,
+  settingsPrimaryButtonClassName,
+  settingsSearchInputClassName
+} from './common/SettingsLayout'
 
 interface KnowledgebaseManagerProps {
   enabled: boolean
@@ -115,10 +136,6 @@ const formatDateTime = (timestamp?: number): string => {
 const formatScore = (value: number): string => {
   return Number.isFinite(value) ? value.toFixed(3) : '0.000'
 }
-
-const neutralActionButtonClass = 'h-8 px-3 flex items-center gap-1.5 rounded-lg text-[11px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:scale-[0.97] transition-all duration-150 disabled:opacity-60'
-const neutralCompactButtonClass = 'h-7 px-3 flex items-center gap-1.5 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:scale-[0.97] transition-all duration-150 disabled:opacity-60'
-const dangerActionButtonClass = 'h-8 px-3 flex items-center gap-1.5 rounded-lg text-[11px] font-medium text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 active:scale-[0.97] transition-all duration-150 disabled:opacity-60'
 
 const getStatusPresentation = (state: KnowledgebaseRuntimeState): {
   label: string
@@ -502,15 +519,16 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
   }
 
   return (
-    <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
-      <div className='w-full h-full space-y-2 p-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
-          <div className="px-4 py-4 flex items-start gap-4">
-            <div className="flex-1 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="toggle-knowledgebase" className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
-                  Knowledge Base
-                </Label>
+    <SettingsPageShell scrollable contentClassName="space-y-2">
+        <SettingsSection>
+          <SettingsSectionHeader
+            title={(
+              <Label htmlFor="toggle-knowledgebase" className="cursor-default">
+                Knowledge Base
+              </Label>
+            )}
+            badges={(
+              <>
                 <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
                   RAG
                 </Badge>
@@ -522,127 +540,111 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
                     Unsaved Config
                   </Badge>
                 )}
-              </div>
-              <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                Configure local knowledge sources for future retrieval, grounding, and problem diagnosis workflows.
-              </p>
-            </div>
-            <Switch
-              checked={enabled}
-              onCheckedChange={setEnabled}
-              id="toggle-knowledgebase"
-              className="data-[state=checked]:bg-amber-500 mt-0.5 shrink-0"
-            />
-          </div>
+              </>
+            )}
+            description="Configure local knowledge sources for future retrieval, grounding, and problem diagnosis workflows."
+            actions={(
+              <Switch
+                checked={enabled}
+                onCheckedChange={setEnabled}
+                id="toggle-knowledgebase"
+                className="data-[state=checked]:bg-amber-500 mt-0.5 shrink-0"
+              />
+            )}
+          />
 
           <div className="flex items-center gap-2 flex-wrap px-4 pb-2">
-                <button
-                  onClick={() => void refreshRuntimeState()}
-                  className={neutralActionButtonClass}
-                  disabled={runtimeLoading || runtimeRefreshing}
-                  title='Refresh status and statistics from the current knowledge base index'
-                  aria-label='Refresh knowledge base status'
-                >
-                  {runtimeRefreshing ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  Refresh
-                </button>
-                <button
-                  onClick={() => void handleRunIndex(false)}
-                  className={neutralActionButtonClass}
-                  disabled={reindexing || clearing || indexingActive}
-                  title='Incrementally index changed files and remove deleted files from the current sources'
-                  aria-label='Incrementally reindex knowledge base'
-                >
-                  {(reindexing && !indexingActive) ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                  Reindex
-                </button>
-                <button
-                  onClick={() => void handleRunIndex(true)}
-                  className={neutralActionButtonClass}
-                  disabled={reindexing || clearing || indexingActive}
-                  title='Force a full rebuild of all indexed files from the current sources'
-                  aria-label='Fully rebuild knowledge base index'
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  Rebuild
-                </button>
-                <button
-                  onClick={() => void handleClearIndex()}
-                  className={dangerActionButtonClass}
-                  disabled={clearing || indexingActive}
-                  title='Delete all indexed knowledge base documents and chunks'
-                  aria-label='Clear knowledge base index'
-                >
-                  {clearing ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  Clear
-                </button>
+            <button
+              onClick={() => void refreshRuntimeState()}
+              className={cn(settingsOutlineButtonClassName, 'h-8 rounded-lg')}
+              disabled={runtimeLoading || runtimeRefreshing}
+              title='Refresh status and statistics from the current knowledge base index'
+              aria-label='Refresh knowledge base status'
+            >
+              {runtimeRefreshing ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Refresh
+            </button>
+            <button
+              onClick={() => void handleRunIndex(false)}
+              className={cn(settingsOutlineButtonClassName, 'h-8 rounded-lg')}
+              disabled={reindexing || clearing || indexingActive}
+              title='Incrementally index changed files and remove deleted files from the current sources'
+              aria-label='Incrementally reindex knowledge base'
+            >
+              {(reindexing && !indexingActive) ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+              Reindex
+            </button>
+            <button
+              onClick={() => void handleRunIndex(true)}
+              className={cn(settingsOutlineButtonClassName, 'h-8 rounded-lg')}
+              disabled={reindexing || clearing || indexingActive}
+              title='Force a full rebuild of all indexed files from the current sources'
+              aria-label='Fully rebuild knowledge base index'
+            >
+              <Database className="w-3.5 h-3.5" />
+              Rebuild
+            </button>
+            <button
+              onClick={() => void handleClearIndex()}
+              className={cn(settingsDangerButtonClassName, 'h-8 rounded-lg')}
+              disabled={clearing || indexingActive}
+              title='Delete all indexed knowledge base documents and chunks'
+              aria-label='Clear knowledge base index'
+            >
+              {clearing ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              Clear
+            </button>
           </div>
 
-          <div className="bg-gray-50/40 dark:bg-gray-900/20 border-t border-gray-100 dark:border-gray-700/50 px-4 py-3 space-y-3">
-            <div className="grid grid-cols-4 gap-2">
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/60 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">Sources</p>
-                <p className="mt-1 text-[18px] font-semibold text-gray-900 dark:text-gray-100">{folders.length}</p>
-              </div>
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/60 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">Ready / Unavailable</p>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-[18px] font-semibold text-emerald-600 dark:text-emerald-400">{validFoldersCount}</span>
-                  <span className="text-[12px] text-gray-400 dark:text-gray-500">/</span>
-                  <span className="text-[18px] font-semibold text-rose-600 dark:text-rose-400">{invalidFoldersCount}</span>
-                </div>
-              </div>
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/60 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">Files</p>
-                <p className="mt-1 text-[18px] font-semibold text-gray-900 dark:text-gray-100">{runtimeStats.documentCount}</p>
-              </div>
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/60 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">Chunks</p>
-                <p className="mt-1 text-[18px] font-semibold text-gray-900 dark:text-gray-100">{runtimeStats.chunkCount}</p>
-              </div>
-            </div>
+          <SettingsToolbar className="space-y-3 py-3">
+            <SettingsMetricGrid>
+              <SettingsMetricItem label="Sources" value={folders.length} />
+              <SettingsMetricItem
+                label="Ready / Unavailable"
+                value={(
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-emerald-600 dark:text-emerald-400">{validFoldersCount}</span>
+                    <span className="text-[12px] text-gray-400 dark:text-gray-500">/</span>
+                    <span className="text-rose-600 dark:text-rose-400">{invalidFoldersCount}</span>
+                  </div>
+                )}
+              />
+              <SettingsMetricItem label="Files" value={runtimeStats.documentCount} />
+              <SettingsMetricItem label="Chunks" value={runtimeStats.chunkCount} />
+            </SettingsMetricGrid>
 
-            <div className="rounded-xl border border-gray-50 dark:border-gray-700 bg-white/90 dark:bg-gray-800/70 px-2 py-3 space-y-3">
+            <SettingsNotice tone={runtimeStatus.state === 'failed' ? 'danger' : 'neutral'} className="space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1 min-w-0 flex-1">
-                  <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                    {runtimeStatus.message || 'Knowledge base runtime is ready'} · Last update: {formatDateTime(runtimeStatus.updatedAt)} · Last indexed: {formatDateTime(runtimeStats.lastIndexedAt)}
-                  </p>
-                </div>
+                <p>
+                  {runtimeStatus.message || 'Knowledge base runtime is ready'} · Last update: {formatDateTime(runtimeStatus.updatedAt)} · Last indexed: {formatDateTime(runtimeStats.lastIndexedAt)}
+                </p>
                 {runtimeStatus.state === 'failed' && (
                   <AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
                 )}
               </div>
-
               {hasUnsavedConfig && (
-                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                <p className="text-amber-600 dark:text-amber-400">
                   Current draft differs from saved configuration. Build Index uses the draft values. Recall testing still reflects the latest built index.
                 </p>
               )}
-            </div>
-          </div>
-        </div>
+            </SettingsNotice>
+          </SettingsToolbar>
+        </SettingsSection>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
-          <div className="px-4 py-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
-                  Recall Test
-                </Label>
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                  SEARCH
-                </Badge>
-              </div>
-              <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                Search the saved knowledge base index directly from settings to inspect recall quality, file hits, and chunk snippets.
-              </p>
-            </div>
-          </div>
+        <SettingsSection>
+          <SettingsSectionHeader
+            title={<Label className="cursor-default">Recall Test</Label>}
+            badges={(
+              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                SEARCH
+              </Badge>
+            )}
+            description="Search the saved knowledge base index directly from settings to inspect recall quality, file hits, and chunk snippets."
+          />
 
-          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-3 bg-gray-50/40 dark:bg-gray-900/20 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
+          <SettingsToolbar className="space-y-3 py-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative min-w-[220px] flex-1">
                 <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <Input
                   value={searchQuery}
@@ -654,12 +656,12 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
                     }
                   }}
                   placeholder='Search knowledge base snippets, errors, modules, APIs...'
-                  className='h-9 pl-9 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus-visible:ring-transparent focus-visible:ring-offset-0'
+                  className={settingsSearchInputClassName}
                 />
               </div>
               <button
                 onClick={() => void handleSearch()}
-                className="h-9 px-3 flex items-center gap-1.5 rounded-lg text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10 disabled:opacity-60"
+                className={cn(settingsPrimaryButtonClassName, 'h-9 rounded-lg')}
                 disabled={searching}
               >
                 {searching ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
@@ -667,27 +669,30 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-3 text-[11px] text-gray-400 dark:text-gray-500">
+            <SettingsNotice className="flex items-center justify-between gap-3 flex-wrap">
               <span>Saved folders: {savedFoldersCount} · Indexed docs: {runtimeStats.indexedDocumentCount} · Chunks: {runtimeStats.chunkCount}</span>
               <span>Top K: {savedKnowledgebase?.maxResults ?? 8}</span>
-            </div>
+            </SettingsNotice>
 
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/60">
               {searchQuery.trim().length === 0 && searchResults.length === 0 ? (
-                <div className="px-4 py-8 text-center">
-                  <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">Enter a query to inspect retrieval results</p>
-                  <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">This panel shows matched files, scores, and retrieved chunk excerpts.</p>
-                </div>
+                <SettingsEmptyState
+                  icon={<Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
+                  title="Enter a query to inspect retrieval results"
+                  description="This panel shows matched files, scores, and retrieved chunk excerpts."
+                  className="py-8"
+                />
               ) : searching ? (
-                <div className="px-4 py-8 text-center">
-                  <LoaderCircle className="w-4 h-4 animate-spin mx-auto text-gray-400 dark:text-gray-500" />
-                  <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">Searching indexed chunks...</p>
-                </div>
+                <SettingsLoadingState className="py-8">
+                  Searching indexed chunks...
+                </SettingsLoadingState>
               ) : searchResults.length === 0 ? (
-                <div className="px-4 py-8 text-center">
-                  <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">{searchMessage || 'No recall result found'}</p>
-                  <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Try a more specific phrase, a scope name, or reindex after saving knowledge base changes.</p>
-                </div>
+                <SettingsEmptyState
+                  icon={<FileText className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
+                  title={searchMessage || 'No recall result found'}
+                  description="Try a more specific phrase, a scope name, or reindex after saving knowledge base changes."
+                  className="py-8"
+                />
               ) : (
                 <div className="p-2 space-y-2">
                   <div className="px-2 pt-1 text-[11px] text-gray-400 dark:text-gray-500">
@@ -730,7 +735,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
 
                         <button
                           onClick={() => void handleOpenFolder(result.file_path)}
-                          className="h-8 w-8 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center transition-colors shrink-0"
+                          className={cn(settingsIconButtonClassName, 'shrink-0')}
                           aria-label={`Open ${result.file_path}`}
                           title="Open file"
                         >
@@ -742,31 +747,25 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          </SettingsToolbar>
+        </SettingsSection>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
-          <div className="px-4 py-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
-                  Knowledge Sources
-                </Label>
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800">
-                  PATH
-                </Badge>
-              </div>
-              <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                Add one or more directories as source roots. The current phase stores and validates sources for later indexing work.
-              </p>
-            </div>
-          </div>
-          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-3 flex items-center justify-between gap-3 bg-gray-50/40 dark:bg-gray-900/20">
-            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Source Directories</span>
-            <div className="flex items-center gap-2">
+        <SettingsSection>
+          <SettingsSectionHeader
+            title={<Label className="cursor-default">Knowledge Sources</Label>}
+            badges={(
+              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800">
+                PATH
+              </Badge>
+            )}
+            description="Add one or more directories as source roots. The current phase stores and validates sources for later indexing work."
+          />
+          <SettingsToolbar className="flex items-center justify-between gap-3 flex-wrap">
+            <SettingsToolbarLabel>Source Directories</SettingsToolbarLabel>
+            <div className="flex items-center gap-2 flex-wrap justify-end min-w-0">
               <button
                 onClick={() => void handleRunIndex(false)}
-                className={neutralCompactButtonClass}
+                className={settingsOutlineButtonClassName}
                 disabled={reindexing || clearing || indexingActive}
                 title='Incrementally index changed files and remove deleted files from the current sources'
                 aria-label='Build knowledge base index'
@@ -776,7 +775,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
               </button>
               <button
                 onClick={() => void handleRefresh()}
-                className={neutralCompactButtonClass}
+                className={settingsOutlineButtonClassName}
                 title='Validate current source directories and refresh their availability status'
                 aria-label='Validate knowledge base source directories'
               >
@@ -785,19 +784,21 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
               </button>
               <button
                 onClick={() => void handleAddFolder()}
-                className="h-7 px-3 flex items-center gap-1.5 rounded-md text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10"
+                className={settingsPrimaryButtonClassName}
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 Add Source
               </button>
             </div>
-          </div>
+          </SettingsToolbar>
           <div className="px-4 py-3 space-y-2">
             {folders.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 py-8 text-center">
-                <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No knowledge sources configured</p>
-                <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Add a folder to prepare local documents for future indexing.</p>
-              </div>
+              <SettingsEmptyState
+                icon={<BookOpen className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
+                title="No knowledge sources configured"
+                description="Add a folder to prepare local documents for future indexing."
+                className="py-8"
+              />
             ) : (
               folders.map(folder => {
                 const parts = getFolderDisplayParts(folder)
@@ -833,7 +834,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => void handleOpenFolder(folder)}
-                        className="h-8 w-8 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center transition-colors"
+                        className={settingsIconButtonClassName}
                         aria-label={`Open ${folder}`}
                         title="Open folder"
                       >
@@ -841,7 +842,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
                       </button>
                       <button
                         onClick={() => handleRemoveFolder(folder)}
-                        className="h-8 w-8 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center transition-colors"
+                        className={settingsIconButtonClassName}
                         aria-label={`Remove ${folder}`}
                         title="Remove source"
                       >
@@ -853,115 +854,111 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
               })
             )}
           </div>
-        </div>
+        </SettingsSection>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden">
-          <div className="px-4 py-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Label className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
-                  Index Parameters
-                </Label>
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800">
-                  INDEX
-                </Badge>
-              </div>
-              <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                Tune chunking and retrieval defaults used by manual knowledge base indexing and search.
-              </p>
-            </div>
-          </div>
+        <SettingsSection>
+          <SettingsSectionHeader
+            title={<Label className="cursor-default">Index Parameters</Label>}
+            badges={(
+              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800">
+                INDEX
+              </Badge>
+            )}
+            description="Tune chunking and retrieval defaults used by manual knowledge base indexing and search."
+          />
           <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-1">
-            <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-100 dark:border-gray-800/60">
-              <div className="flex-1">
-                <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Retrieval Mode</p>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Choose whether chat uses automatic snippet injection, tool-directed retrieval, or disables knowledge base retrieval during chat preparation.</p>
-              </div>
-              <Select
-                value={retrievalMode}
-                onValueChange={(value) => setRetrievalMode(value as KnowledgebaseRetrievalMode)}
-              >
-                <SelectTrigger
-                  onClick={(event) => event.stopPropagation()}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  className="h-9 w-[180px] text-[12px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+            <SettingsFieldRow
+              title="Retrieval Mode"
+              description="Choose whether chat uses automatic snippet injection, tool-directed retrieval, or disables knowledge base retrieval during chat preparation."
+              className="border-b border-gray-100 dark:border-gray-800/60"
+              control={(
+                <Select
+                  value={retrievalMode}
+                  onValueChange={(value) => setRetrievalMode(value as KnowledgebaseRetrievalMode)}
                 >
-                  <SelectValue placeholder="Select retrieval mode" />
-                </SelectTrigger>
-                <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-lg backdrop-blur font-medium">
-                  <SelectItem value="tool-first" className='text-[11px] tracking-tight'>Tool First</SelectItem>
-                  <SelectItem value="auto" className='text-[11px] tracking-tight'>Auto Inject</SelectItem>
-                  <SelectItem value="off" className='text-[11px] tracking-tight'>Off</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                  <SelectTrigger
+                    onClick={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    className="h-9 w-[180px] text-[12px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                  >
+                    <SelectValue placeholder="Select retrieval mode" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-lg backdrop-blur font-medium">
+                    <SelectItem value="tool-first" className='text-[11px] tracking-tight'>Tool First</SelectItem>
+                    <SelectItem value="auto" className='text-[11px] tracking-tight'>Auto Inject</SelectItem>
+                    <SelectItem value="off" className='text-[11px] tracking-tight'>Off</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
 
-            <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-100 dark:border-gray-800/60">
-              <div className="flex-1">
-                <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Chunk Size</p>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Target characters per chunk for future document segmentation.</p>
-              </div>
-              <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
-                <Input
-                  type="number"
-                  min={200}
-                  max={4000}
-                  value={chunkSize}
-                  onChange={(e) => {
-                    const value = clampNumber(parseInt(e.target.value, 10), 1200, 200, 4000)
-                    setChunkSize(value)
-                  }}
-                  className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-20 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                />
-                <span className="text-xs font-medium text-gray-400 pr-2">chars</span>
-              </div>
-            </div>
+            <SettingsFieldRow
+              title="Chunk Size"
+              description="Target characters per chunk for future document segmentation."
+              className="border-b border-gray-100 dark:border-gray-800/60"
+              control={(
+                <SettingsControlGroup>
+                  <Input
+                    type="number"
+                    min={200}
+                    max={4000}
+                    value={chunkSize}
+                    onChange={(e) => {
+                      const value = clampNumber(parseInt(e.target.value, 10), 1200, 200, 4000)
+                      setChunkSize(value)
+                    }}
+                    className={cn(settingsInputClassName, 'text-center px-0 h-8 w-20 transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                  />
+                  <span className="text-xs font-medium text-gray-400 pr-2">chars</span>
+                </SettingsControlGroup>
+              )}
+            />
 
-            <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-100 dark:border-gray-800/60">
-              <div className="flex-1">
-                <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Chunk Overlap</p>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Shared characters between adjacent chunks to preserve local context.</p>
-              </div>
-              <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
-                <Input
-                  type="number"
-                  min={0}
-                  max={1000}
-                  value={chunkOverlap}
-                  onChange={(e) => {
-                    const value = clampNumber(parseInt(e.target.value, 10), 200, 0, 1000)
-                    setChunkOverlap(value)
-                  }}
-                  className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-20 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                />
-                <span className="text-xs font-medium text-gray-400 pr-2">chars</span>
-              </div>
-            </div>
+            <SettingsFieldRow
+              title="Chunk Overlap"
+              description="Shared characters between adjacent chunks to preserve local context."
+              className="border-b border-gray-100 dark:border-gray-800/60"
+              control={(
+                <SettingsControlGroup>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={1000}
+                    value={chunkOverlap}
+                    onChange={(e) => {
+                      const value = clampNumber(parseInt(e.target.value, 10), 200, 0, 1000)
+                      setChunkOverlap(value)
+                    }}
+                    className={cn(settingsInputClassName, 'text-center px-0 h-8 w-20 transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                  />
+                  <span className="text-xs font-medium text-gray-400 pr-2">chars</span>
+                </SettingsControlGroup>
+              )}
+            />
 
-            <div className="flex items-center justify-between gap-4 py-2.5">
-              <div className="flex-1">
-                <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">Max Results</p>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Default upper bound for future retrieval result count.</p>
-              </div>
-              <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0">
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={maxResults}
-                  onChange={(e) => {
-                    const value = clampNumber(parseInt(e.target.value, 10), 8, 1, 20)
-                    setMaxResults(value)
-                  }}
-                  className='focus-visible:ring-transparent focus-visible:ring-offset-0 text-center px-0 h-8 w-20 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xs transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                />
-                <span className="text-xs font-medium text-gray-400 pr-2">items</span>
-              </div>
-            </div>
+            <SettingsFieldRow
+              title="Max Results"
+              description="Default upper bound for future retrieval result count."
+              control={(
+                <SettingsControlGroup>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={maxResults}
+                    onChange={(e) => {
+                      const value = clampNumber(parseInt(e.target.value, 10), 8, 1, 20)
+                      setMaxResults(value)
+                    }}
+                    className={cn(settingsInputClassName, 'text-center px-0 h-8 w-20 transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                  />
+                  <span className="text-xs font-medium text-gray-400 pr-2">items</span>
+                </SettingsControlGroup>
+              )}
+            />
           </div>
-        </div>
-      </div>
-    </div>
+        </SettingsSection>
+    </SettingsPageShell>
   )
 }
 

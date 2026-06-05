@@ -8,6 +8,12 @@ import { v4 as uuidv4 } from 'uuid'
 import { ProviderModelsList } from './ProviderModelsList'
 import ProviderConfigurations from './ProviderConfigurations'
 import ProviderListSidebar from './ProviderListSidebar'
+import {
+    SettingsDetailPanel,
+    SettingsEmptyState,
+    SettingsMasterDetail,
+    SettingsPageShell
+} from '../common/SettingsLayout'
 
 interface ProvidersManagerProps {
     plugins?: PluginEntity[]
@@ -258,8 +264,8 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
     const defaultApiUrl = selectedDefinition?.defaultApiUrl || ''
 
     return (
-        <div className='w-[700px] h-[600px] focus:ring-0 focus-visible:ring-0'>
-            <div className='flex h-full bg-gray-50 dark:bg-gray-900 p-1 rounded-md gap-2'>
+        <SettingsPageShell>
+            <SettingsMasterDetail className="bg-transparent p-0">
                 <ProviderListSidebar
                     plugins={plugins}
                     providers={visibleProviderEntries}
@@ -283,13 +289,18 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                     }}
                 />
                 {/* Provider Details */}
-                <div id="providerDetails" className='w-3/4 flex flex-col h-full px-0.5 pt-0.5'>
+                <div id="providerDetails" className='flex-1 min-w-0 flex flex-col h-full'>
                     {!selectedDefinition ? (
-                        <div className='flex-1 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400'>
-                            No providers available.
-                        </div>
+                        <SettingsDetailPanel>
+                            <SettingsEmptyState
+                                icon={<i className="ri-cloud-line text-[16px] text-gray-400 dark:text-gray-500" />}
+                                title="No providers available"
+                                description="Add a provider to configure accounts and models."
+                                className="h-full py-0"
+                            />
+                        </SettingsDetailPanel>
                     ) : (
-                        <div className='flex-1 min-h-0 overflow-hidden rounded-lg border border-gray-200/70 dark:border-gray-700/70 shadow-[0_14px_30px_-18px_rgba(15,23,42,0.22)] flex flex-col'>
+                        <SettingsDetailPanel>
                             <ProviderConfigurations
                                 plugins={plugins}
                                 providerDefinition={selectedDefinition}
@@ -319,10 +330,10 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                                 isFetchDisabled={!currentAccount?.apiKey}
                                 ensureAccountForProvider={ensureAccountForProvider}
                             />
-                        </div>
+                        </SettingsDetailPanel>
                     )}
                 </div>
-            </div>
+            </SettingsMasterDetail>
 
             {/* Fetch Models Drawer */}
             <FetchModelsDrawer
@@ -331,7 +342,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                 currentAccount={currentAccount}
                 providerDefinition={currentDefinition}
             />
-        </div>
+        </SettingsPageShell>
     )
 }
 

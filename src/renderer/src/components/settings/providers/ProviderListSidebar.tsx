@@ -20,6 +20,14 @@ import type { ProviderEntry } from '@renderer/store/appConfig'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { getProviderIcon } from '@renderer/utils/providerIcons'
 import { ProviderIconPicker } from './ProviderIconPicker'
+import {
+    SettingsSidePanel,
+    settingsInputClassName,
+    settingsOutlineButtonClassName,
+    settingsPrimaryButtonClassName,
+    settingsScrollbarClassName,
+    SettingsToolbarLabel
+} from '../common/SettingsLayout'
 
 interface ProviderListSidebarProps {
   plugins?: PluginEntity[]
@@ -93,7 +101,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                     'transition-all duration-200 ease-out',
                     isActive
                         ? 'bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-["" ] after:absolute after:bottom-0.5 after:left-3 after:w-28 after:h-0.5 after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-700/80'
                 )}
                 onMouseEnter={() => setHoverProviderId(definition.id)}
                 onMouseLeave={() => setHoverProviderId(undefined)}
@@ -147,7 +155,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                 >
                     <div className={cn(
                         'relative p-1.5 rounded-xl',
-                        'bg-rose-50/80 dark:bg-rose-950/40',
+                        'bg-rose-50/85 dark:bg-rose-950/35',
                         'text-rose-600 dark:text-rose-400',
                         'border border-rose-200/50 dark:border-rose-800/50',
                         'shadow-inner',
@@ -166,30 +174,17 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
     }
 
     return (
-        <div className='w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-md shadow-xs'>
+        <SettingsSidePanel>
             <div className='flex-none p-2'>
                 <Drawer>
                     <DrawerTrigger className={cn(
-                        'group w-full p-0 rounded-lg',
-                        'text-gray-600 dark:text-slate-300',
-                        'hover:text-gray-900 dark:hover:text-white',
-                        'hover:bg-white dark:hover:bg-slate-900/70',
-                        'hover:shadow-md hover:shadow-gray-200/50 dark:hover:shadow-black/50',
-                        'active:scale-[0.98]',
-                        'transition-all duration-200 ease-out',
-                        'border border-transparent hover:border-gray-200 dark:hover:border-slate-700/70',
-                        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900'
+                        settingsOutlineButtonClassName,
+                        'group w-full h-9 justify-center rounded-lg border-dashed text-[12px]'
                     )}>
-                        <div className='flex items-center justify-center gap-2 py-2 border-2 border-dashed border-gray-300 dark:border-slate-600/80 rounded-lg bg-linear-to-r from-gray-50 to-white dark:from-slate-950/70 dark:via-slate-900/70 dark:to-slate-900/60'>
-                            <i className={cn(
-                                'ri-add-circle-line text-xl transition-all duration-200 ease-out',
-                                'group-hover:scale-110 group-hover:rotate-90',
-                                'text-gray-500 dark:text-slate-300'
-                            )}></i>
-                            <span className='text-sm font-medium transition-colors duration-200 text-gray-700 dark:text-slate-200'>Add Provider</span>
-                        </div>
+                        <i className='ri-add-circle-line text-[15px] transition-transform duration-150 group-hover:scale-105'></i>
+                        <span>Add Provider</span>
                     </DrawerTrigger>
-                    <DrawerContent>
+                    <DrawerContent className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
                         <DrawerHeader className="px-4 pt-4 pb-2">
                             <DrawerTitle className="text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">Add Provider</DrawerTitle>
                         </DrawerHeader>
@@ -201,7 +196,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                     <Input
                                         id="provider-name"
                                         placeholder="OpenAI"
-                                        className="h-8 text-[12.5px] w-full bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150"
+                                        className={cn(settingsInputClassName, 'h-8 text-[12.5px] w-full')}
                                         value={addProvider.displayName}
                                         onChange={event => addProvider.onDisplayNameChange(event.target.value)}
                                     />
@@ -209,10 +204,10 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                 <div className="space-y-1">
                                     <Label htmlFor="adapterPluginId" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Adapter</Label>
                                     <Select value={addProvider.adapterPluginId} onValueChange={addProvider.onAdapterPluginIdChange}>
-                                        <SelectTrigger id="adapterPluginId" className="h-8 text-[12.5px] w-full bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150">
+                                        <SelectTrigger id="adapterPluginId" className={cn(settingsInputClassName, 'h-8 text-[12.5px] w-full')}>
                                             <SelectValue placeholder="Select adapter" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-white/20 rounded-lg shadow-xs backdrop-blur-3xl font-medium">
+                                        <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium">
                                             <SelectGroup>
                                                 {adapterOptions.map(option => (
                                                     <SelectItem
@@ -235,7 +230,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                     <Input
                                         id="apiUrl"
                                         placeholder="https://api.openai.com"
-                                        className="h-8 text-[12.5px] w-full bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150"
+                                        className={cn(settingsInputClassName, 'h-8 text-[12.5px] w-full')}
                                         value={addProvider.apiUrl}
                                         onChange={event => addProvider.onApiUrlChange(event.target.value)}
                                     />
@@ -249,7 +244,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                                             id="apiKey"
                                             type={addProvider.showApiKey ? 'text' : 'password'}
                                             placeholder="sk-********"
-                                            className="h-8 text-[12.5px] w-full pr-9 bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-gray-300/80 dark:focus-visible:ring-gray-600/80 focus-visible:ring-offset-0 focus-visible:border-gray-400 dark:focus-visible:border-gray-500 transition-colors duration-150"
+                                            className={cn(settingsInputClassName, 'h-8 text-[12.5px] w-full pr-9 dark:text-gray-200')}
                                             value={addProvider.apiKey}
                                             onChange={event => addProvider.onApiKeyChange(event.target.value)}
                                         />
@@ -292,36 +287,36 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                         </div>
                         <DrawerFooter className="flex-row gap-2 px-4 pb-4">
                             <DrawerClose asChild>
-                                <Button variant="outline" className="flex-1 rounded-xl">Cancel</Button>
+                                <Button variant="outline" className={cn(settingsOutlineButtonClassName, 'flex-1 rounded-xl h-8 justify-center')}>Cancel</Button>
                             </DrawerClose>
                             <DrawerTrigger asChild>
-                                <Button onClick={addProvider.onSave} className="flex-1 rounded-xl">Save</Button>
+                                <Button onClick={addProvider.onSave} className={cn(settingsPrimaryButtonClassName, 'flex-1 rounded-xl h-8 justify-center')}>Save</Button>
                             </DrawerTrigger>
                         </DrawerFooter>
                     </DrawerContent>
                 </Drawer>
             </div>
-            <div className='flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1'>
+            <div className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 space-y-1 border-t border-gray-100 dark:border-gray-700/50', settingsScrollbarClassName)}>
                 <TooltipProvider>
                     {providerGroups.enabled.length > 0 && (
                         <div className="space-y-1">
-                            <div className="px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                            <SettingsToolbarLabel className="block px-3 pb-0.5 text-[10px]">
                                 Enabled
-                            </div>
+                            </SettingsToolbarLabel>
                             {providerGroups.enabled.map(renderProviderEntry)}
                         </div>
                     )}
                     {providerGroups.disabled.length > 0 && (
                         <div className="space-y-1 pt-2">
-                            <div className="px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                            <SettingsToolbarLabel className="block px-3 pb-0.5 text-[10px]">
                                 Disabled
-                            </div>
+                            </SettingsToolbarLabel>
                             {providerGroups.disabled.map(renderProviderEntry)}
                         </div>
                     )}
                 </TooltipProvider>
             </div>
-        </div>
+        </SettingsSidePanel>
     )
 }
 

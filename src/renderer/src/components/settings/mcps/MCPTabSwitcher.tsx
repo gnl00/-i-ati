@@ -36,7 +36,7 @@ const MCPTabSwitcher: React.FC<MCPTabSwitcherProps> = ({
     <div
       className={cn(
         'inline-flex h-9 items-center gap-1 rounded-lg p-1 shadow-inner',
-        'bg-slate-100 dark:bg-slate-900'
+        'bg-gray-100 dark:bg-gray-900'
       )}
     >
       {tabs.map((tab) => {
@@ -49,8 +49,8 @@ const MCPTabSwitcher: React.FC<MCPTabSwitcherProps> = ({
             className={cn(
               'flex h-7 items-center gap-2 rounded-md px-3 text-[12px] font-medium transition-colors duration-150',
               active
-                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-slate-100'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                ? 'bg-white text-gray-900 shadow-xs dark:bg-gray-800 dark:text-gray-100'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
             )}
           >
             <span>
@@ -64,8 +64,8 @@ const MCPTabSwitcher: React.FC<MCPTabSwitcherProps> = ({
                 className={cn(
                   'rounded-md px-1.5 text-[10px] font-medium',
                   active
-                    ? 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
-                    : 'bg-slate-200/70 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                    ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
+                    : 'bg-gray-200/70 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
                 )}
               >
                 {installedCount}

@@ -32,6 +32,13 @@ import type {
 } from './MCPServersManager.types'
 import MCPServerCard from './MCPServerCard'
 import MCPTabSwitcher from './MCPTabSwitcher'
+import {
+  SettingsEmptyState,
+  SettingsLoadingState,
+  settingsOutlineButtonClassName,
+  settingsPrimaryButtonClassName,
+  settingsScrollbarClassName
+} from '../common/SettingsLayout'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const API_BASE_URL = 'https://registry.modelcontextprotocol.io/v0.1/servers'
@@ -64,7 +71,7 @@ const MCPServersTabContent: React.FC<MCPServersTabContentProps> = ({
       value={value}
       className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 pb-1 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
     >
-      <div className="flex-1 min-h-0 overflow-y-auto -mx-4 px-4 pt-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+      <div className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mx-4 px-4 pt-4', settingsScrollbarClassName)}>
         {loading ? (
           loadingState
         ) : empty ? (
@@ -342,66 +349,54 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   const isInstalledEmpty = installedServers.length === 0
 
   const registryLoadingState = (
-    <div className="flex flex-col items-center justify-center h-64 gap-3">
-      <div className="relative h-9 w-9 flex items-center justify-center">
-        <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-800 border-t-gray-600 dark:border-t-gray-400 animate-spin" />
-        <Globe className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-      </div>
-      <p className="text-[12px] font-medium text-gray-400 dark:text-gray-500">
-        {isSearching ? 'Searching registry…' : 'Connecting to registry…'}
-      </p>
-    </div>
+    <SettingsLoadingState className="h-64">
+      {isSearching ? 'Searching registry...' : 'Connecting to registry...'}
+    </SettingsLoadingState>
   )
 
   const registryEmptyState = (
-    <div className="flex flex-col items-center justify-center h-64 gap-2.5">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-      </div>
-      <div className="space-y-0.5 text-center">
-        <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">No results matched your search</p>
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="text-[11.5px] text-gray-400 dark:text-gray-500 underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            Clear search
-          </button>
-        )}
-      </div>
-    </div>
+    <SettingsEmptyState
+      icon={<Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />}
+      title="No results matched your search"
+      className="h-64 py-0"
+    >
+      {searchQuery && (
+        <button
+          onClick={() => setSearchQuery('')}
+          className="text-[11.5px] text-gray-400 dark:text-gray-500 underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        >
+          Clear search
+        </button>
+      )}
+    </SettingsEmptyState>
   )
 
   const installedEmptyState = (
-    <div className="flex flex-col items-center justify-center h-full gap-2.5 pb-10">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xs">
-        <Server className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-      </div>
-      <div className="space-y-1 text-center">
-        <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 tracking-tight">No servers installed</p>
-        <p className="text-[12px] text-gray-400 dark:text-gray-500 max-w-[260px] leading-relaxed">
-          Browse the registry or paste a JSON config to get started.
-        </p>
-      </div>
+    <SettingsEmptyState
+      icon={<Server className="h-5 w-5 text-gray-400 dark:text-gray-500" />}
+      title="No servers installed"
+      description="Browse the registry or paste a JSON config to get started."
+      className="h-full pb-10 py-0"
+    >
       <div className="flex items-center gap-2 mt-1">
         <button
           onClick={() => setActiveTab('registry')}
-          className="h-8 px-4 rounded-md text-[12px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10"
+          className={settingsPrimaryButtonClassName}
         >
           Browse Registry
         </button>
         <button
           onClick={() => setEditMode('json')}
-          className="h-8 px-4 rounded-md text-[12px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-150"
+          className={settingsOutlineButtonClassName}
         >
           Add Manually
         </button>
       </div>
-    </div>
+    </SettingsEmptyState>
   )
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-950">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as MCPServersTabValue)}
@@ -409,7 +404,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
       >
 
         {/* ── Tab bar + toolbar ─────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/60 px-4 py-3 dark:border-slate-900 dark:bg-slate-900/30">
+        <div className="flex items-center justify-between gap-4 border-b border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-700/50 dark:bg-gray-900/20">
           <MCPTabSwitcher
             value={activeTab}
             installedCount={Object.keys(mcpServerConfig.mcpServers || {}).length}
@@ -417,10 +412,10 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           />
 
           {activeTab === 'local' && (
-            <div className="flex min-w-0 flex-1 justify-end gap-2">
+            <div className="flex min-w-0 flex-1 justify-end gap-2 flex-wrap">
               <button
                 onClick={handleAddFromClipboard}
-                className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-[12px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800 transition-colors duration-150"
+                className={settingsOutlineButtonClassName}
               >
                 <Clipboard className="h-3 w-3" />
                 From Clipboard
@@ -430,10 +425,10 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                 onClick={() => setEditMode(editMode === 'json' ? 'visual' : 'json')}
                 aria-pressed={editMode === 'json'}
                 className={cn(
-                  'h-8 px-2.5 flex items-center gap-1.5 rounded-md text-[12px] font-medium transition-colors duration-150',
+                  settingsOutlineButtonClassName,
                   editMode === 'json'
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950'
-                    : 'text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                    ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white'
+                    : ''
                 )}
               >
                 <Code className="h-3.5 w-3.5" />
@@ -447,27 +442,27 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
               <div
                 className={cn(
                   'group/search relative flex-1 max-w-[300px] rounded-lg',
-                  'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
-                  'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
+                  'bg-gray-100/80 shadow-inner dark:bg-gray-950/50',
+                  'ring-1 ring-inset ring-gray-200/70 dark:ring-gray-700',
                   'transition-colors duration-200',
-                  'focus-within:bg-white dark:focus-within:bg-slate-900'
+                  'focus-within:bg-white dark:focus-within:bg-gray-900'
                 )}
               >
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 transition-colors group-focus-within/search:text-slate-500 dark:text-slate-500 dark:group-focus-within/search:text-slate-300" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/search:text-gray-500 dark:text-gray-500 dark:group-focus-within/search:text-gray-300" />
                 <Input
                   placeholder="Search from registry"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
                   className={cn(
-                    'h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none',
-                    'placeholder:text-slate-400/70 dark:text-slate-200 dark:placeholder:text-slate-600',
+                    'h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-gray-700 shadow-none',
+                    'placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600',
                     'focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0'
                   )}
                   disabled={isFetching}
                 />
                 {isSearching && (
-                  <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-slate-400" />
+                  <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
                 )}
               </div>
             </div>
@@ -503,7 +498,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
           {!searchQuery && hasMore && (
             <div ref={loadMoreRef} className="flex justify-center pt-4 pb-2">
-              <span className="inline-flex h-8 items-center gap-2 rounded-md px-3 text-[12px] font-medium text-slate-400 dark:text-slate-500">
+              <span className="inline-flex h-8 items-center gap-2 rounded-md px-3 text-[12px] font-medium text-gray-400 dark:text-gray-500">
                 {isFetching ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
@@ -622,24 +617,24 @@ const MCPServersManager: React.FC<MCPServersManagerProps> = ({
 }) => {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh] flex flex-col bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-2xl">
-        <DrawerHeader className="border-b border-slate-100 dark:border-slate-900 px-5 py-4">
+      <DrawerContent className="max-h-[90vh] flex flex-col bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-2xl">
+        <DrawerHeader className="border-b border-gray-100 dark:border-gray-700/50 px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-700 dark:text-slate-200">
+              <div className="h-8 w-8 rounded-md bg-gray-100 dark:bg-gray-900 flex items-center justify-center text-gray-700 dark:text-gray-200">
                 <Server className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <DrawerTitle className="text-[15px] font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                <DrawerTitle className="text-[15px] font-semibold tracking-tight text-gray-950 dark:text-gray-50">
                   MCP Servers
                 </DrawerTitle>
-                <DrawerDescription className="truncate text-[12px] text-slate-500 dark:text-slate-400">
+                <DrawerDescription className="truncate text-[12px] text-gray-500 dark:text-gray-400">
                   Manage installed servers, registry discovery, and manual JSON configuration.
                 </DrawerDescription>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-md hover:bg-slate-100 dark:hover:bg-slate-900">
-              <i className="ri-close-line text-[18px] text-slate-500 dark:text-slate-400" />
+            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-md hover:bg-gray-100 dark:hover:bg-gray-900">
+              <i className="ri-close-line text-[18px] text-gray-500 dark:text-gray-400" />
             </Button>
           </div>
         </DrawerHeader>
@@ -651,12 +646,12 @@ const MCPServersManager: React.FC<MCPServersManagerProps> = ({
           />
         </div>
 
-        <DrawerFooter className="border-t border-slate-100 dark:border-slate-900 px-5 py-3 bg-slate-50/60 dark:bg-slate-950">
+        <DrawerFooter className="border-t border-gray-100 dark:border-gray-700/50 px-5 py-3 bg-gray-50/60 dark:bg-gray-900/20">
           <div className="flex justify-end w-full">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg px-5 font-medium border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all h-8 text-[12px]"
+              className="rounded-lg px-5 font-medium border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all h-8 text-[12px]"
             >
               Close
             </Button>

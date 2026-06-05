@@ -31,7 +31,15 @@ import { useAppConfigStore } from '@renderer/store/appConfig'
 import { invokeModelsGetModelCapabilities } from '@renderer/invoker/ipcInvoker'
 import InlineDeleteConfirm from '@renderer/components/settings/common/InlineDeleteConfirm'
 import { toast } from 'sonner'
-import { Button } from '@renderer/components/ui/button'
+import {
+  SettingsEmptyState,
+  settingsInputClassName,
+  settingsOutlineButtonClassName,
+  settingsPrimaryButtonClassName,
+  settingsScrollbarClassName,
+  settingsSearchInputClassName,
+  settingsSecondaryButtonClassName
+} from '../common/SettingsLayout'
 
 type ProviderModelsListProps = {
   selectedProviderId?: string
@@ -312,7 +320,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                   }
                 }}
               >
-                <SelectTrigger className="h-9 text-[12.5px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                <SelectTrigger className={cn(settingsInputClassName, 'h-9 text-[12.5px] bg-white dark:bg-gray-900')}>
                   <SelectValue placeholder="Select model type" />
                 </SelectTrigger>
                 <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-lg backdrop-blur font-medium">
@@ -335,7 +343,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                 value={editingContextWindowTokens}
                 onChange={(event) => setEditingContextWindowTokens(event.target.value)}
                 placeholder="128000"
-                className="h-9 text-[12.5px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className={cn(settingsInputClassName, 'h-9 text-[12.5px] bg-white dark:bg-gray-900 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
               />
             </div>
             <div className="space-y-1.5">
@@ -379,14 +387,14 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                 setEditingContextWindowTokens('')
                 setEditingModalitiesDirty(false)
               }}
-              className="h-9 flex-1 rounded-md text-[12px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className={cn(settingsOutlineButtonClassName, 'h-9 flex-1 justify-center text-[12px]')}
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSaveModalities}
-              className="h-9 flex-1 rounded-md text-[12px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 transition-colors"
+              className={cn(settingsPrimaryButtonClassName, 'h-9 flex-1 justify-center text-[12px]')}
             >
               Save
             </button>
@@ -401,10 +409,10 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
           <div
             className={cn(
               'group/model-search relative w-full max-w-[240px] rounded-lg',
-              'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
-              'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
+              'bg-gray-100/80 shadow-inner dark:bg-gray-950/60',
+              'ring-1 ring-inset ring-gray-200/70 dark:ring-gray-700',
               'transition-colors duration-200',
-              'focus-within:bg-white dark:focus-within:bg-slate-900'
+              'focus-within:bg-white dark:focus-within:bg-gray-900'
             )}
           >
             <Search className='pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/model-search:text-gray-500 dark:text-gray-500 dark:group-focus-within/model-search:text-gray-300' />
@@ -412,23 +420,18 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
               value={modelSearchQuery}
               onChange={e => setModelSearchQuery(e.target.value)}
               placeholder="Search models..."
-              className={cn(
-                'h-7 rounded-lg border-transparent bg-transparent pl-8 pr-3 text-[12px] text-slate-700 shadow-none',
-                'placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600',
-                'focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0'
-              )}
+              className={cn(settingsSearchInputClassName, 'h-7 rounded-lg border-transparent bg-transparent pl-8 pr-3 shadow-none')}
             />
           </div>
         </div>
-        <Button
+        <button
           onClick={onOpenFetchModels}
           disabled={isFetchDisabled}
-          variant={'ghost'}
-          className='h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-medium active:scale-[0.97] transition-all duration-150 shadow-gray-900/10 disabled:opacity-40 disabled:pointer-events-none shrink-0 text-gray-700 dark:text-gray-300'
+          className={cn(settingsOutlineButtonClassName, 'shrink-0')}
         >
           <i className="ri-download-cloud-line text-[12px]"></i>
           Fetch Models
-        </Button>
+        </button>
       </div>
 
       {/* ── Add row ──────────────────────────────────────────── */}
@@ -490,7 +493,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
             >
               <SelectValue placeholder="Type" />
             </SelectTrigger>
-            <SelectContent className="bg-white/20 rounded-lg shadow-xs backdrop-blur-lg font-medium">
+            <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium">
               <SelectGroup>
                 <SelectItem value="llm" className='text-[11px] tracking-tight'>LLM</SelectItem>
                 <SelectItem value="vlm" className='text-[11px] tracking-tight'>VLM</SelectItem>
@@ -503,7 +506,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
         <div className='px-4 py-2.5 flex items-center justify-center'>
           <button
             onClick={handleAddModel}
-            className='h-7 w-full max-w-[84px] px-2.5 flex items-center justify-center gap-1 rounded-2xl text-[11px] font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white text-white dark:text-gray-900 active:scale-[0.97] transition-all duration-150 shadow-sm shadow-gray-900/10'
+            className={cn(settingsPrimaryButtonClassName, 'w-full max-w-[84px] justify-center rounded-md')}
           >
             <i className="ri-add-line text-[12px]"></i>
             Add
@@ -512,7 +515,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
       </div>
 
       {/* ── Scrollable model rows ─────────────────────────────── */}
-      <div className='flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'>
+      <div className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden', settingsScrollbarClassName)}>
         {filteredModels.length > 0 ? (
           <TooltipProvider delayDuration={400}>
             {filteredModels.map((m, idx) => {
@@ -625,7 +628,7 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
                     <button
                       type="button"
                       onClick={() => openEditModal(m)}
-                      className='h-5 px-2 rounded inline-flex items-center gap-1 text-[10.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors'
+                      className={cn(settingsSecondaryButtonClassName, 'h-5 px-2 text-[10.5px]')}
                     >
                       <i className="ri-edit-line text-[11px]" />
                       Edit
@@ -650,21 +653,12 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
             })}
           </TooltipProvider>
         ) : (
-          <div className='flex flex-col items-center justify-center gap-1.5 py-10 text-gray-400 dark:text-gray-500'>
-            {!currentAccount || currentAccount.models.length === 0 ? (
-              <>
-                <i className="ri-inbox-line text-[28px] opacity-40"></i>
-                <p className='text-[12.5px] font-medium text-gray-500 dark:text-gray-400'>No models yet</p>
-                <p className='text-[11.5px]'>Add a model using the form above</p>
-              </>
-            ) : (
-              <>
-                <i className="ri-search-line text-[24px] opacity-40"></i>
-                <p className='text-[12.5px] font-medium text-gray-500 dark:text-gray-400'>No models match</p>
-                <p className='text-[11.5px]'>Try a different keyword</p>
-              </>
-            )}
-          </div>
+          <SettingsEmptyState
+            icon={<i className={`${!currentAccount || currentAccount.models.length === 0 ? 'ri-inbox-line' : 'ri-search-line'} text-[18px] text-gray-400 dark:text-gray-500`} />}
+            title={!currentAccount || currentAccount.models.length === 0 ? 'No models yet' : 'No models match'}
+            description={!currentAccount || currentAccount.models.length === 0 ? 'Add a model using the form above' : 'Try a different keyword'}
+            className="py-10"
+          />
         )}
       </div>
 
