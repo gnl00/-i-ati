@@ -30,6 +30,7 @@ export class SubagentRequestSpecSource implements AgentRequestSpecSource {
       systemPrompt: this.options.systemPrompt,
       stream: true,
       tools: buildAllowedTools(this.options.allowedTools),
+      payloadExtensions: this.options.modelContext.providerDefinition.payloadExtensions,
       requestOverrides: this.options.modelContext.providerDefinition.requestOverrides
     }
   }

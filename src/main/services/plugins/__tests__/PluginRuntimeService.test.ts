@@ -57,11 +57,9 @@ describe('PluginRuntimeService', () => {
       manifest: 'remote-plugin/plugin.json',
       readme: 'remote-plugin/README.md',
       path: 'remote-plugin',
-      entries: { main: 'dist/main.js' },
       capabilities: [{
-        kind: 'request-adapter',
-        providerType: 'openai',
-        modelTypes: ['llm']
+        kind: 'request-payload-extension',
+        feature: 'thinking'
       }],
       repo: 'example/plugins',
       ref: 'main'
@@ -138,11 +136,9 @@ describe('PluginRuntimeService', () => {
       manifest: 'remote-plugin/plugin.json',
       readme: 'remote-plugin/README.md',
       path: 'remote-plugin',
-      entries: { main: 'dist/main.js' },
       capabilities: [{
-        kind: 'request-adapter',
-        providerType: 'openai',
-        modelTypes: ['llm']
+        kind: 'request-payload-extension',
+        feature: 'thinking'
       }],
       repo: 'example/plugins',
       ref: 'main'

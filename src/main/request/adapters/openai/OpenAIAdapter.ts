@@ -1,5 +1,4 @@
 import { BaseAdapter } from '../base'
-import { isDeepSeekOpenAICompatibleRequest } from '@shared/plugins/requestAdapterThinking'
 
 const normalizeOpenAIToolCalls = (toolCalls: any[] | undefined): any[] | undefined => {
   if (!toolCalls || toolCalls.length === 0) return undefined
@@ -31,8 +30,6 @@ const normalizeOpenAIToolCalls = (toolCalls: any[] | undefined): any[] | undefin
 const toFiniteNumber = (value: unknown): number | undefined => (
   typeof value === 'number' && Number.isFinite(value) ? value : undefined
 )
-
-const DEEPSEEK_REASONING_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'max', 'xhigh'])
 
 type OpenAIRequestMessage = BaseChatMessage & {
   reasoning_content?: string
@@ -145,28 +142,10 @@ export class OpenAIAdapter extends BaseAdapter {
     }
 
     const thinking = getRequestThinkingOption(req)
-    const isDeepSeekRequest = isDeepSeekOpenAICompatibleRequest({
-      pluginId: req.adapterPluginId,
-      baseUrl: req.baseUrl,
-      modelId: req.model
-    })
-
-    if (isDeepSeekRequest && thinking?.enabled === false) {
-      requestBody.thinking = { type: 'disabled' }
-    }
-
     if (thinking?.enabled === true) {
-      if (isDeepSeekRequest) {
-        requestBody.thinking = { type: 'enabled' }
-      }
-
       if (
         thinking.effort &&
-        (
-          isDeepSeekRequest
-            ? DEEPSEEK_REASONING_EFFORT_LEVELS.has(thinking.effort)
-            : this.getThinkingLevels().includes(thinking.effort)
-        )
+        this.getThinkingLevels().includes(thinking.effort)
       ) {
         requestBody.reasoning_effort = thinking.effort
       }

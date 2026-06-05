@@ -45,7 +45,12 @@ declare interface ProviderDefinition {
   enabled?: boolean
   iconKey?: string
   defaultApiUrl?: string
+  payloadExtensions?: ProviderPayloadExtensions
   requestOverrides?: Record<string, any>
+}
+
+declare interface ProviderPayloadExtensions {
+  thinking?: string
 }
 
 declare interface ModelRef {
@@ -236,6 +241,7 @@ declare interface IUnifiedRequest {
   messages: UnifiedRequestMessage[]
   stream?: boolean
   tools?: any[]
+  payloadExtensions?: ProviderPayloadExtensions
   requestOverrides?: Record<string, any>
   options?: {
     maxTokens?: number

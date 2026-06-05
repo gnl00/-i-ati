@@ -30,13 +30,13 @@ describe('OpenAIAdapter request mapping', () => {
     expect(requestBody.reasoning).toBeUndefined()
   })
 
-  it('disables DeepSeek thinking when thinking is disabled', () => {
+  it('omits reasoning payload fields when thinking is disabled', () => {
     const adapter = new OpenAIAdapter()
 
     const requestBody = adapter.buildRequest(createTestUnifiedRequest({
       adapterPluginId: 'openai-chat-compatible-adapter',
-      baseUrl: 'https://api.deepseek.com/v1',
-      model: 'deepseek-v4-flash',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-5',
       messages: [{
         role: 'assistant',
         content: 'previous answer',
@@ -49,18 +49,18 @@ describe('OpenAIAdapter request mapping', () => {
       }
     }))
 
-    expect(requestBody.thinking).toEqual({ type: 'disabled' })
+    expect(requestBody.thinking).toBeUndefined()
     expect(requestBody.reasoning_effort).toBeUndefined()
     expect(requestBody.messages[0]).not.toHaveProperty('reasoning_content')
   })
 
-  it('maps DeepSeek enabled thinking and max effort to OpenAI-compatible fields', () => {
+  it('ignores unsupported OpenAI chat completions thinking effort', () => {
     const adapter = new OpenAIAdapter()
 
     const requestBody = adapter.buildRequest(createTestUnifiedRequest({
       adapterPluginId: 'openai-chat-compatible-adapter',
-      baseUrl: 'https://api.deepseek.com/v1',
-      model: 'deepseek-v4-flash',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-5',
       options: {
         thinking: {
           enabled: true,
@@ -69,8 +69,8 @@ describe('OpenAIAdapter request mapping', () => {
       }
     }))
 
-    expect(requestBody.thinking).toEqual({ type: 'enabled' })
-    expect(requestBody.reasoning_effort).toBe('max')
+    expect(requestBody.thinking).toBeUndefined()
+    expect(requestBody.reasoning_effort).toBeUndefined()
   })
 
   it('replays assistant reasoning_content for thinking chat completions', () => {

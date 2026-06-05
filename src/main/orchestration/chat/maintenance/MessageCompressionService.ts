@@ -249,7 +249,8 @@ export class MessageCompressionService {
       modelType: model.type,
       content: userContent,
       tools: [],
-      stream: false
+      stream: false,
+      payloadExtensions: providerDefinition.payloadExtensions
     })
 
     // 4. 调用 LLM API

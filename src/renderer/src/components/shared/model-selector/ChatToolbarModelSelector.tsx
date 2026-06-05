@@ -56,7 +56,8 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
       plugins: props.plugins,
       pluginId: option.definition.adapterPluginId,
       baseUrl: option.account.apiUrl,
-      modelId: option.model.id
+      modelId: option.model.id,
+      payloadExtensions: option.definition.payloadExtensions
     })
     return modelSupportsThinking(option.model, capability) ? capability : undefined
   }

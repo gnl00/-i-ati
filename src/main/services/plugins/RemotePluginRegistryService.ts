@@ -53,9 +53,7 @@ export class RemotePluginRegistryService {
       description: plugin.description,
       manifest: plugin.manifest,
       readme: plugin.readme,
-      entries: {
-        main: plugin.entries.main
-      },
+      entries: plugin.entries,
       capabilities: plugin.capabilities,
       repo: registry.repo,
       ref: registry.ref
@@ -109,15 +107,15 @@ export class RemotePluginRegistryService {
       throw new Error(`Remote plugin registry entry "${path}" has readme outside plugin path`)
     }
 
-    const entries = value.entries
-    if (!this.isRecord(entries)) {
-      throw new Error(`Remote plugin registry entry "${path}" field "entries" must be an object`)
-    }
-
-    const main = this.getRequiredRelativeString(entries.main, `plugins[${index}].entries.main`)
+    const entries = value.entries === undefined
+      ? undefined
+      : this.validateEntries(value.entries, path, index)
     const capabilities = value.capabilities
     if (!Array.isArray(capabilities) || capabilities.length === 0) {
       throw new Error(`Remote plugin registry entry "${path}" must declare non-empty capabilities`)
+    }
+    if (!capabilities.every(capability => this.isRequestPayloadExtensionCapability(capability))) {
+      throw new Error(`Remote plugin registry entry "${path}" must declare request-payload-extension capabilities`)
     }
 
     return {
@@ -128,9 +126,68 @@ export class RemotePluginRegistryService {
       description: value.description === undefined ? undefined : this.getRequiredString(value.description, `plugins[${index}].description`),
       manifest,
       readme,
-      entries: { main },
+      entries,
       capabilities: capabilities as RemotePluginRegistryEntry['capabilities']
     }
+  }
+
+  private validateEntries(value: unknown, path: string, index: number): RemotePluginRegistryEntry['entries'] {
+    if (!this.isRecord(value)) {
+      throw new Error(`Remote plugin registry entry "${path}" field "entries" must be an object`)
+    }
+
+    const main = value.main === undefined
+      ? undefined
+      : this.getRequiredRelativeString(value.main, `plugins[${index}].entries.main`)
+
+    return main ? { main } : undefined
+  }
+
+  private isRequestPayloadExtensionCapability(value: unknown): boolean {
+    return this.isRecord(value)
+      && value.kind === 'request-payload-extension'
+      && value.feature === 'thinking'
+      && (
+        value.patches === undefined ||
+        this.isRequestPayloadExtensionPatches(value.patches)
+      )
+  }
+
+  private isRequestPayloadExtensionPatches(value: unknown): boolean {
+    if (!this.isRecord(value) || value.thinking === undefined) {
+      return false
+    }
+    if (!this.isRecord(value.thinking)) {
+      return false
+    }
+    return this.isPatchOperationArray(value.thinking.enabled)
+      && this.isPatchOperationArray(value.thinking.disabled)
+  }
+
+  private isPatchOperationArray(value: unknown): boolean {
+    return Array.isArray(value)
+      && value.every(item => this.isPatchOperation(item))
+  }
+
+  private isPatchOperation(value: unknown): boolean {
+    if (!this.isRecord(value) || typeof value.path !== 'string' || value.path.trim().length === 0) {
+      return false
+    }
+
+    if (value.op === 'set') {
+      return true
+    }
+    if (value.op === 'unset') {
+      return true
+    }
+    if (value.op === 'setFromThinkingEffort') {
+      return value.allowedValues === undefined ||
+        (
+          Array.isArray(value.allowedValues) &&
+          value.allowedValues.every(item => typeof item === 'string' && item.trim().length > 0)
+        )
+    }
+    return false
   }
 
   private ensureUnique(values: string[], label: string): void {

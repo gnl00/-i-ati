@@ -9,9 +9,11 @@ import {
   resolveAdapterForRequest
 } from './adapters/index'
 import { RequestDebugLogger } from './RequestDebugLogger'
+import { RequestPayloadExtensionPipeline } from './payload/RequestPayloadExtensionPipeline'
 
 const logger = createLogger('UnifiedRequest')
 const requestDebugLogger = new RequestDebugLogger()
+const requestPayloadExtensionPipeline = new RequestPayloadExtensionPipeline()
 const REQUEST_ERROR_METADATA = '__requestErrorMetadata'
 
 type RequestErrorKind = 'abort' | 'http' | 'network' | 'unknown'
@@ -300,6 +302,10 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   const headers = adapter.buildHeaders(req)
 
   const requestBody = adapter.buildRequest(req)
+  requestPayloadExtensionPipeline.apply({
+    request: req,
+    body: requestBody
+  })
   if (req.requestOverrides && typeof req.requestOverrides === 'object' && !Array.isArray(req.requestOverrides)) {
     applyRequestOverrides(requestBody, req.requestOverrides)
   }

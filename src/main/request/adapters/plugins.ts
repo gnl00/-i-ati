@@ -1,8 +1,3 @@
-import fs from 'fs/promises'
-import path from 'path'
-import { pathToFileURL } from 'url'
-import type { AppPluginManifest } from '@shared/plugins/manifest'
-import type { RequestAdapterHooks } from '@shared/plugins/requestAdapterHooks'
 import {
   getBuiltInRequestAdapterPlugin,
   getRequestAdapterPluginByIdFromPlugins,
@@ -14,21 +9,12 @@ import {
   GOOGLE_GEMINI_COMPATIBLE_ADAPTER_ID,
   OPENAI_RESPONSES_COMPATIBLE_ADAPTER_ID
 } from '@shared/plugins/adapterPluginIds'
-import { builtInPluginRegistry } from '@shared/plugins/builtInRegistry'
 import type { BaseAdapter } from './base'
 import { ClaudeAdapter } from './claude'
 import { GeminiAdapter } from './gemini'
-import { RequestAdapterPluginWrapper } from './RequestAdapterPluginWrapper'
 import { OpenAIAdapter, OpenAIImage1Adapter, OpenAIResponsesAdapter } from './openai/index'
 
 type RequestAdapterFactory = () => BaseAdapter
-
-type RequestAdapterPluginModule = {
-  requestAdapter?: RequestAdapterHooks
-  default?: {
-    requestAdapter?: RequestAdapterHooks
-  }
-}
 
 const requestAdapterFactories = new Map<BuiltInAppPluginId, RequestAdapterFactory>([
   ['openai-chat-compatible-adapter', () => new OpenAIAdapter()],
@@ -41,86 +27,6 @@ const requestAdapterFactories = new Map<BuiltInAppPluginId, RequestAdapterFactor
 export const createBuiltInRequestAdapter = (pluginId: string): BaseAdapter | null => {
   const createAdapter = requestAdapterFactories.get(pluginId as BuiltInAppPluginId)
   return createAdapter ? createAdapter() : null
-}
-
-export const registerEnabledBuiltInRequestAdapters = (
-  enabledPluginIds: Set<string>,
-  register: (pluginId: string, adapter: BaseAdapter) => void
-): void => {
-  builtInPluginRegistry.listCapabilities('request-adapter').forEach(({ plugin }) => {
-    if (!enabledPluginIds.has(plugin.id)) {
-      return
-    }
-
-    const createAdapter = requestAdapterFactories.get(plugin.id)
-    if (!createAdapter) {
-      console.warn(`[Request] No adapter factories registered for plugin: ${plugin.id}`)
-      return
-    }
-
-    register(plugin.id, createAdapter())
-  })
-}
-
-const loadRequestAdapterPluginModule = async (plugin: PluginEntity): Promise<RequestAdapterPluginModule | null> => {
-  if (!plugin.manifestPath) {
-    console.warn(`[Request] Local plugin missing manifestPath: ${plugin.pluginId}`)
-    return null
-  }
-
-  const manifest = JSON.parse(await fs.readFile(plugin.manifestPath, 'utf-8')) as AppPluginManifest
-  const mainEntry = manifest.entries?.main
-  if (!mainEntry) {
-    console.warn(`[Request] Local plugin missing entries.main: ${plugin.pluginId}`)
-    return null
-  }
-
-  const entryPath = path.resolve(path.dirname(plugin.manifestPath), mainEntry)
-  const stat = await fs.stat(entryPath)
-  const moduleUrl = `${pathToFileURL(entryPath).href}?mtime=${stat.mtimeMs}`
-  return await import(moduleUrl) as RequestAdapterPluginModule
-}
-
-export const getRequestAdapterPluginFingerprint = (plugin: PluginEntity): string => {
-  return JSON.stringify({
-    pluginId: plugin.pluginId,
-    source: plugin.source,
-    enabled: plugin.enabled,
-    status: plugin.status,
-    version: plugin.version ?? '',
-    manifestPath: plugin.manifestPath ?? '',
-    installRoot: plugin.installRoot ?? ''
-  })
-}
-
-export const loadLocalRequestAdapter = async (plugin: PluginEntity): Promise<BaseAdapter> => {
-  const module = await loadRequestAdapterPluginModule(plugin)
-  const requestAdapterHooks = module?.requestAdapter ?? module?.default?.requestAdapter
-  if (!requestAdapterHooks) {
-    throw new Error(`[Request] Local plugin must export a single requestAdapter: ${plugin.pluginId}`)
-  }
-
-  return new RequestAdapterPluginWrapper(requestAdapterHooks)
-}
-
-export const registerEnabledLocalRequestAdapters = async (
-  plugins: PluginEntity[],
-  register: (pluginId: string, adapter: BaseAdapter) => void
-): Promise<void> => {
-  const localPlugins = plugins.filter(plugin =>
-    (plugin.source === 'local' || plugin.source === 'remote')
-    && plugin.enabled
-    && plugin.status === 'installed'
-    && plugin.capabilities.some(capability => capability.kind === 'request-adapter')
-  )
-
-  for (const plugin of localPlugins) {
-    try {
-      register(plugin.pluginId, await loadLocalRequestAdapter(plugin))
-    } catch (error) {
-      console.warn(`[Request] Failed to load local request adapter plugin: ${plugin.pluginId}`, error)
-    }
-  }
 }
 
 export const getRequestAdapterPluginById = (

@@ -11,6 +11,7 @@ import {
 import { cn } from '@renderer/lib/utils'
 import { getProviderIcon } from '@renderer/utils/providerIcons'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
+import { listRequestPayloadExtensionsByFeature } from '@shared/plugins/requestPayloadExtensions'
 import type { ProviderTestConnectionResponse } from '@shared/providers/testConnection'
 import { Eye, EyeOff, LoaderCircle, TestTube2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -37,6 +38,8 @@ const fieldClassName = cn(
     'focus-visible:border-gray-400 dark:focus-visible:border-gray-500',
     'transition-colors duration-150'
 )
+
+const NO_THINKING_PAYLOAD_EXTENSION = 'none'
 
 const ProviderConfigurations = ({
     plugins,
@@ -73,9 +76,14 @@ const ProviderConfigurations = ({
     const adapterOptions = useMemo(() => {
         return getRequestAdapterOptionsFromPlugins(plugins)
     }, [plugins])
+    const thinkingPayloadExtensions = useMemo(() => {
+        return listRequestPayloadExtensionsByFeature('thinking')
+    }, [])
 
     const currentAdapterOption = adapterOptions.find(option => option.pluginId === (providerDefinition?.adapterPluginId ?? 'openai-chat-compatible-adapter'))
     const currentAdapterDisabled = Boolean(currentAdapterOption && !currentAdapterOption.enabled)
+    const selectedThinkingPayloadExtensionId = providerDefinition?.payloadExtensions?.thinking ?? NO_THINKING_PAYLOAD_EXTENSION
+    const selectedThinkingPayloadExtension = thinkingPayloadExtensions.find(extension => extension.id === selectedThinkingPayloadExtensionId)
     const providerEnabled = providerDefinition?.enabled !== false
     const providerIconSrc = getProviderIcon(providerDefinition?.iconKey || providerDefinition?.id)
     const canTestProvider = Boolean(
@@ -164,8 +172,8 @@ const ProviderConfigurations = ({
             </div>
 
             {/* Fields grid */}
-            <div className='grid grid-cols-2 gap-x-2.5 gap-y-2'>
-                <div className='space-y-1'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-x-2.5 gap-y-2'>
+                <div className='md:col-span-2 space-y-1 min-w-0'>
                     <Label htmlFor="account-label" className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
                         Label
                     </Label>
@@ -182,7 +190,7 @@ const ProviderConfigurations = ({
                     />
                 </div>
 
-                <div className='space-y-1'>
+                <div className='space-y-1 min-w-0'>
                     <Label className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
                         Adapter
                     </Label>
@@ -223,7 +231,61 @@ const ProviderConfigurations = ({
                     )}
                 </div>
 
-                <div className='col-span-2 space-y-1'>
+                <div className='space-y-1 min-w-0'>
+                    <Label className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                        Thinking Payload
+                    </Label>
+                    <Select
+                        value={selectedThinkingPayloadExtensionId}
+                        onValueChange={(value) => {
+                            if (!providerDefinition) return
+                            onUpdateProviderDefinition(providerDefinition.id, {
+                                payloadExtensions: value === NO_THINKING_PAYLOAD_EXTENSION
+                                    ? undefined
+                                    : {
+                                        ...(providerDefinition.payloadExtensions ?? {}),
+                                        thinking: value
+                                    }
+                            })
+                        }}
+                        disabled={!providerDefinition}
+                    >
+                        <SelectTrigger
+                            onClick={(event) => event.stopPropagation()}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            className={cn(fieldClassName, 'w-full', 'focus:ring-2 focus:ring-gray-300/80 dark:focus:ring-gray-600/80 focus:ring-offset-0 focus:border-gray-400 dark:focus:border-gray-500')}
+                        >
+                            <SelectValue placeholder="Select thinking payload" />
+                        </SelectTrigger>
+                        <SelectContent className='bg-white/20 rounded-lg shadow-xs backdrop-blur-3xl font-medium'>
+                            <SelectItem
+                                value={NO_THINKING_PAYLOAD_EXTENSION}
+                                className='text-[11px] tracking-tight'
+                            >
+                                None
+                            </SelectItem>
+                            {thinkingPayloadExtensions.map(extension => (
+                                <SelectItem
+                                    key={extension.id}
+                                    value={extension.id}
+                                    className='text-[11px] tracking-tight'
+                                >
+                                    {extension.label}
+                                </SelectItem>
+                            ))}
+                            {selectedThinkingPayloadExtensionId !== NO_THINKING_PAYLOAD_EXTENSION && !selectedThinkingPayloadExtension && (
+                                <SelectItem
+                                    value={selectedThinkingPayloadExtensionId}
+                                    className='text-[11px] tracking-tight'
+                                >
+                                    {selectedThinkingPayloadExtensionId}
+                                </SelectItem>
+                            )}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className='md:col-span-2 space-y-1'>
                     <Label htmlFor="provider-api-url" className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 tracking-wider'>
                         API URL &nbsp;
                         <span className='text-[10px] tracking-tight text-gray-400/70 dark:text-gray-500 mt-0.5 select-none'>
@@ -243,7 +305,7 @@ const ProviderConfigurations = ({
                     />
                 </div>
 
-                <div className='col-span-2 space-y-1'>
+                <div className='md:col-span-2 space-y-1'>
                     <Label htmlFor="provider-api-key" className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
                         API Key
                     </Label>

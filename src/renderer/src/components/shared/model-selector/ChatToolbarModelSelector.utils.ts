@@ -25,7 +25,8 @@ export const resolveChatToolbarModelSelection = (
     plugins,
     pluginId: option.definition.adapterPluginId,
     baseUrl: option.account.apiUrl,
-    modelId: option.model.id
+    modelId: option.model.id,
+    payloadExtensions: option.definition.payloadExtensions
   })
   const thinkingLevel = modelSupportsThinking(option.model, capability) && capability
     ? requestedThinkingLevel ?? getDefaultThinkingLevel(capability)

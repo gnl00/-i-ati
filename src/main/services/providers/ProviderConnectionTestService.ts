@@ -56,6 +56,7 @@ export class ProviderConnectionTestService {
         modelType: model.type,
         content: TEST_MESSAGE,
         stream: false,
+        payloadExtensions: input.providerDefinition.payloadExtensions,
         requestOverrides: {
           ...input.providerDefinition.requestOverrides,
           stream: false

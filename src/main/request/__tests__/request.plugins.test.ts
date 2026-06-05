@@ -231,4 +231,81 @@ describe('unifiedChatRequest plugin gating', () => {
     expect(beforeFetch).toHaveBeenCalledTimes(1)
     expect(afterFetch).toHaveBeenCalledTimes(1)
   })
+
+  it('applies selected payload extensions before request overrides', async () => {
+    getPluginConfigs.mockReturnValue([{ id: 'openai-chat-compatible-adapter', enabled: true }])
+    getPlugins.mockReturnValue([])
+    isRequestAdapterPluginEnabled.mockReturnValue(true)
+    getConfig.mockReturnValue({
+      tools: {
+        streamChunkDebugEnabled: false
+      }
+    })
+
+    const requestBody = {
+      model: 'test-model',
+      messages: [{
+        role: 'user',
+        content: 'debug me'
+      }],
+      stream: false
+    }
+    const adapter = {
+      buildHeaders: vi.fn(() => ({ 'content-type': 'application/json' })),
+      buildRequest: vi.fn(() => requestBody),
+      supportsStreamOptionsUsage: vi.fn(() => false),
+      getEndpoint: vi.fn(() => 'https://example.invalid/v1/chat/completions'),
+      parseResponse: vi.fn((raw: unknown) => ({
+        id: 'response-id',
+        model: 'test-model',
+        timestamp: 1,
+        content: JSON.stringify(raw),
+        finishReason: 'stop'
+      }))
+    }
+    resolveAdapterForRequest.mockResolvedValue(adapter)
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true })
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { unifiedChatRequest } = await import('../index')
+
+    await unifiedChatRequest(createTestUnifiedRequest({
+      adapterPluginId: 'openai-chat-compatible-adapter',
+      baseUrl: 'https://example.invalid/v1',
+      model: 'test-model',
+      stream: false,
+      payloadExtensions: {
+        thinking: 'deepseek-thinking'
+      },
+      options: {
+        thinking: {
+          enabled: true,
+          effort: 'high'
+        }
+      },
+      requestOverrides: {
+        thinking: {
+          type: 'disabled'
+        }
+      }
+    }), null, vi.fn(), vi.fn())
+
+    expect(fetchMock).toHaveBeenCalledWith('https://example.invalid/v1/chat/completions', expect.objectContaining({
+      body: JSON.stringify({
+        model: 'test-model',
+        messages: [{
+          role: 'user',
+          content: 'debug me'
+        }],
+        stream: false,
+        thinking: {
+          type: 'disabled'
+        },
+        reasoning_effort: 'high'
+      })
+    }))
+  })
 })

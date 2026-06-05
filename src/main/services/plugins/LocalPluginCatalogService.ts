@@ -1,7 +1,11 @@
 import { app } from 'electron'
 import fs from 'fs/promises'
 import path from 'path'
-import type { PluginCapability } from '@shared/plugins/types'
+import type {
+  PluginCapability,
+  RequestPayloadExtensionPatches,
+  RequestPayloadPatchOperation
+} from '@shared/plugins/types'
 import { normalizeThinkingCapability } from '@shared/plugins/requestAdapterThinking'
 import type { AppPluginManifest } from '@shared/plugins/manifest'
 
@@ -125,11 +129,6 @@ export class LocalPluginCatalogService {
       missingFields.push('capabilities')
     }
 
-    const mainEntry = this.normalizeRelativeEntryPath(manifest.entries?.main)
-    if (!mainEntry) {
-      missingFields.push('entries.main')
-    }
-
     if (missingFields.length > 0) {
       return {
         pluginId,
@@ -140,37 +139,6 @@ export class LocalPluginCatalogService {
         installRoot,
         status: 'invalid',
         lastError: `Manifest validation failed: ${missingFields.join(', ')}`,
-        capabilities
-      }
-    }
-
-    if (!mainEntry) {
-      return {
-        pluginId,
-        displayName,
-        description,
-        version,
-        manifestPath,
-        installRoot,
-        status: 'invalid',
-        lastError: 'Manifest validation failed: entries.main',
-        capabilities
-      }
-    }
-
-    const resolvedMainEntryPath = path.join(installRoot, mainEntry)
-    try {
-      await fs.access(resolvedMainEntryPath)
-    } catch {
-      return {
-        pluginId,
-        displayName,
-        description,
-        version,
-        manifestPath,
-        installRoot,
-        status: 'invalid',
-        lastError: `Manifest validation failed: missing entries.main file (${mainEntry})`,
         capabilities
       }
     }
@@ -187,41 +155,26 @@ export class LocalPluginCatalogService {
     }
   }
 
-  private normalizeRelativeEntryPath(value: unknown): string | null {
-    if (typeof value !== 'string' || value.trim().length === 0) {
-      return null
-    }
-
-    const normalized = value.replace(/\\/g, '/').trim().replace(/^\.\//, '')
-    if (
-      normalized.startsWith('/')
-      || normalized === '..'
-      || normalized.startsWith('../')
-      || normalized.includes('/../')
-    ) {
-      return null
-    }
-
-    return normalized
-  }
-
   private parseCapabilities(rawCapabilities: unknown): PluginCapability[] {
     if (!Array.isArray(rawCapabilities)) {
       return []
     }
 
     return rawCapabilities.flatMap((capability) => {
-      if (!this.isRequestAdapterCapability(capability)) {
-        return []
+      if (this.isRequestPayloadExtensionCapability(capability)) {
+        const thinking = normalizeThinkingCapability(capability.thinking)
+        const matchHints = this.normalizeMatchHints(capability.matchHints)
+        const patches = this.normalizePatches(capability.patches)
+        return [{
+          kind: 'request-payload-extension',
+          feature: capability.feature,
+          ...(thinking ? { thinking } : {}),
+          ...(matchHints ? { matchHints } : {}),
+          ...(patches ? { patches } : {})
+        }]
       }
-      const thinking = normalizeThinkingCapability(capability.thinking)
 
-      return [{
-        kind: 'request-adapter',
-        providerType: capability.providerType,
-        modelTypes: capability.modelTypes,
-        ...(thinking ? { thinking } : {})
-      }]
+      return []
     })
   }
 
@@ -229,30 +182,138 @@ export class LocalPluginCatalogService {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
   }
 
-  private isRequestAdapterCapability(value: unknown): value is Extract<PluginCapability, { kind: 'request-adapter' }> {
-    if (!this.isManifestRecord(value) || value.kind !== 'request-adapter') {
+  private isRequestPayloadExtensionCapability(value: unknown): value is Extract<PluginCapability, { kind: 'request-payload-extension' }> {
+    if (!this.isManifestRecord(value) || value.kind !== 'request-payload-extension') {
       return false
     }
 
-    return typeof value.providerType === 'string'
-      && this.isModelTypes(value.modelTypes)
+    return value.feature === 'thinking'
       && (
         value.thinking === undefined ||
         Boolean(normalizeThinkingCapability(value.thinking))
       )
+      && (
+        value.matchHints === undefined ||
+        Boolean(this.normalizeMatchHints(value.matchHints))
+      )
+      && (
+        value.patches === undefined ||
+        Boolean(this.normalizePatches(value.patches))
+      )
   }
 
   private isSupportedCapability(value: unknown): boolean {
-    return this.isRequestAdapterCapability(value)
+    return this.isRequestPayloadExtensionCapability(value)
   }
 
-  private isModelTypes(value: unknown): value is ModelType[] {
-    return Array.isArray(value)
-      && value.every((modelType) =>
-        modelType === 'llm'
-        || modelType === 'vlm'
-        || modelType === 'mllm'
-        || modelType === 'img_gen'
-      )
+  private normalizeMatchHints(value: unknown): Extract<PluginCapability, { kind: 'request-payload-extension' }>['matchHints'] | undefined {
+    if (!this.isManifestRecord(value)) {
+      return undefined
+    }
+
+    const baseUrlKeywords = this.normalizeStringArray(value.baseUrlKeywords)
+    const modelKeywords = this.normalizeStringArray(value.modelKeywords)
+    if (!baseUrlKeywords && !modelKeywords) {
+      return undefined
+    }
+
+    return {
+      ...(baseUrlKeywords ? { baseUrlKeywords } : {}),
+      ...(modelKeywords ? { modelKeywords } : {})
+    }
   }
+
+  private normalizeStringArray(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) {
+      return undefined
+    }
+
+    const items = value
+      .filter((item): item is string => typeof item === 'string')
+      .map(item => item.trim())
+      .filter(item => item.length > 0)
+
+    return items.length > 0 ? items : undefined
+  }
+
+  private normalizePatches(value: unknown): RequestPayloadExtensionPatches | undefined {
+    if (!this.isManifestRecord(value)) {
+      return undefined
+    }
+
+    const thinking = value.thinking
+    if (thinking === undefined) {
+      return undefined
+    }
+    if (!this.isManifestRecord(thinking)) {
+      return undefined
+    }
+
+    const enabled = this.normalizePatchOperations(thinking.enabled)
+    const disabled = this.normalizePatchOperations(thinking.disabled)
+    if (!enabled || !disabled) {
+      return undefined
+    }
+
+    return {
+      thinking: {
+        enabled,
+        disabled
+      }
+    }
+  }
+
+  private normalizePatchOperations(value: unknown): RequestPayloadPatchOperation[] | undefined {
+    if (!Array.isArray(value)) {
+      return undefined
+    }
+
+    const operations = value
+      .map(item => this.normalizePatchOperation(item))
+      .filter((item): item is RequestPayloadPatchOperation => Boolean(item))
+
+    return operations.length === value.length ? operations : undefined
+  }
+
+  private normalizePatchOperation(value: unknown): RequestPayloadPatchOperation | undefined {
+    if (!this.isManifestRecord(value)) {
+      return undefined
+    }
+
+    const pathValue = value.path
+    if (typeof pathValue !== 'string' || pathValue.trim().length === 0) {
+      return undefined
+    }
+    const path = pathValue.trim()
+
+    switch (value.op) {
+      case 'set':
+        return {
+          op: 'set',
+          path,
+          value: value.value
+        }
+      case 'unset':
+        return {
+          op: 'unset',
+          path
+        }
+      case 'setFromThinkingEffort': {
+        const allowedValues = value.allowedValues === undefined
+          ? undefined
+          : this.normalizeStringArray(value.allowedValues)
+        if (value.allowedValues !== undefined && !allowedValues) {
+          return undefined
+        }
+        return {
+          op: 'setFromThinkingEffort',
+          path,
+          ...(allowedValues ? { allowedValues } : {})
+        }
+      }
+      default:
+        return undefined
+    }
+  }
+
 }

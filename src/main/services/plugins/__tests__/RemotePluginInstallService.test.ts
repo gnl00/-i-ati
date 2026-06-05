@@ -42,18 +42,16 @@ describe('RemotePluginInstallService', () => {
 
   it('downloads a remote plugin archive and installs it into the local plugin root', async () => {
     const plugin: RemotePluginCatalogItem = {
-      pluginId: 'openai-response-compatible-adapter',
-      path: 'openai-response-compatible-adapter',
-      name: 'OpenAI Responses Compatible Adapter',
+      pluginId: 'deepseek-thinking',
+      path: 'deepseek-thinking',
+      name: 'DeepSeek Thinking',
       version: '0.1.0',
-      description: 'Remote adapter',
-      manifest: 'openai-response-compatible-adapter/plugin.json',
-      readme: 'openai-response-compatible-adapter/README.md',
-      entries: { main: 'dist/main.js' },
+      description: 'Remote payload extension',
+      manifest: 'deepseek-thinking/plugin.json',
+      readme: 'deepseek-thinking/README.md',
       capabilities: [{
-        kind: 'request-adapter',
-        providerType: 'openai-response',
-        modelTypes: ['llm', 'vlm']
+        kind: 'request-payload-extension',
+        feature: 'thinking'
       }],
       repo: 'gnl00/atiapp-plugins',
       ref: 'main'
@@ -75,29 +73,20 @@ describe('RemotePluginInstallService', () => {
     })
 
     vi.mocked(extractZip).mockImplementation(async (_archivePath: string, options: { dir: string }) => {
-      const extractedPluginRoot = path.join(options.dir, 'atiapp-plugins-main', 'openai-response-compatible-adapter')
-      await fs.mkdir(path.join(extractedPluginRoot, 'dist'), { recursive: true })
+      const extractedPluginRoot = path.join(options.dir, 'atiapp-plugins-main', 'deepseek-thinking')
+      await fs.mkdir(extractedPluginRoot, { recursive: true })
       await fs.writeFile(
         path.join(extractedPluginRoot, 'plugin.json'),
         JSON.stringify({
-          id: 'openai-response-compatible-adapter',
-          name: 'OpenAI Responses Compatible Adapter',
+          id: 'deepseek-thinking',
+          name: 'DeepSeek Thinking',
           version: '0.1.0',
-          description: 'Remote adapter',
+          description: 'Remote payload extension',
           capabilities: [{
-            kind: 'request-adapter',
-            providerType: 'openai-response',
-            modelTypes: ['llm', 'vlm']
-          }],
-          entries: {
-            main: './dist/main.js'
-          }
+            kind: 'request-payload-extension',
+            feature: 'thinking'
+          }]
         }),
-        'utf-8'
-      )
-      await fs.writeFile(
-        path.join(extractedPluginRoot, 'dist', 'main.js'),
-        'export default { requestAdapter: {} }',
         'utf-8'
       )
     })
@@ -108,16 +97,15 @@ describe('RemotePluginInstallService', () => {
       fetchMock as unknown as typeof fetch
     )
 
-    const result = await service.install('openai-response-compatible-adapter')
-    const installRoot = path.join(userDataPath, 'plugins', 'openai-response-compatible-adapter')
+    const result = await service.install('deepseek-thinking')
+    const installRoot = path.join(userDataPath, 'plugins', 'deepseek-thinking')
 
-    expect(result.plugin.pluginId).toBe('openai-response-compatible-adapter')
+    expect(result.plugin.pluginId).toBe('deepseek-thinking')
     expect(result.installRoot).toBe(installRoot)
     expect(fetchMock).toHaveBeenCalledWith(
       'https://github.com/gnl00/atiapp-plugins/archive/main.zip',
       expect.any(Object)
     )
-    await expect(fs.readFile(path.join(installRoot, 'plugin.json'), 'utf-8')).resolves.toContain('"id":"openai-response-compatible-adapter"')
-    await expect(fs.readFile(path.join(installRoot, 'dist', 'main.js'), 'utf-8')).resolves.toContain('requestAdapter')
+    await expect(fs.readFile(path.join(installRoot, 'plugin.json'), 'utf-8')).resolves.toContain('"id":"deepseek-thinking"')
   })
 })

@@ -91,6 +91,7 @@ export class RunRequestFactory {
         tools: this.toolListBuilder.build(input.tools),
         options: this.resolveRequestOptions(environment, input.options),
         stream: input.stream,
+        payloadExtensions: environment.modelContext.providerDefinition.payloadExtensions,
         requestOverrides: environment.modelContext.providerDefinition.requestOverrides
       },
       initialTranscriptSeed: this.initialTranscriptSeedBuilder.build(requestMessageBuild.chatMessages)
@@ -105,7 +106,8 @@ export class RunRequestFactory {
       plugins: pluginDb.getPlugins(),
       pluginId: environment.modelContext.providerDefinition.adapterPluginId,
       baseUrl: environment.modelContext.account.apiUrl,
-      modelId: environment.modelContext.model.id
+      modelId: environment.modelContext.model.id,
+      payloadExtensions: environment.modelContext.providerDefinition.payloadExtensions
     })
     const requestedThinkingLevel = options?.thinking
       ? options.thinking.enabled === false

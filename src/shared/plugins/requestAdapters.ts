@@ -3,23 +3,9 @@ import {
   type BuiltInAppPluginDefinition,
   type BuiltInAppPluginId
 } from './builtInRegistry'
-import { isRetiredRequestAdapterPluginId } from './adapterPluginIds'
 
 export { builtInPluginRegistry } from './builtInRegistry'
 export type { BuiltInAppPluginId, BuiltInAppPluginDefinition } from './builtInRegistry'
-
-export const BUILT_IN_REQUEST_ADAPTER_PLUGINS: BuiltInAppPluginDefinition[] =
-  builtInPluginRegistry.listRequestAdapterPlugins()
-
-export const createDefaultBuiltInPluginConfigs = (): AppPluginConfig[] => {
-  return builtInPluginRegistry.createDefaultConfigs()
-}
-
-export const mergeBuiltInPluginConfigs = (
-  pluginConfigs: AppPluginConfig[] | undefined
-): AppPluginConfig[] => {
-  return builtInPluginRegistry.normalizeConfigs(pluginConfigs)
-}
 
 export const getBuiltInRequestAdapterPlugin = (
   pluginId: string
@@ -71,7 +57,8 @@ export const getRequestAdapterOptionsFromPlugins = (
 
   return (plugins ?? []).flatMap((plugin) =>
     plugin.capabilities.flatMap((capability) => {
-      if (isRetiredRequestAdapterPluginId(plugin.pluginId)) {
+      const builtInPlugin = builtInPluginRegistry.getById(plugin.pluginId)
+      if (!builtInPlugin) {
         return []
       }
       if (capability.kind !== 'request-adapter' || !isRequestAdapterCapabilityData(capability.data)) {
@@ -80,7 +67,7 @@ export const getRequestAdapterOptionsFromPlugins = (
 
       return [{
         pluginId: plugin.pluginId,
-        label: builtInPluginRegistry.getById(plugin.pluginId)?.displayLabel ?? plugin.name,
+        label: builtInPlugin.displayLabel,
         providerType: capability.data.providerType,
         enabled: plugin.enabled && plugin.status === 'installed'
       }]
@@ -96,7 +83,9 @@ export const getRequestAdapterPluginByIdFromPlugins = (
     return undefined
   }
 
-  return (plugins ?? []).find((plugin) => plugin.pluginId === pluginId)
+  return (plugins ?? []).find((plugin) =>
+    plugin.pluginId === pluginId && Boolean(builtInPluginRegistry.getById(plugin.pluginId))
+  )
 }
 
 export const isRequestAdapterPluginEnabledFromPlugins = (

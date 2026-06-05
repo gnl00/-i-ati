@@ -90,7 +90,7 @@ describe('requestAdapterThinking', () => {
     })
   })
 
-  it('uses DeepSeek OpenAI-compatible thinking levels when provider context matches DeepSeek', () => {
+  it('uses selected payload extension thinking levels before adapter defaults', () => {
     const capability = getRequestAdapterThinkingCapability({
       plugins: [{
         pluginId: 'openai-chat-compatible-adapter',
@@ -112,7 +112,10 @@ describe('requestAdapterThinking', () => {
       }],
       pluginId: 'openai-chat-compatible-adapter',
       baseUrl: 'https://api.deepseek.com/v1',
-      modelId: 'deepseek-v4-flash'
+      modelId: 'deepseek-v4-flash',
+      payloadExtensions: {
+        thinking: 'deepseek-thinking'
+      }
     })
 
     expect(capability).toEqual({

@@ -100,6 +100,7 @@ export class DefaultExecutableRequestAdapter implements ExecutableRequestAdapter
       messages,
       stream: request.stream,
       tools: request.tools as any[] | undefined,
+      payloadExtensions: request.payloadExtensions,
       requestOverrides: request.requestOverrides,
       options: request.options
     }

@@ -1,6 +1,3 @@
-import fs from 'fs/promises'
-import os from 'os'
-import path from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { invalidateRequestAdapterCache, resolveAdapterForRequest, adapterManager } from '..'
 
@@ -32,15 +29,9 @@ vi.mock('@main/main-window', () => ({
 }))
 
 describe('request adapter resolution', () => {
-  let tempRoot = ''
-
   afterEach(async () => {
     adapterManager.clear()
     vi.restoreAllMocks()
-    if (tempRoot) {
-      await fs.rm(tempRoot, { recursive: true, force: true })
-      tempRoot = ''
-    }
   })
 
   it('resolves built-in adapters without touching unrelated broken local plugins', async () => {
@@ -84,61 +75,18 @@ describe('request adapter resolution', () => {
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
-  it('loads and caches the requested local request adapter plugin only', async () => {
-    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'gemini-plugin-test-'))
-    const manifestPath = path.join(tempRoot, 'plugin.json')
-    const entryPath = path.join(tempRoot, 'main.mjs')
+  it('rejects external request adapter plugin ids during adapter resolution', async () => {
+    invalidateRequestAdapterCache()
 
-    await fs.writeFile(
-      manifestPath,
-      JSON.stringify({
-        id: 'gemini-compatible-adapter',
-        name: 'Gemini Compatible Adapter',
-        version: '1.0.0',
-        capabilities: [{
-          kind: 'request-adapter',
-          providerType: 'gemini',
-          modelTypes: ['llm', 'vlm']
-        }],
-        entries: {
-          main: './main.mjs'
-        }
-      }),
-      'utf-8'
-    )
-
-    await fs.writeFile(
-      entryPath,
-      `
-      export const requestAdapter = {
-        providerType: 'gemini',
-        streamProtocol: 'sse',
-        supportsStreamOptionsUsage: false,
-        request({ request }) {
-          return {
-            endpoint: request.baseUrl + '/models/test:generateContent',
-            headers: { 'content-type': 'application/json', 'x-goog-api-key': request.apiKey },
-            body: { model: request.model, contents: [] }
-          }
-        },
-        parseResponse({ raw }) {
-          return { id: '1', model: 'gemini', timestamp: Date.now(), content: '', finishReason: 'stop', raw }
-        },
-        parseStreamResponse() { return null }
-      }
-      `,
-      'utf-8'
-    )
-
-    const plugins: PluginEntity[] = [
+    await expect(resolveAdapterForRequest('gemini-compatible-adapter', [
       {
         pluginId: 'gemini-compatible-adapter',
         name: 'Gemini Compatible Adapter',
         enabled: true,
         source: 'local',
         status: 'installed',
-        manifestPath,
-        installRoot: tempRoot,
+        manifestPath: '/tmp/gemini/plugin.json',
+        installRoot: '/tmp/gemini',
         capabilities: [{
           kind: 'request-adapter',
           data: {
@@ -147,138 +95,8 @@ describe('request adapter resolution', () => {
           }
         }]
       }
-    ]
+    ])).rejects.toThrow('No built-in adapter found for plugin id: gemini-compatible-adapter')
 
-    const first = await resolveAdapterForRequest('gemini-compatible-adapter', plugins)
-    const second = await resolveAdapterForRequest('gemini-compatible-adapter', plugins)
-
-    expect(adapterManager.listAdapters()).toEqual(['gemini-compatible-adapter'])
-    expect(first).toBe(second)
-  })
-
-  it('caches local plugin load failures for the same fingerprint', async () => {
-    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'broken-plugin-test-'))
-    const manifestPath = path.join(tempRoot, 'plugin.json')
-
-    await fs.writeFile(
-      manifestPath,
-      JSON.stringify({
-        id: 'broken-adapter',
-        name: 'Broken Adapter',
-        version: '1.0.0',
-        capabilities: [{
-          kind: 'request-adapter',
-          providerType: 'gemini',
-          modelTypes: ['llm']
-        }],
-        entries: {
-          main: './missing.mjs'
-        }
-      }),
-      'utf-8'
-    )
-
-    const statSpy = vi.spyOn(fs, 'stat')
-
-    const plugins: PluginEntity[] = [
-      {
-        pluginId: 'broken-adapter',
-        name: 'Broken Adapter',
-        enabled: true,
-        source: 'local',
-        status: 'installed',
-        manifestPath,
-        installRoot: tempRoot,
-        capabilities: [{
-          kind: 'request-adapter',
-          data: {
-            providerType: 'gemini',
-            modelTypes: ['llm']
-          }
-        }]
-      }
-    ]
-
-    await expect(resolveAdapterForRequest('broken-adapter', plugins)).rejects.toThrow()
-    await expect(resolveAdapterForRequest('broken-adapter', plugins)).rejects.toThrow()
-
-    expect(statSpy).toHaveBeenCalledTimes(1)
     expect(adapterManager.listAdapters()).toEqual([])
-    expect(adapterManager.getFailedAdapter('broken-adapter')).toBeDefined()
-  })
-
-  it('allows retry after request adapter cache invalidation', async () => {
-    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'broken-plugin-retry-test-'))
-    const manifestPath = path.join(tempRoot, 'plugin.json')
-    const entryPath = path.join(tempRoot, 'main.mjs')
-
-    await fs.writeFile(
-      manifestPath,
-      JSON.stringify({
-        id: 'recoverable-adapter',
-        name: 'Recoverable Adapter',
-        version: '1.0.0',
-        capabilities: [{
-          kind: 'request-adapter',
-          providerType: 'gemini',
-          modelTypes: ['llm']
-        }],
-        entries: {
-          main: './main.mjs'
-        }
-      }),
-      'utf-8'
-    )
-
-    const plugins: PluginEntity[] = [
-      {
-        pluginId: 'recoverable-adapter',
-        name: 'Recoverable Adapter',
-        enabled: true,
-        source: 'local',
-        status: 'installed',
-        manifestPath,
-        installRoot: tempRoot,
-        capabilities: [{
-          kind: 'request-adapter',
-          data: {
-            providerType: 'gemini',
-            modelTypes: ['llm']
-          }
-        }]
-      }
-    ]
-
-    await expect(resolveAdapterForRequest('recoverable-adapter', plugins)).rejects.toThrow()
-    expect(adapterManager.getFailedAdapter('recoverable-adapter')).toBeDefined()
-
-    await fs.writeFile(
-      entryPath,
-      `
-      export const requestAdapter = {
-        providerType: 'gemini',
-        streamProtocol: 'sse',
-        supportsStreamOptionsUsage: false,
-        request({ request }) {
-          return {
-            endpoint: request.baseUrl + '/models/test:generateContent',
-            headers: { 'content-type': 'application/json', 'x-goog-api-key': request.apiKey },
-            body: { model: request.model, contents: [] }
-          }
-        },
-        parseResponse({ raw }) {
-          return { id: '1', model: 'gemini', timestamp: Date.now(), content: '', finishReason: 'stop', raw }
-        },
-        parseStreamResponse() { return null }
-      }
-      `,
-      'utf-8'
-    )
-
-    invalidateRequestAdapterCache()
-
-    const adapter = await resolveAdapterForRequest('recoverable-adapter', plugins)
-    expect(adapter).toBe(adapterManager.getAdapter('recoverable-adapter'))
-    expect(adapterManager.getFailedAdapter('recoverable-adapter')).toBeUndefined()
   })
 })

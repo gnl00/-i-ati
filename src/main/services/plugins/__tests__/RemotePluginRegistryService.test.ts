@@ -18,24 +18,40 @@ describe('RemotePluginRegistryService', () => {
         ref: 'main',
         plugins: [
           {
-            id: 'openai-response-compatible-adapter',
-            path: 'openai-response-compatible-adapter',
-            name: 'OpenAI Responses Compatible Adapter',
+            id: 'deepseek-thinking',
+            path: 'deepseek-thinking',
+            name: 'DeepSeek Thinking',
             version: '0.1.0',
-            description: 'Remote adapter',
-            manifest: 'openai-response-compatible-adapter/plugin.json',
-            readme: 'openai-response-compatible-adapter/README.md',
-            entries: {
-              main: 'dist/main.js'
-            },
+            description: 'Remote payload extension',
+            manifest: 'deepseek-thinking/plugin.json',
+            readme: 'deepseek-thinking/README.md',
             capabilities: [
               {
-                kind: 'request-adapter',
-                providerType: 'openai-response',
-                modelTypes: ['llm', 'vlm'],
+                kind: 'request-payload-extension',
+                feature: 'thinking',
                 thinking: {
                   levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
                   defaultLevel: 'medium'
+                },
+                matchHints: {
+                  baseUrlKeywords: ['deepseek'],
+                  modelKeywords: ['deepseek']
+                },
+                patches: {
+                  thinking: {
+                    enabled: [
+                      { op: 'set', path: 'thinking.type', value: 'enabled' },
+                      {
+                        op: 'setFromThinkingEffort',
+                        path: 'reasoning_effort',
+                        allowedValues: ['low', 'medium', 'high']
+                      }
+                    ],
+                    disabled: [
+                      { op: 'set', path: 'thinking.type', value: 'disabled' },
+                      { op: 'unset', path: 'reasoning_effort' }
+                    ]
+                  }
                 }
               }
             ]
@@ -50,15 +66,37 @@ describe('RemotePluginRegistryService', () => {
     expect(fetchMock).toHaveBeenCalledWith('https://example.com/registry.json')
     expect(items).toEqual([
       expect.objectContaining({
-        pluginId: 'openai-response-compatible-adapter',
-        path: 'openai-response-compatible-adapter',
+        pluginId: 'deepseek-thinking',
+        path: 'deepseek-thinking',
         repo: 'gnl00/atiapp-plugins',
         ref: 'main',
-        entries: { main: 'dist/main.js' },
+        entries: undefined,
         capabilities: [expect.objectContaining({
+          kind: 'request-payload-extension',
+          feature: 'thinking',
           thinking: {
             levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
             defaultLevel: 'medium'
+          },
+          matchHints: {
+            baseUrlKeywords: ['deepseek'],
+            modelKeywords: ['deepseek']
+          },
+          patches: {
+            thinking: {
+              enabled: [
+                { op: 'set', path: 'thinking.type', value: 'enabled' },
+                {
+                  op: 'setFromThinkingEffort',
+                  path: 'reasoning_effort',
+                  allowedValues: ['low', 'medium', 'high']
+                }
+              ],
+              disabled: [
+                { op: 'set', path: 'thinking.type', value: 'disabled' },
+                { op: 'unset', path: 'reasoning_effort' }
+              ]
+            }
           }
         })]
       })
@@ -78,8 +116,7 @@ describe('RemotePluginRegistryService', () => {
             name: 'Plugin A',
             version: '0.1.0',
             manifest: 'plugin-a/plugin.json',
-            entries: { main: 'dist/main.js' },
-            capabilities: [{ kind: 'request-adapter', providerType: 'gemini', modelTypes: ['llm'] }]
+            capabilities: [{ kind: 'request-payload-extension', feature: 'thinking' }]
           },
           {
             id: 'dup',
@@ -87,8 +124,7 @@ describe('RemotePluginRegistryService', () => {
             name: 'Plugin B',
             version: '0.1.0',
             manifest: 'plugin-b/plugin.json',
-            entries: { main: 'dist/main.js' },
-            capabilities: [{ kind: 'request-adapter', providerType: 'openai-response', modelTypes: ['llm'] }]
+            capabilities: [{ kind: 'request-payload-extension', feature: 'thinking' }]
           }
         ]
       })
@@ -112,8 +148,7 @@ describe('RemotePluginRegistryService', () => {
             name: 'Unsafe Plugin',
             version: '0.1.0',
             manifest: '../unsafe-plugin/plugin.json',
-            entries: { main: 'dist/main.js' },
-            capabilities: [{ kind: 'request-adapter', providerType: 'gemini', modelTypes: ['llm'] }]
+            capabilities: [{ kind: 'request-payload-extension', feature: 'thinking' }]
           }
         ]
       })

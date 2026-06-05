@@ -16,6 +16,34 @@ const parseRequestOverrides = (value: string | null): Record<string, any> | unde
   }
 }
 
+const parsePayloadExtensions = (value: string | null): ProviderPayloadExtensions | undefined => {
+  if (!value) {
+    return undefined
+  }
+
+  try {
+    const parsed = JSON.parse(value)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return undefined
+    }
+    const thinking = typeof parsed.thinking === 'string' && parsed.thinking.trim().length > 0
+      ? parsed.thinking
+      : undefined
+    return thinking ? { thinking } : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const serializePayloadExtensions = (
+  payloadExtensions: ProviderPayloadExtensions | undefined
+): string | null => {
+  if (!payloadExtensions?.thinking) {
+    return null
+  }
+  return JSON.stringify({ thinking: payloadExtensions.thinking })
+}
+
 const parseModalities = (value: string | null): string[] | undefined => {
   if (!value) {
     return undefined
@@ -49,6 +77,7 @@ export const toProviderDefinitionEntity = (row: ProviderDefinitionRow): Provider
   enabled: row.enabled !== 0,
   iconKey: row.icon_key ?? undefined,
   defaultApiUrl: row.default_api_url ?? undefined,
+  payloadExtensions: parsePayloadExtensions(row.payload_extensions),
   requestOverrides: parseRequestOverrides(row.request_overrides)
 })
 
@@ -62,6 +91,7 @@ export const toProviderDefinitionRow = (
   enabled: definition.enabled === false ? 0 : 1,
   icon_key: definition.iconKey ?? null,
   default_api_url: definition.defaultApiUrl ?? null,
+  payload_extensions: serializePayloadExtensions(definition.payloadExtensions),
   request_overrides: definition.requestOverrides ? JSON.stringify(definition.requestOverrides) : null,
   created_at: now,
   updated_at: now

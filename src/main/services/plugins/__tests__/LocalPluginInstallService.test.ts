@@ -32,38 +32,33 @@ describe('LocalPluginInstallService', () => {
   })
 
   it('imports a local plugin directory into userData/plugins/<pluginId>', async () => {
-    const sourceDir = path.join(userDataPath, 'source', 'gemini-adapter')
-    await fs.mkdir(path.join(sourceDir, 'dist'), { recursive: true })
+    const sourceDir = path.join(userDataPath, 'source', 'deepseek-thinking')
+    await fs.mkdir(sourceDir, { recursive: true })
     await fs.writeFile(
       path.join(sourceDir, 'plugin.json'),
       JSON.stringify({
-        id: 'gemini-compatible-adapter',
-        name: 'Gemini Compatible Adapter',
+        id: 'deepseek-thinking',
+        name: 'DeepSeek Thinking',
         version: '1.0.0',
         capabilities: [{
-          kind: 'request-adapter',
-          providerType: 'openai',
-          modelTypes: ['llm']
-        }],
-        entries: {
-          main: './dist/main.js'
-        }
+          kind: 'request-payload-extension',
+          feature: 'thinking'
+        }]
       }),
       'utf-8'
     )
-    await fs.writeFile(path.join(sourceDir, 'dist', 'main.js'), 'export default { requestAdapter: {} }', 'utf-8')
 
     const installRoot = await installService.importFromDirectory(sourceDir)
 
-    expect(installRoot).toBe(path.join(userDataPath, 'plugins', 'gemini-compatible-adapter'))
+    expect(installRoot).toBe(path.join(userDataPath, 'plugins', 'deepseek-thinking'))
     const manifestContent = await fs.readFile(path.join(installRoot, 'plugin.json'), 'utf-8')
     expect(JSON.parse(manifestContent)).toMatchObject({
-      id: 'gemini-compatible-adapter',
-      name: 'Gemini Compatible Adapter'
+      id: 'deepseek-thinking',
+      name: 'DeepSeek Thinking'
     })
   })
 
-  it('rejects importing a plugin when entries.main is missing', async () => {
+  it('rejects importing a retired request adapter plugin', async () => {
     const sourceDir = path.join(userDataPath, 'source', 'broken-adapter')
     await fs.mkdir(sourceDir, { recursive: true })
     await fs.writeFile(
@@ -76,15 +71,12 @@ describe('LocalPluginInstallService', () => {
           kind: 'request-adapter',
           providerType: 'openai',
           modelTypes: ['llm']
-        }],
-        entries: {
-          main: './dist/main.js'
-        }
+        }]
       }),
       'utf-8'
     )
 
-    await expect(installService.importFromDirectory(sourceDir)).rejects.toThrow('missing entries.main file')
+    await expect(installService.importFromDirectory(sourceDir)).rejects.toThrow('capabilities')
   })
 
   it('uninstalls a local plugin by removing its install directory', async () => {

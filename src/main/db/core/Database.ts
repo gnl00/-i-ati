@@ -260,6 +260,7 @@ class AppDatabase {
         enabled INTEGER NOT NULL DEFAULT 1,
         icon_key TEXT,
         default_api_url TEXT,
+        payload_extensions TEXT,
         request_overrides TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
@@ -267,6 +268,7 @@ class AppDatabase {
     `)
 
     this.ensureColumn('provider_definitions', 'enabled', 'INTEGER NOT NULL DEFAULT 1')
+    this.ensureColumn('provider_definitions', 'payload_extensions', 'TEXT')
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS provider_accounts (

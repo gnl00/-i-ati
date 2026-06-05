@@ -15,7 +15,7 @@ describe('requestAdapters', () => {
     ])
   })
 
-  it('hides retired external adapter ids from provider adapter options', () => {
+  it('lists built-in request adapters from loaded plugin entities', () => {
     const options = getRequestAdapterOptionsFromPlugins([
       {
         pluginId: 'google-gemini-compatible-adapter',
@@ -32,8 +32,8 @@ describe('requestAdapters', () => {
         }]
       },
       {
-        pluginId: 'gemini-compatible-adapter',
-        name: 'Retired Gemini Adapter',
+        pluginId: 'custom-request-adapter',
+        name: 'Custom Request Adapter',
         source: 'remote',
         enabled: true,
         status: 'installed',

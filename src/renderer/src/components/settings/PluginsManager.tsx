@@ -1,6 +1,5 @@
 import React from 'react'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
-import { isRetiredRequestAdapterPluginId } from '@shared/plugins/adapterPluginIds'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import InlineDeleteConfirm from './common/InlineDeleteConfirm'
@@ -57,10 +56,7 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
     () => plugins.filter(plugin => plugin.source !== 'built-in'),
     [plugins]
   )
-  const visibleRemotePlugins = React.useMemo(
-    () => remotePlugins.filter(plugin => !isRetiredRequestAdapterPluginId(plugin.pluginId)),
-    [remotePlugins]
-  )
+  const visibleRemotePlugins = remotePlugins
   const activeCount = installedPlugins.filter(plugin => plugin.enabled).length
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [isRefreshingRemote, setIsRefreshingRemote] = React.useState(false)
@@ -245,8 +241,8 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                 const remotePlugin = remotePlugins.find(item => item.pluginId === plugin.pluginId)
                 const hasRemoteUpdate = remotePlugin
                   && compareVersions(remotePlugin.version, plugin.version) > 0
-                const requestAdapterCapabilities = plugin.capabilities
-                  .filter(capability => capability.kind === 'request-adapter')
+                const payloadExtensionCapabilities = plugin.capabilities
+                  .filter(capability => capability.kind === 'request-payload-extension')
                   .map(capability => capability.data ?? {})
 
                 return (
@@ -265,9 +261,9 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                         <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
                           {plugin.source}
                         </Badge>
-                        {requestAdapterCapabilities.length > 0 && (
+                        {payloadExtensionCapabilities.length > 0 && (
                           <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-900/50 font-normal">
-                            request-adapter
+                            payload-extension
                           </Badge>
                         )}
                         {plugin.version && (
@@ -361,8 +357,8 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                 const hasUpdateAvailable = installedPlugin
                   ? compareVersions(plugin.version, installedPlugin.version) > 0
                   : false
-                const requestAdapterCapabilities = plugin.capabilities
-                  .filter(capability => capability.kind === 'request-adapter')
+                const payloadExtensionCapabilities = plugin.capabilities
+                  .filter(capability => capability.kind === 'request-payload-extension')
 
                 return (
                   <div
@@ -375,9 +371,9 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
                         <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:text-violet-300 dark:border-violet-900/50 font-normal">
                           remote
                         </Badge>
-                        {requestAdapterCapabilities.length > 0 && (
+                        {payloadExtensionCapabilities.length > 0 && (
                           <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-900/50 font-normal">
-                            request-adapter
+                            payload-extension
                           </Badge>
                         )}
                         <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-300 dark:border-emerald-900/50 font-normal">

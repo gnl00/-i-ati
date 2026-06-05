@@ -217,6 +217,7 @@ export class SmartMessageGenerationService {
       content,
       tools: [generateSmartMessagesTool],
       stream: false,
+      payloadExtensions: modelContext.providerDefinition.payloadExtensions,
       requestOverrides: {
         tool_choice: {
           type: 'function',

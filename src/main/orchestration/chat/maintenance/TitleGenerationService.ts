@@ -69,6 +69,7 @@ export async function generateTitle(
     model: model.id,
     content: prompt,
     stream: false,
+    payloadExtensions: providerDefinition.payloadExtensions,
     requestOverrides: buildTitleGenerationRequestOverrides(providerDefinition.requestOverrides),
     options: {
       maxTokens: 32,

@@ -9,7 +9,7 @@
  * - baseUrl / apiKey 等认证与路由信息
  * - systemPrompt
  * - tools
- * - stream / options / requestOverrides
+ * - stream / options / payloadExtensions / requestOverrides
  *
  * 业务逻辑边界：
  * - 它回答的是“这一轮 run 内的请求按什么规格发”
@@ -31,6 +31,7 @@ export interface AgentRequestSpec {
   systemPrompt?: string
   tools?: unknown[]
   stream?: boolean
+  payloadExtensions?: ProviderPayloadExtensions
   requestOverrides?: Record<string, unknown>
   options?: AgentRequestOptions
 }

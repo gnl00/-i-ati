@@ -83,7 +83,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       plugins,
       pluginId: selectedModel.definition.adapterPluginId,
       baseUrl: selectedModel.account.apiUrl,
-      modelId: selectedModel.model.id
+      modelId: selectedModel.model.id,
+      payloadExtensions: selectedModel.definition.payloadExtensions
     })
   }, [plugins, selectedModel])
   const effectiveThinkingLevel = getEffectiveThinkingLevel(

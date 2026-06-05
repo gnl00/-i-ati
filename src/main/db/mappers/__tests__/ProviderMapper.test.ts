@@ -17,6 +17,7 @@ describe('providerMapper', () => {
       enabled: 1,
       icon_key: 'openai',
       default_api_url: 'https://api.openai.com/v1',
+      payload_extensions: JSON.stringify({ thinking: 'deepseek-thinking' }),
       request_overrides: JSON.stringify({ temperature: 0.2 }),
       created_at: 1,
       updated_at: 2
@@ -27,6 +28,7 @@ describe('providerMapper', () => {
       enabled: true,
       iconKey: 'openai',
       defaultApiUrl: 'https://api.openai.com/v1',
+      payloadExtensions: { thinking: 'deepseek-thinking' },
       requestOverrides: { temperature: 0.2 }
     })
 
@@ -37,6 +39,7 @@ describe('providerMapper', () => {
       enabled: false,
       iconKey: 'openai',
       defaultApiUrl: 'https://api.openai.com/v1',
+      payloadExtensions: { thinking: 'deepseek-thinking' },
       requestOverrides: { temperature: 0.2 }
     }, 10)).toEqual({
       id: 'openai',
@@ -45,6 +48,7 @@ describe('providerMapper', () => {
       enabled: 0,
       icon_key: 'openai',
       default_api_url: 'https://api.openai.com/v1',
+      payload_extensions: JSON.stringify({ thinking: 'deepseek-thinking' }),
       request_overrides: JSON.stringify({ temperature: 0.2 }),
       created_at: 10,
       updated_at: 10

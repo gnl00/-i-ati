@@ -8,8 +8,8 @@ export interface RemotePluginRegistryEntry {
   description?: string
   manifest: string
   readme?: string
-  entries: {
-    main: string
+  entries?: {
+    main?: string
   }
   capabilities: PluginCapability[]
 }
@@ -28,8 +28,8 @@ export interface RemotePluginCatalogItem {
   description?: string
   manifest: string
   readme?: string
-  entries: {
-    main: string
+  entries?: {
+    main?: string
   }
   capabilities: PluginCapability[]
   repo: string

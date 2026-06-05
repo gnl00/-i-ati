@@ -1,9 +1,10 @@
 import { configDb } from '@main/db/config'
 import { createLogger } from '@main/logging/LogService'
-import type { RequestAdapterStreamProtocol } from '@shared/plugins/requestAdapterHooks'
 import { withToolCallReasonParameters } from '@shared/tools/definitions-utils'
 
 const logger = createLogger('BaseAdapter')
+
+type RequestAdapterStreamProtocol = 'sse' | 'raw'
 
 const extractSseDataChunks = (buffer: string): { chunks: string[]; remaining: string } => {
   const events = buffer.split(/\r?\n\r?\n/)

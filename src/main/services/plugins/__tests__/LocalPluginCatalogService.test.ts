@@ -28,47 +28,81 @@ describe('LocalPluginCatalogService', () => {
     userDataPath = ''
   })
 
-  it('scans valid local plugin manifests from the userData plugins directory', async () => {
-    const pluginDir = path.join(userDataPath, 'plugins', 'gemini-compatible')
-    await fs.mkdir(path.join(pluginDir, 'dist'), { recursive: true })
+  it('scans valid local request payload extension manifests from the userData plugins directory', async () => {
+    const pluginDir = path.join(userDataPath, 'plugins', 'deepseek-thinking')
+    await fs.mkdir(pluginDir, { recursive: true })
     await fs.writeFile(
       path.join(pluginDir, 'plugin.json'),
       JSON.stringify({
-        id: 'gemini-compatible-adapter',
-        name: 'Gemini Compatible Adapter',
+        id: 'deepseek-thinking',
+        name: 'DeepSeek Thinking',
         version: '1.0.0',
         description: 'Local test plugin',
         capabilities: [{
-          kind: 'request-adapter',
-          providerType: 'openai',
-          modelTypes: ['llm'],
+          kind: 'request-payload-extension',
+          feature: 'thinking',
           thinking: {
-            levels: ['minimal', 'low', 'medium', 'high'],
+            levels: ['none', 'low', 'medium', 'high'],
             defaultLevel: 'medium'
+          },
+          matchHints: {
+            baseUrlKeywords: ['deepseek'],
+            modelKeywords: ['deepseek']
+          },
+          patches: {
+            thinking: {
+              enabled: [
+                { op: 'set', path: 'thinking.type', value: 'enabled' },
+                {
+                  op: 'setFromThinkingEffort',
+                  path: 'reasoning_effort',
+                  allowedValues: ['low', 'medium', 'high']
+                }
+              ],
+              disabled: [
+                { op: 'set', path: 'thinking.type', value: 'disabled' },
+                { op: 'unset', path: 'reasoning_effort' }
+              ]
+            }
           }
-        }],
-        entries: {
-          main: './dist/main.js'
-        }
+        }]
       }),
       'utf-8'
     )
-    await fs.writeFile(path.join(pluginDir, 'dist', 'main.js'), 'export default { requestAdapter: {} }', 'utf-8')
 
     const plugins = await service.scanInstalledPlugins()
 
     expect(plugins).toHaveLength(1)
     expect(plugins[0]).toMatchObject({
-      pluginId: 'gemini-compatible-adapter',
-      displayName: 'Gemini Compatible Adapter',
+      pluginId: 'deepseek-thinking',
+      displayName: 'DeepSeek Thinking',
       status: 'installed',
       capabilities: [{
-        kind: 'request-adapter',
-        providerType: 'openai',
-        modelTypes: ['llm'],
+        kind: 'request-payload-extension',
+        feature: 'thinking',
         thinking: {
-          levels: ['minimal', 'low', 'medium', 'high'],
+          levels: ['none', 'low', 'medium', 'high'],
           defaultLevel: 'medium'
+        },
+        matchHints: {
+          baseUrlKeywords: ['deepseek'],
+          modelKeywords: ['deepseek']
+        },
+        patches: {
+          thinking: {
+            enabled: [
+              { op: 'set', path: 'thinking.type', value: 'enabled' },
+              {
+                op: 'setFromThinkingEffort',
+                path: 'reasoning_effort',
+                allowedValues: ['low', 'medium', 'high']
+              }
+            ],
+            disabled: [
+              { op: 'set', path: 'thinking.type', value: 'disabled' },
+              { op: 'unset', path: 'reasoning_effort' }
+            ]
+          }
         }
       }]
     })
@@ -89,23 +123,20 @@ describe('LocalPluginCatalogService', () => {
     expect(plugins[0]?.lastError).toContain('Invalid plugin manifest')
   })
 
-  it('returns invalid local plugin entries when entries.main is missing on disk', async () => {
-    const pluginDir = path.join(userDataPath, 'plugins', 'broken-entry-plugin')
+  it('returns invalid local plugin entries for retired request adapter manifests', async () => {
+    const pluginDir = path.join(userDataPath, 'plugins', 'retired-adapter-plugin')
     await fs.mkdir(pluginDir, { recursive: true })
     await fs.writeFile(
       path.join(pluginDir, 'plugin.json'),
       JSON.stringify({
-        id: 'broken-entry-plugin',
-        name: 'Broken Entry Plugin',
+        id: 'retired-adapter-plugin',
+        name: 'Retired Adapter Plugin',
         version: '1.0.0',
         capabilities: [{
           kind: 'request-adapter',
           providerType: 'openai',
           modelTypes: ['llm']
-        }],
-        entries: {
-          main: './dist/main.js'
-        }
+        }]
       }),
       'utf-8'
     )
@@ -114,9 +145,9 @@ describe('LocalPluginCatalogService', () => {
 
     expect(plugins).toHaveLength(1)
     expect(plugins[0]).toMatchObject({
-      pluginId: 'broken-entry-plugin',
+      pluginId: 'retired-adapter-plugin',
       status: 'invalid'
     })
-    expect(plugins[0]?.lastError).toContain('missing entries.main file')
+    expect(plugins[0]?.lastError).toContain('capabilities')
   })
 })

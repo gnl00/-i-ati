@@ -51,6 +51,7 @@ export interface MaterializedProtocolRequest {
   messages: MaterializedProtocolMessage[]
   tools?: unknown[]
   stream?: boolean
+  payloadExtensions?: ProviderPayloadExtensions
   requestOverrides?: Record<string, unknown>
   options?: AgentRequestOptions
 }
@@ -104,6 +105,7 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
       messages,
       tools: input.requestSpec.tools,
       stream: input.requestSpec.stream,
+      payloadExtensions: input.requestSpec.payloadExtensions,
       requestOverrides: input.requestSpec.requestOverrides,
       options: input.requestSpec.options
     }
