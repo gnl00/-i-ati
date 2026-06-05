@@ -300,9 +300,6 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                 <TooltipProvider>
                     {providerGroups.enabled.length > 0 && (
                         <div className="space-y-1">
-                            <SettingsToolbarLabel className="block px-3 pb-0.5 text-[10px]">
-                                Enabled
-                            </SettingsToolbarLabel>
                             {providerGroups.enabled.map(renderProviderEntry)}
                         </div>
                     )}

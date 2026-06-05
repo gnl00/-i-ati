@@ -121,14 +121,15 @@ export const SettingsPageShell: React.FC<SettingsPageShellProps> = ({
 }) => (
   <div
     className={cn(
-      'w-full max-w-[700px] h-[600px] overflow-hidden focus:ring-0 focus-visible:ring-0',
+      'w-full h-full min-h-0 min-w-0 overflow-hidden focus:ring-0 focus-visible:ring-0',
       className
     )}
     {...props}
   >
     <div
       className={cn(
-        'w-full h-full min-w-0 p-1 pr-2',
+        'w-full h-full min-w-0 min-h-0 p-1 pr-2',
+        !scrollable && 'flex flex-col min-h-0',
         scrollable && 'overflow-y-auto',
         scrollable && settingsScrollbarClassName,
         contentClassName
@@ -260,7 +261,7 @@ export const SettingsToolbar: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 bg-gray-50/40 dark:bg-gray-900/20',
+      'px-4 py-2.5 bg-gray-50/80 dark:bg-gray-900/20',
       className
     )}
     {...props}

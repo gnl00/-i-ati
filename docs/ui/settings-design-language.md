@@ -37,6 +37,7 @@ Use this template for pages centered on a collection:
 - MCP Servers content areas
 
 The page should use `SettingsPageShell`, followed by a header, toolbar/filter rows, and a `SettingsList` region. Rows use the same density, hover, border, and text hierarchy. Parent tabs that host resource-list content should expose the same shell boundary and loading states.
+The resource-list template can also split content into two stacked cards when needed: an upper card for title/description/actions and a lower card for folder/search/list controls with internal list scrolling.
 
 ### Master Detail
 
@@ -48,7 +49,10 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 
 ## Shared Rules
 
-- Page shell: `w-full max-w-[700px] h-[600px] overflow-hidden`.
+- Page shell: `w-full h-full min-h-0 overflow-hidden` for the outer wrapper.
+- Default shell (`scrollable=false`) keeps an inner column flex layout (`flex flex-col min-h-0`) so list regions with `flex-1` (such as `SettingsList`) can consume remaining height.
+- Section-stack shell (`scrollable=true`) must not default to `flex flex-col`. It keeps normal block flow and enables shell-level `overflow-y-auto` so cards keep natural height and are not shrink-flexed.
+- Both modes should consume available space from the nearest settings container (for example a popover that sets `w-[95vw] h-[93vh]`).
 - Settings panel frame: title, save state, tab bar, and active tab content share one neutral outer frame so the page reads as a single settings workspace.
 - Content surfaces live inside the settings frame as internal structure. Keep sibling outer cards for separate workflows outside the main settings panel.
 - Surfaces: white or dark gray, `rounded-xl`, subtle border, `shadow-xs`.
@@ -69,7 +73,9 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 
 ## Shared Primitives
 
-- `SettingsPageShell`: fixed settings viewport with optional scroll behavior.
+- `SettingsPageShell`: adaptive settings viewport with optional scroll behavior.
+- For `scrollable=false` pages (resource-list templates), shell content applies `flex flex-col min-h-0` so inner list areas with `flex-1` keep a valid height and scroll when needed.
+- For `scrollable=true` pages (section-stack templates), shell content stays in normal block flow and enables shell-level vertical scrolling so cards preserve full content height.
 - `SettingsSurface`: full-height panel for resource-list pages.
 - `SettingsMasterDetail`: compact two-pane settings workspace for sidebar/detail workflows.
 - `SettingsSidePanel`: fixed-width sidebar panel for master-detail navigation lists.

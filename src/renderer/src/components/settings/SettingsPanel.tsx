@@ -250,10 +250,10 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const hasUnsavedChanges = toolsDirty || knowledgebaseDirty || compressionDirty || mcpDirty || pluginsDirty
 
     return (
-        <div className="w-full max-w-[700px] min-w-0 overflow-hidden">
-            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list" className="w-full min-w-0">
-                <div className="w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xs">
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="w-full h-full min-h-0 min-w-0 overflow-hidden">
+            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list" className="w-full h-full min-w-0 min-h-0 flex flex-col">
+                <div className="w-full h-full min-h-0 min-w-0 overflow-hidden rounded-xl border-none p-0 bg-white dark:bg-gray-800 shadow-xs flex flex-col">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 p-1">
                         <div id="title" className="min-w-[180px] flex-1 select-none space-y-1.5">
                             <h4 className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold leading-none tracking-tight text-gray-900 dark:text-gray-100">
                                 <span className="truncate">@i Settings</span>
@@ -292,7 +292,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             </Button>
                         </div>
                     </div>
-                    <div className="min-w-0 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/25 p-1">
+                    <div className="min-w-0 bg-gray-50/50 dark:bg-gray-900/25 px-1.5 py-0.5">
                         <AnimatedTabsList
                             tabs={preferenceTabs}
                             value={activeTab}
@@ -304,11 +304,11 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         />
                     </div>
 
-                    <TabsContent value="provider-list" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                    <TabsContent value="provider-list" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
                         <ProvidersManager plugins={plugins} />
                     </TabsContent>
 
-                    <TabsContent value="tools" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                    <TabsContent value="tools" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
                         <ToolsManager
                             maxWebSearchItems={maxWebSearchItems}
                             setMaxWebSearchItems={setMaxWebSearchItems}
@@ -325,14 +325,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         />
                     </TabsContent>
 
-                    <TabsContent value="memory" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                    <TabsContent value="memory" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
                         <MemoryManager
                             memoryEnabled={memoryEnabled}
                             setMemoryEnabled={setMemoryEnabled}
                         />
                     </TabsContent>
 
-                    <TabsContent value="knowledgebase" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                    <TabsContent value="knowledgebase" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
                         <KnowledgebaseManager
                             enabled={knowledgebaseEnabled}
                             setEnabled={setKnowledgebaseEnabled}
@@ -351,26 +351,26 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         />
                     </TabsContent>
 
-                <TabsContent value="mcp-servers" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
-                    <SettingsPageShell>
-                        {!mcpConfigLoaded ? (
-                            <SettingsLoadingState className="h-full">
-                                Loading MCP configuration...
-                            </SettingsLoadingState>
-                        ) : (
-                            <MCPServersManagerContent
-                                mcpServerConfig={mcpServerConfig}
-                                setMcpServerConfig={setMcpServerConfig}
-                            />
-                        )}
-                    </SettingsPageShell>
+                    <TabsContent value="mcp-servers" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
+                        <SettingsPageShell>
+                            {!mcpConfigLoaded ? (
+                                <SettingsLoadingState className="h-full">
+                                    Loading MCP configuration...
+                                </SettingsLoadingState>
+                            ) : (
+                                <MCPServersManagerContent
+                                    mcpServerConfig={mcpServerConfig}
+                                    setMcpServerConfig={setMcpServerConfig}
+                                />
+                            )}
+                        </SettingsPageShell>
                     </TabsContent>
 
-                    <TabsContent value="skills" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                    <TabsContent value="skills" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
                         <SkillsManager />
                     </TabsContent>
 
-                    <TabsContent value="plugins" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                    <TabsContent value="plugins" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
                         <PluginsManager
                             plugins={plugins}
                             remotePlugins={remotePlugins as RemotePluginCatalogItem[]}
@@ -385,7 +385,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                         />
                     </TabsContent>
 
-                    <TabsContent value="data-log" className="mt-0 w-full min-w-0 focus:ring-0 focus-visible:ring-0">
+                    <TabsContent value="data-log" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
                         <DataAndLogManager
                             streamChunkDebugEnabled={streamChunkDebugEnabled}
                             setStreamChunkDebugEnabled={setStreamChunkDebugEnabled}

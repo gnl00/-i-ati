@@ -83,8 +83,9 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
   }, [])
 
   return (
-    <SettingsPageShell>
+    <SettingsPageShell contentClassName='gap-1'>
       <SettingsSectionHeader
+        className='border rounded-2xl border-gray-100 dark:border-gray-700/50'
         title={(
           <Label htmlFor="toggle-memory" className="cursor-default">
             Long-term Memory
@@ -108,56 +109,58 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
         )}
       />
 
-      <SettingsToolbar className="flex items-center justify-between gap-3">
-        <SettingsToolbarLabel>Stored Memories ({memoryItems.length} stored)</SettingsToolbarLabel>
-        <button
-          onClick={loadMemories}
-          disabled={isMemoryLoading}
-          className={settingsSecondaryButtonClassName}
-        >
-          <i className={`ri-refresh-line text-[12px] ${isMemoryLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
-      </SettingsToolbar>
+      <div className='border rounded-2xl border-gray-100 dark:border-gray-700/50 flex-1 min-h-0 flex flex-col overflow-hidden'>
+        <SettingsToolbar className="flex items-center justify-between gap-3 mb-1 border-t-0">
+          <SettingsToolbarLabel>Stored Memories ({memoryItems.length} stored)</SettingsToolbarLabel>
+          <button
+            onClick={loadMemories}
+            disabled={isMemoryLoading}
+            className={settingsSecondaryButtonClassName}
+          >
+            <i className={`ri-refresh-line text-[12px] ${isMemoryLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </SettingsToolbar>
 
-      <SettingsList className="bg-transparent dark:bg-transparent">
-        {memoryItems.length === 0 ? (
-          <SettingsEmptyState
-            icon={<i className="ri-brain-line text-[15px] text-gray-400 dark:text-gray-500" />}
-            title={isMemoryLoading ? 'Loading memories…' : 'No memories stored'}
-            description={isMemoryLoading ? undefined : 'Enable memory above and start a conversation.'}
-          />
-        ) : (
-          memoryItems.map(item => {
-            const role = roleMeta[item.role] ?? roleMeta.system
-            return (
-              <SettingsListItem
-                key={item.id}
-                className="gap-3"
-              >
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium border ${role.className}`}>
-                      {role.label}
-                    </span>
-                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                      {new Date(item.timestamp).toLocaleString()}
-                    </span>
+        <SettingsList className="bg-transparent dark:bg-transparent border-t-0">
+          {memoryItems.length === 0 ? (
+            <SettingsEmptyState
+              icon={<i className="ri-brain-line text-[15px] text-gray-400 dark:text-gray-500" />}
+              title={isMemoryLoading ? 'Loading memories…' : 'No memories stored'}
+              description={isMemoryLoading ? undefined : 'Enable memory above and start a conversation.'}
+            />
+          ) : (
+            memoryItems.map(item => {
+              const role = roleMeta[item.role] ?? roleMeta.system
+              return (
+                <SettingsListItem
+                  key={item.id}
+                  className="gap-3"
+                >
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium border ${role.className}`}>
+                        {role.label}
+                      </span>
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2">
+                      {item.context_origin}
+                    </p>
                   </div>
-                  <p className="text-[12px] text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2">
-                    {item.context_origin}
-                  </p>
-                </div>
-                <InlineDeleteConfirm
-                  onConfirm={() => handleDeleteMemory(item.id)}
-                  ariaLabel="Delete memory"
-                  revealOnGroupHover
-                />
-              </SettingsListItem>
-            )
-          })
-        )}
-      </SettingsList>
+                  <InlineDeleteConfirm
+                    onConfirm={() => handleDeleteMemory(item.id)}
+                    ariaLabel="Delete memory"
+                    revealOnGroupHover
+                  />
+                </SettingsListItem>
+              )
+            })
+          )}
+        </SettingsList>
+      </div>
     </SettingsPageShell>
   )
 }

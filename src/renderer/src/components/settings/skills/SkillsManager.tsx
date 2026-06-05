@@ -31,6 +31,7 @@ import {
   SettingsPageShell,
   SettingsSectionHeader,
   SettingsToolbar,
+  SettingsToolbarLabel,
   settingsPrimaryButtonClassName,
   settingsSecondaryButtonClassName
 } from '../common/SettingsLayout'
@@ -278,9 +279,10 @@ const SkillsManager: React.FC = () => {
   }
 
   return (
-    <SettingsPageShell>
-      <SettingsSectionHeader
-        title={<Label className="cursor-default">Skills</Label>}
+    <SettingsPageShell contentClassName='gap-1'>
+      <div className="border rounded-2xl border-gray-100 dark:border-gray-700/50">
+        <SettingsSectionHeader
+          title={<Label className="cursor-default">Skills</Label>}
           badges={(
             <>
               <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-500 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
@@ -327,7 +329,7 @@ const SkillsManager: React.FC = () => {
           )}
         />
 
-        <SettingsToolbar className="flex items-center gap-2 flex-wrap min-h-[40px] min-w-0 overflow-x-hidden">
+        <SettingsToolbar className="flex items-center gap-2 flex-wrap min-h-[40px] min-w-0 overflow-x-hidden border-t-0">
           {folders.length === 0 ? (
             <span className="text-[11px] text-gray-400/70 dark:text-gray-600 italic">
               No folders added — click Add Folder to scan for skills.
@@ -390,8 +392,11 @@ const SkillsManager: React.FC = () => {
             </>
           )}
         </SettingsToolbar>
+      </div>
 
-        <SettingsToolbar className="flex items-center gap-2 min-w-0 bg-transparent dark:bg-transparent">
+      <div className='border rounded-2xl border-gray-100 dark:border-gray-700/50 flex-1 min-h-0 flex flex-col overflow-hidden'>
+        <SettingsToolbar className="flex items-center gap-2 flex-wrap min-w-0 bg-gray-50/80 dark:bg-gray-900/20">
+          <SettingsToolbarLabel className="shrink-0">Installed Skills ({skills.length} installed)</SettingsToolbarLabel>
           <div
             className={cn(
               'group/skill-search relative flex-1 min-w-0 rounded-lg',
@@ -443,8 +448,7 @@ const SkillsManager: React.FC = () => {
           </TooltipProvider>
         </SettingsToolbar>
 
-      <SettingsList>
-
+        <SettingsList className="flex-1 min-h-0 bg-transparent dark:bg-transparent border-t-0">
           {filteredSkills.length === 0 && (
             <>
               {searchQuery ? (
@@ -545,6 +549,7 @@ const SkillsManager: React.FC = () => {
             )
           })}
         </SettingsList>
+      </div>
     </SettingsPageShell>
   )
 }
