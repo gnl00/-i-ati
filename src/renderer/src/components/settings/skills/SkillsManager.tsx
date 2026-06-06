@@ -283,18 +283,6 @@ const SkillsManager: React.FC = () => {
       <div className="border rounded-2xl border-gray-100 dark:border-gray-700/50">
         <SettingsSectionHeader
           title={<Label className="cursor-default">Skills</Label>}
-          badges={(
-            <>
-              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-500 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                {skills.length} available
-              </Badge>
-              {activeCount > 0 && (
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                  {activeCount} active
-                </Badge>
-              )}
-            </>
-          )}
           description="Manage skill folders and toggle skills for the current chat."
           actions={(
             <>
