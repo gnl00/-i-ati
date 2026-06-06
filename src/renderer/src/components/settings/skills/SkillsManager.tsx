@@ -15,8 +15,8 @@ import { toast } from 'sonner'
 import { Badge } from '@renderer/components/ui/badge'
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
 import { Label } from '@renderer/components/ui/label'
-import { Input } from '@renderer/components/ui/input'
 import { FolderOpen, Search, X } from 'lucide-react'
+import ExpandableSearchInput from '../common/ExpandableSearchInput'
 import { cn } from '@renderer/lib/utils'
 import {
   Tooltip,
@@ -383,57 +383,35 @@ const SkillsManager: React.FC = () => {
       </div>
 
       <div className='border rounded-2xl border-gray-100 dark:border-gray-700/50 flex-1 min-h-0 flex flex-col overflow-hidden'>
-        <SettingsToolbar className="flex items-center gap-2 flex-wrap min-w-0 bg-gray-50/80 dark:bg-gray-900/20">
+        <SettingsToolbar className="flex items-center gap-2 min-w-0 bg-gray-50/80 dark:bg-gray-900/20">
           <SettingsToolbarLabel className="shrink-0">Installed Skills ({skills.length} installed)</SettingsToolbarLabel>
-          <div
-            className={cn(
-              'group/skill-search relative flex-1 min-w-0 rounded-lg',
-              'bg-slate-100/80 shadow-inner dark:bg-slate-950/70',
-              'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800',
-              'transition-colors duration-200',
-              'focus-within:bg-white dark:focus-within:bg-slate-900'
-            )}
-          >
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/skill-search:text-gray-500 dark:text-gray-500 dark:group-focus-within/skill-search:text-gray-300" />
-            <Input
-              placeholder="Search installed skills"
+          <div className="flex items-center gap-2 ml-auto flex-row">
+            <ExpandableSearchInput
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-slate-700 shadow-none
-                  placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600
-                  focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+              onChange={setSearchQuery}
+              placeholder="Search installed skills"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                aria-label="Clear search"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
+            <TooltipProvider delayDuration={400}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex shrink-0">
+                    <button
+                      onClick={refreshSkills}
+                      disabled={isRefreshing}
+                      className={cn(settingsSecondaryButtonClassName, 'h-8')}
+                      aria-label="Reload skills list"
+                    >
+                      <i className={`ri-refresh-line text-[12px] ${isRefreshing ? 'animate-spin' : ''}`} />
+                      Reload
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className={SKILL_TOOLTIP_CLASS_NAME}>
+                  <p className="font-medium">Refresh the currently loaded skills list.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          <TooltipProvider delayDuration={400}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex shrink-0">
-                  <button
-                    onClick={refreshSkills}
-                    disabled={isRefreshing}
-                    className={cn(settingsSecondaryButtonClassName, 'h-8')}
-                    aria-label="Reload skills list"
-                  >
-                    <i className={`ri-refresh-line text-[12px] ${isRefreshing ? 'animate-spin' : ''}`} />
-                    Reload
-                  </button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent className={SKILL_TOOLTIP_CLASS_NAME}>
-                <p className="font-medium">Refresh the currently loaded skills list.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </SettingsToolbar>
 
         <SettingsList className="flex-1 min-h-0 bg-transparent dark:bg-transparent border-t-0">

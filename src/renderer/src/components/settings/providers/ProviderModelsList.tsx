@@ -26,7 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
-import { Search } from 'lucide-react'
+import ExpandableSearchInput from '../common/ExpandableSearchInput'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { invokeModelsGetModelCapabilities } from '@renderer/invoker/ipcInvoker'
 import InlineDeleteConfirm from '@renderer/components/settings/common/InlineDeleteConfirm'
@@ -37,9 +37,9 @@ import {
   settingsOutlineButtonClassName,
   settingsPrimaryButtonClassName,
   settingsScrollbarClassName,
-  settingsSearchInputClassName,
   settingsSecondaryButtonClassName
 } from '../common/SettingsLayout'
+import { Button } from '@renderer/components/ui/button'
 
 type ProviderModelsListProps = {
   selectedProviderId?: string
@@ -403,35 +403,25 @@ export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
       </Drawer>
 
       {/* ── Toolbar ─────────────────────────────────────────── */}
-      <div className='flex justify-between items-center gap-3 px-4 py-2.5 border-b border-gray-200/70 dark:border-gray-700/60 bg-gray-50/40 dark:bg-gray-900/20 shrink-0'>
+      <div className='flex items-center gap-3 px-4 py-2.5 border-b border-gray-200/70 dark:border-gray-700/60 bg-gray-50/40 dark:bg-gray-900/20 shrink-0'>
         <h3 className='text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100 shrink-0'>Models</h3>
-        <div className='flex-1 flex items-center'>
-          <div
-            className={cn(
-              'group/model-search relative w-full max-w-[240px] rounded-lg',
-              'bg-gray-100/80 shadow-inner dark:bg-gray-950/60',
-              'ring-1 ring-inset ring-gray-200/70 dark:ring-gray-700',
-              'transition-colors duration-200',
-              'focus-within:bg-white dark:focus-within:bg-gray-900'
-            )}
+        <div className="flex items-center gap-2 ml-auto flex-row">
+          <ExpandableSearchInput
+            value={modelSearchQuery}
+            onChange={setModelSearchQuery}
+            placeholder="Search models..."
+          />
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={onOpenFetchModels}
+            disabled={isFetchDisabled}
+            className='space-x-0.5 text-[11px] tracking-tight text-gray-500 dark:text-gray-400'
           >
-            <Search className='pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/model-search:text-gray-500 dark:text-gray-500 dark:group-focus-within/model-search:text-gray-300' />
-            <Input
-              value={modelSearchQuery}
-              onChange={e => setModelSearchQuery(e.target.value)}
-              placeholder="Search models..."
-              className={cn(settingsSearchInputClassName, 'h-7 rounded-lg border-transparent bg-transparent pl-8 pr-3 shadow-none')}
-            />
-          </div>
+            <i className="ri-download-cloud-line"></i>
+            <span>Fetch Models</span>
+          </Button>
         </div>
-        <button
-          onClick={onOpenFetchModels}
-          disabled={isFetchDisabled}
-          className={cn(settingsOutlineButtonClassName, 'shrink-0')}
-        >
-          <i className="ri-download-cloud-line text-[12px]"></i>
-          Fetch Models
-        </button>
       </div>
 
       {/* ── Add row ──────────────────────────────────────────── */}

@@ -136,7 +136,7 @@ export const AnimatedTabsList: React.FC<AnimatedTabsListProps> = ({
         {/* Animated Indicator - Rendered BEHIND the triggers */}
         {indicatorStyle && (
           <div
-            className="absolute left-0 top-1 bottom-1 rounded-lg shadow-xs bg-white dark:bg-gray-800 border border-black/5 dark:border-white/5 z-0 transition-all duration-300 ease-out will-change-transform"
+            className="absolute left-0 top-1 bottom-1 rounded-lg shadow-xs bg-white/5 dark:bg-gray-800 border border-black/5 dark:border-white/5 z-0 transition-all duration-300 ease-out will-change-transform"
             style={{
               transform: `translateX(${indicatorStyle.left}px)`,
               width: `${indicatorStyle.width}px`
@@ -155,7 +155,7 @@ export const AnimatedTabsList: React.FC<AnimatedTabsListProps> = ({
             value={tab.value}
             className={cn(
               'relative z-10 h-8 px-4 rounded-lg bg-transparent shrink-0',
-              'text-xs font-semibold text-muted-foreground whitespace-nowrap',
+              'text-xs font-bold text-muted-foreground whitespace-nowrap',
               'data-[state=active]:text-foreground data-[state=active]:bg-transparent',
               'hover:text-foreground/80 transition-colors',
               'focus-visible:ring-0 focus-visible:bg-transparent',

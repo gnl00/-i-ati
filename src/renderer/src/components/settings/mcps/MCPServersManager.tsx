@@ -7,7 +7,6 @@ import {
   DrawerHeader,
   DrawerTitle
 } from '@renderer/components/ui/drawer'
-import { Input } from '@renderer/components/ui/input'
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs'
 import { cn } from '@renderer/lib/utils'
 import { useMcpConnection } from '@renderer/hooks/useMcpConnection'
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import ExpandableSearchInput from '../common/ExpandableSearchInput'
 import type {
   CachedServers,
   MCPServersManagerProps,
@@ -439,32 +439,14 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
           {activeTab === 'registry' && (
             <div className="flex min-w-0 flex-1 justify-end">
-              <div
-                className={cn(
-                  'group/search relative flex-1 max-w-[300px] rounded-lg',
-                  'bg-gray-100/80 shadow-inner dark:bg-gray-950/50',
-                  'ring-1 ring-inset ring-gray-200/70 dark:ring-gray-700',
-                  'transition-colors duration-200',
-                  'focus-within:bg-white dark:focus-within:bg-gray-900'
-                )}
-              >
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within/search:text-gray-500 dark:text-gray-500 dark:group-focus-within/search:text-gray-300" />
-                <Input
-                  placeholder="Search from registry"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                  className={cn(
-                    'h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-gray-700 shadow-none',
-                    'placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600',
-                    'focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0'
-                  )}
-                  disabled={isFetching}
-                />
-                {isSearching && (
-                  <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
-                )}
-              </div>
+              <ExpandableSearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search from registry"
+                disabled={isFetching}
+                loading={isSearching}
+                onSubmit={handleSearchSubmit}
+              />
             </div>
           )}
         </div>

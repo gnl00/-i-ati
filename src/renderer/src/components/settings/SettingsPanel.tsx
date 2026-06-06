@@ -252,7 +252,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     return (
         <div className="w-full h-full min-h-0 min-w-0 overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list" className="w-full h-full min-w-0 min-h-0 flex flex-col">
-                <div className="w-full h-full min-h-0 min-w-0 overflow-hidden rounded-xl border-none p-0 bg-white dark:bg-gray-800 shadow-xs flex flex-col">
+                <div className="w-full h-full min-h-0 min-w-0 overflow-hidden rounded-xl border-none bg-white dark:bg-gray-800 shadow-xs flex flex-col">
                     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 p-1">
                         <div id="title" className="min-w-[180px] flex-1 select-none space-y-1.5">
                             <h4 className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold leading-none tracking-tight text-gray-900 dark:text-gray-100">
@@ -265,7 +265,7 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                                 Shape how @i works and connects.
                             </p>
                         </div>
-                        <div id="changes-indicator" className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/35 px-2 py-1.5">
+                        <div id="changes-indicator" className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg bg-white/50 dark:bg-gray-900/35 backdrop-blur-3xl px-2 py-1.5">
                             <div className="flex h-7 min-w-0 items-center gap-2 px-1">
                                 <div className="relative flex h-1.5 w-1.5 shrink-0">
                                     {hasUnsavedChanges && (
@@ -292,14 +292,14 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             </Button>
                         </div>
                     </div>
-                    <div className="min-w-0 bg-gray-50/50 dark:bg-gray-900/25 px-1.5 py-0.5">
+                    <div className="min-w-0 px-1 py-0.5">
                         <AnimatedTabsList
                             tabs={preferenceTabs}
                             value={activeTab}
                             scrollable
                             autoScrollActive
                             className="w-full min-w-0"
-                            tabsListClassName="h-9 shadow-none border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/70"
+                            tabsListClassName="h-9 shadow-none border border-gray-100/70 dark:border-gray-700/70 bg-white/50 dark:bg-gray-800/70"
                             tabsTriggerClassName="h-7 px-3 text-[11.5px] font-medium"
                         />
                     </div>
