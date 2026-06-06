@@ -23,6 +23,7 @@ export type EmbeddedToolCapability =
   | 'knowledgebase'
   | 'todo'
   | 'registry'
+  | 'chat'
 
 export interface EmbeddedToolMetadata {
   capability: EmbeddedToolCapability

@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  GENERATE_SMART_MESSAGES_TOOL_NAME,
+  generateSmartMessagesTool
+} from '@shared/tools/smartMessages/definitions'
 
 const {
   getConfigMock,
@@ -6,7 +10,7 @@ const {
   getSmartMessageBySourceHashMock,
   markChatSmartMessagesStaleMock,
   upsertSmartMessageMock,
-  unifiedChatRequestMock,
+  agentMock,
   loggerWarnMock
 } = vi.hoisted(() => ({
   getConfigMock: vi.fn(),
@@ -14,7 +18,7 @@ const {
   getSmartMessageBySourceHashMock: vi.fn(),
   markChatSmartMessagesStaleMock: vi.fn(),
   upsertSmartMessageMock: vi.fn(),
-  unifiedChatRequestMock: vi.fn(),
+  agentMock: vi.fn(),
   loggerWarnMock: vi.fn()
 }))
 
@@ -28,8 +32,8 @@ vi.mock('@main/db/DatabaseService', () => ({
   }
 }))
 
-vi.mock('@main/request/index', () => ({
-  unifiedChatRequest: unifiedChatRequestMock
+vi.mock('@main/agent', () => ({
+  agent: agentMock
 }))
 
 vi.mock('@main/logging/LogService', () => ({
@@ -100,23 +104,29 @@ describe('SmartMessageGenerationService', () => {
     getConfigMock.mockReturnValue(config)
     getSmartMessageBySourceHashMock.mockReturnValue(undefined)
     loggerWarnMock.mockReset()
-    unifiedChatRequestMock.mockResolvedValue({
-      content: '',
+    agentMock.mockResolvedValue({
+      type: 'tool_call',
       toolCalls: [{
-        id: 'call-1',
-        type: 'function',
-        function: {
-          name: 'generate_smart_messages',
-          arguments: JSON.stringify({
-            messages: [{
-              title: 'Continue welcome',
-              body: 'Continue the persisted Smart message pipeline.',
-              actionPrompt: 'Review the Smart message pipeline and suggest the next implementation step.',
-              reason: 'Recent summaries mention the welcome page work.',
-              priorityScore: 0.8
-            }]
-          })
-        }
+        name: GENERATE_SMART_MESSAGES_TOOL_NAME,
+        args: {
+          messages: [{
+            title: 'Continue welcome',
+            body: 'Continue the persisted Smart message pipeline.',
+            actionPrompt: 'Review the Smart message pipeline and suggest the next implementation step.',
+            reason: 'Recent summaries mention the welcome page work.',
+            priorityScore: 0.8
+          }]
+        },
+        result: {
+          messages: [{
+            title: 'Continue welcome',
+            body: 'Continue the persisted Smart message pipeline.',
+            actionPrompt: 'Review the Smart message pipeline and suggest the next implementation step.',
+            reason: 'Recent summaries mention the welcome page work.',
+            priorityScore: 0.8
+          }]
+        },
+        success: true
       }]
     })
   })
@@ -149,19 +159,17 @@ describe('SmartMessageGenerationService', () => {
     const service = new SmartMessageGenerationService()
 
     expect(service.parseToolDrafts([{
-      id: 'call-1',
-      type: 'function',
-      function: {
-        name: 'generate_smart_messages',
-        arguments: JSON.stringify({
-          messages: [{
-            title: 'Plan',
-            body: 'Continue this work.',
-            actionPrompt: 'Make a plan.',
-            priorityScore: 0.7
-          }]
-        })
-      }
+      name: 'generate_smart_messages',
+      args: {
+        messages: [{
+          title: 'Plan',
+          body: 'Continue this work.',
+          actionPrompt: 'Make a plan.',
+          priorityScore: 0.7
+        }]
+      },
+      result: {},
+      success: true
     }])).toEqual([{
       title: 'Plan',
       body: 'Continue this work.',
@@ -182,24 +190,29 @@ describe('SmartMessageGenerationService', () => {
 
     expect(result).toEqual({ generated: 1, skipped: 0 })
     expect(markChatSmartMessagesStaleMock).toHaveBeenCalledWith('chat-1')
-    expect(unifiedChatRequestMock).toHaveBeenCalledWith(
+    expect(agentMock).toHaveBeenCalledWith(
+      'smart-message-generator',
+      expect.any(String),
+      [GENERATE_SMART_MESSAGES_TOOL_NAME],
+      expect.any(Array),
+      false,
       expect.objectContaining({
-        requestOverrides: {
-          tool_choice: {
-            type: 'function',
-            function: {
-              name: 'generate_smart_messages'
-            }
-          }
-        },
-        tools: [expect.objectContaining({
-          function: expect.objectContaining({ name: 'generate_smart_messages' })
-        })]
-      }),
-      null,
-      expect.any(Function),
-      expect.any(Function)
+        model: expect.any(Object),
+        account: expect.any(Object),
+        providerDefinition: expect.any(Object),
+        toolDefinitions: expect.arrayContaining([generateSmartMessagesTool]),
+        sanitizeOverrides: expect.any(Function)
+      })
     )
+    const sanitizeOverrides = agentMock.mock.calls[0]?.[5]?.sanitizeOverrides
+    expect(typeof sanitizeOverrides).toBe('function')
+    expect(sanitizeOverrides({
+      tool_choice: {
+        type: 'function',
+        function: { name: GENERATE_SMART_MESSAGES_TOOL_NAME }
+      },
+      top_p: 0.5
+    })).toEqual({ top_p: 0.5 })
     expect(upsertSmartMessageMock).toHaveBeenCalledWith(expect.objectContaining({
       chatUuid: 'chat-1',
       title: 'Continue welcome',
@@ -220,7 +233,7 @@ describe('SmartMessageGenerationService', () => {
     const result = await service.generate({ now: 1_700_000_300_000, maxMessages: 1 })
 
     expect(result).toEqual({ generated: 0, skipped: 1 })
-    expect(unifiedChatRequestMock).not.toHaveBeenCalled()
+    expect(agentMock).not.toHaveBeenCalled()
     expect(upsertSmartMessageMock).not.toHaveBeenCalled()
   })
 
@@ -229,9 +242,9 @@ describe('SmartMessageGenerationService', () => {
     const service = new SmartMessageGenerationService()
 
     listRecentSmartMessageCandidateSummariesMock.mockReturnValue([makeSummary()])
-    unifiedChatRequestMock.mockResolvedValue({
+    agentMock.mockResolvedValue({
+      type: 'text',
       content: 'Here is a suggestion.',
-      finishReason: 'stop',
       toolCalls: []
     })
 
@@ -240,8 +253,8 @@ describe('SmartMessageGenerationService', () => {
     expect(result).toEqual({ generated: 0, skipped: 1 })
     expect(loggerWarnMock).toHaveBeenCalledWith('generate.group_failed', expect.objectContaining({
       chatUuid: 'chat-1',
-      error: 'generate_smart_messages tool call missing',
-      finishReason: 'stop',
+      error: 'smart-message-generator returned text response',
+      finishReason: undefined,
       contentPreview: 'Here is a suggestion.',
       toolCallNames: []
     }))

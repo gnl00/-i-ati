@@ -66,6 +66,7 @@ import {
   processTelegramSendMessage,
   processTelegramSetupTool
 } from '@main/tools/telegram/TelegramToolsProcessor'
+import { processChatSetTitle } from '@main/tools/title/TitleToolsProcessor'
 import {
   processTodoAdd,
   processTodoDelete,
@@ -171,6 +172,7 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   telegram_setup_tool: processTelegramSetupTool,
   telegram_search_targets: processTelegramSearchTargets,
   telegram_send_message: processTelegramSendMessage,
+  chat_set_title: processChatSetTitle,
   todo_add: processTodoAdd,
   todo_list: processTodoList,
   todo_update: processTodoUpdate,

@@ -8,8 +8,8 @@
  * 4. 避免并发压缩
  */
 
-import { unifiedChatRequest } from '@main/request/index'
-import { createUnifiedTextRequest } from '@main/request/UnifiedRequestFactory'
+import { agent } from '@main/agent'
+import { resolveRequestOverrides } from '@main/request/overrides'
 import { buildCompressionPrompt } from '@shared/prompts'
 import DatabaseService from '@main/db/DatabaseService'
 import { createLogger } from '@main/logging/LogService'
@@ -18,6 +18,8 @@ import { CompressionTranscriptBuilder } from './CompressionTranscriptBuilder'
 const DEFAULT_TRIGGER_TOKEN_RATIO = 0.7
 const RECENT_MESSAGE_PAIRS_TO_KEEP = 3
 const logger = createLogger('MessageCompressionService')
+const MESSAGE_COMPACTOR_SYSTEM_PROMPT =
+  'You are a message compactor. Produce only the final continuing-session summary requested by the user message.'
 
 export type CompressionJob = {
   chatId: number
@@ -240,24 +242,24 @@ export class MessageCompressionService {
       previousSummary
     })
 
-    // 3. 构建请求
-    const request = createUnifiedTextRequest({
-      adapterPluginId: providerDefinition.adapterPluginId,
-      baseUrl: account.apiUrl,
-      apiKey: account.apiKey,
-      model: model.id,
-      modelType: model.type,
-      content: userContent,
-      tools: [],
-      stream: false,
-      payloadExtensions: providerDefinition.payloadExtensions
-    })
+    const response = await agent(
+      'message-compactor',
+      MESSAGE_COMPACTOR_SYSTEM_PROMPT,
+      [],
+      [{ role: 'user', content: userContent }],
+      false,
+      {
+        model,
+        account,
+        providerDefinition,
+        sanitizeOverrides: providerOverrides => resolveRequestOverrides(providerOverrides, 'compression')
+      }
+    )
 
-    // 4. 调用 LLM API
-    const response = await unifiedChatRequest(request, null, () => {}, () => {})
+    if (response.type !== 'text') {
+      throw new Error('message-compactor did not return text output')
+    }
 
-    // 5. 解析响应
-    // // console.log('response', response);
     return response.content?.trim() || ''
   }
 

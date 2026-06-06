@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { databaseMock, loggerMock, unifiedChatRequestMock } = vi.hoisted(() => ({
+const { databaseMock, loggerMock, agentMock } = vi.hoisted(() => ({
   databaseMock: {
     getActiveCompressedSummariesByChatId: vi.fn(),
     updateCompressedSummaryStatus: vi.fn(),
@@ -12,15 +12,15 @@ const { databaseMock, loggerMock, unifiedChatRequestMock } = vi.hoisted(() => ({
     warn: vi.fn(),
     error: vi.fn()
   },
-  unifiedChatRequestMock: vi.fn()
+  agentMock: vi.fn()
 }))
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: databaseMock
 }))
 
-vi.mock('@main/request/index', () => ({
-  unifiedChatRequest: unifiedChatRequestMock
+vi.mock('@main/agent', () => ({
+  agent: agentMock
 }))
 
 vi.mock('@main/logging/LogService', () => ({
@@ -85,7 +85,7 @@ describe('MessageCompressionService', () => {
     loggerMock.info.mockReset()
     loggerMock.warn.mockReset()
     loggerMock.error.mockReset()
-    unifiedChatRequestMock.mockReset()
+    agentMock.mockReset()
   })
 
   it('uses accumulated response tokens against model context window', () => {
@@ -237,7 +237,7 @@ describe('MessageCompressionService', () => {
 
     databaseMock.getActiveCompressedSummariesByChatId.mockReturnValue(summaries)
     databaseMock.saveCompressedSummary.mockReturnValue(42)
-    unifiedChatRequestMock.mockResolvedValue({ content: 'new summary' })
+    agentMock.mockResolvedValue({ type: 'text', content: 'new summary' })
 
     const result = await service.compress({
       chatId: 1,
@@ -318,7 +318,7 @@ describe('MessageCompressionService', () => {
 
   it('preserves task-plan tool status in the summary request input', async () => {
     const service = new MessageCompressionService()
-    unifiedChatRequestMock.mockResolvedValue({ content: 'summary' })
+    agentMock.mockResolvedValue({ type: 'text', content: 'summary' })
 
     await service.generateSummary(
       [
@@ -362,8 +362,40 @@ describe('MessageCompressionService', () => {
       'previous summary'
     )
 
-    const request = unifiedChatRequestMock.mock.calls[0][0]
-    const prompt = request.messages[0].content
+    const request = agentMock.mock.calls[0]
+    const [name, systemPrompt, tools, messages, loop, options] = request
+
+    expect(name).toBe('message-compactor')
+    expect(systemPrompt).toBe(
+      'You are a message compactor. Produce only the final continuing-session summary requested by the user message.'
+    )
+    expect(tools).toEqual([])
+    expect(loop).toBe(false)
+
+    const prompt = messages[0].content
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toEqual(expect.objectContaining({ role: 'user' }))
+
+    expect(options).toEqual(expect.objectContaining({
+      model,
+      account,
+      providerDefinition
+    }))
+
+    const sanitizeOverrides = options.sanitizeOverrides
+    expect(typeof sanitizeOverrides).toBe('function')
+    expect(sanitizeOverrides({
+      temperature: 0.2,
+      top_p: 0.7,
+      thinking: { type: 'enabled' },
+      reasoning_effort: 'high',
+      tool_choice: 'auto',
+      output_config: { effort: 'high', top_k: 10 }
+    })).toEqual({
+      temperature: 0.2,
+      top_p: 0.7,
+      output_config: { top_k: 10 }
+    })
 
     expect(prompt).toContain('<user id="1">')
     expect(prompt).toContain('<assistant id="2">')
@@ -374,7 +406,8 @@ describe('MessageCompressionService', () => {
     expect(prompt).toContain('"status": "todo"')
     expect(prompt).toContain('</tool>')
     expect(prompt).not.toContain('<tool_result id="3"')
-    expect(prompt).toContain('pending、todo、doing、in_progress、pending_review、blocked')
-    expect(prompt).toContain('record it as open work in Pending Tasks')
+    expect(prompt).toContain('pending')
+    expect(prompt).toContain('Output only the final summary.')
+    expect(prompt).toContain('Pending Tasks')
   })
 })

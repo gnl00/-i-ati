@@ -3,9 +3,9 @@ import DatabaseService from '@main/db/DatabaseService'
 import type { SmartMessageCandidateSummaryRow } from '@main/db/dao/SmartMessageDao'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { createLogger } from '@main/logging/LogService'
-import { unifiedChatRequest } from '@main/request/index'
-import { createUnifiedTextRequest } from '@main/request/UnifiedRequestFactory'
+import { agent, type AgentToolCallResult } from '@main/agent'
 import { SMART_MESSAGE_TTL_MS } from '@shared/constants/smartMessages'
+import { resolveRequestOverrides } from '@main/request/overrides'
 import { buildSmartMessagePrompt } from '@shared/prompts'
 import { resolveNewChatModelRef } from '@shared/services/ChatModelResolver'
 import {
@@ -37,7 +37,11 @@ class SmartMessageDraftParseError extends Error {
   readonly contentPreview: string
   readonly toolCallNames: string[]
 
-  constructor(message: string, response: IUnifiedResponse) {
+  constructor(message: string, response: {
+    finishReason?: IUnifiedResponse['finishReason']
+    content?: string
+    toolCalls?: IToolCall[]
+  }) {
     super(message)
     this.name = 'SmartMessageDraftParseError'
     this.finishReason = response.finishReason
@@ -59,6 +63,27 @@ const DEFAULT_CANDIDATE_LIMIT = 40
 const DEFAULT_MAX_MESSAGES = 3
 const DEFAULT_GENERATION_VERSION = 1
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000
+const SMART_MESSAGE_SYSTEM_PROMPT = 'You are a smart-message generator. Return a structured smart-messages tool call with at most one best draft.'
+
+const toUnifiedResponseLikeForParseError = (
+  result: {
+    content?: string
+    error?: string
+    toolCalls?: Array<{ name: string; args: Record<string, any> }>
+  },
+  finishReason: IUnifiedResponse['finishReason']
+) => ({
+  content: result.content ?? result.error,
+  finishReason,
+    toolCalls: (result.toolCalls ?? []).map((toolCall, index) => ({
+    id: `agent-tool-call-${index}`,
+    type: 'function' as const,
+    function: {
+      name: toolCall.name,
+      arguments: JSON.stringify(toolCall.args ?? {})
+    }
+  }))
+})
 
 export class SmartMessageGenerationService {
   private readonly logger = createLogger('SmartMessageGenerationService')
@@ -174,13 +199,13 @@ export class SmartMessageGenerationService {
       .sort((left, right) => right.priorityScore - left.priorityScore)
   }
 
-  parseToolDrafts(toolCalls: IToolCall[] | undefined): SmartMessageDraft[] {
-    const toolCall = toolCalls?.find(call => call.function.name === GENERATE_SMART_MESSAGES_TOOL_NAME)
+  parseToolDrafts(toolCalls: AgentToolCallResult[] | undefined): SmartMessageDraft[] {
+    const toolCall = toolCalls?.find(call => call.name === GENERATE_SMART_MESSAGES_TOOL_NAME)
     if (!toolCall) {
       throw new Error('generate_smart_messages tool call missing')
     }
 
-    const parsed = JSON.parse(toolCall.function.arguments) as unknown
+    const parsed = toolCall.args
     const items = Array.isArray(parsed)
       ? parsed
       : this.extractDraftArrayFromObject(parsed)
@@ -208,33 +233,42 @@ export class SmartMessageGenerationService {
         chatUpdatedAt: group.chatUpdateTime
       }))
     })
-    const request = createUnifiedTextRequest({
-      adapterPluginId: modelContext.providerDefinition.adapterPluginId,
-      baseUrl: modelContext.account.apiUrl,
-      apiKey: modelContext.account.apiKey,
-      model: modelContext.model.id,
-      modelType: modelContext.model.type,
-      content,
-      tools: [generateSmartMessagesTool],
-      stream: false,
-      payloadExtensions: modelContext.providerDefinition.payloadExtensions,
-      requestOverrides: {
-        tool_choice: {
-          type: 'function',
-          function: {
-            name: GENERATE_SMART_MESSAGES_TOOL_NAME
-          }
-        }
-      },
-      options: {}
-    })
-    const response = await unifiedChatRequest(request, null, () => {}, () => {})
+
+    const response = await agent(
+      'smart-message-generator',
+      SMART_MESSAGE_SYSTEM_PROMPT,
+      [GENERATE_SMART_MESSAGES_TOOL_NAME],
+      [{
+        role: 'user',
+        content
+      }],
+      false,
+      {
+        model: modelContext.model,
+        account: modelContext.account,
+        providerDefinition: modelContext.providerDefinition,
+        toolDefinitions: [generateSmartMessagesTool],
+        sanitizeOverrides: providerOverrides => resolveRequestOverrides(providerOverrides, 'smartMessage')
+      }
+    )
     let drafts: SmartMessageDraft[]
     try {
+      if (response.type === 'text' || response.type === 'error') {
+        throw new Error(
+          response.type === 'error'
+            ? `smart-message-generator failed: ${response.error ?? 'tool call failed'}`
+            : 'smart-message-generator returned text response'
+        )
+      }
+
       drafts = this.parseToolDrafts(response.toolCalls)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      throw new SmartMessageDraftParseError(message, response)
+      const finishReason = response.type === 'error' ? 'error' : undefined
+      throw new SmartMessageDraftParseError(
+        message,
+        toUnifiedResponseLikeForParseError(response, finishReason)
+      )
     }
     return drafts[0]
   }

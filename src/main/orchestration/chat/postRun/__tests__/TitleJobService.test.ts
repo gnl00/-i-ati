@@ -5,14 +5,22 @@ const {
   emitterInstances,
   getChatByIdMock,
   updateChatMock,
-  generateTitleMock,
+  titleAgentMock,
   loggerInfoMock,
   loggerWarnMock
 } = vi.hoisted(() => ({
   emitterInstances: [] as Array<{ emit: ReturnType<typeof vi.fn> }>,
   getChatByIdMock: vi.fn(),
   updateChatMock: vi.fn(),
-  generateTitleMock: vi.fn(async () => 'generated title'),
+  titleAgentMock: vi.fn(async () => ({
+    type: 'tool_call',
+    toolCalls: [{
+      name: 'chat_set_title',
+      args: { title: 'generated title', chat_uuid: 'chat-1' },
+      result: { success: true, title: 'generated title' },
+      success: true
+    }]
+  })),
   loggerInfoMock: vi.fn(),
   loggerWarnMock: vi.fn()
 }))
@@ -106,22 +114,68 @@ describe('TitleJobService', () => {
       title: 'NewChat'
     })
     updateChatMock.mockReset()
-    generateTitleMock.mockReset()
-    generateTitleMock.mockResolvedValue('generated title')
+    titleAgentMock.mockReset()
+    titleAgentMock.mockResolvedValue({
+      type: 'tool_call',
+      toolCalls: [{
+        name: 'chat_set_title',
+        args: { title: 'generated title', chat_uuid: 'chat-1' },
+        result: { success: true, title: 'generated title' },
+        success: true
+      }]
+    })
     loggerInfoMock.mockReset()
     loggerWarnMock.mockReset()
   })
 
-  it('generates and persists a new title', async () => {
-    const service = new TitleJobService(undefined, undefined, undefined, generateTitleMock)
+  it('runs the title agent and emits the generated title', async () => {
+    const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
+    args.modelContext.providerDefinition.requestOverrides = {
+      temperature: 0.2,
+      tool_choice: { type: 'function', function: { name: 'chat_set_title' } },
+      reasoning_effort: 'high'
+    }
+    getChatByIdMock
+      .mockReturnValueOnce({
+        ...args.chatEntity,
+        title: 'NewChat'
+      })
+      .mockReturnValueOnce({
+        ...args.chatEntity,
+        title: 'generated title'
+      })
 
     await service.run(args, config)
 
-    expect(generateTitleMock).toHaveBeenCalledTimes(1)
-    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
-      id: 1,
-      title: 'generated title'
-    }))
+    expect(titleAgentMock).toHaveBeenCalledTimes(1)
+    expect(titleAgentMock).toHaveBeenCalledWith(
+      'title-generator',
+      expect.stringContaining('chat-1'),
+      ['chat_set_title'],
+      [{ role: 'user', content: args.content }],
+      false,
+      expect.objectContaining({
+        model: args.modelContext.model,
+        account: args.modelContext.account,
+        providerDefinition: args.modelContext.providerDefinition,
+        requestOptions: expect.objectContaining({ thinking: { enabled: false } }),
+        sanitizeOverrides: expect.any(Function)
+      })
+    )
+    const sanitizeOverrides = titleAgentMock.mock.calls[0][5]?.sanitizeOverrides
+    expect(typeof sanitizeOverrides).toBe('function')
+    expect(sanitizeOverrides({
+      temperature: 0.2,
+      output_config: { effort: 'high', top_k: 10 }
+    })).toEqual({
+      temperature: 0.2,
+      output_config: { top_k: 10 }
+    })
+    expect(sanitizeOverrides({
+      tool_choice: { type: 'function', function: { name: 'chat_set_title' } }
+    })).toEqual(undefined)
+
+    expect(updateChatMock).not.toHaveBeenCalled()
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.TITLE_GENERATION_STARTED, {
       model: args.modelContext.model,
       contentLength: args.content.length
@@ -136,8 +190,8 @@ describe('TitleJobService', () => {
   })
 
   it('emits failed when title generation throws', async () => {
-    const service = new TitleJobService(undefined, undefined, undefined, generateTitleMock)
-    generateTitleMock.mockRejectedValueOnce(new Error('title failed'))
+    const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
+    titleAgentMock.mockRejectedValueOnce(new Error('title failed'))
 
     await service.run(args, config)
 
@@ -150,7 +204,7 @@ describe('TitleJobService', () => {
   })
 
   it('skips title generation when chat already has a non-default title', async () => {
-    const service = new TitleJobService(undefined, undefined, undefined, generateTitleMock)
+    const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
 
     await service.run({
       ...args,
@@ -160,13 +214,13 @@ describe('TitleJobService', () => {
       }
     }, config)
 
-    expect(generateTitleMock).not.toHaveBeenCalled()
+    expect(titleAgentMock).not.toHaveBeenCalled()
     expect(updateChatMock).not.toHaveBeenCalled()
     expect(emitterInstances[0]).toBeUndefined()
   })
 
   it('skips title generation when the latest chat already has a generated title', async () => {
-    const service = new TitleJobService(undefined, undefined, undefined, generateTitleMock)
+    const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
     getChatByIdMock.mockReturnValueOnce({
       ...args.chatEntity,
       title: 'Existing generated title'
@@ -174,15 +228,15 @@ describe('TitleJobService', () => {
 
     await service.run(args, config)
 
-    expect(generateTitleMock).not.toHaveBeenCalled()
+    expect(titleAgentMock).not.toHaveBeenCalled()
     expect(updateChatMock).not.toHaveBeenCalled()
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.TITLE_GENERATION_COMPLETED, {
       title: 'Existing generated title'
     })
   })
 
-  it('does not overwrite a title written while generation is in flight', async () => {
-    const service = new TitleJobService(undefined, undefined, undefined, generateTitleMock)
+  it('reports the latest title after the title agent tool call completes', async () => {
+    const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
     getChatByIdMock
       .mockReturnValueOnce({
         ...args.chatEntity,
@@ -195,27 +249,29 @@ describe('TitleJobService', () => {
 
     await service.run(args, config)
 
-    expect(generateTitleMock).toHaveBeenCalledTimes(1)
+    expect(titleAgentMock).toHaveBeenCalledTimes(1)
     expect(updateChatMock).not.toHaveBeenCalled()
-    expect(loggerInfoMock).toHaveBeenCalledWith('title.job.completed.skipped_existing_title', expect.objectContaining({
-      currentTitle: 'First generated title',
-      generatedTitle: 'generated title'
+    expect(loggerInfoMock).toHaveBeenCalledWith('title.job.completed.updated', expect.objectContaining({
+      title: 'First generated title'
     }))
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.TITLE_GENERATION_COMPLETED, {
       title: 'First generated title'
     })
   })
 
-  it('logs noop completion when generated title is empty or unchanged', async () => {
-    const service = new TitleJobService(undefined, undefined, undefined, generateTitleMock)
-    generateTitleMock.mockResolvedValueOnce('NewChat')
+  it('logs no tool call completion when the title agent returns text', async () => {
+    const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
+    titleAgentMock.mockResolvedValueOnce({
+      type: 'text',
+      content: 'NEED_MORE_CONTEXT'
+    })
 
     await service.run(args, config)
 
     expect(updateChatMock).not.toHaveBeenCalled()
-    expect(loggerWarnMock).toHaveBeenCalledWith('title.job.completed.noop', expect.objectContaining({
+    expect(loggerWarnMock).toHaveBeenCalledWith('title.job.completed.no_tool_call', expect.objectContaining({
       currentTitle: 'NewChat',
-      generatedTitle: 'NewChat'
+      content: 'NEED_MORE_CONTEXT'
     }))
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.TITLE_GENERATION_COMPLETED, {
       title: 'NewChat'

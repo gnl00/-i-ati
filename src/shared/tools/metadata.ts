@@ -16,6 +16,7 @@ import { skillToolMetadata } from './skills/metadata'
 import { soulToolMetadata } from './soul/metadata'
 import { subagentToolMetadata } from './subagent/metadata'
 import { telegramToolMetadata } from './telegram/metadata'
+import { titleToolMetadata } from './title/metadata'
 import { todoToolMetadata } from './todo/metadata'
 import { userInfoToolMetadata } from './userInfo/metadata'
 import { webToolMetadata } from './webTools/metadata'
@@ -44,6 +45,7 @@ export const embeddedToolMetadata = mergeEmbeddedToolMetadata(
   emotionToolMetadata,
   pluginToolMetadata,
   telegramToolMetadata,
+  titleToolMetadata,
   todoToolMetadata,
   userInfoToolMetadata,
   activityJournalToolMetadata,
