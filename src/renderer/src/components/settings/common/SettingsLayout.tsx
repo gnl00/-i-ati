@@ -212,7 +212,7 @@ export const SettingsSection = React.forwardRef<HTMLDivElement, DivProps>(({
   <div
     ref={ref}
     className={cn(
-      'bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden',
+      'bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-xs overflow-hidden',
       className
     )}
     {...props}

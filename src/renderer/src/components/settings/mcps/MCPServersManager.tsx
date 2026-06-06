@@ -396,7 +396,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   )
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
+    <div className="flex flex-col h-full border border-gray-100 dark:border-gray-700/50 rounded-xl shadow-xs">
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as MCPServersTabValue)}
@@ -404,7 +404,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
       >
 
         {/* ── Tab bar + toolbar ─────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-4 border-b border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-700/50 dark:bg-gray-900/20">
+        <div className="flex items-center justify-between gap-4 px-2 bg-gray-50/80 dark:bg-gray-900/20 p-2">
           <MCPTabSwitcher
             value={activeTab}
             installedCount={Object.keys(mcpServerConfig.mcpServers || {}).length}

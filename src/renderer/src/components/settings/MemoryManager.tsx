@@ -85,7 +85,7 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
   return (
     <SettingsPageShell contentClassName='gap-1'>
       <SettingsSectionHeader
-        className='border rounded-2xl border-gray-100 dark:border-gray-700/50'
+        className='border rounded-2xl border-gray-100 dark:border-gray-700/50 shadow-xs'
         title={(
           <Label htmlFor="toggle-memory" className="cursor-default">
             Long-term Memory
