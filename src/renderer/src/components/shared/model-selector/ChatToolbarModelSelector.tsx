@@ -137,7 +137,7 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
         {...mainCollisionProps}
         className={cn(
           'w-80 overflow-visible rounded-xl p-0',
-          'border border-white/65 bg-white/92 text-slate-800 shadow-xl shadow-slate-900/10 backdrop-blur-2xl',
+          'bg-white/90 text-slate-800 shadow-xl shadow-slate-900/10 backdrop-blur-3xl',
           'dark:border-white/10 dark:bg-gray-900/94 dark:text-slate-100 dark:shadow-black/30'
         )}
         style={{
