@@ -92,8 +92,6 @@ const SkillsManager: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [pendingFolders, setPendingFolders] = useState<Set<string>>(new Set())
 
-  const activeCount = activeSkills.length
-
   const sortedSkills = useMemo(() => {
     return [...skills].sort((a, b) => a.name.localeCompare(b.name))
   }, [skills])

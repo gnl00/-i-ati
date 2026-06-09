@@ -35,6 +35,9 @@ import MCPTabSwitcher from './MCPTabSwitcher'
 import {
   SettingsEmptyState,
   SettingsLoadingState,
+  SettingsPageShell,
+  SettingsSectionHeader,
+  SettingsToolbar,
   settingsOutlineButtonClassName,
   settingsPrimaryButtonClassName,
   settingsScrollbarClassName
@@ -54,6 +57,7 @@ interface MCPServersTabContentProps {
   loadingState?: React.ReactNode
   emptyState?: React.ReactNode
   contentClassName?: string
+  scrollable?: boolean
   children?: React.ReactNode
 }
 
@@ -64,20 +68,26 @@ const MCPServersTabContent: React.FC<MCPServersTabContentProps> = ({
   loadingState,
   emptyState,
   contentClassName,
+  scrollable = true,
   children
 }) => {
   return (
     <TabsContent
       value={value}
-      className="flex-1 min-h-0 m-0 mt-0 flex flex-col overflow-hidden px-4 pb-1 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
+      className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
     >
-      <div className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mx-4 px-4 pt-4', settingsScrollbarClassName)}>
+      <div
+        className={cn(
+          'flex-1 min-h-0 overflow-x-hidden',
+          scrollable ? ['overflow-y-auto', settingsScrollbarClassName] : 'overflow-hidden'
+        )}
+      >
         {loading ? (
           loadingState
         ) : empty ? (
           emptyState
         ) : (
-          <div className={cn('pb-6', contentClassName)}>
+          <div className={cn('min-w-0', contentClassName)}>
             {children}
           </div>
         )}
@@ -344,6 +354,11 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   }
 
   const installedServers = Object.entries(mcpServerConfig.mcpServers || {})
+  const availableToolCount = Array.from(availableMcpTools.values()).reduce(
+    (total, tools) => total + tools.length,
+    0
+  )
+  const registryCacheLabel = serversCache && isCacheValid() ? 'Cached' : 'Uncached'
   const shouldShowRegistryLoading = (isFetching && registryServers.length === 0) || isSearching
   const isRegistryEmpty = filteredServers.length === 0
   const isInstalledEmpty = installedServers.length === 0
@@ -396,198 +411,221 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   )
 
   return (
-    <div className="flex flex-col h-full border border-gray-100 dark:border-gray-700/50 rounded-xl shadow-xs">
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as MCPServersTabValue)}
-        className="flex-1 flex flex-col overflow-hidden"
-      >
+    <SettingsPageShell contentClassName="gap-1">
+      <div className="border rounded-2xl border-gray-100 dark:border-gray-700/50 shadow-xs overflow-hidden">
+        <SettingsSectionHeader
+          title="MCP Servers"
+          description="Manage installed servers, registry discovery, and manual JSON configuration."
+        />
 
-        {/* ── Tab bar + toolbar ─────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-4 px-2 bg-gray-50/80 dark:bg-gray-900/20 p-2">
-          <MCPTabSwitcher
-            value={activeTab}
-            installedCount={Object.keys(mcpServerConfig.mcpServers || {}).length}
-            onValueChange={setActiveTab}
-          />
+        <SettingsToolbar className="flex min-h-[40px] items-center gap-2 border-t border-gray-100 dark:border-gray-700/50">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200/70 dark:bg-gray-800/70 dark:text-gray-400 dark:ring-gray-700/60">
+              Connected {selectedServerNames.length}
+            </span>
+            <span className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200/70 dark:bg-gray-800/70 dark:text-gray-400 dark:ring-gray-700/60">
+              Tools {availableToolCount}
+            </span>
+            <span className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200/70 dark:bg-gray-800/70 dark:text-gray-400 dark:ring-gray-700/60">
+              Registry cache {registryCacheLabel}
+            </span>
+          </div>
+        </SettingsToolbar>
+      </div>
 
-          {activeTab === 'local' && (
-            <div className="flex min-w-0 flex-1 justify-end gap-2 flex-wrap">
-              <button
-                onClick={handleAddFromClipboard}
-                className={settingsOutlineButtonClassName}
-              >
-                <Clipboard className="h-3 w-3" />
-                From Clipboard
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditMode(editMode === 'json' ? 'visual' : 'json')}
-                aria-pressed={editMode === 'json'}
-                className={cn(
-                  settingsOutlineButtonClassName,
-                  editMode === 'json'
-                    ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white'
-                    : ''
-                )}
-              >
-                <Code className="h-3.5 w-3.5" />
-                JSON
-              </button>
-            </div>
-          )}
-
-          {activeTab === 'registry' && (
-            <div className="flex min-w-0 flex-1 justify-end">
-              <ExpandableSearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search from registry"
-                disabled={isFetching}
-                loading={isSearching}
-                onSubmit={handleSearchSubmit}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* ── Registry tab ─────────────────────────────────────── */}
-        <MCPServersTabContent
-          value="registry"
-          loading={shouldShowRegistryLoading}
-          loadingState={registryLoadingState}
-          empty={isRegistryEmpty}
-          emptyState={registryEmptyState}
-          contentClassName="space-y-2"
+      <div className="border rounded-2xl border-gray-100 dark:border-gray-700/50 flex-1 min-h-0 flex flex-col overflow-hidden shadow-xs">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as MCPServersTabValue)}
+          className="flex-1 min-h-0 flex flex-col overflow-hidden"
         >
-          {filteredServers.map((item, idx) => {
-            const installed = isInstalled(item.server.name)
+          <SettingsToolbar className="flex min-h-[42px] items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-700/50">
+            <MCPTabSwitcher
+              value={activeTab}
+              installedCount={installedServers.length}
+              onValueChange={setActiveTab}
+            />
 
-            return (
-              <MCPServerCard
-                key={`${item.server.name}-${idx}`}
-                mode="registry"
-                item={item}
-                installed={installed}
-                runtimeStatus={installed ? getRuntimeStatus(item.server.name) : 'idle'}
-                runtimeError={lastErrorByServer[item.server.name]}
-                toolCount={availableMcpTools.get(item.server.name)?.length}
-                onInstall={() => handleInstallServer(item)}
-                animationDelay={idx * 50}
-              />
-            )
-          })}
+            {activeTab === 'local' && (
+              <div className="flex min-w-0 shrink-0 justify-end gap-2">
+                <button
+                  onClick={handleAddFromClipboard}
+                  className={settingsOutlineButtonClassName}
+                >
+                  <Clipboard className="h-3 w-3" />
+                  From Clipboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditMode(editMode === 'json' ? 'visual' : 'json')}
+                  aria-pressed={editMode === 'json'}
+                  className={cn(
+                    settingsOutlineButtonClassName,
+                    editMode === 'json'
+                      ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white'
+                      : ''
+                  )}
+                >
+                  <Code className="h-3.5 w-3.5" />
+                  JSON
+                </button>
+              </div>
+            )}
 
-          {!searchQuery && hasMore && (
-            <div ref={loadMoreRef} className="flex justify-center pt-4 pb-2">
-              <span className="inline-flex h-8 items-center gap-2 rounded-md px-3 text-[12px] font-medium text-gray-400 dark:text-gray-500">
-                {isFetching ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Globe className="h-3.5 w-3.5" />
-                )}
-                {isFetching ? 'Loading more…' : 'Scroll for more'}
-              </span>
-            </div>
-          )}
-        </MCPServersTabContent>
+            {activeTab === 'registry' && (
+              <div className="flex min-w-0 flex-1 justify-end">
+                <ExpandableSearchInput
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search from registry"
+                  disabled={isFetching}
+                  loading={isSearching}
+                  onSubmit={handleSearchSubmit}
+                />
+              </div>
+            )}
+          </SettingsToolbar>
 
-        {/* ── Local / Installed tab ─────────────────────────────── */}
-        <MCPServersTabContent
-          value="local"
-          empty={editMode === 'visual' && isInstalledEmpty}
-          emptyState={installedEmptyState}
-          contentClassName={editMode === 'visual' ? 'grid grid-cols-1 gap-2.5' : 'h-full flex flex-col gap-3'}
-        >
-          {editMode === 'visual' ? (
-            installedServers.map(([name, config], index) => {
-              const fallbackDescription =
-                config.description ||
-                registryServers.find((item) => item.server.name === name)?.server.description ||
-                searchResults.find((item) => item.server.name === name)?.server.description ||
-                serversCache?.servers.find((item) => item.server.name === name)?.server.description
-              const fallbackVersion =
-                config.version ||
-                registryServers.find((item) => item.server.name === name)?.server.version ||
-                searchResults.find((item) => item.server.name === name)?.server.version ||
-                serversCache?.servers.find((item) => item.server.name === name)?.server.version
+          {/* ── Registry tab ─────────────────────────────────────── */}
+          <MCPServersTabContent
+            value="registry"
+            loading={shouldShowRegistryLoading}
+            loadingState={registryLoadingState}
+            empty={isRegistryEmpty}
+            emptyState={registryEmptyState}
+            contentClassName="pb-3"
+          >
+            {filteredServers.map((item, idx) => {
+              const installed = isInstalled(item.server.name)
 
               return (
                 <MCPServerCard
-                  key={name}
-                  mode="installed"
-                  name={name}
-                  config={config}
-                  metadata={{
-                    description: fallbackDescription,
-                    version: fallbackVersion
-                  }}
-                  runtimeStatus={getRuntimeStatus(name)}
-                  runtimeError={lastErrorByServer[name]}
-                  toolCount={availableMcpTools.get(name)?.length}
-                  onCopyConfig={() => {
-                    navigator.clipboard.writeText(JSON.stringify(config, null, 2))
-                    toast.success('Configuration copied to clipboard')
-                  }}
-                  onUninstall={() => handleUninstallServer(name)}
-                  animationDelay={index * 50}
+                  key={`${item.server.name}-${idx}`}
+                  mode="registry"
+                  item={item}
+                  installed={installed}
+                  runtimeStatus={installed ? getRuntimeStatus(item.server.name) : 'idle'}
+                  runtimeError={lastErrorByServer[item.server.name]}
+                  toolCount={availableMcpTools.get(item.server.name)?.length}
+                  onInstall={() => handleInstallServer(item)}
+                  onUninstall={() => handleUninstallServer(item.server.name)}
+                  animationDelay={idx * 50}
                 />
               )
-            })
-          ) : (
-            <>
-              <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-xs bg-white dark:bg-gray-900/60 relative">
-                <CodeMirror
-                  value={configJson}
-                  height="100%"
-                  extensions={[json()]}
-                  onChange={(value) => handleJsonConfigChange(value)}
-                  theme="dark"
-                  basicSetup={{
-                    lineNumbers: true,
-                    highlightActiveLineGutter: true,
-                    highlightSpecialChars: true,
-                    foldGutter: true,
-                    drawSelection: true,
-                    dropCursor: true,
-                    allowMultipleSelections: true,
-                    indentOnInput: true,
-                    syntaxHighlighting: true,
-                    bracketMatching: true,
-                    closeBrackets: true,
-                    autocompletion: true,
-                    rectangularSelection: true,
-                    crosshairCursor: true,
-                    highlightActiveLine: true,
-                    highlightSelectionMatches: true,
-                    closeBracketsKeymap: true,
-                    defaultKeymap: true,
-                    searchKeymap: true,
-                    historyKeymap: true,
-                    foldKeymap: true,
-                    completionKeymap: true,
-                    lintKeymap: true
-                  }}
-                  style={{
-                    fontFamily: 'JetBrains Mono, Fira Code, ui-monospace, monospace',
-                    fontSize: '13px',
-                    height: '100%'
-                  }}
-                />
-              </div>
+            })}
 
-              <div className="shrink-0 flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/40">
-                <div className="flex items-center gap-2">
-                  <Code className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
-                  <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">JSON Edit Mode</span>
-                </div>
-                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Auto-saved</span>
+            {!searchQuery && hasMore && (
+              <div ref={loadMoreRef} className="flex justify-center pt-4 pb-2">
+                <span className="inline-flex h-8 items-center gap-2 rounded-md px-3 text-[12px] font-medium text-gray-400 dark:text-gray-500">
+                  {isFetching ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Globe className="h-3.5 w-3.5" />
+                  )}
+                  {isFetching ? 'Loading more…' : 'Scroll for more'}
+                </span>
               </div>
-            </>
-          )}
-        </MCPServersTabContent>
-      </Tabs>
-    </div>
+            )}
+          </MCPServersTabContent>
+
+          {/* ── Local / Installed tab ─────────────────────────────── */}
+          <MCPServersTabContent
+            value="local"
+            empty={editMode === 'visual' && isInstalledEmpty}
+            emptyState={installedEmptyState}
+            contentClassName={editMode === 'visual' ? 'pb-3' : 'h-full min-h-0 flex flex-col gap-3 p-3'}
+            scrollable={editMode === 'visual'}
+          >
+            {editMode === 'visual' ? (
+              installedServers.map(([name, config], index) => {
+                const fallbackDescription =
+                  config.description ||
+                  registryServers.find((item) => item.server.name === name)?.server.description ||
+                  searchResults.find((item) => item.server.name === name)?.server.description ||
+                  serversCache?.servers.find((item) => item.server.name === name)?.server.description
+                const fallbackVersion =
+                  config.version ||
+                  registryServers.find((item) => item.server.name === name)?.server.version ||
+                  searchResults.find((item) => item.server.name === name)?.server.version ||
+                  serversCache?.servers.find((item) => item.server.name === name)?.server.version
+
+                return (
+                  <MCPServerCard
+                    key={name}
+                    mode="installed"
+                    name={name}
+                    config={config}
+                    metadata={{
+                      description: fallbackDescription,
+                      version: fallbackVersion
+                    }}
+                    runtimeStatus={getRuntimeStatus(name)}
+                    runtimeError={lastErrorByServer[name]}
+                    toolCount={availableMcpTools.get(name)?.length}
+                    onCopyConfig={() => {
+                      navigator.clipboard.writeText(JSON.stringify(config, null, 2))
+                      toast.success('Configuration copied to clipboard')
+                    }}
+                    onUninstall={() => handleUninstallServer(name)}
+                    animationDelay={index * 50}
+                  />
+                )
+              })
+            ) : (
+              <>
+                <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-xs bg-white dark:bg-gray-900/60 relative">
+                  <CodeMirror
+                    value={configJson}
+                    height="100%"
+                    extensions={[json()]}
+                    onChange={(value) => handleJsonConfigChange(value)}
+                    theme="dark"
+                    basicSetup={{
+                      lineNumbers: true,
+                      highlightActiveLineGutter: true,
+                      highlightSpecialChars: true,
+                      foldGutter: true,
+                      drawSelection: true,
+                      dropCursor: true,
+                      allowMultipleSelections: true,
+                      indentOnInput: true,
+                      syntaxHighlighting: true,
+                      bracketMatching: true,
+                      closeBrackets: true,
+                      autocompletion: true,
+                      rectangularSelection: true,
+                      crosshairCursor: true,
+                      highlightActiveLine: true,
+                      highlightSelectionMatches: true,
+                      closeBracketsKeymap: true,
+                      defaultKeymap: true,
+                      searchKeymap: true,
+                      historyKeymap: true,
+                      foldKeymap: true,
+                      completionKeymap: true,
+                      lintKeymap: true
+                    }}
+                    style={{
+                      fontFamily: 'JetBrains Mono, Fira Code, ui-monospace, monospace',
+                      fontSize: '13px',
+                      height: '100%'
+                    }}
+                  />
+                </div>
+
+                <div className="shrink-0 flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/40">
+                  <div className="flex items-center gap-2">
+                    <Code className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">JSON Edit Mode</span>
+                  </div>
+                  <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Auto-saved</span>
+                </div>
+              </>
+            )}
+          </MCPServersTabContent>
+        </Tabs>
+      </div>
+    </SettingsPageShell>
   )
 }
 

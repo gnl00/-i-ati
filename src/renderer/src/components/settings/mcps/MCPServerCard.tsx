@@ -2,8 +2,7 @@ import React from 'react'
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
 import { cn } from '@renderer/lib/utils'
 import {
-  settingsOutlineButtonClassName,
-  settingsPrimaryButtonClassName
+  settingsSecondaryButtonClassName
 } from '../common/SettingsLayout'
 import type { RegistryServerItem } from './MCPServersManager.types'
 import {
@@ -17,6 +16,7 @@ import {
   Plug,
   SquareTerminal
 } from 'lucide-react'
+import { Button } from '@renderer/components/ui/button'
 
 type RuntimeStatus = 'connected' | 'connecting' | 'error' | 'idle'
 
@@ -159,10 +159,10 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-xl border transition-all duration-200',
-        'bg-white dark:bg-gray-800',
-        'border-gray-200 dark:border-gray-700',
-        'hover:bg-gray-50/70 hover:shadow-xs dark:hover:bg-gray-700/40'
+        'group relative flex min-w-0 items-start gap-3 px-4 py-4',
+        'border-b border-gray-100/80 bg-transparent dark:border-gray-700/50',
+        'transition-colors duration-150',
+        'hover:bg-white/70 dark:hover:bg-gray-800/40'
       )}
       style={animationDelay !== undefined ? {
         animationDelay: `${animationDelay}ms`,
@@ -170,138 +170,145 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
         opacity: 0
       } : undefined}
     >
-      <div className="relative flex h-full flex-col">
-        <div className="flex flex-col gap-2 p-3 pb-2.5">
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="flex min-w-0 items-baseline gap-1.5">
-                <h4 className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-                  {displayName}
-                </h4>
-                {version && (
-                  <span className="shrink-0 rounded-sm bg-gray-100 px-1.5 text-[9.5px] font-medium leading-4 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
-                    v{version}
-                  </span>
-                )}
-              </div>
-              <p className="truncate font-mono text-[10px] tracking-tight text-gray-400 dark:text-gray-500">
-                @{name}
-              </p>
-            </div>
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h4 className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+            {displayName}
+          </h4>
+          <span className="shrink truncate font-mono text-[10px] tracking-tight text-gray-400 dark:text-gray-500">
+            @{name}
+          </span>
+          {version && (
+            <span className="inline-flex h-[18px] shrink-0 items-center rounded-md bg-gray-100 px-1.5 text-[9.5px] font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+              v{version}
+            </span>
+          )}
+        </div>
 
-            {mode === 'registry' && isInstalled ? (
-              <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md bg-emerald-50 px-2 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                <Check className="h-3 w-3" />
-                Added
-              </span>
-            ) : (
-              <span className={cn(
-                'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium',
-                runtimeMeta.tone,
-                runtimeMeta.background
-              )}>
-                {runtimeMeta.icon}
-                {runtimeMeta.label}
-              </span>
-            )}
-          </div>
+        {mode === 'registry' && repository?.url && !description ? (
+          <a
+            href={repository.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex max-w-full min-w-0 items-center gap-1 text-[11.5px] leading-5 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="h-3 w-3 shrink-0" />
+            <span className="min-w-0 truncate">{detailText}</span>
+          </a>
+        ) : mode === 'installed' && configDisplay ? (
+          <code
+            className="block min-w-0 truncate font-mono text-[10.5px] leading-5 text-gray-500 dark:text-gray-400"
+            title={configDisplay}
+          >
+            {detailText}
+          </code>
+        ) : (
+          <span className="line-clamp-2 text-[11.5px] leading-relaxed text-gray-500 dark:text-gray-400">
+            {detailText}
+          </span>
+        )}
 
-          {mode === 'registry' && repository?.url && !description ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {mode === 'registry' && isInstalled ? (
+            <span className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md bg-emerald-50 px-1.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <Check className="h-2.5 w-2.5" />
+              Added
+            </span>
+          ) : (
+            <span className={cn(
+              'inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium',
+              runtimeMeta.tone,
+              runtimeMeta.background
+            )}>
+              {runtimeMeta.icon}
+              {runtimeMeta.label}
+            </span>
+          )}
+          {connectionType && (
+            <span
+              className={cn(
+                'inline-flex h-[18px] shrink-0 cursor-default select-none items-center rounded-md px-1.5 text-[9px] font-semibold uppercase tracking-[0.08em]',
+                getConnectionTone(connectionType)
+              )}
+            >
+              {connectionType}
+            </span>
+          )}
+          {typeof toolCount === 'number' && isInstalled && (
+            <span className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md bg-white px-1.5 text-[10px] font-medium text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700">
+              <SquareTerminal className="h-2.5 w-2.5" />
+              {toolCount} tools
+            </span>
+          )}
+          {mode === 'registry' && repository?.url && description && (
             <a
               href={repository.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-w-0 items-center gap-1 text-[11px] leading-5 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="inline-flex h-[18px] max-w-[220px] min-w-0 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
               onClick={(e) => e.stopPropagation()}
             >
-              <ExternalLink className="h-3 w-3 shrink-0" />
-              <span className="min-w-0 truncate">{detailText}</span>
+              <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+              <span className="min-w-0 truncate">{repository.source || 'Repository'}</span>
             </a>
-          ) : mode === 'installed' && configDisplay ? (
-            <code
-              className="block min-w-0 truncate font-mono text-[10.5px] leading-5 text-gray-500 dark:text-gray-400"
-              title={configDisplay}
+          )}
+          {runtimeStatus === 'error' && runtimeError && (
+            <span
+              className="inline-flex h-[18px] max-w-full min-w-0 items-center rounded-md bg-red-50 px-1.5 text-[10px] font-medium text-red-600 dark:bg-red-900/40 dark:text-red-300"
+              title={runtimeError}
             >
-              {detailText}
-            </code>
-          ) : (
-            <span className="line-clamp-1 text-[11.5px] leading-5 text-gray-500 dark:text-gray-400">
-              {detailText}
+              <span className="min-w-0 truncate">{runtimeError}</span>
             </span>
           )}
-
-          {runtimeStatus === 'error' && runtimeError && (
-            <p className="line-clamp-2 rounded-md bg-red-50 px-2 py-1.5 text-[10.5px] leading-relaxed text-red-600 dark:bg-red-900/40 dark:text-red-300">
-              {runtimeError}
-            </p>
-          )}
         </div>
+      </div>
 
-        <div className="mt-auto flex min-w-0 items-center justify-between gap-3 bg-gray-50/80 px-3 py-2 transition-colors duration-200 group-hover:bg-gray-100/70 dark:bg-gray-900/40 dark:group-hover:bg-gray-900/60">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {connectionType && (
-              <span
-                className={cn(
-                  'inline-flex h-[18px] shrink-0 cursor-default select-none items-center rounded-md px-1.5 text-[9px] font-semibold uppercase tracking-[0.08em]',
-                  getConnectionTone(connectionType)
-                )}
-              >
-                {connectionType}
-              </span>
-            )}
-            {typeof toolCount === 'number' && isInstalled && (
-              <span className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md bg-white px-1.5 text-[10px] font-medium text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700">
-                <SquareTerminal className="h-2.5 w-2.5" />
-                {toolCount} tools
-              </span>
-            )}
-          </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {mode === 'registry' ? (
+          isInstalled ? (
+            <InlineDeleteConfirm
+              onConfirm={async () => { props.onUninstall?.() }}
+              ariaLabel="Remove server"
+              title="Remove server"
+              idleLabel="Remove"
+              width={72}
+              height={28}
+              iconClassName="text-[11px]"
+            />
+          ) : (
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={props.onInstall}
+              className='shrink-0 flex items-center gap-1 justify-center px-2 text-[11px] h-7 font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-200'
+            >
+              <Download className="h-3 w-3" />
+              <span>Install</span>
+            </Button>
+          )
+        ) : (
+          <>
+            <button
+              onClick={props.onCopyConfig}
+              className={cn(settingsSecondaryButtonClassName, 'h-7 w-[62px] justify-center px-2')}
+              title="Copy JSON configuration"
+            >
+              <Copy className="h-3 w-3" />
+              Copy
+            </button>
 
-          <div className="flex shrink-0 items-center gap-1.5">
-            {mode === 'registry' ? (
-              isInstalled ? (
-                <InlineDeleteConfirm
-                  onConfirm={async () => { props.onUninstall?.() }}
-                  ariaLabel="Remove server"
-                  title="Remove server"
-                  idleLabel="Remove"
-                  width={72}
-                  height={24}
-                  iconClassName="text-[11px]"
-                />
-              ) : (
-                <button
-                  onClick={props.onInstall}
-                  className={cn(settingsPrimaryButtonClassName, 'h-6 px-2.5 text-[10.5px]')}
-                >
-                  <Download className="h-3 w-3" />
-                  Install
-                </button>
-              )
-            ) : (
-              <>
-                <button
-                  onClick={props.onCopyConfig}
-                  className={cn(settingsOutlineButtonClassName, 'h-6 px-2 text-[10.5px] border-transparent')}
-                  title="Copy JSON configuration"
-                >
-                  <Copy className="h-3 w-3" />
-                  Copy
-                </button>
-
-                <InlineDeleteConfirm
-                  onConfirm={async () => { props.onUninstall?.() }}
-                  ariaLabel="Remove server"
-                  title="Remove server"
-                  idleLabel="Remove"
-                  width={72}
-                  height={24}
-                  iconClassName="text-[11px]"
-                />
-              </>
-            )}
-          </div>
-        </div>
+            <InlineDeleteConfirm
+              onConfirm={async () => { props.onUninstall?.() }}
+              ariaLabel="Remove server"
+              title="Remove server"
+              idleLabel="Remove"
+              width={72}
+              height={28}
+              iconClassName="text-[11px]"
+            />
+          </>
+        )}
       </div>
     </div>
   )
