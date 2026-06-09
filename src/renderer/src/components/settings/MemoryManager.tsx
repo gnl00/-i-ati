@@ -110,7 +110,7 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
       />
 
       <div className='border rounded-2xl border-gray-100 dark:border-gray-700/50 flex-1 min-h-0 flex flex-col overflow-hidden'>
-        <SettingsToolbar className="flex items-center justify-between gap-3 mb-1 border-t-0">
+        <SettingsToolbar className="flex items-center justify-between gap-3">
           <SettingsToolbarLabel>Stored Memories ({memoryItems.length} stored)</SettingsToolbarLabel>
           <button
             onClick={loadMemories}
