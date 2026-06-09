@@ -7,7 +7,7 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
-import { BookOpen, Brain, Database, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
+import { BookOpen, Brain, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
 import { toast } from 'sonner'
 
 import KnowledgebaseManager from './KnowledgebaseManager'
@@ -17,7 +17,6 @@ import ProvidersManager from './providers/ProvidersManager'
 import ToolsManager from './ToolsManager'
 import SkillsManager from './skills/SkillsManager'
 import PluginsManager from './PluginsManager'
-import DataAndLogManager from './DataAndLogManager'
 import {
     SettingsLoadingState,
     SettingsPageShell,
@@ -206,11 +205,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
             value: 'plugins',
             label: 'Plugins',
             icon: <Puzzle className="w-3 h-3" />
-        },
-        {
-            value: 'data-log',
-            label: 'Data & Log',
-            icon: <Database className="w-3 h-3" />
         }
     ]
 
@@ -322,6 +316,8 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             setCompressionEnabled={setCompressionEnabled}
                             compressionTriggerTokenRatio={compressionTriggerTokenRatio}
                             setCompressionTriggerTokenRatio={setCompressionTriggerTokenRatio}
+                            streamChunkDebugEnabled={streamChunkDebugEnabled}
+                            setStreamChunkDebugEnabled={setStreamChunkDebugEnabled}
                         />
                     </TabsContent>
 
@@ -382,13 +378,6 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
                             installRemotePlugin={installRemotePlugin}
                             importLocalPlugin={importLocalPlugin}
                             uninstallLocalPlugin={uninstallLocalPlugin}
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="data-log" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
-                        <DataAndLogManager
-                            streamChunkDebugEnabled={streamChunkDebugEnabled}
-                            setStreamChunkDebugEnabled={setStreamChunkDebugEnabled}
                         />
                     </TabsContent>
                 </div>
