@@ -32,6 +32,7 @@ import {
     settingsOutlineButtonClassName,
     settingsPrimaryButtonClassName
 } from './common/SettingsLayout'
+import { Button } from '../ui/button'
 
 interface ToolsManagerProps {
     maxWebSearchItems: number
@@ -355,9 +356,10 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <button
-                                type="button"
-                                className={cn(settingsOutlineButtonClassName, 'h-8 bg-white dark:bg-gray-800')}
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                className='shrink-0 flex items-center gap-1 justify-center px-2 text-[11px] h-7 font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-200'
                                 onClick={async (event) => {
                                     event.stopPropagation()
                                     const result = await invokeOpenPath('./emotions/packs')
@@ -367,7 +369,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                 }}
                             >
                                 Open Packs Folder
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </SettingsToolbar>

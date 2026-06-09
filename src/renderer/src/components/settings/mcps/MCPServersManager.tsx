@@ -448,13 +448,15 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
             {activeTab === 'local' && (
               <div className="flex min-w-0 shrink-0 justify-end gap-2">
-                <button
+                <Button
                   onClick={handleAddFromClipboard}
-                  className={settingsOutlineButtonClassName}
+                  variant="ghost"
+                  size="xs"
+                  className='shrink-0 flex items-center gap-1 justify-center px-2 text-[11px] h-7 font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-200'
                 >
                   <Clipboard className="h-3 w-3" />
                   From Clipboard
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={() => setEditMode(editMode === 'json' ? 'visual' : 'json')}
