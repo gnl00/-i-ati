@@ -429,11 +429,11 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             onClick={handleDeselectAll}
                             disabled={selectedModelIds.size === 0 || isFetching}
                             className={cn(
-                                "h-7 text-[10px] px-2.5 font-semibold tracking-wide",
-                                "border border-transparent",
-                                "hover:border-rose-300 dark:hover:border-rose-800",
-                                "hover:bg-rose-50 dark:hover:bg-rose-950/30",
-                                "hover:text-rose-600 dark:hover:text-rose-400",
+                                "text-[11px] rounded-lg px-4 h-7 font-medium text-slate-500 dark:text-slate-400",
+                                "border-slate-300/60 dark:border-slate-700/60",
+                                "hover:border-slate-300 dark:hover:border-slate-700",
+                                "hover:bg-slate-100/70 dark:hover:bg-slate-800/60",
+                                "hover:text-slate-600 dark:hover:text-slate-400",
                                 "transition-all duration-150"
                             )}
                         >
