@@ -3,8 +3,8 @@ import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
-import { Braces, Check, ChevronDown, Clipboard, Loader2, Wrench, X } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
+import { Braces, Check, Clipboard, Loader2, SquareArrowUpRight, Wrench, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
@@ -309,13 +309,6 @@ const ToolCallHeader = React.memo(({
             <ToolCallDuration cost={cost} isRunning={isRunning} />
           </span>
         </span>
-
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-900/35 select-none" />
-
-        <ChevronDown className={cn(
-          'w-3 h-3 transition-transform duration-300 text-zinc-500 dark:text-zinc-400',
-          isOpen && 'rotate-180 text-zinc-600 dark:text-zinc-300'
-        )} />
       </span>
     </div>
   )
@@ -374,18 +367,20 @@ function SegmentedToggle({
   )
 }
 
-const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }) => {
-  const [openItem, setOpenItem] = useState<string>('')
-  const [showDetails, setShowDetails] = useState(false)
-  const isOpen = openItem === 'tool-result'
+type ToolCallResultPanelProps = {
+  toolCall: ToolCallSegment
+  toolResponse: ToolCallResponse | undefined
+  isError: boolean
+}
 
-  const toolResponse = tc.content as ToolCallResponse | undefined
+const ToolCallResultPanel = React.memo(({
+  toolCall: tc,
+  toolResponse,
+  isError
+}: ToolCallResultPanelProps) => {
+  const [showDetails, setShowDetails] = useState(false)
 
   const resultPayload = useMemo(() => {
-    if (!isOpen) {
-      return undefined
-    }
-
     return toolResponse?.result
       ?? toolResponse?.raw
       ?? (
@@ -396,7 +391,7 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
           ? toolResponse
           : undefined
       )
-  }, [isOpen, toolResponse])
+  }, [toolResponse])
 
   const toolName = toolResponse?.toolName ?? tc.name
   const isWebSearch = toolName === 'web_search'
@@ -410,14 +405,10 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
   }, [isWebSearch, toolResponse])
   const isSubagentTool = toolName === 'subagent_spawn' || toolName === 'subagent_wait'
   const subagentData = isSubagentTool ? (resultPayload ?? toolResponse) : null
-  const isError = Boolean(tc.isError)
-  const status = getNormalizedStatus(toolResponse?.status)
-  const isPending = !isError && status === 'pending'
-  const isRunning = !isError && status === 'running'
   const areArgsReady = areToolCallArgsReady(toolResponse, tc)
   const [isJsonExpanded, setIsJsonExpanded] = useState(false)
-  const shouldPrepareSummary = isOpen && !showDetails && areArgsReady
-  const shouldPrepareDetails = isOpen && showDetails && areArgsReady
+  const shouldPrepareSummary = !showDetails && areArgsReady
+  const shouldPrepareDetails = showDetails && areArgsReady
 
   const paramEntries = useMemo(() => {
     if (!shouldPrepareSummary) return []
@@ -479,20 +470,163 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
 
   return (
     <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      className="relative overflow-hidden rounded-2xl"
+    >
+      {webSearchPayload ? (
+        <div
+          className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto bg-slate-100/50 p-3 overscroll-contain custom-scrollbar dark:bg-slate-900/34"
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
+          <WebSearchResults results={webSearchPayload.results} />
+        </div>
+      ) : isSubagentTool && subagentData ? (
+        <div
+          className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto overscroll-contain custom-scrollbar"
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
+          <SubagentResults
+            toolName={(toolResponse?.toolName ?? tc.name)}
+            payload={subagentData}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/55 bg-slate-50/56 px-3 py-1 dark:border-slate-800/55 dark:bg-slate-900/36">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg bg-slate-200/55 text-slate-600 dark:bg-white/6 dark:text-slate-300">
+                  <Braces className="h-3 w-3" />
+                </span>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  Output
+                </p>
+              </div>
+
+              <SegmentedToggle
+                leftLabel="Summary"
+                rightLabel="Detail"
+                rightActive={showDetails}
+                onLeftClick={(e) => {
+                  e.stopPropagation()
+                  setShowDetails(false)
+                }}
+                onRightClick={(e) => {
+                  e.stopPropagation()
+                  setShowDetails(true)
+                }}
+              />
+
+              {isJsonLong && showDetails && (
+                <SegmentedToggle
+                  leftLabel="Preview"
+                  rightLabel="Full"
+                  rightActive={isJsonExpanded}
+                  onLeftClick={(e) => {
+                    e.stopPropagation()
+                    setIsJsonExpanded(false)
+                  }}
+                  onRightClick={(e) => {
+                    e.stopPropagation()
+                    setIsJsonExpanded(true)
+                  }}
+                />
+              )}
+            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Copy tool result"
+              className="h-7 w-7 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/60"
+              onClick={(e) => onCopyClick(e, tc.content)}
+            >
+              <Clipboard className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+            </Button>
+          </div>
+
+          {showDetails ? (
+            <div className="relative">
+              <div
+                className={cn(
+                  detailViewportHeightClass,
+                  'w-full overflow-hidden overscroll-contain bg-white/70 dark:bg-[#09090b]'
+                )}
+                onWheel={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+              >
+                <SpeedCodeHighlight
+                  code={visibleJsonContent}
+                  language="json"
+                  className="h-full min-h-full overflow-auto custom-scrollbar"
+                  themeOverride="github-dim"
+                />
+              </div>
+              <div
+                className={cn(
+                  'absolute bottom-0 left-0 right-0 border-t border-slate-200/70 bg-slate-100/90 px-3 py-1.5 text-[10px] text-zinc-500 backdrop-blur-xs transition-opacity duration-150 dark:border-slate-800 dark:bg-slate-900/90 dark:text-zinc-400',
+                  isJsonLong && !isJsonExpanded ? 'opacity-100' : 'pointer-events-none opacity-0'
+                )}
+              >
+                Showing a preview. Switch to "Full" to inspect the complete payload.
+              </div>
+            </div>
+          ) : (
+            <div
+              className="max-h-[240px] overflow-y-auto overscroll-contain px-3 py-2.5 custom-scrollbar"
+              onWheel={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+            >
+              {!areArgsReady ? (
+                <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing tool call parameters...</div>
+              ) : paramEntries.length > 0 ? (
+                <div className="space-y-1.5 pr-1">
+                  {paramEntries.map(([key, value]) => (
+                    <div key={key} className="flex items-start gap-2 py-1">
+                      <span className="min-w-[60px] shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{key}</span>
+                      <span className="wrap-break-word font-mono text-[11px] leading-snug text-zinc-700 dark:text-zinc-300">{formatValue(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">No parameters</div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </motion.div>
+  )
+})
+
+ToolCallResultPanel.displayName = 'ToolCallResultPanel'
+
+const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const toolResponse = tc.content as ToolCallResponse | undefined
+  const isError = Boolean(tc.isError)
+  const status = getNormalizedStatus(toolResponse?.status)
+  const isPending = !isError && status === 'pending'
+  const isRunning = !isError && status === 'running'
+
+  return (
+    <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.985 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 360, damping: 30 }}
       className="w-full max-w-full py-1 font-sans flow-root"
     >
-      <Accordion
-        type="single"
-        collapsible
-        value={openItem}
-        onValueChange={setOpenItem}
-        className="group relative flex flex-col transition-all"
-      >
-        <AccordionItem value="tool-result" className="border-0">
-          <AccordionTrigger className="group inline-flex w-auto flex-none justify-start gap-2 py-0 hover:no-underline">
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Inspect ${tc.name} tool call`}
+            className="group inline-flex w-auto flex-none cursor-pointer justify-start gap-2 rounded-xl py-0 text-left outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-slate-500/80"
+          >
             <ToolCallHeader
               name={tc.name}
               isError={isError}
@@ -501,138 +635,27 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
               isOpen={isOpen}
               cost={tc.cost}
             />
-          </AccordionTrigger>
-          <AccordionContent className="pt-0 pb-0">
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="overflow-hidden pt-2"
-            >
-              <div className={cn(
-                'relative max-w-[760px] rounded-2xl overflow-hidden border',
-                isError
-                  ? 'border-red-200/65 dark:border-red-900/35'
-                  : 'border-slate-200/55 dark:border-slate-800/55'
-              )}>
-                {webSearchPayload ? (
-                  <div className="p-3 bg-slate-100/50 dark:bg-slate-900/34">
-                    <WebSearchResults results={webSearchPayload.results} />
-                  </div>
-                ) : isSubagentTool && subagentData ? (
-                  <SubagentResults
-                    toolName={(toolResponse?.toolName ?? tc.name)}
-                    payload={subagentData}
-                  />
-                ) : (
-                  <>
-                    <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-0.5 border-b border-slate-200/55 dark:border-slate-800/55 bg-slate-50/56 dark:bg-slate-900/36">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg bg-slate-200/55 text-slate-600 dark:bg-white/6 dark:text-slate-300">
-                            <Braces className="h-3 w-3" />
-                          </span>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                            Output
-                          </p>
-                        </div>
-
-                        <SegmentedToggle
-                          leftLabel="Summary"
-                          rightLabel="Detail"
-                          rightActive={showDetails}
-                          onLeftClick={(e) => {
-                            e.stopPropagation()
-                            setShowDetails(false)
-                          }}
-                          onRightClick={(e) => {
-                            e.stopPropagation()
-                            setShowDetails(true)
-                          }}
-                        />
-
-                        {isJsonLong && showDetails && (
-                          <SegmentedToggle
-                            leftLabel="Preview"
-                            rightLabel="Full"
-                            rightActive={isJsonExpanded}
-                            onLeftClick={(e) => {
-                              e.stopPropagation()
-                              setIsJsonExpanded(false)
-                            }}
-                            onRightClick={(e) => {
-                              e.stopPropagation()
-                              setIsJsonExpanded(true)
-                            }}
-                          />
-                        )}
-                      </div>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/60"
-                        onClick={(e) => onCopyClick(e, tc.content)}
-                      >
-                        <Clipboard className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                      </Button>
-                    </div>
-
-                    {showDetails ? (
-                      <div className={cn('relative')}>
-                        <div
-                          className={cn(
-                            detailViewportHeightClass,
-                            'overflow-hidden w-full bg-white/70 dark:bg-[#09090b] overscroll-contain'
-                          )}
-                          onWheel={(e) => e.stopPropagation()}
-                          onTouchMove={(e) => e.stopPropagation()}
-                        >
-                          <SpeedCodeHighlight
-                            code={visibleJsonContent}
-                            language="json"
-                            className="h-full min-h-full overflow-auto custom-scrollbar"
-                            themeOverride="github-dim"
-                          />
-                        </div>
-                        <div
-                          className={cn(
-                            'absolute bottom-0 left-0 right-0 px-3 py-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 border-t border-slate-200/70 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-xs transition-opacity duration-150',
-                            isJsonLong && !isJsonExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                          )}
-                        >
-                          Showing a preview. Switch to “Full” to inspect the complete payload.
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={cn('px-3 py-2.5')}>
-                        <div className="flex h-full flex-col">
-                          <div className="flex-1 overflow-hidden">
-                            {!areArgsReady ? (
-                              <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing tool call parameters...</div>
-                            ) : paramEntries.length > 0 ? (
-                              <div className="h-full overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
-                                {paramEntries.map(([key, value]) => (
-                                  <div key={key} className="flex items-start gap-2 py-1">
-                                    <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 min-w-[60px]">{key}</span>
-                                    <span className="text-[11px] font-mono leading-snug wrap-break-word text-zinc-700 dark:text-zinc-300">{formatValue(value)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">No parameters</div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </motion.div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          side="bottom"
+          sideOffset={6}
+          className={cn(
+            'app-undragable w-[min(760px,calc(100vw-32px))] max-h-[min(520px,calc(100vh-96px))] overflow-hidden rounded-2xl bg-white/95 p-0 text-popover-foreground shadow-xl shadow-slate-950/10 backdrop-blur-md dark:bg-zinc-950/95 dark:shadow-black/30',
+            isError
+              ? 'border-red-200/65 dark:border-red-900/35'
+              : 'border-slate-200/70 dark:border-slate-800/70'
+          )}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
+          <ToolCallResultPanel
+            toolCall={tc}
+            toolResponse={toolResponse}
+            isError={isError}
+          />
+        </PopoverContent>
+      </Popover>
     </motion.div>
   )
 }
