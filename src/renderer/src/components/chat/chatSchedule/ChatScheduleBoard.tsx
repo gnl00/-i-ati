@@ -388,7 +388,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
       `}</style>
 
       <div className="overflow-hidden rounded-xl border border-white/55 bg-white/72 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/50 shadow-xs">
-        <div className="space-y-1 p-2.5">
+        <div className="space-y-1 p-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -447,10 +447,10 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
             </div>
           ) : visibleTasks.length === 0 ? (
             <div
-              className="h-auto py-1.5 flex items-center justify-center rounded-xl border border-dashed border-slate-300/80 text-sm text-slate-500 dark:border-slate-700/70 dark:text-slate-400"
+              className="flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300/80 text-sm font-medium text-slate-500 dark:border-slate-700/70 dark:text-slate-400"
               style={{ animation: '_csb_empty_in 300ms cubic-bezier(0.16, 1, 0.3, 1) both' }}
             >
-              No scheduled tasks
+              No Tasks
             </div>
           ) : (
             <div className="relative">

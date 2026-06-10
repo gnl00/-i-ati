@@ -46,6 +46,30 @@ const normalizeScheduledTasks = (tasks: ScheduleTask[]): ScheduleTask[] => {
         })
 }
 
+const CHAT_LIST_SENTINEL: ChatEntity = { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }
+const SHEET_OPEN_ANIMATION_MS = 500
+
+const appendChatListSentinel = (list: ChatEntity[]): ChatEntity[] => [...list, CHAT_LIST_SENTINEL]
+
+const areChatListEntriesEquivalent = (current: ChatEntity, next: ChatEntity): boolean => {
+    return current.id === next.id
+        && current.uuid === next.uuid
+        && current.title === next.title
+        && current.updateTime === next.updateTime
+        && current.createTime === next.createTime
+        && current.msgCount === next.msgCount
+        && current.workspacePath === next.workspacePath
+        && current.userInstruction === next.userInstruction
+}
+
+const areChatListsEquivalent = (current: ChatEntity[], next: ChatEntity[]): boolean => {
+    if (current.length !== next.length) {
+        return false
+    }
+
+    return current.every((item, index) => areChatListEntriesEquivalent(item, next[index]))
+}
+
 const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const logger = React.useMemo(() => createRendererLogger('ChatSheetComponent'), [])
     const { sheetOpenState, setSheetOpenState } = useSheetStore()
@@ -111,11 +135,12 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     }
 
     const [scheduledTasks, setScheduledTasks] = useState<ScheduleTask[]>([])
-    const [scheduleLoading, setScheduleLoading] = useState(false)
+    const [scheduleLoading, setScheduleLoading] = useState(true)
     const [scheduleLoadError, setScheduleLoadError] = useState('')
     const scheduleCacheRef = useRef<ScheduleTask[] | null>(null)
     const scheduleLoadedRef = useRef(false)
     const chatSwitchRequestRef = useRef(0)
+    const delayedChatListRefreshRef = useRef<number>(0)
 
     const loadScheduledTasks = useCallback(async (
         options?: { silent?: boolean; force?: boolean }
@@ -123,6 +148,7 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         const silent = options?.silent ?? false
         const force = options?.force ?? false
         if (!force && scheduleLoadedRef.current) {
+            setScheduleLoading(false)
             return
         }
 
@@ -144,24 +170,50 @@ const ChatSheetComponent: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             }
             setScheduleLoadError('Failed to load schedule tasks')
         } finally {
-            if (!silent) {
-                setScheduleLoading(false)
-            }
+            setScheduleLoading(false)
         }
     }, [])
 
-    useEffect(() => {
-        if (sheetOpenState) {
-            const refreshChatList = () => {
-                getAllChat().then(res => {
-                    replaceChatList([...res, { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }])
-                }).catch(err => {
-                    logger.error('chat_list.refresh_failed', err)
-                })
+    const refreshChatList = useCallback(async () => {
+        try {
+            const res = await getAllChat()
+            const nextChatList = appendChatListSentinel(res)
+            const currentChatList = useChatStore.getState().chatList
+            if (areChatListsEquivalent(currentChatList, nextChatList)) {
+                return
             }
-            refreshChatList()
+            replaceChatList(nextChatList)
+        } catch (err) {
+            logger.error('chat_list.refresh_failed', err)
         }
-    }, [sheetOpenState, replaceChatList])
+    }, [logger, replaceChatList])
+
+    useEffect(() => {
+        void refreshChatList()
+        void loadScheduledTasks({ silent: true })
+    }, [loadScheduledTasks, refreshChatList])
+
+    useEffect(() => {
+        if (!sheetOpenState) {
+            if (delayedChatListRefreshRef.current) {
+                window.clearTimeout(delayedChatListRefreshRef.current)
+                delayedChatListRefreshRef.current = 0
+            }
+            return
+        }
+
+        delayedChatListRefreshRef.current = window.setTimeout(() => {
+            delayedChatListRefreshRef.current = 0
+            void refreshChatList()
+        }, SHEET_OPEN_ANIMATION_MS)
+
+        return () => {
+            if (delayedChatListRefreshRef.current) {
+                window.clearTimeout(delayedChatListRefreshRef.current)
+                delayedChatListRefreshRef.current = 0
+            }
+        }
+    }, [refreshChatList, sheetOpenState])
 
     useEffect(() => {
         if (!sheetOpenState) {
