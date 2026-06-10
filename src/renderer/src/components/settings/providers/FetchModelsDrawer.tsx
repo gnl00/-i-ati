@@ -10,7 +10,6 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from "@renderer/components/ui/drawer"
-import { Input } from '@renderer/components/ui/input'
 import {
     Table,
     TableBody,
@@ -24,6 +23,7 @@ import { Check, Download, Loader2, RefreshCw, Search, X } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 import { useAppConfigStore } from '@renderer/store/appConfig'
+import ExpandableSearchInput from '../common/ExpandableSearchInput'
 
 // API 响应类型
 interface ApiModelItem {
@@ -379,66 +379,38 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                     </Button>
                 </DrawerHeader>
 
-                {/* Technical Search Bar */}
-                <div className="relative px-6 py-3 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-100/30 dark:bg-slate-900/20 shrink-0 flex items-center gap-3">
-                    {/* Grid pattern overlay */}
-                    <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03] pointer-events-none" style={{
-                        backgroundImage: 'linear-gradient(rgba(148, 163, 184, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, 0.5) 1px, transparent 1px)',
-                        backgroundSize: '20px 20px'
-                    }} />
-
-                    <div className="relative flex-1 group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-focus-within:text-slate-600 dark:group-focus-within:text-slate-300 transition-colors" />
-                        <Input
-                            placeholder="SEARCH_QUERY :: ModelId | Label"
+                {/* Model Search Bar */}
+                <div className="shrink-0 border-b border-slate-200/60 bg-slate-50/70 px-6 py-3 dark:border-slate-800/60 dark:bg-slate-950/30">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <ExpandableSearchInput
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className={cn(
-                                "pl-10 pr-10 h-9 text-xs",
-                                "bg-white/70 dark:bg-slate-950/50",
-                                "border-slate-300/60 dark:border-slate-700/60",
-                                "text-slate-700 dark:text-slate-300",
-                                "placeholder:text-slate-400 dark:placeholder:text-slate-600 placeholder:text-[10px]",
-                                "focus-visible:ring-0 focus-visible:ring-offset-0",
-                                "focus-visible:border-slate-500 dark:focus-visible:border-slate-400",
-                                "focus-visible:shadow-[0_0_0_3px_rgba(100,116,139,0.12)] dark:focus-visible:shadow-[0_0_0_3px_rgba(148,163,184,0.14)]",
-                                "transition-all duration-200"
-                            )}
+                            onChange={setSearchQuery}
+                            placeholder="Search models"
                             disabled={isFetching}
+                            expandable={false}
+                            showClear
+                            className="h-9 min-w-0 flex-1"
                         />
-                        {searchQuery && (
+                        <div className="flex shrink-0 items-center border-l border-slate-200/70 pl-3 dark:border-slate-800/70">
                             <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={handleDeselectAll}
+                                disabled={selectedModelIds.size === 0 || isFetching}
+                                aria-label="Clear selected models"
+                                title="Clear selected models"
                                 className={cn(
-                                    "absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0",
-                                    "hover:bg-rose-500/10 dark:hover:bg-rose-500/20",
-                                    "text-slate-400 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400",
+                                    "text-[11px] rounded-lg px-4 h-7 font-medium text-slate-500 dark:text-slate-400",
+                                    "border-slate-300/60 dark:border-slate-700/60",
+                                    "hover:border-slate-300 dark:hover:border-slate-700",
+                                    "hover:bg-slate-100/70 dark:hover:bg-slate-800/60",
+                                    "hover:text-slate-600 dark:hover:text-slate-400",
                                     "transition-all duration-150"
                                 )}
-                                onClick={() => setSearchQuery('')}
                             >
-                                <X className="h-3 w-3" />
+                                Clear
                             </Button>
-                        )}
-                    </div>
-                    <div className="flex items-center border-l border-slate-300/60 dark:border-slate-700/60 pl-3">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleDeselectAll}
-                            disabled={selectedModelIds.size === 0 || isFetching}
-                            className={cn(
-                                "text-[11px] rounded-lg px-4 h-7 font-medium text-slate-500 dark:text-slate-400",
-                                "border-slate-300/60 dark:border-slate-700/60",
-                                "hover:border-slate-300 dark:hover:border-slate-700",
-                                "hover:bg-slate-100/70 dark:hover:bg-slate-800/60",
-                                "hover:text-slate-600 dark:hover:text-slate-400",
-                                "transition-all duration-150"
-                            )}
-                        >
-                            Clear
-                        </Button>
+                        </div>
                     </div>
                 </div>
 
