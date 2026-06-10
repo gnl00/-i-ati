@@ -1,5 +1,6 @@
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from "@renderer/components/ui/button"
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import {
     Drawer,
     DrawerClose,
@@ -52,6 +53,22 @@ interface FetchModelsDrawerProps {
 }
 
 const CACHE_TTL = 60 * 1000 // 1 分钟缓存过期时间
+const FETCH_PENDING_ROWS = Array.from({ length: 8 }, (_, index) => index)
+const MODEL_TABLE_CLASSNAME = 'table-fixed'
+const MODEL_SELECTION_COLUMN_CLASSNAME = 'w-[50px] min-w-[50px] max-w-[50px] pl-6'
+const MODEL_TYPE_COLUMN_CLASSNAME = 'w-[100px] min-w-[100px] max-w-[100px]'
+const MODEL_STATUS_COLUMN_CLASSNAME = 'w-[120px] min-w-[120px] max-w-[120px]'
+const MODEL_HEADER_CELL_CLASSNAME = 'text-[11px] font-medium text-slate-500 dark:text-slate-500 tracking-wider uppercase'
+const MODEL_SELECTION_CHECKBOX_CLASSNAME = cn(
+    'h-3.5 w-3.5 rounded-[4px] border bg-white shadow-xs transition-colors duration-150',
+    'border-slate-300 text-emerald-700 hover:border-slate-400',
+    'focus-visible:ring-2 focus-visible:ring-slate-400/40 focus-visible:ring-offset-0',
+    'disabled:cursor-not-allowed disabled:opacity-40',
+    'dark:border-slate-700 dark:bg-slate-950 dark:text-emerald-200 dark:hover:border-slate-500 dark:focus-visible:ring-slate-500/40',
+    'data-[state=checked]:border-emerald-500/45 data-[state=checked]:bg-emerald-50 data-[state=checked]:text-emerald-700',
+    'dark:data-[state=checked]:border-emerald-300/35 dark:data-[state=checked]:bg-emerald-400/10 dark:data-[state=checked]:text-emerald-200',
+    '[&>span>svg]:h-3 [&>span>svg]:w-3'
+)
 
 const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     open,
@@ -71,6 +88,11 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
 
     // 为每个 provider 缓存模型数据
     const [modelsCache, setModelsCache] = useState<Map<string, CachedModels>>(new Map())
+    const accountDisplayLabel = currentAccount
+        ? providerDefinition
+            ? `${providerDefinition.displayName} · ${currentAccount.label}`
+            : currentAccount.label
+        : 'selected account'
 
     // 工具函数
     const inferModelType = (modelId: string): ModelType => {
@@ -306,15 +328,17 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
         }
     }, [open, currentAccount?.id, currentAccount?.apiKey])
 
+    const filteredModels = getFilteredModels()
+
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className="max-h-[80vh] flex flex-col">
+            <DrawerContent className="h-[80vh] max-h-[80vh] flex flex-col overflow-hidden">
                 {/* Technical Header */}
                 <DrawerHeader className="relative border-b border-slate-200/60 dark:border-slate-800/60 shrink-0 flex flex-row items-center justify-between space-y-0 pb-4">
                     <div className="space-y-2 z-10">
                         <DrawerTitle className="flex items-center gap-3 text-xl font-bold tracking-tight">
                             {/* Corner Bracket Decoration */}
-                            <span className="text-blue-500 dark:text-blue-400 text-xs font-mono">⟨⟨</span>
+                            <span className="text-slate-400 dark:text-slate-600 text-xs font-mono">⟨⟨</span>
                             <span className="bg-linear-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                                 IMPORT MODELS
                             </span>
@@ -330,9 +354,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                               variant="outline"
                               className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-xs"
                             >
-                              {providerDefinition
-                                ? `${providerDefinition.displayName} · ${currentAccount.label}`
-                                : currentAccount.label}
+                              {accountDisplayLabel}
                             </Badge>
                           )}
                         </div>
@@ -344,14 +366,13 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                         disabled={isFetching}
                         className={cn(
                             "h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xs z-10",
-                            "hover:border-blue-400/50 dark:hover:border-blue-500/50 hover:bg-blue-50/50 dark:hover:bg-blue-950/30",
-                            "transition-all duration-200",
-                            isFetching && "animate-spin"
+                            "hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100/70 dark:hover:bg-slate-800/60",
+                            "transition-all duration-200"
                         )}
                         title="Refresh models"
                     >
                         {isFetching ? (
-                            <Loader2 className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                            <Loader2 className="h-4 w-4 animate-spin text-slate-500 dark:text-slate-400" />
                         ) : (
                             <RefreshCw className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                         )}
@@ -367,7 +388,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                     }} />
 
                     <div className="relative flex-1 group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-focus-within:text-slate-600 dark:group-focus-within:text-slate-300 transition-colors" />
                         <Input
                             placeholder="SEARCH_QUERY :: ModelId | Label"
                             value={searchQuery}
@@ -379,8 +400,8 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                 "text-slate-700 dark:text-slate-300",
                                 "placeholder:text-slate-400 dark:placeholder:text-slate-600 placeholder:text-[10px]",
                                 "focus-visible:ring-0 focus-visible:ring-offset-0",
-                                "focus-visible:border-blue-500 dark:focus-visible:border-blue-400",
-                                "focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] dark:focus-visible:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]",
+                                "focus-visible:border-slate-500 dark:focus-visible:border-slate-400",
+                                "focus-visible:shadow-[0_0_0_3px_rgba(100,116,139,0.12)] dark:focus-visible:shadow-[0_0_0_3px_rgba(148,163,184,0.14)]",
                                 "transition-all duration-200"
                             )}
                             disabled={isFetching}
@@ -391,8 +412,8 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                 size="sm"
                                 className={cn(
                                     "absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0",
-                                    "hover:bg-red-500/10 dark:hover:bg-red-500/20",
-                                    "text-slate-400 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400",
+                                    "hover:bg-rose-500/10 dark:hover:bg-rose-500/20",
+                                    "text-slate-400 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400",
                                     "transition-all duration-150"
                                 )}
                                 onClick={() => setSearchQuery('')}
@@ -401,22 +422,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             </Button>
                         )}
                     </div>
-                    <div className="flex items-center gap-1.5 border-l border-slate-300/60 dark:border-slate-700/60 pl-3">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleSelectAll}
-                            disabled={getFilteredModels().length === 0 || isFetching}
-                            className={cn(
-                                "h-7 text-[10px] px-2.5 font-semibold tracking-wide",
-                                "border border-transparent",
-                                "hover:border-slate-300 dark:hover:border-slate-700",
-                                "hover:bg-slate-200/50 dark:hover:bg-slate-800/50",
-                                "transition-all duration-150"
-                            )}
-                        >
-                            Select All
-                        </Button>
+                    <div className="flex items-center border-l border-slate-300/60 dark:border-slate-700/60 pl-3">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -425,9 +431,9 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             className={cn(
                                 "h-7 text-[10px] px-2.5 font-semibold tracking-wide",
                                 "border border-transparent",
-                                "hover:border-red-300 dark:hover:border-red-800",
-                                "hover:bg-red-50 dark:hover:bg-red-950/30",
-                                "hover:text-red-600 dark:hover:text-red-400",
+                                "hover:border-rose-300 dark:hover:border-rose-800",
+                                "hover:bg-rose-50 dark:hover:bg-rose-950/30",
+                                "hover:text-rose-600 dark:hover:text-rose-400",
                                 "transition-all duration-150"
                             )}
                         >
@@ -437,27 +443,63 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 </div>
 
                 {/* 模型列表 */}
-                <div
-                    className="flex-1 overflow-y-auto min-h-[300px] px-6 bg-white/40 dark:bg-slate-950/40"
-                    onScroll={handleScroll}
-                >
+                <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden bg-white/40 dark:bg-slate-950/40">
                     {isFetching ? (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 pt-4">
-                            <div className="relative">
-                                <Loader2 className="h-10 w-10 animate-spin text-blue-500 dark:text-blue-400" />
-                                <div className="absolute inset-0 h-10 w-10 animate-ping rounded-full bg-blue-400/20 dark:bg-blue-500/20" />
+                        <div className="flex h-full min-h-0 flex-col px-6 py-4">
+                            <div className="mb-3 flex h-9 items-center gap-2 rounded-lg border border-slate-200/70 bg-slate-50/75 px-3 text-[11px] font-medium text-slate-500 dark:border-slate-800/70 dark:bg-slate-900/50 dark:text-slate-400">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400 dark:text-slate-500" />
+                                <span className="truncate">Fetching models...</span>
                             </div>
-                            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 tracking-wide">
-                                [ FETCHING MODELS ]
-                            </p>
-                            <div className="flex gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0ms' }} />
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '150ms' }} />
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '300ms' }} />
+                            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg">
+                                <div>
+                                    <Table className={MODEL_TABLE_CLASSNAME}>
+                                        <TableHeader className="bg-slate-50/95 dark:bg-slate-900/95">
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableHead className={cn(MODEL_SELECTION_COLUMN_CLASSNAME, 'text-slate-500 dark:text-slate-500 tracking-wider')}>
+                                                    <div className="h-3.5 w-3.5 rounded border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />
+                                                </TableHead>
+                                                <TableHead className={MODEL_HEADER_CELL_CLASSNAME}>
+                                                    Model ID
+                                                </TableHead>
+                                                <TableHead className={cn(MODEL_TYPE_COLUMN_CLASSNAME, MODEL_HEADER_CELL_CLASSNAME)}>
+                                                    Type
+                                                </TableHead>
+                                                <TableHead className={cn(MODEL_STATUS_COLUMN_CLASSNAME, MODEL_HEADER_CELL_CLASSNAME)}>
+                                                    Status
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                    </Table>
+                                </div>
+                                <div className="min-h-0 flex-1 overflow-hidden">
+                                    <Table className={MODEL_TABLE_CLASSNAME}>
+                                        <TableBody>
+                                            {FETCH_PENDING_ROWS.map((row) => (
+                                                <TableRow key={row} className="border-b border-slate-100 dark:border-slate-900/50 hover:bg-transparent">
+                                                    <TableCell className={MODEL_SELECTION_COLUMN_CLASSNAME}>
+                                                        <div className="h-3.5 w-3.5 rounded border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div
+                                                            className="h-3 w-full max-w-[360px] rounded-sm bg-slate-200/70 dark:bg-slate-800/70 animate-pulse"
+                                                            style={{ width: `${52 + (row % 4) * 9}%` }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className={MODEL_TYPE_COLUMN_CLASSNAME}>
+                                                        <div className="h-5 w-12 rounded-md border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900 animate-pulse" />
+                                                    </TableCell>
+                                                    <TableCell className={MODEL_STATUS_COLUMN_CLASSNAME}>
+                                                        <div className="h-3 w-16 rounded-sm bg-slate-200/70 dark:bg-slate-800/70 animate-pulse" />
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                         </div>
-                    ) : getFilteredModels().length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+                    ) : filteredModels.length === 0 ? (
+                        <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-muted-foreground">
                             <div className="relative">
                                 <Search className="h-12 w-12 text-slate-300 dark:text-slate-700" />
                                 <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
@@ -472,200 +514,194 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                     variant="link"
                                     size="sm"
                                     onClick={() => setSearchQuery('')}
-                                    className="text-blue-600 dark:text-blue-400 text-xs hover:text-blue-700 dark:hover:text-blue-300"
+                                    className="text-rose-600 dark:text-rose-400 text-xs hover:text-rose-700 dark:hover:text-rose-300"
                                 >
                                     → Clear filters
                                 </Button>
                             )}
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader className="sticky top-0 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs shadow-xs z-10 border-b border-slate-200 dark:border-slate-800">
-                                <TableRow className="hover:bg-transparent">
-                                    <TableHead className="w-[50px] pl-6 text-[10px] text-slate-500 dark:text-slate-500 tracking-wider">
-                                        <Input
-                                            type="checkbox"
-                                            checked={selectedModelIds.size > 0 && selectedModelIds.size === getFilteredModels().filter(m => !currentAccount?.models.some(em => em.id === m.id)).length}
-                                            onChange={(e) => e.target.checked ? handleSelectAll() : handleDeselectAll()}
-                                            className={cn(
-                                                "w-3.5 h-3.5 rounded border-2 border-slate-300 dark:border-slate-700",
-                                                "text-slate-800 dark:text-slate-200",
-                                                "focus:ring-offset-0 focus:ring-2 focus:ring-slate-400/50 dark:focus:ring-slate-500/50",
-                                                "cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
-                                                "transition-all duration-150"
-                                            )}
-                                            disabled={getFilteredModels().every(m => currentAccount?.models.some(em => em.id === m.id))}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-mono text-[10px] text-slate-500 dark:text-slate-500 tracking-wider uppercase">
-                                        Model ID
-                                    </TableHead>
-                                    <TableHead className="w-[100px] font-mono text-[10px] text-slate-500 dark:text-slate-500 tracking-wider uppercase">
-                                        Type
-                                    </TableHead>
-                                    <TableHead className="w-[120px] font-mono text-[10px] text-slate-500 dark:text-slate-500 tracking-wider uppercase">
-                                        Status
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {getFilteredModels().map((model, idx) => {
-                                    const isSelected = selectedModelIds.has(model.id)
-                                    const isExisting = currentAccount?.models.some(m => m.id === model.id)
+                        <div className="flex min-h-0 flex-1 flex-col px-1 py-1">
+                            <div className="overflow-hidden rounded-t-lg border border-b-0 border-slate-200/60 bg-slate-50/95 shadow-xs dark:border-slate-800/60 dark:bg-slate-900/95">
+                                <Table className={MODEL_TABLE_CLASSNAME}>
+                                    <TableHeader className="bg-slate-50/95 dark:bg-slate-900/95">
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className={cn(MODEL_SELECTION_COLUMN_CLASSNAME, 'text-[10px] text-slate-500 dark:text-slate-500 tracking-wider')}>
+                                                <Checkbox
+                                                    checked={selectedModelIds.size > 0 && selectedModelIds.size === filteredModels.filter(m => !currentAccount?.models.some(em => em.id === m.id)).length}
+                                                    onCheckedChange={(checked) => checked === true ? handleSelectAll() : handleDeselectAll()}
+                                                    className={MODEL_SELECTION_CHECKBOX_CLASSNAME}
+                                                    disabled={filteredModels.every(m => currentAccount?.models.some(em => em.id === m.id))}
+                                                />
+                                            </TableHead>
+                                            <TableHead className={MODEL_HEADER_CELL_CLASSNAME}>
+                                                Model ID
+                                            </TableHead>
+                                            <TableHead className={cn(MODEL_TYPE_COLUMN_CLASSNAME, MODEL_HEADER_CELL_CLASSNAME)}>
+                                                Type
+                                            </TableHead>
+                                            <TableHead className={cn(MODEL_STATUS_COLUMN_CLASSNAME, MODEL_HEADER_CELL_CLASSNAME)}>
+                                                Status
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                </Table>
+                            </div>
+                            <div
+                                className="min-h-0 flex-1 overflow-y-auto rounded-b-lg border border-slate-200/60 bg-white/40 dark:border-slate-800/60 dark:bg-slate-950/40"
+                                onScroll={handleScroll}
+                            >
+                                <Table className={MODEL_TABLE_CLASSNAME}>
+                                    <TableBody>
+                                        {filteredModels.map((model, idx) => {
+                                            const isSelected = selectedModelIds.has(model.id)
+                                            const isExisting = currentAccount?.models.some(m => m.id === model.id)
+
+                                            return (
+                                                <TableRow
+                                                    key={idx}
+                                                    className={cn(
+                                                        "group cursor-pointer border-b border-slate-100 dark:border-slate-900/50 transition-all duration-200",
+                                                        !isExisting && "hover:bg-slate-50/50 dark:hover:bg-slate-900/30",
+                                                        isExisting && "bg-slate-50/30 dark:bg-slate-900/20 opacity-60 cursor-not-allowed"
+                                                    )}
+                                                    onClick={() => !isExisting && handleModelToggle(model.id)}
+                                                >
+
+                                                    <TableCell className={MODEL_SELECTION_COLUMN_CLASSNAME}>
+                                                        {isExisting ? (
+                                                            <div className="w-4 h-4 rounded border-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                                                <Check className="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+                                                            </div>
+                                                        ) : (
+                                                            <Checkbox
+                                                                checked={isSelected}
+                                                                onCheckedChange={() => handleModelToggle(model.id)}
+                                                                className={MODEL_SELECTION_CHECKBOX_CLASSNAME}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className={cn(
+                                                        "text-xs font-medium transition-colors",
+                                                        isSelected
+                                                            ? "text-slate-800 dark:text-slate-100"
+                                                            : "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100"
+                                                    )}>
+                                                        {model.id}
+                                                    </TableCell>
+                                                    <TableCell className={MODEL_TYPE_COLUMN_CLASSNAME}>
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className={cn(
+                                                                "text-[9px] px-2 py-0.5 h-5 font-bold tracking-tight",
+                                                                "border transition-all duration-150",
+                                                                model.type === 'img_gen' && cn(
+                                                                    "bg-purple-50 dark:bg-purple-950/30",
+                                                                    "text-purple-600 dark:text-purple-400",
+                                                                    "border-purple-200 dark:border-purple-900/50",
+                                                                    "group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40",
+                                                                    "group-hover:border-purple-300 dark:group-hover:border-purple-800"
+                                                                ),
+                                                                model.type === 'mllm' && cn(
+                                                                    "bg-emerald-50 dark:bg-emerald-950/30",
+                                                                    "text-emerald-600 dark:text-emerald-400",
+                                                                    "border-emerald-200 dark:border-emerald-900/50",
+                                                                    "group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40",
+                                                                    "group-hover:border-emerald-300 dark:group-hover:border-emerald-800"
+                                                                ),
+                                                                model.type === 'vlm' && cn(
+                                                                    "bg-amber-50 dark:bg-amber-950/25",
+                                                                    "text-amber-700 dark:text-amber-400",
+                                                                    "border-amber-200 dark:border-amber-900/50",
+                                                                    "group-hover:bg-amber-100 dark:group-hover:bg-amber-900/35",
+                                                                    "group-hover:border-amber-300 dark:group-hover:border-amber-800"
+                                                                ),
+                                                                model.type === 'llm' && cn(
+                                                                    "bg-slate-50 dark:bg-slate-900/50",
+                                                                    "text-slate-600 dark:text-slate-400",
+                                                                    "border-slate-200 dark:border-slate-800",
+                                                                    "group-hover:bg-slate-100 dark:group-hover:bg-slate-800/70",
+                                                                    "group-hover:border-slate-300 dark:group-hover:border-slate-700"
+                                                                )
+                                                            )}
+                                                        >
+                                                            {model.type.toUpperCase()}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className={MODEL_STATUS_COLUMN_CLASSNAME}>
+                                                        {isExisting ? (
+                                                            <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-500 font-semibold tracking-tight">
+                                                                <Check className="w-3 h-3" />
+                                                                ADDED
+                                                            </span>
+                                                        ) : isSelected ? (
+                                                            <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-700/90 dark:text-emerald-300/90 font-semibold tracking-tight">
+                                                                SELECTED
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-500 font-semibold tracking-tight">
+                                                                AVAILABLE
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })}
+                                    </TableBody>
+                                </Table>
+
+                                {/* 加载提示 */}
+                                {(() => {
+                                    const totalFiltered = searchQuery.trim()
+                                        ? fetchedModels.filter(model =>
+                                            model.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                            model.id.toLowerCase().includes(searchQuery.toLowerCase())
+                                        ).length
+                                        : fetchedModels.length
+
+                                    const hasMore = displayedCount < totalFiltered
 
                                     return (
-                                        <TableRow
-                                            key={idx}
-                                            className={cn(
-                                                "group cursor-pointer border-b border-slate-100 dark:border-slate-900/50 transition-all duration-200",
-                                                !isExisting && "hover:bg-slate-50/50 dark:hover:bg-slate-900/30",
-                                                isExisting && "bg-slate-50/30 dark:bg-slate-900/20 opacity-60 cursor-not-allowed"
-                                            )}
-                                            onClick={() => !isExisting && handleModelToggle(model.id)}
-                                        >
-
-                                            <TableCell className="pl-6">
-                                                {isExisting ? (
-                                                    <div className="w-4 h-4 rounded border-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                                        <Check className="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
-                                                    </div>
-                                                ) : (
-                                                    <Input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={() => handleModelToggle(model.id)}
-                                                        className={cn(
-                                                            "w-3.5 h-3.5 rounded border-2",
-                                                            isSelected
-                                                                ? "border-slate-700 dark:border-slate-300 bg-slate-700 dark:bg-slate-300"
-                                                                : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950",
-                                                            "text-white dark:text-slate-900",
-                                                            "focus:ring-offset-0 focus:ring-2 focus:ring-slate-400/50 dark:focus:ring-slate-500/50",
-                                                            "cursor-pointer transition-all duration-150",
-                                                            "hover:border-slate-500 dark:hover:border-slate-400"
-                                                        )}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                )}
-                                            </TableCell>
-                                            <TableCell className={cn(
-                                                "text-xs font-medium transition-colors",
-                                                isSelected
-                                                    ? "text-blue-500 dark:text-blue-400"
-                                                    : "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100"
-                                            )}>
-                                                {model.id}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={cn(
-                                                        "text-[9px] px-2 py-0.5 h-5 font-bold tracking-tight",
-                                                        "border transition-all duration-150",
-                                                        model.type === 'img_gen' && cn(
-                                                            "bg-purple-50 dark:bg-purple-950/30",
-                                                            "text-purple-600 dark:text-purple-400",
-                                                            "border-purple-200 dark:border-purple-900/50",
-                                                            "group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40",
-                                                            "group-hover:border-purple-300 dark:group-hover:border-purple-800"
-                                                        ),
-                                                        model.type === 'mllm' && cn(
-                                                            "bg-emerald-50 dark:bg-emerald-950/30",
-                                                            "text-emerald-600 dark:text-emerald-400",
-                                                            "border-emerald-200 dark:border-emerald-900/50",
-                                                            "group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40",
-                                                            "group-hover:border-emerald-300 dark:group-hover:border-emerald-800"
-                                                        ),
-                                                        model.type === 'vlm' && cn(
-                                                            "bg-blue-50 dark:bg-blue-950/30",
-                                                            "text-blue-600 dark:text-blue-400",
-                                                            "border-blue-200 dark:border-blue-900/50",
-                                                            "group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40",
-                                                            "group-hover:border-blue-300 dark:group-hover:border-blue-800"
-                                                        ),
-                                                        model.type === 'llm' && cn(
-                                                            "bg-slate-50 dark:bg-slate-900/50",
-                                                            "text-slate-600 dark:text-slate-400",
-                                                            "border-slate-200 dark:border-slate-800",
-                                                            "group-hover:bg-slate-100 dark:group-hover:bg-slate-800/70",
-                                                            "group-hover:border-slate-300 dark:group-hover:border-slate-700"
-                                                        )
+                                        <div className="py-5 text-center">
+                                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/60">
+                                                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 tracking-wide">
+                                                    {hasMore ? (
+                                                        <>
+                                                            <span className="text-slate-700 dark:text-slate-300">{displayedCount}</span>
+                                                            {' / '}
+                                                            <span>{totalFiltered}</span>
+                                                            {' '}
+                                                            LOADED · SCROLL FOR MORE
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                                            {' '}
+                                                            ALL {totalFiltered} MODELS LOADED
+                                                        </>
                                                     )}
-                                                >
-                                                    {model.type.toUpperCase()}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                {isExisting ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-500 font-semibold tracking-tight">
-                                                        <Check className="w-3 h-3" />
-                                                        ADDED
-                                                    </span>
-                                                ) : isSelected ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-[10px] text-blue-500 dark:text-blue-400 font-semibold tracking-tight">
-                                                        SELECTED
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold tracking-tight">
-                                                        AVAILABLE
-                                                    </span>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
+                                                </span>
+                                            </div>
+                                        </div>
                                     )
-                                })}
-                            </TableBody>
-                        </Table>
-                    )}
-
-                    {/* 加载提示 */}
-                    {!isFetching && getFilteredModels().length > 0 && (() => {
-                        const totalFiltered = searchQuery.trim()
-                            ? fetchedModels.filter(model =>
-                                model.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                model.id.toLowerCase().includes(searchQuery.toLowerCase())
-                            ).length
-                            : fetchedModels.length
-
-                        const hasMore = displayedCount < totalFiltered
-
-                        return (
-                            <div className="py-5 text-center">
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/60">
-                                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 tracking-wide">
-                                        {hasMore ? (
-                                            <>
-                                                <span className="text-blue-600 dark:text-blue-400">{displayedCount}</span>
-                                                {' / '}
-                                                <span>{totalFiltered}</span>
-                                                {' '}
-                                                LOADED · SCROLL FOR MORE
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="text-emerald-600 dark:text-emerald-400">✓</span>
-                                                {' '}
-                                                ALL {totalFiltered} MODELS LOADED
-                                            </>
-                                        )}
-                                    </span>
-                                </div>
+                                })()}
                             </div>
-                        )
-                    })()}
+                        </div>
+                    )}
                 </div>
 
                 {/* Technical Footer */}
                 <DrawerFooter className="relative border-t border-slate-200/60 dark:border-slate-800/60 bg-slate-100/30 dark:bg-slate-900/20 shrink-0 overflow-hidden">
                     {/* Corner decoration */}
-                    <div className="absolute bottom-0 left-0 w-24 h-full bg-linear-to-tr from-blue-500/5 to-transparent pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-24 h-full bg-linear-to-tr from-slate-500/5 to-transparent pointer-events-none" />
 
                     <div className="flex items-center justify-between w-full z-10">
                         <div className="flex items-center gap-3">
                             {selectedModelIds.size > 0 ? (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 tracking-tight">
-                                        {selectedModelIds.size} SELECTED
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 tracking-tight">
+                                        [ {selectedModelIds.size} SELECTED ]
                                     </span>
                                 </div>
                             ) : (
@@ -680,7 +716,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                     variant="ghost"
                                     disabled={isFetching}
                                     className={cn(
-                                        "h-9 px-6 text-xs tracking-wide rounded-full text-red-300 dark:text-red-400 hover:text-red-400 dark:hover:text-red-300",
+                                        "h-9 px-6 text-xs tracking-wide rounded-xl text-rose-400 dark:text-rose-400 hover:text-rose-500 dark:hover:text-rose-300",
                                         "border-slate-300 dark:border-slate-700",
                                         "hover:bg-slate-200/50 dark:hover:bg-slate-800/50",
                                         "transition-all duration-150"
@@ -693,14 +729,14 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                 onClick={handleImportSelected}
                                 disabled={selectedModelIds.size === 0 || isFetching}
                                 className={cn(
-                                    "h-9 px-6 gap-2 text-xs rounded-full font-semibold tracking-wide",
-                                    "bg-blue-500 dark:bg-blue-400",
-                                    "hover:bg-blue-600 dark:hover:bg-blue-500",
+                                    "h-9 px-6 gap-2 text-xs rounded-xl font-semibold tracking-wide",
+                                    "bg-slate-900 dark:bg-slate-100",
+                                    "hover:bg-slate-800 dark:hover:bg-slate-200",
                                     "text-white dark:text-slate-950",
-                                    "shadow-md shadow-blue-500/20 dark:shadow-blue-400/20",
-                                    "border border-blue-700/50 dark:border-blue-400/50",
+                                    "shadow-md shadow-slate-900/10 dark:shadow-black/20",
+                                    "border border-slate-950/40 dark:border-slate-200/60",
                                     "transition-all duration-150",
-                                    "hover:shadow-xl hover:shadow-blue-500/30 dark:hover:shadow-blue-400/30",
+                                    "hover:shadow-lg hover:shadow-slate-900/15 dark:hover:shadow-black/25",
                                     "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                                 )}
                             >
