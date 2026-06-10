@@ -55,6 +55,21 @@ const GRID_COLS = '50fr 14fr 16fr 20fr'
 const ADD_ROW_GRID_COLS = '30fr 34fr 20fr 16fr'
 const MODEL_TOOLTIP_CLASS_NAME = 'bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
 const MODEL_ADD_FIELD_CLASSNAME = 'h-8 rounded-lg border border-transparent bg-gray-100/80 px-2.5 text-[12.5px] text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/70 transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-1 focus:ring-gray-400/70 focus:ring-offset-0 focus-visible:border-gray-300 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0 dark:bg-gray-950/45 dark:text-gray-100 dark:ring-gray-700 dark:placeholder:text-gray-500 dark:focus:border-gray-600 dark:focus:bg-gray-950/70 dark:focus:ring-gray-500/70 dark:focus-visible:border-gray-600 dark:focus-visible:bg-gray-950/70 dark:focus-visible:ring-gray-500/70'
+const MODEL_TYPE_SELECT_TRIGGER_CLASSNAME = cn(
+  'w-full rounded-lg border border-gray-200/85 bg-white/90 text-[12.5px] text-gray-800 shadow-xs',
+  'transition-[background-color,border-color,box-shadow,color] duration-150',
+  'hover:border-gray-300/90 hover:bg-gray-50/95 hover:shadow-sm',
+  'focus:ring-1 focus:ring-gray-400/70 focus:ring-offset-0',
+  'focus-visible:border-gray-300 focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0',
+  'data-[state=open]:border-gray-400/80 data-[state=open]:bg-white data-[state=open]:shadow-sm',
+  'disabled:cursor-not-allowed disabled:opacity-50',
+  '[&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-gray-400 [&>svg]:opacity-80',
+  'dark:border-gray-800/90 dark:bg-gray-900/70 dark:text-gray-100 dark:shadow-none',
+  'dark:hover:border-gray-700/90 dark:hover:bg-gray-900/90',
+  'dark:focus:border-gray-700 dark:focus:ring-gray-600/80 dark:focus-visible:border-gray-700 dark:focus-visible:ring-gray-600/80',
+  'dark:data-[state=open]:border-gray-600/90 dark:data-[state=open]:bg-gray-900',
+  'dark:[&>svg]:text-gray-500'
+)
 
 const MODALITY_OPTIONS = [
   { value: 'text', label: 'Text' },
@@ -322,7 +337,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                   }
                 }}
               >
-                <SelectTrigger className={cn(settingsInputClassName, 'h-9 text-[12.5px] bg-white dark:bg-gray-900')}>
+                <SelectTrigger className={cn(MODEL_TYPE_SELECT_TRIGGER_CLASSNAME, 'h-9')}>
                   <SelectValue placeholder="Select model type" />
                 </SelectTrigger>
                 <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-lg backdrop-blur font-medium">
@@ -450,10 +465,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
         <div className='flex items-center justify-center'>
           <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
             <SelectTrigger
-              className={cn(
-                MODEL_ADD_FIELD_CLASSNAME,
-                'w-full'
-              )}
+              className={cn(MODEL_TYPE_SELECT_TRIGGER_CLASSNAME, 'h-8')}
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >

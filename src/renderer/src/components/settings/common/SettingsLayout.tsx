@@ -52,7 +52,7 @@ interface SettingsSubsectionHeaderProps extends Omit<DivProps, 'title'> {
 export const settingsScrollbarClassName = 'scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'
 
 export const settingsPrimaryButtonClassName = cn(
-  'h-7 px-3 flex items-center gap-1.5 rounded-md',
+  'h-7 px-3 flex items-center gap-1.5 rounded-lg',
   'text-[11px] font-medium',
   'bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white',
   'text-white dark:text-gray-900',

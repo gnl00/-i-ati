@@ -20,7 +20,6 @@ import { ProviderIconConfigDrawer } from '@renderer/components/settings/provider
 import { toast } from 'sonner'
 import {
     settingsDangerButtonClassName,
-    settingsInputClassName,
     settingsOutlineButtonClassName,
     settingsSecondaryButtonClassName
 } from '../common/SettingsLayout'
@@ -36,9 +35,46 @@ interface ProviderConfigurationsProps {
     onResetAccount: () => void
 }
 
-const fieldClassName = cn(
-    'h-8 text-[12.5px]',
-    settingsInputClassName
+const providerConfigInputClassName = cn(
+    'h-8 rounded-lg border-transparent bg-gray-100/80 text-[12.5px] shadow-inner',
+    'ring-1 ring-inset ring-gray-200/80',
+    'placeholder:text-gray-400/80',
+    'transition-[background-color,box-shadow,color,border-color] duration-150',
+    'hover:bg-gray-100 hover:ring-gray-300/80',
+    'focus-visible:border-gray-300 focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0',
+    'disabled:cursor-not-allowed disabled:opacity-50',
+    'dark:bg-gray-950/45 dark:ring-gray-800/80 dark:placeholder:text-gray-600',
+    'dark:hover:bg-gray-950/60 dark:hover:ring-gray-700/90',
+    'dark:focus-visible:border-gray-700 dark:focus-visible:ring-gray-600/80'
+)
+
+const providerConfigSelectTriggerClassName = cn(
+    'h-8 w-full rounded-lg border border-gray-200/85 bg-white/90 text-[12.5px] shadow-xs',
+    'text-gray-800 transition-[background-color,border-color,box-shadow,color] duration-150',
+    'hover:border-gray-300/90 hover:bg-gray-50/95 hover:shadow-sm',
+    'focus-visible:border-gray-300 focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0',
+    'data-[state=open]:border-gray-400/80 data-[state=open]:bg-white data-[state=open]:shadow-sm',
+    'disabled:cursor-not-allowed disabled:opacity-50',
+    '[&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-gray-400 [&>svg]:opacity-80',
+    'dark:border-gray-800/90 dark:bg-gray-900/70 dark:text-gray-100 dark:shadow-none',
+    'dark:hover:border-gray-700/90 dark:hover:bg-gray-900/90',
+    'dark:focus-visible:border-gray-700 dark:focus-visible:ring-gray-600/80',
+    'dark:data-[state=open]:border-gray-600/90 dark:data-[state=open]:bg-gray-900',
+    'dark:[&>svg]:text-gray-500'
+)
+
+const providerRevealButtonClassName = cn(
+    'absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md',
+    'text-gray-400 transition-[background-color,color,box-shadow,transform] duration-150',
+    'hover:bg-gray-200/70 hover:text-gray-700',
+    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400/70',
+    'active:scale-[0.96]',
+    'dark:text-gray-500 dark:hover:bg-gray-800/70 dark:hover:text-gray-200',
+    'dark:focus-visible:ring-gray-600/80'
+)
+
+const providerFieldLabelClassName = cn(
+    'text-[10.5px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500'
 )
 
 const NO_THINKING_PAYLOAD_EXTENSION = 'none'
@@ -170,12 +206,12 @@ const ProviderConfigurations = ({
             {/* Fields grid */}
             <div className='grid grid-cols-1 md:grid-cols-2 gap-x-2.5 gap-y-2'>
                 <div className='md:col-span-2 space-y-1 min-w-0'>
-                    <Label htmlFor="account-label" className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                    <Label htmlFor="account-label" className={providerFieldLabelClassName}>
                         Label
                     </Label>
                     <Input
                         id="account-label"
-                        className={fieldClassName}
+                        className={providerConfigInputClassName}
                         placeholder='Provider label'
                         value={label}
                         onChange={(event) => {
@@ -187,7 +223,7 @@ const ProviderConfigurations = ({
                 </div>
 
                 <div className='space-y-1 min-w-0'>
-                    <Label className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                    <Label className={providerFieldLabelClassName}>
                         Adapter
                     </Label>
                     <Select
@@ -203,7 +239,7 @@ const ProviderConfigurations = ({
                         <SelectTrigger
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => event.stopPropagation()}
-                            className={cn(fieldClassName, 'w-full')}
+                            className={providerConfigSelectTriggerClassName}
                         >
                             <SelectValue placeholder="Select adapter" />
                         </SelectTrigger>
@@ -221,14 +257,14 @@ const ProviderConfigurations = ({
                         </SelectContent>
                     </Select>
                     {currentAdapterDisabled && (
-                        <p className='text-[10.5px] text-amber-600 dark:text-amber-400 leading-relaxed'>
-                            This provider is using a disabled adapter plugin. Re-enable it in Plugins or switch to another adapter before requesting.
+                        <p className='rounded-md bg-amber-50/80 px-2 py-1 text-[10.5px] font-medium leading-snug text-amber-700 ring-1 ring-inset ring-amber-200/80 dark:bg-amber-950/20 dark:text-amber-300 dark:ring-amber-900/60'>
+                            Adapter plugin is disabled. Re-enable it in Plugins or choose an enabled adapter.
                         </p>
                     )}
                 </div>
 
                 <div className='space-y-1 min-w-0'>
-                    <Label className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                    <Label className={providerFieldLabelClassName}>
                         Thinking Payload
                     </Label>
                     <Select
@@ -249,7 +285,7 @@ const ProviderConfigurations = ({
                         <SelectTrigger
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => event.stopPropagation()}
-                            className={cn(fieldClassName, 'w-full')}
+                            className={providerConfigSelectTriggerClassName}
                         >
                             <SelectValue placeholder="Select thinking payload" />
                         </SelectTrigger>
@@ -282,15 +318,15 @@ const ProviderConfigurations = ({
                 </div>
 
                 <div className='md:col-span-2 space-y-1'>
-                    <Label htmlFor="provider-api-url" className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 tracking-wider'>
-                        API URL &nbsp;
-                        <span className='text-[10px] tracking-tight text-gray-400/70 dark:text-gray-500 mt-0.5 select-none'>
-                            Base URL only · Endpoint path handled by adapter
+                    <Label htmlFor="provider-api-url" className='flex items-baseline gap-1.5 text-[10.5px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500'>
+                        API Base URL
+                        <span className='text-[10px] normal-case tracking-tight text-gray-400/70 dark:text-gray-500 select-none'>
+                            Adapter adds the endpoint path.
                         </span>
                     </Label>
                     <Input
                         id="provider-api-url"
-                        className={fieldClassName}
+                        className={providerConfigInputClassName}
                         placeholder={defaultApiUrl || 'https://api.example.com'}
                         value={apiUrl}
                         onChange={(event) => {
@@ -302,14 +338,14 @@ const ProviderConfigurations = ({
                 </div>
 
                 <div className='md:col-span-2 space-y-1'>
-                    <Label htmlFor="provider-api-key" className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                    <Label htmlFor="provider-api-key" className={providerFieldLabelClassName}>
                         API Key
                     </Label>
                     <div className='relative w-full'>
                         <Input
                             id="provider-api-key"
                             type={showApiKey ? 'text' : 'password'}
-                            className={cn(fieldClassName, 'pr-9')}
+                            className={cn(providerConfigInputClassName, 'pr-9')}
                             placeholder='sk-********'
                             value={apiKey}
                             onChange={(event) => {
@@ -321,14 +357,9 @@ const ProviderConfigurations = ({
                         <button
                             type="button"
                             onClick={() => setShowApiKey(!showApiKey)}
-                            className={cn(
-                                'absolute right-2 top-1/2 -translate-y-1/2',
-                                'flex items-center justify-center p-1 rounded',
-                                'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300',
-                                'hover:bg-gray-100 dark:hover:bg-gray-700/50',
-                                'transition-colors duration-150'
-                            )}
-                            tabIndex={-1}
+                            aria-label={showApiKey ? 'Hide API key' : 'Reveal API key'}
+                            aria-pressed={showApiKey}
+                            className={providerRevealButtonClassName}
                         >
                             <span className={cn(
                                 'transition-all duration-300 ease-in-out',
