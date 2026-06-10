@@ -156,7 +156,7 @@ const response = await invokeModelsGetModelCapabilities({
 
 接入组件：
 
-- `src/renderer/src/components/settings/providers/ProviderModelsList.tsx`
+- `src/renderer/src/components/settings/providers/ProviderModelsPanel.tsx`
 
 触发条件：
 

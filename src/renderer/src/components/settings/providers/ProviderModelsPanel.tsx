@@ -41,7 +41,7 @@ import {
 } from '../common/SettingsLayout'
 import { Button } from '@renderer/components/ui/button'
 
-type ProviderModelsListProps = {
+type ProviderModelsPanelProps = {
   selectedProviderId?: string
   currentAccount?: ProviderAccount
   onModelTableCellClick: (value: string) => void
@@ -127,7 +127,7 @@ const shouldApplyRemoteModalities = (
   return false
 }
 
-export const ProviderModelsList: React.FC<ProviderModelsListProps> = ({
+export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
   selectedProviderId,
   currentAccount,
   onModelTableCellClick,

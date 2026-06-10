@@ -5,7 +5,7 @@ import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdap
 import { toast } from 'sonner'
 import FetchModelsDrawer from './FetchModelsDrawer'
 import { v4 as uuidv4 } from 'uuid'
-import { ProviderModelsList } from './ProviderModelsList'
+import { ProviderModelsPanel } from './ProviderModelsPanel'
 import ProviderConfigurations from './ProviderConfigurations'
 import ProviderListSidebar from './ProviderListSidebar'
 import {
@@ -322,7 +322,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                                     onAccountDeleteClick(undefined as any, currentAccount)
                                 }}
                             />
-                            <ProviderModelsList
+                            <ProviderModelsPanel
                                 selectedProviderId={selectedProviderId}
                                 currentAccount={currentAccount}
                                 onModelTableCellClick={onModelTableCellClick}
