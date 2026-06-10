@@ -115,7 +115,7 @@ const ProviderConfigurations = ({
     }
 
     return (
-        <div className='px-4 pt-3 pb-2.5 border-b border-gray-200/70 dark:border-gray-700/60 space-y-2.5'>
+        <div className='px-3 py-2 border-b border-gray-200/70 dark:border-gray-700/60 space-y-1.5'>
             {/* Header */}
             <div className='flex items-center justify-between gap-3'>
                 <h3 className='text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100'>

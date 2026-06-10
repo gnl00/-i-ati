@@ -54,6 +54,7 @@ type ProviderModelsPanelProps = {
 const GRID_COLS = '50fr 14fr 16fr 20fr'
 const ADD_ROW_GRID_COLS = '30fr 34fr 20fr 16fr'
 const MODEL_TOOLTIP_CLASS_NAME = 'bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
+const MODEL_ADD_FIELD_CLASSNAME = 'h-8 rounded-lg border border-transparent bg-gray-100/80 px-2.5 text-[12.5px] text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/70 transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-1 focus:ring-gray-400/70 focus:ring-offset-0 focus-visible:border-gray-300 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0 dark:bg-gray-950/45 dark:text-gray-100 dark:ring-gray-700 dark:placeholder:text-gray-500 dark:focus:border-gray-600 dark:focus:bg-gray-950/70 dark:focus:ring-gray-500/70 dark:focus-visible:border-gray-600 dark:focus-visible:bg-gray-950/70 dark:focus-visible:ring-gray-500/70'
 
 const MODALITY_OPTIONS = [
   { value: 'text', label: 'Text' },
@@ -145,6 +146,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
   const [editingContextWindowTokens, setEditingContextWindowTokens] = useState<string>('')
   const [editingModalities, setEditingModalities] = useState<string[]>([])
   const [editingModalitiesDirty, setEditingModalitiesDirty] = useState(false)
+  const canAddModel = nextAddModelValue.trim().length > 0
 
   const modelCapabilitySyncKey = useMemo(() => {
     return currentAccount?.models.map(model => model.id).join('\n') ?? ''
@@ -403,8 +405,8 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
       </Drawer>
 
       {/* ── Toolbar ─────────────────────────────────────────── */}
-      <div className='flex items-center gap-3 px-4 py-2.5 border-b border-gray-200/70 dark:border-gray-700/60 bg-gray-50/40 dark:bg-gray-900/20 shrink-0'>
-        <h3 className='text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100 shrink-0'>Models</h3>
+      <div className='flex items-center gap-3 px-2 py-2 border-b border-gray-200/70 dark:border-gray-700/60 bg-gray-50/40 dark:bg-gray-900/20 shrink-0'>
+        <h3 className='text-xs font-semibold tracking-tight text-gray-900 dark:text-gray-100 shrink-0'>Models</h3>
         <div className="flex items-center gap-2 ml-auto flex-row">
           <ExpandableSearchInput
             value={modelSearchQuery}
@@ -426,57 +428,31 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
 
       {/* ── Add row ──────────────────────────────────────────── */}
       <div
-        className='grid shrink-0 border-b border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/70 transition-colors duration-150'
+        className='grid shrink-0 border-b border-gray-200/80 bg-gray-50/75 dark:border-gray-700/70 dark:bg-gray-900/35 py-2 px-2 space-x-2'
         style={{ gridTemplateColumns: ADD_ROW_GRID_COLS }}
       >
-        <div className='px-3 py-2'>
+        <div className=''>
           <Input
-            className={cn(
-              'h-8 text-[12.5px]',
-              'border-0 border-b border-gray-300 dark:border-gray-600',
-              'rounded-none px-2',
-              'bg-transparent',
-              'text-gray-700 dark:text-gray-200',
-              'placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 dark:placeholder:text-gray-500',
-              'focus-visible:ring-0 focus-visible:ring-offset-0',
-              'focus-visible:border-b-gray-500 dark:focus-visible:border-b-gray-400',
-              'transition-colors duration-150 shadow-none'
-            )}
+            className={cn(MODEL_ADD_FIELD_CLASSNAME, 'w-full')}
             value={nextAddModelLabel}
             onChange={e => setNextAddModelLabel(e.target.value)}
             placeholder="Model Name"
           />
         </div>
-        <div className='px-3 py-2'>
+        <div className=''>
           <Input
-            className={cn(
-              'h-8 text-[12.5px]',
-              'border-0 border-b border-gray-300 dark:border-gray-600',
-              'rounded-none px-2',
-              'bg-transparent',
-              'text-gray-700 dark:text-gray-200',
-              'placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 dark:placeholder:text-gray-500',
-              'focus-visible:ring-0 focus-visible:ring-offset-0',
-              'focus-visible:border-b-gray-500 dark:focus-visible:border-b-gray-400',
-              'transition-colors duration-150 shadow-none'
-            )}
+            className={cn(MODEL_ADD_FIELD_CLASSNAME, 'w-full')}
             value={nextAddModelValue}
             onChange={e => setNextAddModelValue(e.target.value)}
             placeholder="Model ID"
           />
         </div>
-        <div className='px-4 py-2.5 flex items-center justify-center'>
+        <div className='flex items-center justify-center'>
           <Select value={nextAddModelType} onValueChange={setNextAddModelType}>
             <SelectTrigger
               className={cn(
-                'h-8 w-full text-[12.5px]',
-                'border-0 border-b border-gray-300 dark:border-gray-600',
-                'rounded-none px-2',
-                'bg-transparent',
-                'text-gray-700 dark:text-gray-200',
-                'focus:ring-0 focus:ring-offset-0',
-                'focus:border-b-gray-500 dark:focus:border-b-gray-400',
-                'transition-colors duration-150 shadow-none'
+                MODEL_ADD_FIELD_CLASSNAME,
+                'w-full'
               )}
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
@@ -493,14 +469,15 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
             </SelectContent>
           </Select>
         </div>
-        <div className='px-4 py-2.5 flex items-center justify-center'>
-          <button
+        <div className='flex items-center justify-center'>
+          <Button
             onClick={handleAddModel}
-            className={cn(settingsPrimaryButtonClassName, 'w-full max-w-[84px] justify-center rounded-md')}
+            disabled={!canAddModel}
+            className={cn('h-7 w-full flex items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-45')}
           >
             <i className="ri-add-line text-[12px]"></i>
-            Add
-          </button>
+            <span>Add</span>
+          </Button>
         </div>
       </div>
 
