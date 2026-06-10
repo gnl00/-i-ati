@@ -465,7 +465,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                     <div className="flex shrink-0 items-center gap-2">
                                         <button
                                             type="button"
-                                            className={cn(settingsOutlineButtonClassName, 'h-8 rounded-full bg-white dark:bg-gray-900 shadow-xs disabled:opacity-50')}
+                                            className={cn(settingsOutlineButtonClassName, 'h-8 rounded-lg bg-white dark:bg-gray-900 shadow-xs disabled:opacity-50')}
                                             disabled={telegramTesting || !telegramBotToken.trim()}
                                             onClick={async () => {
                                                 try {
@@ -488,7 +488,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                         {telegramGatewayStatus?.running ? (
                                             <button
                                                 type="button"
-                                                className={cn(settingsPrimaryButtonClassName, 'h-8 rounded-full disabled:opacity-50')}
+                                                className={cn(settingsPrimaryButtonClassName, 'h-8 rounded-lg disabled:opacity-50')}
                                                 disabled={telegramStopping}
                                                 onClick={async () => {
                                                     try {
@@ -507,7 +507,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                         ) : (
                                             <button
                                                 type="button"
-                                                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-sky-600 px-3 text-[11px] font-medium text-white shadow-xs transition hover:bg-sky-500 disabled:opacity-50 dark:bg-sky-500 dark:hover:bg-sky-400"
+                                                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-sky-600 px-3 text-[11px] font-medium text-white shadow-xs transition hover:bg-sky-500 disabled:opacity-50 dark:bg-sky-500 dark:hover:bg-sky-400"
                                                 disabled={telegramStarting || telegramGatewayStatus?.starting}
                                                 onClick={async () => {
                                                     try {
