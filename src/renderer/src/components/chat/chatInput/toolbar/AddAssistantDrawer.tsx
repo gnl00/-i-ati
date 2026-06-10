@@ -51,44 +51,69 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
   const [submitError, setSubmitError] = React.useState('')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const drawerContentRef = React.useRef<HTMLDivElement | null>(null)
-  const fieldClass = cn(
-    "h-10 rounded-xl",
-    "bg-slate-50/90 dark:bg-slate-900/60",
-    "border border-slate-200/90 dark:border-slate-800",
-    "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
-    "ring-0 focus:ring-0 focus-visible:ring-0",
-    "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
-    "focus:border-sky-400/70 dark:focus:border-sky-500/60",
-    "hover:border-slate-300/80 dark:hover:border-slate-700/80",
-    "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-    "shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-all duration-200"
+  const initializedSessionKeyRef = React.useRef<string | null>(null)
+  const insetFieldBaseClass = cn(
+    'rounded-xl border border-transparent bg-gray-100/80 text-[12.5px] text-gray-800 shadow-inner',
+    'ring-1 ring-inset ring-gray-200/80',
+    'outline-hidden focus:outline-hidden focus-visible:outline-hidden',
+    'placeholder:text-gray-400/80',
+    'transition-[background-color,border-color,box-shadow,color] duration-150',
+    'hover:bg-gray-100 hover:ring-gray-300/80',
+    'focus-visible:border-gray-300 focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0',
+    'disabled:cursor-not-allowed disabled:opacity-50',
+    'dark:bg-gray-950/45 dark:text-gray-100 dark:ring-gray-800/80 dark:placeholder:text-gray-600',
+    'dark:hover:bg-gray-950/60 dark:hover:ring-gray-700/90',
+    'dark:focus-visible:border-gray-700 dark:focus-visible:ring-gray-600/80'
   )
+  const inputFieldClass = cn('h-10', insetFieldBaseClass)
+  const textareaFieldClass = cn('min-h-[150px] resize-none', insetFieldBaseClass)
+  const drawerOpen = open ?? internalOpen
 
   React.useEffect(() => {
-    const drawerOpen = open ?? internalOpen
-    if (drawerOpen) {
-      if (mode === 'edit' && assistantToEdit) {
-        setAssistantName(assistantToEdit.name)
-        setAssistantDescription(assistantToEdit.description ?? '')
-        setAssistantPrompt(assistantToEdit.systemPrompt ?? '')
-        setSortIndex(assistantToEdit.sortIndex ?? 0)
-
-        setSelectedModelRef({
-          accountId: assistantToEdit.modelRef.accountId,
-          modelId: assistantToEdit.modelRef.modelId
-        })
-      } else {
-        const maxSortIndex = assistants.reduce((max, item) => Math.max(max, item.sortIndex ?? 0), -1)
-        setSortIndex(maxSortIndex + 1)
-      }
+    if (!drawerOpen) {
+      initializedSessionKeyRef.current = null
+      return
     }
-  }, [open, internalOpen, assistants, mode, assistantToEdit])
+
+    const sessionKey = `${mode}:${assistantToEdit?.id ?? 'create'}`
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return
+    }
+
+    if (mode === 'edit' && !assistantToEdit) {
+      return
+    }
+
+    initializedSessionKeyRef.current = sessionKey
+    setSubmitError('')
+
+    if (mode === 'edit' && assistantToEdit) {
+      setAssistantName(assistantToEdit.name)
+      setAssistantDescription(assistantToEdit.description ?? '')
+      setAssistantPrompt(assistantToEdit.systemPrompt ?? '')
+      setSortIndex(assistantToEdit.sortIndex ?? 0)
+
+      setSelectedModelRef({
+        accountId: assistantToEdit.modelRef.accountId,
+        modelId: assistantToEdit.modelRef.modelId
+      })
+      return
+    }
+
+    const maxSortIndex = assistants.reduce((max, item) => Math.max(max, item.sortIndex ?? 0), -1)
+    setAssistantName('')
+    setAssistantDescription('')
+    setAssistantPrompt('')
+    setSelectedModelRef(null)
+    setSortIndex(maxSortIndex + 1)
+  }, [drawerOpen, assistants, mode, assistantToEdit])
 
   const resetForm = React.useCallback(() => {
     setAssistantName('')
     setAssistantDescription('')
     setAssistantPrompt('')
     setSelectedModelRef(null)
+    setSortIndex(0)
     setSubmitError('')
   }, [])
 
@@ -108,6 +133,7 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
     }
     onOpenChange?.(nextOpen)
     if (!nextOpen) {
+      setModelOpen(false)
       resetForm()
     }
   }, [open, onOpenChange, resetForm])
@@ -172,7 +198,6 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
     }
   }, [assistantName, selectedModelRef, assistantPrompt, sortIndex, assistantDescription, mode, assistantToEdit, addAssistant, updateAssistantById, handleOpenChange, resetForm])
 
-  const drawerOpen = open ?? internalOpen
   const defaultTriggerElement = (
     variant === 'compact' ? (
       <Button
@@ -238,22 +263,20 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
         )}
         <DrawerContent
           ref={drawerContentRef}
-          className="max-h-[88vh] border-t border-slate-200/70 dark:border-slate-800/70 bg-background/95 backdrop-blur-xl"
+          className="max-h-[88vh] border-t border-border bg-background/95 backdrop-blur-xl"
         >
-          <div className="w-12 h-1 bg-slate-300/70 dark:bg-slate-700/70 rounded-full mx-auto mt-3 mb-0" />
-
           <DrawerHeader className="space-y-2 pb-2 px-4 md:px-6 pt-3">
             <div className="mx-auto w-full max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 dark:border-sky-900/70 bg-sky-50/70 dark:bg-sky-950/30 px-2.5 py-1">
-                <BadgePlus className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                <span className="text-[11px] font-semibold tracking-wide text-sky-700 dark:text-sky-300">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/55 px-2.5 py-1 text-muted-foreground shadow-xs">
+                <BadgePlus className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
+                <span className="text-[11px] font-semibold tracking-wide">
                   {mode === 'edit' ? 'EDIT ASSISTANT' : 'NEW ASSISTANT'}
                 </span>
               </div>
               <DrawerTitle className="mt-3 text-[22px] font-semibold tracking-tight text-foreground">
                 {mode === 'edit' ? 'Edit Assistant' : 'Create Assistant'}
               </DrawerTitle>
-              <DrawerDescription className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+              <DrawerDescription className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 {mode === 'edit'
                   ? 'Update profile, model, behavior prompt, and ordering.'
                   : 'Configure profile, model, and behavior prompt.'}
@@ -262,24 +285,24 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
           </DrawerHeader>
 
           <div className="px-3 md:px-4 pb-3 overflow-y-auto">
-            <div className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200/70 dark:border-slate-800/80 bg-white/85 dark:bg-slate-950/45 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.35)] backdrop-blur-sm p-3 md:p-4 space-y-4">
+            <div className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-card p-3 text-card-foreground shadow-xs md:p-4">
               <div className="grid gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2.5 md:col-span-2">
-                    <Label htmlFor="assistant-name" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
+                    <Label htmlFor="assistant-name" className="text-xs font-semibold tracking-wide text-muted-foreground">
                       Name <span className="text-red-500 ml-0.5">*</span>
                     </Label>
                     <Input
                       id="assistant-name"
                       placeholder="e.g., Code Helper"
-                      className={fieldClass}
+                      className={inputFieldClass}
                       value={assistantName}
                       onChange={e => setAssistantName(e.target.value)}
                     />
                   </div>
 
                   <div className="space-y-2.5">
-                    <Label htmlFor="assistant-model" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
+                    <Label htmlFor="assistant-model" className="text-xs font-semibold tracking-wide text-muted-foreground">
                       Model <span className="text-red-500 ml-0.5">*</span>
                     </Label>
 
@@ -298,16 +321,19 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
 
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <Label htmlFor="assistant-sort-index" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
+                      <Label htmlFor="assistant-sort-index" className="text-xs font-semibold tracking-wide text-muted-foreground">
                         Sort Index
                       </Label>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                      <p className="text-[11px] text-muted-foreground/70 whitespace-nowrap">
                         Smaller value appears earlier
                       </p>
                     </div>
                     <Input
                       id="assistant-sort-index"
-                      className={fieldClass}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      className={inputFieldClass}
                       value={String(sortIndex)}
                       onChange={e => {
                         const nextValue = Number.parseInt(e.target.value, 10)
@@ -318,13 +344,13 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
                 </div>
 
                 <div className="space-y-2.5">
-                  <Label htmlFor="assistant-description" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
+                  <Label htmlFor="assistant-description" className="text-xs font-semibold tracking-wide text-muted-foreground">
                     Description
                   </Label>
                   <Input
                     id="assistant-description"
                     placeholder="e.g., Helps with debugging and refactoring"
-                    className={fieldClass}
+                    className={inputFieldClass}
                     value={assistantDescription}
                     onChange={e => setAssistantDescription(e.target.value)}
                   />
@@ -332,25 +358,14 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
 
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="assistant-prompt" className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">
+                    <Label htmlFor="assistant-prompt" className="text-xs font-semibold tracking-wide text-muted-foreground">
                       System Prompt <span className="text-red-500 ml-0.5">*</span>
                     </Label>
                   </div>
                   <Textarea
                     id="assistant-prompt"
                     placeholder="You are a helpful assistant that..."
-                    className={cn(
-                      "min-h-[150px] rounded-xl resize-none",
-                      "bg-slate-50/90 dark:bg-slate-900/60",
-                      "border border-slate-200/90 dark:border-slate-800",
-                      "outline-hidden focus:outline-hidden focus-visible:outline-hidden",
-                      "ring-0 focus:ring-0 focus-visible:ring-0",
-                      "ring-offset-0 focus:ring-offset-0 focus-visible:ring-offset-0",
-                      "focus:border-sky-400/70 dark:focus:border-sky-500/60",
-                      "hover:border-slate-300/80 dark:hover:border-slate-700/80",
-                      "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                      "shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-all duration-200"
-                    )}
+                    className={textareaFieldClass}
                     value={assistantPrompt}
                     onChange={e => setAssistantPrompt(e.target.value)}
                   />
@@ -364,17 +379,17 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
             </div>
           </div>
 
-          <DrawerFooter className="flex-row gap-3 px-4 md:px-6 py-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-slate-50/60 dark:bg-slate-900/30 backdrop-blur-sm">
+          <DrawerFooter className="flex-row justify-end gap-2 border-t border-border bg-muted/30 px-4 py-4 md:px-6">
             <DrawerClose asChild>
               <Button
-                variant="outline"
-                className="flex-1 h-10 rounded-xl border-slate-300/80 dark:border-slate-700/80 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 hover:border-slate-400/70 dark:hover:border-slate-600/80 transition-all duration-200"
+                variant="secondary"
+                className="h-10 rounded-xl px-4 shadow-xs transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.98]"
               >
                 Cancel
               </Button>
             </DrawerClose>
             <Button
-              className="flex-1 h-10 rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition-all duration-200 shadow-[0_12px_24px_-14px_rgba(14,165,233,0.75)] hover:shadow-[0_16px_28px_-14px_rgba(14,165,233,0.85)] active:scale-[0.99]"
+              className="h-10 rounded-xl bg-primary px-4 text-primary-foreground shadow-xs transition-[background-color,box-shadow,transform] duration-200 hover:bg-primary/90 active:scale-[0.98]"
               disabled={isSubmitting}
               onClick={handleCreateAssistant}
             >
