@@ -5,6 +5,7 @@ import { existsSync, statSync, accessSync, constants, realpathSync } from 'fs'
 import { lookup } from 'mime-types'
 import DatabaseService from '@main/db/DatabaseService'
 import { createLogger } from '@main/logging/LogService'
+import { runRipgrepFileList, runRipgrepSearch } from './RipgrepRunner'
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,
@@ -76,6 +77,20 @@ const MAX_READ_WINDOW_SIZE = 500
 const DEFAULT_GLOB_MAX_RESULTS = 100
 const DEFAULT_EDIT_DIAGNOSTICS_LIMIT = 5
 const MAX_EDIT_DIAGNOSTICS_LIMIT = 20
+const DEFAULT_FILE_SEARCH_CONCURRENCY = 16
+const IGNORED_DIRECTORY_NAMES = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'out',
+  '.next',
+  '.nuxt',
+  '.turbo',
+  '.vite',
+  '.cache',
+  'coverage'
+])
 
 // ============ Helper Functions ============
 
@@ -300,6 +315,27 @@ function globPatternToRegExp(pattern: string): RegExp {
 
   regex += '$'
   return new RegExp(regex)
+}
+
+function shouldSkipDirectory(name: string): boolean {
+  return IGNORED_DIRECTORY_NAMES.has(name) || name.startsWith('.xcode-')
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> {
+  let nextIndex = 0
+  const workerCount = Math.min(Math.max(1, concurrency), items.length)
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const item = items[nextIndex]
+      nextIndex += 1
+      await worker(item)
+    }
+  }))
 }
 
 /**
@@ -980,6 +1016,46 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
   }
 }
 
+interface SearchCandidateFile {
+  absolutePath: string
+}
+
+async function collectSearchCandidateFiles(
+  directoryPath: string,
+  filePattern?: RegExp
+): Promise<SearchCandidateFile[]> {
+  const candidates: SearchCandidateFile[] = []
+  const items = await readdir(directoryPath)
+
+  await runWithConcurrency(items, DEFAULT_FILE_SEARCH_CONCURRENCY, async (item) => {
+    const itemPath = join(directoryPath, item)
+    try {
+      const stats = await stat(itemPath)
+
+      if (stats.isDirectory()) {
+        if (shouldSkipDirectory(item)) {
+          return
+        }
+
+        candidates.push(...await collectSearchCandidateFiles(itemPath, filePattern))
+        return
+      }
+
+      if (stats.isFile()) {
+        if (filePattern && !filePattern.test(item)) {
+          return
+        }
+
+        candidates.push({ absolutePath: itemPath })
+      }
+    } catch {
+      return
+    }
+  })
+
+  return candidates
+}
+
 /**
  * Search Files Processor
  * 在多个文件中搜索匹配的内容
@@ -995,56 +1071,37 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
     }
 
     const matches: FileSearchMatch[] = []
+    const searchPattern = createSearchPattern(pattern, regex, case_sensitive)
+    const fileRegex = file_pattern ? new RegExp(file_pattern) : undefined
+    const candidateFiles = await collectSearchCandidateFiles(absoluteDirPath, fileRegex)
     let filesSearched = 0
 
-    const searchInDirectory = async (dirPath: string) => {
+    await runWithConcurrency(candidateFiles, DEFAULT_FILE_SEARCH_CONCURRENCY, async (candidate) => {
       if (matches.length >= max_results) return
 
-      const items = await readdir(dirPath)
-      for (const item of items) {
-        if (matches.length >= max_results) break
+      try {
+        filesSearched++
+        const content = await readFile(candidate.absolutePath, 'utf-8')
+        const lines = content.split('\n')
 
-        const itemPath = join(dirPath, item)
-        try {
-          const stats = await stat(itemPath)
+        for (let i = 0; i < lines.length && matches.length < max_results; i++) {
+          const line = lines[i]
+          const lineMatches = line.matchAll(searchPattern)
 
-          if (stats.isDirectory()) {
-            await searchInDirectory(itemPath)
-          } else if (stats.isFile()) {
-            // Check file pattern if specified
-            if (file_pattern) {
-              const fileRegex = new RegExp(file_pattern)
-              if (!fileRegex.test(item)) continue
-            }
-
-            filesSearched++
-            const content = await readFile(itemPath, 'utf-8')
-            const lines = content.split('\n')
-
-            const searchPattern = createSearchPattern(pattern, regex, case_sensitive)
-
-            for (let i = 0; i < lines.length && matches.length < max_results; i++) {
-              const line = lines[i]
-              const lineMatches = line.matchAll(searchPattern)
-
-              for (const match of lineMatches) {
-                if (matches.length >= max_results) break
-                matches.push({
-                  file_path: itemPath,
-                  line: i + 1,
-                  content: line,
-                  column: match.index !== undefined ? match.index + 1 : 0
-                })
-              }
-            }
+          for (const match of lineMatches) {
+            if (matches.length >= max_results) break
+            matches.push({
+              file_path: candidate.absolutePath,
+              line: i + 1,
+              content: line,
+              column: match.index !== undefined ? match.index + 1 : 0
+            })
           }
-        } catch (error) {
-          continue
         }
+      } catch {
+        return
       }
-    }
-
-    await searchInDirectory(absoluteDirPath)
+    })
 
     logger.info('search_files.success', { directoryPath: directory_path, totalMatches: matches.length, filesSearched })
     return { success: true, directory_path, matches, total_matches: matches.length, files_searched: filesSearched }
@@ -1065,6 +1122,33 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
     }
 
     const targetStats = await stat(absolutePath)
+    const targetType = targetStats.isFile() ? 'file' : 'directory'
+
+    try {
+      const ripgrepResult = await runRipgrepSearch({
+        targetPath: absolutePath,
+        targetType,
+        pattern,
+        regex,
+        caseSensitive: case_sensitive,
+        maxResults: max_results,
+        filePattern: targetType === 'directory' ? file_pattern : undefined
+      })
+
+      return {
+        success: true,
+        path,
+        target_type: targetType,
+        matches: ripgrepResult.matches.map((match) => ({
+          ...match,
+          file_path: targetType === 'file' ? path : match.file_path
+        })),
+        total_matches: ripgrepResult.total_matches,
+        files_searched: targetType === 'file' ? 1 : ripgrepResult.files_searched
+      }
+    } catch (error: any) {
+      logger.warn('grep.ripgrep_fallback', { error: error.message || String(error) })
+    }
 
     if (targetStats.isFile()) {
       const fileResult = await processSearchFile({
@@ -1289,6 +1373,49 @@ export async function processTree(args: TreeArgs): Promise<TreeResponse> {
   })
 }
 
+async function collectGlobMatches(
+  rootPath: string,
+  currentPath: string,
+  matcher: RegExp,
+  matches: GlobMatch[],
+  limit: number,
+  options: { includeFiles: boolean, includeDirectories: boolean }
+): Promise<void> {
+  if (matches.length >= limit) return
+
+  const items = await readdir(currentPath)
+  await runWithConcurrency(items, DEFAULT_FILE_SEARCH_CONCURRENCY, async (item) => {
+    if (matches.length >= limit) return
+    const itemPath = join(currentPath, item)
+    let itemStats
+    try {
+      itemStats = await stat(itemPath)
+    } catch {
+      return
+    }
+
+    const relativePath = normalizePathForMatching(relative(rootPath, itemPath)) || item
+    const entryType = itemStats.isDirectory() ? 'directory' : 'file'
+    if (entryType === 'directory' && shouldSkipDirectory(item)) {
+      return
+    }
+
+    const shouldInclude = entryType === 'directory' ? options.includeDirectories : options.includeFiles
+
+    if (shouldInclude && matcher.test(relativePath)) {
+      matches.push({
+        path: relativePath,
+        name: basename(itemPath),
+        type: entryType
+      })
+    }
+
+    if (itemStats.isDirectory()) {
+      await collectGlobMatches(rootPath, itemPath, matcher, matches, limit, options)
+    }
+  })
+}
+
 export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
   try {
     const { path, chat_uuid, pattern, max_results = DEFAULT_GLOB_MAX_RESULTS } = args
@@ -1308,39 +1435,37 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
     const matches: GlobMatch[] = []
     const limit = Math.max(1, Math.floor(max_results))
 
-    const walk = async (currentPath: string) => {
-      if (matches.length >= limit) return
+    try {
+      const ripgrepResult = await runRipgrepFileList({
+        rootPath: absoluteRootPath,
+        pattern,
+        maxResults: limit
+      })
 
-      const items = await readdir(currentPath)
-      for (const item of items) {
+      for (const filePath of ripgrepResult.files) {
         if (matches.length >= limit) break
 
-        const itemPath = join(currentPath, item)
-        let itemStats
-        try {
-          itemStats = await stat(itemPath)
-        } catch {
-          continue
-        }
-
-        const relativePath = normalizePathForMatching(relative(absoluteRootPath, itemPath)) || item
-        const entryType = itemStats.isDirectory() ? 'directory' : 'file'
-
+        const relativePath = normalizePathForMatching(filePath)
         if (matcher.test(relativePath)) {
           matches.push({
             path: relativePath,
-            name: basename(itemPath),
-            type: entryType
+            name: basename(relativePath),
+            type: 'file'
           })
         }
-
-        if (itemStats.isDirectory()) {
-          await walk(itemPath)
-        }
       }
-    }
 
-    await walk(absoluteRootPath)
+      await collectGlobMatches(absoluteRootPath, absoluteRootPath, matcher, matches, limit, {
+        includeFiles: false,
+        includeDirectories: true
+      })
+    } catch (error: any) {
+      logger.warn('glob.ripgrep_fallback', { error: error.message || String(error) })
+      await collectGlobMatches(absoluteRootPath, absoluteRootPath, matcher, matches, limit, {
+        includeFiles: true,
+        includeDirectories: true
+      })
+    }
 
     return {
       success: true,

@@ -3,9 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { tmpdir } from 'os'
 
-const { getPathMock, getWorkspacePathByUuidMock } = vi.hoisted(() => ({
+const { getPathMock, getWorkspacePathByUuidMock, runRipgrepSearchMock, runRipgrepFileListMock } = vi.hoisted(() => ({
   getPathMock: vi.fn(),
-  getWorkspacePathByUuidMock: vi.fn()
+  getWorkspacePathByUuidMock: vi.fn(),
+  runRipgrepSearchMock: vi.fn(),
+  runRipgrepFileListMock: vi.fn()
 }))
 
 vi.mock('electron', () => ({
@@ -21,6 +23,11 @@ vi.mock('@main/db/DatabaseService', () => ({
   }
 }))
 
+vi.mock('../RipgrepRunner', () => ({
+  runRipgrepSearch: runRipgrepSearchMock,
+  runRipgrepFileList: runRipgrepFileListMock
+}))
+
 import { processEditFile, processGlob, processGrep, processLs, processReadTextFile } from '../FileOperationsProcessor'
 
 describe('FileOperationsProcessor.read_text_file', () => {
@@ -34,6 +41,10 @@ describe('FileOperationsProcessor.read_text_file', () => {
     })
     getWorkspacePathByUuidMock.mockReset()
     getWorkspacePathByUuidMock.mockReturnValue(undefined)
+    runRipgrepSearchMock.mockReset()
+    runRipgrepSearchMock.mockRejectedValue(new Error('rg missing'))
+    runRipgrepFileListMock.mockReset()
+    runRipgrepFileListMock.mockRejectedValue(new Error('rg missing'))
   })
 
   afterEach(async () => {
@@ -134,6 +145,48 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(result.matches?.[0].line).toBe(2)
   })
 
+  it('uses ripgrep for grep when available', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-rg-grep')
+    await mkdir(join(rootDir, 'src'), { recursive: true })
+    runRipgrepSearchMock.mockResolvedValue({
+      matches: [{
+        file_path: join(rootDir, 'src', 'sample.ts'),
+        line: 3,
+        content: 'target line',
+        column: 1
+      }],
+      total_matches: 1,
+      files_searched: 1
+    })
+
+    const result = await processGrep({
+      chat_uuid: 'chat-rg-grep',
+      path: 'src',
+      pattern: 'target',
+      regex: false,
+      case_sensitive: false,
+      max_results: 5
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.target_type).toBe('directory')
+    expect(result.matches).toEqual([{
+      file_path: join(rootDir, 'src', 'sample.ts'),
+      line: 3,
+      content: 'target line',
+      column: 1
+    }])
+    expect(runRipgrepSearchMock).toHaveBeenCalledWith({
+      targetPath: join(rootDir, 'src'),
+      targetType: 'directory',
+      pattern: 'target',
+      regex: false,
+      caseSensitive: false,
+      maxResults: 5,
+      filePattern: undefined
+    })
+  })
+
   it('uses regex mode by default for grep patterns', async () => {
     const rootDir = join(userDataDir, 'workspaces', 'chat-5a')
     const filePath = join(rootDir, 'src', 'events.ts')
@@ -183,6 +236,101 @@ describe('FileOperationsProcessor.read_text_file', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('Path must stay inside workspace')
+    expect(runRipgrepSearchMock).not.toHaveBeenCalled()
+  })
+
+  it('falls back to JavaScript grep when ripgrep is missing', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-rg-fallback')
+    const filePath = join(rootDir, 'src', 'fallback.ts')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, ['alpha', 'fallback target'].join('\n'), 'utf-8')
+
+    const result = await processGrep({
+      chat_uuid: 'chat-rg-fallback',
+      path: 'src',
+      pattern: 'fallback'
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.matches).toHaveLength(1)
+    expect(result.matches?.[0].file_path).toContain('fallback.ts')
+    expect(runRipgrepSearchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips ignored directories during JavaScript grep fallback', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-grep-ignore')
+    const sourceFile = join(rootDir, 'src', 'app.ts')
+    const ignoredFiles = [
+      join(rootDir, 'node_modules', 'pkg', 'index.ts'),
+      join(rootDir, '.git', 'objects', 'index.ts'),
+      join(rootDir, 'dist', 'bundle.ts'),
+      join(rootDir, '.xcode-derived', 'generated.ts')
+    ]
+    await mkdir(dirname(sourceFile), { recursive: true })
+    await writeFile(sourceFile, 'export const app = true', 'utf-8')
+    for (const filePath of ignoredFiles) {
+      await mkdir(dirname(filePath), { recursive: true })
+      await writeFile(filePath, 'ignored target', 'utf-8')
+    }
+
+    const result = await processGrep({
+      chat_uuid: 'chat-grep-ignore',
+      path: '.',
+      pattern: 'target'
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.matches).toHaveLength(0)
+    expect(result.files_searched).toBe(1)
+  })
+
+  it('filters file_pattern before JavaScript grep fallback reads files', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-grep-file-pattern-fallback')
+    const matchingFile = join(rootDir, 'src', 'target.test.ts')
+    const skippedFile = join(rootDir, 'src', 'target.ts')
+    await mkdir(dirname(matchingFile), { recursive: true })
+    await writeFile(matchingFile, 'target from test file', 'utf-8')
+    await writeFile(skippedFile, 'target from regular file', 'utf-8')
+
+    const result = await processGrep({
+      chat_uuid: 'chat-grep-file-pattern-fallback',
+      path: 'src',
+      pattern: 'target',
+      file_pattern: '\\.test\\.ts$'
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.matches).toHaveLength(1)
+    expect(result.matches?.[0].file_path).toContain('target.test.ts')
+    expect(result.files_searched).toBe(1)
+  })
+
+  it('passes file_pattern to ripgrep using basename semantics', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-rg-file-pattern')
+    await mkdir(join(rootDir, 'src'), { recursive: true })
+    runRipgrepSearchMock.mockResolvedValue({
+      matches: [{
+        file_path: join(rootDir, 'src', 'target.test.ts'),
+        line: 1,
+        content: 'target',
+        column: 1
+      }],
+      total_matches: 1,
+      files_searched: 2
+    })
+
+    const result = await processGrep({
+      chat_uuid: 'chat-rg-file-pattern',
+      path: 'src',
+      pattern: 'target',
+      file_pattern: '\\.test\\.ts$'
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.matches?.[0].file_path).toContain('target.test.ts')
+    expect(runRipgrepSearchMock).toHaveBeenCalledWith(expect.objectContaining({
+      filePattern: '\\.test\\.ts$'
+    }))
   })
 
   it('matches files through glob patterns', async () => {
@@ -202,6 +350,62 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(result.success).toBe(true)
     expect(result.matches).toHaveLength(1)
     expect(result.matches?.[0].path).toBe('alpha.test.ts')
+  })
+
+  it('skips ignored directories during JavaScript glob fallback', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-glob-ignore')
+    const visibleFile = join(rootDir, 'src', 'alpha.test.ts')
+    const ignoredFiles = [
+      join(rootDir, 'node_modules', 'pkg', 'hidden.test.ts'),
+      join(rootDir, 'build', 'hidden.test.ts'),
+      join(rootDir, '.xcode-cache', 'hidden.test.ts')
+    ]
+    await mkdir(dirname(visibleFile), { recursive: true })
+    await writeFile(visibleFile, 'export {}', 'utf-8')
+    for (const filePath of ignoredFiles) {
+      await mkdir(dirname(filePath), { recursive: true })
+      await writeFile(filePath, 'export {}', 'utf-8')
+    }
+
+    const result = await processGlob({
+      chat_uuid: 'chat-glob-ignore',
+      path: '.',
+      pattern: '**/*.test.ts'
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.matches).toEqual([{
+      path: 'src/alpha.test.ts',
+      name: 'alpha.test.ts',
+      type: 'file'
+    }])
+  })
+
+  it('uses ripgrep for glob file matches and preserves directory matches', async () => {
+    const rootDir = join(userDataDir, 'workspaces', 'chat-rg-glob')
+    const directoryPath = join(rootDir, 'src', 'cases.test.ts')
+    await mkdir(directoryPath, { recursive: true })
+    runRipgrepFileListMock.mockResolvedValue({
+      files: ['alpha.test.ts']
+    })
+
+    const result = await processGlob({
+      chat_uuid: 'chat-rg-glob',
+      path: 'src',
+      pattern: '**/*.test.ts',
+      max_results: 10
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.matches).toEqual(expect.arrayContaining([
+      { path: 'alpha.test.ts', name: 'alpha.test.ts', type: 'file' },
+      { path: 'cases.test.ts', name: 'cases.test.ts', type: 'directory' }
+    ]))
+    expect(runRipgrepFileListMock).toHaveBeenCalledWith({
+      rootPath: join(rootDir, 'src'),
+      pattern: '**/*.test.ts',
+      maxResults: 10
+    })
   })
 
   it('lists directory details through ls(details=true)', async () => {

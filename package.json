@@ -22,6 +22,7 @@
     "build:analyze": "ANALYZE=1 pnpm run build",
     "native:kwwk:build": "swift build --package-path native/kwwk-computer-use-bridge -c release --explicit-target-dependency-import-check error && mkdir -p resources/native && cp native/kwwk-computer-use-bridge/.build/release/kwwk-computer-use-bridge resources/native/kwwk-computer-use-bridge",
     "native:kwwk:test": "swift test --package-path native/kwwk-computer-use-bridge --explicit-target-dependency-import-check error",
+    "native:ripgrep:prepare": "node scripts/prepare-ripgrep.mjs",
     "computer-use:probe": "node scripts/computer-use-probe.mjs",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm run build && electron-builder --dir",
