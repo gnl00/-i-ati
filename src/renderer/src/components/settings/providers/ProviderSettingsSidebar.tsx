@@ -29,7 +29,7 @@ import {
     SettingsToolbarLabel
 } from '../common/SettingsLayout'
 
-interface ProviderListSidebarProps {
+interface ProviderSettingsSidebarProps {
   plugins?: PluginEntity[]
   providers: ProviderEntry[]
   selectedProviderId?: string
@@ -67,7 +67,7 @@ const compareProviderEntriesByName = (left: ProviderEntry, right: ProviderEntry)
     return result || left.definition.id.localeCompare(right.definition.id)
 }
 
-const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
+const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
     plugins,
     providers,
     selectedProviderId,
@@ -319,4 +319,4 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
     )
 }
 
-export default ProviderListSidebar
+export default ProviderSettingsSidebar

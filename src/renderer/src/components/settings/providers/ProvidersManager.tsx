@@ -7,7 +7,7 @@ import FetchModelsDrawer from './FetchModelsDrawer'
 import { v4 as uuidv4 } from 'uuid'
 import { ProviderModelsPanel } from './ProviderModelsPanel'
 import ProviderConfigurations from './ProviderConfigurations'
-import ProviderListSidebar from './ProviderListSidebar'
+import ProviderSettingsSidebar from './ProviderSettingsSidebar'
 import {
     SettingsDetailPanel,
     SettingsEmptyState,
@@ -266,7 +266,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
     return (
         <SettingsPageShell>
             <SettingsMasterDetail className="bg-transparent p-0">
-                <ProviderListSidebar
+                <ProviderSettingsSidebar
                     plugins={plugins}
                     providers={visibleProviderEntries}
                     selectedProviderId={selectedProviderId}
