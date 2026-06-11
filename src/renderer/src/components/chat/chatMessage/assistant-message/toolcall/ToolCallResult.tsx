@@ -4,7 +4,7 @@ import { cn } from '@renderer/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
-import { Braces, Check, Clipboard, Loader2, SquareArrowUpRight, Wrench, X } from 'lucide-react'
+import { Braces, Check, Clipboard, Loader2, Wrench, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
@@ -370,13 +370,11 @@ function SegmentedToggle({
 type ToolCallResultPanelProps = {
   toolCall: ToolCallSegment
   toolResponse: ToolCallResponse | undefined
-  isError: boolean
 }
 
 const ToolCallResultPanel = React.memo(({
   toolCall: tc,
-  toolResponse,
-  isError
+  toolResponse
 }: ToolCallResultPanelProps) => {
   const [showDetails, setShowDetails] = useState(false)
 
@@ -652,7 +650,6 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
           <ToolCallResultPanel
             toolCall={tc}
             toolResponse={toolResponse}
-            isError={isError}
           />
         </PopoverContent>
       </Popover>

@@ -1,13 +1,9 @@
-import { AlertCircle, ExternalLink, Search } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ArrowRight, ExternalLink, Search } from 'lucide-react'
 import React, { useMemo } from 'react'
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious
-} from '@renderer/components/ui/carousel'
 import { cn } from '@renderer/lib/utils'
+
+const SEARCH_RESULT_RAIL_SCROLL_RATIO = 0.72
+const SEARCH_RESULT_RAIL_MIN_SCROLL = 220
 
 interface WebSearchResult {
   query: string
@@ -41,7 +37,7 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ r
     return {
       successCount: results.filter((r) => r.success).length,
       totalCount: results.length
-    }    
+    }
   }, [results])
 
   return (
@@ -61,35 +57,134 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = React.memo(({ r
         </div>
       </div>
 
-      {/* Results Carousel */}
       {
         results.length !== 0 && (
-          <Carousel
-          opts={{
-            align: 'start',
-            containScroll: 'trimSnaps'
-          }}
-          className="w-full"
-        >
-          <CarouselContent className="-ml-1.5 pt-1.5">
-            {sortedResults.map((result, idx) => (
-              <CarouselItem key={idx} className="pl-1.5 basis-[60%] sm:basis-[28%] lg:basis-[18%]">
-                <WebSearchResultCard
-                  result={result}
-                  index={results.findIndex((r) => r === result)}
-                />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          {results.length > 3 && (
-            <>
-              <CarouselPrevious className="hidden sm:flex -left-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs shadow-xs border-slate-200 dark:border-slate-800" />
-              <CarouselNext className="hidden sm:flex -right-2 h-6 w-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs shadow-xs border-slate-200 dark:border-slate-800" />
-            </>
-          )}
-        </Carousel>
+          <SearchResultRail
+            results={sortedResults}
+            getOriginalIndex={(result) => results.findIndex((r) => r === result)}
+          />
         )
       }
+    </div>
+  )
+})
+
+interface SearchResultRailProps {
+  results: WebSearchResult[]
+  getOriginalIndex: (result: WebSearchResult) => number
+}
+
+const SearchResultRail: React.FC<SearchResultRailProps> = React.memo(({ results, getOriginalIndex }) => {
+  const railRef = React.useRef<HTMLDivElement>(null)
+  const [canScrollPrev, setCanScrollPrev] = React.useState(false)
+  const [canScrollNext, setCanScrollNext] = React.useState(false)
+
+  const updateScrollState = React.useCallback(() => {
+    const rail = railRef.current
+
+    if (!rail) {
+      setCanScrollPrev(false)
+      setCanScrollNext(false)
+      return
+    }
+
+    const maxScrollLeft = Math.max(rail.scrollWidth - rail.clientWidth, 0)
+    setCanScrollPrev(rail.scrollLeft > 1)
+    setCanScrollNext(rail.scrollLeft < maxScrollLeft - 1)
+  }, [])
+
+  React.useEffect(() => {
+    const rail = railRef.current
+
+    updateScrollState()
+
+    if (!rail) {
+      return
+    }
+
+    rail.addEventListener('scroll', updateScrollState, { passive: true })
+    window.addEventListener('resize', updateScrollState)
+
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateScrollState)
+    resizeObserver?.observe(rail)
+
+    return () => {
+      rail.removeEventListener('scroll', updateScrollState)
+      window.removeEventListener('resize', updateScrollState)
+      resizeObserver?.disconnect()
+    }
+  }, [results.length, updateScrollState])
+
+  const scrollByPage = React.useCallback((direction: -1 | 1) => {
+    const rail = railRef.current
+
+    if (!rail) {
+      return
+    }
+
+    const scrollAmount = Math.max(
+      rail.clientWidth * SEARCH_RESULT_RAIL_SCROLL_RATIO,
+      SEARCH_RESULT_RAIL_MIN_SCROLL
+    )
+    rail.scrollBy({
+      left: direction * scrollAmount,
+      behavior: 'smooth'
+    })
+    window.requestAnimationFrame(updateScrollState)
+  }, [updateScrollState])
+
+  const handleWheel = React.useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (!event.shiftKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+      return
+    }
+
+    if (event.cancelable) {
+      event.preventDefault()
+    }
+
+    event.currentTarget.scrollLeft += event.deltaY
+    updateScrollState()
+  }, [updateScrollState])
+
+  return (
+    <div className="relative w-full" data-testid="web-search-results-rail">
+      <div
+        ref={railRef}
+        className="flex snap-x snap-mandatory gap-1.5 overflow-x-auto scroll-smooth overscroll-x-contain pt-1.5 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onWheel={handleWheel}
+      >
+        {results.map((result, idx) => (
+          <div key={idx} className="w-[60%] shrink-0 snap-start sm:w-[28%] lg:w-[18%]">
+            <WebSearchResultCard
+              result={result}
+              index={getOriginalIndex(result)}
+            />
+          </div>
+        ))}
+      </div>
+
+      {results.length > 3 && (
+        <>
+          <button
+            type="button"
+            aria-label="Scroll web search results left"
+            disabled={!canScrollPrev}
+            className="app-undragable absolute -left-2 top-1/2 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md border border-slate-200 bg-white/90 text-slate-500 shadow-xs backdrop-blur-xs transition-[background-color,border-color,color,opacity,box-shadow] duration-150 hover:border-slate-300 hover:bg-white hover:text-slate-700 hover:shadow-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400/40 disabled:opacity-0 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-200 sm:flex"
+            onClick={() => scrollByPage(-1)}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Scroll web search results right"
+            disabled={!canScrollNext}
+            className="app-undragable absolute -right-2 top-1/2 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md border border-slate-200 bg-white/90 text-slate-500 shadow-xs backdrop-blur-xs transition-[background-color,border-color,color,opacity,box-shadow] duration-150 hover:border-slate-300 hover:bg-white hover:text-slate-700 hover:shadow-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400/40 disabled:opacity-0 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-200 sm:flex"
+            onClick={() => scrollByPage(1)}
+          >
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        </>
+      )}
     </div>
   )
 })

@@ -67,6 +67,30 @@ const createWebSearchToolCallSegment = (): ToolCallSegment => ({
           title: 'Virtuoso row jitter',
           snippet: 'Portal details keep virtualized rows stable.',
           content: 'Portal details keep virtualized rows stable.'
+        },
+        {
+          query: 'desktop app jitter',
+          success: true,
+          link: 'https://example.com/scroll',
+          title: 'Trackpad scroll patterns',
+          snippet: 'Horizontal wheel intent moves compact carousels.',
+          content: 'Horizontal wheel intent moves compact carousels.'
+        },
+        {
+          query: 'desktop app jitter',
+          success: true,
+          link: 'https://example.com/native',
+          title: 'Native desktop affordances',
+          snippet: 'Small controls stay stable during repeated use.',
+          content: 'Small controls stay stable during repeated use.'
+        },
+        {
+          query: 'desktop app jitter',
+          success: true,
+          link: 'https://example.com/cards',
+          title: 'Card rail navigation',
+          snippet: 'Card rails should support buttons and direct scroll.',
+          content: 'Card rails should support buttons and direct scroll.'
         }
       ]
     }
@@ -120,6 +144,65 @@ async function openToolCall(container: HTMLElement, name = 'search') {
   await act(async () => {
     trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   })
+}
+
+function getWebSearchRail(): HTMLElement {
+  const rail = document.body.querySelector<HTMLElement>('[data-testid="web-search-results-rail"]')
+  expect(rail).toBeTruthy()
+  return rail as HTMLElement
+}
+
+function getWebSearchRailViewport(): HTMLDivElement {
+  const viewport = getWebSearchRail().firstElementChild
+  expect(viewport).toBeTruthy()
+  return viewport as HTMLDivElement
+}
+
+function setRailMetrics(
+  rail: HTMLDivElement,
+  metrics: { clientWidth: number; scrollWidth: number; scrollLeft?: number }
+) {
+  Object.defineProperty(rail, 'clientWidth', {
+    configurable: true,
+    value: metrics.clientWidth
+  })
+  Object.defineProperty(rail, 'scrollWidth', {
+    configurable: true,
+    value: metrics.scrollWidth
+  })
+  rail.scrollLeft = metrics.scrollLeft ?? 0
+}
+
+function createWheelEvent({
+  deltaX,
+  deltaY,
+  shiftKey = false
+}: {
+  deltaX: number
+  deltaY: number
+  shiftKey?: boolean
+}): WheelEvent {
+  const event = new Event('wheel', {
+    bubbles: true,
+    cancelable: true
+  }) as WheelEvent
+
+  Object.defineProperties(event, {
+    deltaX: {
+      configurable: true,
+      value: deltaX
+    },
+    deltaY: {
+      configurable: true,
+      value: deltaY
+    },
+    shiftKey: {
+      configurable: true,
+      value: shiftKey
+    }
+  })
+
+  return event
 }
 
 describe('ToolCallResult cost display', () => {
@@ -271,7 +354,136 @@ describe('ToolCallResult cost display', () => {
 
     expect(document.body.textContent).toContain('desktop app jitter')
     expect(document.body.textContent).toContain('Virtuoso row jitter')
+    expect(getWebSearchRail()).toBeTruthy()
     expect(container.textContent).not.toContain('Virtuoso row jitter')
+  })
+
+  it('moves web search result cards with arrow navigation', async () => {
+    await act(async () => {
+      root.render(<ToolCallResult toolCall={createWebSearchToolCallSegment()} index={0} />)
+    })
+
+    await openToolCall(container, 'web_search')
+
+    const rail = getWebSearchRailViewport()
+    const scrollByMock = vi.fn(function (this: HTMLDivElement, options: ScrollToOptions) {
+      const left = typeof options.left === 'number' ? options.left : 0
+      this.scrollLeft += left
+      this.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+    Object.defineProperty(rail, 'scrollBy', {
+      configurable: true,
+      value: scrollByMock
+    })
+    setRailMetrics(rail, {
+      clientWidth: 500,
+      scrollWidth: 1400
+    })
+
+    await act(async () => {
+      rail.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+
+    const nextButton = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Scroll web search results right"]'
+    )
+    const previousButton = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Scroll web search results left"]'
+    )
+    expect(nextButton).toBeTruthy()
+    expect(previousButton).toBeTruthy()
+
+    await act(async () => {
+      nextButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(scrollByMock).toHaveBeenCalledWith({
+      left: 360,
+      behavior: 'smooth'
+    })
+    expect(rail.scrollLeft).toBe(360)
+
+    setRailMetrics(rail, {
+      clientWidth: 500,
+      scrollWidth: 1400,
+      scrollLeft: 360
+    })
+
+    await act(async () => {
+      rail.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+
+    await act(async () => {
+      previousButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(scrollByMock).toHaveBeenLastCalledWith({
+      left: -360,
+      behavior: 'smooth'
+    })
+  })
+
+  it('maps Shift+wheel to native rail scroll while preserving vertical wheel flow', async () => {
+    await act(async () => {
+      root.render(<ToolCallResult toolCall={createWebSearchToolCallSegment()} index={0} />)
+    })
+
+    await openToolCall(container, 'web_search')
+
+    const rail = getWebSearchRailViewport()
+    setRailMetrics(rail, {
+      clientWidth: 500,
+      scrollWidth: 1400
+    })
+
+    await act(async () => {
+      rail.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+
+    const verticalWheel = createWheelEvent({
+      deltaX: 2,
+      deltaY: 80
+    })
+
+    await act(async () => {
+      rail.dispatchEvent(verticalWheel)
+    })
+
+    expect(verticalWheel.defaultPrevented).toBe(false)
+    expect(rail.scrollLeft).toBe(0)
+
+    const shiftWheel = createWheelEvent({
+      deltaX: 0,
+      deltaY: 80,
+      shiftKey: true
+    })
+
+    await act(async () => {
+      rail.dispatchEvent(shiftWheel)
+    })
+
+    expect(rail.scrollLeft).toBe(80)
+  })
+
+  it('lets native horizontal wheel pass through the rail', async () => {
+    await act(async () => {
+      root.render(<ToolCallResult toolCall={createWebSearchToolCallSegment()} index={0} />)
+    })
+
+    await openToolCall(container, 'web_search')
+
+    const rail = getWebSearchRailViewport()
+    const horizontalWheel = createWheelEvent({
+      deltaX: 56,
+      deltaY: 3
+    })
+
+    await act(async () => {
+      rail.dispatchEvent(horizontalWheel)
+    })
+
+    expect(horizontalWheel.defaultPrevented).toBe(false)
+    expect(rail.scrollLeft).toBe(0)
   })
 
   it('shows subagent results in the popout branch', async () => {
