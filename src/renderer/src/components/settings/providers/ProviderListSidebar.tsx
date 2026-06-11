@@ -56,6 +56,8 @@ const getProviderSortName = (entry: ProviderEntry): string => {
     return entry.definition.displayName || entry.definition.id
 }
 
+const PROVIDER_TOOLTIP_CLASS_NAME = 'bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
+
 const compareProviderEntriesByName = (left: ProviderEntry, right: ProviderEntry): number => {
     const result = getProviderSortName(left).localeCompare(getProviderSortName(right), undefined, {
         sensitivity: 'base',
@@ -139,8 +141,8 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                             </p>
                         </div>
                     </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{definition.displayName}</p>
+                    <TooltipContent className={PROVIDER_TOOLTIP_CLASS_NAME}>
+                        <p className="font-medium">{definition.displayName}</p>
                     </TooltipContent>
                 </Tooltip>
                 <button
@@ -297,7 +299,7 @@ const ProviderListSidebar: React.FC<ProviderListSidebarProps> = ({
                 </Drawer>
             </div>
             <div className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 space-y-1 border-t border-gray-100 dark:border-gray-700/50', settingsScrollbarClassName)}>
-                <TooltipProvider>
+                <TooltipProvider delayDuration={400}>
                     {providerGroups.enabled.length > 0 && (
                         <div className="space-y-1">
                             {providerGroups.enabled.map(renderProviderEntry)}
