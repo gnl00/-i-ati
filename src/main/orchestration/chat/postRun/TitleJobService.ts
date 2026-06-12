@@ -8,24 +8,43 @@ import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelConte
 import { ChatEventMapper } from '@main/hosts/chat/mapping/ChatEventMapper'
 import { ChatSessionStore } from '@main/hosts/chat/persistence/ChatSessionStore'
 import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
+import { extractSearchableMessageText } from '@main/services/messages/MessageSegmentContent'
 import { buildTitleAgentSystemPrompt } from '@shared/prompts/title-agent'
 import { createPostRunEmitter } from './utils'
 import type { PostRunJobInput } from './types'
 
 const TITLE_THINKING_OPTION: UnifiedRequestThinkingOption = { enabled: false }
+const TITLE_CONTEXT_NON_TEXT_PLACEHOLDER = '[non-text content]'
 
 function isDefaultChatTitle(title?: string): boolean {
   return !title || title === 'NewChat'
 }
 
-const isSupportedChatRole = (
-  role: string
-): role is UnifiedRequestMessageRole => (
-  role === 'user' || role === 'assistant' || role === 'tool'
-)
+const escapeTitleContextText = (content: string): string => {
+  return content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
 
-const toUnifiedRequestMessage = (message: ChatMessage): UnifiedRequestMessage | null => {
-  if (!isSupportedChatRole(message.role)) {
+const getTitleContextVisibleText = (message: ChatMessage): string => {
+  const text = extractSearchableMessageText(message)
+
+  if (text.trim().length > 0) {
+    return text
+  }
+
+  if (Array.isArray(message.content) && message.content.length > 0) {
+    return TITLE_CONTEXT_NON_TEXT_PLACEHOLDER
+  }
+
+  return ''
+}
+
+const toTitleContextEntry = (
+  message: ChatMessage
+): { role: 'user' | 'assistant'; content: string } | null => {
+  if (message.role !== 'user' && message.role !== 'assistant') {
     return null
   }
 
@@ -33,73 +52,43 @@ const toUnifiedRequestMessage = (message: ChatMessage): UnifiedRequestMessage | 
     return null
   }
 
-  if (message.role === 'tool') {
-    if (!message.toolCallId) {
-      return null
-    }
+  const content = getTitleContextVisibleText(message)
 
-    return {
-      role: 'tool',
-      content: message.content,
-      toolCallId: message.toolCallId,
-      toolName: message.name || 'tool'
-    }
-  }
-
-  if (message.role === 'assistant') {
-    const hasText = typeof message.content === 'string'
-      ? message.content.trim().length > 0
-      : message.content.length > 0
-    const toolCalls = message.toolCalls?.length ? message.toolCalls : undefined
-
-    if (!hasText && !toolCalls) {
-      return null
-    }
-
-    return {
-      role: 'assistant',
-      content: message.content,
-      ...(toolCalls ? { toolCalls } : {}),
-      ...(message.segments?.some(segment => segment.type === 'reasoning')
-        ? {
-          reasoning: message.segments
-            .filter(segment => segment.type === 'reasoning' && typeof segment.content === 'string')
-            .map(segment => segment.content)
-            .join('\n')
-        }
-        : {})
-    }
-  }
-
-  const hasContent = typeof message.content === 'string'
-    ? message.content.trim().length > 0
-    : message.content.length > 0
-
-  if (!hasContent) {
+  if (content.trim().length === 0) {
     return null
   }
 
   return {
-    role: 'user',
-    content: message.content
+    role: message.role,
+    content
   }
 }
 
+const buildTitleContextContent = (entries: Array<{ role: 'user' | 'assistant'; content: string }>): string => {
+  const body = entries
+    .map(entry => `  <${entry.role}>${escapeTitleContextText(entry.content)}</${entry.role}>`)
+    .join('\n')
+
+  return [
+    '<title-context>',
+    body,
+    '</title-context>'
+  ].join('\n')
+}
+
 const buildTitleAgentMessages = (args: PostRunJobInput): UnifiedRequestMessage[] => {
-  const messages = args.messageBuffer
-    .map(message => toUnifiedRequestMessage(message.body))
-    .filter((message): message is UnifiedRequestMessage => (
-      Boolean(message) && (message.role === 'user' || message.role === 'assistant')
-    ))
+  const entries = args.messageBuffer
+    .map(message => toTitleContextEntry(message.body))
+    .filter((message): message is { role: 'user' | 'assistant'; content: string } => Boolean(message))
     .slice(-2)
 
-  if (messages.length > 0) {
-    return messages
-  }
+  const titleContextEntries = entries.length > 0
+    ? entries
+    : [{ role: 'user' as const, content: args.content }]
 
   return [{
     role: 'user',
-    content: args.content
+    content: buildTitleContextContent(titleContextEntries)
   }]
 }
 

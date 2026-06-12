@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RUN_EVENTS } from '@shared/run/events'
+import type { AgentOptions, AgentResult } from '@main/agent'
+
+type TitleAgent = (
+  name: string,
+  systemPrompt: string,
+  tools: string[],
+  messages: UnifiedRequestMessage[],
+  loop?: boolean,
+  options?: AgentOptions
+) => Promise<AgentResult>
 
 const {
   emitterInstances,
@@ -12,7 +22,7 @@ const {
   emitterInstances: [] as Array<{ emit: ReturnType<typeof vi.fn> }>,
   getChatByIdMock: vi.fn(),
   updateChatMock: vi.fn(),
-  titleAgentMock: vi.fn(async () => ({
+  titleAgentMock: vi.fn<TitleAgent>(async () => ({
     type: 'tool_call',
     toolCalls: [{
       name: 'chat_set_title',
@@ -152,7 +162,14 @@ describe('TitleJobService', () => {
       'title-generator',
       expect.stringContaining('chat-1'),
       ['chat_set_title'],
-      [{ role: 'user', content: args.content }],
+      [{
+        role: 'user',
+        content: [
+          '<title-context>',
+          `  <user>${args.content}</user>`,
+          '</title-context>'
+        ].join('\n')
+      }],
       false,
       expect.objectContaining({
         model: args.modelContext.model,
@@ -163,7 +180,9 @@ describe('TitleJobService', () => {
       })
     )
     const sanitizeOverrides = titleAgentMock.mock.calls[0][5]?.sanitizeOverrides
-    expect(typeof sanitizeOverrides).toBe('function')
+    if (typeof sanitizeOverrides !== 'function') {
+      throw new Error('Expected title agent sanitizeOverrides option')
+    }
     expect(sanitizeOverrides({
       temperature: 0.2,
       output_config: { effort: 'high', top_k: 10 }
@@ -187,6 +206,62 @@ describe('TitleJobService', () => {
       chatUuid: 'chat-1',
       title: 'generated title'
     }))
+  })
+
+  it('flattens title context without assistant tool calls or reasoning payload', async () => {
+    const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
+    const toolCallId = 'call-title-secret'
+
+    await service.run({
+      ...args,
+      messageBuffer: [
+        {
+          id: 201,
+          body: {
+            role: 'user',
+            content: '<x & y>',
+            segments: []
+          }
+        },
+        {
+          id: 202,
+          body: {
+            role: 'assistant',
+            content: 'assistant fallback text',
+            toolCalls: [{
+              id: toolCallId,
+              name: 'search',
+              args: { query: 'hidden' }
+            }],
+            segments: [
+              {
+                type: 'reasoning',
+                content: 'private chain of thought'
+              },
+              {
+                type: 'text',
+                content: 'assistant visible text'
+              }
+            ]
+          }
+        }
+      ]
+    }, config)
+
+    const titleMessages = titleAgentMock.mock.calls[0][3]
+
+    expect(titleMessages).toHaveLength(1)
+    expect(titleMessages[0].role).toBe('user')
+    expect(titleMessages[0].content).toContain('<title-context>')
+    expect(titleMessages[0].content).toContain('<user>&lt;x &amp; y&gt;</user>')
+    expect(titleMessages[0].content).toContain('<assistant>assistant visible text</assistant>')
+
+    const serialized = JSON.stringify(titleMessages)
+    expect(serialized).not.toContain('toolCalls')
+    expect(serialized).not.toContain('tool_calls')
+    expect(serialized).not.toContain('reasoning')
+    expect(serialized).not.toContain('reasoning_content')
+    expect(serialized).not.toContain(toolCallId)
   })
 
   it('emits failed when title generation throws', async () => {

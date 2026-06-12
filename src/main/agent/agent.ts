@@ -153,7 +153,7 @@ async function executeToolCalls(
 }
 
 export async function agent(
-  name: string,
+  _name: string,
   systemPrompt: string,
   tools: string[],
   messages: UnifiedRequestMessage[],

@@ -46,9 +46,11 @@ const model: AccountModel = {
 
 const account: ProviderAccount = {
   id: 'account-1',
+  label: 'Account 1',
   providerId: 'provider-1',
   apiUrl: 'https://example.com/v1',
-  apiKey: 'key'
+  apiKey: 'key',
+  models: []
 }
 
 const providerDefinition: ProviderDefinition = {

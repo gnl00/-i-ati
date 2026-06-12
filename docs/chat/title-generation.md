@@ -1,6 +1,6 @@
 # Title Generation — Title Agent
 
-> **状态**: 运行中参考档（持续同步） · **最后更新**: 2026-06-06
+> **状态**: 运行中参考档（持续同步） · **最后更新**: 2026-06-12
 
 本文记录 Title Agent 当前实现事实：`TitleJobService.run()` 已改为 `agent()` 抽象路径。
 
@@ -44,6 +44,17 @@ agent(
 - 从 `messageBuffer` 中筛选可见 `user/assistant` 消息。
 - 取最近 **2** 条作为上下文。
 - 过滤结果为空时回退到 `args.content`。
+- 最终 `messages` 数组固定为一条 `user` 消息，`content` 是拍扁后的 XML-ish 文本：
+
+```xml
+<title-context>
+  <user>...</user>
+  <assistant>...</assistant>
+</title-context>
+```
+
+- `user/assistant` 内容作为 text node 写入，并转义 `&`、`<`、`>`。
+- `assistant` 只提取可见文本，丢弃 `toolCalls`、reasoning segment、tool message 协议字段。
 
 该约束使得模型可基于最近上下文决策，且不依赖完整长上下文。
 
@@ -67,6 +78,11 @@ agent(
 - 处理链在 `src/main/tools/title/TitleToolsProcessor.ts` 中落库更新会话标题。
 
 `agent()` 会把工具解析为 `embeddedToolsRegistry.getTools(['chat_set_title'])`，并通过 `embeddedToolsRegistry.getHandler` 执行。
+
+### 2.1 Title UI 刷新路径
+
+- 后台 title job 路径：`TitleJobService` 调用 `chat_set_title` 成功后重新读取会话，并通过 `ChatEventMapper.emitChatUpdated()` 发出 `chat.updated`。
+- 主 chat runtime 路径：主 agent 直接调用 `chat_set_title` 成功后，`ChatToolSideEffectSink` 监听 `host.tool.result.available`，重新读取当前 `chatUuid` 对应会话，并发出 `chat.updated`。
 
 ---
 

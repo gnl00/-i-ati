@@ -71,7 +71,7 @@ const toUnifiedResponseLikeForParseError = (
     error?: string
     toolCalls?: Array<{ name: string; args: Record<string, any> }>
   },
-  finishReason: IUnifiedResponse['finishReason']
+  finishReason?: IUnifiedResponse['finishReason']
 ) => ({
   content: result.content ?? result.error,
   finishReason,

@@ -1,4 +1,5 @@
 export { ChatRenderResponder } from './ChatRenderResponder'
+export { ChatToolSideEffectSink } from './ChatToolSideEffectSink'
 export { ChatRenderMapper } from './ChatRenderMapper'
 export {
   DefaultChatInitialTranscriptRecordFactory,

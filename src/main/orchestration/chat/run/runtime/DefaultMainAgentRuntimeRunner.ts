@@ -10,6 +10,7 @@ import { DefaultToolBatchAssembler } from '@main/agent/runtime/tools/ToolBatchAs
 import { DefaultAgentLoop } from '@main/agent/runtime/loop/AgentLoop'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import {
+  ChatToolSideEffectSink,
   ChatRenderResponder,
   DefaultMainAgentHostRequestBuilder,
   MainAgentLoopInputBootstrapper
@@ -55,6 +56,10 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     )
     eventBus.register(new HostRenderEventForwarder([
       chatResponder,
+      new ChatToolSideEffectSink({
+        emitter: input.emitter,
+        chatUuid: input.prepared.runSpec.runtimeContext.chatUuid
+      }),
       ...(input.hostRenderSinks || [])
     ]))
 
