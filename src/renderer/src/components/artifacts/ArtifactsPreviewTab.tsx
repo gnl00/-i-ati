@@ -12,6 +12,7 @@ import type { UseWorkspaceFilesReturn } from './useWorkspaceFiles'
 import { invokeReadTextFile } from '@renderer/tools/fileOperations/renderer/FileOperationsInvoker'
 import { getLanguageFromPath } from './artifactUtils'
 import type { FileTreeNode } from './WorkspaceFileTree'
+import { Button } from '../ui/button'
 
 type PreviewFile = {
   path: string
@@ -217,14 +218,14 @@ export const ArtifactsPreviewTab: React.FC<{
         {devServer.devServerStatus === 'idle' && (
           <div className="flex-1 flex items-center justify-center bg-zinc-100/50 p-8 dark:bg-zinc-950">
             <div className="flex max-w-md flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
-              <button
-                type="button"
+              <Button
+                variant={"outline"}
                 onClick={devServer.handleStartDevServer}
-                className="group flex h-16 w-16 cursor-pointer items-center justify-center rounded-full border border-blue-100/70 bg-blue-50 text-blue-500/90 shadow-xs transition-[background-color,border-color,color,box-shadow,transform] duration-100 hover:scale-105 hover:bg-blue-100/50 hover:shadow-sm active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30 motion-reduce:transition-none motion-reduce:hover:scale-100 dark:border-blue-800/50 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                className='h-14 w-14 rounded-full'
                 title="Start Preview Server"
               >
-                <Play className="h-7 w-7 fill-current" />
-              </button>
+                <Play className="h-8 w-8 fill-current" />
+              </Button>
               <div className="text-center">
                 <h3 className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                   Preview Ready
@@ -240,10 +241,13 @@ export const ArtifactsPreviewTab: React.FC<{
         {/* State 2: Starting - Show loading spinner */}
         {devServer.devServerStatus === 'starting' && (
           <div className="flex-1 flex items-center justify-center bg-zinc-100/50 p-8 dark:bg-zinc-950">
-            <div className="flex flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-blue-200/70 bg-blue-50 text-blue-500 shadow-xs dark:border-blue-800/50 dark:bg-blue-950/40 dark:text-blue-300">
+            <div className="flex max-w-md flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
+              <Button
+                variant={"outline"}
+                className='h-14 w-14 rounded-full'
+              >
                 <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
+              </Button>
               <div className="text-center">
                 <h3 className="mb-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                   Starting Development Server
