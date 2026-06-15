@@ -49,7 +49,7 @@ Telegram follows the same main-process path through a host adapter and gateway l
 
 Main chat window
 
-![chat-windows](./screenshot/chatmainwindow-20260320113838.png)
+![chat-welcome](./screenshot/welcomepage.png)
 
 Chat sidebar
 
@@ -57,7 +57,13 @@ Chat sidebar
 
 Setting section
 
-![setting-sections](./screenshot/setting-sections.png)
+![setting-providers-sections](./screenshot/providers.png)
+
+![setting-tools-sections](./screenshot/setting-sections.png)
+
+![setting-skills-sections](./screenshot/skills.png)
+
+![setting-knowledgebase-sections](./screenshot/knowledgebase.png)
 
 Task plan bar
 
