@@ -20,7 +20,7 @@ import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
 import { ChatInputToolConfirmation } from './ChatInputToolConfirmation'
 import { invokeCheckIsDirectory } from '@renderer/invoker/ipcInvoker'
-import { ArrowBigUp, CornerDownLeft } from 'lucide-react'
+import { ArrowBigUp, ArrowUp, CornerDownLeft } from 'lucide-react'
 import {
   isSubmissionBlocked,
   mergeQueuedMessages,
@@ -30,6 +30,8 @@ import {
 
 interface ChatInputAreaProps {
   onMessagesUpdate?: () => void
+  welcomeVisualMode?: boolean
+  onWelcomeFocusStateChange?: (focused: boolean) => void
 }
 
 export interface ChatInputAreaHandle {
@@ -38,6 +40,8 @@ export interface ChatInputAreaHandle {
 
 const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(({
   onMessagesUpdate,
+  welcomeVisualMode = false,
+  onWelcomeFocusStateChange,
 }, ref) => {
   // Use Zustand selectors to avoid unnecessary re-renders
   // Only subscribe to specific state slices instead of the entire store
@@ -140,6 +144,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
   const [modelMenuCollisionBoundary, setModelMenuCollisionBoundary] = useState<HTMLElement | null>(null)
+  const [isWelcomeFocused, setIsWelcomeFocused] = useState<boolean>(false)
 
   // Apply currentAssistant's systemPrompt to the request-level user instruction
   useEffect(() => {
@@ -219,6 +224,19 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const setInputAreaContentRef = useCallback((node: HTMLDivElement | null) => {
     setModelMenuCollisionBoundary(node)
   }, [])
+
+  const updateWelcomeFocus = useCallback((focused: boolean) => {
+    setIsWelcomeFocused(current => current === focused ? current : focused)
+    onWelcomeFocusStateChange?.(focused)
+  }, [onWelcomeFocusStateChange])
+
+  useEffect(() => {
+    if (welcomeVisualMode) {
+      return
+    }
+
+    updateWelcomeFocus(false)
+  }, [updateWelcomeFocus, welcomeVisualMode])
 
   // Extend startNewChat to include local state reset
   const startNewChat = useCallback(() => {
@@ -564,8 +582,136 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     }
   }, [])
 
+  if (welcomeVisualMode) {
+    return (
+      <div
+        ref={rootRef}
+        id='inputArea'
+        data-welcome-focused={isWelcomeFocused ? 'true' : 'false'}
+        className="welcome-chat-input-area rounded-md w-full h-full flex flex-col bg-transparent"
+        onFocusCapture={() => updateWelcomeFocus(true)}
+        onBlurCapture={event => {
+          const nextFocusTarget = event.relatedTarget
+          if (nextFocusTarget instanceof Node && event.currentTarget.contains(nextFocusTarget)) {
+            return
+          }
+
+          updateWelcomeFocus(false)
+        }}
+      >
+        <div
+          ref={setInputAreaContentRef}
+          id="inputAreaContent"
+          className={cn(
+            'welcome-light-input-shell welcome-prompt-surface relative overflow-hidden',
+            isSubmitBlocked && 'opacity-[0.82]'
+          )}
+        >
+          <div className="welcome-light-input-main welcome-prompt-body relative min-h-0 overflow-hidden">
+            {imageSrcBase64List.length !== 0 && (
+              <div className="welcome-light-input-gallery">
+                <ChatImgGalleryComponent />
+              </div>
+            )}
+
+            {isDragging && (
+              <div className="welcome-light-drop-indicator pointer-events-none absolute inset-0 z-10 grid place-items-center">
+                <span className="rounded-full bg-background/82 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-xs backdrop-blur-md">
+                  Drop a folder to set workspace
+                </span>
+              </div>
+            )}
+
+            <Textarea
+              ref={textareaRef}
+              className={cn(
+                'welcome-light-textarea h-full w-full resize-none border-0 bg-transparent',
+                'px-5 pb-3 pt-3 text-[15px] font-medium leading-6 text-foreground shadow-none',
+                'placeholder:text-muted-foreground/56 focus-visible:ring-0 focus-visible:ring-offset-0',
+                'focus-visible:outline-hidden'
+              )}
+              placeholder="Ask @i what to work on..."
+              value={inputContent}
+              onChange={onTextAreaChange}
+              onKeyDown={onTextAreaKeyDown}
+              onCompositionStart={onTextAreaCompositionStart}
+              onCompositionEnd={onTextAreaCompositionEnd}
+              onPaste={onTextAreaPaste}
+              onBlur={onTextAreaBlur}
+              onDragEnter={onDragEnter}
+              onDragLeave={onDragLeave}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+            />
+          </div>
+
+          <div className="welcome-light-input-details min-h-0 overflow-hidden">
+            <div className="welcome-prompt-baseline flex items-center justify-between gap-3 px-4 pb-2.5 text-[11px] font-medium text-muted-foreground/66">
+              <div className="welcome-prompt-baseline-start flex min-w-0 items-center gap-2">
+                <span className="welcome-prompt-shortcut">Enter sends</span>
+                <span className="welcome-prompt-divider" aria-hidden="true" />
+                <span className="welcome-prompt-shortcut hidden sm:inline">Shift + Enter adds a line</span>
+              </div>
+              <div className="welcome-prompt-baseline-end flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Send message"
+                  disabled={!inputContent.trim()}
+                  className={cn(
+                    'welcome-light-send-button welcome-prompt-send-button grid size-7 place-items-center',
+                    'rounded-full border-0 bg-foreground text-background shadow-none',
+                    'transition-[opacity,transform,background-color] duration-180 ease-(--welcome-input-ease)',
+                    'hover:bg-foreground/88 active:scale-[0.96]',
+                    'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/28',
+                    !inputContent.trim() && 'pointer-events-none opacity-[0.22]'
+                  )}
+                  onClick={event => onSubmitClick(event)}
+                >
+                  <ArrowUp className="size-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <CommandPalette
+          isOpen={commandPanelOpen}
+          commands={filteredCommands}
+          selectedIndex={selectedCommandIndex}
+          textareaRef={textareaRef}
+          onCommandClick={executeCommand}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div ref={rootRef} id='inputArea' className={cn('rounded-md w-full h-full flex flex-col bg-transparent')}>
+    <div
+      ref={rootRef}
+      id='inputArea'
+      data-welcome-focused={isWelcomeFocused ? 'true' : 'false'}
+      className={cn(
+        'rounded-md w-full h-full flex flex-col bg-transparent',
+        welcomeVisualMode && 'welcome-chat-input-area'
+      )}
+      onFocusCapture={() => {
+        if (welcomeVisualMode) {
+          updateWelcomeFocus(true)
+        }
+      }}
+      onBlurCapture={event => {
+        if (!welcomeVisualMode) {
+          return
+        }
+
+        const nextFocusTarget = event.relatedTarget
+        if (nextFocusTarget instanceof Node && event.currentTarget.contains(nextFocusTarget)) {
+          return
+        }
+
+        updateWelcomeFocus(false)
+      }}
+    >
       <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
         <ChatImgGalleryComponent />
       </div>
@@ -573,11 +719,14 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       <div
         ref={setInputAreaContentRef}
         id="inputAreaContent"
-        className='relative flex flex-col px-2 flex-1 overflow-hidden bg-transparent'
+        className={cn(
+          'relative flex flex-col px-2 flex-1 overflow-hidden bg-transparent',
+          welcomeVisualMode && 'welcome-chat-input-content'
+        )}
       >
         <div
           className={cn(
-            'relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out bg-transparent',
+            'chat-input-card relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out bg-transparent',
             isSubmitBlocked && 'opacity-80'
           )}
         >

@@ -2,7 +2,7 @@ import { ArtifactsPanel, FloatingArtifactsToggle } from '@renderer/components/ar
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea, { type ChatInputAreaHandle } from "@renderer/components/chat/chatInput/ChatInputArea"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
-import WelcomeMessage from "@renderer/components/chat/welcome/SmartWelcomeEntrance"
+import WelcomeMessage from "@renderer/components/chat/welcome/SmartWelcomeEntranceV2"
 import { useScrollManagerTop, type UserScrollSource } from '@renderer/hooks/useScrollManagerTop'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@renderer/components/ui/resizable'
 import { cn } from '@renderer/lib/utils'
@@ -232,7 +232,6 @@ const ChatWindowComponentNext: React.FC = () => {
       : committedLastAssistantIndex
 
   const isRunStreaming = runPhase === 'streaming'
-  const inputAreaRef = useRef<HTMLDivElement>(null)
   const topOverlayRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<ChatInputAreaHandle>(null)
   const latestVisibleRef = useRef<boolean>(true)
@@ -282,6 +281,7 @@ const ChatWindowComponentNext: React.FC = () => {
   // Welcome page state
   const [showWelcome, setShowWelcome] = useState<boolean>(true)
   const [isWelcomeExiting, setIsWelcomeExiting] = useState<boolean>(false)
+  const [isWelcomeComposerFocused, setIsWelcomeComposerFocused] = useState<boolean>(false)
   const [bottomSpacerHeight, setBottomSpacerHeight] = useState<number>(0)
   const [disableTailSpacer, setDisableTailSpacer] = useState<boolean>(false)
   const hasShownWelcomeRef = useRef<boolean>(false)
@@ -849,10 +849,17 @@ const ChatWindowComponentNext: React.FC = () => {
 
   // Detect first message - trigger exit animation then hide welcome
   const hasVisibleTranscript = displayMessages.length > 0
+  const isWelcomeMode = showWelcome && !hasVisibleTranscript
+  const shouldRenderWelcomeStage = showWelcome && (
+    isWelcomeMode
+    || isWelcomeExiting
+    || !hasShownWelcomeRef.current
+  )
 
   useLayoutEffect(() => {
     if (hasVisibleTranscript && showWelcome && !hasShownWelcomeRef.current) {
       hasShownWelcomeRef.current = true
+      setIsWelcomeComposerFocused(false)
       // Start exit animation immediately
       setIsWelcomeExiting(true)
       // Wait for animation to complete before removing from DOM
@@ -868,6 +875,7 @@ const ChatWindowComponentNext: React.FC = () => {
     if (!hasVisibleTranscript) {
       setShowWelcome(true)
       setIsWelcomeExiting(false)
+      setIsWelcomeComposerFocused(false)
       hasShownWelcomeRef.current = false
     }
   }, [chatUuid, hasVisibleTranscript])
@@ -1002,202 +1010,210 @@ const ChatWindowComponentNext: React.FC = () => {
       <ChatHeaderComponent />
 
       <div className="relative z-0 -mt-11 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
-        {/* 外层垂直分割容器 */}
-        <ResizablePanelGroup
-          direction="vertical"
-          className="grow overflow-hidden"
-          id="vertical-panel-group"
-        >
-          {/* ========== 上部面板：包含聊天和 Artifacts ========== */}
-          <ResizablePanel
-            id="main-content-panel"
-            defaultSize={75}
-            minSize={30}
-            maxSize={85}
-            className="flex flex-col overflow-hidden"
+        {shouldRenderWelcomeStage ? (
+          <div
+            className={cn(
+              "welcome-stage",
+              isWelcomeComposerFocused && "welcome-stage-composer-focused",
+              isWelcomeExiting && "welcome-stage-exit"
+            )}
           >
-            {/* 内层水平分割容器 */}
-            <ResizablePanelGroup
-              direction="horizontal"
-              className="flex-1 overflow-hidden"
-              id="horizontal-panel-group"
+            <WelcomeMessage
+              isExiting={isWelcomeExiting}
+              isComposerFocused={isWelcomeComposerFocused}
+              onSuggestionClick={handleWelcomeSuggestionClick}
+              composer={(
+                <ChatInputArea
+                  ref={chatInputRef}
+                  welcomeVisualMode
+                  onWelcomeFocusStateChange={setIsWelcomeComposerFocused}
+                />
+              )}
+            />
+          </div>
+        ) : (
+          <ResizablePanelGroup
+            direction="vertical"
+            className="grow overflow-hidden"
+            id="vertical-panel-group"
+          >
+            {/* ========== 上部面板：包含聊天和 Artifacts ========== */}
+            <ResizablePanel
+              id="main-content-panel"
+              defaultSize={75}
+              minSize={30}
+              maxSize={85}
+              className="flex flex-col overflow-hidden"
             >
-              {/* 左侧：聊天区域 */}
-              <ResizablePanel
-                defaultSize={artifactsPanelOpen ? 60 : 100}
-                minSize={30}
-                className="flex flex-col overflow-hidden relative"
-                id="chat-panel"
+              {/* 内层水平分割容器 */}
+              <ResizablePanelGroup
+                direction="horizontal"
+                className="flex-1 overflow-hidden"
+                id="horizontal-panel-group"
               >
-                <div className="pointer-events-none absolute inset-x-0 top-0 z-40 overflow-hidden">
-                  <AnimatePresence initial={false}>
-                    {displayPlans.length > 0 && (
-                      <motion.div
-                        ref={topOverlayRef}
-                        className={cn(
-                          'pointer-events-none relative px-2 pb-2',
-                          'bg-chat-light/72 backdrop-blur-xl',
-                          'dark:bg-chat-dark/72',
-                          'after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-white/45',
-                          'dark:after:bg-white/10'
-                        )}
-                        style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
-                        initial={{ y: -12, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: -12, opacity: 0 }}
-                        transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                      >
-                        <div className="pointer-events-auto space-y-2">
-                          {displayPlans.map((plan, index) => {
-                            const isPendingReview = pendingPlanReview?.plan.id === plan.id
-                            return (
-                              <motion.div
-                                key={plan.id}
-                                initial={{ opacity: 0, y: -16 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{
-                                  duration: 0.24,
-                                  ease: [0.22, 1, 0.36, 1],
-                                  delay: index * 0.04
-                                }}
-                              >
-                                <TaskPlanBar
-                                  plan={plan}
-                                  onPlanUpdated={refreshPlans}
-                                  onApprove={isPendingReview ? approvePlanReview : undefined}
-                                  onAbort={isPendingReview ? abortPlanReview : undefined}
-                                />
-                              </motion.div>
-                            )
-                          })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <div
-                  ref={scrollParentRef}
-                  className="min-h-0 flex-1 overflow-scroll px-2 contain-layout contain-paint overscroll-contain"
-                  style={{ overflowAnchor: 'none' }}
+                {/* 左侧：聊天区域 */}
+                <ResizablePanel
+                  defaultSize={artifactsPanelOpen ? 60 : 100}
+                  minSize={30}
+                  className="flex flex-col overflow-hidden relative"
+                  id="chat-panel"
                 >
-                  <Virtuoso
-                    key={chatUuid ?? 'empty-chat'}
-                    ref={virtuosoRef}
-                    data={displayMessages}
-                    className="h-full w-full"
-                    customScrollParent={scrollParentRef.current ?? undefined}
-                    totalListHeightChanged={() => {
-                      requestLayoutPass('total-list-height-changed')
-                    }}
-                    components={CHAT_VIRTUOSO_COMPONENTS}
-                    context={virtuosoFooterContext}
-                    overscan={150}
-                    increaseViewportBy={{ top: 200, bottom: 400 }}
-                    rangeChanged={onRangeChanged}
-                    itemContent={(index, message) => (
-                      <div
-                        data-index={index}
-                        data-message-id={message.id ?? undefined}
-                        className="w-full min-h-px"
-                      >
-                        <ChatMessageRow
-                          messageIndex={index}
-                          message={message}
-                          previewMessage={
-                            previewMessage && previewRenderIndex === index
-                              ? previewMessage.body
-                              : undefined
-                          }
-                          lastAssistantIndex={lastAssistantIndex}
-                          lastMessageIndex={lastMessageIndex}
-                          isPending={message.id === PENDING_USER_MESSAGE_ID}
-                          onTypingChange={handleLatestAssistantTyping}
-                        />
-                      </div>
-                    )}
-                  />
-                </div>
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-40 overflow-hidden">
+                    <AnimatePresence initial={false}>
+                      {displayPlans.length > 0 && (
+                        <motion.div
+                          ref={topOverlayRef}
+                          className={cn(
+                            'pointer-events-none relative px-2 pb-2',
+                            'bg-chat-light/72 backdrop-blur-xl',
+                            'dark:bg-chat-dark/72',
+                            'after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-white/45',
+                            'dark:after:bg-white/10'
+                          )}
+                          style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
+                          initial={{ y: -12, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: -12, opacity: 0 }}
+                          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                          <div className="pointer-events-auto space-y-2">
+                            {displayPlans.map((plan, index) => {
+                              const isPendingReview = pendingPlanReview?.plan.id === plan.id
+                              return (
+                                <motion.div
+                                  key={plan.id}
+                                  initial={{ opacity: 0, y: -16 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{
+                                    duration: 0.24,
+                                    ease: [0.22, 1, 0.36, 1],
+                                    delay: index * 0.04
+                                  }}
+                                >
+                                  <TaskPlanBar
+                                    plan={plan}
+                                    onPlanUpdated={refreshPlans}
+                                    onApprove={isPendingReview ? approvePlanReview : undefined}
+                                    onAbort={isPendingReview ? abortPlanReview : undefined}
+                                  />
+                                </motion.div>
+                              )
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
-                {showWelcome && (
                   <div
-                    className={cn(
-                      "welcome-overlay",
-                      isWelcomeExiting && "welcome-overlay-exit"
-                    )}
+                    ref={scrollParentRef}
+                    className="min-h-0 flex-1 overflow-scroll px-2 contain-layout contain-paint overscroll-contain"
+                    style={{ overflowAnchor: 'none' }}
                   >
-                    <WelcomeMessage
-                      isExiting={isWelcomeExiting}
-                      onSuggestionClick={handleWelcomeSuggestionClick}
+                    <Virtuoso
+                      key={chatUuid ?? 'empty-chat'}
+                      ref={virtuosoRef}
+                      data={displayMessages}
+                      className="h-full w-full"
+                      customScrollParent={scrollParentRef.current ?? undefined}
+                      totalListHeightChanged={() => {
+                        requestLayoutPass('total-list-height-changed')
+                      }}
+                      components={CHAT_VIRTUOSO_COMPONENTS}
+                      context={virtuosoFooterContext}
+                      overscan={150}
+                      increaseViewportBy={{ top: 200, bottom: 400 }}
+                      rangeChanged={onRangeChanged}
+                      itemContent={(index, message) => (
+                        <div
+                          data-index={index}
+                          data-message-id={message.id ?? undefined}
+                          className="w-full min-h-px"
+                        >
+                          <ChatMessageRow
+                            messageIndex={index}
+                            message={message}
+                            previewMessage={
+                              previewMessage && previewRenderIndex === index
+                                ? previewMessage.body
+                                : undefined
+                            }
+                            lastAssistantIndex={lastAssistantIndex}
+                            lastMessageIndex={lastMessageIndex}
+                            isPending={message.id === PENDING_USER_MESSAGE_ID}
+                            onTypingChange={handleLatestAssistantTyping}
+                          />
+                        </div>
+                      )}
                     />
                   </div>
-                )}
 
-                {/* 定位最新消息按钮 - 绝对定位在 ChatPanel 底部中间 */}
-                {showJumpToLatest && (
-                  <div
-                    id="jumpToLatest"
-                    onClick={handleJumpToLatestClick}
-                    className={cn(
-                      "absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border z-50",
-                      "transition-all duration-300 ease-out hover:scale-110",
-                      isButtonFadingOut
-                        ? "opacity-0 translate-y-5 scale-75"
-                        : "opacity-100 translate-y-0"
-                    )}
-                  >
-                    <ArrowDown className="text-gray-400 p-1 m-1" />
-                  </div>
-                )}
-              </ResizablePanel>
-
-              {/* 右侧：Artifacts 面板 */}
-              {artifactsPanelOpen && (
-                <>
-                  <ResizableHandle
-                    className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden"
-                    style={CHAT_HEADER_OCCLUSION_HANDLE_STYLE}
-                  />
-                  <ResizablePanel
-                    defaultSize={40}
-                    minSize={25}
-                    maxSize={70}
-                    collapsible={true}
-                    collapsedSize={0}
-                    onResize={(size) => {
-                      if (size === 0 && artifactsPanelOpen) {
-                        setArtifactsPanel(false)
-                      }
-                    }}
-                    className="bg-transparent overflow-hidden"
-                    id="artifacts-panel"
-                  >
+                  {/* 定位最新消息按钮 - 绝对定位在 ChatPanel 底部中间 */}
+                  {showJumpToLatest && (
                     <div
-                      className="h-full w-full overflow-hidden"
-                      style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
+                      id="jumpToLatest"
+                      onClick={handleJumpToLatestClick}
+                      className={cn(
+                        "absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/5 backdrop-blur-xl cursor-pointer rounded-full shadow-lg border-white/5 border z-50",
+                        "transition-all duration-300 ease-out hover:scale-110",
+                        isButtonFadingOut
+                          ? "opacity-0 translate-y-5 scale-75"
+                          : "opacity-100 translate-y-0"
+                      )}
                     >
-                      <ArtifactsPanel />
+                      <ArrowDown className="text-gray-400 p-1 m-1" />
                     </div>
-                  </ResizablePanel>
-                </>
-              )}
-            </ResizablePanelGroup>
-          </ResizablePanel>
+                  )}
+                </ResizablePanel>
 
-          <ResizableHandle className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden" />
+                {/* 右侧：Artifacts 面板 */}
+                {artifactsPanelOpen && (
+                  <>
+                    <ResizableHandle
+                      className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden"
+                      style={CHAT_HEADER_OCCLUSION_HANDLE_STYLE}
+                    />
+                    <ResizablePanel
+                      defaultSize={40}
+                      minSize={25}
+                      maxSize={70}
+                      collapsible={true}
+                      collapsedSize={0}
+                      onResize={(size) => {
+                        if (size === 0 && artifactsPanelOpen) {
+                          setArtifactsPanel(false)
+                        }
+                      }}
+                      className="bg-transparent overflow-hidden"
+                      id="artifacts-panel"
+                    >
+                      <div
+                        className="h-full w-full overflow-hidden"
+                        style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
+                      >
+                        <ArtifactsPanel />
+                      </div>
+                    </ResizablePanel>
+                  </>
+                )}
+              </ResizablePanelGroup>
+            </ResizablePanel>
 
-          <ResizablePanel
-            id="input-panel"
-            defaultSize={25}
-            minSize={10}
-            maxSize={70}
-            className="bg-transparent overflow-hidden relative"
-          >
-            <div ref={inputAreaRef} className="h-full overflow-hidden">
-              <ChatInputArea ref={chatInputRef} />
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            <ResizableHandle className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden" />
+
+            <ResizablePanel
+              id="input-panel"
+              defaultSize={25}
+              minSize={10}
+              maxSize={70}
+              className="bg-transparent relative"
+            >
+              <div className="h-full overflow-hidden">
+                <ChatInputArea ref={chatInputRef} />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
 
         <FloatingArtifactsToggle />
       </div>

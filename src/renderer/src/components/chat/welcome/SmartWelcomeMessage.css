@@ -6,6 +6,60 @@
   --smart-surface-strong: color-mix(in srgb, hsl(var(--card)) 95%, transparent);
   --smart-border: color-mix(in srgb, hsl(var(--border)) 72%, transparent);
   --smart-shadow: 0 24px 70px color-mix(in srgb, hsl(var(--foreground)) 14%, transparent);
+  --smart-middle-fade: color-mix(in srgb, hsl(var(--background)) 48%, transparent);
+  min-height: 100%;
+  height: 100%;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.welcome-stage {
+  --smart-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  z-index: 30;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 88%,
+      color-mix(in srgb, hsl(var(--accent)) 11%, transparent),
+      transparent 42%
+    ),
+    color-mix(in srgb, hsl(var(--background)) 2%, transparent);
+  backdrop-filter: blur(0.5px);
+  transition:
+    opacity 220ms var(--smart-ease-out),
+    transform 220ms var(--smart-ease-out),
+    filter 220ms var(--smart-ease-out);
+}
+
+.welcome-stage::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 34vh;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse at 50% 100%,
+      color-mix(in srgb, hsl(var(--card)) 34%, transparent),
+      transparent 72%
+    );
+  opacity: 0.38;
+  filter: blur(32px);
+}
+
+.welcome-stage-exit {
+  pointer-events: none;
+  opacity: 0;
+  filter: blur(4px);
+  transform: scale(0.985);
 }
 
 .smart-welcome-depth-field::before,
@@ -30,6 +84,175 @@
   height: min(30vh, 280px);
   opacity: 0.7;
   transform: translate(-50%, -50%) rotate(10deg);
+}
+
+.smart-welcome-inner,
+.smart-greeting-hero,
+.smart-message-stack,
+.smart-welcome-bottom {
+  transition:
+    opacity 360ms var(--smart-ease-out),
+    filter 360ms var(--smart-ease-out),
+    transform 360ms var(--smart-ease-out);
+}
+
+.smart-welcome-composer-focused .smart-welcome-inner {
+  transform: translateY(0) scale(0.98);
+}
+
+.smart-welcome-composer-focused .smart-greeting-hero {
+  opacity: 0.76;
+  filter: blur(0.15px);
+  transform: translateY(-4px) scale(0.98);
+}
+
+.smart-welcome-composer-focused .smart-message-stack {
+  opacity: 0.58;
+  filter: blur(0.18px);
+  transform: translateY(-4px) scale(0.96);
+}
+
+.smart-welcome-composer-focused .smart-welcome-bottom {
+  transform: translateY(-6px);
+}
+
+.smart-welcome-layout {
+  display: flex;
+  min-height: 100%;
+  height: 100%;
+  flex-direction: column;
+}
+
+.smart-welcome-top {
+  display: grid;
+  flex: 0 0 clamp(150px, 22vh, 210px);
+  align-items: end;
+  justify-items: center;
+}
+
+.smart-welcome-middle {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  place-items: center;
+  padding-top: clamp(10px, 2vh, 28px);
+  padding-bottom: clamp(6px, 1.5vh, 18px);
+}
+
+.smart-welcome-middle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  z-index: 8;
+  width: min(920px, 100vw);
+  height: 96px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, hsl(var(--background)) 0%, transparent),
+    color-mix(in srgb, hsl(var(--background)) 12%, transparent) 46%,
+    var(--smart-middle-fade) 88%,
+    color-mix(in srgb, hsl(var(--background)) 42%, transparent) 100%
+  );
+  transform: translateX(-50%);
+}
+
+.smart-welcome-bottom {
+  position: relative;
+  z-index: 12;
+  display: grid;
+  flex: 0 0 clamp(118px, 18vh, 170px);
+  justify-items: center;
+  align-items: end;
+  margin-top: 0;
+  padding-bottom: clamp(28px, 5vh, 52px);
+}
+
+.smart-emotion-aura {
+  top: clamp(6px, 1.6vh, 20px);
+  right: clamp(0px, 4vw, 64px);
+  width: clamp(116px, 15vw, 156px);
+  height: clamp(116px, 15vw, 156px);
+  opacity: 0.82;
+  filter: blur(0);
+  transform: translateY(0) scale(0.98) rotate(2deg);
+  transition:
+    opacity 380ms var(--smart-ease-out),
+    filter 380ms var(--smart-ease-out),
+    transform 380ms var(--smart-ease-out);
+}
+
+.smart-emotion-aura-active {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(-6px) scale(1.04) rotate(0deg);
+}
+
+.smart-emotion-aura-field {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.smart-emotion-aura-field::before {
+  content: '';
+  position: absolute;
+  inset: -14%;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle at 48% 45%,
+      color-mix(in srgb, hsl(var(--accent)) 28%, transparent),
+      transparent 56%
+    ),
+    radial-gradient(
+      circle at 54% 58%,
+      color-mix(in srgb, hsl(var(--foreground)) 10%, transparent),
+      transparent 64%
+    );
+  opacity: 0.78;
+  filter: blur(18px);
+  transform: scale(1.08);
+}
+
+.smart-emotion-aura-field::after {
+  content: '';
+  position: absolute;
+  inset: 13%;
+  border: 1px solid color-mix(in srgb, hsl(var(--border)) 50%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, hsl(var(--card)) 52%, transparent);
+  box-shadow:
+    0 18px 48px color-mix(in srgb, hsl(var(--foreground)) 12%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 38%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.smart-emotion-aura-orb {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: clamp(78px, 10vw, 104px);
+  height: clamp(78px, 10vw, 104px);
+  place-items: center;
+  border-radius: 999px;
+  opacity: 0.96;
+  transform: translateY(0) scale(1);
+}
+
+.smart-emotion-aura-asset {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.12);
+}
+
+.smart-emotion-aura-emoji {
+  font-size: clamp(58px, 8vw, 82px);
+  line-height: 1;
 }
 
 .smart-animate-rise {
@@ -74,7 +297,7 @@
 .smart-message-layer-mid {
   z-index: 2;
   opacity: 0.85;
-  filter: blur(2px);
+  filter: blur(0.9px);
   transform:
     translate3d(
       calc(-50% - 36px + (var(--smart-pointer-x) * 6px)),
@@ -87,7 +310,7 @@
 .smart-message-layer-bottom {
   z-index: 1;
   opacity: 0.7;
-  filter: blur(4px);
+  filter: blur(1.4px);
   transform:
     translate3d(
       calc(-50% + 46px + (var(--smart-pointer-x) * 3px)),
@@ -107,7 +330,7 @@
 .smart-message-layer-dimmed {
   z-index: 0;
   opacity: 0.42;
-  filter: blur(2.5px);
+  filter: blur(0.35px);
 }
 
 .smart-message-layer-top.smart-message-layer-hovered {
@@ -147,7 +370,7 @@
       calc(8px + (var(--smart-pointer-y) * 2px)),
       0
     )
-    scale(0.97);
+    scale(0.965);
 }
 
 .smart-message-layer-mid.smart-message-layer-dimmed {
@@ -157,7 +380,7 @@
       calc(94px + (var(--smart-pointer-y) * 1px)),
       -36px
     )
-    scale(0.93);
+    scale(0.925);
 }
 
 .smart-message-layer-bottom.smart-message-layer-dimmed {
@@ -167,7 +390,7 @@
       calc(182px + (var(--smart-pointer-y) * 1px)),
       -70px
     )
-    scale(0.9);
+    scale(0.895);
 }
 
 .smart-message-bubble {
@@ -283,12 +506,34 @@
 
 @container (max-width: 560px) {
   .smart-welcome-entrance {
-    min-height: min(74vh, 640px);
+    min-height: 100%;
+    height: 100%;
     padding-inline: 18px;
   }
 
   .smart-welcome-inner {
-    gap: 20px;
+    width: min(520px, 100%);
+  }
+
+  .smart-welcome-layout {
+    min-height: 100%;
+    height: 100%;
+  }
+
+  .smart-welcome-top {
+    flex-basis: clamp(128px, 19vh, 164px);
+  }
+
+  .smart-welcome-middle {
+    min-height: 0;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .smart-welcome-bottom {
+    flex-basis: clamp(104px, 17vh, 142px);
+    margin-top: 0;
+    padding-bottom: 24px;
   }
 
   .smart-assistant-selector {
@@ -389,13 +634,250 @@
   .smart-message-tail {
     left: calc(50% + 88px);
   }
+
+  .smart-emotion-aura {
+    top: -8px;
+    right: 50%;
+    width: 106px;
+    height: 106px;
+    transform: translateX(50%) translateY(0) scale(0.94);
+  }
+
+  .smart-emotion-aura-active {
+    transform: translateX(50%) translateY(-4px) scale(1);
+  }
+
+  .welcome-chat-input-area {
+    width: min(100%, calc(100vw - 18px));
+    padding-inline: 9px;
+    transform: translateY(0) scale(0.9);
+  }
+
+  .welcome-chat-input-area[data-welcome-focused='true'],
+  .welcome-chat-input-area:focus-within {
+    transform: translateY(-10px) scale(1);
+  }
+
+  .welcome-chat-input-area[data-welcome-focused='true'] .welcome-light-input-shell,
+  .welcome-chat-input-area:focus-within .welcome-light-input-shell {
+    grid-template-rows: minmax(116px, 1fr) 34px;
+    border-radius: 24px;
+  }
+}
+
+.welcome-chat-input-area {
+  --welcome-input-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --welcome-input-surface: color-mix(in srgb, hsl(var(--card)) 68%, transparent);
+  --welcome-input-surface-focus: color-mix(in srgb, hsl(var(--card)) 82%, transparent);
+  --welcome-input-border: color-mix(in srgb, hsl(var(--border)) 44%, transparent);
+  position: relative;
+  z-index: 80;
+  left: auto;
+  bottom: auto;
+  width: min(330px, 62vw);
+  height: auto;
+  margin-inline: auto;
+  padding-inline: 0;
+  justify-content: end;
+  padding-top: 0;
+  transform: translateY(0) scale(0.9);
+  transform-origin: center top;
+  transition:
+    opacity 260ms var(--welcome-input-ease),
+    transform 420ms var(--welcome-input-ease),
+    width 540ms var(--welcome-input-ease),
+    filter 360ms var(--welcome-input-ease);
+}
+
+.welcome-chat-input-area[data-welcome-focused='true'],
+.welcome-chat-input-area:focus-within {
+  width: min(560px, 82vw);
+  transform: translateY(-6px) scale(1);
+}
+
+.welcome-input-panel {
+  z-index: 80;
+}
+
+.welcome-input-dock {
+  position: relative;
+  z-index: 80;
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  margin-top: clamp(-18px, -2vh, -8px);
+  padding-block: clamp(6px, 1.6vh, 14px);
+}
+
+.welcome-light-input-shell {
+  display: grid;
+  grid-template-rows: 48px 0fr;
+  width: 100%;
+  border: 1px solid var(--welcome-input-border);
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle at 14% 0%,
+      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+      transparent 34%
+    ),
+    var(--welcome-input-surface);
+  box-shadow:
+    0 12px 34px color-mix(in srgb, hsl(var(--foreground)) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 30%, transparent);
+  backdrop-filter: blur(16px);
+  transition:
+    grid-template-rows 360ms var(--welcome-input-ease),
+    border-color 260ms var(--welcome-input-ease),
+    border-radius 360ms var(--welcome-input-ease),
+    background-color 260ms var(--welcome-input-ease),
+    box-shadow 320ms var(--welcome-input-ease);
+}
+
+.welcome-chat-input-area[data-welcome-focused='true'] .welcome-light-input-shell,
+.welcome-chat-input-area:focus-within .welcome-light-input-shell {
+  grid-template-rows: 110px 34px;
+  border-color: color-mix(in srgb, hsl(var(--border)) 58%, hsl(var(--foreground)) 8%);
+  border-radius: 22px;
+  background:
+    radial-gradient(
+      circle at 14% 0%,
+      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+      transparent 34%
+    ),
+    var(--welcome-input-surface-focus);
+  box-shadow:
+    0 18px 48px color-mix(in srgb, hsl(var(--foreground)) 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 36%, transparent);
+}
+
+.welcome-light-input-main {
+  min-width: 0;
+  transition: opacity 260ms var(--welcome-input-ease);
+}
+
+.welcome-prompt-body {
+  border-bottom: 1px solid transparent;
+  transition: border-color 240ms var(--welcome-input-ease);
+}
+
+.welcome-chat-input-area[data-welcome-focused='true'] .welcome-prompt-body,
+.welcome-chat-input-area:focus-within .welcome-prompt-body {
+  border-bottom-color: color-mix(in srgb, hsl(var(--border)) 36%, transparent);
+}
+
+.welcome-light-textarea {
+  min-height: 0;
+  background: transparent;
+  scrollbar-width: none;
+}
+
+.welcome-light-textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.welcome-light-send-button {
+  opacity: 0;
+  transform: translateY(3px) scale(0.94);
+}
+
+.welcome-chat-input-area[data-welcome-focused='true'] .welcome-light-send-button,
+.welcome-chat-input-area:focus-within .welcome-light-send-button {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.welcome-light-input-details {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 240ms var(--welcome-input-ease),
+    transform 240ms var(--welcome-input-ease);
+}
+
+.welcome-chat-input-area[data-welcome-focused='true'] .welcome-light-input-details,
+.welcome-chat-input-area:focus-within .welcome-light-input-details {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.welcome-prompt-baseline {
+  min-height: 34px;
+}
+
+.welcome-prompt-baseline-start,
+.welcome-prompt-baseline-end {
+  min-height: 28px;
+}
+
+.welcome-prompt-shortcut {
+  white-space: nowrap;
+}
+
+.welcome-prompt-divider {
+  width: 1px;
+  height: 12px;
+  background: color-mix(in srgb, hsl(var(--border)) 68%, transparent);
+}
+
+.welcome-prompt-send-button {
+  box-shadow: 0 8px 20px color-mix(in srgb, hsl(var(--foreground)) 12%, transparent);
+}
+
+.welcome-light-input-gallery {
+  position: absolute;
+  inset-inline: 16px 52px;
+  top: 8px;
+  height: 58px;
+  opacity: 0.92;
+  transform: translateY(-2px);
+}
+
+.welcome-light-input-gallery + .welcome-light-textarea {
+  padding-top: 70px;
+}
+
+.welcome-light-drop-indicator {
+  background: color-mix(in srgb, hsl(var(--background)) 16%, transparent);
+}
+
+@container (max-width: 560px) {
+  .welcome-chat-input-area {
+    width: min(320px, calc(100vw - 24px));
+    padding-inline: 0;
+    transform: translateY(0) scale(0.92);
+  }
+
+  .welcome-chat-input-area[data-welcome-focused='true'],
+  .welcome-chat-input-area:focus-within {
+    width: min(520px, calc(100vw - 24px));
+    transform: translateY(-4px) scale(1);
+  }
+
+  .welcome-chat-input-area[data-welcome-focused='true'] .welcome-light-input-shell,
+  .welcome-chat-input-area:focus-within .welcome-light-input-shell {
+    grid-template-rows: 104px 34px;
+    border-radius: 22px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .welcome-overlay,
+  .welcome-stage,
+  .smart-welcome-inner,
+  .smart-greeting-hero,
+  .smart-message-stack,
+  .smart-welcome-bottom,
+  .smart-emotion-aura,
+  .welcome-chat-input-area,
+  .welcome-light-input-shell,
+  .welcome-light-input-details,
+  .welcome-light-send-button,
   .smart-animate-rise,
   .smart-message-stack,
   .smart-message-bubble {
     animation: none;
+    transition-duration: 0.01ms;
   }
 
   .smart-message-layer,

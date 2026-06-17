@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, BadgePlus, Bot, Check, ChevronDown, Pencil, Sparkle } from 'lucide-react'
+import { ArrowRight, BadgePlus, Bot, Check, ChevronDown, Pencil } from 'lucide-react'
 import { AddAssistantDrawer } from '@renderer/components/chat/chatInput/toolbar/AddAssistantDrawer'
 import { getEmotionAssetUrl } from '@renderer/assets/emotions/emotionAssetUrls'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
@@ -13,19 +13,19 @@ import {
   pickSmartGreeting,
   type TimeOfDay
 } from './smartGreeting'
-import './SmartWelcomeMessage.css'
+import './SmartWelcomeEntranceV2.css'
 
 const CONFIG = {
-  TYPEWRITER_SPEED: 60
+  TYPEWRITER_SPEED: 56
 } as const
 
-type SmartLayerTone = 'top' | 'mid' | 'bottom'
+type MessageTone = 'primary' | 'secondary' | 'tertiary'
 
-interface SmartWelcomeEntranceProps {
+interface SmartWelcomeEntranceV2Props {
   className?: string
-  composer?: React.ReactNode
   isExiting?: boolean
   isComposerFocused?: boolean
+  composer?: React.ReactNode
   onSuggestionClick?: (suggestion: string) => void
 }
 
@@ -36,7 +36,7 @@ interface SmartStackMessage {
   actionPrompt: string
 }
 
-interface SmartGreetingHeroProps {
+interface GreetingProps {
   typedText: string
   subtitleText: string
   username: string
@@ -48,25 +48,20 @@ interface SmartGreetingHeroProps {
   onCancel: () => void
 }
 
-interface EmotionAuraProps {
-  active: boolean
-}
-
-interface SmartMessageStackProps {
+interface MessageDeckProps {
   messages: SmartStackMessage[]
   onSelect: (message: SmartStackMessage) => void
 }
 
-interface SmartMessageLayerProps {
+interface MessageCardProps {
   message: SmartStackMessage
-  tone: SmartLayerTone
-  depth: number
-  hovered: boolean
-  dimmed: boolean
+  tone: MessageTone
+  index: number
+  active: boolean
+  muted: boolean
   onSelect: (message: SmartStackMessage) => void
   onActivate: () => void
-  onHoverStart: () => void
-  onHoverEnd: () => void
+  onRelease: () => void
 }
 
 const FALLBACK_MESSAGES: SmartStackMessage[] = [
@@ -100,58 +95,34 @@ const getStoredUserName = (): string => {
   return window.localStorage.getItem('username')?.trim() || ''
 }
 
-const getLayerTone = (index: number): SmartLayerTone => {
-  if (index === 0) return 'top'
-  if (index === 1) return 'mid'
-  return 'bottom'
+const getMessageTone = (index: number): MessageTone => {
+  if (index === 0) return 'primary'
+  if (index === 1) return 'secondary'
+  return 'tertiary'
+}
+
+const getPointerActiveIndex = (
+  pointerY: number,
+  deckHeight: number,
+  messageCount: number
+): number | null => {
+  if (messageCount <= 0) return null
+  if (messageCount === 1) return 0
+
+  const primaryBoundary = deckHeight * 0.31
+  const secondaryBoundary = deckHeight * 0.58
+
+  if (pointerY < primaryBoundary) return 0
+  if (messageCount === 2 || pointerY < secondaryBoundary) return 1
+
+  return 2
 }
 
 const getAssistantInitial = (name: string): string => (
   name.trim().charAt(0).toUpperCase() || 'A'
 )
 
-const EmotionAura: React.FC<EmotionAuraProps> = ({ active }) => {
-  const emotionAssetPack = useAppConfigStore(state => state.appConfig.emotion?.assetPack || 'default')
-  const [assetFailed, setAssetFailed] = useState(false)
-  const mainEmoji = pickEmotionEmoji(WELCOME_EMOTION.label, WELCOME_EMOTION.intensity)
-  const emotionAssetUrl = getEmotionAssetUrl(
-    emotionAssetPack,
-    WELCOME_EMOTION.label,
-    WELCOME_EMOTION.intensity
-  )
-  const shouldRenderAsset = Boolean(emotionAssetUrl) && !assetFailed
-
-  useEffect(() => {
-    setAssetFailed(false)
-  }, [emotionAssetUrl])
-
-  return (
-    <div
-      className={cn(
-        'smart-emotion-aura pointer-events-none absolute z-3',
-        active && 'smart-emotion-aura-active'
-      )}
-      aria-hidden="true"
-    >
-      <div className="smart-emotion-aura-field">
-        <div className="smart-emotion-aura-orb">
-          {shouldRenderAsset ? (
-            <img
-              src={emotionAssetUrl}
-              alt=""
-              className="smart-emotion-aura-asset"
-              onError={() => setAssetFailed(true)}
-            />
-          ) : (
-            <span className="smart-emotion-aura-emoji">{mainEmoji}</span>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const SmartEditableUserName: React.FC<SmartGreetingHeroProps> = ({
+const EditableUserName: React.FC<GreetingProps> = ({
   username,
   usernameDraft,
   isEditingUserName,
@@ -177,9 +148,9 @@ const SmartEditableUserName: React.FC<SmartGreetingHeroProps> = ({
         }}
         placeholder="username"
         className={cn(
-          'inline-block h-[1.24em] w-[min(150px,42vw)] border-0 border-b border-dashed',
-          'border-muted-foreground/50 bg-transparent px-1 text-center font-[inherit]',
-          'text-foreground outline-none focus:border-foreground'
+          'inline-block h-[1.16em] w-[min(168px,44vw)] border-0 border-b border-dashed',
+          'border-muted-foreground/42 bg-transparent px-1 text-center font-[inherit]',
+          'text-foreground outline-hidden focus:border-foreground/70'
         )}
       />
     )
@@ -190,11 +161,12 @@ const SmartEditableUserName: React.FC<SmartGreetingHeroProps> = ({
       type="button"
       onClick={onStartEditing}
       className={cn(
-        'inline-flex min-w-12 max-w-[min(240px,54vw)] items-baseline justify-center',
-        '-mx-[3px] overflow-hidden rounded-lg border-0 bg-transparent px-[5px]',
-        'font-[inherit] text-muted-foreground text-ellipsis whitespace-nowrap transition-colors',
-        'duration-200 ease-(--smart-ease-out) hover:bg-accent/40 hover:text-foreground',
-        'focus-visible:bg-accent/40 focus-visible:text-foreground focus-visible:outline-none',
+        'welcome-v2-name inline-flex max-w-[min(260px,54vw)] items-baseline justify-center',
+        '-mx-1 overflow-hidden rounded-xl border-0 bg-transparent px-1.5',
+        'font-[inherit] text-muted-foreground text-ellipsis whitespace-nowrap',
+        'transition-[background-color,color,box-shadow] duration-200 ease-(--welcome-v2-ease)',
+        'hover:bg-foreground/[0.045] hover:text-foreground',
+        'focus-visible:bg-foreground/[0.055] focus-visible:text-foreground focus-visible:outline-hidden',
         username && 'text-foreground'
       )}
     >
@@ -203,145 +175,162 @@ const SmartEditableUserName: React.FC<SmartGreetingHeroProps> = ({
   )
 }
 
-const SmartGreetingHero: React.FC<SmartGreetingHeroProps> = (props) => (
-  <header className="smart-greeting-hero smart-animate-rise grid justify-items-center gap-4 text-center">
-    <h1 className="m-0 min-h-[1.25em] font-mono text-[clamp(28px,4.2cqi,42px)] font-light leading-[1.18] tracking-normal text-foreground">
-      <span>Hi </span>
-      <SmartEditableUserName {...props} />
+const Greeting: React.FC<GreetingProps> = (props) => (
+  <header className="welcome-v2-greeting grid gap-3 text-left">
+    <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/64">
+      @i workbench
+    </p>
+    <h1 className="m-0 min-h-[1.16em] max-w-[780px] text-[clamp(34px,5.6cqi,62px)] font-semibold leading-[0.98] tracking-[-0.055em] text-foreground">
+      <EditableUserName {...props} />
       <span>{props.typedText}</span>
-      <span className="animate-pulse">|</span>
+      <span className="welcome-v2-caret" aria-hidden="true" />
     </h1>
-
-    <p className="m-0 max-w-[560px] text-[clamp(15px,2cqi,18px)] font-light leading-[1.55] text-muted-foreground">
+    <p className="m-0 max-w-[520px] text-[clamp(14px,1.65cqi,17px)] font-medium leading-6 text-muted-foreground/78">
       {props.subtitleText}
     </p>
   </header>
 )
 
-const SmartMessageLayer: React.FC<SmartMessageLayerProps> = ({
-  message,
-  tone,
-  depth,
-  hovered,
-  dimmed,
-  onSelect,
-  onActivate,
-  onHoverStart,
-  onHoverEnd
-}) => {
-  return (
-    <button
-      type="button"
-      className={cn(
-        'smart-message-layer absolute left-1/2 top-0 block w-[min(590px,92%)] origin-center',
-        'cursor-pointer border-0 bg-transparent p-4 text-left text-inherit',
-        'transition-[opacity,filter,transform] duration-320 ease-(--smart-ease-out)',
-        'will-change-[transform,opacity,filter]',
-        `smart-message-layer-${tone}`,
-        hovered && 'smart-message-layer-hovered',
-        dimmed && 'smart-message-layer-dimmed'
-      )}
-      style={{ '--smart-depth': depth } as React.CSSProperties}
-      onClick={() => {
-        onActivate()
-        onSelect(message)
-      }}
-      onPointerEnter={onHoverStart}
-      onPointerLeave={onHoverEnd}
-      onFocus={onHoverStart}
-      onBlur={onHoverEnd}
-      aria-label={message.title}
-    >
-      <span
-        className={cn(
-          'smart-message-bubble relative grid min-h-28 content-center gap-2 overflow-hidden rounded-[14px]',
-          'border border-(--smart-border) px-3 py-1',
-          'shadow-(--smart-shadow) transition-[border-color,box-shadow,background-color]',
-          'duration-280 ease-(--smart-ease-out)'
-        )}
-      >
-        <span className="relative z-1 text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
-          {message.title}
-        </span>
-        <span className="smart-message-body relative z-1 block max-w-[460px] text-[clamp(15px,2.25cqi,18px)] font-normal leading-[1.48] tracking-normal text-foreground">
-          {message.body}
-        </span>
-        <span
-          className={cn(
-            'smart-message-action absolute bottom-5 right-[22px] z-1 grid size-[30px] place-items-center',
-            'rounded-full bg-foreground/[0.07] text-foreground opacity-0 translate-x-[-6px]',
-            'transition-[opacity,transform,background-color] duration-220 ease-(--smart-ease-out)'
-          )}
-          aria-hidden="true"
-        >
-          <ArrowRight className="size-4" />
-        </span>
-      </span>
-
-      {tone === 'top' && (
-        <span
-          className="smart-message-tail absolute bottom-[-32px] left-[calc(50%+150px)] h-[38px] w-px bg-linear-to-b from-border/80 to-transparent"
-          aria-hidden="true"
-        />
-      )}
-    </button>
+const EmotionBadge: React.FC<{ active: boolean }> = ({ active }) => {
+  const emotionAssetPack = useAppConfigStore(state => state.appConfig.emotion?.assetPack || 'default')
+  const [assetFailed, setAssetFailed] = useState(false)
+  const mainEmoji = pickEmotionEmoji(WELCOME_EMOTION.label, WELCOME_EMOTION.intensity)
+  const emotionAssetUrl = getEmotionAssetUrl(
+    emotionAssetPack,
+    WELCOME_EMOTION.label,
+    WELCOME_EMOTION.intensity
   )
-}
+  const shouldRenderAsset = Boolean(emotionAssetUrl) && !assetFailed
 
-const SmartMessageStack: React.FC<SmartMessageStackProps> = ({
-  messages,
-  onSelect
-}) => {
-  const [pointer, setPointer] = useState({ x: 0, y: 0 })
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const highlightIndex = hoverIndex ?? activeIndex
+  useEffect(() => {
+    setAssetFailed(false)
+  }, [emotionAssetUrl])
 
   return (
     <div
       className={cn(
-        'smart-message-stack relative h-[clamp(286px,39vh,386px)] w-[min(680px,100%)]',
-        'perspective-distant transform-3d'
+        'welcome-v2-emotion pointer-events-none absolute right-[clamp(2px,4cqi,56px)] top-[clamp(0px,2cqi,26px)] z-3',
+        active && 'welcome-v2-emotion-active'
       )}
+      aria-hidden="true"
+    >
+      <div className="welcome-v2-emotion-core">
+        {shouldRenderAsset ? (
+          <img
+            src={emotionAssetUrl}
+            alt=""
+            className="welcome-v2-emotion-asset"
+            onError={() => setAssetFailed(true)}
+          />
+        ) : (
+          <span className="welcome-v2-emotion-emoji">{mainEmoji}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const MessageCard: React.FC<MessageCardProps> = ({
+  message,
+  tone,
+  index,
+  active,
+  muted,
+  onSelect,
+  onActivate,
+  onRelease
+}) => (
+  <button
+    type="button"
+    className={cn(
+      'welcome-v2-deck-card absolute left-1/2 top-0 block w-[min(612px,94%)] origin-center',
+      'cursor-pointer border-0 bg-transparent p-0 text-left text-inherit',
+      'transition-[opacity,filter,transform] duration-320 ease-(--welcome-v2-ease)',
+      'will-change-[transform,opacity,filter]',
+      `welcome-v2-deck-card-${tone}`,
+      active && 'welcome-v2-deck-card-active',
+      muted && 'welcome-v2-deck-card-muted'
+    )}
+    style={{ '--welcome-v2-card-index': index } as React.CSSProperties}
+    onClick={() => onSelect(message)}
+    onFocus={onActivate}
+    onBlur={onRelease}
+    aria-label={message.title}
+  >
+    <span
+      className={cn(
+        'welcome-v2-message relative grid min-h-[118px] content-center gap-2 overflow-hidden rounded-[22px]',
+        'border border-(--welcome-v2-card-border) px-6 py-5 shadow-(--welcome-v2-card-shadow)',
+        'transition-[background-color,border-color,box-shadow] duration-260 ease-(--welcome-v2-ease)'
+      )}
+    >
+      <span className="relative z-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/66">
+        {message.title}
+      </span>
+      <span className="relative z-1 block max-w-[470px] text-[clamp(15px,2.05cqi,18px)] font-medium leading-[1.45] tracking-[-0.012em] text-foreground/90">
+        {message.body}
+      </span>
+      <span
+        className={cn(
+          'welcome-v2-message-action absolute bottom-5 right-5 z-1 grid size-8 place-items-center',
+          'rounded-full bg-foreground/[0.075] text-foreground/78 opacity-0',
+          'transition-[opacity,transform,background-color] duration-220 ease-(--welcome-v2-ease)'
+        )}
+        aria-hidden="true"
+      >
+        <ArrowRight className="size-4" />
+      </span>
+    </span>
+  </button>
+)
+
+const MessageDeck: React.FC<MessageDeckProps> = ({
+  messages,
+  onSelect
+}) => {
+  const [pointer, setPointer] = useState({ x: 0, y: 0 })
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+
+  return (
+    <div
+      className="welcome-v2-deck relative h-[clamp(302px,38vh,386px)] w-[min(760px,100%)] perspective-distant transform-3d"
       style={{
-        '--smart-pointer-x': pointer.x,
-        '--smart-pointer-y': pointer.y
+        '--welcome-v2-pointer-x': pointer.x,
+        '--welcome-v2-pointer-y': pointer.y
       } as React.CSSProperties}
       onPointerMove={event => {
         const rect = event.currentTarget.getBoundingClientRect()
+        const pointerY = event.clientY - rect.top
         setPointer({
           x: (event.clientX - rect.left) / rect.width - 0.5,
           y: (event.clientY - rect.top) / rect.height - 0.5
         })
+        setActiveIndex(getPointerActiveIndex(pointerY, rect.height, messages.length))
       }}
       onPointerLeave={() => {
         setPointer({ x: 0, y: 0 })
-        setHoverIndex(null)
+        setActiveIndex(null)
       }}
       aria-label="Suggested agent messages"
     >
       {messages.map((message, index) => (
-        <SmartMessageLayer
+        <MessageCard
           key={message.id}
           message={message}
-          tone={getLayerTone(index)}
-          depth={index}
-          hovered={highlightIndex === index}
-          dimmed={highlightIndex !== null && highlightIndex !== index}
+          tone={getMessageTone(index)}
+          index={index}
+          active={activeIndex === index}
+          muted={activeIndex !== null && activeIndex !== index}
           onSelect={onSelect}
           onActivate={() => setActiveIndex(index)}
-          onHoverStart={() => {
-            setHoverIndex(index)
-            setActiveIndex(index)
-          }}
-          onHoverEnd={() => setHoverIndex(current => current === index ? null : current)}
+          onRelease={() => setActiveIndex(current => current === index ? null : current)}
         />
       ))}
     </div>
   )
 }
 
-const SmartAssistantSelector: React.FC = () => {
+const SmartWelcomeAssistantSelector: React.FC = () => {
   const { getModelOptions, providersRevision } = useAppConfigStore()
   const { assistants, currentAssistant, setCurrentAssistant, loadAssistants, isLoading } = useAssistantStore()
   const [popoverOpen, setPopoverOpen] = useState(false)
@@ -389,7 +378,7 @@ const SmartAssistantSelector: React.FC = () => {
 
   return (
     <>
-      <div className="smart-assistant-selector smart-animate-rise">
+      <div className="welcome-v2-assistant-selector">
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
             <button
@@ -397,23 +386,23 @@ const SmartAssistantSelector: React.FC = () => {
               aria-label={`Current assistant: ${currentAssistantLabel}`}
               aria-expanded={popoverOpen}
               className={cn(
-                'smart-assistant-trigger group flex h-7 max-w-[176px] items-center gap-1.5 rounded-full border',
-                'border-transparent bg-transparent px-2 text-left text-muted-foreground shadow-none',
-                'transition-[opacity,background-color,border-color,color,transform] duration-240 ease-(--smart-ease-out)',
-                'hover:border-border/42 hover:bg-card/48 hover:text-foreground/78',
-                'focus-visible:border-border/55 focus-visible:bg-card/56 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/18',
+                'welcome-v2-assistant-trigger group flex h-8 max-w-[184px] items-center gap-1.5 rounded-full border',
+                'border-border/32 bg-card/36 px-2.5 text-left text-muted-foreground shadow-xs backdrop-blur-xl',
+                'transition-[background-color,border-color,color,opacity,transform] duration-220 ease-(--welcome-v2-ease)',
+                'hover:border-border/62 hover:bg-card/58 hover:text-foreground/82',
+                'focus-visible:border-border/70 focus-visible:bg-card/64 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/18',
                 'active:scale-[0.99]'
               )}
             >
-              <span className="grid size-4 shrink-0 place-items-center text-muted-foreground/62 transition-colors duration-200 group-hover:text-foreground/68 group-focus-visible:text-foreground/72">
+              <span className="grid size-4 shrink-0 place-items-center text-muted-foreground/68 transition-colors duration-200 group-hover:text-foreground/72">
                 <Bot className="size-3" />
               </span>
-              <span className="min-w-0 max-w-[118px] truncate text-[10.5px] font-medium leading-4 text-current">
+              <span className="min-w-0 max-w-[122px] truncate text-[10.5px] font-semibold leading-4 text-current">
                 {currentAssistantLabel}
               </span>
               <ChevronDown
                 className={cn(
-                  'size-3 shrink-0 text-current opacity-55 transition-[opacity,transform] duration-200 ease-(--smart-ease-out) group-hover:opacity-70',
+                  'size-3 shrink-0 text-current opacity-55 transition-[opacity,transform] duration-200 ease-(--welcome-v2-ease) group-hover:opacity-72',
                   popoverOpen && 'rotate-180'
                 )}
               />
@@ -429,7 +418,7 @@ const SmartAssistantSelector: React.FC = () => {
             )}
           >
             <div className="px-2.5 pb-2 pt-1.5">
-              <p className="m-0 text-[11px] font-semibold uppercase leading-4 tracking-normal text-muted-foreground">
+              <p className="m-0 text-[11px] font-semibold uppercase leading-4 tracking-[0.16em] text-muted-foreground">
                 Assistant
               </p>
               <p className="m-0 truncate text-sm font-medium leading-5 text-foreground">
@@ -453,7 +442,7 @@ const SmartAssistantSelector: React.FC = () => {
                 <button
                   type="button"
                   aria-pressed={currentAssistant === null}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/26"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/26"
                   onClick={() => handleSelectAssistant(null)}
                 >
                   <span className="grid size-8 shrink-0 place-items-center rounded-full bg-foreground/[0.055] text-foreground/70">
@@ -494,7 +483,7 @@ const SmartAssistantSelector: React.FC = () => {
                       <button
                         type="button"
                         aria-pressed={isActive}
-                        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/26"
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/26"
                         onClick={() => handleSelectAssistant(isActive ? null : assistant)}
                       >
                         <span className="grid size-8 shrink-0 place-items-center rounded-full bg-foreground/[0.06] text-[12px] font-semibold text-foreground/72">
@@ -524,7 +513,7 @@ const SmartAssistantSelector: React.FC = () => {
                           'grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground',
                           'opacity-0 transition-[background-color,color,opacity] duration-160',
                           'hover:bg-foreground/[0.055] hover:text-foreground',
-                          'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/26',
+                          'focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/26',
                           'group-hover/assistant:opacity-100 group-focus-within/assistant:opacity-100',
                           isActive && 'opacity-100'
                         )}
@@ -545,7 +534,7 @@ const SmartAssistantSelector: React.FC = () => {
                   'flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/70',
                   'bg-transparent px-3 text-xs font-medium text-muted-foreground transition-[background-color,border-color,color] duration-180',
                   'hover:border-foreground/12 hover:bg-foreground/[0.035] hover:text-foreground',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/26'
+                  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/26'
                 )}
                 onClick={handleCreateAssistant}
               >
@@ -587,11 +576,11 @@ const SmartAssistantSelector: React.FC = () => {
   )
 }
 
-const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
+const SmartWelcomeEntranceV2: React.FC<SmartWelcomeEntranceV2Props> = ({
   className,
-  composer,
   isExiting = false,
   isComposerFocused = false,
+  composer,
   onSuggestionClick
 }) => {
   const [typedText, setTypedText] = useState('')
@@ -656,7 +645,7 @@ const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
   useEffect(() => {
     if (isExiting) return
 
-    const suffixText = `, Good ${timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)}.`
+    const suffixText = `, good ${timeOfDay}.`
     let index = 0
     const typeInterval = window.setInterval(() => {
       if (index <= suffixText.length) {
@@ -721,23 +710,18 @@ const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
   return (
     <section
       className={cn(
-        'smart-welcome-entrance welcome-message relative flex min-h-full h-full grow w-full',
-        'items-stretch justify-start overflow-hidden px-[clamp(20px,5vw,72px)]',
-        'py-[clamp(32px,5vh,56px)] text-foreground @container',
-        isComposerFocused && 'smart-welcome-composer-focused',
+        'welcome-v2-stage welcome-message relative flex h-full min-h-full grow w-full overflow-hidden text-foreground @container',
+        isExiting && 'welcome-v2-exit',
+        isComposerFocused && 'welcome-v2-composer-focused',
         className
       )}
     >
-      <div className="smart-welcome-depth-field pointer-events-none absolute inset-0 opacity-[0.42]" aria-hidden="true">
-        <Sparkle className="absolute left-[calc(50%-min(33vw,310px))] top-[38%] size-4 text-muted-foreground/30" />
-        <Sparkle className="absolute right-[calc(50%-min(31vw,290px))] top-[66%] size-4 scale-[0.74] text-muted-foreground/30" />
-      </div>
+      <div className="welcome-v2-bg" aria-hidden="true" />
+      <SmartWelcomeAssistantSelector />
 
-      <SmartAssistantSelector />
-
-      <div className="smart-welcome-inner smart-welcome-layout relative z-1 mx-auto w-[min(820px,100%)]">
-        <div className="smart-welcome-top">
-          <SmartGreetingHero
+      <div className="welcome-v2-shell relative z-1 mx-auto flex h-full min-h-0 w-[min(940px,100%)] flex-col px-[clamp(20px,5vw,72px)] pb-[clamp(20px,4vh,46px)] pt-(--welcome-v2-safe-top)">
+        <div className="welcome-v2-top relative flex shrink-0 basis-[clamp(134px,20vh,198px)] items-end">
+          <Greeting
             typedText={typedText}
             subtitleText={subtitleText}
             username={username}
@@ -748,25 +732,22 @@ const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
             onSave={saveUserName}
             onCancel={cancelEditingUserName}
           />
+          <EmotionBadge active={isComposerFocused} />
         </div>
 
-        <div className="smart-welcome-middle">
-          <EmotionAura active={isComposerFocused} />
-
-          <SmartMessageStack
+        <div className="welcome-v2-middle relative grid min-h-0 flex-1 place-items-center py-[clamp(8px,2vh,22px)]">
+          <MessageDeck
             messages={stackMessages}
             onSelect={handleMessageSelect}
           />
         </div>
 
-        {composer && (
-          <div className="smart-welcome-bottom">
-            {composer}
-          </div>
-        )}
+        <div className="welcome-v2-bottom relative z-10 grid shrink-0 basis-[clamp(112px,18vh,166px)] items-end justify-items-center">
+          {composer}
+        </div>
       </div>
     </section>
   )
 }
 
-export default SmartWelcomeEntrance
+export default SmartWelcomeEntranceV2
