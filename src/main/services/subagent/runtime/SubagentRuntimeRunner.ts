@@ -12,7 +12,7 @@ import { DefaultUserRecordMaterializer } from '@main/agent/runtime/transcript/Us
 import { DefaultToolBatchAssembler } from '@main/agent/runtime/tools/ToolBatchAssembler'
 import { ToolExecutor } from '@main/agent/tools'
 import type { ToolCallProps } from '@main/agent/contracts'
-import type { ResolvedAgentApprovalPolicy } from '@tools/approval'
+import { normalizePermissionApprovalMode, type ResolvedAgentApprovalPolicy } from '@tools/approval'
 import type { RunSpec } from '@main/agent/contracts'
 import type { ToolExecutorConfig } from '@main/agent/tools'
 import { DefaultSubagentHostRunRequestBuilder } from './SubagentHostRunRequestBuilder'
@@ -107,7 +107,10 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
         submissionId: input.parentSubmissionId,
         signal: undefined,
         allowedTools: context.allowedTools,
-        approvalPolicy: SUBAGENT_APPROVAL_POLICY,
+        approvalPolicy: {
+          ...SUBAGENT_APPROVAL_POLICY,
+          permissionApprovalMode: normalizePermissionApprovalMode(input.permissionApprovalMode)
+        },
         confirmationSource,
         requestConfirmation
       })

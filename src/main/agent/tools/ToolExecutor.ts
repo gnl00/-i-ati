@@ -3,7 +3,11 @@ import { assessCommandFilesystemScope } from '@main/tools/command/filesystemScop
 import { assessExecuteCommandReview } from '@main/tools/command/risk'
 import { embeddedToolsRegistry } from '@tools/registry'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
-import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
+import {
+  normalizePermissionApprovalMode,
+  type AgentConfirmationSource,
+  type ResolvedAgentApprovalPolicy
+} from '@tools/approval'
 import { v4 as uuidv4 } from 'uuid'
 import type { ToolCallProps } from '@main/agent/contracts'
 import { AbortError, ToolExecutionError } from '@main/agent/contracts'
@@ -141,7 +145,12 @@ export class ToolExecutor implements IToolExecutor {
           filesystem_scope: runtimeArgs?.filesystem_scope,
           filesystem_scope_reason: runtimeArgs?.filesystem_scope_reason
         })
-        if (risk.level === 'dangerous' || risk.level === 'warning' || filesystemScope.requiresConfirmation) {
+        if (this.shouldAutoApproveAppConfirmation()) {
+          runtimeArgs = {
+            ...runtimeArgs,
+            confirmed: true
+          }
+        } else if (risk.level === 'dangerous' || risk.level === 'warning' || filesystemScope.requiresConfirmation) {
           const decision = await this.requestConfirmation({
             toolCallId: toolId,
             name: toolName,
@@ -296,6 +305,10 @@ export class ToolExecutor implements IToolExecutor {
       if (this.submissionId && !nextArgs.parent_submission_id) {
         nextArgs = { ...nextArgs, parent_submission_id: this.submissionId }
       }
+      nextArgs = {
+        ...nextArgs,
+        permission_approval_mode: normalizePermissionApprovalMode(this.approvalPolicy.permissionApprovalMode)
+      }
     }
 
     return nextArgs
@@ -312,7 +325,11 @@ export class ToolExecutor implements IToolExecutor {
   }
 
   private shouldAutoApprovePlanCreate(): boolean {
-    return this.approvalPolicy.mode === 'relaxed'
+    return this.approvalPolicy.mode === 'relaxed' || this.shouldAutoApproveAppConfirmation()
+  }
+
+  private shouldAutoApproveAppConfirmation(): boolean {
+    return normalizePermissionApprovalMode(this.approvalPolicy.permissionApprovalMode) === 'auto'
   }
 
   private createErrorResult(

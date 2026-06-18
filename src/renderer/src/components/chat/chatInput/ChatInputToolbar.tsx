@@ -1,6 +1,7 @@
 import { cn } from '@renderer/lib/utils'
 import { ChatToolbarModelSelector } from '@renderer/components/shared/model-selector'
 import { Button } from '@renderer/components/ui/button'
+import PermissionApprovalModeSelector from './toolbar/PermissionApprovalModeSelector'
 import {
   Tooltip,
   TooltipContent,
@@ -17,9 +18,11 @@ interface ChatInputToolbarProps {
   modelOptions: ModelOption[]
   plugins?: PluginEntity[]
   selectedThinkingLevel?: ThinkingLevel
+  permissionApprovalMode: PermissionApprovalMode
   modelMenuCollisionBoundary?: HTMLElement | null
   setSelectedModelRef: (ref: ModelRef) => void
   setSelectedThinkingLevel: (level: ThinkingLevel | undefined) => void
+  setPermissionApprovalMode: (mode: PermissionApprovalMode) => void
 
   // Queue preview
   queuedFirstText?: string
@@ -36,9 +39,11 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   modelOptions,
   plugins,
   selectedThinkingLevel,
+  permissionApprovalMode,
   modelMenuCollisionBoundary,
   setSelectedModelRef,
   setSelectedThinkingLevel,
+  setPermissionApprovalMode,
   queuedFirstText,
   queuedCount,
   queuePaused,
@@ -145,6 +150,12 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           />
         </div>
 
+        <PermissionApprovalModeSelector
+          value={permissionApprovalMode}
+          onChange={setPermissionApprovalMode}
+          variant="baseline"
+        />
+
         {queueVisible && queuePreview && (
           <div className={cn(
             'hidden min-w-0 items-center gap-1.5 rounded-full border border-border/25 bg-foreground/[0.025] px-2 py-1 text-[10px] font-medium text-muted-foreground sm:flex',
@@ -218,6 +229,12 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           />
         </div>
 
+        <PermissionApprovalModeSelector
+          value={permissionApprovalMode}
+          onChange={setPermissionApprovalMode}
+          variant="surface"
+        />
+
         {queueVisible && queuePreview && (
           <div className={cn(
             'hidden min-w-0 items-center gap-1.5 rounded-xl border border-border/25 bg-foreground/[0.025] px-2 py-1 text-[10px] font-medium text-muted-foreground md:flex',
@@ -260,6 +277,12 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           variant="default"
         />
       </div>
+
+      <PermissionApprovalModeSelector
+        value={permissionApprovalMode}
+        onChange={setPermissionApprovalMode}
+        variant="default"
+      />
 
       {/* Config Panel */}
       <div id="customPanel" className='grow w-full bg-transparent'>

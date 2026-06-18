@@ -634,6 +634,7 @@ export async function invokeRunStart(data: {
     options?: IUnifiedRequest['options']
     stream?: boolean
     chatUserInstruction?: string
+    permissionApprovalMode?: PermissionApprovalMode
   }
   modelRef: ModelRef
   chatId?: number

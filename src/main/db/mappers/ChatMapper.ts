@@ -1,6 +1,7 @@
 import type { ChatRow } from '@main/db/dao/ChatDao'
+import { normalizePermissionApprovalMode } from '@tools/approval'
 
-type ChatRowOverrides = Partial<Pick<ChatRow, 'id' | 'create_time' | 'update_time' | 'user_instruction'>>
+type ChatRowOverrides = Partial<Pick<ChatRow, 'id' | 'create_time' | 'update_time' | 'user_instruction' | 'permission_approval_mode'>>
 
 export const toChatRow = (
   chat: ChatEntity,
@@ -15,6 +16,9 @@ export const toChatRow = (
   model_model_id: chat.modelRef?.modelId ?? null,
   workspace_path: chat.workspacePath ?? null,
   user_instruction: overrides.user_instruction ?? chat.userInstruction ?? null,
+  permission_approval_mode: normalizePermissionApprovalMode(
+    overrides.permission_approval_mode ?? chat.permissionApprovalMode
+  ),
   create_time: overrides.create_time ?? chat.createTime ?? now,
   update_time: overrides.update_time ?? chat.updateTime ?? now
 })
@@ -32,6 +36,7 @@ export const toChatEntity = (row: ChatRow): ChatEntity => ({
     : undefined,
   workspacePath: row.workspace_path ?? undefined,
   userInstruction: row.user_instruction ?? undefined,
+  permissionApprovalMode: normalizePermissionApprovalMode(row.permission_approval_mode),
   createTime: row.create_time,
   updateTime: row.update_time,
   messages: []

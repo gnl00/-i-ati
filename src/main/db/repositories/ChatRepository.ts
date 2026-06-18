@@ -46,7 +46,8 @@ export class ChatRepository {
     const existing = chatRepo.getChatById(data.id)
     chatRepo.updateChat(toChatRow(data, Date.now(), {
       id: data.id,
-      user_instruction: data.userInstruction ?? existing?.user_instruction ?? null
+      user_instruction: data.userInstruction ?? existing?.user_instruction ?? null,
+      permission_approval_mode: data.permissionApprovalMode ?? existing?.permission_approval_mode ?? null
     }))
   }
 

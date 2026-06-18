@@ -4,6 +4,7 @@ import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import DatabaseService from '@main/db/DatabaseService'
 import type { MainAgentRunInput } from '../preparation'
+import { normalizePermissionApprovalMode } from '@tools/approval'
 
 const DEFAULT_WORKSPACE_DIR = 'workspaces'
 
@@ -33,6 +34,7 @@ export class ChatSessionStore {
       modelRef: input.modelRef,
       workspacePath,
       userInstruction: input.input.chatUserInstruction || '',
+      permissionApprovalMode: normalizePermissionApprovalMode(input.input.permissionApprovalMode),
       createTime: Date.now(),
       updateTime: Date.now()
     }

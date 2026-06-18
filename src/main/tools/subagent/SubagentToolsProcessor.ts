@@ -1,4 +1,5 @@
 import subagentRunService from '@main/services/subagent/subagent-run-service'
+import { normalizePermissionApprovalMode } from '@tools/approval'
 import type {
   SubagentRole,
   SubagentSpawnResponse,
@@ -14,6 +15,7 @@ type SubagentSpawnArgs = {
   chat_uuid?: string
   model_ref?: ModelRef
   parent_submission_id?: string
+  permission_approval_mode?: PermissionApprovalMode
 }
 
 type SubagentWaitArgs = {
@@ -51,7 +53,8 @@ export async function processSubagentSpawn(
     files: Array.isArray(args.files) ? args.files.map(file => file.trim()).filter(Boolean) : [],
     chatUuid: args.chat_uuid,
     modelRef: args.model_ref,
-    parentSubmissionId: args.parent_submission_id
+    parentSubmissionId: args.parent_submission_id,
+    permissionApprovalMode: normalizePermissionApprovalMode(args.permission_approval_mode)
   })
 
   return {

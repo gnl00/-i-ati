@@ -3,6 +3,10 @@ import type { StateCreator } from 'zustand'
 import type { ChatSessionActions, ChatSessionState } from './chatSessionStore'
 import type { ChatTranscriptActions, ChatTranscriptState } from './chatTranscriptStore'
 import type { ChatRunUiActions, ChatRunUiState } from './chatRunUiStore'
+import {
+  DEFAULT_PERMISSION_APPROVAL_MODE,
+  normalizePermissionApprovalMode
+} from '@shared/tools/approval'
 
 export type ChatCoordinatorActions = {
   hydrateChat: (chatId: number) => Promise<void>
@@ -47,6 +51,7 @@ function applyChatShellSelection<T extends ChatCoordinatorSliceState>(
 
   const nextTitle = resolvedChat?.title ?? (chatId || chatUuid ? get().chatTitle : 'NewChat')
   const nextUserInstruction = resolvedChat?.userInstruction ?? ''
+  const nextPermissionApprovalMode = normalizePermissionApprovalMode(resolvedChat?.permissionApprovalMode)
 
   if (currentChatId !== chatId || currentChatUuid !== chatUuid) {
     const transcriptBuffer = chatUuid
@@ -64,6 +69,7 @@ function applyChatShellSelection<T extends ChatCoordinatorSliceState>(
       postRunJobs: runStatus.postRunJobs,
       lastRunOutcome: runStatus.lastRunOutcome,
       userInstruction: nextUserInstruction,
+      permissionApprovalMode: nextPermissionApprovalMode,
       scrollHint: { type: 'none' }
     } as Partial<T>)
     return
@@ -73,7 +79,8 @@ function applyChatShellSelection<T extends ChatCoordinatorSliceState>(
     currentChatId: chatId,
     currentChatUuid: chatUuid,
     chatTitle: nextTitle,
-    userInstruction: nextUserInstruction
+    userInstruction: nextUserInstruction,
+    permissionApprovalMode: nextPermissionApprovalMode
   } as Partial<T>)
 }
 
@@ -100,6 +107,7 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
         currentChatUuid: chat.uuid,
         chatTitle: chat.title || 'NewChat',
         userInstruction: chat.userInstruction || '',
+        permissionApprovalMode: normalizePermissionApprovalMode(chat.permissionApprovalMode),
         runPhase: runStatus.runPhase,
         postRunJobs: runStatus.postRunJobs,
         lastRunOutcome: runStatus.lastRunOutcome,
@@ -134,6 +142,7 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
         },
         lastRunOutcome: 'idle',
         userInstruction: '',
+        permissionApprovalMode: DEFAULT_PERMISSION_APPROVAL_MODE,
         scrollHint: { type: 'none' }
       } as Partial<T>)
 

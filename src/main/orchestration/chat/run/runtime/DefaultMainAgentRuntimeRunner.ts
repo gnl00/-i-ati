@@ -17,6 +17,7 @@ import {
 } from '@main/hosts/chat/runtime'
 import { ChatLoadedSkillsTranscriptContextProvider } from '@main/hosts/chat/runtime/LoadedSkillsTranscriptContextProvider'
 import { HostRenderEventForwarder } from '@main/hosts/shared/render'
+import { normalizePermissionApprovalMode } from '@tools/approval'
 import { DefaultAgentRunCompletionAdapter } from './AgentRunCompletionAdapter'
 import type {
   MainAgentRuntimeRunner,
@@ -121,6 +122,10 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       modelRef: {
         accountId: input.prepared.runSpec.modelContext.account.id,
         modelId: input.prepared.runSpec.modelContext.model.id
+      },
+      approvalPolicy: {
+        mode: 'strict',
+        permissionApprovalMode: normalizePermissionApprovalMode(input.runInput.input.permissionApprovalMode)
       },
       requestConfirmation: (request) => input.toolConfirmationRequester.request(request)
     })

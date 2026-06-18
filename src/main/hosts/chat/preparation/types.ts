@@ -10,6 +10,7 @@ export type HostRunInputState = {
   options?: IUnifiedRequest['options']
   stream?: boolean
   chatUserInstruction?: string
+  permissionApprovalMode?: PermissionApprovalMode
 }
 
 export type MainAgentRunInput = {

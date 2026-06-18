@@ -328,6 +328,27 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).toHaveBeenCalledTimes(1)
   })
 
+  it('auto-approves plan_create under session auto approval mode', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({ approved: true }))
+    const executor = new ToolExecutor({
+      approvalPolicy: { mode: 'strict', permissionApprovalMode: 'auto' },
+      requestConfirmation
+    })
+
+    await executor.execute([{
+      id: 'call-8a',
+      function: 'plan_create',
+      args: JSON.stringify({
+        goal: 'Ship feature',
+        steps: []
+      })
+    } as any])
+
+    expect(requestConfirmation).not.toHaveBeenCalled()
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+  })
+
   it('returns an aborted error result when confirmation is rejected', async () => {
     handlerMock.mockClear()
     const requestConfirmation = vi.fn(async () => ({
@@ -387,6 +408,45 @@ describe('ToolExecutor runtime context', () => {
     expect(result.status).toBe('aborted')
     expect(result.id).toBe('call-8c')
     expect(result.error?.message).toContain('user_cancelled')
+  })
+
+  it('auto-approves command app confirmation under session auto approval mode', async () => {
+    handlerMock.mockClear()
+    assessExecuteCommandReviewMock.mockReturnValueOnce({
+      level: 'dangerous',
+      reason: 'dangerous command',
+      possibleRisk: 'may change files',
+      normalizedRiskScore: 8
+    })
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'manual denial'
+    }))
+    const executor = new ToolExecutor({
+      approvalPolicy: { mode: 'strict', permissionApprovalMode: 'auto' },
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-8c-auto',
+      function: 'execute_command',
+      args: JSON.stringify({
+        command: 'rm -rf ./tmp-output',
+        execution_reason: 'Clean generated output',
+        possible_risk: 'May delete generated files',
+        risk_score: 8,
+        filesystem_scope: 'workspace',
+        filesystem_scope_reason: 'Deletes a generated folder inside the workspace.'
+      })
+    } as any])
+
+    expect(assessExecuteCommandReviewMock).toHaveBeenCalled()
+    expect(requestConfirmation).not.toHaveBeenCalled()
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    expect(handlerMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+      confirmed: true
+    }))
+    expect(result.status).toBe('success')
   })
 
   it('requires confirmation for outside workspace filesystem access even with low command risk', async () => {

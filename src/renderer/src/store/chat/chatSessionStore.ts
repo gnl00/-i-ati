@@ -6,6 +6,10 @@ import {
   resolveExistingChatModelRef,
   resolveNewChatModelRef
 } from '@shared/services/ChatModelResolver'
+import {
+  DEFAULT_PERMISSION_APPROVAL_MODE,
+  normalizePermissionApprovalMode
+} from '@shared/tools/approval'
 import type { StateCreator } from 'zustand'
 
 export type ChatSessionState = {
@@ -16,6 +20,7 @@ export type ChatSessionState = {
   chatTitle: string
   chatList: ChatEntity[]
   userInstruction: string
+  permissionApprovalMode: PermissionApprovalMode
 }
 
 export type ChatSessionActions = {
@@ -34,6 +39,7 @@ export type ChatSessionActions = {
   editUserInstructionDraft: (value: string) => void
   applyAssistantInstructionPreset: (value: string) => void
   persistUserInstructionDraft: () => Promise<void>
+  setPermissionApprovalMode: (mode: PermissionApprovalMode) => Promise<void>
   updateWorkspacePath: (workspacePath?: string) => Promise<void>
 }
 
@@ -48,7 +54,8 @@ export const createInitialChatSessionState = (): ChatSessionState => ({
   currentChatUuid: null,
   chatTitle: 'NewChat',
   chatList: [],
-  userInstruction: ''
+  userInstruction: '',
+  permissionApprovalMode: DEFAULT_PERMISSION_APPROVAL_MODE
 })
 
 export function createChatSessionActions<T extends ChatSessionSliceState>(
@@ -109,7 +116,10 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
             const merged: ChatEntity = {
               ...item,
               ...chatEntity,
-              userInstruction: chatEntity.userInstruction ?? item.userInstruction
+              userInstruction: chatEntity.userInstruction ?? item.userInstruction,
+              permissionApprovalMode: normalizePermissionApprovalMode(
+                chatEntity.permissionApprovalMode ?? item.permissionApprovalMode
+              )
             }
             return merged
           })
@@ -121,7 +131,11 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
         userInstruction:
           state.currentChatUuid === chatEntity.uuid
             ? (chatEntity.userInstruction ?? state.userInstruction)
-            : state.userInstruction
+            : state.userInstruction,
+        permissionApprovalMode:
+          state.currentChatUuid === chatEntity.uuid
+            ? normalizePermissionApprovalMode(chatEntity.permissionApprovalMode ?? state.permissionApprovalMode)
+            : state.permissionApprovalMode
       } as Partial<T>))
     },
 
@@ -137,7 +151,8 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
         : chat
 
       set({
-        userInstruction: resolvedChat?.userInstruction ?? ''
+        userInstruction: resolvedChat?.userInstruction ?? '',
+        permissionApprovalMode: normalizePermissionApprovalMode(resolvedChat?.permissionApprovalMode)
       } as Partial<T>)
     },
     editUserInstructionDraft: (value) => set({ userInstruction: value } as Partial<T>),
@@ -162,6 +177,35 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
       const updatedChat: ChatEntity = {
         ...currentChat,
         userInstruction: nextValue,
+        updateTime: Date.now()
+      }
+
+      await updateChat(updatedChat)
+      get().updateChatList(updatedChat)
+    },
+
+    setPermissionApprovalMode: async (mode) => {
+      const nextMode = normalizePermissionApprovalMode(mode)
+      set({ permissionApprovalMode: nextMode } as Partial<T>)
+
+      const state = get()
+      const currentChat = getChatFromList({
+        chatUuid: state.currentChatUuid ?? undefined,
+        chatId: state.currentChatId ?? undefined,
+        chatList: state.chatList
+      })
+      if (!currentChat || !currentChat.id) {
+        return
+      }
+
+      const currentMode = normalizePermissionApprovalMode(currentChat.permissionApprovalMode)
+      if (nextMode === currentMode) {
+        return
+      }
+
+      const updatedChat: ChatEntity = {
+        ...currentChat,
+        permissionApprovalMode: nextMode,
         updateTime: Date.now()
       }
 

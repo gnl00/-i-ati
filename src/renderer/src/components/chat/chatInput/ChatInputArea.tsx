@@ -56,8 +56,10 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const selectedThinkingLevel = useChatStore(state => state.selectedThinkingLevel)
+  const permissionApprovalMode = useChatStore(state => state.permissionApprovalMode)
   const setSelectedModelRef = useChatStore(state => state.setSelectedModelRef)
   const setSelectedThinkingLevel = useChatStore(state => state.setSelectedThinkingLevel)
+  const setPermissionApprovalMode = useChatStore(state => state.setPermissionApprovalMode)
   const ensureSelectedModelRef = useChatStore(state => state.ensureSelectedModelRef)
   const editUserInstructionDraft = useChatStore(state => state.editUserInstructionDraft)
 
@@ -677,9 +679,11 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               modelOptions={modelOptions}
               plugins={plugins}
               selectedThinkingLevel={selectedThinkingLevel}
+              permissionApprovalMode={permissionApprovalMode}
               modelMenuCollisionBoundary={modelMenuCollisionBoundary}
               setSelectedModelRef={setSelectedModelRef}
               setSelectedThinkingLevel={setSelectedThinkingLevel}
+              setPermissionApprovalMode={setPermissionApprovalMode}
               queuedFirstText={queuedMessages[0]?.text}
               queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
               queuePaused={queuePaused}
@@ -788,9 +792,11 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
                 modelOptions={modelOptions}
                 plugins={plugins}
                 selectedThinkingLevel={selectedThinkingLevel}
+                permissionApprovalMode={permissionApprovalMode}
                 modelMenuCollisionBoundary={modelMenuCollisionBoundary}
                 setSelectedModelRef={setSelectedModelRef}
                 setSelectedThinkingLevel={setSelectedThinkingLevel}
+                setPermissionApprovalMode={setPermissionApprovalMode}
                 queuedFirstText={queuedMessages[0]?.text}
                 queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
                 queuePaused={queuePaused}

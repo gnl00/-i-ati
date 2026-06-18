@@ -14,6 +14,7 @@ export type SubagentSpawnInput = SubagentModelRuntimeInput & {
   contextMode: SubagentContextMode
   files: string[]
   parentSubmissionId?: string
+  permissionApprovalMode?: PermissionApprovalMode
 }
 
 export type SubagentExecutionResult = {

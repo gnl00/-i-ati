@@ -536,6 +536,7 @@ class AppDatabase {
         model_model_id TEXT,
         workspace_path TEXT,
         user_instruction TEXT,
+        permission_approval_mode TEXT DEFAULT 'manual',
         create_time INTEGER NOT NULL,
         update_time INTEGER NOT NULL
       )
@@ -550,6 +551,11 @@ class AppDatabase {
     const hasOldModelColumn = columnNames.has('model')
     const hasModelAccountId = columnNames.has('model_account_id')
     const hasModelModelId = columnNames.has('model_model_id')
+    const hasPermissionApprovalMode = columnNames.has('permission_approval_mode')
+
+    if (!hasPermissionApprovalMode) {
+      this.ensureColumn('chats', 'permission_approval_mode', "TEXT DEFAULT 'manual'")
+    }
 
     if (!hasOldModelColumn && hasModelAccountId && hasModelModelId) {
       return

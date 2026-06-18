@@ -13,6 +13,7 @@ describe('chatMapper', () => {
       },
       workspacePath: '/tmp/workspace',
       userInstruction: 'be concise',
+      permissionApprovalMode: 'auto',
       createTime: 100,
       updateTime: 200,
       messages: []
@@ -25,6 +26,7 @@ describe('chatMapper', () => {
       model_model_id: 'model-1',
       workspace_path: '/tmp/workspace',
       user_instruction: 'be concise',
+      permission_approval_mode: 'auto',
       create_time: 100,
       update_time: 200
     })
@@ -40,6 +42,7 @@ describe('chatMapper', () => {
       model_model_id: 'model-1',
       workspace_path: '/tmp/workspace',
       user_instruction: 'be concise',
+      permission_approval_mode: 'auto',
       create_time: 100,
       update_time: 200
     })).toEqual({
@@ -53,8 +56,37 @@ describe('chatMapper', () => {
       },
       workspacePath: '/tmp/workspace',
       userInstruction: 'be concise',
+      permissionApprovalMode: 'auto',
       createTime: 100,
       updateTime: 200,
+      messages: []
+    })
+  })
+
+  it('defaults missing permission approval mode to manual', () => {
+    expect(toChatEntity({
+      id: 4,
+      uuid: 'chat-2',
+      title: 'Legacy Chat',
+      msg_count: 0,
+      model_account_id: null,
+      model_model_id: null,
+      workspace_path: null,
+      user_instruction: null,
+      permission_approval_mode: null,
+      create_time: 300,
+      update_time: 400
+    })).toEqual({
+      id: 4,
+      uuid: 'chat-2',
+      title: 'Legacy Chat',
+      msgCount: 0,
+      modelRef: undefined,
+      workspacePath: undefined,
+      userInstruction: undefined,
+      permissionApprovalMode: 'manual',
+      createTime: 300,
+      updateTime: 400,
       messages: []
     })
   })

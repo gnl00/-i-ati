@@ -9,6 +9,7 @@ interface ChatRow {
   model_model_id: string | null
   workspace_path: string | null
   user_instruction: string | null
+  permission_approval_mode: PermissionApprovalMode | null
   create_time: number
   update_time: number
 }
@@ -29,9 +30,9 @@ class ChatDao {
     this.stmts = {
       insertChat: db.prepare(`
         INSERT INTO chats (
-          uuid, title, model_account_id, model_model_id, workspace_path, user_instruction, create_time, update_time
+          uuid, title, model_account_id, model_model_id, workspace_path, user_instruction, permission_approval_mode, create_time, update_time
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
       getAllChats: db.prepare(`
         SELECT * FROM chats ORDER BY update_time DESC
@@ -47,7 +48,7 @@ class ChatDao {
       `),
       updateChat: db.prepare(`
         UPDATE chats SET
-          uuid = ?, title = ?, model_account_id = ?, model_model_id = ?, workspace_path = ?, user_instruction = ?,
+          uuid = ?, title = ?, model_account_id = ?, model_model_id = ?, workspace_path = ?, user_instruction = ?, permission_approval_mode = ?,
           create_time = ?, update_time = ?
         WHERE id = ?
       `),
@@ -68,6 +69,7 @@ class ChatDao {
       row.model_model_id,
       row.workspace_path,
       row.user_instruction,
+      row.permission_approval_mode,
       row.create_time,
       row.update_time
     )
@@ -99,6 +101,7 @@ class ChatDao {
       row.model_model_id,
       row.workspace_path,
       row.user_instruction,
+      row.permission_approval_mode,
       row.create_time,
       row.update_time,
       row.id

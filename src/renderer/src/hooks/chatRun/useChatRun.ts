@@ -224,7 +224,8 @@ export default function useChatRun() {
           userInstruction: options.userInstruction,
           options: options.options,
           stream: options.stream,
-          chatUserInstruction: state.userInstruction
+          chatUserInstruction: state.userInstruction,
+          permissionApprovalMode: state.permissionApprovalMode
         },
         modelRef,
         chatId: state.currentChatId ?? undefined,
