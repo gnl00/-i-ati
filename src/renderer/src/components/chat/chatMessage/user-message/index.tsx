@@ -92,72 +92,114 @@ const CollapsibleUserMessageContent: React.FC<{
 
   return (
     <div className="relative">
-      <div
-        ref={contentRef}
-        data-testid="user-message-collapsible-content"
-        data-expanded={isExpanded ? 'true' : 'false'}
-        className="overflow-hidden transition-none"
-        style={maxHeight ? { maxHeight } : undefined}
-      >
-        {children}
+      <div className="relative">
+        <div
+          ref={contentRef}
+          data-testid="user-message-collapsible-content"
+          data-expanded={isExpanded ? 'true' : 'false'}
+          className={cn(
+            "overflow-hidden transition-[max-height,opacity,filter] duration-[280ms] ease-[cubic-bezier(0.25,1,0.5,1)]",
+            "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:filter-none",
+            showCollapseControls && !isExpanded ? "opacity-[0.992] saturate-[0.98]" : "opacity-100 saturate-100"
+          )}
+          style={maxHeight ? { maxHeight } : undefined}
+        >
+          {children}
+        </div>
+
+        {showCollapseControls && (
+          <>
+            <div
+              aria-hidden="true"
+              data-testid={isExpanded ? undefined : 'user-message-collapse-fade'}
+              className={cn(
+                "pointer-events-none absolute inset-x-0 bottom-0 h-24",
+                "bg-linear-to-b from-slate-100/0 via-slate-100/72 to-slate-100",
+                "transition-opacity duration-260 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none",
+                isExpanded ? "opacity-0" : "opacity-100",
+                "dark:from-gray-800/0 dark:via-gray-800/72 dark:to-gray-800"
+              )}
+            />
+            <div
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute inset-x-0 bottom-0 h-[72px]",
+                "bg-slate-100/38 backdrop-blur-[3px]",
+                "mask-[linear-gradient(to_bottom,transparent_0%,black_48%)]",
+                "[-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_48%)]",
+                "transition-opacity duration-260 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none",
+                isExpanded ? "opacity-0" : "opacity-100",
+                "dark:bg-gray-800/42"
+              )}
+            />
+          </>
+        )}
       </div>
 
       {showCollapseControls && (
-        <>
-          {!isExpanded && (
-            <>
-              <div
-                aria-hidden="true"
-                data-testid="user-message-collapse-fade"
-                className={cn(
-                  "pointer-events-none absolute inset-x-0 bottom-0 h-24",
-                  "bg-linear-to-b from-slate-100/0 via-slate-100/72 to-slate-100",
-                  "dark:from-gray-800/0 dark:via-gray-800/72 dark:to-gray-800"
-                )}
-              />
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute inset-x-0 bottom-0 h-[72px]",
-                  "bg-slate-100/38 backdrop-blur-[3px]",
-                  "mask-[linear-gradient(to_bottom,transparent_0%,black_48%)]",
-                  "[-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_48%)]",
-                  "dark:bg-gray-800/42"
-                )}
-              />
-            </>
+        <div
+          className={cn(
+            "relative z-10 mt-2 flex justify-center",
+            "transition-[opacity,transform,filter] duration-240 ease-[cubic-bezier(0.25,1,0.5,1)]",
+            "motion-reduce:transition-none motion-reduce:translate-y-0 motion-reduce:scale-100 motion-reduce:filter-none"
           )}
-          <div
+        >
+          <button
+            type="button"
+            aria-expanded={isExpanded}
+            data-testid={isExpanded ? 'user-message-collapse-button' : 'user-message-expand-button'}
+            onClick={onToggleExpanded}
             className={cn(
-              isExpanded
-                ? "mt-2 flex justify-center"
-                : "absolute inset-x-0 bottom-2 z-10 flex justify-center"
+              "inline-flex h-7 min-w-27 items-center justify-center gap-1 rounded-full px-2.5",
+              "bg-white/25 text-xs font-medium text-slate-600",
+              "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
+              "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
+              "hover:scale-[1.015] hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
+              "active:scale-[0.99]",
+              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
+              "motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100",
+              "dark:border-white/10 dark:bg-gray-950/58 dark:text-gray-300 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)]",
+              "dark:hover:border-white/16 dark:hover:bg-gray-950/78 dark:hover:text-white"
             )}
           >
-            <button
-              type="button"
-              data-testid={isExpanded ? 'user-message-collapse-button' : 'user-message-expand-button'}
-              onClick={onToggleExpanded}
-              className={cn(
-                "inline-flex h-7 items-center gap-1 rounded-full px-2.5",
-                "bg-white/25 text-xs font-medium text-slate-600",
-                "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
-                "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
-                "hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
-                "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
-                "dark:border-white/10 dark:bg-gray-950/58 dark:text-gray-300 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)]",
-                "dark:hover:border-white/16 dark:hover:bg-gray-950/78 dark:hover:text-white"
+            <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+              <ChevronDown
+                className={cn(
+                  "absolute h-3.5 w-3.5 transition-[opacity,transform,filter] duration-220 ease-[cubic-bezier(0.25,1,0.5,1)]",
+                  "motion-reduce:transition-none motion-reduce:rotate-0 motion-reduce:scale-100 motion-reduce:filter-none",
+                  isExpanded ? "opacity-0 rotate-90 scale-90 blur-[1px]" : "opacity-100 rotate-0 scale-100 blur-0"
               )}
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
-              )}
-              <span>{isExpanded ? 'Hide' : 'Show More'}</span>
-            </button>
-          </div>
-        </>
+              />
+              <ChevronUp
+                className={cn(
+                  "absolute h-3.5 w-3.5 transition-[opacity,transform,filter] duration-220 ease-[cubic-bezier(0.25,1,0.5,1)]",
+                  "motion-reduce:transition-none motion-reduce:rotate-0 motion-reduce:scale-100 motion-reduce:filter-none",
+                  isExpanded ? "opacity-100 rotate-0 scale-100 blur-0" : "opacity-0 -rotate-90 scale-90 blur-[1px]"
+                )}
+              />
+            </span>
+            <span className="relative inline-grid min-w-[4.75rem] grid-cols-1 justify-items-center overflow-hidden">
+              <span
+                className={cn(
+                  "col-start-1 row-start-1 transition-[opacity,transform,filter] duration-[220ms] ease-[cubic-bezier(0.25,1,0.5,1)]",
+                  "motion-reduce:transition-none motion-reduce:scale-100 motion-reduce:filter-none",
+                  isExpanded ? "opacity-0 scale-[0.98] blur-[1px]" : "opacity-100 scale-100 blur-0"
+                )}
+              >
+                Show More
+              </span>
+              <span
+                className={cn(
+                  "col-start-1 row-start-1 transition-[opacity,transform,filter] duration-[220ms] ease-[cubic-bezier(0.25,1,0.5,1)]",
+                  "motion-reduce:transition-none motion-reduce:scale-100 motion-reduce:filter-none",
+                  isExpanded ? "opacity-100 scale-100 blur-0" : "opacity-0 scale-[0.98] blur-[1px]"
+                )}
+              >
+                Hide
+              </span>
+            </span>
+          </button>
+        </div>
       )}
     </div>
   )
