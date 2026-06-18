@@ -117,9 +117,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
   // Use MCP connection hook
   const {
-    selectedServers: selectedMcpServerNames,
-    toggle: toggleMcpConnection,
-    isConnecting: isConnectingMcpServer,
     syncWithConfig: syncMcpRuntimeWithConfig,
     hydrateFromRuntime: hydrateMcpRuntime
   } = useMcpConnection()
@@ -683,10 +680,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               modelMenuCollisionBoundary={modelMenuCollisionBoundary}
               setSelectedModelRef={setSelectedModelRef}
               setSelectedThinkingLevel={setSelectedThinkingLevel}
-              selectedMcpServerNames={selectedMcpServerNames}
-              mcpServerConfig={mcpServerConfig}
-              toggleMcpConnection={toggleMcpConnection}
-              isConnectingMcpServer={isConnectingMcpServer}
               queuedFirstText={queuedMessages[0]?.text}
               queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
               queuePaused={queuePaused}
@@ -798,10 +791,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
                 modelMenuCollisionBoundary={modelMenuCollisionBoundary}
                 setSelectedModelRef={setSelectedModelRef}
                 setSelectedThinkingLevel={setSelectedThinkingLevel}
-                selectedMcpServerNames={selectedMcpServerNames}
-                mcpServerConfig={mcpServerConfig}
-                toggleMcpConnection={toggleMcpConnection}
-                isConnectingMcpServer={isConnectingMcpServer}
                 queuedFirstText={queuedMessages[0]?.text}
                 queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
                 queuePaused={queuePaused}

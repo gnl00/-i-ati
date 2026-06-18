@@ -1,9 +1,6 @@
 import React from 'react'
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
 import { cn } from '@renderer/lib/utils'
-import {
-  settingsSecondaryButtonClassName
-} from '../common/SettingsLayout'
 import type { RegistryServerItem } from './MCPServersManager.types'
 import {
   AlertCircle,
@@ -17,6 +14,7 @@ import {
   SquareTerminal
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
+import { Switch } from '@renderer/components/ui/switch'
 
 type RuntimeStatus = 'connected' | 'connecting' | 'error' | 'idle'
 
@@ -25,7 +23,8 @@ interface MCPServerCardBaseProps {
   runtimeStatus?: RuntimeStatus
   runtimeError?: string
   toolCount?: number
-  onUninstall?: () => void
+  onConnectionToggle?: () => void | Promise<void>
+  onUninstall?: () => void | Promise<void>
 }
 
 interface RegistryMCPServerCardProps extends MCPServerCardBaseProps {
@@ -155,6 +154,10 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
   const detailText = mode === 'installed'
     ? configDisplay || description || 'Installed locally'
     : description || (repository?.url ? repository.source || 'Repository' : 'Available in official registry')
+  const isConnected = runtimeStatus === 'connected'
+  const isConnecting = runtimeStatus === 'connecting'
+  const canToggleConnection = isInstalled && Boolean(props.onConnectionToggle)
+  const connectionSwitchDisabled = isConnecting
 
   return (
     <div
@@ -210,19 +213,18 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
         )}
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {mode === 'registry' && isInstalled ? (
+          <span className={cn(
+            'inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium',
+            runtimeMeta.tone,
+            runtimeMeta.background
+          )}>
+            {runtimeMeta.icon}
+            {runtimeMeta.label}
+          </span>
+          {mode === 'registry' && isInstalled && (
             <span className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md bg-emerald-50 px-1.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
               <Check className="h-2.5 w-2.5" />
               Added
-            </span>
-          ) : (
-            <span className={cn(
-              'inline-flex h-[18px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium',
-              runtimeMeta.tone,
-              runtimeMeta.background
-            )}>
-              {runtimeMeta.icon}
-              {runtimeMeta.label}
             </span>
           )}
           {connectionType && (
@@ -254,21 +256,91 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
             </a>
           )}
           {runtimeStatus === 'error' && runtimeError && (
-            <span
-              className="inline-flex h-[18px] max-w-full min-w-0 items-center rounded-md bg-red-50 px-1.5 text-[10px] font-medium text-red-600 dark:bg-red-900/40 dark:text-red-300"
-              title={runtimeError}
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className={cn(
+                'h-6! min-w-0 basis-full justify-start gap-1.5 rounded-lg! px-2!',
+                'bg-red-50/80! text-left text-[10px] font-medium text-red-600 ring-1 ring-inset ring-red-100/80',
+                'transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out',
+                'hover:bg-red-100/80! hover:text-red-700 hover:ring-red-200/90',
+                'focus-visible:ring-2 focus-visible:ring-red-400/25 focus-visible:ring-offset-0',
+                'active:scale-[0.995]',
+                'dark:bg-red-950/35! dark:text-red-300 dark:ring-red-900/45',
+                'dark:hover:bg-red-900/45! dark:hover:text-red-200 dark:hover:ring-red-700/55'
+              )}
+              title="Click to copy error"
+              onClick={(event) => {
+                event.stopPropagation()
+                if (runtimeError) {
+                  void navigator.clipboard?.writeText(runtimeError)
+                }
+              }}
             >
+              <Copy className="h-3 w-3 shrink-0 opacity-70" />
               <span className="min-w-0 truncate">{runtimeError}</span>
-            </span>
+            </Button>
           )}
         </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        {canToggleConnection && (
+          <div className={cn(
+            'flex h-8 items-center gap-2 rounded-xl border px-2.5 text-[11px] font-medium shadow-xs',
+            'transition-[background-color,border-color,box-shadow] duration-200 ease-out',
+            isConnected
+              ? 'border-amber-200/75 bg-amber-50/70 text-amber-800 shadow-[0_10px_28px_-24px_rgba(217,119,6,0.9)] dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100'
+              : 'border-slate-200/75 bg-white/75 text-slate-500 dark:border-white/10 dark:bg-slate-900/45 dark:text-slate-300',
+            connectionSwitchDisabled && 'opacity-70'
+          )}>
+            {isConnecting && (
+              <Loader2 className="h-3 w-3 animate-spin text-amber-500 dark:text-amber-300" />
+            )}
+            {!isConnecting && (
+              <span className={cn(
+                'h-1.5 w-1.5 rounded-[2px]',
+                isConnected ? 'bg-amber-500 dark:bg-amber-300' : 'bg-slate-300 dark:bg-slate-500'
+              )} />
+            )}
+            <span>{isConnecting ? 'Connecting' : isConnected ? 'Connected' : 'Idle'}</span>
+            <Switch
+              checked={isConnected}
+              aria-label={`${displayName} Connected`}
+              disabled={connectionSwitchDisabled}
+              onClick={(event) => event.stopPropagation()}
+              onCheckedChange={() => {
+                if (connectionSwitchDisabled) {
+                  return
+                }
+                void props.onConnectionToggle?.()
+              }}
+              className={cn(
+                'h-5! w-10! border! p-[2px]',
+                'shadow-inner transition-[background-color,border-color,box-shadow] duration-200 ease-out',
+                'focus-visible:ring-2 focus-visible:ring-amber-500/20 focus-visible:ring-offset-0',
+                '[&>span]:h-4 [&>span]:w-4 [&>span]:bg-white [&>span]:shadow-xs [&>span]:transition-transform [&>span]:duration-200 [&>span]:ease-out',
+                'data-[state=checked]:border-amber-400/75! data-[state=checked]:bg-amber-500/90!',
+                'data-[state=checked]:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.26)]',
+                'data-[state=unchecked]:border-slate-300/70! data-[state=unchecked]:bg-slate-200/80!',
+                'data-[state=checked]:[&>span]:translate-x-5 data-[state=unchecked]:[&>span]:translate-x-0',
+                'dark:data-[state=checked]:border-amber-200/70! dark:data-[state=checked]:bg-amber-300/85!',
+                'dark:data-[state=unchecked]:border-slate-600/70! dark:data-[state=unchecked]:bg-slate-700/80!',
+                connectionSwitchDisabled
+                  ? 'cursor-not-allowed opacity-60'
+                  : isConnected
+                    ? 'cursor-pointer hover:border-amber-500/85! hover:bg-amber-500! hover:shadow-[0_0_0_3px_rgba(245,158,11,0.12),inset_0_0_0_1px_rgba(255,255,255,0.26)] dark:hover:border-amber-100/80! dark:hover:bg-amber-300!'
+                    : 'cursor-pointer hover:border-slate-400/80! hover:bg-slate-300/70! dark:hover:border-slate-500/90! dark:hover:bg-slate-600/80!'
+              )}
+            />
+          </div>
+        )}
+
         {mode === 'registry' ? (
           isInstalled ? (
             <InlineDeleteConfirm
-              onConfirm={async () => { props.onUninstall?.() }}
+              onConfirm={async () => { await props.onUninstall?.() }}
               ariaLabel="Remove server"
               title="Remove server"
               idleLabel="Remove"
@@ -289,17 +361,28 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
           )
         ) : (
           <>
-            <button
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={props.onCopyConfig}
-              className={cn(settingsSecondaryButtonClassName, 'h-7 w-[62px] justify-center px-2')}
+              className={cn(
+                'h-7! w-[62px] shrink-0 justify-center gap-1 rounded-lg! px-2!',
+                'border border-slate-200/75 bg-white/70! text-[11px] font-semibold text-slate-500 shadow-xs',
+                'transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out',
+                'hover:border-slate-300/90 hover:bg-slate-50! hover:text-slate-700 hover:shadow-sm',
+                'focus-visible:ring-2 focus-visible:ring-slate-400/20 focus-visible:ring-offset-0',
+                'active:scale-[0.98]',
+                'dark:border-white/10 dark:bg-slate-900/45! dark:text-slate-300',
+                'dark:hover:border-white/15 dark:hover:bg-slate-800/70! dark:hover:text-slate-100'
+              )}
               title="Copy JSON configuration"
             >
               <Copy className="h-3 w-3" />
               Copy
-            </button>
+            </Button>
 
             <InlineDeleteConfirm
-              onConfirm={async () => { props.onUninstall?.() }}
+              onConfirm={async () => { await props.onUninstall?.() }}
               ariaLabel="Remove server"
               title="Remove server"
               idleLabel="Remove"

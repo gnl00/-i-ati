@@ -35,9 +35,9 @@ export function collectRunTools(
     return match
   }
 
-  const mcpRuntime = useMcpRuntimeStore.getState()
-  mcpRuntime.selectedServerNames.forEach(serverName => {
-    mcpRuntime.getServerTools(serverName)?.forEach(tool => {
+  const connectedMcpTools = useMcpRuntimeStore.getState().availableMcpTools
+  connectedMcpTools.forEach((tools) => {
+    tools.forEach(tool => {
       const normalized = normalizeToolDef(tool)
       const name = normalized?.name
       if (name) {

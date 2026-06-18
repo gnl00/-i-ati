@@ -9,7 +9,6 @@ import {
 } from '@renderer/components/ui/tooltip'
 import React from 'react'
 import ChatStatsPanel from './toolbar/ChatStatsPanel'
-import McpSelector from './toolbar/McpSelector'
 import type { ModelOption } from '@renderer/store/appConfig'
 import { BadgePlus } from 'lucide-react'
 
@@ -22,12 +21,6 @@ interface ChatInputToolbarProps {
   modelMenuCollisionBoundary?: HTMLElement | null
   setSelectedModelRef: (ref: ModelRef) => void
   setSelectedThinkingLevel: (level: ThinkingLevel | undefined) => void
-
-  // MCP selector props
-  selectedMcpServerNames: string[]
-  mcpServerConfig: any
-  toggleMcpConnection: (serverName: string, serverConfig: any) => Promise<any>
-  isConnectingMcpServer: (serverName: string) => boolean
 
   // Queue preview
   queuedFirstText?: string
@@ -47,10 +40,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   modelMenuCollisionBoundary,
   setSelectedModelRef,
   setSelectedThinkingLevel,
-  selectedMcpServerNames,
-  mcpServerConfig,
-  toggleMcpConnection,
-  isConnectingMcpServer,
   queuedFirstText,
   queuedCount,
   queuePaused,
@@ -60,54 +49,8 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   variant = 'default'
 }) => {
   const [selectModelPopoutState, setSelectModelPopoutState] = React.useState(false)
-  const [selectMCPPopoutState, setSelectMCPPopoutState] = React.useState(false)
   const [queueVisible, setQueueVisible] = React.useState(false)
   const [queueExiting, setQueueExiting] = React.useState(false)
-
-  // MCP selector trigger styles with amber/orange theme
-  const mcpSelectorClassName = cn(
-    "group relative h-7 min-w-24 w-auto flex items-center justify-between px-2.5 py-0.5 gap-1.5 rounded-2xl overflow-hidden",
-    "transition-all duration-300 ease-out",
-    selectedMcpServerNames.length > 0
-      ? [
-          // Active state - amber/orange gradient
-          "bg-linear-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40",
-          "text-amber-700 dark:text-amber-300",
-          "border border-amber-300/60 dark:border-amber-700/60",
-          "shadow-xs shadow-amber-500/10 dark:shadow-amber-500/20",
-          "hover:shadow-sm hover:shadow-amber-500/25 dark:hover:shadow-amber-500/35",
-          "active:scale-[0.98]"
-        ]
-      : [
-          // Inactive state - subtle gray
-          "bg-slate-50/50 dark:bg-slate-800/50",
-          "text-slate-500 dark:text-slate-400",
-          "border border-slate-200/50 dark:border-slate-700/50",
-          "hover:bg-slate-100 dark:hover:bg-slate-700",
-          "hover:text-slate-700 dark:hover:text-slate-300",
-          "hover:border-slate-300 dark:hover:border-slate-600",
-          "active:scale-[0.98]"
-        ],
-    "text-xs font-medium",
-    "focus-visible:ring-0 focus-visible:ring-offset-0"
-  )
-
-  const surfaceMcpSelectorClassName = cn(
-    'shared-prompt-action-button group relative flex h-8 min-w-[104px] items-center justify-between gap-1.5 overflow-hidden rounded-xl px-2.5',
-    'border text-[11px] font-medium transition-all duration-300 ease-out active:scale-[0.98]',
-    'focus-visible:ring-0 focus-visible:ring-offset-0',
-    selectedMcpServerNames.length > 0
-      ? [
-          'border-amber-300/60 bg-linear-to-br from-amber-50 to-orange-50 text-amber-700 shadow-xs shadow-amber-500/10',
-          'hover:shadow-sm hover:shadow-amber-500/25',
-          'dark:border-amber-700/60 dark:from-amber-950/40 dark:to-orange-950/40 dark:text-amber-300 dark:shadow-amber-500/20 dark:hover:shadow-amber-500/35'
-        ]
-      : [
-          'border-slate-200/50 bg-slate-50/50 text-slate-500',
-          'hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700 hover:shadow-xs',
-          'dark:border-slate-700/50 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300'
-        ]
-  )
 
   const handleModelSelect = (ref: ModelRef, thinkingLevel?: ThinkingLevel) => {
     setSelectedModelRef(ref)
@@ -123,11 +66,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
     if (variant === 'baseline') {
       onBaselinePopoverOpenChange?.(open)
     }
-  }
-
-  const handleMcpToolSelected = async (serverName: string, serverConfig: any) => {
-    console.log('mcp-server-config', serverName, serverConfig)
-    await toggleMcpConnection(serverName, serverConfig)
   }
 
   const queuePreview = React.useMemo(() => {
@@ -281,18 +219,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           />
         </div>
 
-        <div id="mcpSelector" className="app-undragable hidden shrink-0 bg-transparent sm:block">
-          <McpSelector
-            selectedMcpServerNames={selectedMcpServerNames}
-            mcpServerConfig={mcpServerConfig}
-            isOpen={selectMCPPopoutState}
-            onOpenChange={setSelectMCPPopoutState}
-            onMcpToolSelected={handleMcpToolSelected}
-            isConnectingMcpServer={isConnectingMcpServer}
-            triggerClassName={surfaceMcpSelectorClassName}
-          />
-        </div>
-
         {queueVisible && queuePreview && (
           <div className={cn(
             'hidden min-w-0 items-center gap-1.5 rounded-xl border border-border/25 bg-foreground/[0.025] px-2 py-1 text-[10px] font-medium text-muted-foreground md:flex',
@@ -336,19 +262,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           onOpenChange={handleModelPopoverOpenChange}
           onModelSelect={handleModelSelect}
           variant="default"
-        />
-      </div>
-
-      {/* MCP Selector */}
-      <div id="mcpSelector" className="app-undragable bg-transparent">
-        <McpSelector
-          selectedMcpServerNames={selectedMcpServerNames}
-          mcpServerConfig={mcpServerConfig}
-          isOpen={selectMCPPopoutState}
-          onOpenChange={setSelectMCPPopoutState}
-          onMcpToolSelected={handleMcpToolSelected}
-          isConnectingMcpServer={isConnectingMcpServer}
-          triggerClassName={mcpSelectorClassName}
         />
       </div>
 

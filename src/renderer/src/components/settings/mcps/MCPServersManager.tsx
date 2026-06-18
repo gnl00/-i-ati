@@ -120,11 +120,15 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<RegistryServerItem[]>([])
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  const selectedServerNames = useMcpRuntimeStore(state => state.selectedServerNames)
+  const connectedServerNames = useMcpRuntimeStore(state => state.selectedServerNames)
   const connectingServerNames = useMcpRuntimeStore(state => state.connectingServerNames)
   const availableMcpTools = useMcpRuntimeStore(state => state.availableMcpTools)
   const lastErrorByServer = useMcpRuntimeStore(state => state.lastErrorByServer)
-  const { hydrateFromRuntime } = useMcpConnection()
+  const {
+    disconnect: disconnectMcpServer,
+    hydrateFromRuntime,
+    toggle: toggleMcpConnection
+  } = useMcpConnection()
 
   // Sync JSON from config
   useEffect(() => {
@@ -257,7 +261,11 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
     toast.success(`Installed ${serverName}`)
   }
 
-  const handleUninstallServer = (serverName: string): void => {
+  const handleUninstallServer = async (serverName: string): Promise<void> => {
+    if (connectedServerNames.includes(serverName) || availableMcpTools.has(serverName)) {
+      await disconnectMcpServer(serverName)
+    }
+
     const newServers = { ...mcpServerConfig.mcpServers }
     delete newServers[serverName]
     setMcpServerConfig({ ...mcpServerConfig, mcpServers: newServers })
@@ -344,7 +352,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
     if (connectingServerNames.includes(serverName)) {
       return 'connecting'
     }
-    if (selectedServerNames.includes(serverName)) {
+    if (connectedServerNames.includes(serverName)) {
       return 'connected'
     }
     if (lastErrorByServer[serverName]) {
@@ -421,7 +429,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
         <SettingsToolbar className="flex min-h-[40px] items-center gap-2 border-t border-gray-100 dark:border-gray-700/50">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200/70 dark:bg-gray-800/70 dark:text-gray-400 dark:ring-gray-700/60">
-              Connected {selectedServerNames.length}
+              Connected {connectedServerNames.length}
             </span>
             <span className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200/70 dark:bg-gray-800/70 dark:text-gray-400 dark:ring-gray-700/60">
               Tools {availableToolCount}
@@ -499,6 +507,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           >
             {filteredServers.map((item, idx) => {
               const installed = isInstalled(item.server.name)
+              const installedConfig = mcpServerConfig.mcpServers?.[item.server.name]
 
               return (
                 <MCPServerCard
@@ -509,6 +518,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                   runtimeStatus={installed ? getRuntimeStatus(item.server.name) : 'idle'}
                   runtimeError={lastErrorByServer[item.server.name]}
                   toolCount={availableMcpTools.get(item.server.name)?.length}
+                  onConnectionToggle={installedConfig ? () => toggleMcpConnection(item.server.name, installedConfig) : undefined}
                   onInstall={() => handleInstallServer(item)}
                   onUninstall={() => handleUninstallServer(item.server.name)}
                   animationDelay={idx * 50}
@@ -564,6 +574,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                     runtimeStatus={getRuntimeStatus(name)}
                     runtimeError={lastErrorByServer[name]}
                     toolCount={availableMcpTools.get(name)?.length}
+                    onConnectionToggle={() => toggleMcpConnection(name, config)}
                     onCopyConfig={() => {
                       navigator.clipboard.writeText(JSON.stringify(config, null, 2))
                       toast.success('Configuration copied to clipboard')
