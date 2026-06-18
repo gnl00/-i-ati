@@ -1,5 +1,4 @@
 import ChatImgGalleryComponent from '@renderer/components/chat/ChatImgGalleryComponent'
-import { Textarea } from '@renderer/components/ui/textarea'
 import useChatRun from '@renderer/hooks/useChatRun'
 import { useSlashCommands } from '@renderer/hooks/useSlashCommands'
 import { useMcpConnection } from '@renderer/hooks/useMcpConnection'
@@ -18,9 +17,9 @@ import { CustomCaretOverlay, CustomCaretRef } from '../common/CustomCaretOverlay
 import CommandPalette from './CommandPalette'
 import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
+import SharedPromptSurface from './SharedPromptSurface'
 import { ChatInputToolConfirmation } from './ChatInputToolConfirmation'
 import { invokeCheckIsDirectory } from '@renderer/invoker/ipcInvoker'
-import { ArrowBigUp, ArrowUp, CornerDownLeft } from 'lucide-react'
 import {
   isSubmissionBlocked,
   mergeQueuedMessages,
@@ -145,6 +144,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
   const [modelMenuCollisionBoundary, setModelMenuCollisionBoundary] = useState<HTMLElement | null>(null)
   const [isWelcomeFocused, setIsWelcomeFocused] = useState<boolean>(false)
+  const [isWelcomePopoverOpen, setIsWelcomePopoverOpen] = useState<boolean>(false)
+  const [isWelcomeInteractionHeld, setIsWelcomeInteractionHeld] = useState<boolean>(false)
 
   // Apply currentAssistant's systemPrompt to the request-level user instruction
   useEffect(() => {
@@ -160,6 +161,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   // Custom Caret Ref
   const caretOverlayRef = useRef<CustomCaretRef>(null)
   const queueTimerRef = useRef<number | null>(null)
+  const welcomeInteractionReleaseTimerRef = useRef<number | null>(null)
   const queueFlushingRef = useRef(false)
   const isComposingRef = useRef(false)
   const editingQueueRef = useRef<QueuedChatMessage | null>(null)
@@ -230,13 +232,52 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     onWelcomeFocusStateChange?.(focused)
   }, [onWelcomeFocusStateChange])
 
+  const holdWelcomeInteraction = useCallback(() => {
+    if (!welcomeVisualMode) {
+      return
+    }
+
+    if (welcomeInteractionReleaseTimerRef.current) {
+      window.clearTimeout(welcomeInteractionReleaseTimerRef.current)
+      welcomeInteractionReleaseTimerRef.current = null
+    }
+
+    setIsWelcomeInteractionHeld(true)
+  }, [welcomeVisualMode])
+
+  const releaseWelcomeInteraction = useCallback((delay = 120) => {
+    if (!welcomeVisualMode) {
+      return
+    }
+
+    if (welcomeInteractionReleaseTimerRef.current) {
+      window.clearTimeout(welcomeInteractionReleaseTimerRef.current)
+    }
+
+    welcomeInteractionReleaseTimerRef.current = window.setTimeout(() => {
+      setIsWelcomeInteractionHeld(false)
+      welcomeInteractionReleaseTimerRef.current = null
+    }, delay)
+  }, [welcomeVisualMode])
+
   useEffect(() => {
     if (welcomeVisualMode) {
       return
     }
 
     updateWelcomeFocus(false)
+    setIsWelcomePopoverOpen(false)
+    setIsWelcomeInteractionHeld(false)
   }, [updateWelcomeFocus, welcomeVisualMode])
+
+  useEffect(() => {
+    return () => {
+      if (welcomeInteractionReleaseTimerRef.current) {
+        window.clearTimeout(welcomeInteractionReleaseTimerRef.current)
+        welcomeInteractionReleaseTimerRef.current = null
+      }
+    }
+  }, [])
 
   // Extend startNewChat to include local state reset
   const startNewChat = useCallback(() => {
@@ -287,6 +328,13 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     queuePaused,
     queuedMessageCount: queuedMessages.length
   })
+  const isWelcomeExpanded = welcomeVisualMode && (
+    isWelcomeFocused ||
+    isWelcomePopoverOpen ||
+    isWelcomeInteractionHeld ||
+    inputContent.trim().length > 0 ||
+    imageSrcBase64List.length > 0
+  )
 
   const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent, overrideText?: string) => {
     const rawInput = overrideText ?? inputContent
@@ -587,8 +635,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       <div
         ref={rootRef}
         id='inputArea'
-        data-welcome-focused={isWelcomeFocused ? 'true' : 'false'}
-        className="welcome-chat-input-area rounded-md w-full h-full flex flex-col bg-transparent"
+        data-expanded={isWelcomeExpanded ? 'true' : 'false'}
+        className="shared-prompt-welcome-frame rounded-md bg-transparent"
         onFocusCapture={() => updateWelcomeFocus(true)}
         onBlurCapture={event => {
           const nextFocusTarget = event.relatedTarget
@@ -599,80 +647,77 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           updateWelcomeFocus(false)
         }}
       >
-        <div
-          ref={setInputAreaContentRef}
-          id="inputAreaContent"
-          className={cn(
-            'welcome-light-input-shell welcome-prompt-surface relative overflow-hidden',
-            isSubmitBlocked && 'opacity-[0.82]'
-          )}
-        >
-          <div className="welcome-light-input-main welcome-prompt-body relative min-h-0 overflow-hidden">
-            {imageSrcBase64List.length !== 0 && (
-              <div className="welcome-light-input-gallery">
-                <ChatImgGalleryComponent />
-              </div>
-            )}
-
-            {isDragging && (
-              <div className="welcome-light-drop-indicator pointer-events-none absolute inset-0 z-10 grid place-items-center">
-                <span className="rounded-full bg-background/82 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-xs backdrop-blur-md">
-                  Drop a folder to set workspace
-                </span>
-              </div>
-            )}
-
-            <Textarea
-              ref={textareaRef}
-              className={cn(
-                'welcome-light-textarea h-full w-full resize-none border-0 bg-transparent',
-                'px-5 pb-3 pt-3 text-[15px] font-medium leading-6 text-foreground shadow-none',
-                'placeholder:text-muted-foreground/56 focus-visible:ring-0 focus-visible:ring-offset-0',
-                'focus-visible:outline-hidden'
-              )}
-              placeholder="Ask @i what to work on..."
-              value={inputContent}
-              onChange={onTextAreaChange}
-              onKeyDown={onTextAreaKeyDown}
-              onCompositionStart={onTextAreaCompositionStart}
-              onCompositionEnd={onTextAreaCompositionEnd}
-              onPaste={onTextAreaPaste}
-              onBlur={onTextAreaBlur}
-              onDragEnter={onDragEnter}
-              onDragLeave={onDragLeave}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-            />
-          </div>
-
-          <div className="welcome-light-input-details min-h-0 overflow-hidden">
-            <div className="welcome-prompt-baseline flex items-center justify-between gap-3 px-4 pb-2.5 text-[11px] font-medium text-muted-foreground/66">
-              <div className="welcome-prompt-baseline-start flex min-w-0 items-center gap-2">
-                <span className="welcome-prompt-shortcut">Enter sends</span>
-                <span className="welcome-prompt-divider" aria-hidden="true" />
-                <span className="welcome-prompt-shortcut hidden sm:inline">Shift + Enter adds a line</span>
-              </div>
-              <div className="welcome-prompt-baseline-end flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  aria-label="Send message"
-                  disabled={!inputContent.trim()}
-                  className={cn(
-                    'welcome-light-send-button welcome-prompt-send-button grid size-7 place-items-center',
-                    'rounded-full border-0 bg-foreground text-background shadow-none',
-                    'transition-[opacity,transform,background-color] duration-180 ease-(--welcome-input-ease)',
-                    'hover:bg-foreground/88 active:scale-[0.96]',
-                    'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/28',
-                    !inputContent.trim() && 'pointer-events-none opacity-[0.22]'
-                  )}
-                  onClick={event => onSubmitClick(event)}
-                >
-                  <ArrowUp className="size-3.5" />
-                </button>
-              </div>
+        <SharedPromptSurface
+          ref={textareaRef}
+          surfaceRef={setInputAreaContentRef}
+          expanded={isWelcomeExpanded}
+          className={cn(isSubmitBlocked && 'opacity-[0.82]')}
+          isDragging={isDragging}
+          value={inputContent}
+          placeholder="Ask @i what to work on..."
+          onChange={onTextAreaChange}
+          onKeyDown={onTextAreaKeyDown}
+          onCompositionStart={onTextAreaCompositionStart}
+          onCompositionEnd={onTextAreaCompositionEnd}
+          onPaste={onTextAreaPaste}
+          onBlur={onTextAreaBlur}
+          onDragEnter={onDragEnter}
+          onDragLeave={onDragLeave}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImgGalleryComponent /> : null}
+          dropIndicator={isDragging ? (
+            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-background/15 backdrop-blur-[1px]">
+              <span className="rounded-full bg-background/82 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-xs backdrop-blur-md">
+                Drop a folder to set workspace
+              </span>
             </div>
-          </div>
-        </div>
+          ) : null}
+          leftActions={(
+            <ChatInputToolbar
+              variant="baseline"
+              selectedModel={selectedModel}
+              modelOptions={modelOptions}
+              plugins={plugins}
+              selectedThinkingLevel={selectedThinkingLevel}
+              modelMenuCollisionBoundary={modelMenuCollisionBoundary}
+              setSelectedModelRef={setSelectedModelRef}
+              setSelectedThinkingLevel={setSelectedThinkingLevel}
+              selectedMcpServerNames={selectedMcpServerNames}
+              mcpServerConfig={mcpServerConfig}
+              toggleMcpConnection={toggleMcpConnection}
+              isConnectingMcpServer={isConnectingMcpServer}
+              queuedFirstText={queuedMessages[0]?.text}
+              queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
+              queuePaused={queuePaused}
+              onNewChat={startNewChat}
+              onBaselineInteractionStart={holdWelcomeInteraction}
+              onBaselinePopoverOpenChange={open => {
+                setIsWelcomePopoverOpen(open)
+                if (open) {
+                  holdWelcomeInteraction()
+                  return
+                }
+
+                releaseWelcomeInteraction()
+              }}
+            />
+          )}
+          rightActions={(
+            <ChatInputActions
+              variant="baseline"
+              artifacts={artifacts}
+              runPhase={runPhase}
+              toggleArtifacts={toggleArtifacts}
+              setArtifactsPanel={setArtifactsPanel}
+              onNewChat={startNewChat}
+              onSubmit={onSubmitClick}
+              onCancel={cancelChatSubmit}
+              workspacePathToSelect={workspacePathToSelect}
+              submitDisabled={!inputContent.trim()}
+            />
+          )}
+        />
 
         <CommandPalette
           isOpen={commandPanelOpen}
@@ -689,162 +734,96 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     <div
       ref={rootRef}
       id='inputArea'
-      data-welcome-focused={isWelcomeFocused ? 'true' : 'false'}
-      className={cn(
-        'rounded-md w-full h-full flex flex-col bg-transparent',
-        welcomeVisualMode && 'welcome-chat-input-area'
-      )}
-      onFocusCapture={() => {
-        if (welcomeVisualMode) {
-          updateWelcomeFocus(true)
-        }
-      }}
-      onBlurCapture={event => {
-        if (!welcomeVisualMode) {
-          return
-        }
-
-        const nextFocusTarget = event.relatedTarget
-        if (nextFocusTarget instanceof Node && event.currentTarget.contains(nextFocusTarget)) {
-          return
-        }
-
-        updateWelcomeFocus(false)
-      }}
+      className="h-full w-full rounded-md bg-transparent"
     >
-      <div className={cn(imageSrcBase64List.length !== 0 ? 'h-28' : 'h-0')}>
-        <ChatImgGalleryComponent />
-      </div>
-
       <div
-        ref={setInputAreaContentRef}
         id="inputAreaContent"
-        className={cn(
-          'relative flex flex-col px-2 flex-1 overflow-hidden bg-transparent',
-          welcomeVisualMode && 'welcome-chat-input-content'
-        )}
+        className="relative flex h-full flex-col overflow-hidden bg-transparent px-2 py-1"
       >
         <div
           className={cn(
-            'chat-input-card relative flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ease-out bg-transparent',
+            'chat-input-card relative flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-3xl transition-opacity duration-200 ease-out',
             isSubmitBlocked && 'opacity-80'
           )}
         >
           <ChatInputToolConfirmation />
 
-          <ChatInputToolbar
-            selectedModel={selectedModel}
-            modelOptions={modelOptions}
-            plugins={plugins}
-            selectedThinkingLevel={selectedThinkingLevel}
-            modelMenuCollisionBoundary={modelMenuCollisionBoundary}
-            setSelectedModelRef={setSelectedModelRef}
-            setSelectedThinkingLevel={setSelectedThinkingLevel}
-            selectedMcpServerNames={selectedMcpServerNames}
-            mcpServerConfig={mcpServerConfig}
-            toggleMcpConnection={toggleMcpConnection}
-            isConnectingMcpServer={isConnectingMcpServer}
-            queuedFirstText={queuedMessages[0]?.text}
-            queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
-            queuePaused={queuePaused}
+          <SharedPromptSurface
+            ref={textareaRef}
+            surfaceRef={setInputAreaContentRef}
+            variant="chat"
+            expanded
+            className={cn(isSubmitBlocked && 'opacity-[0.82]')}
+            bodyClassName="min-h-0"
+            textareaClassName={cn(
+              'caret-transparent overflow-y-auto text-sm font-medium leading-6',
+              'px-4 pb-3 pt-3 text-gray-700 dark:text-gray-300',
+              'placeholder:text-gray-400/80 dark:placeholder:text-gray-500/80',
+              isDragging && 'bg-gray-100/40 dark:bg-gray-700/25'
+            )}
+            isDragging={isDragging}
+            value={inputContent}
+            placeholder="Type anything to chat"
+            onChange={onTextAreaChange}
+            onKeyDown={onTextAreaKeyDown}
+            onCompositionStart={onTextAreaCompositionStart}
+            onCompositionEnd={onTextAreaCompositionEnd}
+            onPaste={onTextAreaPaste}
+            onBlur={onTextAreaBlur}
+            onDragEnter={onDragEnter}
+            onDragLeave={onDragLeave}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImgGalleryComponent /> : null}
+            dropIndicator={isDragging ? (
+              <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-background/18 backdrop-blur-[2px]">
+                <div className="rounded-2xl border border-border/60 bg-background/90 px-5 py-3 text-sm font-medium text-muted-foreground shadow-lg backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+                  Drop folder to set workspace
+                </div>
+              </div>
+            ) : null}
+            bodyOverlay={(
+              <CustomCaretOverlay
+                ref={caretOverlayRef}
+                textareaRef={textareaRef}
+              />
+            )}
+            leftActions={(
+              <ChatInputToolbar
+                variant="surface"
+                selectedModel={selectedModel}
+                modelOptions={modelOptions}
+                plugins={plugins}
+                selectedThinkingLevel={selectedThinkingLevel}
+                modelMenuCollisionBoundary={modelMenuCollisionBoundary}
+                setSelectedModelRef={setSelectedModelRef}
+                setSelectedThinkingLevel={setSelectedThinkingLevel}
+                selectedMcpServerNames={selectedMcpServerNames}
+                mcpServerConfig={mcpServerConfig}
+                toggleMcpConnection={toggleMcpConnection}
+                isConnectingMcpServer={isConnectingMcpServer}
+                queuedFirstText={queuedMessages[0]?.text}
+                queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
+                queuePaused={queuePaused}
+                onNewChat={startNewChat}
+              />
+            )}
+            rightActions={(
+              <ChatInputActions
+                variant="surface"
+                artifacts={artifacts}
+                runPhase={runPhase}
+                toggleArtifacts={toggleArtifacts}
+                setArtifactsPanel={setArtifactsPanel}
+                onNewChat={startNewChat}
+                onSubmit={onSubmitClick}
+                onCancel={cancelChatSubmit}
+                workspacePathToSelect={workspacePathToSelect}
+                submitDisabled={!inputContent.trim()}
+              />
+            )}
           />
-
-          <div className="relative flex-1 overflow-hidden">
-            {/* Drag overlay indicator */}
-            {isDragging && (
-              <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center bg-gray-900/5 dark:bg-gray-100/5 backdrop-blur-[2px]">
-                <div className="flex flex-col items-center gap-3 px-6 py-4 rounded-2xl bg-white/90 dark:bg-gray-800/90 border border-gray-300 dark:border-gray-600 shadow-lg animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                    <svg className="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <span className="text-sm font-medium">Drop folder to set workspace</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!inputContent && (
-              <div
-                className={cn(
-                  'absolute inset-0 z-10 pointer-events-none px-2 pt-0.5 pb-2',
-                  'text-gray-400 dark:text-gray-500',
-                  'select-none'
-                )}
-              >
-                <div className="text-sm font-medium leading-relaxed">
-                  Type anything to chat
-                </div>
-                <div className="mt-2 flex items-center gap-2 text-xs font-medium">
-                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
-                    <CornerDownLeft className="h-3 w-3" />
-                    Enter
-                  </span>
-                  <span className="text-gray-300 dark:text-gray-600">Send</span>
-                  <span className="mx-1 text-gray-300 dark:text-gray-600">•</span>
-                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
-                    <ArrowBigUp className="h-3 w-3" />
-                    Shift
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
-                    <CornerDownLeft className="h-3 w-3" />
-                    Enter
-                  </span>
-                  <span className="text-gray-300 dark:text-gray-600">New line</span>
-                </div>
-                <div className="mt-1.5 flex items-center gap-2 text-xs font-medium">
-                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
-                    <ArrowBigUp className="h-3 w-3" />
-                    Shift
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 px-1.5 py-0.5">
-                    ↑
-                  </span>
-                  <span className="text-gray-300 dark:text-gray-600">Edit queued message</span>
-                </div>
-              </div>
-            )}
-
-            <Textarea
-              ref={textareaRef}
-              className={
-                cn('bg-gray-50 dark:bg-gray-800 focus:bg-white/50 dark:focus:bg-gray-700/50 transition-all duration-300 ease-out',
-                  'rounded-none resize-none overflow-y-auto text-sm px-2 pt-0.5 pb-2 font-medium text-gray-700 dark:text-gray-300 caret-transparent w-full h-full border-0 border-l border-r border-blue-gray-200 dark:border-gray-700',
-                  'placeholder:text-gray-400 dark:placeholder:text-gray-500 leading-tight',
-                  isDragging && 'bg-gray-100/80 dark:bg-gray-700/80 shadow-inner'
-                )
-              }
-              placeholder=""
-              value={inputContent}
-              onChange={onTextAreaChange}
-              onKeyDown={onTextAreaKeyDown}
-              onCompositionStart={onTextAreaCompositionStart}
-              onCompositionEnd={onTextAreaCompositionEnd}
-              onPaste={onTextAreaPaste}
-              onBlur={onTextAreaBlur}
-              onDragEnter={onDragEnter}
-              onDragLeave={onDragLeave}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-            />
-
-            <CustomCaretOverlay
-              ref={caretOverlayRef}
-              textareaRef={textareaRef}
-            />
-          </div>
         </div>
-
-        <ChatInputActions
-          artifacts={artifacts}
-          runPhase={runPhase}
-          toggleArtifacts={toggleArtifacts}
-          setArtifactsPanel={setArtifactsPanel}
-          onNewChat={startNewChat}
-          onSubmit={onSubmitClick}
-          onCancel={cancelChatSubmit}
-          workspacePathToSelect={workspacePathToSelect}
-        />
       </div>
 
       {/* Command Palette */}

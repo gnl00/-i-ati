@@ -32,6 +32,8 @@ interface ChatInputActionsProps {
   onSubmit: () => void
   onCancel?: () => void
   workspacePathToSelect?: string | null
+  variant?: 'default' | 'baseline' | 'surface'
+  submitDisabled?: boolean
 }
 
 const ChatInputActions: React.FC<ChatInputActionsProps> = ({
@@ -42,7 +44,9 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   onNewChat,
   onSubmit,
   onCancel,
-  workspacePathToSelect
+  workspacePathToSelect,
+  variant = 'default',
+  submitDisabled = false
 }) => {
   const canCancelRun = runPhase === 'submitting' || runPhase === 'streaming'
   const isCancelling = runPhase === 'cancelling'
@@ -162,6 +166,157 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
       toast.error('Failed to stop request')
     }
   }
+
+  if (variant === 'baseline' || variant === 'surface') {
+    return (
+      <div className="shared-prompt-action-strip flex min-w-0 items-center justify-end gap-1">
+        <TooltipProvider delayDuration={400}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className={cn(
+                  'shared-prompt-action-button group relative h-8 w-8 overflow-hidden rounded-xl',
+                  'transition-all duration-300 ease-out',
+                  artifacts
+                    ? [
+                        'bg-linear-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40',
+                        'text-purple-700 dark:text-purple-400',
+                        'border border-purple-300/60 dark:border-purple-700/60',
+                        'shadow-xs shadow-purple-500/10 dark:shadow-purple-500/20',
+                        'hover:shadow-sm hover:shadow-purple-500/25 dark:hover:shadow-purple-500/35',
+                        'hover:text-purple-500',
+                        'active:scale-95'
+                      ]
+                    : [
+                        'bg-slate-50/50 dark:bg-slate-800/50',
+                        'text-slate-500 dark:text-slate-400',
+                        'border border-slate-200/50 dark:border-slate-700/50',
+                        'hover:bg-slate-100 dark:hover:bg-slate-700',
+                        'hover:text-slate-700 dark:hover:text-slate-300',
+                        'hover:border-slate-300 dark:hover:border-slate-600',
+                        'hover:shadow-xs',
+                        'active:scale-95'
+                      ]
+                )}
+                onClick={handleArtifactsToggle}
+              >
+                {artifacts && (
+                  <div className="absolute inset-0 bg-linear-to-r from-purple-100/0 via-purple-100/50 to-violet-100/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 dark:from-purple-900/0 dark:via-purple-900/30 dark:to-violet-900/0" />
+                )}
+                <Package
+                  className={cn(
+                    'relative z-10 h-5 w-5 transition-transform duration-300 ease-out',
+                    artifacts ? 'group-hover:rotate-12 group-hover:scale-110' : 'group-hover:scale-110'
+                  )}
+                  strokeWidth={2}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
+              <p className="font-medium">Artifacts {artifacts ? 'On' : 'Off'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider delayDuration={400}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  'shared-prompt-action-button group relative flex h-8 max-w-[132px] items-center gap-1.5 overflow-hidden rounded-xl px-2.5',
+                  'transition-all duration-300 ease-out',
+                  isCustomWorkspace
+                    ? [
+                        'bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/40',
+                        'text-blue-700 dark:text-blue-300',
+                        'border border-blue-300/60 dark:border-blue-700/60',
+                        'shadow-xs shadow-blue-500/10 dark:shadow-blue-500/20',
+                        'hover:shadow-sm hover:shadow-blue-500/25 dark:hover:shadow-blue-500/35',
+                        'hover:text-blue-500',
+                        'active:scale-[0.98] active:brightness-95'
+                      ]
+                    : [
+                        'bg-slate-50/50 dark:bg-slate-800/50',
+                        'text-slate-500 dark:text-slate-400',
+                        'border border-slate-200/50 dark:border-slate-700/50',
+                        'hover:bg-slate-100 dark:hover:bg-slate-700',
+                        'hover:text-slate-700 dark:hover:text-slate-300',
+                        'hover:border-slate-300 dark:hover:border-slate-600',
+                        'hover:shadow-xs',
+                        'active:scale-[0.98]'
+                      ]
+                )}
+                onClick={_ => {handleWorkspaceSelect()}}
+              >
+                {isCustomWorkspace && (
+                  <div className="absolute inset-0 bg-linear-to-r from-blue-100/0 via-blue-100/50 to-blue-200/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 dark:from-blue-900/0 dark:via-blue-900/30 dark:to-blue-900/0" />
+                )}
+                <FolderOpen className="relative z-10 h-4 w-4 shrink-0 transition-transform duration-300 ease-out group-hover:scale-110" strokeWidth={2} />
+                <span className="relative z-10 max-w-[78px] truncate text-[10px] font-medium transition-all duration-300 ease-out select-none">
+                  {isCustomWorkspace ? getDirectoryName(currentWorkspacePath) : 'Workspace'}
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
+              <p className="font-medium">
+                {isCustomWorkspace ? currentWorkspacePath : 'Select Workspace'}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {!canCancelRun && !isCancelling ? (
+          <Button
+            onClick={onSubmit}
+            variant="default"
+            disabled={submitDisabled}
+            className={cn(
+              'shared-prompt-action-button group relative h-8 min-w-[82px] overflow-hidden rounded-xl px-3.5',
+              'border border-slate-600/50 bg-linear-to-br from-slate-700 to-slate-800 shadow-lg shadow-slate-500/20',
+              'transition-all duration-300 ease-out',
+              'hover:scale-105 hover:shadow-xl hover:shadow-slate-500/30 active:scale-95',
+              'dark:border-slate-500/50 dark:from-slate-600 dark:to-slate-700 dark:shadow-slate-600/25 dark:hover:shadow-slate-600/40',
+              'disabled:pointer-events-none disabled:opacity-[0.24]'
+            )}
+          >
+            <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
+            <div className="relative flex items-center gap-1.5">
+              <PaperPlaneIcon className="h-4 w-4 -rotate-45 text-white transition-transform duration-300 group-hover:scale-105" />
+              <sub className="flex items-center gap-0.5 text-[9px] text-white/70">
+                <CornerDownLeft className="h-2.5 w-2.5" />
+              </sub>
+            </div>
+          </Button>
+        ) : (
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={isCancelling}
+            className={cn(
+              'shared-prompt-action-button group relative h-8 min-w-[82px] overflow-hidden rounded-xl px-3.5',
+              'border border-red-400/50 bg-linear-to-br from-red-500 to-red-600 shadow-lg shadow-red-500/25',
+              'transition-all duration-300 ease-out dark:border-red-500/50 dark:from-red-600 dark:to-red-700 dark:shadow-red-600/30',
+              !isCancelling && 'hover:scale-105 hover:shadow-xl hover:shadow-red-500/40 active:scale-95 dark:hover:shadow-red-600/50',
+              isCancelling && 'cursor-wait opacity-75'
+            )}
+            onClick={handleStopClick}
+          >
+            {!isCancelling && (
+              <div className="absolute inset-0 animate-[pulse_1.5s_ease-in-out_infinite] bg-red-400/20" />
+            )}
+            <div className="relative flex items-center gap-1.5">
+              <StopIcon className="h-4 w-4 text-white transition-transform duration-200 group-hover:scale-110" />
+              <span className="text-xs font-medium text-white">{isCancelling ? 'Stopping' : 'Stop'}</span>
+            </div>
+          </Button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div
       id="inputAreaBottom"

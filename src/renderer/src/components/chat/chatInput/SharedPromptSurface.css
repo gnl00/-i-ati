@@ -1,0 +1,229 @@
+.shared-prompt-welcome-frame {
+  --shared-prompt-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  z-index: 80;
+  display: flex;
+  width: min(330px, 62vw);
+  height: auto;
+  margin-inline: auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  transform: translateY(0) scale(0.9);
+  transform-origin: center top;
+  transition:
+    opacity 260ms var(--shared-prompt-ease),
+    transform 420ms var(--shared-prompt-ease),
+    width 540ms var(--shared-prompt-ease),
+    filter 360ms var(--shared-prompt-ease);
+}
+
+.shared-prompt-welcome-frame[data-expanded='true'] {
+  width: min(620px, 84vw);
+  transform: translateY(-6px) scale(1);
+}
+
+.shared-prompt-surface {
+  --shared-prompt-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --shared-prompt-surface: color-mix(in srgb, hsl(var(--card)) 68%, transparent);
+  --shared-prompt-surface-focus: color-mix(in srgb, hsl(var(--card)) 84%, transparent);
+  --shared-prompt-border: color-mix(in srgb, hsl(var(--border)) 44%, transparent);
+  display: grid;
+  grid-template-rows: 48px 0fr;
+  width: 100%;
+  border: 1px solid var(--shared-prompt-border);
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle at 14% 0%,
+      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+      transparent 34%
+    ),
+    var(--shared-prompt-surface);
+  box-shadow:
+    0 12px 34px color-mix(in srgb, hsl(var(--foreground)) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 30%, transparent);
+  backdrop-filter: blur(16px);
+  transition:
+    grid-template-rows 360ms var(--shared-prompt-ease),
+    border-color 260ms var(--shared-prompt-ease),
+    border-radius 360ms var(--shared-prompt-ease),
+    background-color 260ms var(--shared-prompt-ease),
+    box-shadow 320ms var(--shared-prompt-ease);
+}
+
+.shared-prompt-surface[data-expanded='true'] {
+  grid-template-rows: 112px 42px;
+  border-color: color-mix(in srgb, hsl(var(--border)) 58%, hsl(var(--foreground)) 8%);
+  border-radius: 24px;
+  background:
+    radial-gradient(
+      circle at 14% 0%,
+      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+      transparent 34%
+    ),
+    var(--shared-prompt-surface-focus);
+  box-shadow:
+    0 18px 48px color-mix(in srgb, hsl(var(--foreground)) 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 36%, transparent);
+}
+
+.shared-prompt-surface[data-variant='chat'] {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) 44px;
+  border-radius: 24px;
+  background:
+    radial-gradient(
+      circle at 16% -8%,
+      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+      transparent 32%
+    ),
+    color-mix(in srgb, hsl(var(--card)) 78%, transparent);
+  box-shadow:
+    0 12px 34px color-mix(in srgb, hsl(var(--foreground)) 7%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 34%, transparent);
+}
+
+.shared-prompt-surface[data-variant='chat'][data-expanded='true'] {
+  grid-template-rows: minmax(0, 1fr) 44px;
+  border-radius: 24px;
+}
+
+.shared-prompt-body {
+  min-width: 0;
+  border-bottom: 1px solid transparent;
+  transition:
+    border-color 240ms var(--shared-prompt-ease),
+    opacity 260ms var(--shared-prompt-ease);
+}
+
+.shared-prompt-surface[data-expanded='true'] .shared-prompt-body {
+  border-bottom-color: color-mix(in srgb, hsl(var(--border)) 34%, transparent);
+}
+
+.shared-prompt-surface[data-variant='chat'] .shared-prompt-body {
+  border-bottom-color: color-mix(in srgb, hsl(var(--border)) 32%, transparent);
+}
+
+.shared-prompt-textarea {
+  min-height: 0;
+  background: transparent;
+  scrollbar-width: none;
+}
+
+.shared-prompt-textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.shared-prompt-actions {
+  opacity: 0;
+  transform: translateY(-5px);
+  transition:
+    opacity 240ms var(--shared-prompt-ease),
+    transform 240ms var(--shared-prompt-ease);
+}
+
+.shared-prompt-surface[data-expanded='true'] .shared-prompt-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.shared-prompt-surface[data-variant='chat'] .shared-prompt-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.shared-prompt-surface[data-variant='chat'] .shared-prompt-baseline {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.shared-prompt-surface[data-variant='chat'] .shared-prompt-baseline-center {
+  display: none;
+}
+
+.shared-prompt-gallery {
+  position: absolute;
+  inset-inline: 16px 52px;
+  top: 8px;
+  height: 58px;
+  opacity: 0.92;
+  transform: translateY(-2px);
+}
+
+.shared-prompt-surface[data-variant='chat'] .shared-prompt-gallery {
+  inset-inline: 16px 16px;
+  top: 10px;
+  height: 64px;
+}
+
+.shared-prompt-surface[data-variant='chat'] .shared-prompt-gallery + .shared-prompt-textarea {
+  padding-top: 78px;
+}
+
+.shared-prompt-gallery + .shared-prompt-textarea {
+  padding-top: 70px;
+}
+
+.shared-prompt-surface[data-dragging='true'] {
+  border-color: color-mix(in srgb, hsl(var(--ring)) 36%, hsl(var(--border)));
+  box-shadow:
+    0 18px 48px color-mix(in srgb, hsl(var(--foreground)) 10%, transparent),
+    0 0 0 5px color-mix(in srgb, hsl(var(--ring)) 9%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 36%, transparent);
+}
+
+.shared-prompt-action-strip {
+  min-height: 32px;
+}
+
+.shared-prompt-action-button {
+  height: 2rem;
+  border-radius: 0.75rem;
+}
+
+.shared-prompt-submit {
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 18%, transparent) inset,
+    0 8px 18px color-mix(in srgb, hsl(var(--foreground)) 10%, transparent);
+}
+
+@container (max-width: 560px) {
+  .shared-prompt-welcome-frame {
+    width: min(320px, calc(100vw - 24px));
+    transform: translateY(0) scale(0.92);
+  }
+
+  .shared-prompt-welcome-frame[data-expanded='true'] {
+    width: min(520px, calc(100vw - 24px));
+    transform: translateY(-4px) scale(1);
+  }
+
+  .shared-prompt-surface[data-expanded='true'] {
+    grid-template-rows: 104px 42px;
+    border-radius: 22px;
+  }
+
+  .shared-prompt-surface[data-variant='chat'],
+  .shared-prompt-surface[data-variant='chat'][data-expanded='true'] {
+    grid-template-rows: minmax(0, 1fr) 44px;
+    border-radius: 22px;
+  }
+
+  .shared-prompt-baseline {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .shared-prompt-baseline-center {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shared-prompt-welcome-frame,
+  .shared-prompt-surface,
+  .shared-prompt-body,
+  .shared-prompt-actions {
+    animation: none;
+    transition-duration: 0.01ms;
+  }
+}

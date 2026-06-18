@@ -39,9 +39,9 @@ const McpSelector: React.FC<McpSelectorProps> = ({
             <div className="absolute inset-0 bg-linear-to-r from-amber-100/0 via-amber-100/50 to-orange-100/0 dark:from-amber-900/0 dark:via-amber-900/30 dark:to-orange-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           )}
 
-          <span className="flex grow justify-center overflow-x-hidden relative z-10">
+          <span className="flex grow justify-center overflow-x-hidden relative z-10 select-none">
             {selectedMcpServerNames.length === 0 ? (
-              <span className="text-slate-400 dark:text-slate-500">MCP Tools</span>
+              <span className="text-slate-400 dark:text-slate-500">MCP Servers</span>
             ) : (
               <span className="truncate animate-in fade-in slide-in-from-left-1 duration-300">
                 {selectedMcpServerNames[0]}
@@ -73,7 +73,7 @@ const McpSelector: React.FC<McpSelectorProps> = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-full p-0 shadow-lg ml-1 rounded-xl overflow-hidden border-transparent bg-white/10 backdrop-blur-xl dark:bg-gray-900"
+        className="w-full p-0 shadow-lg ml-1 rounded-xl overflow-hidden border-transparent bg-white/70 backdrop-blur-xl dark:bg-gray-900"
         sideOffset={8}
         align="start"
       >

@@ -9,9 +9,9 @@ import { useAssistantStore } from '@renderer/store/assistant'
 import React, { useState } from 'react'
 import { getChatSkills } from '@renderer/db/ChatSkillRepository'
 import { getCompressedSummariesByChatId } from '@renderer/db/CompressedSummaryRepository'
-import { Wrench, Sparkles, Database, Compass } from 'lucide-react'
+import { Wrench, Sparkles, Compass } from 'lucide-react'
 
-const ConfigPanel: React.FC = () => {
+const ChatStatsPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
   const messages = useChatStore(state => state.messages)
   const currentChatId = useChatStore(state => state.currentChatId)
@@ -121,18 +121,6 @@ const ConfigPanel: React.FC = () => {
     return messages.filter(msg => msg.body.role === 'tool').length
   }, [messages])
 
-  const memoryCallCount = React.useMemo(() => {
-    return messages.reduce((sum, msg) => {
-      const segments = msg.body.segments || []
-      const memorySegments = segments.filter(seg =>
-        seg.type === 'toolCall' &&
-        (seg.name === 'memory_retrieval' || seg.name === 'memory_save')
-      ).length
-      return sum + memorySegments
-    }, 0)
-  }, [messages])
-
-  const memoryEnabled = appConfig?.tools?.memoryEnabled ?? true
   const compressionEnabled = appConfig?.compression?.enabled ?? true
 
   return (
@@ -235,23 +223,11 @@ const ConfigPanel: React.FC = () => {
               </div>
 
               {/* Tools Status */}
-              <div className="flex items-center gap-2">
+              <div className="flex w-full items-center gap-2">
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-[10px] h-5 px-2 font-medium select-none",
-                    memoryEnabled
-                      ? "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-200/70 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                      : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
-                  )}
-                >
-                  <Database className="w-3 h-3 mr-1" />
-                  Memory {memoryEnabled ? 'On' : 'Off'} · {memoryCallCount}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "relative overflow-hidden text-[10px] h-5 px-2 font-medium select-none",
+                    "relative flex h-5 w-full justify-start overflow-hidden px-2 text-[10px] font-medium select-none",
                     compressionEnabled
                       ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
                       : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
@@ -263,9 +239,14 @@ const ConfigPanel: React.FC = () => {
                       style={{ transform: `scaleX(${compressionProgressWidth / 100})` }}
                     />
                   )}
-                  <span className="relative z-10 inline-flex items-center">
+                  <span className="relative z-10 inline-flex min-w-0 flex-1 items-center">
                     <Compass className="w-3 h-3 mr-1" />
-                    Compress {compressionEnabled ? 'On' : 'Off'} · {compressionCount} · {compressionUsagePercent ?? '--'}%
+                    <span className='min-w-0 flex-1 truncate space-x-1'>
+                      <span>Auto Compact</span>
+                      <span className='font-bold'>{compressionEnabled ? 'On' : 'Off'}</span>
+                      <span> | {compressionCount}</span>
+                      <span className='font-bold'> | {compressionUsagePercent ?? '--'}%</span>
+                    </span>
                   </span>
                 </Badge>
               </div>
@@ -309,4 +290,4 @@ const ConfigPanel: React.FC = () => {
   )
 }
 
-export default ConfigPanel
+export default ChatStatsPanel
