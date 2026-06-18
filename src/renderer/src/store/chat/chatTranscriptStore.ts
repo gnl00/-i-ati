@@ -40,7 +40,7 @@ export type ChatTranscriptActions = {
   addMessage: (message: MessageEntity) => Promise<number>
   updateMessage: (message: MessageEntity) => Promise<void>
   updateMessageForChat: (chatUuid: string, message: MessageEntity) => Promise<void>
-  patchMessageUiState: (id: number, uiState: { typewriterCompleted?: boolean }) => Promise<void>
+  patchMessageUiState: (id: number, uiState: MessageUiStatePatch) => Promise<void>
   deleteMessage: (messageId: number) => Promise<void>
   deleteMessageForChat: (chatUuid: string, messageId: number) => Promise<void>
   settleLatestAssistantAfterAbort: () => Promise<void>
@@ -75,6 +75,18 @@ type ChatTranscriptContext = {
 }
 
 type ChatTranscriptSliceState = ChatTranscriptState & ChatTranscriptActions & ChatTranscriptContext
+
+function applyChatMessageUiStatePatch(
+  body: ChatMessage,
+  uiState: MessageUiStatePatch
+): ChatMessage {
+  return {
+    ...body,
+    ...(uiState.typewriterCompleted !== undefined
+      ? { typewriterCompleted: uiState.typewriterCompleted }
+      : {})
+  }
+}
 
 function hasAssistantPayload(message: ChatMessage): boolean {
   const hasContent = typeof message.content === 'string'
@@ -347,12 +359,7 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
           message.id === id
             ? {
               ...message,
-              body: {
-                ...message.body,
-                ...(uiState.typewriterCompleted !== undefined
-                  ? { typewriterCompleted: uiState.typewriterCompleted }
-                  : {})
-              }
+              body: applyChatMessageUiStatePatch(message.body, uiState)
             }
             : message
         ))

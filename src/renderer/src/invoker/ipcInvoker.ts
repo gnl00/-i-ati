@@ -419,7 +419,7 @@ export async function invokeDbMessageUpdate(data: MessageEntity): Promise<void> 
 
 export async function invokeDbMessagePatchUiState(
   id: number,
-  uiState: { typewriterCompleted?: boolean }
+  uiState: MessageUiStatePatch
 ): Promise<void> {
   const ipc = getElectronIPC()
   return await ipc.invoke(DB_MESSAGE_PATCH_UI_STATE, { id, uiState })

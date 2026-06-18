@@ -320,7 +320,7 @@ export class MessageRepository {
     this.reconcileChatMessageCount(prev, next)
   }
 
-  patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {
+  patchMessageUiState(id: number, uiState: MessageUiStatePatch): void {
     const messageRepo = this.requireMessageRepo()
     const row = messageRepo.getMessageById(id)
     if (!row) {

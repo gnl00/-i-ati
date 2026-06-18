@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import type { VirtuosoHandle } from 'react-virtuoso'
+import type { Virtualizer } from '@tanstack/react-virtual'
 
 export type UserScrollSource = 'wheel' | 'pointer'
+type ChatVirtualizer = Virtualizer<HTMLDivElement, HTMLDivElement>
 
 interface UseScrollManagerTopProps {
   messagesLength: number
   chatUuid?: string
-  scrollStartOffsetPx?: number
+  virtualizerRef: RefObject<ChatVirtualizer | null>
   onUserScrollIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
   onUserScrollUpIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
   suppressScrollIntentRef?: RefObject<boolean>
@@ -16,7 +17,6 @@ interface UseScrollManagerTopProps {
 
 interface UseScrollManagerTopReturn {
   scrollParentRef: RefObject<HTMLDivElement | null>
-  virtuosoRef: RefObject<VirtuosoHandle | null>
   showJumpToLatest: boolean
   isButtonFadingOut: boolean
   scrollToLatest: (smooth?: boolean) => void
@@ -25,20 +25,19 @@ interface UseScrollManagerTopReturn {
     smooth?: boolean,
     align?: 'start' | 'center' | 'end'
   ) => void
-  onRangeChanged: (range: { startIndex: number; endIndex: number }) => void
+  onVirtualizerChange: (instance: ChatVirtualizer) => void
 }
 
 export function useScrollManagerTop({
   messagesLength,
   chatUuid,
-  scrollStartOffsetPx = 0,
+  virtualizerRef,
   onUserScrollIntentRef,
   onUserScrollUpIntentRef,
   suppressScrollIntentRef,
   onLatestVisibleChange
 }: UseScrollManagerTopProps): UseScrollManagerTopReturn {
   const scrollParentRef = useRef<HTMLDivElement>(null)
-  const virtuosoRef = useRef<VirtuosoHandle>(null)
   const programmaticScrollRef = useRef<boolean>(false)
   const showJumpToLatestRef = useRef<boolean>(false)
   const lastChatUuidRef = useRef<string | undefined>(chatUuid)
@@ -61,7 +60,8 @@ export function useScrollManagerTop({
     smooth = false,
     align: 'start' | 'center' | 'end' = 'start'
   ) => {
-    if (!virtuosoRef.current || index < 0) return
+    const virtualizer = virtualizerRef.current
+    if (!virtualizer || index < 0) return
     if (smoothScrollTimeoutRef.current) {
       clearTimeout(smoothScrollTimeoutRef.current)
       smoothScrollTimeoutRef.current = 0
@@ -71,11 +71,9 @@ export function useScrollManagerTop({
       setIsButtonFadingOut(true)
       smoothScrollTimeoutRef.current = window.setTimeout(() => {
         markProgrammaticScroll()
-        virtuosoRef.current?.scrollToIndex({
-          index,
+        virtualizerRef.current?.scrollToIndex(index, {
           align,
-          behavior: 'smooth',
-          offset: align === 'start' ? -scrollStartOffsetPx : 0
+          behavior: 'smooth'
         })
         setIsButtonFadingOut(false)
         smoothScrollTimeoutRef.current = 0
@@ -84,20 +82,18 @@ export function useScrollManagerTop({
     }
 
     markProgrammaticScroll()
-    virtuosoRef.current.scrollToIndex({
-      index,
+    virtualizer.scrollToIndex(index, {
       align,
-      behavior: 'auto',
-      offset: align === 'start' ? -scrollStartOffsetPx : 0
+      behavior: 'auto'
     })
-  }, [markProgrammaticScroll, scrollStartOffsetPx])
+  }, [markProgrammaticScroll, virtualizerRef])
 
   const scrollToLatest = useCallback((smooth = false) => {
     if (messagesLength <= 0) return
-    scrollToIndex(messagesLength - 1, smooth)
+    scrollToIndex(messagesLength - 1, smooth, 'end')
   }, [messagesLength, scrollToIndex])
 
-  const onRangeChanged = useCallback((range: { startIndex: number; endIndex: number }) => {
+  const onVirtualizerChange = useCallback((instance: ChatVirtualizer) => {
     if (messagesLength <= 0) {
       onLatestVisibleChange?.(false)
       if (showJumpToLatestRef.current) {
@@ -107,7 +103,14 @@ export function useScrollManagerTop({
     }
 
     const latestIndex = messagesLength - 1
-    const latestVisible = range.startIndex <= latestIndex && range.endIndex >= latestIndex
+    const scrollOffset = instance.scrollOffset ?? 0
+    const viewportEnd = scrollOffset + (instance.scrollRect?.height ?? 0)
+    const latestVisible = instance.isAtEnd()
+      || instance.getVirtualItems().some(item =>
+        item.index === latestIndex
+        && item.start < viewportEnd
+        && item.end > scrollOffset
+      )
     onLatestVisibleChange?.(latestVisible)
 
     if (latestVisible) {
@@ -118,7 +121,11 @@ export function useScrollManagerTop({
       return
     }
 
-    if (!programmaticScrollRef.current && !showJumpToLatestRef.current) {
+    if (
+      !programmaticScrollRef.current
+      && !showJumpToLatestRef.current
+      && !instance.isAtEnd()
+    ) {
       setShowJumpToLatest(true)
     }
   }, [messagesLength, onLatestVisibleChange])
@@ -230,11 +237,10 @@ export function useScrollManagerTop({
 
   return {
     scrollParentRef,
-    virtuosoRef,
     showJumpToLatest,
     isButtonFadingOut,
     scrollToLatest,
     scrollToMessageIndex: scrollToIndex,
-    onRangeChanged
+    onVirtualizerChange
   }
 }

@@ -472,6 +472,10 @@ declare interface BaseChatMessage {
   toolCalls?: IToolCall[]  // 驼峰命名，发送 API 时映射为 tool_calls
 }
 
+declare type MessageUiStatePatch = {
+  typewriterCompleted?: boolean
+}
+
 declare interface ChatMessage extends BaseChatMessage {
   model?: string
   modelRef?: { accountId: string; modelId: string }

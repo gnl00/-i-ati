@@ -11,7 +11,7 @@ import {
 export interface MessagePersistence {
   saveMessage: (message: MessageEntity) => Promise<number>
   updateMessage: (message: MessageEntity) => Promise<void>
-  patchMessageUiState: (id: number, uiState: { typewriterCompleted?: boolean }) => Promise<void>
+  patchMessageUiState: (id: number, uiState: MessageUiStatePatch) => Promise<void>
   deleteMessage: (messageId: number) => Promise<void>
   getMessageById: (id: number) => Promise<MessageEntity | undefined>
   getMessagesByChatId: (chatId: number) => Promise<MessageEntity[]>
@@ -29,7 +29,7 @@ class MessagePersistenceService implements MessagePersistence {
 
   async patchMessageUiState(
     id: number,
-    uiState: { typewriterCompleted?: boolean }
+    uiState: MessageUiStatePatch
   ): Promise<void> {
     return await patchMessageUiState(id, uiState)
   }

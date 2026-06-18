@@ -29,8 +29,11 @@
   - 合并“用户上滚意图”监听（wheel + scroll），并回调组件处理业务逻辑。
 - 新增顶部窗口组件：
   - `src/renderer/src/components/chat/ChatWindowComponentNext.tsx`
-  - 使用 `Virtuoso` + `Footer spacer` 实现顶部锚定布局。
-  - spacer 计算改为基于 `virtuosoRef.getState().ranges`，避免 `data-index` DOM 查询失效窗口。
+  - 使用 `@tanstack/react-virtual` 的 `useVirtualizer` 管理 chat history 虚拟列表。
+  - virtual item 使用稳定 message id 作为 key，避免 index 变化复用旧测量。
+  - 通过 `anchorTo: 'end'` + `followOnAppend` 表达尾部锚定与追加跟随策略。
+  - spacer/tail fill 计算基于 virtualizer 测量项与视口尺寸，latest visibility 采用 viewport-bound 判断。
+  - 动态高度由 `measureElement` 回填，`shouldAdjustScrollPositionOnItemSizeChange` instance hook 负责 item 尺寸变化时的锚点补偿。
   - stream 结束时执行最终收敛：
     - 若 latest assistant 高度 >= chat window 高度：禁用 spacer。
     - 否则：`assistantHeight + spacerHeight = windowHeight`。

@@ -120,7 +120,7 @@ export class ChatService {
     this.requireMessageRepository().updateMessage(data)
   }
 
-  patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {
+  patchMessageUiState(id: number, uiState: MessageUiStatePatch): void {
     this.requireMessageRepository().patchMessageUiState(id, uiState)
   }
 

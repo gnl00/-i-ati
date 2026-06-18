@@ -29,8 +29,9 @@
 `PlanBar` 已移出消息滚动容器。当前结构是：
 
 - 会话级 UI 放在 scroll container 外部
-- `Virtuoso` 只负责 transcript
-- 底部空白通过 `Virtuoso components.Footer` 注入
+- `useVirtualizer` 只负责 transcript
+- 底部空白作为 TanStack Virtual tail spacer 参与 scroll geometry
+- virtual item 使用稳定 message id 作为 key，测量缓存跟随消息身份
 
 这样可以避免列表外 UI 的高度变化污染 transcript 的几何关系。
 
@@ -89,9 +90,16 @@ layout pass 的职责只有两件事：
 - `conversation-switch`
 - `container-mounted`
 - `container-resize`
-- `total-list-height-changed`
+- `virtual-item-size-changed`
 
 `typing-change` 和普通 `transcript-change` 默认不主动触发 spacer shrink。这样可以避免 streaming 中由于瞬时文本状态变化导致 spacer 频繁抖动。
+
+TanStack Virtual 的动态高度链路是：
+
+- `useVirtualizer` 生成 transcript virtual items
+- `measureElement` 回填每条消息的真实高度
+- `shouldAdjustScrollPositionOnItemSizeChange` instance hook 在尺寸变化时进入锚点补偿
+- latest visibility 绑定当前 viewport，避免 reader dialog 或容器外 UI 改变可见性判断
 
 ## Exit Conditions
 
@@ -109,7 +117,7 @@ layout pass 的职责只有两件事：
 
 单纯的 `scrollTop` 变化不再被当成用户意图，因为它也可能来自：
 
-- Virtuoso 动态测量
+- TanStack Virtual 动态测量
 - spacer 变化
 - anchor 补偿
 - assistant 内容增长
@@ -124,7 +132,14 @@ layout pass 的职责只有两件事：
 - 重置 spacer
 - 切回 `tail-follow`
 - 通过显式 scroll hint 定位目标 index
-- `Virtuoso` 使用 `key={chatUuid}` 强制 remount，避免复用旧会话测量缓存
+- `useVirtualizer` 通过 `chatUuid` 级别实例重建和稳定 message id key 刷新会话测量缓存
+
+## Follow And Visibility Policy
+
+- `anchorTo: 'end'` 表达默认尾部锚定。
+- `followOnAppend` 负责新消息追加时的跟随策略。
+- `latest visibility` 使用 viewport-bound 判断，只有 latest message 在当前视口范围内时才保持尾部跟随。
+- reader dialog 打开、关闭或改变尺寸时，滚动语义仍以 scroll container viewport 为准。
 
 ## Relevant Files
 
@@ -137,7 +152,7 @@ layout pass 的职责只有两件事：
 后续如果继续优化，这几条建议保持不变：
 
 - 顶部锚点始终锁 user message，而不是 latest assistant
-- transcript 外 UI 不进入 Virtuoso scroll geometry
+- transcript 外 UI 不进入 TanStack Virtual scroll geometry
 - spacer 只表示“尾部补高”，不承载其它布局语义
 - 退出 `anchor-lock` 必须来自明确用户输入，而不是普通 `scroll`
 - spacer 更新与 anchor 补偿应尽量在同一轮完成

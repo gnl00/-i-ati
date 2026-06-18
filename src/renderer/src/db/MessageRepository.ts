@@ -47,7 +47,7 @@ const updateMessage = async (data: MessageEntity): Promise<void> => {
 
 const patchMessageUiState = async (
   id: number,
-  uiState: { typewriterCompleted?: boolean }
+  uiState: MessageUiStatePatch
 ): Promise<void> => {
   return await invokeDbMessagePatchUiState(id, uiState)
 }

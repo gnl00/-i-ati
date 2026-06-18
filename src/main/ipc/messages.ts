@@ -60,7 +60,7 @@ export function registerMessageHandlers(): void {
 
   ipcMain.handle(DB_MESSAGE_PATCH_UI_STATE, async (_event, data: {
     id: number
-    uiState: { typewriterCompleted?: boolean }
+    uiState: MessageUiStatePatch
   }) => {
     logger.info('message.patch_ui_state', {
       id: data.id,

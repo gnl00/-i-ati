@@ -37,11 +37,14 @@ const getContentSignature = (content: ChatMessage['content']): string => {
 const CollapsibleUserMessageContent: React.FC<{
   children: React.ReactNode
   contentSignature: string
-}> = ({ children, contentSignature }) => {
+  isExpanded: boolean
+  onToggleExpanded: () => void
+}> = ({ children, contentSignature, isExpanded, onToggleExpanded }) => {
   const contentRef = useRef<HTMLDivElement>(null)
-  const [expanded, setExpanded] = useState(false)
   const [canCollapse, setCanCollapse] = useState(false)
-  const [measuredHeight, setMeasuredHeight] = useState(COLLAPSED_USER_MESSAGE_HEIGHT)
+  const [hasMeasured, setHasMeasured] = useState(false)
+  const [measuredExpandedHeight, setMeasuredExpandedHeight] = useState<number | null>(null)
+  const [measuredContentSignature, setMeasuredContentSignature] = useState(contentSignature)
 
   const measureContent = useCallback(() => {
     const node = contentRef.current
@@ -50,18 +53,16 @@ const CollapsibleUserMessageContent: React.FC<{
     const nextHeight = node.scrollHeight
     const nextCanCollapse = nextHeight > COLLAPSED_USER_MESSAGE_HEIGHT + COLLAPSE_OVERFLOW_BUFFER
 
-    setMeasuredHeight(Math.max(nextHeight, COLLAPSED_USER_MESSAGE_HEIGHT))
+    setMeasuredContentSignature(contentSignature)
+    setMeasuredExpandedHeight(nextHeight)
     setCanCollapse(nextCanCollapse)
-
-    if (!nextCanCollapse) {
-      setExpanded(false)
-    }
-  }, [])
+    setHasMeasured(true)
+  }, [contentSignature])
 
   useLayoutEffect(() => {
-    setExpanded(false)
-    measureContent()
-  }, [contentSignature, measureContent])
+    setHasMeasured(false)
+    setMeasuredExpandedHeight(null)
+  }, [contentSignature])
 
   useLayoutEffect(() => {
     const node = contentRef.current
@@ -74,96 +75,89 @@ const CollapsibleUserMessageContent: React.FC<{
       return () => window.removeEventListener('resize', measureContent)
     }
 
-    const resizeObserver = new ResizeObserver(measureContent)
+    const resizeObserver = new ResizeObserver(() => {
+      measureContent()
+    })
     resizeObserver.observe(node)
     return () => resizeObserver.disconnect()
-  }, [measureContent])
+  }, [contentSignature, measureContent])
 
-  const maxHeight = canCollapse
-    ? expanded
-      ? `${measuredHeight}px`
-      : `${COLLAPSED_USER_MESSAGE_HEIGHT}px`
-    : undefined
+  const hasCurrentMeasurement = hasMeasured && measuredContentSignature === contentSignature
+  const maxHeight = isExpanded && hasCurrentMeasurement && measuredExpandedHeight !== null
+    ? `${measuredExpandedHeight}px`
+    : !isExpanded && (canCollapse || !hasCurrentMeasurement)
+      ? `${COLLAPSED_USER_MESSAGE_HEIGHT}px`
+      : undefined
+  const showCollapseControls = hasCurrentMeasurement && canCollapse
 
   return (
     <div className="relative">
       <div
         ref={contentRef}
         data-testid="user-message-collapsible-content"
-        data-expanded={expanded ? 'true' : 'false'}
-        className={cn(
-          "overflow-hidden transition-[max-height] duration-300 ease-out",
-          "motion-reduce:transition-none"
-        )}
+        data-expanded={isExpanded ? 'true' : 'false'}
+        className="overflow-hidden transition-none"
         style={maxHeight ? { maxHeight } : undefined}
       >
         {children}
       </div>
 
-      {canCollapse && !expanded && (
+      {showCollapseControls && (
         <>
+          {!isExpanded && (
+            <>
+              <div
+                aria-hidden="true"
+                data-testid="user-message-collapse-fade"
+                className={cn(
+                  "pointer-events-none absolute inset-x-0 bottom-0 h-24",
+                  "bg-linear-to-b from-slate-100/0 via-slate-100/72 to-slate-100",
+                  "dark:from-gray-800/0 dark:via-gray-800/72 dark:to-gray-800"
+                )}
+              />
+              <div
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute inset-x-0 bottom-0 h-[72px]",
+                  "bg-slate-100/38 backdrop-blur-[3px]",
+                  "mask-[linear-gradient(to_bottom,transparent_0%,black_48%)]",
+                  "[-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_48%)]",
+                  "dark:bg-gray-800/42"
+                )}
+              />
+            </>
+          )}
           <div
-            aria-hidden="true"
-            data-testid="user-message-collapse-fade"
             className={cn(
-              "pointer-events-none absolute inset-x-0 bottom-0 h-24",
-              "bg-linear-to-b from-slate-100/0 via-slate-100/72 to-slate-100",
-              "dark:from-gray-800/0 dark:via-gray-800/72 dark:to-gray-800"
-            )}
-          />
-          <div
-            aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute inset-x-0 bottom-0 h-[72px]",
-              "bg-slate-100/38 backdrop-blur-[3px]",
-              "mask-[linear-gradient(to_bottom,transparent_0%,black_48%)]",
-              "[-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_48%)]",
-              "dark:bg-gray-800/42"
-            )}
-          />
-          <button
-            type="button"
-            data-testid="user-message-expand-button"
-            onClick={() => setExpanded(true)}
-            className={cn(
-              "absolute bottom-2 left-1/2 z-10 -translate-x-1/2",
-              "inline-flex h-7 items-center gap-1 rounded-full px-2.5",
-              "bg-white/25 text-xs font-medium text-slate-600",
-              "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
-              "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
-              "hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
-              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
-              "dark:border-white/10 dark:bg-gray-950/58 dark:text-gray-300 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)]",
-              "dark:hover:border-white/16 dark:hover:bg-gray-950/78 dark:hover:text-white"
+              isExpanded
+                ? "mt-2 flex justify-center"
+                : "absolute inset-x-0 bottom-2 z-10 flex justify-center"
             )}
           >
-            <ChevronDown className="h-3.5 w-3.5" />
-            <span>Show More</span>
-          </button>
+            <button
+              type="button"
+              data-testid={isExpanded ? 'user-message-collapse-button' : 'user-message-expand-button'}
+              onClick={onToggleExpanded}
+              className={cn(
+                "inline-flex h-7 items-center gap-1 rounded-full px-2.5",
+                "bg-white/25 text-xs font-medium text-slate-600",
+                "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
+                "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
+                "hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
+                "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
+                "dark:border-white/10 dark:bg-gray-950/58 dark:text-gray-300 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)]",
+                "dark:hover:border-white/16 dark:hover:bg-gray-950/78 dark:hover:text-white"
+              )}
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+              <span>{isExpanded ? 'Hide' : 'Show More'}</span>
+            </button>
+          </div>
         </>
-      )}
-
-      {canCollapse && expanded && (
-        <div className="mt-2 flex justify-center">
-          <button
-            type="button"
-            data-testid="user-message-collapse-button"
-            onClick={() => setExpanded(false)}
-            className={cn(
-              "inline-flex h-7 items-center gap-1 rounded-full px-2.5",
-              "bg-white/25 text-xs font-medium text-slate-600",
-              "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
-              "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
-              "hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
-              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
-              "dark:border-white/10 dark:bg-gray-950/58 dark:text-gray-300 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)]",
-              "dark:hover:border-white/16 dark:hover:bg-gray-950/78 dark:hover:text-white"
-            )}
-          >
-            <ChevronUp className="h-3.5 w-3.5" />
-            <span>Hide</span>
-          </button>
-        </div>
       )}
     </div>
   )
@@ -175,18 +169,12 @@ const CollapsibleUserMessageContent: React.FC<{
 const AnimatedMarkdown: React.FC<{
   markdown: string
   className?: string
-}> = ({ markdown, className }) => {
-  const entered = useEnterTransition('enter')
+  animateOnEnter?: boolean
+}> = ({ markdown, className, animateOnEnter = true }) => {
+  const entered = useEnterTransition('enter', { enabled: animateOnEnter })
   React.useEffect(() => {
     void loadKatexStyles()
   }, [])
-  React.useEffect(() => {
-    const debug = (globalThis as any).__DEBUG_MARKDOWN_LINEBREAKS
-    if (!debug) return
-    const escaped = markdown.replace(/\r/g, '\\r').replace(/\n/g, '\\n')
-    console.log('[UserMarkdown] raw:', markdown)
-    console.log('[UserMarkdown] escaped:', escaped)
-  }, [markdown])
 
   return (
     <ReactMarkdown
@@ -206,17 +194,33 @@ const AnimatedMarkdown: React.FC<{
   )
 }
 
-const VLMContentRenderer: React.FC<{ content: VLMContent[] }> = ({ content }) => (
+const VLMContentRenderer: React.FC<{
+  content: VLMContent[]
+  animateOnEnter?: boolean
+  markdownClassName?: string
+  imageClassName?: string
+}> = ({ content, animateOnEnter = true, markdownClassName, imageClassName }) => (
   <div className="">
     {content.map((vlmContent: VLMContent, idx) => {
       if (vlmContent.image_url) {
-        return <img key={idx} src={vlmContent.image_url?.url} onDoubleClick={e => e}></img>
+        return (
+          <img
+            key={idx}
+            src={vlmContent.image_url?.url}
+            onDoubleClick={e => e}
+            className={cn("max-w-full rounded-lg", imageClassName)}
+          ></img>
+        )
       } else {
         return (
           <AnimatedMarkdown
             key={idx}
             markdown={vlmContent.text ?? ''}
-            className="prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full dark:text-white prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300"
+            animateOnEnter={animateOnEnter}
+            className={cn(
+              "prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full dark:text-white prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300",
+              markdownClassName
+            )}
           />
         )
       }
@@ -239,6 +243,11 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
 }) => {
   const telegramAttachmentCount = m.host?.attachments?.length ?? 0
   const contentSignature = useMemo(() => getContentSignature(m.content), [m.content])
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  useLayoutEffect(() => {
+    setIsExpanded(false)
+  }, [contentSignature])
 
   const onCopy = () => {
     if (typeof m.content === 'string') {
@@ -254,6 +263,7 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
   }
 
   if (!m.content) return null
+  const shouldAnimateMarkdownEnter = isLatest || isPending
 
   return (
     <div
@@ -283,12 +293,20 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
           isPending && "opacity-75 saturate-90 shadow-sm shadow-slate-900/5 transition-[opacity,filter,box-shadow] duration-200 ease-out dark:shadow-black/20"
         )}
       >
-        <CollapsibleUserMessageContent contentSignature={contentSignature}>
+        <CollapsibleUserMessageContent
+          contentSignature={contentSignature}
+          isExpanded={isExpanded}
+          onToggleExpanded={() => setIsExpanded(current => !current)}
+        >
           {typeof m.content !== 'string' ? (
-            <VLMContentRenderer content={m.content} />
+            <VLMContentRenderer
+              content={m.content}
+              animateOnEnter={shouldAnimateMarkdownEnter}
+            />
           ) : (
             <AnimatedMarkdown
               markdown={m.content}
+              animateOnEnter={shouldAnimateMarkdownEnter}
               className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300")}
             />
           )}

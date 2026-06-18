@@ -51,7 +51,7 @@ export const toMessageEntity = (row: MessageRow): MessageEntity => {
 
 export const patchMessageRowUiState = (
   row: MessageRow,
-  uiState: { typewriterCompleted?: boolean }
+  uiState: MessageUiStatePatch
 ): MessageRow => {
   const body = normalizeChatMessageSegmentsWithIds(
     JSON.parse(row.body) as ChatMessage,

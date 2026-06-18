@@ -244,7 +244,7 @@ class DatabaseService {
     this.requireChatService().deleteWorkContext(chatId)
   }
 
-  public patchMessageUiState(id: number, uiState: { typewriterCompleted?: boolean }): void {
+  public patchMessageUiState(id: number, uiState: MessageUiStatePatch): void {
     this.requireChatService().patchMessageUiState(id, uiState)
   }
 
