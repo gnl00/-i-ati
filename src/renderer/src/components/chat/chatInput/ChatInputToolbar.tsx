@@ -8,7 +8,6 @@ import {
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
 import React from 'react'
-import ChatStatsPanel from './toolbar/ChatStatsPanel'
 import type { ModelOption } from '@renderer/store/appConfig'
 import { BadgePlus } from 'lucide-react'
 
@@ -238,9 +237,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           </div>
         )}
 
-        <div id="customPanel" className="app-undragable shrink-0 bg-transparent">
-          <ChatStatsPanel />
-        </div>
       </div>
     )
   }
@@ -286,8 +282,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
               )}
             </div>
           )}
-          <ChatStatsPanel
-          />
         </div>
       </div>
     </div>

@@ -11,7 +11,13 @@ import { getChatSkills } from '@renderer/db/ChatSkillRepository'
 import { getCompressedSummariesByChatId } from '@renderer/db/CompressedSummaryRepository'
 import { Wrench, Sparkles, Compass } from 'lucide-react'
 
-const ChatStatsPanel: React.FC = () => {
+interface ChatStatsPanelProps {
+  variant?: 'popover' | 'inline'
+}
+
+const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
+  variant = 'popover'
+}) => {
   const [isOpen, setIsOpen] = useState(false)
   const messages = useChatStore(state => state.messages)
   const currentChatId = useChatStore(state => state.currentChatId)
@@ -123,6 +129,93 @@ const ChatStatsPanel: React.FC = () => {
 
   const compressionEnabled = appConfig?.compression?.enabled ?? true
 
+  const statsContent = (
+    <div className="flex h-fit flex-col">
+      {/* Content Area */}
+      <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-2">
+        {/* Parameters Group */}
+        <div className="shrink-0 space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1 dark:border-slate-800/60">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Overview
+            </span>
+          </div>
+
+          {/* Tools Status */}
+          <div className="flex w-full items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn(
+                "relative flex h-5 w-full justify-start overflow-hidden px-2 text-[10px] font-medium select-none",
+                compressionEnabled
+                  ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
+                  : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
+              )}
+            >
+              {compressionEnabled && (
+                <span
+                  className="absolute inset-y-0 left-0 w-full origin-left bg-indigo-200/45 transition-transform duration-300 dark:bg-indigo-400/15"
+                  style={{ transform: `scaleX(${compressionProgressWidth / 100})` }}
+                />
+              )}
+              <span className="relative z-10 inline-flex min-w-0 flex-1 items-center">
+                <Compass className="mr-1 h-3 w-3" />
+                <span className='min-w-0 flex-1 truncate space-x-1'>
+                  <span>Auto Compact</span>
+                  <span className='font-bold'>{compressionEnabled ? 'On' : 'Off'}</span>
+                  <span> | {compressionCount}</span>
+                  <span className='font-bold'> | {compressionUsagePercent ?? '--'}%</span>
+                </span>
+              </span>
+            </Badge>
+          </div>
+
+          {/* Chat Stats */}
+          <div className="grid grid-cols-3 gap-2 select-none">
+            <div className="rounded-lg border border-slate-200/70 bg-white/60 px-2.5 py-2 dark:border-slate-800/70 dark:bg-slate-900/40">
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
+                <TokensIcon className="h-3 w-3" />
+                Tokens
+              </div>
+              <div className="mt-1 text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                {tokenTotal}
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200/70 bg-white/60 px-2.5 py-2 dark:border-slate-800/70 dark:bg-slate-900/40">
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
+                <Wrench className="h-3 w-3" />
+                Tools
+              </div>
+              <div className="mt-1 text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                {toolCallCount} / {toolResultCount}
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200/70 bg-white/60 px-2.5 py-2 dark:border-slate-800/70 dark:bg-slate-900/40">
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
+                <Sparkles className="h-3 w-3" />
+                Skills
+              </div>
+              <div className="mt-1 text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                {activeSkills.length}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+
+  if (variant === 'inline') {
+    return (
+      <div className="h-full min-h-0 overflow-y-auto bg-white/55 px-3 py-3 dark:bg-slate-950/60">
+        <div className="mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-xs dark:border-slate-800/80 dark:bg-slate-950/95">
+          {statsContent}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
@@ -211,80 +304,7 @@ const ChatStatsPanel: React.FC = () => {
         sideOffset={12}
         align="end"
       >
-        <div className="flex flex-col h-fit">
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-6">
-            {/* Parameters Group */}
-            <div className="space-y-3 shrink-0">
-              <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800/60">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Overview
-                </span>
-              </div>
-
-              {/* Tools Status */}
-              <div className="flex w-full items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "relative flex h-5 w-full justify-start overflow-hidden px-2 text-[10px] font-medium select-none",
-                    compressionEnabled
-                      ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
-                      : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
-                  )}
-                >
-                  {compressionEnabled && (
-                    <span
-                      className="absolute inset-y-0 left-0 w-full origin-left bg-indigo-200/45 dark:bg-indigo-400/15 transition-transform duration-300"
-                      style={{ transform: `scaleX(${compressionProgressWidth / 100})` }}
-                    />
-                  )}
-                  <span className="relative z-10 inline-flex min-w-0 flex-1 items-center">
-                    <Compass className="w-3 h-3 mr-1" />
-                    <span className='min-w-0 flex-1 truncate space-x-1'>
-                      <span>Auto Compact</span>
-                      <span className='font-bold'>{compressionEnabled ? 'On' : 'Off'}</span>
-                      <span> | {compressionCount}</span>
-                      <span className='font-bold'> | {compressionUsagePercent ?? '--'}%</span>
-                    </span>
-                  </span>
-                </Badge>
-              </div>
-
-              {/* Chat Stats */}
-              <div className="grid grid-cols-3 gap-2 select-none">
-                <div className="rounded-lg border border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/40 px-2.5 py-2">
-                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
-                    <TokensIcon className="w-3 h-3" />
-                    Tokens
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
-                    {tokenTotal}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/40 px-2.5 py-2">
-                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
-                    <Wrench className="w-3 h-3" />
-                    Tools
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
-                    {toolCallCount} / {toolResultCount}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/40 px-2.5 py-2">
-                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
-                    <Sparkles className="w-3 h-3" />
-                    Skills
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
-                    {activeSkills.length}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
+        {statsContent}
       </PopoverContent>
     </Popover>
   )

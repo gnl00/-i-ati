@@ -25,7 +25,7 @@ export const createInitialChatViewState = (): ChatViewState => ({
   webSearchProcessing: false,
   artifacts: false,
   artifactsPanelOpen: false,
-  artifactsActiveTab: 'preview'
+  artifactsActiveTab: 'stats'
 })
 
 export function createChatViewActions<T extends ChatViewState>(

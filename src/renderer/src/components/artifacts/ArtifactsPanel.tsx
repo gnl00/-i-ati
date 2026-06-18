@@ -5,6 +5,7 @@ import {
   X
 } from 'lucide-react'
 import { useState } from 'react'
+import ChatStatsPanel from '@renderer/components/chat/chatInput/toolbar/ChatStatsPanel'
 import { ArtifactsFilesTab, FilesTabToolbar } from './ArtifactsFilesTab'
 import { ArtifactsFooter } from './ArtifactsFooter'
 import { ArtifactsPreviewTab } from './ArtifactsPreviewTab'
@@ -46,6 +47,12 @@ export const ArtifactsPanel: React.FC = () => {
       >
         <div className="flex h-8 shrink-0 items-center gap-2 border-b border-black/[0.06] bg-white/80 px-2 dark:border-white/[0.08] dark:bg-zinc-950/80">
           <TabsList className="h-full min-w-0 flex-1 justify-start gap-4 rounded-none border-0 bg-transparent p-0 text-zinc-500 dark:text-zinc-500">
+            <TabsTrigger
+              value="stats"
+              className="h-full rounded-none border-b-2 border-transparent bg-transparent px-0.5 py-0 text-[11px] font-medium text-zinc-500 shadow-none transition-[border-color,color] duration-200 hover:text-zinc-800 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:border-zinc-900 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-zinc-950 data-[state=active]:shadow-none dark:text-zinc-500 dark:hover:text-zinc-200 dark:data-[state=active]:border-zinc-100 dark:data-[state=active]:text-zinc-50"
+            >
+              Stats
+            </TabsTrigger>
             <TabsTrigger
               value="preview"
               className="h-full rounded-none border-b-2 border-transparent bg-transparent px-0.5 py-0 text-[11px] font-medium text-zinc-500 shadow-none transition-[border-color,color] duration-200 hover:text-zinc-800 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:border-zinc-900 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-zinc-950 data-[state=active]:shadow-none dark:text-zinc-500 dark:hover:text-zinc-200 dark:data-[state=active]:border-zinc-100 dark:data-[state=active]:text-zinc-50"
@@ -95,6 +102,14 @@ export const ArtifactsPanel: React.FC = () => {
 
           {/* Files Tab Content */}
           <ArtifactsFilesTab files={files} searchQuery={searchQuery} />
+        </TabsContent>
+
+        {/* Stats Tab Content */}
+        <TabsContent
+          value="stats"
+          className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
+        >
+          <ChatStatsPanel variant="inline" />
         </TabsContent>
 
         {/* Action Footer */}
