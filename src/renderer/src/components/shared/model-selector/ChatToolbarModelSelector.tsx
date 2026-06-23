@@ -81,10 +81,6 @@ const getTriggerClassName = (
   selected: boolean,
   triggerClassName?: string
 ) => {
-  if (triggerClassName) {
-    return triggerClassName
-  }
-
   if (variant === 'baseline') {
     return cn(
       'group relative flex h-8 min-w-[118px] max-w-[184px] items-center justify-between gap-1.5 overflow-hidden rounded-xl px-2.5 py-0.5',
@@ -92,7 +88,8 @@ const getTriggerClassName = (
       'transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
       'hover:border-border/45 hover:bg-foreground/[0.035] hover:text-foreground hover:shadow-[0_8px_18px_color-mix(in_srgb,hsl(var(--foreground))_4%,transparent)]',
       'active:scale-[0.985] focus-visible:ring-0 focus-visible:ring-offset-0',
-      selected && 'border-border/35 bg-transparent text-foreground dark:border-border/30'
+      selected && 'border-border/35 bg-transparent text-foreground dark:border-border/30',
+      triggerClassName
     )
   }
 
@@ -110,7 +107,8 @@ const getTriggerClassName = (
           'border-slate-200/50 bg-slate-50/50 text-slate-500',
           'hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700',
           'dark:border-slate-700/50 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300'
-        ]
+        ],
+    triggerClassName
   )
 }
 

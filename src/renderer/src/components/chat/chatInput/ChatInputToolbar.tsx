@@ -112,7 +112,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
                   size="icon"
                   variant="ghost"
                   className={cn(
-                    'shared-prompt-action-button group relative h-8 w-8 overflow-hidden rounded-xl',
+                    'shared-prompt-action-button group relative h-8 w-8 shrink-0 overflow-hidden rounded-xl',
                     'bg-slate-50/50 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400',
                     'border border-slate-200/50 dark:border-slate-700/50',
                     'transition-all duration-300 ease-out',
@@ -132,29 +132,34 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           </TooltipProvider>
         )}
 
-        <div
-          id="modelSelector"
-          className="app-undragable min-w-0 bg-transparent"
-          onPointerDownCapture={onBaselineInteractionStart}
-        >
-          <ChatToolbarModelSelector
-            selectedModel={selectedModel}
-            modelOptions={modelOptions}
-            plugins={plugins}
-            selectedThinkingLevel={selectedThinkingLevel}
-            collisionBoundary={modelMenuCollisionBoundary}
-            isOpen={selectModelPopoutState}
-            onOpenChange={handleModelPopoverOpenChange}
-            onModelSelect={handleModelSelect}
-            variant="baseline"
-          />
-        </div>
+        <div className="flex min-w-0 max-w-[230px] items-center gap-1.5">
+          <div
+            id="modelSelector"
+            className="app-undragable min-w-0 flex-1 bg-transparent"
+            onPointerDownCapture={onBaselineInteractionStart}
+          >
+            <ChatToolbarModelSelector
+              selectedModel={selectedModel}
+              modelOptions={modelOptions}
+              plugins={plugins}
+              selectedThinkingLevel={selectedThinkingLevel}
+              collisionBoundary={modelMenuCollisionBoundary}
+              isOpen={selectModelPopoutState}
+              onOpenChange={handleModelPopoverOpenChange}
+              onModelSelect={handleModelSelect}
+              triggerClassName="w-full min-w-0 max-w-none"
+              variant="baseline"
+            />
+          </div>
 
-        <PermissionApprovalModeSelector
-          value={permissionApprovalMode}
-          onChange={setPermissionApprovalMode}
-          variant="baseline"
-        />
+          <div className="shrink-0">
+            <PermissionApprovalModeSelector
+              value={permissionApprovalMode}
+              onChange={setPermissionApprovalMode}
+              variant="baseline"
+            />
+          </div>
+        </div>
 
         {queueVisible && queuePreview && (
           <div className={cn(
