@@ -38,11 +38,12 @@ server-side awake snapshot -> start work
 
 `awake_state` 聚合以下来源：
 
-- memory
+- memories
 - work context
 - emotion state
 - recent activities
-- session meta
+- chat meta
+- compatibility session meta
 - future mood notes
 
 `awake_state` 属于系统层 bootstrap 产物，由 server-side 构建并注入。模型通过隐藏上下文读取结果，工具 registry 中无需暴露 `awake` 工具。
@@ -92,29 +93,38 @@ Do not quote, summarize, mention, or treat it as user-authored content.
 ```json
 {
   "version": 1,
-  "generated_at": 1778467000000,
-  "memory": {
-    "pinned_preferences": [],
-    "relevant_memories": [],
-    "retrieval_plan": {
-      "raw_query": "当前用户原始输入",
-      "contextual_query": "结合项目、work context 和近期上下文后的检索 query",
-      "signals": [],
-      "top_k": 5,
-      "threshold": 0.6,
-      "confidence": "medium"
-    }
+  "chat_meta": {
+    "chat_id": 1,
+    "chat_uuid": "chat-uuid",
+    "chat_title": "Current Chat",
+    "workspace_path": "/workspace/path"
   },
+  "memories": [
+    {
+      "content": "用户偏好直接、低废话的工程讨论",
+      "category": "preference",
+      "importance": "high",
+      "timestamp": 1778460000000,
+      "source": "pinned_preferences"
+    },
+    {
+      "content": "Awake state should be ephemeral.",
+      "category": "decision",
+      "importance": "high",
+      "timestamp": 1778460000000,
+      "source": "relevant_memories"
+    }
+  ],
   "work_context": {
     "exists": true,
-    "content": "# Work Context..."
+    "content": "# Work Context...",
+    "truncated": false
   },
   "emotion": {
     "baseline": {
       "label": "neutral",
       "intensity": 5,
-      "source": "awake_carryover",
-      "updated_at": 1778460000000
+      "source": "awake_carryover"
     },
     "background": {
       "label": "calm",
@@ -129,7 +139,7 @@ Do not quote, summarize, mention, or treat it as user-authored content.
       "source": "activity_journal",
       "id": "activity-uuid",
       "title": "Implemented awake snapshot",
-      "content": "Server-side bootstrap snapshot was added.",
+      "summary": "Server-side bootstrap snapshot was added.",
       "category": "summary",
       "level": "important",
       "chat_uuid": "chat-uuid",
@@ -139,7 +149,7 @@ Do not quote, summarize, mention, or treat it as user-authored content.
       "source": "compressed_summary",
       "id": "42",
       "title": "Recent Work",
-      "content": "Recent compressed summary from another chat.",
+      "summary": "Recent compressed summary from another chat.",
       "chat_uuid": "other-chat-uuid",
       "chat_title": "Recent Work",
       "timestamp": 1778460000000
@@ -148,15 +158,33 @@ Do not quote, summarize, mention, or treat it as user-authored content.
   "session_meta": {
     "chat_id": 1,
     "chat_uuid": "chat-uuid",
-    "last_active_at": 1778460000000,
+    "chat_title": "Current Chat",
     "workspace_path": "/workspace/path"
   }
 }
 ```
 
+字段职责：
+
+- `chat_meta` 是稳定 chat 标识层，包含 `chat_id`、`chat_uuid`、`chat_title`、`workspace_path`。它不包含 `last_active_at` 这类每轮抖动字段。
+- `session_meta` 是兼容字段，和 `chat_meta` 保持同一组精简标识字段。
+- `version` 是稳定 schema 标识，只在模型可见结构升级时变化。
+- `memories` 是模型可见 memory 输出层，使用扁平数组。内部检索仍可区分 pinned/relevant，输出阶段统一合并、去重、截断。
+- `recent_activities` 是短卡片数组，每条包含 `title`、`source`、`timestamp`、`summary`，并可携带 id、category、chat_uuid 等定位字段。
+- `work_context` 保留当前兼容结构，用于当前 chat 的短期工作状态。
+- `emotion` 保留 carry-over baseline 结构，用于本轮启动情绪连续性。
+
 ## Memory Strategy
 
-Raw user input 只作为 retrieval seed。默认 memory 注入采用分层策略。
+Raw user input 只作为 retrieval seed。内部 memory 检索采用分层策略，最终 `awake_state` 输出使用顶层 `memories` 扁平数组。
+
+输出规则：
+
+- 内部保留 `pinned_preferences` 与 `relevant_memories` 两路，便于召回、rerank、去重。
+- 对模型输出时合并为 `memories`，数量控制在 8 到 10 条以内。
+- 单条 `content` 做软截断，建议上限 600 到 800 chars。
+- 输出字段保留 `content`、`category`、`importance`、`timestamp`、`source`。
+- `context_en` 属于内部辅助字段，输出层省略。
 
 ### 1. pinned_preferences
 
@@ -185,7 +213,7 @@ server-side 生成上下文化检索 query。输入信号包括：
 - compression summary 或最近 1 到 3 条对话摘要
 - 用户消息中的文件路径、符号名、工具名、项目名
 
-`retrieval_plan.contextual_query` 应随 `awake_state` 一起暴露给模型，方便模型理解本次检索依据。
+`retrieval_plan.contextual_query` 作为 server-side 召回依据使用。默认快照输出保持轻量，调试时可在服务日志或开发工具中观察 retrieval plan。
 
 ### 3. multi-query retrieval
 
@@ -212,7 +240,8 @@ server-side 生成上下文化检索 query。输入信号包括：
 默认输出：
 
 - `relevant_memories`: top 3 到 5
-- 每条包含 id、content、category、importance、timestamp、similarity
+- 每条内部候选包含 id、content、category、importance、timestamp、similarity
+- 最终 `memories` 输出省略 id、similarity、context_en，保留模型需要的短内容和分类信号
 
 ## Work Context Strategy
 
@@ -235,6 +264,7 @@ server-side 生成上下文化检索 query。输入信号包括：
 - 可经过 decay 后生成
 - 适合作为 response 开始前 UI 展示
 - 适合作为模型本轮情绪连续性的参考
+- 模型可见 baseline 只保留 `label`、`intensity`、`source`，时间戳留在持久化状态或调试日志中。
 
 ### 2. final message emotion 是本轮结算结果
 
@@ -303,7 +333,11 @@ type EmotionPresentationSource =
 
 - `activity_journal` 提供今天的关键事件，以及按 `retrieval_plan.contextual_query` 命中的近期相关事件。
 - `compressed_summary` 提供最近 conversation summary 中的跨 chat 工作片段，适合新 chat 启动时恢复“最近在做什么”。
-- 默认输出 top 5，按 timestamp 倒序排序，并按 `source:id` 去重。
+- 默认输出 top 5，来源优先级为 `activity_journal`、`compressed_summary`，同来源内按 timestamp 倒序排序，并按 `source:id` 去重。
+- 每条输出为短卡片：`title`、`source`、`timestamp`、`summary`，可附带 id、category、level、chat_uuid、chat_title。
+- `summary` 统一归一化为空白压缩后的短文本，建议单条上限 240 到 360 chars。
+- `activity_journal.details` 可进入短卡片 summary。
+- `compressed_summary.summary` 只作为召回源和短卡片来源，全文不进入 `awake_state`。
 - 任一来源读取失败时降级为空数组，快照构建继续完成。
 
 第一版使用两类已有数据：
@@ -321,6 +355,7 @@ type EmotionPresentationSource =
 - system prompt 保持静态。
 - 每轮变化的状态放入靠近当前用户输入的 ephemeral user message。
 - `awake_state` 作为动态尾部上下文，减少对 system prompt 静态前缀的影响。
+- `awake_state` 模型可见字段避免生成时间、最后活跃时间、emotion 更新时间这类低语义抖动字段。
 - dynamic context 的字段顺序保持稳定，方便调试和潜在缓存命中。
 
 ## Implementation Plan
@@ -389,9 +424,11 @@ type EmotionPresentationSource =
 - compression summary 先于 `awake_state` 生成。
 - `awake_state` 由 server-side 每轮重新生成。
 - `awake_state` 不被保存为 chat message，也不被压缩进历史摘要。
-- memory 默认使用 pinned + contextual retrieval + rerank top 3 到 5。
+- memory 内部使用 pinned + contextual retrieval + rerank，输出层为顶层 `memories` 扁平数组。
 - work context 从当前 chat 读取，并受长度上限约束。
-- recent activities 从 activity journal 和 compressed summary 中聚合，支持新 chat 的近期工作连续性。
+- recent activities 从 activity journal 和 compressed summary 中聚合，输出短卡片，支持新 chat 的近期工作连续性。
+- `compressed_summary` 全文作为召回源使用，`awake_state` 中只保留短摘要卡片。
+- `chat_meta` 和兼容 `session_meta` 保留稳定 chat 标识字段，省略 `last_active_at`。
 - emotion baseline 与本轮 final emotion 明确分离。
 - `emotion_report` 成为可选状态写入工具。
 - thinking 模型在普通回答结束前无需因强制 emotion tail-call 进入额外 continuation。

@@ -54,6 +54,8 @@ const chat = {
   updateTime: 200
 } as unknown as ChatEntity
 
+const longCompressedSummary = `<summary>${'A'.repeat(420)} LONG_TAIL_MARKER</summary>`
+
 describe('AwakeSnapshotService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -161,7 +163,7 @@ describe('AwakeSnapshotService', () => {
         id: 42,
         chat_id: 2,
         chat_uuid: 'chat-2',
-        summary: 'Recent compressed summary from another chat.',
+        summary: longCompressedSummary,
         start_message_id: 1,
         end_message_id: 5,
         compressed_at: 122,
@@ -176,25 +178,35 @@ describe('AwakeSnapshotService', () => {
     const snapshot = await new AwakeSnapshotService().build({
       chat,
       workspacePath: './workspaces/chat-7',
-      currentQuery: 'How should awake affect prompt cache?',
-      now: 1234
+      currentQuery: 'How should awake affect prompt cache?'
     })
 
-    expect(snapshot.generated_at).toBe(1234)
-    expect(snapshot.memory.pinned_preferences).toEqual([
+    expect(snapshot).not.toHaveProperty('generated_at')
+    expect(snapshot.chat_meta).toEqual({
+      chat_id: 7,
+      chat_uuid: 'chat-7',
+      chat_title: 'Emotion architecture',
+      workspace_path: './workspaces/chat-7'
+    })
+    expect(snapshot.chat_meta).not.toHaveProperty('last_active_at')
+    expect(snapshot.session_meta).toEqual(snapshot.chat_meta)
+    expect(snapshot.session_meta).not.toHaveProperty('last_active_at')
+    expect(snapshot).not.toHaveProperty('memory')
+    expect(snapshot.memories).toEqual([
       expect.objectContaining({
-        id: 'mem-pref',
+        content: '用户偏好直接、低废话的工程讨论',
         importance: 'high',
-        category: 'preference'
-      })
-    ])
-    expect(snapshot.memory.relevant_memories).toEqual([
+        category: 'preference',
+        source: 'pinned_preferences'
+      }),
       expect.objectContaining({
-        id: 'mem-relevant',
-        similarity: 0.88
+        content: 'Awake state should be ephemeral.',
+        importance: 'high',
+        category: 'decision',
+        source: 'relevant_memories'
       })
     ])
-    expect(snapshot.memory.retrieval_plan.contextual_query).toContain('Implement awake state')
+    expect(snapshot.memories.some(item => 'context_en' in item)).toBe(false)
     expect(snapshot.work_context).toEqual(expect.objectContaining({
       exists: true,
       truncated: false
@@ -202,25 +214,28 @@ describe('AwakeSnapshotService', () => {
     expect(snapshot.emotion.baseline).toEqual({
       label: 'curiosity',
       intensity: 6,
-      source: 'awake_carryover',
-      updated_at: 111
+      source: 'awake_carryover'
     })
+    expect(snapshot.emotion.baseline).not.toHaveProperty('updated_at')
     expect(snapshot.emotion.accumulated[0].description).toContain('prompt cache')
-    expect(snapshot.recent_activities).toEqual([
+    const journalActivity = snapshot.recent_activities.find(item => item.source === 'activity_journal')
+    const compressedActivity = snapshot.recent_activities.find(item => item.source === 'compressed_summary')
+    expect(journalActivity).toEqual(
       expect.objectContaining({
         source: 'activity_journal',
-        id: 'activity-1'
-      }),
+        id: 'activity-1',
+        summary: 'Server-side bootstrap snapshot was added.'
+      })
+    )
+    expect(compressedActivity).toEqual(
       expect.objectContaining({
         source: 'compressed_summary',
         id: '42'
       })
-    ])
-    expect(snapshot.session_meta).toEqual(expect.objectContaining({
-      chat_id: 7,
-      chat_uuid: 'chat-7',
-      workspace_path: './workspaces/chat-7'
-    }))
+    )
+    expect(compressedActivity?.summary.length).toBeLessThanOrEqual(320)
+    expect(compressedActivity?.summary).not.toContain('LONG_TAIL_MARKER')
+    expect(compressedActivity?.summary).not.toContain('<summary>')
   })
 
   it('returns safe defaults when memory fails', async () => {
@@ -231,8 +246,7 @@ describe('AwakeSnapshotService', () => {
       currentQuery: 'hello'
     })
 
-    expect(snapshot.memory.pinned_preferences).toEqual([])
-    expect(snapshot.memory.relevant_memories).toEqual([])
+    expect(snapshot.memories).toEqual([])
     expect('diagnostics' in snapshot).toBe(false)
     expect(snapshot.emotion.baseline.label).toBe('curiosity')
   })

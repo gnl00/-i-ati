@@ -1,9 +1,15 @@
+export type AwakeMemorySource = 'pinned_preferences' | 'relevant_memories'
+
 export type AwakeMemoryItem = {
-  id: string
   content: string
-  context_en?: string
   category?: string
   importance?: string
+  timestamp?: number
+  source?: AwakeMemorySource
+}
+
+export type AwakeMemoryCandidate = AwakeMemoryItem & {
+  id: string
   timestamp: number
   similarity?: number
   chat_id?: number
@@ -22,7 +28,7 @@ export type AwakeRecentActivity = {
   source: 'activity_journal' | 'compressed_summary'
   id: string
   title: string
-  content?: string
+  summary: string
   category?: string
   level?: string
   chat_uuid?: string
@@ -30,14 +36,21 @@ export type AwakeRecentActivity = {
   timestamp: number
 }
 
+export type AwakeMemorySnapshot = {
+  pinned_preferences: AwakeMemoryCandidate[]
+  relevant_memories: AwakeMemoryCandidate[]
+  retrieval_plan: AwakeRetrievalPlan
+}
+
 export type AwakeSnapshot = {
   version: 1
-  generated_at: number
-  memory: {
-    pinned_preferences: AwakeMemoryItem[]
-    relevant_memories: AwakeMemoryItem[]
-    retrieval_plan: AwakeRetrievalPlan
+  chat_meta: {
+    chat_id?: number
+    chat_uuid?: string
+    chat_title?: string
+    workspace_path?: string
   }
+  memories: AwakeMemoryItem[]
   work_context: {
     exists: boolean
     content: string
@@ -48,7 +61,6 @@ export type AwakeSnapshot = {
       label: string
       intensity: number
       source: 'awake_carryover'
-      updated_at?: number
     }
     background?: {
       label: string
@@ -77,7 +89,6 @@ export type AwakeSnapshot = {
     chat_id?: number
     chat_uuid?: string
     chat_title?: string
-    last_active_at?: number
     workspace_path?: string
   }
 }

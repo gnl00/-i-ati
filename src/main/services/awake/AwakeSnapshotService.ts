@@ -2,7 +2,9 @@ import DatabaseService from '@main/db/DatabaseService'
 import activityJournalService from '@main/services/activityJournal/ActivityJournalService'
 import MemoryService from '@main/services/memory/MemoryService'
 import type {
+  AwakeMemoryCandidate,
   AwakeMemoryItem,
+  AwakeMemorySnapshot,
   AwakeRecentActivity,
   AwakeRetrievalPlan,
   AwakeSnapshot
@@ -21,14 +23,17 @@ export type BuildAwakeSnapshotInput = {
   workspacePath?: string
   currentQuery?: string
   compressionSummary?: CompressedSummaryEntity | null
-  now?: number
 }
 
 const DEFAULT_TOP_K = 5
 const DEFAULT_THRESHOLD = 0.6
 const PINNED_MEMORY_LIMIT = 3
 const RELEVANT_MEMORY_LIMIT = 5
+const MEMORY_OUTPUT_LIMIT = 10
+const MEMORY_CONTENT_LIMIT = 720
 const RECENT_ACTIVITY_LIMIT = 5
+const RECENT_ACTIVITY_TITLE_LIMIT = 96
+const RECENT_ACTIVITY_SUMMARY_LIMIT = 320
 const WORK_CONTEXT_LIMIT = 8 * 1024
 const CONTEXT_SIGNAL_LIMIT = 8
 const RECENT_SUMMARY_WINDOW_DAYS = 30
@@ -53,27 +58,43 @@ const extractMemoryMetadata = (metadata: MemoryMetadata) => ({
   importance: getMetadataString(metadata, 'importance')
 })
 
-const toPinnedMemoryItem = (entry: MemoryListEntry): AwakeMemoryItem => {
+const compactText = (value: string): string => (
+  value
+    .replace(/<\/?summary>/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+)
+
+const truncateText = (value: string, maxLength: number): string => {
+  const normalized = compactText(value)
+  if (normalized.length <= maxLength) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`
+}
+
+const toPinnedMemoryItem = (entry: MemoryListEntry): AwakeMemoryCandidate => {
   const metadata = extractMemoryMetadata(entry.metadata)
   return {
     id: entry.id,
     content: entry.context_origin,
-    context_en: entry.context_en,
     timestamp: entry.timestamp,
+    source: 'pinned_preferences',
     ...(metadata.category ? { category: metadata.category } : {}),
     ...(metadata.importance ? { importance: metadata.importance } : {}),
     chat_id: entry.chatId
   }
 }
 
-const toRelevantMemoryItem = (result: MemorySearchResult): AwakeMemoryItem => {
+const toRelevantMemoryItem = (result: MemorySearchResult): AwakeMemoryCandidate => {
   const metadata = extractMemoryMetadata(result.entry.metadata)
   return {
     id: result.entry.id,
     content: result.entry.context_origin,
-    context_en: result.entry.context_en,
     timestamp: result.entry.timestamp,
     similarity: Number(result.similarity.toFixed(4)),
+    source: 'relevant_memories',
     ...(metadata.category ? { category: metadata.category } : {}),
     ...(metadata.importance ? { importance: metadata.importance } : {}),
     chat_id: result.entry.chatId
@@ -104,8 +125,8 @@ const scoreCategory = (category: string | undefined): number => (
   category && PINNED_CATEGORIES.has(category) ? 0.08 : 0
 )
 
-const dedupeRelevantMemories = (results: MemorySearchResult[]): AwakeMemoryItem[] => {
-  const byId = new Map<string, AwakeMemoryItem & { rerank_score: number }>()
+const dedupeRelevantMemories = (results: MemorySearchResult[]): AwakeMemoryCandidate[] => {
+  const byId = new Map<string, AwakeMemoryCandidate & { rerank_score: number }>()
 
   for (const result of results) {
     const item = toRelevantMemoryItem(result)
@@ -129,13 +150,38 @@ const dedupeRelevantMemories = (results: MemorySearchResult[]): AwakeMemoryItem[
     .map(({ rerank_score: _rerankScore, ...item }) => item)
 }
 
+const toOutputMemoryItem = (item: AwakeMemoryCandidate): AwakeMemoryItem => ({
+  content: truncateText(item.content, MEMORY_CONTENT_LIMIT),
+  ...(item.category ? { category: item.category } : {}),
+  ...(item.importance ? { importance: item.importance } : {}),
+  ...(item.timestamp ? { timestamp: item.timestamp } : {}),
+  source: item.source
+})
+
+const flattenMemorySnapshot = (snapshot: AwakeMemorySnapshot): AwakeMemoryItem[] => {
+  const byId = new Map<string, AwakeMemoryCandidate>()
+
+  for (const item of [
+    ...snapshot.pinned_preferences,
+    ...snapshot.relevant_memories
+  ]) {
+    if (!byId.has(item.id)) {
+      byId.set(item.id, item)
+    }
+  }
+
+  return Array.from(byId.values())
+    .slice(0, MEMORY_OUTPUT_LIMIT)
+    .map(toOutputMemoryItem)
+}
+
 const toActivityItem = (
   entry: ActivityJournalEntry | ActivityJournalSearchItem
 ): AwakeRecentActivity => ({
   source: 'activity_journal',
   id: entry.id,
-  title: entry.title,
-  ...(entry.details ? { content: entry.details } : {}),
+  title: truncateText(entry.title, RECENT_ACTIVITY_TITLE_LIMIT),
+  summary: truncateText(entry.details || entry.title, RECENT_ACTIVITY_SUMMARY_LIMIT),
   category: entry.category,
   level: entry.level,
   ...(entry.chatUuid ? { chat_uuid: entry.chatUuid } : {}),
@@ -145,12 +191,16 @@ const toActivityItem = (
 const toSummaryActivityItem = (summary: SmartMessageCandidateSummary): AwakeRecentActivity => ({
   source: 'compressed_summary',
   id: String(summary.id),
-  title: summary.chat_title || `Chat ${summary.chat_uuid}`,
-  content: summary.summary,
+  title: truncateText(summary.chat_title || `Chat ${summary.chat_uuid}`, RECENT_ACTIVITY_TITLE_LIMIT),
+  summary: truncateText(summary.summary, RECENT_ACTIVITY_SUMMARY_LIMIT),
   chat_uuid: summary.chat_uuid,
   chat_title: summary.chat_title,
   timestamp: summary.compressed_at
 })
+
+const getRecentActivitySourceRank = (source: AwakeRecentActivity['source']): number => (
+  source === 'activity_journal' ? 0 : 1
+)
 
 const dedupeRecentActivities = (items: AwakeRecentActivity[]): AwakeRecentActivity[] => {
   const byKey = new Map<string, AwakeRecentActivity>()
@@ -164,7 +214,10 @@ const dedupeRecentActivities = (items: AwakeRecentActivity[]): AwakeRecentActivi
   }
 
   return Array.from(byKey.values())
-    .sort((a, b) => b.timestamp - a.timestamp)
+    .sort((a, b) => (
+      getRecentActivitySourceRank(a.source) - getRecentActivitySourceRank(b.source)
+      || b.timestamp - a.timestamp
+    ))
     .slice(0, RECENT_ACTIVITY_LIMIT)
 }
 
@@ -344,8 +397,7 @@ const buildEmotionSnapshot = (state: EmotionStateSnapshot | undefined): AwakeSna
     baseline: {
       label: state.current.label,
       intensity: state.current.intensity,
-      source: 'awake_carryover',
-      updated_at: state.current.updatedAt
+      source: 'awake_carryover'
     },
     background: {
       label: state.background.label,
@@ -376,7 +428,6 @@ const buildEmotionSnapshot = (state: EmotionStateSnapshot | undefined): AwakeSna
 
 export class AwakeSnapshotService {
   async build(input: BuildAwakeSnapshotInput): Promise<AwakeSnapshot> {
-    const now = input.now ?? Date.now()
     let workContextContent: string | undefined
     let workContextExists = false
 
@@ -399,16 +450,22 @@ export class AwakeSnapshotService {
       compressionSummary: input.compressionSummary?.summary
     })
 
-    const [memory, recentActivities] = await Promise.all([
+    const [memorySnapshot, recentActivities] = await Promise.all([
       this.buildMemorySnapshot(input.chat.id, retrievalPlan),
       this.buildRecentActivities(retrievalPlan)
     ])
     const emotion = this.buildEmotion(input.chat.id)
+    const chatMeta = {
+      chat_id: input.chat.id,
+      chat_uuid: input.chat.uuid,
+      chat_title: input.chat.title,
+      workspace_path: input.workspacePath
+    }
 
     return {
       version: 1,
-      generated_at: now,
-      memory,
+      chat_meta: chatMeta,
+      memories: flattenMemorySnapshot(memorySnapshot),
       work_context: {
         exists: workContextExists,
         content: workContext.content,
@@ -417,20 +474,14 @@ export class AwakeSnapshotService {
       emotion,
       mood_notes: [],
       recent_activities: recentActivities,
-      session_meta: {
-        chat_id: input.chat.id,
-        chat_uuid: input.chat.uuid,
-        chat_title: input.chat.title,
-        last_active_at: input.chat.updateTime,
-        workspace_path: input.workspacePath
-      }
+      session_meta: chatMeta
     }
   }
 
   private async buildMemorySnapshot(
     chatId: number | undefined,
     retrievalPlan: AwakeRetrievalPlan
-  ): Promise<AwakeSnapshot['memory']> {
+  ): Promise<AwakeMemorySnapshot> {
     try {
       const [allMemories, rawResults, contextualResults] = await Promise.all([
         MemoryService.getAllMemories(),
