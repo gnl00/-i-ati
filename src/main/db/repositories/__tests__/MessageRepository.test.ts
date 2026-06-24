@@ -377,7 +377,7 @@ describe('MessageRepository', () => {
     })
 
     const results = repository.searchHistory({
-      query: 'implementation',
+      query: ['implementation'],
       limit: 5
     })
 
@@ -398,6 +398,14 @@ describe('MessageRepository', () => {
       matchedFields: ['title']
     })
     expect(results[2].messages[0]?.text).toContain('release checklist')
+
+    const multiKeywordResults = repository.searchHistory({
+      query: ['release checklist', 'implementation'],
+      limit: 5
+    })
+
+    expect(multiKeywordResults.some(item => item.chatUuid === 'chat-1')).toBe(true)
+    expect(multiKeywordResults.some(item => item.chatUuid === 'chat-2')).toBe(true)
   })
 
   it('returns latest recent history when query is empty and honors current_chat scope', () => {

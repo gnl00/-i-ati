@@ -4,7 +4,7 @@ import type { HistorySearchArgs, HistorySearchResponse } from '@tools/history/in
 const DEFAULT_LIMIT = 5
 const MAX_LIMIT = 10
 const DEFAULT_WITHIN_DAYS = 3
-const MAX_WITHIN_DAYS = 7
+const MAX_WITHIN_DAYS = 30
 
 function clampLimit(limit?: number): number {
   if (!Number.isFinite(limit)) {
@@ -22,13 +22,16 @@ function clampWithinDays(withinDays?: number): number {
   return Math.min(Math.max(Math.floor(withinDays as number), 1), MAX_WITHIN_DAYS)
 }
 
-function normalizeOptionalQuery(query?: string): string | undefined {
-  if (typeof query !== 'string') {
+function normalizeOptionalQuery(query?: string[]): string[] | undefined {
+  if (!Array.isArray(query)) {
     return undefined
   }
 
-  const trimmed = query.trim()
-  return trimmed.length > 0 ? trimmed : undefined
+  const terms = query
+    .map(item => typeof item === 'string' ? item.trim() : '')
+    .filter(Boolean)
+
+  return terms.length > 0 ? terms : undefined
 }
 
 export async function processHistorySearch(
@@ -37,6 +40,7 @@ export async function processHistorySearch(
   try {
     const scope = args.scope === 'current_chat' ? 'current_chat' : 'all'
     const chatUuid = scope === 'current_chat' ? args.chat_uuid : undefined
+    const rawQuery = (args as { query?: unknown }).query
 
     if (scope === 'current_chat' && !chatUuid) {
       return {
@@ -47,8 +51,21 @@ export async function processHistorySearch(
       }
     }
 
+    if (rawQuery !== undefined && !Array.isArray(rawQuery)) {
+      return {
+        success: false,
+        count: 0,
+        items: [],
+        message: 'query must be an array of keyword strings, for example ["呼和浩特", "Hohhot", "呼市"].'
+      }
+    }
+
+    const normalizedQuery = Array.isArray(rawQuery)
+      ? normalizeOptionalQuery(rawQuery)
+      : undefined
+
     const items = DatabaseService.searchHistory({
-      query: normalizeOptionalQuery(args.query),
+      query: normalizedQuery,
       limit: clampLimit(args.limit),
       scope,
       withinDays: clampWithinDays(args.withinDays),

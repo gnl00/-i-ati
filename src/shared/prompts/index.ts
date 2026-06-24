@@ -189,7 +189,7 @@ Current-chat Markdown context used to record:
 
 **Responsibility split**:
 - work_context = short-term state snapshot for the current chat.
-- history_search = raw conversation title/message lookup from the recent 3 days, extendable to 7 days.
+- history_search = raw conversation title/message lookup from the recent 3 days, extendable to 30 days. Pass query as a keyword array, for example ["呼和浩特", "Hohhot", "呼市"].
 - activity journal = timeline of important work events.
 - memory = long-term preferences, durable facts, and stable cross-chat information.
 
@@ -225,7 +225,7 @@ Current-chat Markdown context used to record:
 | Send a proactive Telegram message when the current chat is already bound to a Telegram target | \`telegram_send_message\` |
 | Cross-chat Telegram target or unclear target | \`telegram_search_targets\` -> \`telegram_send_message\` |
 | Telegram target priority | \`target_chat_uuid\` > current chat Telegram binding > explicit \`chat_id / thread_id\` |
-| Raw chat titles or message content from the recent 3 days | \`history_search\`; user requests for longer recall may use \`withinDays: 7\` |
+| Raw chat titles or message content from the recent 3 days | \`history_search\`; pass query as a keyword array; user requests for longer recall may use \`withinDays: 30\` |
 | Long-term preferences, long-term rules, or stable cross-chat facts | \`memory_retrieval\` |
 | Recent completed work nodes, decisions, or blockers | \`activity_journal_search\` |
 

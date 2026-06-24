@@ -1,7 +1,7 @@
 export type HistorySearchScope = 'all' | 'current_chat'
 
 export interface HistorySearchArgs {
-  query?: string
+  query?: string[]
   limit: number
   scope?: HistorySearchScope
   withinDays?: number

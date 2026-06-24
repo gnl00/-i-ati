@@ -135,7 +135,7 @@ export class MessageRepository {
 
   searchHistory(args: HistorySearchArgs): HistorySearchItem[] {
     const limit = normalizeLimit(args.limit) ?? 5
-    const normalizedQuery = normalizeSearchText(args.query)
+    const queryTerms = normalizeQueryTerms(args.query)
     const withinDays = normalizeWithinDays(args.withinDays)
     const scopeChatKey = args.scope === 'current_chat'
       ? resolveMessageChatKey(args.chat_uuid ?? null, null)
@@ -179,7 +179,7 @@ export class MessageRepository {
       bucket.sort((a, b) => a.createdAt - b.createdAt || a.id - b.id)
     })
 
-    if (!normalizedQuery) {
+    if (queryTerms.length === 0) {
       return recentMessages
         .sort((a, b) => b.createdAt - a.createdAt || b.id - a.id)
         .slice(0, limit)
@@ -206,7 +206,8 @@ export class MessageRepository {
     const chatsWithMessageMatches = new Set<string>()
 
     for (const message of recentMessages) {
-      if (!message.normalizedText.includes(normalizedQuery)) {
+      const messageMatchedTerms = findMatchedQueryTerms(message.normalizedText, queryTerms)
+      if (messageMatchedTerms.length === 0) {
         continue
       }
 
@@ -216,8 +217,10 @@ export class MessageRepository {
       }
 
       chatsWithMessageMatches.add(message.chatKey)
-      const titleHitCount = countOccurrences(normalizeSearchText(chat.title), normalizedQuery)
-      const messageHitCount = countOccurrences(message.normalizedText, normalizedQuery)
+      const normalizedTitle = normalizeSearchText(chat.title)
+      const titleMatchedTerms = findMatchedQueryTerms(normalizedTitle, queryTerms)
+      const titleHitCount = countTermOccurrences(normalizedTitle, titleMatchedTerms)
+      const messageHitCount = countTermOccurrences(message.normalizedText, messageMatchedTerms)
 
       items.push(buildHistoryItem({
         chat,
@@ -225,7 +228,7 @@ export class MessageRepository {
         matchedFields: titleHitCount > 0 ? ['title', 'message'] : ['message'],
         hitCount: titleHitCount + messageHitCount,
         createdAt: message.createdAt,
-        snippet: buildSnippet(message.text, normalizedQuery),
+        snippet: buildSnippet(message.text, pickSnippetTerm(message.normalizedText, messageMatchedTerms)),
         messages: buildHistoryMessageWindow(messagesByChatKey.get(message.chatKey), message.id)
       }))
     }
@@ -236,7 +239,9 @@ export class MessageRepository {
         continue
       }
 
-      const titleHitCount = countOccurrences(normalizeSearchText(chat.title), normalizedQuery)
+      const normalizedTitle = normalizeSearchText(chat.title)
+      const titleMatchedTerms = findMatchedQueryTerms(normalizedTitle, queryTerms)
+      const titleHitCount = countTermOccurrences(normalizedTitle, titleMatchedTerms)
       if (titleHitCount <= 0 || chatsWithMessageMatches.has(chatKey)) {
         continue
       }
@@ -253,7 +258,7 @@ export class MessageRepository {
         matchedFields: ['title'],
         hitCount: titleHitCount,
         createdAt,
-        snippet: buildSnippet(chat.title, normalizedQuery),
+        snippet: buildSnippet(chat.title, pickSnippetTerm(normalizedTitle, titleMatchedTerms)),
         messages: buildHistoryMessageWindow(recentBucket)
       }))
     }
@@ -401,6 +406,26 @@ function normalizeSearchText(value: string | undefined | null): string {
     .toLowerCase()
 }
 
+function normalizeQueryTerms(query: HistorySearchArgs['query']): string[] {
+  const terms = (query ?? [])
+    .map(term => normalizeSearchText(term))
+    .filter(Boolean)
+
+  return Array.from(new Set(terms))
+}
+
+function findMatchedQueryTerms(normalizedText: string, queryTerms: string[]): string[] {
+  return queryTerms.filter(term => normalizedText.includes(term))
+}
+
+function countTermOccurrences(normalizedText: string, queryTerms: string[]): number {
+  return queryTerms.reduce((total, term) => total + countOccurrences(normalizedText, term), 0)
+}
+
+function pickSnippetTerm(normalizedText: string, queryTerms: string[]): string {
+  return queryTerms.find(term => normalizedText.includes(term)) ?? queryTerms[0] ?? ''
+}
+
 function normalizeLimit(limit: number | undefined): number | undefined {
   if (typeof limit !== 'number' || !Number.isFinite(limit) || limit <= 0) {
     return undefined
@@ -414,7 +439,7 @@ function normalizeWithinDays(withinDays: number | undefined): number {
     return 3
   }
 
-  return Math.min(Math.floor(withinDays), 7)
+  return Math.min(Math.floor(withinDays), 30)
 }
 
 function resolveChatKey(chat: ChatEntity): string | undefined {
