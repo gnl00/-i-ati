@@ -227,6 +227,71 @@ describe('DefaultRequestMaterializer', () => {
     })
   })
 
+  it('compacts hot tool results that have already been consumed by a following assistant step', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const largeContent = `tool-prefix-${'x'.repeat(40_000)}-tool-tail`
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [
+        {
+          recordId: 'tool-1',
+          kind: 'tool_result',
+          timestamp: 2,
+          stepId: 'step-1',
+          toolCallId: 'call-1',
+          toolCallIndex: 0,
+          toolName: 'read',
+          status: 'success',
+          replayMode: 'hot',
+          content: largeContent
+        },
+        {
+          recordId: 'assistant-1',
+          kind: 'assistant_step',
+          timestamp: 3,
+          step: {
+            stepId: 'step-2',
+            stepIndex: 1,
+            startedAt: 3,
+            completedAt: 4,
+            status: 'completed',
+            content: 'used the tool result',
+            toolCalls: []
+          }
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    expect(request.messages[0]).toMatchObject({
+      role: 'tool',
+      content: expect.stringContaining('[Tool result compacted for model request]'),
+      toolCallId: 'call-1',
+      toolName: 'read'
+    })
+    expect((request.messages[0] as { content: string }).content).toContain('tool-prefix-')
+    expect((request.messages[0] as { content: string }).content).not.toContain('-tool-tail')
+
+    const toolRecord = transcript.records[0]
+    expect(toolRecord.kind).toBe('tool_result')
+    if (toolRecord.kind !== 'tool_result') {
+      throw new Error('Expected tool_result record')
+    }
+    expect(toolRecord.replayMode).toBe('hot')
+    expect(toolRecord.content).toBe(largeContent)
+  })
+
   it('uses normalized model content during protocol replay', () => {
     const materializer = new DefaultRequestMaterializer()
     const normalizedContent: NormalizedToolResultContent = {

@@ -15,8 +15,8 @@
 import type { AgentRequestOptions, AgentRequestSpec } from '../request/AgentRequestSpec'
 import type { AgentContentPart } from './AgentContentPart'
 import type { AgentTranscript } from './AgentTranscript'
-import type { AgentTranscriptRecord, AgentTranscriptUserRecord } from './AgentTranscriptRecord'
-import { projectToolResultContentForModelReplay } from '../tools/ToolResultContentProjector'
+import type { AgentTranscriptRecord } from './AgentTranscriptRecord'
+import { formatToolResultForModel } from '../tools/ToolResultContentProjector'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 export interface MaterializedUserProtocolMessage {
@@ -78,7 +78,7 @@ const REQUEST_CONTEXT_SOURCES = new Set<string>([
 
 const isRequestContextRecord = (
   record: AgentTranscriptRecord
-): record is AgentTranscriptUserRecord => (
+): boolean => (
   record.kind === 'user'
   && Boolean(record.source && REQUEST_CONTEXT_SOURCES.has(record.source))
 )
@@ -122,6 +122,19 @@ const appendRequestContext = (
   ]
 }
 
+const hasFollowingAssistantStep = (
+  records: AgentTranscriptRecord[],
+  recordIndex: number
+): boolean => {
+  for (let index = recordIndex + 1; index < records.length; index += 1) {
+    if (records[index].kind === 'assistant_step') {
+      return true
+    }
+  }
+
+  return false
+}
+
 export class DefaultRequestMaterializer implements RequestMaterializer {
   materialize(input: RequestMaterializerInput): MaterializedProtocolRequest {
     const messages: MaterializedProtocolMessage[] = []
@@ -142,8 +155,10 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
       pendingRequestContextParts = []
     }
 
-    for (const record of input.transcript.records) {
-      if (isRequestContextRecord(record)) {
+    for (let recordIndex = 0; recordIndex < input.transcript.records.length; recordIndex += 1) {
+      const record = input.transcript.records[recordIndex]
+
+      if (record.kind === 'user' && isRequestContextRecord(record)) {
         pendingRequestContextParts = [
           ...pendingRequestContextParts,
           ...record.content
@@ -172,10 +187,12 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
           flushPendingRequestContext()
           messages.push({
             role: 'tool',
-            content: projectToolResultContentForModelReplay({
+            content: formatToolResultForModel({
               content: record.content,
               error: record.error,
-              replayMode: record.replayMode
+              replayMode: hasFollowingAssistantStep(input.transcript.records, recordIndex)
+                ? 'cold'
+                : record.replayMode
             }),
             toolCallId: record.toolCallId,
             toolName: record.toolName

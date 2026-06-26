@@ -15,13 +15,15 @@ export const compactToolContentForModelRequest = (
   options: ToolContentRequestGuardOptions = {}
 ): string => {
   const maxCharacters = options.maxCharacters ?? DEFAULT_TOOL_CONTENT_REQUEST_MAX_CHARACTERS
+  const hasInlineImageData = containsInlineImageData(content)
+  const isLargeContent = content.length > maxCharacters
   const triggers: string[] = []
 
-  if (content.length > maxCharacters) {
+  if (isLargeContent) {
     triggers.push(`large_content>${maxCharacters}`)
   }
 
-  if (containsInlineImageData(content)) {
+  if (hasInlineImageData) {
     triggers.push('inline_image')
   }
 
@@ -29,10 +31,27 @@ export const compactToolContentForModelRequest = (
     return content
   }
 
+  if (hasInlineImageData) {
+    return [
+      '[Tool result compacted for model request]',
+      `originalChars=${content.length}`,
+      'shownChars=0',
+      `reason=${triggers.join(',')}`,
+      'Inline image data was omitted from the model request.',
+      'Inspect the persisted tool result or local artifact for the original payload.'
+    ].join('\n')
+  }
+
+  const shownContent = content.slice(0, maxCharacters)
+
   return [
     '[Tool result compacted for model request]',
     `originalChars=${content.length}`,
+    `shownChars=${shownContent.length}`,
     `reason=${triggers.join(',')}`,
-    'Inspect the persisted tool result or local artifact for the original payload.'
+    `Showing the first ${shownContent.length} characters of the tool result.`,
+    'Inspect the persisted tool result or local artifact for the original payload.',
+    '',
+    shownContent
   ].join('\n')
 }

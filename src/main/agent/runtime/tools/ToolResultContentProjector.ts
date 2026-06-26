@@ -7,7 +7,7 @@ export interface ToolResultProjectionError {
   message?: string
 }
 
-export interface ProjectToolResultContentForModelReplayInput {
+export interface FormatToolResultForModelInput {
   content: unknown
   error?: ToolResultProjectionError
   replayMode?: ToolResultContentReplayMode
@@ -37,11 +37,11 @@ export const projectToolResultContentForDisplay = ({
   }
 }
 
-export const projectToolResultContentForModelReplay = ({
+export const formatToolResultForModel = ({
   content,
   error,
   replayMode
-}: ProjectToolResultContentForModelReplayInput): string => {
+}: FormatToolResultForModelInput): string => {
   if (isNormalizedToolResultContent(content)) {
     return content.modelContent
   }
