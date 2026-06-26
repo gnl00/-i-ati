@@ -3,6 +3,7 @@ import { DefaultRequestMaterializer } from '../RequestMaterializer'
 import type { AgentTranscript } from '../AgentTranscript'
 import type { NormalizedToolResultContent } from '../../tools/result-normalization'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import { COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS } from '@shared/tools/toolResultContent'
 
 describe('DefaultRequestMaterializer', () => {
   it('merges hidden request context into the following user protocol message', () => {
@@ -280,8 +281,11 @@ describe('DefaultRequestMaterializer', () => {
       toolCallId: 'call-1',
       toolName: 'read'
     })
-    expect((request.messages[0] as { content: string }).content).toContain('tool-prefix-')
-    expect((request.messages[0] as { content: string }).content).not.toContain('-tool-tail')
+    const requestContent = (request.messages[0] as { content: string }).content
+    expect(requestContent).toContain(`shownChars=${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
+    expect(requestContent).toContain(`large_content>${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
+    expect(requestContent).toContain('tool-prefix-')
+    expect(requestContent).not.toContain('-tool-tail')
 
     const toolRecord = transcript.records[0]
     expect(toolRecord.kind).toBe('tool_result')

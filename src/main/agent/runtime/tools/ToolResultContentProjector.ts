@@ -1,4 +1,7 @@
-import { compactToolContentForModelRequest } from '@shared/tools/toolResultContent'
+import {
+  COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS,
+  compactToolContentForModelRequest
+} from '@shared/tools/toolResultContent'
 import { isNormalizedToolResultContent } from './result-normalization'
 
 export type ToolResultContentReplayMode = 'hot' | 'cold'
@@ -51,7 +54,9 @@ export const formatToolResultForModel = ({
   }
 
   if (typeof content === 'string') {
-    return compactToolContentForModelRequest(content)
+    return compactToolContentForModelRequest(content, {
+      maxCharacters: COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS
+    })
   }
 
   if (content == null) {
@@ -59,9 +64,13 @@ export const formatToolResultForModel = ({
   }
 
   try {
-    return compactToolContentForModelRequest(JSON.stringify(content))
+    return compactToolContentForModelRequest(JSON.stringify(content), {
+      maxCharacters: COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS
+    })
   } catch {
-    return compactToolContentForModelRequest(String(content))
+    return compactToolContentForModelRequest(String(content), {
+      maxCharacters: COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS
+    })
   }
 }
 

@@ -5,7 +5,7 @@ import {
   projectToolResultContentForHistoryImport
 } from '../ToolResultContentProjector'
 import type { NormalizedToolResultContent } from '../result-normalization'
-import { DEFAULT_TOOL_CONTENT_REQUEST_MAX_CHARACTERS } from '@shared/tools/toolResultContent'
+import { COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS } from '@shared/tools/toolResultContent'
 
 describe('ToolResultContentProjector', () => {
   it('projects normalized content using its model payload for replay', () => {
@@ -28,7 +28,7 @@ describe('ToolResultContentProjector', () => {
   })
 
   it('keeps hot replay content uncompressed', () => {
-    const content = `{"image":"data:image/png;base64,${'a'.repeat(200)}"}`
+    const content = `{"nodes":"${'x'.repeat(40_000)}","image":"data:image/png;base64,${'a'.repeat(200)}","tail":"hot-tail"}`
 
     expect(formatToolResultForModel({
       content,
@@ -51,7 +51,7 @@ describe('ToolResultContentProjector', () => {
   })
 
   it('includes a visible prefix when compacting cold large text content', () => {
-    const shownPrefix = 'x'.repeat(DEFAULT_TOOL_CONTENT_REQUEST_MAX_CHARACTERS)
+    const shownPrefix = 'x'.repeat(COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS)
     const hiddenSuffix = 'hidden-tail'
     const content = `${shownPrefix}${hiddenSuffix}`
 
@@ -62,8 +62,8 @@ describe('ToolResultContentProjector', () => {
 
     expect(projected).toContain('[Tool result compacted for model request]')
     expect(projected).toContain(`originalChars=${content.length}`)
-    expect(projected).toContain(`shownChars=${DEFAULT_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
-    expect(projected).toContain(`reason=large_content>${DEFAULT_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
+    expect(projected).toContain(`shownChars=${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
+    expect(projected).toContain(`reason=large_content>${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
     expect(projected).toContain(shownPrefix)
     expect(projected).not.toContain(hiddenSuffix)
   })

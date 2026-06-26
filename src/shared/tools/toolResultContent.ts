@@ -3,6 +3,7 @@ export interface ToolContentRequestGuardOptions {
 }
 
 export const DEFAULT_TOOL_CONTENT_REQUEST_MAX_CHARACTERS = 32_000
+export const COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS = 4_000
 
 const DATA_IMAGE_PATTERN = /data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=\r\n]+/
 
