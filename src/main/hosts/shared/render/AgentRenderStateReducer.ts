@@ -14,18 +14,29 @@ import type {
 
 const toToolCallState = (
   toolCall: IToolCall,
-  existing?: AgentRenderToolCallState
-): AgentRenderToolCallState => ({
-  toolCallId: toolCall.id,
-  toolCallIndex: toolCall.index,
-  name: toolCall.function.name,
-  args: toolCall.function.arguments,
-  appearanceOrder: existing?.appearanceOrder,
-  cost: existing?.cost,
-  status: existing?.status ?? 'pending',
-  result: existing?.result,
-  error: existing?.error
-})
+  existing?: AgentRenderToolCallState,
+  options: { includeArgs?: boolean } = {}
+): AgentRenderToolCallState => {
+  const state: AgentRenderToolCallState = {
+    toolCallId: toolCall.id,
+    toolCallIndex: toolCall.index,
+    name: toolCall.function.name,
+    appearanceOrder: existing?.appearanceOrder,
+    cost: existing?.cost,
+    status: existing?.status ?? 'pending',
+    result: existing?.result,
+    error: existing?.error
+  }
+
+  if (options.includeArgs || existing?.args !== undefined) {
+    return {
+      ...state,
+      args: toolCall.function.arguments
+    }
+  }
+
+  return state
+}
 
 const toToolResultStatus = (result: ToolResultFact): AgentRenderToolCallStatus => {
   if (result.status === 'success') return 'success'
@@ -426,10 +437,18 @@ export class AgentRenderStateReducer {
     }
 
     if (event.delta.type === 'tool_call_ready') {
+      const delta = event.delta
+      const existing = previewToolCalls.find(call => call.toolCallId === delta.toolCall.id)
+      previewToolCalls = mergeToolCalls(previewToolCalls, [{
+        ...this.withAppearanceOrder(
+          toToolCallState(delta.toolCall, existing, { includeArgs: true }),
+          existing
+        )
+      }])
       previewBlocks = openToolBlock(
         previewBlocks,
         event.stepId,
-        event.delta.toolCall.id,
+        delta.toolCall.id,
         event.timestamp
       )
     }
@@ -479,7 +498,7 @@ export class AgentRenderStateReducer {
         const existing =
           this.state.committed.toolCalls.find(call => call.toolCallId === toolCall.id)
           || this.state.preview?.toolCalls.find(call => call.toolCallId === toolCall.id)
-        return this.withAppearanceOrder(toToolCallState(toolCall, existing), existing)
+        return this.withAppearanceOrder(toToolCallState(toolCall, existing, { includeArgs: true }), existing)
       })
     )
 

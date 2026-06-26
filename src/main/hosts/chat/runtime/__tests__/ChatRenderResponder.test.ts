@@ -84,6 +84,9 @@ describe('ChatRenderResponder', () => {
     })
 
     const finalMessage = adapter.getFinalAssistantMessage()
+    const toolCallSegment = finalMessage.body.segments.find(
+      (segment): segment is ToolCallSegment => segment.type === 'toolCall'
+    )
     expect(finalMessage.body.content).toBe('final answer')
     expect(finalMessage.body.segments).toEqual(
       expect.arrayContaining([
@@ -97,6 +100,8 @@ describe('ChatRenderResponder', () => {
         })
       ])
     )
+    expect(toolCallSegment?.content.args).toBe('{"path":"README.md"}')
+    expect(finalMessage.body.toolCalls?.[0]?.function.arguments).toBe('{"path":"README.md"}')
   })
 
   it('marks stream preview bodies with stream_preview source', async () => {
@@ -978,6 +983,178 @@ describe('ChatRenderResponder', () => {
         })
       ])
     )
+  })
+
+  it('gates streaming preview tool-call args until ready while preserving committed arguments', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const fullArgs = '{"path":"README.md"}'
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
+
+    await dispatchAgentEvent(adapter, {
+      type: 'step.started',
+      timestamp: 100,
+      stepId: 'step-1',
+      stepIndex: 0
+    })
+
+    await dispatchAgentEvent(adapter, {
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 101,
+      delta: {
+        type: 'tool_call_started',
+        timestamp: 101,
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read'
+      },
+      snapshot: {
+        content: '',
+        reasoning: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README'
+          },
+          index: 0
+        }]
+      }
+    })
+
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const startedPreview = emitStreamPreviewUpdated.mock.calls.at(-1)?.[0]?.body as ChatMessage
+    const startedToolSegment = startedPreview.segments.find(
+      (segment): segment is ToolCallSegment => segment.type === 'toolCall'
+    )
+
+    expect(startedToolSegment).toEqual(
+      expect.objectContaining({
+        type: 'toolCall',
+        toolCallId: 'tool-1',
+        content: expect.objectContaining({
+          toolName: 'read',
+          status: 'pending'
+        })
+      })
+    )
+    expect(startedToolSegment?.content.args).toBeUndefined()
+
+    await dispatchAgentEvent(adapter, {
+      type: 'step.delta',
+      stepId: 'step-1',
+      stepIndex: 0,
+      timestamp: 110,
+      delta: {
+        type: 'tool_call_ready',
+        timestamp: 110,
+        toolCall: {
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: fullArgs
+          },
+          index: 0
+        }
+      },
+      snapshot: {
+        content: '',
+        reasoning: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: fullArgs
+          },
+          index: 0
+        }]
+      }
+    })
+
+    const readyPreview = emitStreamPreviewUpdated.mock.calls.at(-1)?.[0]?.body as ChatMessage
+    const readyToolSegment = readyPreview.segments.find(
+      (segment): segment is ToolCallSegment => segment.type === 'toolCall'
+    )
+
+    expect(readyToolSegment?.content.args).toBe(fullArgs)
+
+    await dispatchAgentEvent(adapter, {
+      type: 'step.completed',
+      timestamp: 120,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 120,
+        content: '',
+        reasoning: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: fullArgs
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    })
+
+    const finalBody = adapter.getFinalAssistantMessage().body
+    const committedToolSegment = finalBody.segments.find(
+      (segment): segment is ToolCallSegment => segment.type === 'toolCall'
+    )
+
+    expect(committedToolSegment?.content.args).toBe(fullArgs)
+    expect(finalBody.toolCalls?.[0]?.function.arguments).toBe(fullArgs)
+
+    await dispatchAgentEvent(adapter, {
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 130,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read',
+        content: 'ok'
+      }
+    })
+
+    const completedBody = adapter.getFinalAssistantMessage().body
+    const completedToolSegment = completedBody.segments.find(
+      (segment): segment is ToolCallSegment => segment.type === 'toolCall'
+    )
+
+    expect(completedToolSegment?.content).toEqual(
+      expect.objectContaining({
+        args: fullArgs,
+        status: 'success',
+        result: 'ok'
+      })
+    )
+    expect(completedBody.toolCalls?.[0]?.function.arguments).toBe(fullArgs)
   })
 
   it('materializes separate reasoning episodes with independent timing boundaries', async () => {

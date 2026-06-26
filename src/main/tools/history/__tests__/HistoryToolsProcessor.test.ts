@@ -49,7 +49,7 @@ describe('HistoryToolsProcessor', () => {
 
   it('requires chat_uuid when scope=current_chat', async () => {
     const result = await processHistorySearch({
-      query: 'implementation',
+      query: ['implementation'],
       limit: 3,
       scope: 'current_chat'
     })
