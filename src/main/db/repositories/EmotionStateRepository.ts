@@ -21,6 +21,12 @@ export class EmotionStateRepository {
     return row ? toEmotionStateEntity(row) : undefined
   }
 
+  getLatestEmotionState(): EmotionStateSnapshot | undefined {
+    const repo = this.requireRepo()
+    const row = repo.getLatest()
+    return row ? toEmotionStateEntity(row) : undefined
+  }
+
   upsertEmotionState(chatId: number, chatUuid: string, state: EmotionStateSnapshot): void {
     const repo = this.requireRepo()
     const now = Date.now()

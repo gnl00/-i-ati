@@ -7,12 +7,13 @@ import { cn } from '@renderer/lib/utils'
 import { getActiveSmartMessages } from '@renderer/db/SmartMessageRepository'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { useAssistantStore } from '@renderer/store/assistant'
-import { pickEmotionEmoji, type EmotionLabel } from '@shared/emotion/emotionAssetCatalog'
+import { pickEmotionEmoji } from '@shared/emotion/emotionAssetCatalog'
 import {
   getMsUntilNextSmartGreetingRefresh,
   pickSmartGreeting,
   type TimeOfDay
 } from './smartGreeting'
+import { useWelcomeEmotionState, WELCOME_EMOTION_FALLBACK } from './useWelcomeEmotionState'
 import './SmartWelcomeEntranceV2.css'
 
 const CONFIG = {
@@ -84,11 +85,6 @@ const FALLBACK_MESSAGES: SmartStackMessage[] = [
     actionPrompt: 'Summarize my unfinished follow-ups into clear action items with priorities.'
   }
 ]
-
-const WELCOME_EMOTION: { label: EmotionLabel; intensity: number } = {
-  label: 'happiness',
-  intensity: 4
-}
 
 const getStoredUserName = (): string => {
   if (typeof window === 'undefined') return ''
@@ -193,12 +189,15 @@ const Greeting: React.FC<GreetingProps> = (props) => (
 
 const EmotionBadge: React.FC<{ active: boolean }> = ({ active }) => {
   const emotionAssetPack = useAppConfigStore(state => state.appConfig.emotion?.assetPack || 'default')
+  const { label, intensity } = useWelcomeEmotionState()
   const [assetFailed, setAssetFailed] = useState(false)
-  const mainEmoji = pickEmotionEmoji(WELCOME_EMOTION.label, WELCOME_EMOTION.intensity)
+  const emojiLabel = assetFailed ? WELCOME_EMOTION_FALLBACK.label : label
+  const emojiIntensity = assetFailed ? WELCOME_EMOTION_FALLBACK.intensity : intensity
+  const mainEmoji = pickEmotionEmoji(emojiLabel, emojiIntensity)
   const emotionAssetUrl = getEmotionAssetUrl(
     emotionAssetPack,
-    WELCOME_EMOTION.label,
-    WELCOME_EMOTION.intensity
+    label,
+    intensity
   )
   const shouldRenderAsset = Boolean(emotionAssetUrl) && !assetFailed
 

@@ -13,6 +13,7 @@ class EmotionStateDao {
     upsert: Database.Statement
     getByChatId: Database.Statement
     getByChatUuid: Database.Statement
+    getLatest: Database.Statement
     deleteByChatId: Database.Statement
   }
 
@@ -33,6 +34,13 @@ class EmotionStateDao {
       `),
       getByChatUuid: db.prepare(`
         SELECT * FROM emotion_states WHERE chat_uuid = ?
+      `),
+      getLatest: db.prepare(`
+        SELECT emotion_states.*
+        FROM emotion_states
+        INNER JOIN chats ON chats.id = emotion_states.chat_id
+        ORDER BY emotion_states.updated_at DESC
+        LIMIT 1
       `),
       deleteByChatId: db.prepare(`
         DELETE FROM emotion_states WHERE chat_id = ?
@@ -56,6 +64,10 @@ class EmotionStateDao {
 
   getByChatUuid(chatUuid: string): EmotionStateRow | undefined {
     return this.stmts.getByChatUuid.get(chatUuid) as EmotionStateRow | undefined
+  }
+
+  getLatest(): EmotionStateRow | undefined {
+    return this.stmts.getLatest.get() as EmotionStateRow | undefined
   }
 
   deleteByChatId(chatId: number): void {

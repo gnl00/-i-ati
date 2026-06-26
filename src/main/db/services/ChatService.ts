@@ -136,6 +136,10 @@ export class ChatService {
     return this.requireEmotionStateRepository().getEmotionStateByChatUuid(chatUuid)
   }
 
+  getLatestEmotionState(): EmotionStateSnapshot | undefined {
+    return this.requireEmotionStateRepository().getLatestEmotionState()
+  }
+
   upsertEmotionState(chatId: number, chatUuid: string, state: EmotionStateSnapshot): void {
     this.requireEmotionStateRepository().upsertEmotionState(chatId, chatUuid, state)
   }

@@ -220,6 +220,10 @@ class DatabaseService {
     return this.requireChatService().getEmotionStateByChatUuid(chatUuid)
   }
 
+  public getLatestEmotionState(): EmotionStateSnapshot | undefined {
+    return this.requireChatService().getLatestEmotionState()
+  }
+
   public upsertEmotionState(chatId: number, chatUuid: string, state: EmotionStateSnapshot): void {
     this.requireChatService().upsertEmotionState(chatId, chatUuid, state)
   }
