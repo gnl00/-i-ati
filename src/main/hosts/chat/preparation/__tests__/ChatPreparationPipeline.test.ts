@@ -56,8 +56,10 @@ vi.mock('@shared/services/skills/SkillPromptBuilder', () => ({
 
 vi.mock('@shared/prompts', () => ({
   systemPrompt: vi.fn(() => 'system prompt'),
-  buildEmotionSystemPrompt: vi.fn((summary?: string) => summary ? `emotion prompt\n${summary}` : 'emotion prompt'),
-  buildUserInfoPrompt: vi.fn(() => 'user info prompt'),
+  buildEmotionSystemPrompt: vi.fn(() => 'emotion prompt'),
+  buildEmotionContextContent: vi.fn((summary?: string) => summary ? `<emotion_context>\n${summary}\n</emotion_context>` : ''),
+  buildUserInfoSystemPrompt: vi.fn(() => 'user info policy'),
+  buildUserInfoContextContent: vi.fn(() => '<user_info_context>{"profile":{"name":null}}</user_info_context>'),
   buildUserInstructionPrompt: vi.fn((prompt?: string) => prompt ? `<user_instruction>\n${prompt}\n</user_instruction>` : '')
 }))
 
@@ -113,6 +115,7 @@ import {
   type RunEnvironment
 } from '..'
 import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 const config = {
   accounts: [{
@@ -271,10 +274,17 @@ describe('ChatPreparationPipeline', () => {
     expect(runSpec.initialTranscriptSeed).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'user',
+        source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT,
         content: expect.stringContaining('<system-environment>')
       }),
       expect.objectContaining({
         kind: 'user',
+        source: MESSAGE_SOURCE.USER_INFO_CONTEXT,
+        content: expect.stringContaining('<user_info_context>')
+      }),
+      expect.objectContaining({
+        kind: 'user',
+        source: MESSAGE_SOURCE.AWAKE_CONTEXT,
         content: expect.stringContaining('<awake_state>')
       }),
       expect.objectContaining({
@@ -325,15 +335,28 @@ describe('ChatPreparationPipeline', () => {
       message.kind === 'user'
       && message.content === 'hello'
     ))
+    const emotionIndex = messages.findIndex(message => (
+      message.kind === 'user'
+      && typeof message.content === 'string'
+      && message.content.startsWith('<emotion_context>')
+    ))
 
     expect(environmentIndex).toBeGreaterThan(-1)
     expect(awakeIndex).toBeGreaterThan(-1)
+    expect(emotionIndex).toBe(-1)
     expect(awakeIndex).toBeGreaterThan(environmentIndex)
     expect(currentUserIndex).toBeGreaterThan(awakeIndex)
     expect(messages[environmentIndex].content).toContain('"workspacePath": "./workspaces/chat-1"')
     expect(messages[environmentIndex].content).toContain('"currentTime"')
     expect(messages[awakeIndex].content).toContain('"version": 1')
-    expect(messages[awakeIndex].content).toContain('"raw_query": "hello"')
+    expect(messages[awakeIndex].content).toContain('"chat_title": "NewChat"')
+    expect(messages[awakeIndex].content).toContain('"summary"')
+    expect(messages[environmentIndex]).toEqual(expect.objectContaining({
+      source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT
+    }))
+    expect(messages[awakeIndex]).toEqual(expect.objectContaining({
+      source: MESSAGE_SOURCE.AWAKE_CONTEXT
+    }))
     expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<system-environment>')).toBe(false)
     expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<awake_state>')).toBe(false)
   })

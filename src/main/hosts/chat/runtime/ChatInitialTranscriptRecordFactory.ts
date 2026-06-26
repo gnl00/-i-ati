@@ -71,6 +71,7 @@ export class DefaultChatInitialTranscriptRecordFactory implements ChatInitialTra
           recordId: input.loopIdentityProvider.nextTranscriptRecordId(),
           kind: 'user',
           timestamp,
+          source: seed.source,
           content: partsFromUserContent(seed.content)
         }
         records.push(record)

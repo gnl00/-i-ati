@@ -2,8 +2,102 @@ import { describe, expect, it } from 'vitest'
 import { DefaultRequestMaterializer } from '../RequestMaterializer'
 import type { AgentTranscript } from '../AgentTranscript'
 import type { NormalizedToolResultContent } from '../../tools/result-normalization'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 describe('DefaultRequestMaterializer', () => {
+  it('merges hidden request context into the following user protocol message', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [
+        {
+          recordId: 'history-user',
+          kind: 'user',
+          timestamp: 1,
+          content: [{ type: 'input_text', text: 'previous user' }]
+        },
+        {
+          recordId: 'history-assistant',
+          kind: 'assistant_step',
+          timestamp: 1,
+          step: {
+            stepId: 'step-1',
+            stepIndex: 0,
+            startedAt: 1,
+            completedAt: 1,
+            status: 'completed',
+            content: 'previous answer',
+            toolCalls: []
+          }
+        },
+        {
+          recordId: 'env-context',
+          kind: 'user',
+          timestamp: 2,
+          source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT,
+          content: [{ type: 'input_text', text: '<system-environment>{"currentDate":"2026-06-26"}</system-environment>' }]
+        },
+        {
+          recordId: 'user-info-context',
+          kind: 'user',
+          timestamp: 2,
+          source: MESSAGE_SOURCE.USER_INFO_CONTEXT,
+          content: [{ type: 'input_text', text: '<user_info_context>{"profile":{"name":"Gn"}}</user_info_context>' }]
+        },
+        {
+          recordId: 'awake-context',
+          kind: 'user',
+          timestamp: 2,
+          source: MESSAGE_SOURCE.AWAKE_CONTEXT,
+          content: [{ type: 'input_text', text: '<awake_state>{"chat_meta":{"chat_id":1}}</awake_state>' }]
+        },
+        {
+          recordId: 'current-user',
+          kind: 'user',
+          timestamp: 2,
+          content: [{ type: 'input_text', text: 'current question' }]
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    expect(request.messages).toHaveLength(3)
+    expect(request.messages[0]).toMatchObject({
+      role: 'user',
+      content: [{ type: 'input_text', text: 'previous user' }]
+    })
+    expect(request.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: 'previous answer'
+    })
+    expect(request.messages[2]).toMatchObject({
+      role: 'user'
+    })
+
+    const currentContent = request.messages[2].role === 'user'
+      ? request.messages[2].content
+      : []
+    expect(currentContent[0]).toEqual({ type: 'input_text', text: 'current question' })
+    expect(currentContent[1]).toMatchObject({
+      type: 'input_text',
+      text: expect.stringContaining('<request_context>')
+    })
+    expect((currentContent[1] as { text: string }).text).toContain('<system-environment>')
+    expect((currentContent[1] as { text: string }).text).toContain('<user_info_context>')
+    expect((currentContent[1] as { text: string }).text).toContain('<awake_state>')
+  })
+
   it('preserves assistant reasoning for protocol replay', () => {
     const materializer = new DefaultRequestMaterializer()
     const transcript: AgentTranscript = {

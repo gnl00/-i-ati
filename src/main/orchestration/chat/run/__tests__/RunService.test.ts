@@ -193,8 +193,10 @@ vi.mock('@main/logging/LogService', () => ({
 
 vi.mock('@shared/prompts', () => ({
   systemPrompt: vi.fn(() => 'system prompt'),
-  buildUserInfoPrompt: vi.fn(() => ''),
+  buildUserInfoSystemPrompt: vi.fn(() => ''),
+  buildUserInfoContextContent: vi.fn(() => '<user_info_context>{}</user_info_context>'),
   buildEmotionSystemPrompt: vi.fn(() => ''),
+  buildEmotionContextContent: vi.fn(() => ''),
   buildSkillsSystemPrompt: vi.fn(() => ''),
   buildUserInstructionPrompt: vi.fn(() => '')
 }))

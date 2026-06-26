@@ -13,6 +13,7 @@ import {
   KnowledgebaseContextProvider,
   SystemEnvironmentContextProvider,
   SystemPromptComposer,
+  UserInfoPromptProvider,
   InitialTranscriptSeedBuilder,
   ToolListBuilder
 } from './request'
@@ -41,6 +42,7 @@ export class RunRequestFactory {
     private readonly toolListBuilder = new ToolListBuilder(),
     private readonly initialTranscriptSeedBuilder = new InitialTranscriptSeedBuilder(),
     private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
+    private readonly userInfoPromptProvider = new UserInfoPromptProvider(),
     private readonly systemEnvironmentContextProvider = new SystemEnvironmentContextProvider(),
     private readonly awakeContextProvider = new AwakeContextProvider(),
     private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider()
@@ -58,8 +60,9 @@ export class RunRequestFactory {
     const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
       workspacePath: environment.workspacePath
     })
-    const [loadedSkillsContext, knowledgebaseContext, awakeContext] = await Promise.all([
+    const [loadedSkillsContext, userInfoContext, knowledgebaseContext, awakeContext] = await Promise.all([
       this.loadedSkillsContextProvider.build(environment.chat.id),
+      this.userInfoPromptProvider.buildContext(),
       this.knowledgebaseContextProvider.build(input.textCtx),
       this.awakeContextProvider.build({
         chat: environment.chat,
@@ -72,7 +75,7 @@ export class RunRequestFactory {
     const requestMessageBuild = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
       .setEphemeralContextMessages(
-        [systemEnvironmentContext, loadedSkillsContext, knowledgebaseContext, awakeContext]
+        [loadedSkillsContext, userInfoContext, knowledgebaseContext, systemEnvironmentContext, awakeContext]
           .filter((message): message is ChatMessage => Boolean(message))
       )
       .setUserInstruction(mergedUserInstruction)

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildCompressionPrompt, buildSkillsSystemPrompt, systemPrompt } from '..'
+import {
+  buildCompressionPrompt,
+  buildEmotionContextContent,
+  buildEmotionSystemPrompt,
+  buildSkillsSystemPrompt,
+  systemPrompt
+} from '..'
 
 describe('shared prompts systemPrompt', () => {
   it('includes log_search guidance for runtime diagnosis', () => {
@@ -72,6 +78,19 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).not.toContain('Timezone:')
   })
 
+  it('keeps emotion policy static and current emotion in runtime context', () => {
+    const policy = buildEmotionSystemPrompt()
+    const context = buildEmotionContextContent('label: focused')
+
+    expect(policy).toContain('<emotion_system>')
+    expect(policy).toContain('Emotion System')
+    expect(policy).not.toContain('Current Emotion Context')
+    expect(policy).not.toContain('label: focused')
+    expect(context).toContain('<emotion_context>')
+    expect(context).toContain('Current Emotion Context')
+    expect(context).toContain('label: focused')
+  })
+
   it('keeps tools_execution focused on tool routing and runtime inspection', () => {
     const prompt = systemPrompt()
 
@@ -102,7 +121,7 @@ describe('shared prompts systemPrompt', () => {
 
     expect(prompt).toContain('<state_and_memory>')
     expect(prompt).toContain('memory: long-term preferences, stable facts, and cross-chat decisions.')
-    expect(prompt).toContain('user_info: structured global user profile; follow the injected `<user_info>` section.')
+    expect(prompt).toContain('user_info: structured global user profile; follow the injected `<user_info_context>` section.')
     expect(prompt).toContain('work_context: current chat working state; update with complete Markdown when changed.')
     expect(prompt).toContain('activity_journal: low-noise cross-chat milestones, decisions, blockers, and completion summaries.')
     expect(prompt).toContain('plan: current execution plan for multi-step work.')
@@ -111,6 +130,7 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).toContain('When work_context changes, call `work_context_set` with complete Markdown, not a partial fragment.')
     expect(prompt).toContain('Use plan for current execution steps, todo for durable user-visible tasks, and schedule for future-triggered actions.')
     expect(prompt).toContain('Use tool definitions, `userInfo.ts`, runtime context, and AGENTS for exact fields, parameters, defaults, and schemas.')
+    expect(prompt).not.toContain('follow the injected `<user_info>` section')
     expect(prompt).not.toContain('<memory_system>')
     expect(prompt).not.toContain('<user_configuration>')
     expect(prompt).not.toContain('context_origin: record the original text.')

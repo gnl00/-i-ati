@@ -22,6 +22,7 @@ export interface AgentTranscriptUserRecord {
   recordId: string
   kind: 'user'
   timestamp: number
+  source?: string
   content: AgentContentPart[]
 }
 

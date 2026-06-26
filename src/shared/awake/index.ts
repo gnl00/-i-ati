@@ -57,6 +57,7 @@ export type AwakeSnapshot = {
     truncated: boolean
   }
   emotion: {
+    summary?: string
     baseline: {
       label: string
       intensity: number

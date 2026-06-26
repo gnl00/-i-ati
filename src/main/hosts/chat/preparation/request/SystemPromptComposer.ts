@@ -16,14 +16,14 @@ export class SystemPromptComposer {
     const baseSystemPrompt = systemPromptBuilder()
     const userInfoPrompt = await this.userInfoPromptProvider.build()
     const skillsPrompt = await this.skillsPromptProvider.build(chatId)
-    const emotionPrompt = this.emotionPromptProvider.build(chatId)
+    const emotionPrompt = this.emotionPromptProvider.build()
     const soulPrompt = this.soulPromptProvider.build()
     const composedSystemPrompt = [
       baseSystemPrompt,
       soulPrompt,
-      emotionPrompt,
       skillsPrompt,
-      userInfoPrompt
+      userInfoPrompt,
+      emotionPrompt
     ]
       .filter(part => part.trim().length > 0)
       .join('\n\n')

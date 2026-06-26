@@ -9,6 +9,7 @@ export class InitialTranscriptSeedBuilder {
         return {
           kind: 'user',
           timestamp,
+          source: message.source,
           content: message.content
         }
       }

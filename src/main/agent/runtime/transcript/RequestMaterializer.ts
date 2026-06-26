@@ -15,7 +15,9 @@
 import type { AgentRequestOptions, AgentRequestSpec } from '../request/AgentRequestSpec'
 import type { AgentContentPart } from './AgentContentPart'
 import type { AgentTranscript } from './AgentTranscript'
+import type { AgentTranscriptRecord, AgentTranscriptUserRecord } from './AgentTranscriptRecord'
 import { projectToolResultContentForModelReplay } from '../tools/ToolResultContentProjector'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 export interface MaterializedUserProtocolMessage {
   role: 'user'
@@ -65,24 +67,110 @@ export interface RequestMaterializer {
   materialize(input: RequestMaterializerInput): MaterializedProtocolRequest
 }
 
+const REQUEST_CONTEXT_SOURCES = new Set<string>([
+  MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT,
+  MESSAGE_SOURCE.SKILLS_CONTEXT,
+  MESSAGE_SOURCE.USER_INFO_CONTEXT,
+  MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT,
+  MESSAGE_SOURCE.EMOTION_CONTEXT,
+  MESSAGE_SOURCE.AWAKE_CONTEXT
+])
+
+const isRequestContextRecord = (
+  record: AgentTranscriptRecord
+): record is AgentTranscriptUserRecord => (
+  record.kind === 'user'
+  && Boolean(record.source && REQUEST_CONTEXT_SOURCES.has(record.source))
+)
+
+const partsToText = (parts: AgentContentPart[]): string => parts
+  .filter((part): part is Extract<AgentContentPart, { type: 'input_text' }> => part.type === 'input_text')
+  .map(part => part.text.trim())
+  .filter(Boolean)
+  .join('\n\n')
+
+const buildRequestContextPart = (parts: AgentContentPart[]): AgentContentPart | null => {
+  const text = partsToText(parts)
+  if (!text) {
+    return null
+  }
+
+  return {
+    type: 'input_text',
+    text: [
+      '<request_context>',
+      'The following runtime context applies only to this user request.',
+      '',
+      text,
+      '</request_context>'
+    ].join('\n')
+  }
+}
+
+const appendRequestContext = (
+  content: AgentContentPart[],
+  requestContextParts: AgentContentPart[]
+): AgentContentPart[] => {
+  const contextPart = buildRequestContextPart(requestContextParts)
+  if (!contextPart) {
+    return [...content]
+  }
+
+  return [
+    ...content,
+    contextPart
+  ]
+}
+
 export class DefaultRequestMaterializer implements RequestMaterializer {
   materialize(input: RequestMaterializerInput): MaterializedProtocolRequest {
-    const messages: MaterializedProtocolMessage[] = input.transcript.records.map((record) => {
+    const messages: MaterializedProtocolMessage[] = []
+    let pendingRequestContextParts: AgentContentPart[] = []
+
+    const flushPendingRequestContext = (): void => {
+      if (pendingRequestContextParts.length === 0) {
+        return
+      }
+
+      const contextPart = buildRequestContextPart(pendingRequestContextParts)
+      if (contextPart) {
+        messages.push({
+          role: 'user',
+          content: [contextPart]
+        })
+      }
+      pendingRequestContextParts = []
+    }
+
+    for (const record of input.transcript.records) {
+      if (isRequestContextRecord(record)) {
+        pendingRequestContextParts = [
+          ...pendingRequestContextParts,
+          ...record.content
+        ]
+        continue
+      }
+
       switch (record.kind) {
         case 'user':
-          return {
+          messages.push({
             role: 'user',
-            content: [...record.content]
-          }
+            content: appendRequestContext(record.content, pendingRequestContextParts)
+          })
+          pendingRequestContextParts = []
+          break
         case 'assistant_step':
-          return {
+          flushPendingRequestContext()
+          messages.push({
             role: 'assistant',
             content: record.step.content,
             reasoning: record.step.reasoning,
             toolCalls: record.step.toolCalls.length > 0 ? [...record.step.toolCalls] : undefined
-          }
+          })
+          break
         case 'tool_result':
-          return {
+          flushPendingRequestContext()
+          messages.push({
             role: 'tool',
             content: projectToolResultContentForModelReplay({
               content: record.content,
@@ -91,9 +179,12 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
             }),
             toolCallId: record.toolCallId,
             toolName: record.toolName
-          }
+          })
+          break
       }
-    })
+    }
+
+    flushPendingRequestContext()
 
     return {
       adapterPluginId: input.requestSpec.adapterPluginId,

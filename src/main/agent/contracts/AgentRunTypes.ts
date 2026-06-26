@@ -33,6 +33,7 @@ export type ChatInitialTranscriptSeed =
   | {
       kind: 'user'
       timestamp?: number
+      source?: string
       content: ChatInitialTranscriptSeedContent
     }
   | {

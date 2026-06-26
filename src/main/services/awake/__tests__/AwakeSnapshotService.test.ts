@@ -216,6 +216,8 @@ describe('AwakeSnapshotService', () => {
       intensity: 6,
       source: 'awake_carryover'
     })
+    expect(snapshot.emotion.summary).toContain('Current carry-over: curiosity (6)')
+    expect(snapshot.emotion.summary).toContain('Accumulated emotional residue')
     expect(snapshot.emotion.baseline).not.toHaveProperty('updated_at')
     expect(snapshot.emotion.accumulated[0].description).toContain('prompt cache')
     const journalActivity = snapshot.recent_activities.find(item => item.source === 'activity_journal')
@@ -249,5 +251,6 @@ describe('AwakeSnapshotService', () => {
     expect(snapshot.memories).toEqual([])
     expect('diagnostics' in snapshot).toBe(false)
     expect(snapshot.emotion.baseline.label).toBe('curiosity')
+    expect(snapshot.emotion.summary).toContain('Current carry-over: curiosity (6)')
   })
 })

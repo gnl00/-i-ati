@@ -1,5 +1,6 @@
 import DatabaseService from '@main/db/DatabaseService'
 import activityJournalService from '@main/services/activityJournal/ActivityJournalService'
+import { buildEmotionStateSummary } from '@main/services/emotion/EmotionPromptSummary'
 import MemoryService from '@main/services/memory/MemoryService'
 import type {
   AwakeMemoryCandidate,
@@ -379,6 +380,7 @@ const buildRetrievalPlan = (input: {
 }
 
 const fallbackEmotion = (): AwakeSnapshot['emotion'] => ({
+  summary: buildEmotionStateSummary(undefined),
   baseline: {
     label: 'neutral',
     intensity: 5,
@@ -394,6 +396,7 @@ const buildEmotionSnapshot = (state: EmotionStateSnapshot | undefined): AwakeSna
   }
 
   return {
+    summary: buildEmotionStateSummary(state),
     baseline: {
       label: state.current.label,
       intensity: state.current.intensity,

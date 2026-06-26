@@ -1,11 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { buildUserInfoPrompt } from '../userInfo'
+import {
+  buildUserInfoContextContent,
+  buildUserInfoPrompt,
+  buildUserInfoSystemPrompt
+} from '../userInfo'
 
 describe('buildUserInfoPrompt', () => {
-  it('renders Telegram host subsection when Telegram runtime info is available', () => {
-    const prompt = buildUserInfoPrompt({
+  it('keeps policy free of runtime user profile values', () => {
+    const prompt = buildUserInfoSystemPrompt()
+
+    expect(prompt).toContain('<user_info_system>')
+    expect(prompt).toContain('User Info Policy')
+    expect(prompt).toContain('If user_info_context shows `preferredAddress` is missing')
+    expect(prompt).toContain('user_info_set')
+    expect(prompt).not.toContain('Gn')
+    expect(prompt).not.toContain('ati_bot')
+  })
+
+  it('renders user profile and Telegram runtime data in user_info_context', () => {
+    const prompt = buildUserInfoContextContent({
       name: 'Gn',
-      preferredAddress: 'Gn'
+      preferredAddress: 'Gn',
+      basicInfo: 'developer',
+      preferences: 'direct answers'
     }, {
       telegram: {
         enabled: true,
@@ -16,21 +33,35 @@ describe('buildUserInfoPrompt', () => {
       }
     })
 
-    expect(prompt).toContain('### Telegram Host')
-    expect(prompt).toContain('- Enabled: true')
-    expect(prompt).toContain('- Bot username: ati_bot')
-    expect(prompt).toContain('- Bot ID: 123456')
-    expect(prompt).toContain('- Mode: polling')
-    expect(prompt).toContain('- Proactive messaging: available')
-    expect(prompt).toContain('Telegram proactive messaging requires resolving a reachable Telegram target before sending.')
+    expect(prompt).toContain('<user_info_context>')
+    expect(prompt).toContain('"name": "Gn"')
+    expect(prompt).toContain('"preferredAddress": "Gn"')
+    expect(prompt).toContain('"basicInfo": "developer"')
+    expect(prompt).toContain('"preferences": "direct answers"')
+    expect(prompt).toContain('"enabled": true')
+    expect(prompt).toContain('"botUsername": "ati_bot"')
+    expect(prompt).toContain('"botId": "123456"')
+    expect(prompt).toContain('"mode": "polling"')
+    expect(prompt).toContain('"proactiveMessagingAvailable": true')
   })
 
-  it('omits Telegram host subsection when Telegram runtime info is absent', () => {
+  it('omits Telegram runtime object when Telegram info is absent', () => {
+    const prompt = buildUserInfoContextContent({
+      name: 'Gn',
+      preferredAddress: 'Gn'
+    })
+
+    expect(prompt).not.toContain('"telegram"')
+  })
+
+  it('keeps buildUserInfoPrompt as a compatibility composition', () => {
     const prompt = buildUserInfoPrompt({
       name: 'Gn',
       preferredAddress: 'Gn'
     })
 
-    expect(prompt).not.toContain('### Telegram Host')
+    expect(prompt).toContain('<user_info_system>')
+    expect(prompt).toContain('<user_info_context>')
+    expect(prompt).toContain('"name": "Gn"')
   })
 })

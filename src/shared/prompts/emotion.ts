@@ -1,6 +1,4 @@
-export const buildEmotionSystemPrompt = (emotionStateSummary?: string): string => {
-  const summary = emotionStateSummary?.trim()
-
+export const buildEmotionSystemPrompt = (): string => {
   return [
     '<emotion_system>',
     '## [P1] Emotion System',
@@ -46,12 +44,24 @@ export const buildEmotionSystemPrompt = (emotionStateSummary?: string): string =
     '### Fallback Awareness',
     '- If you do not call `emotion_report`, the system may still infer a fallback current emotion from your final text.',
     '- Fallback covers the current emotion surface. Use `emotion_report` when accumulated residue needs a precise rewrite.',
-    '',
-    summary
-      ? `### Current Emotion Context\n${summary}`
-      : '',
     '</emotion_system>'
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+export const buildEmotionContextContent = (emotionStateSummary?: string): string => {
+  const summary = emotionStateSummary?.trim()
+  if (!summary) {
+    return ''
+  }
+
+  return [
+    '<emotion_context>',
+    '## [P1] Current Emotion Context',
+    'This runtime context applies only to the current turn.',
+    '',
+    summary,
+    '</emotion_context>'
+  ].join('\n')
 }
