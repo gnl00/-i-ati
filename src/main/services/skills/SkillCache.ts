@@ -29,7 +29,7 @@ const SKILLS_DIR = 'skills'
 const BUILT_IN_SKILL_SOURCE = 'built-in'
 const SKILL_METADATA_CACHE_KEY = 'skillsMetadataCache'
 const SKILL_SOURCE_FILE = '.skill-source.json'
-const SKILL_METADATA_CACHE_VERSION = 2
+const SKILL_METADATA_CACHE_VERSION = 3
 
 const skillMetadataCache: {
   root: string | null
@@ -134,7 +134,8 @@ const readSkillMetadata = async (
     return {
       ...parsed.metadata,
       mtimeMs: stat.mtimeMs,
-      source: source ?? sourceInfo?.source
+      source: source ?? sourceInfo?.source,
+      path: skillFile
     }
   } catch (error) {
     console.warn(`[SkillService] Failed to parse skill in ${path.basename(skillDir)}:`, error)

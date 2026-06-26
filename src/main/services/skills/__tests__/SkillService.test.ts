@@ -66,6 +66,7 @@ describe('SkillService', () => {
       name: 'search-general',
       source: 'built-in'
     })
+    expect(searchSkill?.path).toBe(path.join(process.cwd(), 'resources', 'skills', 'search-general', 'SKILL.md'))
     expect(searchSkill?.description).toContain('any user request that asks to search')
     expect(searchSkill?.allowedTools).toEqual(['web_search', 'web_fetch'])
 
@@ -116,6 +117,9 @@ describe('SkillService', () => {
 
     const list = await SkillService.listSkills()
     expect(list.map(item => item.name)).toContain(skillName)
+    expect(list.find(item => item.name === skillName)?.path).toBe(
+      path.join(userDataPath, 'skills', skillName, 'SKILL.md')
+    )
 
     const storedContent = await SkillService.getSkillContent(skillName)
     expect(storedContent).toContain(`name: ${skillName}`)

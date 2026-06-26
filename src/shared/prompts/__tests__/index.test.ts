@@ -104,13 +104,15 @@ describe('shared prompts systemPrompt', () => {
   it('describes skills as hidden loaded context after load_skill activation', () => {
     const prompt = buildSkillsSystemPrompt('<skills_context>\n## Skills\n</skills_context>')
 
-    expect(prompt).toContain('runtime injects the full active skill documents through hidden `<loaded_skills_context>` messages')
+    expect(prompt).toContain('runtime injects active skill names through hidden `<loaded_skills_context>` messages')
     expect(prompt).toContain('When `<loaded_skills_context>` is present')
-    expect(prompt).toContain('active skill content appears in hidden loaded-skill context')
+    expect(prompt).toContain('read the full `SKILL.md` through `read_skill_file` before applying a loaded skill')
+    expect(prompt).toContain('When a skill file has been read')
     expect(prompt).toContain('Use `read_skill_file` with `path: "."` or a relative directory path')
     expect(prompt).toContain('discover skill files')
     expect(prompt).toContain('run it with `run_skill_script`')
     expect(prompt).toContain('uses the skill root')
+    expect(prompt).not.toContain('full active skill documents')
     expect(prompt).not.toContain('After `load_skill` returns a skill document')
     expect(prompt).not.toContain('When skill content has been returned by `load_skill`')
   })

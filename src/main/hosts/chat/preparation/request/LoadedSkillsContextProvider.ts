@@ -14,10 +14,12 @@ export class LoadedSkillsContextProvider {
         return null
       }
 
-      const skills = await Promise.all(skillNames.map(async name => ({
+      const availableSkills = await SkillService.listSkills()
+      const pathsByName = new Map(availableSkills.map(skill => [skill.name, skill.path]))
+      const skills = skillNames.map(name => ({
         name,
-        content: await SkillService.getSkillContent(name)
-      })))
+        path: pathsByName.get(name)
+      }))
 
       return buildLoadedSkillsContextMessage(skills)
     } catch (error) {
@@ -26,4 +28,3 @@ export class LoadedSkillsContextProvider {
     }
   }
 }
-

@@ -145,15 +145,15 @@ The generated context has one data section:
 
 - `Available Skills`: every available skill as `name: description`, plus `allowed-tools` when present.
 
-The system prompt tells the model that available skills are discoverable options. When the current task clearly matches an available skill, the model should call `load_skill`; the tool result confirms activation, and the runtime injects the active skill documents through a hidden user context message.
+The system prompt tells the model that available skills are discoverable options. When the current task clearly matches an available skill, the model should call `load_skill`; the tool result confirms activation, and the runtime injects the active skill names through a hidden user context message.
 
 General web search details live in the built-in `search-general` skill. The static system prompt keeps only the minimal trigger rule: when the user asks to search, web search, browse, look up, find latest/current information, verify facts, cite sources, or use `web_search`/`web_fetch`, first load `search-general`, then follow its workflow.
 
 ## Loaded Skills Context Injection
 
-Loaded skill content is assembled by [LoadedSkillsContextProvider](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/LoadedSkillsContextProvider.ts:1) and [buildLoadedSkillsContextMessage](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/LoadedSkillsContext.ts:1).
+Loaded skill state is assembled by [LoadedSkillsContextProvider](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/LoadedSkillsContextProvider.ts:1) and [buildLoadedSkillsContextMessage](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/LoadedSkillsContext.ts:1).
 
-For every chat request, `RunRequestFactory` reads `chat_skills` for the current chat, loads each active `SKILL.md`, and passes a virtual context message to `RequestMessageBuilder`.
+For every chat request, `RunRequestFactory` reads `chat_skills` for the current chat and passes a compact virtual context message to `RequestMessageBuilder`. The compact context carries active skill names, metadata paths when available, and a reminder to read the full skill file before applying a loaded skill.
 
 The injected message shape is:
 
@@ -161,7 +161,7 @@ The injected message shape is:
 {
   role: 'user',
   source: MESSAGE_SOURCE.SKILLS_CONTEXT,
-  content: '<loaded_skills_context>...</loaded_skills_context>',
+  content: '<loaded_skills_context>\n<skill name="frontend-design" path="/Users/gnl/.agents/skills/frontend-design/SKILL.md" />\n<skill name="hunt" path="/Users/gnl/.agents/skills/hunt/SKILL.md" />\n<instruction>Read the full skill file before applying a loaded skill.</instruction>\n</loaded_skills_context>',
   segments: []
 }
 ```
@@ -171,11 +171,24 @@ The injected message shape is:
 ```text
 system prompt
 user: [Previous conversation summary ...]
-user: <loaded_skills_context>...</loaded_skills_context>
+user: <loaded_skills_context>
+<skill name="frontend-design" path="/Users/gnl/.agents/skills/frontend-design/SKILL.md" />
+<skill name="hunt" path="/Users/gnl/.agents/skills/hunt/SKILL.md" />
+<instruction>Read the full skill file before applying a loaded skill.</instruction>
+</loaded_skills_context>
 user: latest user request
 ```
 
+Skill paths come from `SkillService.listSkills()` metadata assembled from the skill registry/cache. The compact context only points at the `SKILL.md` path; the model reads full instructions by calling `read_skill_file` for the loaded skill before applying it.
+Loaded skill XML fragments are generated through the shared XML helper, so skill names and metadata paths are escaped consistently when rendered as attributes.
+
 During the same run, `AgentLoop` refreshes the hidden context after successful `load_skill` or `unload_skill` tool results by using `ChatLoadedSkillsTranscriptContextProvider`. This makes the next model continuation see the updated active skill set within the same run.
+
+The skill prompt hierarchy has three layers:
+
+1. `<skills_system>` / `<skills_context>` list available skills by name, description, and global usage rules.
+2. `<loaded_skills_context>` records the current chat's active skill names and metadata paths as transient state.
+3. `read_skill_file` returns the full `SKILL.md` instructions and bundled skill files immediately before applying a loaded skill.
 
 Renderer UI and history search filter `MESSAGE_SOURCE.SKILLS_CONTEXT`, so the hidden carrier message stays out of visible transcript surfaces and searchable chat history.
 

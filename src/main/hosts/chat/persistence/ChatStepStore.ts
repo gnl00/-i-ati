@@ -3,6 +3,7 @@ import type { ConversationStore } from '@main/agent/contracts'
 import DatabaseService from '@main/db/DatabaseService'
 import EmotionInferenceService from '@main/services/emotion/EmotionInferenceService'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import { escapeXmlAttribute } from '@shared/utils/xml'
 import {
   buildNextEmotionStateSnapshot,
   extractEmotionToolStateFromSegments,
@@ -16,14 +17,6 @@ type RunStoppedBoundaryOptions = {
 }
 
 const RUN_STOPPED_DEFAULT_REASON = 'user_cancelled'
-
-const escapeXmlAttribute = (value: string): string => (
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-)
 
 const buildRunStoppedBoundaryContent = (reason: string): string => [
   `<run_boundary status="stopped" reason="${escapeXmlAttribute(reason)}">`,

@@ -349,6 +349,7 @@ declare interface SkillMetadata {
   metadata?: Record<string, string>
   allowedTools?: string[]
   source?: string
+  path?: string
 }
 
 declare interface ChatEntity {

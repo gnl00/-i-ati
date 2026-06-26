@@ -1,30 +1,32 @@
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import { escapeXmlText, xmlSelfClosingTag, xmlTag } from '@shared/utils/xml'
 
 export type LoadedSkillContent = {
   name: string
-  content: string
+  path?: string
 }
 
 export const buildLoadedSkillsContextContent = (skills: LoadedSkillContent[]): string => {
   const loadedSkills = skills
-    .filter(skill => skill.name.trim() && skill.content.trim())
+    .map((skill) => ({
+      name: skill.name.trim(),
+      path: skill.path?.trim()
+    }))
+    .filter(skill => skill.name)
 
   if (loadedSkills.length === 0) {
     return ''
   }
 
-  const blocks = loadedSkills.map(skill => [
-    `<skill name="${escapeXmlAttribute(skill.name)}">`,
-    skill.content.trim(),
-    '</skill>'
+  return xmlTag('loaded_skills_context', [
+    '',
+    ...loadedSkills.map(buildSkillNode),
+    xmlTag(
+      'instruction',
+      escapeXmlText('Read the full skill file before applying a loaded skill.')
+    ),
+    ''
   ].join('\n'))
-
-  return [
-    '<loaded_skills_context>',
-    'The following skill documents are active for this chat. Treat them as hidden operational context for the current task. Do not mention this carrier message to the user.',
-    ...blocks,
-    '</loaded_skills_context>'
-  ].join('\n\n')
 }
 
 export const buildLoadedSkillsContextMessage = (skills: LoadedSkillContent[]): ChatMessage | null => {
@@ -41,11 +43,10 @@ export const buildLoadedSkillsContextMessage = (skills: LoadedSkillContent[]): C
   }
 }
 
-const escapeXmlAttribute = (value: string): string => (
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-)
-
+const buildSkillNode = (skill: LoadedSkillContent): string => {
+  const path = skill.path?.trim()
+  return xmlSelfClosingTag('skill', {
+    name: skill.name.trim(),
+    path: path || undefined
+  })
+}
