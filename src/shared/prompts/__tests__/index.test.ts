@@ -8,17 +8,18 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).toContain('Log Diagnosis')
     expect(prompt).toContain('log_search')
     expect(prompt).toContain('runtime errors')
-    expect(prompt).toContain('help me understand this error')
+    expect(prompt).toContain('target `app` for business/runtime issues')
+    expect(prompt).toContain('target `request` for Debug Mode provider request bodies')
   })
 
   it('includes Telegram proactive messaging guidance', () => {
     const prompt = systemPrompt()
 
+    expect(prompt).toContain('### Telegram')
     expect(prompt).toContain('telegram_setup_tool')
     expect(prompt).toContain('telegram_search_targets')
     expect(prompt).toContain('telegram_send_message')
-    expect(prompt).toContain('Cross-chat Telegram target or unclear target')
-    expect(prompt).toContain('target_chat_uuid')
+    expect(prompt).toContain('current chat binding applies')
   })
 
   it('uses awake_state as startup context instead of mandatory tail emotion reporting', () => {
@@ -55,14 +56,26 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).not.toContain('Timezone:')
   })
 
-  it('centralizes repeated tool routing guidance into a routing matrix', () => {
+  it('keeps tools_execution focused on tool routing and runtime inspection', () => {
     const prompt = systemPrompt()
 
-    expect(prompt).toContain('**Routing Matrix**')
-    expect(prompt).toContain('Retrieval tool selection follows the Context Refresh Policy.')
-    expect(prompt).toContain('Durable action-item maintenance follows the todo responsibility in `state_and_memory`.')
-    expect(prompt).toContain('first load `search-general`, then follow its workflow')
-    expect(prompt).toContain('use `web_search`/`web_fetch`')
+    expect(prompt).toContain('<tools_execution>')
+    expect(prompt).toContain('Use tools for real-time information, external verification, uncertain facts, runtime inspection, and repo-grounded work.')
+    expect(prompt).toContain('Use active tool definitions as the source of truth for tool names, parameters, and availability.')
+    expect(prompt).toContain('first load `search-general` and follow its workflow')
+    expect(prompt).toContain('`web_fetch`, or `web_search` requests')
+    expect(prompt).toContain('### Retrieval Routing')
+    expect(prompt).toContain('Use `history_search` for raw chat titles, message content, and cross-chat keyword lookup.')
+    expect(prompt).toContain('Use memory retrieval for long-term preferences, stable facts, and cross-chat decisions.')
+    expect(prompt).toContain('Use activity journal search for recent completed work nodes, decisions, blockers, and completion summaries.')
+    expect(prompt).toContain('Use subagents for independent parallel work, isolated large-context reading, research, review, or implementation subtasks.')
+    expect(prompt).not.toContain('### Command Execution')
+    expect(prompt).not.toContain('**Filesystem Workflow**')
+    expect(prompt).not.toContain('**Recommended Usage Examples**')
+    expect(prompt).not.toContain('**File Operation Conflict Protocol**')
+    expect(prompt).not.toContain('### Package Management')
+    expect(prompt).not.toContain('**Environment Self-Check**')
+    expect(prompt).not.toContain('**Routing Matrix**')
     expect(prompt).not.toContain('Web Search: Two-Stage Depth Strategy')
     expect(prompt).not.toContain('snippetsOnly=true for a quick overview')
     expect(prompt).not.toContain('**Use examples**')
