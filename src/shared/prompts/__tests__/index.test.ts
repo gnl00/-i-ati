@@ -39,16 +39,32 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).toContain('</acting_flow>')
     expect(prompt).toContain('<project_knowledge_base>')
     expect(prompt).toContain('</project_knowledge_base>')
-    expect(prompt).toContain('<system-environment>')
+    expect(prompt).not.toContain('<working_environment>')
+    expect(prompt).not.toContain('</working_environment>')
     expect(prompt).not.toContain('<system_prompt>')
     expect(prompt).not.toContain('</system_prompt>')
     expect(prompt).not.toContain('</execution_flow>')
   })
 
+  it('keeps acting_flow compact and evidence-focused', () => {
+    const prompt = systemPrompt()
+
+    expect(prompt).toContain('## [P1] Acting Flow')
+    expect(prompt).toContain('Ground responses in the active conversation, injected context, available tools, and repository evidence.')
+    expect(prompt).toContain('For repo or runtime tasks, inspect the relevant local surface before proposing or editing.')
+    expect(prompt).toContain('Keep memory, work_context, activity journal, todos, schedules, and emotion updated through their dedicated tools and responsibility boundaries.')
+    expect(prompt).toContain('Final responses should state what changed, where, and what was verified.')
+    expect(prompt).not.toContain('## [P1] Acting WorkFlow')
+    expect(prompt).not.toContain('**Before any substantive response:**')
+    expect(prompt).not.toContain('**Self-Audit Checklist**')
+    expect(prompt).not.toContain('No call = no claim.')
+    expect(prompt).not.toContain('Have I read the injected')
+    expect(prompt).not.toContain('What is the core task? Am I doing right?')
+  })
+
   it('keeps volatile environment values out of the static system prompt', () => {
     const prompt = systemPrompt()
 
-    expect(prompt).toContain('Current environment details are injected in `<system-environment>`.')
     expect(prompt).not.toContain('./workspaces/chat-1')
     expect(prompt).not.toContain('Current Date:')
     expect(prompt).not.toContain('Workspace Path:')

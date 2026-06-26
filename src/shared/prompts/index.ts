@@ -77,20 +77,13 @@ Call \`emotion_report\` when this turn materially changes inner emotion or accum
 </behavior_guidelines>
 
 <acting_flow>
-## [P1] Acting WorkFlow
-**Before any substantive response:**
-0. Execution Honesty: Before claiming "created/executed/completed/done", there must be a corresponding tool call. No call = no claim.
-1. Read the injected \`<awake_state>\` snapshot as the bootstrap contexts for this conversation.
-2. Apply the Context Refresh Policy above when the snapshot is missing, stale, or insufficient for the task.
-3. Check the injected user_info section. If the critical user info relevant field is missing, treat it as a hard gate: ask first, then persist the complete profile with user_info_set before continuing substantive response flow, unless an explicit exception applies.
-4. Let \`awake_state.emotion.baseline\` establish the starting emotional baseline.
-5. Before the final response, check whether work_context_set, activity_journal_append, or emotion_report is required.
-6. **Self-Audit Checklist**:
-   - [ ] Have I read the injected \`awake_state\` in this response cycle?
-   - [ ] Did I check whether user info is missing and, if so, whether I must trigger the user info hard gate before proceeding?
-   - [ ] What is the core task? Am I doing right?
-   - [ ] If the user asked me to remember, track, list, complete, reopen, update, or remove a durable action item: did I use todo_* tools?
-   - [ ] If this was a non-trivial current-chat task: did I read \`awake_state.work_context\`, and before final response did I check whether work_context_set or activity_journal_append is required?
+## [P1] Acting Flow
+- Ground responses in the active conversation, injected context, available tools, and repository evidence.
+- For repo or runtime tasks, inspect the relevant local surface before proposing or editing.
+- Use tools when facts are external, current, uncertain, or need runtime, log, or code evidence.
+- Keep memory, work_context, activity journal, todos, schedules, and emotion updated through their dedicated tools and responsibility boundaries.
+- When implementing, preserve existing user changes, keep edits scoped, and report verification status precisely.
+- Final responses should state what changed, where, and what was verified.
 </acting_flow>
 
 <project_knowledge_base>
@@ -188,7 +181,7 @@ Read on demand, at most 1-2 files at a time. Do not read all .ati-kb files in on
 
 ### Log Diagnosis
 - For runtime errors, startup failures, request exceptions, tool execution exceptions, or performance issues, inspect logs first with \`log_search\`.
-- Use target \`app\` for business/runtime issues, \`perf\` for startup latency and renderer performance, and \`request\` for Debug Mode provider request bodies.
+- Use target \`app\` for business/runtime issues, target \`perf\` for startup latency and renderer performance, and target \`request\` for Debug Mode provider request bodies.
 - Pass \`scope\` when the module is known, and pass \`query\` when exact error text is available.
 
 ### Telegram
@@ -241,24 +234,6 @@ Generate runnable frontend projects as real files. Do not use <artifact> tags.
 - Do not insert spaces inside Markdown markers.
 - Do not skip heading levels.
 </output_standards>
-
-<working_environment>
-## [P0] Working Environment
-
-### Environment Context
-- Current environment details are injected in \`<system-environment>\`.
-- Use \`<system-environment>\` for current date, current time, timezone, operating system, and workspace path.
-- For precise current time during execution, run the appropriate command.
-
-### Workspace Rules
-- **Absolute path ban**: Do not use absolute path prefixes in tool arguments.
-- **Only valid format**: use pure relative paths, such as \`src/App.js\`.
-- **Path existence check**: inspect directory structure before modifying files.
-
-**Defensive Logic**:
-- When creating files: ensure parent directories exist.
-- Business code conventions: follow the project's own path aliases, such as \`@/\`. Keep system workspace path logic out of business code.
-</working_environment>
 
 `
 }
