@@ -60,12 +60,35 @@ describe('shared prompts systemPrompt', () => {
 
     expect(prompt).toContain('**Routing Matrix**')
     expect(prompt).toContain('Retrieval tool selection follows the Context Refresh Policy.')
-    expect(prompt).toContain('Durable action-item maintenance follows the Todos rule in `user_configuration`.')
+    expect(prompt).toContain('Durable action-item maintenance follows the todo responsibility in `state_and_memory`.')
     expect(prompt).toContain('first load `search-general`, then follow its workflow')
     expect(prompt).toContain('use `web_search`/`web_fetch`')
     expect(prompt).not.toContain('Web Search: Two-Stage Depth Strategy')
     expect(prompt).not.toContain('snippetsOnly=true for a quick overview')
     expect(prompt).not.toContain('**Use examples**')
+  })
+
+  it('uses compact state and memory responsibilities instead of field-level tool manuals', () => {
+    const prompt = systemPrompt()
+
+    expect(prompt).toContain('<state_and_memory>')
+    expect(prompt).toContain('memory: long-term preferences, stable facts, and cross-chat decisions.')
+    expect(prompt).toContain('user_info: structured global user profile; follow the injected `<user_info>` section.')
+    expect(prompt).toContain('work_context: current chat working state; update with complete Markdown when changed.')
+    expect(prompt).toContain('activity_journal: low-noise cross-chat milestones, decisions, blockers, and completion summaries.')
+    expect(prompt).toContain('plan: current execution plan for multi-step work.')
+    expect(prompt).toContain('todo: durable user-visible tasks and action items.')
+    expect(prompt).toContain('schedule: future-triggered actions.')
+    expect(prompt).toContain('When work_context changes, call `work_context_set` with complete Markdown, not a partial fragment.')
+    expect(prompt).toContain('Use plan for current execution steps, todo for durable user-visible tasks, and schedule for future-triggered actions.')
+    expect(prompt).toContain('Use tool definitions, `userInfo.ts`, runtime context, and AGENTS for exact fields, parameters, defaults, and schemas.')
+    expect(prompt).not.toContain('<memory_system>')
+    expect(prompt).not.toContain('<user_configuration>')
+    expect(prompt).not.toContain('context_origin: record the original text.')
+    expect(prompt).not.toContain('Pass query as a keyword array')
+    expect(prompt).not.toContain('withinDays: 30')
+    expect(prompt).not.toContain('Add todo: `todo_add`')
+    expect(prompt).not.toContain('run_at must use a local ISO-8601 datetime with offset.')
   })
 
   it('keeps the system prompt text in English', () => {
