@@ -165,12 +165,66 @@ const applyDeltaToDraft = (
   }
 }
 
+const matchesToolCallReference = (
+  toolCall: IToolCall,
+  reference: {
+    toolCallId?: string
+    toolCallIndex?: number
+  }
+): boolean => (
+  (reference.toolCallId !== undefined && toolCall.id === reference.toolCallId)
+  || (
+    reference.toolCallIndex !== undefined
+    && toolCall.index !== undefined
+    && toolCall.index === reference.toolCallIndex
+  )
+)
+
+const getEarliestMatchingTimestamp = (
+  timestamps: number[]
+): number | undefined => (
+  timestamps.length > 0 ? Math.min(...timestamps) : undefined
+)
+
+const getToolCallStartedAt = (
+  toolCall: IToolCall,
+  deltas: AgentStepDraftDelta[],
+  fallbackTimestamp: number
+): number => {
+  const startedTimestamps = deltas
+    .filter(delta => delta.type === 'tool_call_started')
+    .filter(delta => matchesToolCallReference(toolCall, {
+      toolCallId: delta.toolCallId,
+      toolCallIndex: delta.toolCallIndex
+    }))
+    .map(delta => delta.timestamp)
+
+  const startedAt = getEarliestMatchingTimestamp(startedTimestamps)
+  if (startedAt !== undefined) {
+    return startedAt
+  }
+
+  const readyTimestamps = deltas
+    .filter(delta => delta.type === 'tool_call_ready')
+    .filter(delta => matchesToolCallReference(toolCall, {
+      toolCallId: delta.toolCall.id,
+      toolCallIndex: delta.toolCall.index
+    }))
+    .map(delta => delta.timestamp)
+
+  return getEarliestMatchingTimestamp(readyTimestamps) ?? fallbackTimestamp
+}
+
 const collectReadyToolCallFacts = (
-  step: AgentStep
+  step: AgentStep,
+  draftDeltas: AgentStepDraftDelta[]
 ): ToolCallReadyFact[] => (
-  step.toolCalls.map(toolCall => ({
-    toolCall: cloneToolCall(toolCall)
-  }))
+  step.toolCalls.map(toolCall => {
+    return {
+      toolCall: cloneToolCall(toolCall),
+      startedAt: getToolCallStartedAt(toolCall, draftDeltas, step.completedAt)
+    }
+  })
 )
 
 const collectProgressSignalsFromDelta = (
@@ -408,7 +462,7 @@ export class DefaultAgentLoop implements AgentLoop {
         })
       }
 
-      const readyToolCalls = collectReadyToolCallFacts(step).map(fact => (
+      const readyToolCalls = collectReadyToolCallFacts(step, draft.deltas).map(fact => (
         dependencies.readyToolCallMaterializer.materialize({
           stepId: step.stepId,
           fact

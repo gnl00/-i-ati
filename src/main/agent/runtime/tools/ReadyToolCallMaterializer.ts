@@ -27,7 +27,8 @@ export class DefaultReadyToolCallMaterializer implements ReadyToolCallMaterializ
       toolCallId: input.fact.toolCall.id,
       index: input.fact.toolCall.index ?? 0,
       name: input.fact.toolCall.function.name,
-      arguments: input.fact.toolCall.function.arguments
+      arguments: input.fact.toolCall.function.arguments,
+      ...(input.fact.startedAt !== undefined ? { startedAt: input.fact.startedAt } : {})
     }
   }
 }

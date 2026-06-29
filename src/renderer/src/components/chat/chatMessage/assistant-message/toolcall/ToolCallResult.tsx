@@ -3,12 +3,12 @@ import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { Braces, Check, Clipboard, Loader2, Wrench, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
+import { AssistantSegmentPopout } from '../renderers/AssistantSegmentPopout'
 
 interface ToolCallResultProps {
   toolCall: ToolCallSegment
@@ -55,7 +55,11 @@ function easeOutQuart(progress: number): number {
   return 1 - Math.pow(1 - progress, 4)
 }
 
-function useAnimatedToolCost(costMs: number | undefined, isRunning: boolean): number {
+function useAnimatedToolCost(
+  costMs: number | undefined,
+  isRunning: boolean,
+  runningStartedAt?: number
+): number {
   const shouldReduceMotion = useReducedMotion()
   const [displayCostMs, setDisplayCostMs] = useState(() => (typeof costMs === 'number' ? costMs : 0))
   const latestDisplayRef = useRef(displayCostMs)
@@ -107,14 +111,15 @@ function useAnimatedToolCost(costMs: number | undefined, isRunning: boolean): nu
       return
     }
 
-    const now = performance.now()
-    if (runningStartedAtRef.current === null) {
-      runningStartedAtRef.current = now - latestDisplayRef.current
+    if (typeof runningStartedAt === 'number') {
+      runningStartedAtRef.current = runningStartedAt
+    } else if (runningStartedAtRef.current === null) {
+      runningStartedAtRef.current = Date.now() - latestDisplayRef.current
     }
 
     const updateCost = () => {
-      const startedAt = runningStartedAtRef.current ?? performance.now()
-      setDisplayCostMs(performance.now() - startedAt)
+      const startedAt = runningStartedAtRef.current ?? Date.now()
+      setDisplayCostMs(Date.now() - startedAt)
     }
 
     updateCost()
@@ -124,7 +129,7 @@ function useAnimatedToolCost(costMs: number | undefined, isRunning: boolean): nu
     )
 
     return () => window.clearInterval(intervalId)
-  }, [costMs, isRunning, shouldReduceMotion])
+  }, [costMs, isRunning, runningStartedAt, shouldReduceMotion])
 
   return displayCostMs
 }
@@ -235,13 +240,15 @@ const areToolCallSegmentsEqual = (
 const ToolCallDuration = React.memo(({
   cost,
   isRunning,
+  runningStartedAt,
   className
 }: {
   cost?: number
   isRunning: boolean
+  runningStartedAt?: number
   className?: string
 }) => {
-  const displayCostMs = useAnimatedToolCost(cost, isRunning)
+  const displayCostMs = useAnimatedToolCost(cost, isRunning, runningStartedAt)
 
   return (
     <span className={className}>
@@ -258,7 +265,8 @@ const ToolCallHeader = React.memo(({
   isRunning,
   isPending,
   isOpen,
-  cost
+  cost,
+  timestamp
 }: {
   name: string
   isError: boolean
@@ -266,6 +274,7 @@ const ToolCallHeader = React.memo(({
   isPending: boolean
   isOpen: boolean
   cost?: number
+  timestamp: number
 }) => {
   const statusTone = isError
     ? 'bg-red-100/85 text-red-700 dark:bg-red-900/24 dark:text-red-300'
@@ -306,7 +315,11 @@ const ToolCallHeader = React.memo(({
           </span>
           <span className="text-slate-400/90 dark:text-slate-300 text-[10px]">
             {' · '}
-            <ToolCallDuration cost={cost} isRunning={isRunning} />
+            <ToolCallDuration
+              cost={cost}
+              isRunning={isRunning}
+              runningStartedAt={timestamp}
+            />
           </span>
         </span>
       </span>
@@ -500,7 +513,7 @@ const ToolCallResultPanel = React.memo(({
                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg bg-slate-200/55 text-slate-600 dark:bg-white/6 dark:text-slate-300">
                   <Braces className="h-3 w-3" />
                 </span>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Output
                 </p>
               </div>
@@ -618,8 +631,15 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
       transition={{ type: 'spring', stiffness: 360, damping: 30 }}
       className="w-full max-w-full py-1 font-sans flow-root"
     >
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
+      <AssistantSegmentPopout
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        contentClassName={cn(
+          isError
+            ? 'border-red-200/65 dark:border-red-900/35'
+            : 'border-slate-200/70 dark:border-slate-800/70'
+        )}
+        renderTrigger={({ isOpen }) => (
           <button
             type="button"
             aria-label={`Inspect ${tc.name} tool call`}
@@ -632,27 +652,16 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
               isPending={isPending}
               isOpen={isOpen}
               cost={tc.cost}
+              timestamp={tc.timestamp}
             />
           </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          side="bottom"
-          sideOffset={6}
-          className={cn(
-            'app-undragable w-[min(760px,calc(100vw-32px))] max-h-[min(520px,calc(100vh-96px))] overflow-hidden rounded-2xl bg-white/95 p-0 text-popover-foreground shadow-xl shadow-slate-950/10 backdrop-blur-md dark:bg-zinc-950/95 dark:shadow-black/30',
-            isError
-              ? 'border-red-200/65 dark:border-red-900/35'
-              : 'border-slate-200/70 dark:border-slate-800/70'
-          )}
-          onOpenAutoFocus={(event) => event.preventDefault()}
-        >
-          <ToolCallResultPanel
-            toolCall={tc}
-            toolResponse={toolResponse}
-          />
-        </PopoverContent>
-      </Popover>
+        )}
+      >
+        <ToolCallResultPanel
+          toolCall={tc}
+          toolResponse={toolResponse}
+        />
+      </AssistantSegmentPopout>
     </motion.div>
   )
 }

@@ -153,4 +153,64 @@ describe('DefaultToolExecutorDispatcher', () => {
     expect(agentEventEmitter.emitToolExecutionAborted).toHaveBeenCalledTimes(1)
     expect(agentEventEmitter.emitLoopAborted).not.toHaveBeenCalled()
   })
+
+  it('measures completed tool cost from the model tool call start timestamp', async () => {
+    executeMock.mockResolvedValue([
+      {
+        id: 'tool-1',
+        index: 0,
+        name: 'execute_command',
+        content: { ok: true },
+        cost: 300,
+        status: 'success'
+      }
+    ])
+
+    const agentEventEmitter = createEventEmitter()
+    const runtimeClock: RuntimeClock = {
+      now: vi.fn()
+        .mockReturnValueOnce(1200)
+        .mockReturnValueOnce(2600)
+    }
+
+    const dispatcher = new DefaultToolExecutorDispatcher({
+      agentEventEmitter,
+      runtimeClock
+    })
+
+    const outcome = await dispatcher.dispatch({
+      batchId: 'batch-1',
+      stepId: 'step-1',
+      createdAt: 1,
+      calls: [
+        {
+          toolCallId: 'tool-1',
+          stepId: 'step-1',
+          index: 0,
+          name: 'execute_command',
+          arguments: '{"command":"echo ok"}',
+          startedAt: 1000,
+          confirmationPolicy: {
+            mode: 'not_required'
+          },
+          status: 'pending'
+        }
+      ]
+    })
+
+    expect(outcome.status).toBe('completed')
+    if (outcome.status !== 'completed') {
+      throw new Error('Expected completed outcome')
+    }
+    expect(outcome.results[0]).toEqual(expect.objectContaining({
+      toolCallId: 'tool-1',
+      cost: 1600
+    }))
+    expect(agentEventEmitter.emitToolExecutionCompleted).toHaveBeenCalledWith(expect.objectContaining({
+      timestamp: 2600,
+      result: expect.objectContaining({
+        cost: 1600
+      })
+    }))
+  })
 })

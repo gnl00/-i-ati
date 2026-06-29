@@ -73,29 +73,42 @@ const toDeniedFact = (
   }
 }
 
+const resolveToolResultCost = (
+  call: ToolBatch['calls'][number],
+  result: ToolExecutionResult,
+  completedAt: number
+): number => (
+  typeof call.startedAt === 'number'
+    ? Math.max(0, completedAt - call.startedAt)
+    : result.cost
+)
+
 const toToolResultFact = (
-  stepId: string,
-  result: ToolExecutionResult
+  call: ToolBatch['calls'][number],
+  result: ToolExecutionResult,
+  completedAt: number
 ): ToolResultFact => {
+  const cost = resolveToolResultCost(call, result, completedAt)
+
   if (result.status === 'success') {
-  return {
-    stepId,
-    toolCallId: result.id,
-    toolCallIndex: result.index,
-    toolName: result.name,
-    cost: result.cost,
-    status: 'success',
-    content: result.content
-  }
+    return {
+      stepId: call.stepId,
+      toolCallId: result.id,
+      toolCallIndex: result.index,
+      toolName: result.name,
+      cost,
+      status: 'success',
+      content: result.content
+    }
   }
 
   if (result.status === 'aborted') {
     return {
-      stepId,
+      stepId: call.stepId,
       toolCallId: result.id,
       toolCallIndex: result.index,
       toolName: result.name,
-      cost: result.cost,
+      cost,
       status: 'aborted',
       content: result.content,
       error: result.error ? {
@@ -106,11 +119,11 @@ const toToolResultFact = (
   }
 
   return {
-    stepId,
+    stepId: call.stepId,
     toolCallId: result.id,
     toolCallIndex: result.index,
     toolName: result.name,
-    cost: result.cost,
+    cost,
     status: result.status,
     content: result.content,
     error: result.error ? {
@@ -203,11 +216,12 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
         signal: this.options.signal
       }).execute([toToolCallProps(call)])
     const executionResult = executionResults[0]
-    const result = toToolResultFact(call.stepId, executionResult)
+    const completedAt = this.options.runtimeClock.now()
+    const result = toToolResultFact(call, executionResult, completedAt)
 
     if (result.status === 'aborted') {
       await this.options.agentEventEmitter?.emitToolExecutionAborted({
-        timestamp: this.options.runtimeClock.now(),
+        timestamp: completedAt,
         phase: 'aborted',
         result
       })
@@ -230,7 +244,7 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
 
     if (result.status === 'success') {
       await this.options.agentEventEmitter?.emitToolExecutionCompleted({
-        timestamp: this.options.runtimeClock.now(),
+        timestamp: completedAt,
         phase: 'completed',
         result
       })
@@ -240,7 +254,7 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
 
     const failureResult = result as ToolFailureFact
     await this.options.agentEventEmitter?.emitToolExecutionFailed({
-      timestamp: this.options.runtimeClock.now(),
+      timestamp: completedAt,
       phase: 'failed',
       result: failureResult
     })

@@ -11,4 +11,5 @@
  */
 export interface ToolCallReadyFact {
   toolCall: IToolCall
+  startedAt?: number
 }

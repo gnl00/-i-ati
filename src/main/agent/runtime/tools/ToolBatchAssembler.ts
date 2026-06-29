@@ -47,6 +47,7 @@ export class DefaultToolBatchAssembler implements ToolBatchAssembler {
         index: call.index,
         name: call.name,
         arguments: call.arguments,
+        ...(call.startedAt !== undefined ? { startedAt: call.startedAt } : {}),
         confirmationPolicy: this.options.resolveConfirmationPolicy?.(call.name) ?? DEFAULT_CONFIRMATION_POLICY,
         status: 'pending' as const
       }))

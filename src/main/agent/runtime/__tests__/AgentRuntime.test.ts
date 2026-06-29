@@ -260,13 +260,25 @@ describe('DefaultAgentRuntime', () => {
   })
 
   it('executes tool batch with the final step tool-call snapshot when a later snapshot corrects earlier ready args', async () => {
+    let nextTimestamp = 0
+    const runtimeInfrastructure = {
+      ...createDefaultRuntimeInfrastructure(),
+      runtimeClock: {
+        now: vi.fn(() => {
+          nextTimestamp += 100
+          return nextTimestamp
+        })
+      }
+    }
+
     const toolExecutorDispatcher: ToolExecutorDispatcher = {
       dispatch: vi.fn(async (batch) => {
         expect(batch.calls).toEqual([
           expect.objectContaining({
             toolCallId: 'tool-1',
             name: 'memory_retrieval',
-            arguments: '{"query":"new"}'
+            arguments: '{"query":"new"}',
+            startedAt: 400
           })
         ])
 
@@ -312,8 +324,6 @@ describe('DefaultAgentRuntime', () => {
         return createAsyncStream([
           {
             kind: 'delta',
-            responseId: 'resp-1',
-            model: 'test-model',
             toolCalls: [
               {
                 argumentsMode: 'delta',
@@ -323,6 +333,23 @@ describe('DefaultAgentRuntime', () => {
                   type: 'function',
                   function: {
                     name: 'memory_retrieval',
+                    arguments: ''
+                  }
+                }
+              }
+            ]
+          },
+          {
+            kind: 'delta',
+            toolCalls: [
+              {
+                argumentsMode: 'delta',
+                toolCall: {
+                  id: 'tool-1',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: '',
                     arguments: '{"query":"old"}'
                   }
                 }
@@ -331,8 +358,6 @@ describe('DefaultAgentRuntime', () => {
           },
           {
             kind: 'delta',
-            responseId: 'resp-1',
-            model: 'test-model',
             toolCalls: [
               {
                 argumentsMode: 'snapshot',
@@ -350,9 +375,7 @@ describe('DefaultAgentRuntime', () => {
             finishReason: 'tool_calls'
           },
           {
-            kind: 'final',
-            responseId: 'resp-1',
-            model: 'test-model'
+            kind: 'final'
           }
         ])
       })
@@ -364,7 +387,7 @@ describe('DefaultAgentRuntime', () => {
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
       userRecordMaterializer: new DefaultUserRecordMaterializer(),
       initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
-      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      runtimeInfrastructure,
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
         modelStreamExecutor,

@@ -28,6 +28,7 @@ export interface ToolBatchCall {
   index: number
   name: string
   arguments: string
+  startedAt?: number
   confirmationPolicy: ToolConfirmationPolicy
   status: ToolBatchCallStatus
 }

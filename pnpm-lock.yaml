@@ -17,6 +17,9 @@ importers:
       '@mantine/hooks':
         specifier: ^7.15.3
         version: 7.17.8(react@18.3.1)
+      '@mixmark-io/domino':
+        specifier: ^2.2.0
+        version: 2.2.0
       '@modelcontextprotocol/sdk':
         specifier: ^1.17.0
         version: 1.17.0
@@ -119,6 +122,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.5.1
         version: 8.6.0(react@18.3.1)
+      extract-zip:
+        specifier: ^2.0.1
+        version: 2.0.1
       framer-motion:
         specifier: ^12.29.0
         version: 12.29.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

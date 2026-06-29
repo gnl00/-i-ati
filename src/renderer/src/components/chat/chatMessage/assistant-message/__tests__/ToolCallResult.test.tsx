@@ -33,7 +33,8 @@ import { ToolCallResult } from '../toolcall/ToolCallResult'
 const createToolCallSegment = (
   status: string,
   cost?: number,
-  args: Record<string, unknown> = { query: 'latest status' }
+  args: Record<string, unknown> = { query: 'latest status' },
+  timestamp: number = Date.now()
 ): ToolCallSegment => ({
   type: 'toolCall',
   segmentId: 'committed:step-1:tool:tool-1',
@@ -44,7 +45,7 @@ const createToolCallSegment = (
     status
   },
   isError: false,
-  timestamp: 1,
+  timestamp,
   toolCallId: 'tool-1',
   toolCallIndex: 0,
   ...(typeof cost === 'number' ? { cost } : {})
@@ -211,6 +212,7 @@ describe('ToolCallResult cost display', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    vi.setSystemTime(10_000)
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -247,6 +249,30 @@ describe('ToolCallResult cost display', () => {
     })
 
     expect(container.textContent).toContain('1.680s')
+  })
+
+  it('uses the segment timestamp as the running elapsed anchor', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createToolCallSegment(
+            'running',
+            undefined,
+            { query: 'latest status' },
+            Date.now() - 2500
+          )}
+          index={0}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('2.500s')
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(container.textContent).toContain('3.500s')
   })
 
   it('keeps tool_call_reason out of the summary parameters', async () => {

@@ -14,4 +14,5 @@ export interface ReadyToolCall {
   index: number
   name: string
   arguments: string
+  startedAt?: number
 }
