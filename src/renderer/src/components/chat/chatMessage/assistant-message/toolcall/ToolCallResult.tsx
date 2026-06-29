@@ -3,7 +3,7 @@ import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Braces, Check, Clipboard, Loader2, Wrench, X } from 'lucide-react'
+import { Braces, Check, Clipboard, FileText, List, Loader2, PencilLine, Search, Trash2, Wrench, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
@@ -25,6 +25,8 @@ type ToolCallResponse = {
   raw?: any
   results?: any[]
 }
+type WikiToolName = 'wiki_list' | 'wiki_read' | 'wiki_write' | 'wiki_delete' | 'wiki_search'
+type WikiResultRecord = Record<string, unknown>
 
 const TOOL_COST_TICK_MS = 1000
 const TOOL_COST_REDUCED_TICK_MS = 250
@@ -45,6 +47,59 @@ const TOOL_CALL_ARGS_READY_STATUSES = new Set([
 
 function filterDisplayParamEntries(entries: Array<[string, unknown]>): Array<[string, unknown]> {
   return entries.filter(([key]) => key !== TOOL_CALL_REASON_PARAMETER_NAME)
+}
+
+function isRecord(value: unknown): value is WikiResultRecord {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isWikiToolName(toolName: string): toolName is WikiToolName {
+  return toolName === 'wiki_list'
+    || toolName === 'wiki_read'
+    || toolName === 'wiki_write'
+    || toolName === 'wiki_delete'
+    || toolName === 'wiki_search'
+}
+
+function getStringField(record: WikiResultRecord, key: string): string | undefined {
+  const value = record[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function getNumberField(record: WikiResultRecord, key: string): number | undefined {
+  const value = record[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function getRecordArrayField(record: WikiResultRecord, key: string): WikiResultRecord[] {
+  const value = record[key]
+  return Array.isArray(value)
+    ? value.filter(isRecord)
+    : []
+}
+
+function getFirstStringField(record: WikiResultRecord, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = getStringField(record, key)
+    if (value) {
+      return value
+    }
+  }
+  return undefined
+}
+
+function formatPreviewText(value: unknown, maxLength = 180): string {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  const compact = value.replace(/\s+/g, ' ').trim()
+  return compact.length > maxLength ? `${compact.slice(0, maxLength)}…` : compact
+}
+
+function formatWikiCount(count: number | undefined, singular: string, plural: string): string {
+  const safeCount = typeof count === 'number' ? count : 0
+  return `${safeCount} ${safeCount === 1 ? singular : plural}`
 }
 
 function formatToolCost(costMs: number): string {
@@ -146,6 +201,15 @@ function hasToolCallTerminalPayload(content: ToolCallRenderContent): boolean {
   return content?.result !== undefined
     || content?.raw !== undefined
     || content?.error !== undefined
+}
+
+function isDirectToolResultPayload(content: ToolCallRenderContent): boolean {
+  return Boolean(
+    content
+    && !('toolName' in content)
+    && !('args' in content)
+    && !('status' in content)
+  )
 }
 
 function areToolCallArgsReady(
@@ -380,6 +444,198 @@ function SegmentedToggle({
   )
 }
 
+function WikiStatusLine({ payload }: { payload: WikiResultRecord }) {
+  const status = getStringField(payload, 'index_status')
+  const message = getStringField(payload, 'index_message')
+
+  if (!status && !message) {
+    return null
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+      {status && (
+        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-semibold uppercase text-slate-600 dark:bg-white/6 dark:text-slate-300">
+          {status}
+        </span>
+      )}
+      {message && <span>{message}</span>}
+    </div>
+  )
+}
+
+function WikiEntryLine({ item }: { item: WikiResultRecord }) {
+  const name = getFirstStringField(item, ['entry_name', 'name'])
+  const title = getStringField(item, 'title') ?? name ?? 'Untitled'
+  const summary = formatPreviewText(getStringField(item, 'summary') ?? getStringField(item, 'text'), 140)
+  const matchSource = getStringField(item, 'match_source')
+  const matchReason = getStringField(item, 'match_reason')
+
+  return (
+    <div className="rounded-lg border border-slate-200/65 bg-white/58 px-2.5 py-2 dark:border-slate-800/70 dark:bg-white/4">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] font-semibold leading-snug text-slate-700 dark:text-slate-200">
+          {title}
+        </span>
+        {name && title !== name && (
+          <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
+            {name}
+          </span>
+        )}
+        {matchSource && (
+          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-500 dark:bg-white/6 dark:text-slate-400">
+            {matchSource}
+          </span>
+        )}
+      </div>
+      {summary && (
+        <p className="mt-1 wrap-break-word text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+          {summary}
+        </p>
+      )}
+      {matchReason && (
+        <p className="mt-1 text-[10px] leading-snug text-slate-400 dark:text-slate-500">
+          {matchReason}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function WikiListSummary({ payload }: { payload: WikiResultRecord }) {
+  const entries = getRecordArrayField(payload, 'entries')
+  const count = entries.length
+
+  return (
+    <div className="space-y-2" data-testid="wiki-tool-summary">
+      <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+        <List className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+        <span>{formatWikiCount(count, 'entry', 'entries')}</span>
+      </div>
+      {entries.length > 0 ? (
+        <div className="space-y-1.5">
+          {entries.slice(0, 3).map((entry, index) => (
+            <WikiEntryLine key={getFirstStringField(entry, ['name', 'entry_name']) ?? index} item={entry} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">No wiki entries</div>
+      )}
+    </div>
+  )
+}
+
+function WikiReadSummary({ payload }: { payload: WikiResultRecord }) {
+  const name = getStringField(payload, 'name')
+  const title = getStringField(payload, 'title') ?? name ?? 'Untitled'
+  const contentPreview = formatPreviewText(getStringField(payload, 'content'), 240)
+  const message = getStringField(payload, 'message')
+
+  return (
+    <div className="space-y-2" data-testid="wiki-tool-summary">
+      <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+        <FileText className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+        <span>{title}</span>
+        {name && title !== name && <span className="font-mono text-[10px] text-slate-400">{name}</span>}
+      </div>
+      {contentPreview ? (
+        <p className="wrap-break-word text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+          {contentPreview}
+        </p>
+      ) : (
+        <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">{message ?? 'No content returned'}</div>
+      )}
+    </div>
+  )
+}
+
+function WikiMutationSummary({
+  payload,
+  toolName
+}: {
+  payload: WikiResultRecord
+  toolName: 'wiki_write' | 'wiki_delete'
+}) {
+  const success = payload.success === true
+  const name = getStringField(payload, 'name') ?? 'unknown'
+  const title = getStringField(payload, 'title')
+  const message = getStringField(payload, 'message')
+  const Icon = toolName === 'wiki_delete' ? Trash2 : PencilLine
+
+  return (
+    <div className="space-y-2" data-testid="wiki-tool-summary">
+      <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+        <Icon className={cn(
+          'h-3.5 w-3.5',
+          success ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'
+        )} />
+        <span>{success ? 'Succeeded' : 'Failed'}</span>
+        <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">{title ?? name}</span>
+      </div>
+      {message && (
+        <p className="wrap-break-word text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+          {message}
+        </p>
+      )}
+      <WikiStatusLine payload={payload} />
+    </div>
+  )
+}
+
+function WikiSearchSummary({ payload }: { payload: WikiResultRecord }) {
+  const results = getRecordArrayField(payload, 'results')
+  const totalHits = getNumberField(payload, 'total_hits') ?? results.length
+  const query = getStringField(payload, 'query')
+
+  return (
+    <div className="space-y-2" data-testid="wiki-tool-summary">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+        <Search className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+        <span>{formatWikiCount(totalHits, 'hit', 'hits')}</span>
+        {query && <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">{query}</span>}
+      </div>
+      {results.length > 0 ? (
+        <div className="space-y-1.5">
+          {results.slice(0, 3).map((result, index) => (
+            <WikiEntryLine key={getFirstStringField(result, ['entry_name', 'name']) ?? index} item={result} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">No wiki results</div>
+      )}
+      <WikiStatusLine payload={payload} />
+    </div>
+  )
+}
+
+function WikiToolSummary({
+  toolName,
+  payload
+}: {
+  toolName: WikiToolName
+  payload: unknown
+}) {
+  if (!isRecord(payload)) {
+    return (
+      <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500" data-testid="wiki-tool-summary">
+        Waiting for wiki result
+      </div>
+    )
+  }
+
+  if (toolName === 'wiki_list') {
+    return <WikiListSummary payload={payload} />
+  }
+  if (toolName === 'wiki_read') {
+    return <WikiReadSummary payload={payload} />
+  }
+  if (toolName === 'wiki_write' || toolName === 'wiki_delete') {
+    return <WikiMutationSummary payload={payload} toolName={toolName} />
+  }
+
+  return <WikiSearchSummary payload={payload} />
+}
+
 type ToolCallResultPanelProps = {
   toolCall: ToolCallSegment
   toolResponse: ToolCallResponse | undefined
@@ -394,11 +650,11 @@ const ToolCallResultPanel = React.memo(({
   const resultPayload = useMemo(() => {
     return toolResponse?.result
       ?? toolResponse?.raw
+      ?? (toolResponse?.error !== undefined
+        ? { success: false, message: toolResponse.error }
+        : undefined)
       ?? (
-        toolResponse
-        && !('toolName' in toolResponse)
-        && !('args' in toolResponse)
-        && !('status' in toolResponse)
+        isDirectToolResultPayload(toolResponse)
           ? toolResponse
           : undefined
       )
@@ -406,6 +662,9 @@ const ToolCallResultPanel = React.memo(({
 
   const toolName = toolResponse?.toolName ?? tc.name
   const isWebSearch = toolName === 'web_search'
+  const isWikiTool = isWikiToolName(toolName)
+  const hasWikiSummaryPayload = isWikiTool
+    && (hasToolCallTerminalPayload(toolResponse) || isDirectToolResultPayload(toolResponse))
   const webSearchPayload = useMemo(() => {
     if (!isWebSearch) {
       return null
@@ -416,6 +675,7 @@ const ToolCallResultPanel = React.memo(({
   }, [isWebSearch, toolResponse])
   const isSubagentTool = toolName === 'subagent_spawn' || toolName === 'subagent_wait'
   const subagentData = isSubagentTool ? (resultPayload ?? toolResponse) : null
+  const wikiSummaryPayload = hasWikiSummaryPayload ? resultPayload : null
   const areArgsReady = areToolCallArgsReady(toolResponse, tc)
   const [isJsonExpanded, setIsJsonExpanded] = useState(false)
   const shouldPrepareSummary = !showDetails && areArgsReady
@@ -594,6 +854,8 @@ const ToolCallResultPanel = React.memo(({
             >
               {!areArgsReady ? (
                 <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing tool call parameters...</div>
+              ) : isWikiTool && wikiSummaryPayload ? (
+                <WikiToolSummary toolName={toolName} payload={wikiSummaryPayload} />
               ) : paramEntries.length > 0 ? (
                 <div className="space-y-1.5 pr-1">
                   {paramEntries.map(([key, value]) => (

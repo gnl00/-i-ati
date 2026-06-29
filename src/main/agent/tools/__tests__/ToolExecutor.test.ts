@@ -28,6 +28,9 @@ vi.mock('@tools/registry', () => ({
       || name === 'activity_journal_append'
       || name === 'subagent_spawn'
       || name === 'execute_command'
+      || name === 'wiki_delete'
+      || name === 'write'
+      || name === 'knowledgebase_search'
     )),
     getHandler: vi.fn(() => handlerMock)
   }
@@ -526,5 +529,114 @@ describe('ToolExecutor runtime context', () => {
       role: 'coder',
       task: 'Inspect and patch the file'
     })
+  })
+
+  it('requires confirmation for dangerous tools from embedded metadata', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'wiki deletion denied'
+    }))
+    const executor = new ToolExecutor({
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-10',
+      function: 'wiki_delete',
+      args: JSON.stringify({
+        name: 'release-notes'
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    const firstRequest = (requestConfirmation.mock.calls[0] as any[])[0]
+    expect(firstRequest.ui).toEqual(expect.objectContaining({
+      title: 'Confirm wiki_delete',
+      riskLevel: 'dangerous',
+      riskScore: 8
+    }))
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+    expect(result.error?.message).toContain('wiki deletion denied')
+  })
+
+  it('requires confirmation for workspace mutations from embedded metadata', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'write denied'
+    }))
+    const executor = new ToolExecutor({
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-11',
+      function: 'write',
+      args: JSON.stringify({
+        path: 'notes.md',
+        content: 'hello'
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    const firstRequest = (requestConfirmation.mock.calls[0] as any[])[0]
+    expect(firstRequest.ui).toEqual(expect.objectContaining({
+      title: 'Confirm write',
+      riskLevel: 'risky',
+      riskScore: 5
+    }))
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+    expect(result.error?.message).toContain('write denied')
+  })
+
+  it('does not require confirmation for non-mutating warning tools from embedded metadata', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'manual denial'
+    }))
+    const executor = new ToolExecutor({
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-11b',
+      function: 'knowledgebase_search',
+      args: JSON.stringify({
+        query: 'wiki',
+        localized_query: 'wiki'
+      })
+    } as any])
+
+    expect(requestConfirmation).not.toHaveBeenCalled()
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    expect(result.status).toBe('success')
+  })
+
+  it('auto-approves metadata confirmations under session auto approval mode', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'manual denial'
+    }))
+    const executor = new ToolExecutor({
+      approvalPolicy: { mode: 'strict', permissionApprovalMode: 'auto' },
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-12',
+      function: 'wiki_delete',
+      args: JSON.stringify({
+        name: 'release-notes'
+      })
+    } as any])
+
+    expect(requestConfirmation).not.toHaveBeenCalled()
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    expect(result.status).toBe('success')
   })
 })

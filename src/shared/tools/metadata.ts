@@ -20,6 +20,7 @@ import { titleToolMetadata } from './title/metadata'
 import { todoToolMetadata } from './todo/metadata'
 import { userInfoToolMetadata } from './userInfo/metadata'
 import { webToolMetadata } from './webTools/metadata'
+import { wikiToolMetadata } from './wiki/metadata'
 import { workContextToolMetadata } from './workContext/metadata'
 
 export type {
@@ -48,6 +49,7 @@ export const embeddedToolMetadata = mergeEmbeddedToolMetadata(
   titleToolMetadata,
   todoToolMetadata,
   userInfoToolMetadata,
+  wikiToolMetadata,
   activityJournalToolMetadata,
   knowledgebaseToolMetadata,
   logToolMetadata,

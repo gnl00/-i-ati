@@ -25,6 +25,7 @@ import { titleTools } from '../title/definitions'
 import { todoTools } from '../todo/definitions'
 import { userInfoTools } from '../userInfo/definitions'
 import { webTools } from '../webTools/definitions'
+import { wikiTools } from '../wiki/definitions'
 import { workContextTools } from '../workContext/definitions'
 
 /**
@@ -49,6 +50,7 @@ export const tools = mergeToolDefinitions(
   titleTools,
   todoTools,
   userInfoTools,
+  wikiTools,
   activityJournalTools,
   knowledgebaseTools,
   subagentTools,

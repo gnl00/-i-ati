@@ -89,6 +89,13 @@ import {
 } from '@main/tools/subagent/SubagentToolsProcessor'
 import { processLogSearch } from '@main/tools/log/LogToolsProcessor'
 import {
+  processWikiDelete,
+  processWikiList,
+  processWikiRead,
+  processWikiSearch,
+  processWikiWrite
+} from '@main/tools/wiki/WikiToolsProcessor'
+import {
   processComputerUseApps,
   processComputerUseClickCoordinate,
   processComputerUseClickElement,
@@ -184,6 +191,11 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   activity_journal_search: processActivityJournalSearch,
   knowledgebase_search: processKnowledgebaseSearch,
   log_search: processLogSearch,
+  wiki_list: processWikiList,
+  wiki_read: processWikiRead,
+  wiki_write: processWikiWrite,
+  wiki_delete: processWikiDelete,
+  wiki_search: processWikiSearch,
   subagent_spawn: processSubagentSpawn,
   subagent_wait: processSubagentWait
 }

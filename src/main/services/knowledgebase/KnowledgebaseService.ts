@@ -286,7 +286,11 @@ export class KnowledgebaseService {
     const repo = this.requireRepo()
     const existingPaths = new Set(repo.listDocumentPaths())
     const currentPaths = new Set(files.map(file => file.filePath))
+    const isConfigOverride = Boolean(configOverride)
     existingPaths.forEach((filePath) => {
+      if (isConfigOverride && !this.isPathInsideFolders(filePath, folders)) {
+        return
+      }
       if (!currentPaths.has(filePath)) {
         repo.deleteDocumentByPath(filePath)
       }
@@ -517,6 +521,15 @@ export class KnowledgebaseService {
         mtimeMs: stat.mtimeMs
       })
     }
+  }
+
+  private isPathInsideFolders(filePath: string, folders: string[]): boolean {
+    const normalizedFilePath = normalizeFolder(filePath)
+    return folders.some((folder) => {
+      const normalizedFolder = normalizeFolder(folder)
+      const folderWithSeparator = normalizedFolder.endsWith(path.sep) ? normalizedFolder : `${normalizedFolder}${path.sep}`
+      return normalizedFilePath === normalizedFolder || normalizedFilePath.startsWith(folderWithSeparator)
+    })
   }
 
   private requireRepo(): KnowledgebaseRepository {

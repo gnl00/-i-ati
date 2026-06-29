@@ -2,6 +2,7 @@ import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { assessCommandFilesystemScope } from '@main/tools/command/filesystemScope'
 import { assessExecuteCommandReview } from '@main/tools/command/risk'
 import { embeddedToolsRegistry } from '@tools/registry'
+import { embeddedToolMetadata, type EmbeddedToolMetadata } from '@tools/metadata'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import {
   normalizePermissionApprovalMode,
@@ -93,8 +94,16 @@ export class ToolExecutor implements IToolExecutor {
       && Boolean(this.requestConfirmation)
       && !this.shouldAutoApprovePlanCreate()
     const requiresCommandReview = toolName === 'execute_command' && Boolean(this.requestConfirmation)
+    const metadataReview = this.resolveMetadataReview(toolName)
+    const requiresMetadataReview = Boolean(this.requestConfirmation)
+      && toolName !== 'plan_create'
+      && toolName !== 'execute_command'
+      && !requiresPlanReview
+      && !requiresCommandReview
+      && Boolean(metadataReview)
+      && !this.shouldAutoApproveAppConfirmation()
 
-    if (!requiresPlanReview && !requiresCommandReview) {
+    if (!requiresPlanReview && !requiresCommandReview && !requiresMetadataReview) {
       this.reportProgress({
         id: toolId,
         name: toolName,
@@ -190,7 +199,30 @@ export class ToolExecutor implements IToolExecutor {
         }
       }
 
-      if (requiresPlanReview || requiresCommandReview) {
+      if (requiresMetadataReview && this.requestConfirmation && metadataReview) {
+        const decision = await this.requestConfirmation({
+          toolCallId: toolId,
+          name: toolName,
+          args: runtimeArgs,
+          agent: this.confirmationSource,
+          ui: this.createMetadataReviewUi(toolName, metadataReview)
+        })
+        if (!decision.approved) {
+          const result = this.createAbortedResultWithReason(call, decision.reason)
+          this.reportProgress({
+            id: toolId,
+            name: toolName,
+            phase: 'completed',
+            result
+          })
+          return result
+        }
+        if (decision.args) {
+          runtimeArgs = this.applyRuntimeContext(decision.args, toolName)
+        }
+      }
+
+      if (requiresPlanReview || requiresCommandReview || requiresMetadataReview) {
         this.reportProgress({
           id: toolId,
           name: toolName,
@@ -330,6 +362,41 @@ export class ToolExecutor implements IToolExecutor {
 
   private shouldAutoApproveAppConfirmation(): boolean {
     return normalizePermissionApprovalMode(this.approvalPolicy.permissionApprovalMode) === 'auto'
+  }
+
+  private resolveMetadataReview(toolName: string): EmbeddedToolMetadata | undefined {
+    if (!embeddedToolsRegistry.isRegistered(toolName)) {
+      return undefined
+    }
+    const metadata = embeddedToolMetadata[toolName]
+    if (!metadata) {
+      return undefined
+    }
+    if (metadata.riskLevel !== 'dangerous' && !metadata.mutatesWorkspace) {
+      return undefined
+    }
+    return metadata
+  }
+
+  private createMetadataReviewUi(
+    toolName: string,
+    metadata: EmbeddedToolMetadata
+  ): NonNullable<Parameters<NonNullable<ToolExecutorConfig['requestConfirmation']>>[0]['ui']> {
+    const riskLevel = metadata.riskLevel === 'dangerous' ? 'dangerous' : 'risky'
+    const reason = metadata.mutatesWorkspace
+      ? `Tool "${toolName}" can mutate workspace state.`
+      : `Tool "${toolName}" has ${metadata.riskLevel} risk.`
+    const riskScore = metadata.riskLevel === 'dangerous'
+      ? 8
+      : metadata.mutatesWorkspace ? 5 : 4
+
+    return {
+      title: `Confirm ${toolName}`,
+      riskLevel,
+      reason,
+      possibleRisk: reason,
+      riskScore
+    }
   }
 
   private createErrorResult(

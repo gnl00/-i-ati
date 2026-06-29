@@ -38,4 +38,12 @@ describe('embeddedToolMetadata', () => {
       )
     ).toThrow('Duplicate embedded tool metadata: test_tool')
   })
+
+  it('keeps wiki_list read-only while wiki mutations require workspace approval', () => {
+    expect(embeddedToolMetadata.wiki_list.mutatesWorkspace).toBe(false)
+    expect(embeddedToolMetadata.wiki_read.mutatesWorkspace).toBe(false)
+    expect(embeddedToolMetadata.wiki_search.mutatesWorkspace).toBe(false)
+    expect(embeddedToolMetadata.wiki_write.mutatesWorkspace).toBe(true)
+    expect(embeddedToolMetadata.wiki_delete.mutatesWorkspace).toBe(true)
+  })
 })

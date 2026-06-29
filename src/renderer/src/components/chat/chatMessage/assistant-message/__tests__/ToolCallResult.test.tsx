@@ -134,6 +134,45 @@ const createSubagentToolCallSegment = (): ToolCallSegment => ({
   cost: 1600
 })
 
+const createWikiToolCallSegment = (
+  name: 'wiki_list' | 'wiki_read' | 'wiki_write' | 'wiki_delete' | 'wiki_search',
+  result: Record<string, unknown>,
+  args: Record<string, unknown> = {}
+): ToolCallSegment => ({
+  type: 'toolCall',
+  segmentId: `committed:step-1:tool:tool-${name}`,
+  name,
+  content: {
+    toolName: name,
+    args,
+    status: 'completed',
+    result
+  },
+  isError: false,
+  timestamp: 1,
+  toolCallId: `tool-${name}`,
+  toolCallIndex: 0,
+  cost: 320
+})
+
+const createRunningWikiToolCallSegment = (
+  name: 'wiki_list' | 'wiki_read' | 'wiki_write' | 'wiki_delete' | 'wiki_search',
+  args: Record<string, unknown> = {}
+): ToolCallSegment => ({
+  type: 'toolCall',
+  segmentId: `committed:step-1:tool:tool-${name}-running`,
+  name,
+  content: {
+    toolName: name,
+    args,
+    status: 'running'
+  },
+  isError: false,
+  timestamp: 1,
+  toolCallId: `tool-${name}-running`,
+  toolCallIndex: 0
+})
+
 function getTrigger(container: HTMLElement, name = 'search'): HTMLButtonElement {
   const trigger = container.querySelector<HTMLButtonElement>(`button[aria-label="Inspect ${name} tool call"]`)
   expect(trigger).toBeTruthy()
@@ -523,5 +562,194 @@ describe('ToolCallResult cost display', () => {
     expect(document.body.textContent).toContain('inspect portal rendering')
     expect(document.body.textContent).toContain('Portal panel rendered.')
     expect(container.textContent).not.toContain('Portal panel rendered.')
+  })
+
+  it('shows wiki search results in the summary branch', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createWikiToolCallSegment('wiki_search', {
+            success: true,
+            query: 'distributed lock',
+            total_hits: 2,
+            index_status: 'fresh',
+            index_message: 'Wiki index is fresh.',
+            results: [
+              {
+                entry_name: 'distributed-lock',
+                title: 'Distributed Lock Guide',
+                summary: 'Use Redis SET NX with expirations.',
+                text: 'Use Redis SET NX with expirations.',
+                score: 0.92,
+                similarity: 0.81,
+                match_source: 'hybrid',
+                match_reason: 'Vector chunk match; README title match'
+              },
+              {
+                entry_name: 'lock-runbook',
+                title: 'Lock Runbook',
+                summary: 'Operational lock notes.',
+                text: 'Operational lock notes.',
+                score: 0.64,
+                similarity: 0.59,
+                match_source: 'readme',
+                match_reason: 'README summary match'
+              }
+            ]
+          }, { query: 'distributed lock' })}
+          index={0}
+        />
+      )
+    })
+
+    await openToolCall(container, 'wiki_search')
+
+    expect(document.body.textContent).toContain('2 hits')
+    expect(document.body.textContent).toContain('Distributed Lock Guide')
+    expect(document.body.textContent).toContain('hybrid')
+    expect(document.body.textContent).toContain('Vector chunk match')
+    expect(document.body.textContent).toContain('fresh')
+    expect(container.textContent).not.toContain('Distributed Lock Guide')
+  })
+
+  it('shows wiki list summaries from result payloads', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createWikiToolCallSegment('wiki_list', {
+            success: true,
+            entries: [
+              {
+                name: 'release-plan',
+                title: 'Release Plan',
+                summary: 'Ship the wiki result summary.',
+                type: 'note',
+                tags: [],
+                created: '2026-06-29',
+                updated: '2026-06-29',
+                source: 'user'
+              }
+            ]
+          })}
+          index={0}
+        />
+      )
+    })
+
+    await openToolCall(container, 'wiki_list')
+
+    expect(document.body.textContent).toContain('1 entry')
+    expect(document.body.textContent).toContain('Release Plan')
+    expect(document.body.textContent).toContain('Ship the wiki result summary.')
+  })
+
+  it('shows wiki read summaries from result payloads', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createWikiToolCallSegment('wiki_read', {
+            success: true,
+            name: 'release-plan',
+            title: 'Release Plan',
+            content: '# Release Plan\n\nShip wiki summaries with complete JSON detail.'
+          })}
+          index={0}
+        />
+      )
+    })
+
+    await openToolCall(container, 'wiki_read')
+
+    expect(document.body.textContent).toContain('Release Plan')
+    expect(document.body.textContent).toContain('Ship wiki summaries with complete JSON detail.')
+  })
+
+  it('shows running wiki write parameters until a result payload exists', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createRunningWikiToolCallSegment('wiki_write', {
+            name: 'release-plan',
+            content: 'Draft wiki body.'
+          })}
+          index={0}
+        />
+      )
+    })
+
+    await openToolCall(container, 'wiki_write')
+
+    expect(document.body.textContent).toContain('release-plan')
+    expect(document.body.textContent).toContain('Draft wiki body.')
+    expect(document.body.textContent).not.toContain('Failed')
+    expect(document.body.textContent).not.toContain('unknown')
+  })
+
+  it('shows running wiki search parameters until a result payload exists', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createRunningWikiToolCallSegment('wiki_search', {
+            query: 'distributed lock',
+            localized_query: '分布式锁'
+          })}
+          index={0}
+        />
+      )
+    })
+
+    await openToolCall(container, 'wiki_search')
+
+    expect(document.body.textContent).toContain('distributed lock')
+    expect(document.body.textContent).toContain('分布式锁')
+    expect(document.body.textContent).not.toContain('No wiki results')
+  })
+
+  it('shows wiki write mutation summaries with index status', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createWikiToolCallSegment('wiki_write', {
+            success: true,
+            name: 'release-plan',
+            title: 'Release Plan',
+            message: 'Updated wiki entry "Release Plan".',
+            index_status: 'queued',
+            index_message: 'Wiki index refresh queued.'
+          })}
+          index={0}
+        />
+      )
+    })
+
+    await openToolCall(container, 'wiki_write')
+
+    expect(document.body.textContent).toContain('Succeeded')
+    expect(document.body.textContent).toContain('Release Plan')
+    expect(document.body.textContent).toContain('queued')
+    expect(document.body.textContent).toContain('Wiki index refresh queued.')
+  })
+
+  it('shows wiki delete mutation summaries with index status', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createWikiToolCallSegment('wiki_delete', {
+            success: false,
+            name: 'release-plan',
+            message: 'Wiki entry "release-plan" not found.',
+            index_status: 'unknown',
+            index_message: 'Wiki index unchanged.'
+          })}
+          index={0}
+        />
+      )
+    })
+
+    await openToolCall(container, 'wiki_delete')
+
+    expect(document.body.textContent).toContain('Failed')
+    expect(document.body.textContent).toContain('release-plan')
+    expect(document.body.textContent).toContain('Wiki index unchanged.')
   })
 })

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react'
 import { AnimatePresence, motion, useReducedMotion, type Transition } from 'framer-motion'
 import { CommandConfirmation } from '../chatMessage/assistant-message/CommandConfirmation'
-import { buildCommandConfirmationRequest } from '../toolConfirmation/commandConfirmationPresenter'
+import { buildToolConfirmationRequest } from '../toolConfirmation/commandConfirmationPresenter'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
 
 export const ChatInputToolConfirmation: React.FC = () => {
@@ -12,12 +12,8 @@ export const ChatInputToolConfirmation: React.FC = () => {
   const cancel = useToolConfirmationStore(state => state.cancel)
   const [settlingToolCallId, setSettlingToolCallId] = React.useState<string | null>(null)
 
-  const commandConfirmationRequest = useMemo(() => {
-    if (pendingToolConfirm?.name !== 'execute_command') {
-      return undefined
-    }
-
-    return buildCommandConfirmationRequest({
+  const toolConfirmationRequest = useMemo(() => {
+    return buildToolConfirmationRequest({
       pendingToolConfirm,
       pendingToolConfirmCount
     })
@@ -57,7 +53,7 @@ export const ChatInputToolConfirmation: React.FC = () => {
 
   return (
     <AnimatePresence initial={false} mode="wait">
-      {pendingToolConfirm && commandConfirmationRequest && (
+      {pendingToolConfirm && toolConfirmationRequest && (
         <motion.div
           key={pendingToolConfirm.toolCallId}
           className="grid shrink-0 px-2 pb-1"
@@ -88,7 +84,7 @@ export const ChatInputToolConfirmation: React.FC = () => {
             transition={exitTransition}
           >
             <CommandConfirmation
-              request={commandConfirmationRequest}
+              request={toolConfirmationRequest}
               onConfirm={handleConfirmCommand}
               onCancel={handleCancelCommand}
               disabled={isSettling}

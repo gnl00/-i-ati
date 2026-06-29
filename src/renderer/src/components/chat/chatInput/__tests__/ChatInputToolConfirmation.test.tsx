@@ -125,6 +125,44 @@ describe('ChatInputToolConfirmation', () => {
     })
   })
 
+  it('renders generic tool confirmations without expanding long content args', async () => {
+    useToolConfirmationStore.setState({
+      pendingRequests: [
+        {
+          toolCallId: 'call-wiki',
+          name: 'wiki_write',
+          args: {
+            name: 'loop-engineering-paradigm-shift',
+            content: 'x'.repeat(2000),
+            mode: 'upsert',
+            chat_uuid: 'chat-1'
+          },
+          ui: {
+            title: 'Confirm wiki_write',
+            riskLevel: 'risky',
+            reason: 'Tool "wiki_write" can mutate workspace state.',
+            possibleRisk: 'Tool "wiki_write" can mutate workspace state.',
+            riskScore: 5
+          }
+        }
+      ]
+    })
+
+    await act(async () => {
+      root.render(<ChatInputToolConfirmation />)
+    })
+
+    expect(container.textContent).toContain('wiki_write')
+    expect(commandConfirmationProps[0].request).toMatchObject({
+      command: 'wiki_write {"name":"loop-engineering-paradigm-shift","content":"[content: 2000 chars]","mode":"upsert"}',
+      risk_level: 'risky',
+      execution_reason: 'Confirm wiki_write',
+      possible_risk: 'Tool "wiki_write" can mutate workspace state.'
+    })
+    expect(commandConfirmationProps[0].request.command).not.toContain('chat-1')
+    expect(commandConfirmationProps[0].request.command).not.toContain('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+  })
+
   it('confirms and cancels the active pending request', async () => {
     useToolConfirmationStore.setState({
       pendingRequests: [
