@@ -590,7 +590,9 @@ declare interface ToolCallSegment {
   segmentId: string
   name: string
   content: any
+  executionStartedAt?: number
   cost?: number
+  latencyCost?: number
   isError?: boolean
   timestamp: number
   toolCallId?: string  // 工具调用唯一标识（LLM 返回）

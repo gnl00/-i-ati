@@ -4,6 +4,7 @@ import {
   RUN_STATES,
   type SerializedError
 } from '@shared/run/lifecycle-events'
+import type { PermissionApprovalMode } from '@tools/approval'
 
 export class RunLifecycleEventMapper {
   constructor(private readonly emitter: RunEventEmitter) {}
@@ -24,6 +25,12 @@ export class RunLifecycleEventMapper {
   emitFinalizing(): void {
     this.emitter.emit(RUN_LIFECYCLE_EVENTS.RUN_STATE_CHANGED, {
       state: RUN_STATES.FINALIZING
+    })
+  }
+
+  emitPermissionApprovalModeChanged(permissionApprovalMode: PermissionApprovalMode): void {
+    this.emitter.emit(RUN_LIFECYCLE_EVENTS.RUN_PERMISSION_APPROVAL_MODE_CHANGED, {
+      permissionApprovalMode
     })
   }
 

@@ -100,7 +100,10 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
 
     const requestConfirmation = createSubagentConfirmationRequester(input)
 
-    const executeToolCalls = async (calls: ToolCallProps[]) => {
+    const executeToolCalls = async (
+      calls: ToolCallProps[],
+      executionContext?: { onProgress?: ToolExecutorConfig['onProgress'] }
+    ) => {
       const executor = new ToolExecutor({
         chatUuid: input.chatUuid,
         modelRef: input.modelRef,
@@ -112,6 +115,7 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
           permissionApprovalMode: normalizePermissionApprovalMode(input.permissionApprovalMode)
         },
         confirmationSource,
+        onProgress: executionContext?.onProgress,
         requestConfirmation
       })
       return executor.execute(calls)

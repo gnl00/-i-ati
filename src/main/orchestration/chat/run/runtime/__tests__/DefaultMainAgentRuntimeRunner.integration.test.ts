@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponseChunk'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
+import type { PermissionApprovalMode } from '@tools/approval'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
@@ -46,6 +47,7 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('@main/services/skills/SkillService', () => ({
   SkillService: {
+    listSkills: vi.fn(),
     getSkillContent: vi.fn()
   }
 }))
@@ -57,12 +59,28 @@ vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
 }))
 
 const executeMock = vi.fn()
+const toolExecutorOptionsMock = vi.fn()
 
 vi.mock('@main/agent/tools', () => ({
   ToolExecutor: class {
+    private readonly options: any
+
+    constructor(options: unknown) {
+      this.options = options
+      toolExecutorOptionsMock(options)
+    }
+
     async execute(calls: Array<{ id: string; index?: number; function: string; args: string }>) {
-      executeMock(calls)
+      const overrideResult = await executeMock(calls, this.options)
+      if (Array.isArray(overrideResult)) {
+        return overrideResult
+      }
       const call = calls[0]
+      this.options.onProgress?.({
+        id: call.id || 'tool-1',
+        name: call.function,
+        phase: 'started'
+      })
       return [{
         id: call.id || 'tool-1',
         index: call.index ?? 0,
@@ -162,8 +180,404 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     saveMessageMock.mockReset()
     saveMessageMock.mockReturnValue(301)
     executeMock.mockReset()
+    toolExecutorOptionsMock.mockReset()
     vi.mocked(DatabaseService.getSkills).mockReturnValue([])
+    vi.mocked(SkillService.listSkills).mockResolvedValue([])
     vi.mocked(SkillService.getSkillContent).mockResolvedValue('')
+  })
+
+  it('passes submitted permission approval mode into tool execution', async () => {
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ request }) => {
+        if (request.messages.some(message => message.role === 'tool')) {
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-2',
+              model: 'model-1',
+              content: 'Done',
+              finishReason: 'stop'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-2',
+              model: 'model-1'
+            }
+          ])
+        }
+
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'model-1',
+            toolCalls: [{
+              argumentsMode: 'snapshot',
+              toolCall: {
+                id: 'tool-1',
+                index: 0,
+                type: 'function',
+                function: {
+                  name: 'read',
+                  arguments: '{"path":"README.md"}'
+                }
+              }
+            }],
+            finishReason: 'tool_calls'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'model-1'
+          }
+        ])
+      })
+    }
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor
+    })
+
+    await runner.run({
+      runInput: {
+        ...input,
+        input: {
+          ...input.input,
+          permissionApprovalMode: 'auto'
+        }
+      },
+      prepared,
+      emitter: {
+        emit: vi.fn(),
+        setChatMeta: vi.fn()
+      } as any,
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    expect(toolExecutorOptionsMock).toHaveBeenCalledWith(expect.objectContaining({
+      approvalPolicy: {
+        mode: 'strict',
+        permissionApprovalMode: 'auto'
+      }
+    }))
+  })
+
+  it('falls back to prepared chat permission approval mode when submit input omits it', async () => {
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ request }) => {
+        if (request.messages.some(message => message.role === 'tool')) {
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-2',
+              model: 'model-1',
+              content: 'Done',
+              finishReason: 'stop'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-2',
+              model: 'model-1'
+            }
+          ])
+        }
+
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'model-1',
+            toolCalls: [{
+              argumentsMode: 'snapshot',
+              toolCall: {
+                id: 'tool-1',
+                index: 0,
+                type: 'function',
+                function: {
+                  name: 'read',
+                  arguments: '{"path":"README.md"}'
+                }
+              }
+            }],
+            finishReason: 'tool_calls'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'model-1'
+          }
+        ])
+      })
+    }
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor
+    })
+    const localPrepared = {
+      ...prepared,
+      chatContext: {
+        ...prepared.chatContext,
+        chat: {
+          ...prepared.chatContext.chat,
+          permissionApprovalMode: 'auto'
+        }
+      }
+    } as any
+
+    await runner.run({
+      runInput: input,
+      prepared: localPrepared,
+      emitter: {
+        emit: vi.fn(),
+        setChatMeta: vi.fn()
+      } as any,
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    expect(toolExecutorOptionsMock).toHaveBeenCalledWith(expect.objectContaining({
+      approvalPolicy: {
+        mode: 'strict',
+        permissionApprovalMode: 'auto'
+      }
+    }))
+  })
+
+  it('reads updated runtime permission approval mode for each tool batch', async () => {
+    let modelCallCount = 0
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => {
+        modelCallCount += 1
+        if (modelCallCount === 1) {
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-1',
+              model: 'model-1',
+              toolCalls: [{
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-1',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'read',
+                    arguments: '{"path":"README.md"}'
+                  }
+                }
+              }],
+              finishReason: 'tool_calls'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-1',
+              model: 'model-1'
+            }
+          ])
+        }
+
+        if (modelCallCount === 2) {
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-2',
+              model: 'model-1',
+              toolCalls: [{
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-2',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'read',
+                    arguments: '{"path":"package.json"}'
+                  }
+                }
+              }],
+              finishReason: 'tool_calls'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-2',
+              model: 'model-1'
+            }
+          ])
+        }
+
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-3',
+            model: 'model-1',
+            content: 'Done',
+            finishReason: 'stop'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-3',
+            model: 'model-1'
+          }
+        ])
+      })
+    }
+    let permissionApprovalMode: PermissionApprovalMode | undefined = 'manual'
+    const runtimeContext = {
+      getPermissionApprovalMode: vi.fn(() => permissionApprovalMode),
+      setPermissionApprovalMode: vi.fn((mode: PermissionApprovalMode | undefined) => {
+        permissionApprovalMode = mode
+      })
+    }
+    executeMock.mockImplementationOnce(() => {
+      runtimeContext.setPermissionApprovalMode('auto')
+    })
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor
+    })
+
+    await runner.run({
+      runInput: input,
+      prepared,
+      runtimeContext,
+      emitter: {
+        emit: vi.fn(),
+        setChatMeta: vi.fn()
+      } as any,
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    expect(toolExecutorOptionsMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      approvalPolicy: {
+        mode: 'strict',
+        permissionApprovalMode: 'manual'
+      }
+    }))
+    expect(toolExecutorOptionsMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      approvalPolicy: {
+        mode: 'strict',
+        permissionApprovalMode: 'auto'
+      }
+    }))
+  })
+
+  it('forwards ToolExecutor started progress after tool confirmation resolves', async () => {
+    const events: string[] = []
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ request }) => {
+        if (request.messages.some(message => message.role === 'tool')) {
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-2',
+              model: 'model-1',
+              content: 'Done',
+              finishReason: 'stop'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-2',
+              model: 'model-1'
+            }
+          ])
+        }
+
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'model-1',
+            toolCalls: [{
+              argumentsMode: 'snapshot',
+              toolCall: {
+                id: 'tool-1',
+                index: 0,
+                type: 'function',
+                function: {
+                  name: 'execute_command',
+                  arguments: '{"command":"echo approved"}'
+                }
+              }
+            }],
+            finishReason: 'tool_calls'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'model-1'
+          }
+        ])
+      })
+    }
+    executeMock.mockImplementationOnce(async (
+      calls: Array<{ id: string; index?: number; function: string; args: string }>,
+      options: any
+    ) => {
+      const call = calls[0]
+      events.push('execute_tool_calls')
+      await options.requestConfirmation?.({
+        toolCallId: call.id,
+        name: call.function,
+        args: JSON.parse(call.args)
+      })
+      options.onProgress?.({
+        id: call.id,
+        name: call.function,
+        phase: 'started'
+      })
+      return [{
+        id: call.id,
+        index: call.index ?? 0,
+        name: call.function,
+        content: { ok: true },
+        cost: 1,
+        status: 'success' as const
+      }]
+    })
+    const hostSink = {
+      handle: vi.fn(async (event: any) => {
+        if (event.type === 'host.tool.execution.started') {
+          events.push('started')
+        }
+      })
+    }
+    const toolConfirmationRequester = {
+      request: vi.fn(async () => {
+        events.push('confirmation_required')
+        return { approved: true }
+      })
+    }
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor
+    })
+
+    await runner.run({
+      runInput: input,
+      prepared,
+      emitter: {
+        emit: vi.fn(),
+        setChatMeta: vi.fn()
+      } as any,
+      hostRenderSinks: [hostSink],
+      signal: new AbortController().signal,
+      toolConfirmationRequester
+    })
+
+    expect(toolConfirmationRequester.request).toHaveBeenCalledTimes(1)
+    expect(hostSink.handle).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'host.tool.execution.started',
+      toolCallId: 'tool-1',
+      toolName: 'execute_command'
+    }))
+    expect(events).toEqual([
+      'execute_tool_calls',
+      'confirmation_required',
+      'started'
+    ])
   })
 
   it('builds executable unified request messages from prepared transcript seed', async () => {
@@ -420,6 +834,10 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
 
   it('injects hidden loaded skills context before continuing after load_skill', async () => {
     vi.mocked(DatabaseService.getSkills).mockReturnValue(['frontend-design'])
+    vi.mocked(SkillService.listSkills).mockResolvedValue([{
+      name: 'frontend-design',
+      path: '/skills/frontend-design/SKILL.md'
+    } as any])
     vi.mocked(SkillService.getSkillContent).mockResolvedValue('Use frontend workflow.')
 
     const modelStreamExecutor: ModelStreamExecutor = {
@@ -498,7 +916,13 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       && typeof message.content === 'string'
       && message.content.includes('<loaded_skills_context>')
     ))
-    expect(contextMessage?.content).toContain('Use frontend workflow.')
+    expect(contextMessage?.content).toContain(
+      '<skill name="frontend-design" path="/skills/frontend-design/SKILL.md" />'
+    )
+    expect(contextMessage?.content).toContain(
+      'Read the full skill file before applying a loaded skill.'
+    )
+    expect(contextMessage?.content).not.toContain('Use frontend workflow.')
     const toolMessage = secondRequest.messages.find(message => message.role === 'tool')
     expect(toolMessage?.content).not.toContain('Use frontend workflow.')
   })

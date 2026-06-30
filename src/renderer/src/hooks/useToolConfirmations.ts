@@ -6,6 +6,7 @@ import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 
 export function useToolConfirmations(chatUuid?: string | null): void {
   const enqueue = useToolConfirmationStore(state => state.enqueue)
+  const dequeue = useToolConfirmationStore(state => state.dequeue)
   const clear = useToolConfirmationStore(state => state.clear)
 
   useEffect(() => {
@@ -16,6 +17,15 @@ export function useToolConfirmations(chatUuid?: string | null): void {
 
       if (event.type === RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
         enqueue(event.payload)
+        return
+      }
+
+      if (
+        event.type === RUN_TOOL_EVENTS.TOOL_EXECUTION_STARTED
+        || event.type === RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED
+        || event.type === RUN_TOOL_EVENTS.TOOL_EXECUTION_FAILED
+      ) {
+        dequeue(event.payload.toolCallId)
       }
     })
 
@@ -23,5 +33,5 @@ export function useToolConfirmations(chatUuid?: string | null): void {
       unsubscribe()
       clear()
     }
-  }, [chatUuid, enqueue, clear])
+  }, [chatUuid, enqueue, dequeue, clear])
 }

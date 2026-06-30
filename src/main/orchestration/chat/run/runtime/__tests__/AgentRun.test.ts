@@ -270,6 +270,78 @@ describe('AgentRun', () => {
     await postRunDeferred.promise
   })
 
+  it('updates runtime chat uuid after preparation and emits permission mode changes', async () => {
+    const postRunDeferred = createDeferred<void>()
+    const postRunPlan = {
+      title: 'skipped',
+      compression: 'skipped'
+    } as const
+    const mainAgentRuntimeRunner = {
+      run: vi.fn(async () => ({
+        runtimeResult: {
+          state: 'completed',
+          stepResult: {}
+        },
+        stepCommitter
+      }))
+    }
+    const emitter = {
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
+    }
+    const services = {
+      mainAgentRuntimeRunner,
+      chatAgentAdapter: {
+        prepareRun: vi.fn(async () => prepared),
+        finalizeRun: vi.fn(() => ({
+          runResult: {
+            assistantMessageId: 102,
+            usage: undefined,
+            state: 'completed'
+          },
+          postRunInput: {
+            submissionId: input.submissionId,
+            chatEntity: prepared.chatContext.chat,
+            messageBuffer: prepared.chatContext.messageEntities,
+            content: input.input.textCtx,
+            modelContext: prepared.runSpec.modelContext
+          }
+        }))
+      },
+      postRunJobService: {
+        getPlan: vi.fn(() => postRunPlan),
+        emitPlan: vi.fn(),
+        run: vi.fn(() => postRunDeferred.promise)
+      }
+    } as any
+    const run = new AgentRun({
+      ...input,
+      chatUuid: undefined
+    } as any, services, {
+      emitter,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    } as any)
+
+    expect(run.chatUuid).toBeUndefined()
+
+    const runPromise = run.run()
+    await runPromise
+
+    expect(run.chatUuid).toBe('chat-1')
+
+    run.setPermissionApprovalMode('auto')
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      RUN_EVENTS.RUN_PERMISSION_APPROVAL_MODE_CHANGED,
+      { permissionApprovalMode: 'auto' }
+    )
+
+    postRunDeferred.resolve()
+    await postRunDeferred.promise
+  })
+
   it('emits aborted events when preparation aborts', async () => {
     const emitter = {
       emit: vi.fn(),

@@ -18,7 +18,6 @@ import CommandPalette from './CommandPalette'
 import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
 import SharedPromptSurface from './SharedPromptSurface'
-import { ChatInputToolConfirmation } from './ChatInputToolConfirmation'
 import { invokeCheckIsDirectory } from '@renderer/invoker/ipcInvoker'
 import {
   isSubmissionBlocked,
@@ -743,81 +742,81 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
             isSubmitBlocked && 'opacity-80'
           )}
         >
-          <ChatInputToolConfirmation />
-
-          <SharedPromptSurface
-            ref={textareaRef}
-            surfaceRef={setInputAreaContentRef}
-            variant="chat"
-            expanded
-            className={cn(isSubmitBlocked && 'opacity-[0.82]')}
-            bodyClassName="min-h-0"
-            textareaClassName={cn(
-              'caret-transparent overflow-y-auto text-sm font-medium leading-6',
-              'px-4 pb-3 pt-3 text-gray-700 dark:text-gray-300',
-              'placeholder:text-gray-400/80 dark:placeholder:text-gray-500/80',
-              isDragging && 'bg-gray-100/40 dark:bg-gray-700/25'
-            )}
-            isDragging={isDragging}
-            value={inputContent}
-            placeholder="Type anything to chat"
-            onChange={onTextAreaChange}
-            onKeyDown={onTextAreaKeyDown}
-            onCompositionStart={onTextAreaCompositionStart}
-            onCompositionEnd={onTextAreaCompositionEnd}
-            onPaste={onTextAreaPaste}
-            onBlur={onTextAreaBlur}
-            onDragEnter={onDragEnter}
-            onDragLeave={onDragLeave}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImgGalleryComponent /> : null}
-            dropIndicator={isDragging ? (
-              <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-background/18 backdrop-blur-[2px]">
-                <div className="rounded-2xl border border-border/60 bg-background/90 px-5 py-3 text-sm font-medium text-muted-foreground shadow-lg backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
-                  Drop folder to set workspace
+          <div className="min-h-[112px] min-w-0 flex-auto overflow-hidden">
+            <SharedPromptSurface
+              ref={textareaRef}
+              surfaceRef={setInputAreaContentRef}
+              variant="chat"
+              expanded
+              className={cn(isSubmitBlocked && 'opacity-[0.82]')}
+              bodyClassName="min-h-0"
+              textareaClassName={cn(
+                'caret-transparent overflow-y-auto text-sm font-medium leading-6',
+                'px-4 pb-3 pt-3 text-gray-700 dark:text-gray-300',
+                'placeholder:text-gray-400/80 dark:placeholder:text-gray-500/80',
+                isDragging && 'bg-gray-100/40 dark:bg-gray-700/25'
+              )}
+              isDragging={isDragging}
+              value={inputContent}
+              placeholder="Type anything to chat"
+              onChange={onTextAreaChange}
+              onKeyDown={onTextAreaKeyDown}
+              onCompositionStart={onTextAreaCompositionStart}
+              onCompositionEnd={onTextAreaCompositionEnd}
+              onPaste={onTextAreaPaste}
+              onBlur={onTextAreaBlur}
+              onDragEnter={onDragEnter}
+              onDragLeave={onDragLeave}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImgGalleryComponent /> : null}
+              dropIndicator={isDragging ? (
+                <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-background/18 backdrop-blur-[2px]">
+                  <div className="rounded-2xl border border-border/60 bg-background/90 px-5 py-3 text-sm font-medium text-muted-foreground shadow-lg backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+                    Drop folder to set workspace
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            bodyOverlay={(
-              <CustomCaretOverlay
-                ref={caretOverlayRef}
-                textareaRef={textareaRef}
-              />
-            )}
-            leftActions={(
-              <ChatInputToolbar
-                variant="surface"
-                selectedModel={selectedModel}
-                modelOptions={modelOptions}
-                plugins={plugins}
-                selectedThinkingLevel={selectedThinkingLevel}
-                permissionApprovalMode={permissionApprovalMode}
-                modelMenuCollisionBoundary={modelMenuCollisionBoundary}
-                setSelectedModelRef={setSelectedModelRef}
-                setSelectedThinkingLevel={setSelectedThinkingLevel}
-                setPermissionApprovalMode={setPermissionApprovalMode}
-                queuedFirstText={queuedMessages[0]?.text}
-                queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
-                queuePaused={queuePaused}
-                onNewChat={startNewChat}
-              />
-            )}
-            rightActions={(
-              <ChatInputActions
-                variant="surface"
-                artifacts={artifacts}
-                runPhase={runPhase}
-                toggleArtifacts={toggleArtifacts}
-                setArtifactsPanel={setArtifactsPanel}
-                onNewChat={startNewChat}
-                onSubmit={onSubmitClick}
-                onCancel={cancelChatSubmit}
-                workspacePathToSelect={workspacePathToSelect}
-                submitDisabled={!inputContent.trim()}
-              />
-            )}
-          />
+              ) : null}
+              bodyOverlay={(
+                <CustomCaretOverlay
+                  ref={caretOverlayRef}
+                  textareaRef={textareaRef}
+                />
+              )}
+              leftActions={(
+                <ChatInputToolbar
+                  variant="surface"
+                  selectedModel={selectedModel}
+                  modelOptions={modelOptions}
+                  plugins={plugins}
+                  selectedThinkingLevel={selectedThinkingLevel}
+                  permissionApprovalMode={permissionApprovalMode}
+                  modelMenuCollisionBoundary={modelMenuCollisionBoundary}
+                  setSelectedModelRef={setSelectedModelRef}
+                  setSelectedThinkingLevel={setSelectedThinkingLevel}
+                  setPermissionApprovalMode={setPermissionApprovalMode}
+                  queuedFirstText={queuedMessages[0]?.text}
+                  queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
+                  queuePaused={queuePaused}
+                  onNewChat={startNewChat}
+                />
+              )}
+              rightActions={(
+                <ChatInputActions
+                  variant="surface"
+                  artifacts={artifacts}
+                  runPhase={runPhase}
+                  toggleArtifacts={toggleArtifacts}
+                  setArtifactsPanel={setArtifactsPanel}
+                  onNewChat={startNewChat}
+                  onSubmit={onSubmitClick}
+                  onCancel={cancelChatSubmit}
+                  workspacePathToSelect={workspacePathToSelect}
+                  submitDisabled={!inputContent.trim()}
+                />
+              )}
+            />
+          </div>
         </div>
       </div>
 

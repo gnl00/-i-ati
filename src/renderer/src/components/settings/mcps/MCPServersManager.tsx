@@ -518,7 +518,11 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                   runtimeStatus={installed ? getRuntimeStatus(item.server.name) : 'idle'}
                   runtimeError={lastErrorByServer[item.server.name]}
                   toolCount={availableMcpTools.get(item.server.name)?.length}
-                  onConnectionToggle={installedConfig ? () => toggleMcpConnection(item.server.name, installedConfig) : undefined}
+                  onConnectionToggle={installedConfig
+                    ? async () => {
+                        await toggleMcpConnection(item.server.name, installedConfig)
+                      }
+                    : undefined}
                   onInstall={() => handleInstallServer(item)}
                   onUninstall={() => handleUninstallServer(item.server.name)}
                   animationDelay={idx * 50}
@@ -574,7 +578,9 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                     runtimeStatus={getRuntimeStatus(name)}
                     runtimeError={lastErrorByServer[name]}
                     toolCount={availableMcpTools.get(name)?.length}
-                    onConnectionToggle={() => toggleMcpConnection(name, config)}
+                    onConnectionToggle={async () => {
+                      await toggleMcpConnection(name, config)
+                    }}
                     onCopyConfig={() => {
                       navigator.clipboard.writeText(JSON.stringify(config, null, 2))
                       toast.success('Configuration copied to clipboard')

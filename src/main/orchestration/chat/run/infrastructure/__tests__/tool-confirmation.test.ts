@@ -96,4 +96,27 @@ describe('ToolConfirmationManager', () => {
     manager.resolve('call-1', { approved: false, reason: 'cleanup' })
     await decisionPromise
   })
+
+  it('approves pending confirmations for a submission', async () => {
+    const manager = new ToolConfirmationManager()
+    const emit = vi.fn()
+
+    const decisionPromise = manager.request(
+      {
+        submissionId: 'submission-1',
+        emit
+      } as any,
+      {
+        toolCallId: 'call-1',
+        name: 'execute_command'
+      }
+    )
+
+    manager.approvePendingForSubmission('submission-1')
+
+    await expect(decisionPromise).resolves.toEqual({
+      approved: true,
+      reason: 'permission_approval_mode_auto'
+    })
+  })
 })

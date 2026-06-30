@@ -13,7 +13,9 @@ export interface AgentRenderToolCallState {
   name: string
   args?: string
   appearanceOrder?: number
+  executionStartedAt?: number
   cost?: number
+  latencyCost?: number
   status: AgentRenderToolCallStatus
   result?: unknown
   error?: string

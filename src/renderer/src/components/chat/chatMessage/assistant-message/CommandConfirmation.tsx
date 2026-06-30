@@ -20,6 +20,7 @@ interface CommandConfirmationProps {
   onCancel: () => void | Promise<void>
   className?: string
   disabled?: boolean
+  animateOnMount?: boolean
 }
 
 function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
@@ -28,15 +29,15 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
       icon: ShieldAlert,
       label: 'Dangerous',
       title: 'Command requires explicit approval',
-      shellBg: 'bg-rose-950/[0.06] dark:bg-rose-950/28',
+      shellBg: 'bg-black/5 backdrop-blur-3xl dark:bg-white/5',
       shellBorder: 'border-rose-200/55 dark:border-rose-900/55',
-      iconBg: 'bg-rose-500/8 dark:bg-rose-500/10',
+      iconBg: 'bg-rose-50 dark:bg-rose-950',
       iconColor: 'text-rose-500/80 dark:text-rose-300/85',
       badge: 'border-rose-300/80 bg-rose-50/85 text-rose-700 dark:border-rose-800/80 dark:bg-rose-950/40 dark:text-rose-200',
       titleColor: 'text-rose-950 dark:text-rose-50',
       reasonTone: 'text-rose-700 dark:text-rose-300',
       commandTone: 'text-rose-950 dark:text-rose-100',
-      commandShell: 'border-rose-200/48 bg-rose-50/34 dark:border-rose-900/30 dark:bg-rose-950/12',
+      commandShell: 'border-rose-200/70 bg-white/70 backdrop-blur-3xl dark:border-rose-900/70 dark:bg-slate-950',
       executeButton: 'bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500',
       cancelButton: 'text-slate-500 hover:bg-white/70 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900/70 dark:hover:text-slate-100'
     }
@@ -46,15 +47,15 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
     icon: AlertTriangle,
     label: 'Risky',
     title: 'Command may change local state',
-    shellBg: 'bg-amber-950/[0.04] dark:bg-amber-950/22',
+    shellBg: 'bg-black/5 backdrop-blur-3xl dark:bg-white/5',
     shellBorder: 'border-amber-200/55 dark:border-amber-900/55',
-    iconBg: 'bg-amber-500/8 dark:bg-amber-500/10',
+    iconBg: 'bg-amber-50 dark:bg-amber-950',
     iconColor: 'text-amber-500/80 dark:text-amber-300/85',
     badge: 'border-amber-300/80 bg-amber-50/85 text-amber-700 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-200',
     titleColor: 'text-amber-950 dark:text-amber-50',
     reasonTone: 'text-amber-700 dark:text-amber-300',
     commandTone: 'text-slate-900 dark:text-slate-100',
-    commandShell: 'border-amber-200/48 bg-amber-50/30 dark:border-amber-900/30 dark:bg-amber-950/10',
+    commandShell: 'border-amber-200/70 bg-white/70 backdrop-blur-3xl dark:border-amber-900/70 dark:bg-slate-950',
     executeButton: 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white',
     cancelButton: 'text-slate-500 hover:bg-white/70 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900/70 dark:hover:text-slate-100'
   }
@@ -73,18 +74,25 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
   onConfirm,
   onCancel,
   className,
-  disabled = false
+  disabled = false,
+  animateOnMount = true
 }) => {
   const config = getRiskLevelConfig(request.risk_level)
   const Icon = config.icon
   const agentLabel = getAgentLabel(request.agent)
-  const [isVisible, setIsVisible] = useState(false)
+  const [isVisible, setIsVisible] = useState(!animateOnMount)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
+    if (!animateOnMount) {
+      setIsVisible(true)
+      return
+    }
+
+    setIsVisible(false)
     const timer = setTimeout(() => setIsVisible(true), 50)
     return () => clearTimeout(timer)
-  }, [])
+  }, [animateOnMount])
 
   useEffect(() => {
     if (!copied) return
@@ -99,29 +107,34 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
 
   return (
     <div
+      data-testid="command-confirmation"
       aria-busy={disabled || undefined}
       className={cn(
-        'my-2 transition-all duration-300 ease-out',
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
-        disabled && 'pointer-events-none opacity-80',
+        'my-2 flex max-h-full min-h-0 flex-col overflow-hidden',
+        animateOnMount ? 'transition-transform duration-200 ease-out' : 'transition-none',
+        isVisible ? 'translate-y-0' : 'translate-y-2',
+        disabled && 'pointer-events-none',
         className
       )}
     >
       <div
+        data-testid="command-confirmation-shell"
         className={cn(
-          'relative overflow-hidden rounded-2xl shadow-[0_12px_28px_-24px_rgba(15,23,42,0.24)] backdrop-blur-xl',
-          'bg-white/52 dark:bg-slate-950/34',
+          'relative flex max-h-full min-h-0 flex-auto flex-col overflow-hidden rounded-2xl shadow-[0_12px_28px_-24px_rgba(15,23,42,0.24)]',
           config.shellBg
         )}
       >
-        <div className="relative p-2.5">
-          <div className="flex items-center gap-2">
+        <div className="relative flex max-h-full min-h-0 flex-auto flex-col p-2.5">
+          <div
+            data-testid="command-confirmation-header"
+            className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2"
+          >
             <div className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md', config.iconBg)}>
               <Icon className={cn('h-3 w-3', config.iconColor)} />
             </div>
 
-            <div className="min-w-0 flex-1">
-              <h3 className={cn('min-w-0 text-[12px] leading-none font-medium', config.titleColor)}>
+            <div className="min-w-0">
+              <h3 className={cn('line-clamp-2 min-w-0 wrap-break-word text-[12px] leading-4 font-medium', config.titleColor)}>
                 {request.execution_reason || config.title}
               </h3>
               {(agentLabel || request.agent?.task || (request.pending_count && request.pending_count > 1)) && (
@@ -133,7 +146,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                     </span>
                   )}
                   {request.agent?.task && (
-                    <span className="truncate max-w-[280px]">
+                    <span className="max-w-[280px] truncate">
                       Task: {request.agent.task}
                     </span>
                   )}
@@ -143,48 +156,22 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="mt-2.5 space-y-1.5">
-            <div className={cn(
-              'rounded-xl border',
-              config.commandShell
-            )}>
-              <div className="flex items-center gap-2 px-2.5 py-2">
-                <Terminal className="h-3 w-3 shrink-0 text-slate-500 dark:text-slate-400" />
-                <code
-                  className={cn(
-                    'flex-1 break-all text-[10px] leading-[1.4] font-mono',
-                    config.commandTone
-                  )}
-                >
-                  {request.command}
-                </code>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  aria-label="Copy command"
-                  className="shrink-0 rounded-full p-1 text-slate-400 transition-colors hover:bg-white/70 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-900/70 dark:hover:text-slate-200"
-                >
-                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-              <p className={cn('min-w-0 flex-1 text-[10px] leading-[1.4] text-left', config.reasonTone)}>
-                {request.possible_risk}
-              </p>
-
-              <div className="shrink-0">
-                <div className="flex items-center justify-end gap-1 rounded-full border border-white/60 bg-white/5 p-1 shadow-[0_10px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md dark:border-white/10 dark:bg-slate-900/55">
+            <div
+              data-testid="command-confirmation-actions"
+              className="flex shrink-0 self-start justify-end"
+            >
+              <div
+                data-testid="command-confirmation-actions-shell"
+                className="flex items-center justify-end gap-0.5 rounded-xl border border-white bg-white p-0.5 shadow-none dark:border-slate-800 dark:bg-slate-900"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={onCancel}
                   disabled={disabled}
                   className={cn(
-                    'h-6 rounded-full px-2.5 text-[10px] font-medium shadow-none transition-colors',
+                    'h-7 rounded-lg px-2.5 text-[10px] font-medium shadow-none transition-colors',
                     config.cancelButton
                   )}
                 >
@@ -196,14 +183,54 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                   onClick={onConfirm}
                   disabled={disabled}
                   className={cn(
-                    'h-6 rounded-full px-2.5 text-[10px] font-semibold shadow-none transition-colors',
+                    'h-7 rounded-lg px-2.5 text-[10px] font-semibold shadow-none transition-colors',
                     config.executeButton
                   )}
                 >
                   Execute
                 </Button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            data-testid="command-confirmation-review"
+            className="mt-2.5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]"
+          >
+            <div className="space-y-1.5">
+              <div className={cn(
+                'rounded-xl border',
+                config.commandShell
+              )}>
+                <div className="flex items-start gap-2 px-2.5 py-2">
+                  <Terminal className="mt-0.5 h-3 w-3 shrink-0 text-slate-500 dark:text-slate-400" />
+                  <div
+                    data-testid="command-confirmation-command"
+                    className="max-h-16 min-w-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]"
+                  >
+                    <code
+                      className={cn(
+                        'block break-all text-[10px] leading-[1.4] font-mono',
+                        config.commandTone
+                      )}
+                    >
+                      {request.command}
+                    </code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    aria-label="Copy command"
+                    className="shrink-0 rounded-full p-1 text-slate-400 transition-colors hover:bg-white/70 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-900/70 dark:hover:text-slate-200"
+                  >
+                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </button>
                 </div>
               </div>
+
+              <p className={cn('min-w-0 flex-1 wrap-break-word text-left text-[10px] leading-[1.4]', config.reasonTone)}>
+                {request.possible_risk}
+              </p>
             </div>
           </div>
         </div>

@@ -34,7 +34,8 @@ const createToolCallSegment = (
   status: string,
   cost?: number,
   args: Record<string, unknown> = { query: 'latest status' },
-  timestamp: number = Date.now()
+  timestamp: number = Date.now(),
+  executionStartedAt?: number
 ): ToolCallSegment => ({
   type: 'toolCall',
   segmentId: 'committed:step-1:tool:tool-1',
@@ -48,6 +49,7 @@ const createToolCallSegment = (
   timestamp,
   toolCallId: 'tool-1',
   toolCallIndex: 0,
+  ...(typeof executionStartedAt === 'number' ? { executionStartedAt } : {}),
   ...(typeof cost === 'number' ? { cost } : {})
 })
 
@@ -312,6 +314,31 @@ describe('ToolCallResult cost display', () => {
     })
 
     expect(container.textContent).toContain('3.500s')
+  })
+
+  it('uses executionStartedAt as the running elapsed anchor when present', async () => {
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createToolCallSegment(
+            'running',
+            undefined,
+            { query: 'latest status' },
+            Date.now() - 10000,
+            Date.now() - 1200
+          )}
+          index={0}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('1.200s')
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(container.textContent).toContain('2.200s')
   })
 
   it('keeps tool_call_reason out of the summary parameters', async () => {

@@ -132,7 +132,9 @@ export class ChatRenderResponder implements HostRenderEventSink {
       case 'host.tool.execution.started':
         this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_STARTED, {
           toolCallId: event.toolCallId,
-          name: event.toolName
+          name: event.toolName,
+          timestamp: event.timestamp,
+          executionStartedAt: event.timestamp
         })
         return
 
@@ -141,7 +143,13 @@ export class ChatRenderResponder implements HostRenderEventSink {
           this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED, {
             toolCallId: event.result.toolCallId,
             result: event.result.content,
-            cost: event.result.cost ?? 0
+            cost: event.result.cost ?? 0,
+            ...(event.result.executionStartedAt !== undefined ? {
+              executionStartedAt: event.result.executionStartedAt
+            } : {}),
+            ...(event.result.latencyCost !== undefined ? {
+              latencyCost: event.result.latencyCost
+            } : {})
           })
         } else if (event.result.status !== 'denied') {
           this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_FAILED, {

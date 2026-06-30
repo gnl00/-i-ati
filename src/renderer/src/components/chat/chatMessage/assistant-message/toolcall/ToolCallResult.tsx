@@ -251,7 +251,9 @@ function hasSameToolCallIdentity(previous: ToolCallSegment, next: ToolCallSegmen
 
 function hasSameToolCallTiming(previous: ToolCallSegment, next: ToolCallSegment): boolean {
   return previous.timestamp === next.timestamp
+    && previous.executionStartedAt === next.executionStartedAt
     && previous.cost === next.cost
+    && previous.latencyCost === next.latencyCost
 }
 
 function hasSameToolCallRenderState(
@@ -330,7 +332,7 @@ const ToolCallHeader = React.memo(({
   isPending,
   isOpen,
   cost,
-  timestamp
+  runningStartedAt
 }: {
   name: string
   isError: boolean
@@ -338,7 +340,7 @@ const ToolCallHeader = React.memo(({
   isPending: boolean
   isOpen: boolean
   cost?: number
-  timestamp: number
+  runningStartedAt: number
 }) => {
   const statusTone = isError
     ? 'bg-red-100/85 text-red-700 dark:bg-red-900/24 dark:text-red-300'
@@ -382,7 +384,7 @@ const ToolCallHeader = React.memo(({
             <ToolCallDuration
               cost={cost}
               isRunning={isRunning}
-              runningStartedAt={timestamp}
+              runningStartedAt={runningStartedAt}
             />
           </span>
         </span>
@@ -914,7 +916,7 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
               isPending={isPending}
               isOpen={isOpen}
               cost={tc.cost}
-              timestamp={tc.timestamp}
+              runningStartedAt={tc.executionStartedAt ?? tc.timestamp}
             />
           </button>
         )}

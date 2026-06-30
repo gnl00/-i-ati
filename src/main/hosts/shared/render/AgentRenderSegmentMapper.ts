@@ -176,7 +176,9 @@ export class AgentRenderSegmentMapper {
         ...(call.result !== undefined ? { result: call.result } : {}),
         ...(call.error ? { error: call.error } : {})
       },
+      ...(call.executionStartedAt !== undefined ? { executionStartedAt: call.executionStartedAt } : {}),
       ...(call.cost !== undefined ? { cost: call.cost } : {}),
+      ...(call.latencyCost !== undefined ? { latencyCost: call.latencyCost } : {}),
       isError: call.status === 'failed' || call.status === 'aborted',
       timestamp: input.block.startedAt,
       toolCallId: call.toolCallId,

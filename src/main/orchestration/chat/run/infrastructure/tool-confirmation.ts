@@ -77,4 +77,15 @@ export class ToolConfirmationManager {
       }
     }
   }
+
+  approvePendingForSubmission(submissionId: string, reason = 'permission_approval_mode_auto'): void {
+    for (const [toolCallId, pending] of this.pending.entries()) {
+      if (pending.submissionId === submissionId) {
+        this.resolve(toolCallId, {
+          approved: true,
+          reason
+        })
+      }
+    }
+  }
 }

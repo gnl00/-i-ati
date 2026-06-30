@@ -22,18 +22,25 @@ import type {
   ToolDeniedFact,
   ToolFailureFact
 } from './ToolResultFact'
-import type { ToolExecutionResult } from '@main/agent/tools'
+import type { ToolExecutionProgress, ToolExecutionResult } from '@main/agent/tools'
 import type { RuntimeClock } from '../loop/RuntimeClock'
 
 export interface ToolExecutorDispatcher {
   dispatch(batch: ToolBatch): Promise<ToolDispatchOutcome>
 }
 
+export interface ToolExecutionProgressContext {
+  onProgress: (progress: ToolExecutionProgress) => void
+}
+
 export interface DefaultToolExecutorDispatcherOptions {
   agentEventEmitter?: AgentEventEmitter
   signal?: AbortSignal
   runtimeClock: RuntimeClock
-  executeToolCalls?: (calls: ToolCallProps[]) => Promise<ToolExecutionResult[]>
+  executeToolCalls?: (
+    calls: ToolCallProps[],
+    context: ToolExecutionProgressContext
+  ) => Promise<ToolExecutionResult[]>
   abortedResultDisposition?: 'terminal' | 'non_terminal'
   requestConfirmation?: (input: {
     stepId: string
@@ -73,22 +80,24 @@ const toDeniedFact = (
   }
 }
 
-const resolveToolResultCost = (
+const resolveToolResultTiming = (
   call: ToolBatch['calls'][number],
   result: ToolExecutionResult,
-  completedAt: number
-): number => (
-  typeof call.startedAt === 'number'
-    ? Math.max(0, completedAt - call.startedAt)
-    : result.cost
-)
+  completedAt: number,
+  executionStartedAt?: number
+): Pick<ToolResultFact, 'cost' | 'latencyCost' | 'executionStartedAt'> => ({
+  cost: result.cost,
+  ...(typeof call.startedAt === 'number' ? { latencyCost: Math.max(0, completedAt - call.startedAt) } : {}),
+  ...(typeof executionStartedAt === 'number' ? { executionStartedAt } : {})
+})
 
 const toToolResultFact = (
   call: ToolBatch['calls'][number],
   result: ToolExecutionResult,
-  completedAt: number
+  completedAt: number,
+  executionStartedAt?: number
 ): ToolResultFact => {
-  const cost = resolveToolResultCost(call, result, completedAt)
+  const timing = resolveToolResultTiming(call, result, completedAt, executionStartedAt)
 
   if (result.status === 'success') {
     return {
@@ -96,7 +105,7 @@ const toToolResultFact = (
       toolCallId: result.id,
       toolCallIndex: result.index,
       toolName: result.name,
-      cost,
+      ...timing,
       status: 'success',
       content: result.content
     }
@@ -108,7 +117,7 @@ const toToolResultFact = (
       toolCallId: result.id,
       toolCallIndex: result.index,
       toolName: result.name,
-      cost,
+      ...timing,
       status: 'aborted',
       content: result.content,
       error: result.error ? {
@@ -123,7 +132,7 @@ const toToolResultFact = (
     toolCallId: result.id,
     toolCallIndex: result.index,
     toolName: result.name,
-    cost,
+    ...timing,
     status: result.status,
     content: result.content,
     error: result.error ? {
@@ -201,23 +210,24 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
     result: ToolResultFact
     terminalOutcome?: (batch: ToolBatch, results: ToolResultFact[]) => ToolDispatchOutcome
   }> {
-    await this.options.agentEventEmitter?.emitToolExecutionStarted({
-      timestamp: this.options.runtimeClock.now(),
-      stepId: call.stepId,
-      toolCallId: call.toolCallId,
-      toolCallIndex: call.index,
-      toolName: call.name,
-      phase: 'started'
-    })
+    const pendingProgressEvents: Promise<void>[] = []
+    let executionStartedAt: number | undefined
+    const progressContext: ToolExecutionProgressContext = {
+      onProgress: this.createProgressHandler(call, pendingProgressEvents, (startedAt) => {
+        executionStartedAt = startedAt
+      })
+    }
 
     const executionResults = this.options.executeToolCalls
-      ? await this.options.executeToolCalls([toToolCallProps(call)])
+      ? await this.options.executeToolCalls([toToolCallProps(call)], progressContext)
       : await new ToolExecutor({
-        signal: this.options.signal
+        signal: this.options.signal,
+        onProgress: progressContext.onProgress
       }).execute([toToolCallProps(call)])
+    await Promise.all(pendingProgressEvents)
     const executionResult = executionResults[0]
     const completedAt = this.options.runtimeClock.now()
-    const result = toToolResultFact(call, executionResult, completedAt)
+    const result = toToolResultFact(call, executionResult, completedAt, executionStartedAt)
 
     if (result.status === 'aborted') {
       await this.options.agentEventEmitter?.emitToolExecutionAborted({
@@ -260,5 +270,35 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
     })
 
     return { result }
+  }
+
+  private createProgressHandler(
+    call: ToolBatch['calls'][number],
+    pendingEvents: Promise<void>[],
+    onExecutionStarted?: (startedAt: number) => void
+  ): (progress: ToolExecutionProgress) => void {
+    let startedEmitted = false
+
+    return (progress) => {
+      if (
+        progress.phase !== 'started'
+        || startedEmitted
+        || progress.id !== call.toolCallId
+      ) {
+        return
+      }
+
+      startedEmitted = true
+      const startedAt = this.options.runtimeClock.now()
+      onExecutionStarted?.(startedAt)
+      pendingEvents.push(this.options.agentEventEmitter?.emitToolExecutionStarted({
+        timestamp: startedAt,
+        stepId: call.stepId,
+        toolCallId: call.toolCallId,
+        toolCallIndex: call.index,
+        toolName: call.name,
+        phase: 'started'
+      }) ?? Promise.resolve())
+    }
   }
 }

@@ -20,11 +20,15 @@ export class RunRegistry {
   }
 
   hasActiveRunForChat(chatUuid: string): boolean {
+    return Boolean(this.getActiveRunForChat(chatUuid))
+  }
+
+  getActiveRunForChat(chatUuid: string): AgentRun | undefined {
     for (const run of this.active.values()) {
       if (run.chatUuid === chatUuid) {
-        return true
+        return run
       }
     }
-    return false
+    return undefined
   }
 }

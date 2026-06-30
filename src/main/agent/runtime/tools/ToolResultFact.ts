@@ -20,7 +20,9 @@ export interface ToolResultFactBase {
   toolCallId: string
   toolCallIndex: number
   toolName: string
+  executionStartedAt?: number
   cost?: number
+  latencyCost?: number
 }
 
 export interface ToolSuccessFact extends ToolResultFactBase {

@@ -5,24 +5,29 @@ const {
   emitAcceptedMock,
   runMock,
   cancelMock,
+  setPermissionApprovalModeMock,
   constructorArgsMock
 } = vi.hoisted(() => ({
   emitAcceptedMock: vi.fn(),
   runMock: vi.fn(async () => ({ assistantMessageId: 1, state: 'completed' })),
   cancelMock: vi.fn(),
+  setPermissionApprovalModeMock: vi.fn(),
   constructorArgsMock: vi.fn()
 }))
 
 vi.mock('../AgentRun', () => ({
   AgentRun: class {
+    submissionId: string
     chatUuid?: string
-    constructor(input: { chatUuid?: string }, services: unknown, runtime: unknown) {
+    constructor(input: { submissionId: string; chatUuid?: string }, services: unknown, runtime: unknown) {
+      this.submissionId = input.submissionId
       this.chatUuid = input.chatUuid
       constructorArgsMock({ input, services, runtime })
     }
     emitAccepted = emitAcceptedMock
     run = runMock
     cancel = cancelMock
+    setPermissionApprovalMode = setPermissionApprovalModeMock
   }
 }))
 
@@ -41,6 +46,7 @@ vi.mock('../../infrastructure', () => ({
     request = vi.fn(async () => ({ approved: true }))
     resolve = vi.fn()
     cancelForSubmission = vi.fn()
+    approvePendingForSubmission = vi.fn()
   }
 }))
 
@@ -55,6 +61,7 @@ const createManagerWithDeps = () => {
     request = vi.fn(async () => ({ approved: true }))
     resolve = vi.fn()
     cancelForSubmission = vi.fn()
+    approvePendingForSubmission = vi.fn()
   })()
   const manager = new RunManager({
     toolConfirmationManager: toolConfirmationManager as any,
@@ -103,6 +110,7 @@ describe('RunManager', () => {
     runMock.mockReset()
     runMock.mockResolvedValue({ assistantMessageId: 1, state: 'completed' })
     cancelMock.mockReset()
+    setPermissionApprovalModeMock.mockReset()
     constructorArgsMock.mockReset()
   })
 
@@ -213,5 +221,27 @@ describe('RunManager', () => {
         hostRenderSinks
       })
     }))
+  })
+
+  it('updates permission approval mode for the active chat run', async () => {
+    const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as any)
+
+    const { manager, toolConfirmationManager } = createManagerWithDeps()
+    await manager.start({
+      ...input,
+      chatUuid: 'chat-1'
+    })
+
+    const updated = manager.updateActiveRunPermissionApprovalMode('chat-1', 'auto')
+
+    expect(updated).toBe(true)
+    expect(setPermissionApprovalModeMock).toHaveBeenCalledWith('auto')
+    expect(toolConfirmationManager.approvePendingForSubmission).toHaveBeenCalledWith(
+      input.submissionId
+    )
+
+    deferred.resolve({ assistantMessageId: 11, state: 'completed' })
+    await deferred.promise
   })
 })

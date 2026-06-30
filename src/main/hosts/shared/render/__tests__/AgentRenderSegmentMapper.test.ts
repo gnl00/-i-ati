@@ -40,7 +40,9 @@ describe('AgentRenderSegmentMapper', () => {
           args: '{"query":"x"}',
           status: 'success',
           result: { ok: true },
-          cost: 42
+          executionStartedAt: 30,
+          cost: 42,
+          latencyCost: 101
         }
       ]
     }
@@ -76,7 +78,9 @@ describe('AgentRenderSegmentMapper', () => {
           status: 'success',
           result: { ok: true }
         },
+        executionStartedAt: 30,
         cost: 42,
+        latencyCost: 101,
         isError: false,
         timestamp: 4
       })

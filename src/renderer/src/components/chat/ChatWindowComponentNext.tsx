@@ -1,6 +1,7 @@
 import { ArtifactsPanel, FloatingArtifactsToggle } from '@renderer/components/artifacts'
 import ChatHeaderComponent from "@renderer/components/chat/ChatHeaderComponent"
 import ChatInputArea, { type ChatInputAreaHandle } from "@renderer/components/chat/chatInput/ChatInputArea"
+import { ChatInputToolConfirmation } from "@renderer/components/chat/chatInput/ChatInputToolConfirmation"
 import ChatMessageComponent from "@renderer/components/chat/chatMessage/ChatMessageComponent"
 import WelcomeMessage from "@renderer/components/chat/welcome/SmartWelcomeEntranceV2"
 import { useScrollManagerTop, type UserScrollSource } from '@renderer/hooks/useScrollManagerTop'
@@ -875,8 +876,13 @@ const ChatWindowComponentNext: React.FC = () => {
               defaultSize={25}
               minSize={10}
               maxSize={70}
-              className="bg-transparent relative"
+              className="relative bg-transparent"
+              style={{ overflow: 'visible' }}
             >
+              <div className="pointer-events-none absolute inset-x-0 bottom-full z-50 mb-2 px-2">
+                <ChatInputToolConfirmation className="pointer-events-auto px-0 pb-0" />
+              </div>
+
               <div className="h-full overflow-hidden">
                 <ChatInputArea ref={chatInputRef} />
               </div>

@@ -6,6 +6,7 @@ import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
 import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
 import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { RunResult } from '@main/agent/contracts'
+import { normalizePermissionApprovalMode, type PermissionApprovalMode } from '@tools/approval'
 import type {
   RunEventEmitterFactory,
   RunEventSink,
@@ -91,6 +92,23 @@ export class RunManager {
 
   hasActiveRunForChat(chatUuid: string): boolean {
     return this.registry.hasActiveRunForChat(chatUuid)
+  }
+
+  updateActiveRunPermissionApprovalMode(
+    chatUuid: string,
+    mode: PermissionApprovalMode
+  ): boolean {
+    const run = this.registry.getActiveRunForChat(chatUuid)
+    if (!run) {
+      return false
+    }
+
+    const nextMode = normalizePermissionApprovalMode(mode)
+    run.setPermissionApprovalMode(nextMode)
+    if (nextMode === 'auto') {
+      this.deps.toolConfirmationManager.approvePendingForSubmission(run.submissionId)
+    }
+    return true
   }
 
   private createRun(

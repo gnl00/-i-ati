@@ -3,8 +3,13 @@ import { AnimatePresence, motion, useReducedMotion, type Transition } from 'fram
 import { CommandConfirmation } from '../chatMessage/assistant-message/CommandConfirmation'
 import { buildToolConfirmationRequest } from '../toolConfirmation/commandConfirmationPresenter'
 import { useToolConfirmationStore } from '@renderer/store/toolConfirmation'
+import { cn } from '@renderer/lib/utils'
 
-export const ChatInputToolConfirmation: React.FC = () => {
+interface ChatInputToolConfirmationProps {
+  className?: string
+}
+
+export const ChatInputToolConfirmation: React.FC<ChatInputToolConfirmationProps> = ({ className }) => {
   const shouldReduceMotion = useReducedMotion()
   const pendingToolConfirm = useToolConfirmationStore(state => state.pendingRequests[0] ?? null)
   const pendingToolConfirmCount = useToolConfirmationStore(state => state.pendingRequests.length)
@@ -23,10 +28,6 @@ export const ChatInputToolConfirmation: React.FC = () => {
   const motionTransition: Transition = shouldReduceMotion
     ? { duration: 0 }
     : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
-  const exitTransition: Transition = shouldReduceMotion
-    ? { duration: 0 }
-    : { duration: 0.14, ease: [0.25, 1, 0.5, 1] }
-
   const handleConfirmCommand = useCallback(async () => {
     if (!pendingToolConfirm) return Promise.resolve()
     setSettlingToolCallId(pendingToolConfirm.toolCallId)
@@ -56,21 +57,22 @@ export const ChatInputToolConfirmation: React.FC = () => {
       {pendingToolConfirm && toolConfirmationRequest && (
         <motion.div
           key={pendingToolConfirm.toolCallId}
-          className="grid shrink-0 px-2 pb-1"
+          data-testid="chat-input-tool-confirmation-frame"
+          className={cn(
+            'grid max-h-[clamp(168px,38vh,280px)] min-h-0 shrink px-2 pb-1',
+            className
+          )}
           initial={{
-            opacity: 0,
             y: shouldReduceMotion ? 0 : 6,
             scale: shouldReduceMotion ? 1 : 0.985,
             gridTemplateRows: '0fr'
           }}
           animate={{
-            opacity: 1,
             y: 0,
             scale: 1,
             gridTemplateRows: '1fr'
           }}
           exit={{
-            opacity: 0,
             y: shouldReduceMotion ? 0 : 4,
             scale: shouldReduceMotion ? 1 : 0.99,
             gridTemplateRows: '0fr'
@@ -79,16 +81,16 @@ export const ChatInputToolConfirmation: React.FC = () => {
           style={{ overflow: 'hidden' }}
         >
           <motion.div
-            className="min-h-0 overflow-hidden"
-            exit={{ opacity: 0 }}
-            transition={exitTransition}
+            data-testid="chat-input-tool-confirmation-clip"
+            className="max-h-[clamp(168px,38vh,280px)] min-h-0 overflow-hidden"
           >
             <CommandConfirmation
               request={toolConfirmationRequest}
               onConfirm={handleConfirmCommand}
               onCancel={handleCancelCommand}
               disabled={isSettling}
-              className="my-0 max-h-[30vh] overflow-y-auto"
+              animateOnMount={false}
+              className="my-0 max-h-[clamp(168px,38vh,280px)]"
             />
           </motion.div>
         </motion.div>

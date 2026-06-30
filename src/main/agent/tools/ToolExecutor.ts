@@ -88,7 +88,7 @@ export class ToolExecutor implements IToolExecutor {
     const toolId = call.id || `call_${uuidv4()}`
     const toolName = call.function
     const toolIndex = call.index ?? 0
-    const startTime = Date.now()
+    let executionStartTime: number | undefined
 
     const requiresPlanReview = toolName === 'plan_create'
       && Boolean(this.requestConfirmation)
@@ -104,6 +104,7 @@ export class ToolExecutor implements IToolExecutor {
       && !this.shouldAutoApproveAppConfirmation()
 
     if (!requiresPlanReview && !requiresCommandReview && !requiresMetadataReview) {
+      executionStartTime = Date.now()
       this.reportProgress({
         id: toolId,
         name: toolName,
@@ -223,6 +224,7 @@ export class ToolExecutor implements IToolExecutor {
       }
 
       if (requiresPlanReview || requiresCommandReview || requiresMetadataReview) {
+        executionStartTime = Date.now()
         this.reportProgress({
           id: toolId,
           name: toolName,
@@ -230,6 +232,7 @@ export class ToolExecutor implements IToolExecutor {
         })
       }
 
+      executionStartTime ??= Date.now()
       const content = await this.executeTool(call, runtimeArgs)
 
       const result: ToolExecutionResult = {
@@ -237,7 +240,7 @@ export class ToolExecutor implements IToolExecutor {
         index: toolIndex,
         name: toolName,
         content,
-        cost: Date.now() - startTime,
+        cost: Date.now() - executionStartTime,
         status: 'success'
       }
 
@@ -250,7 +253,11 @@ export class ToolExecutor implements IToolExecutor {
 
       return result
     } catch (error: any) {
-      const result = this.createErrorResult(call, error, Date.now() - startTime)
+      const result = this.createErrorResult(
+        call,
+        error,
+        typeof executionStartTime === 'number' ? Date.now() - executionStartTime : 0
+      )
       this.reportProgress({
         id: toolId,
         name: toolName,

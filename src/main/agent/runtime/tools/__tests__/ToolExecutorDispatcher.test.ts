@@ -4,10 +4,25 @@ import type { AgentEventEmitter } from '../../events/AgentEventEmitter'
 import type { RuntimeClock } from '../../loop/RuntimeClock'
 
 const executeMock = vi.fn()
+let toolExecutorConfig: { onProgress?: (progress: { id: string; name: string; phase: 'started' }) => void } | undefined
 
 vi.mock('@main/agent/tools/ToolExecutor', () => ({
   ToolExecutor: class {
-    execute = executeMock
+    constructor(config: { onProgress?: (progress: { id: string; name: string; phase: 'started' }) => void }) {
+      toolExecutorConfig = config
+    }
+
+    execute(calls: Array<{ id?: string; function: string }>) {
+      const call = calls[0]
+      if (call.id) {
+        toolExecutorConfig?.onProgress?.({
+          id: call.id,
+          name: call.function,
+          phase: 'started'
+        })
+      }
+      return executeMock(calls)
+    }
   }
 }))
 
@@ -31,6 +46,7 @@ const createEventEmitter = (): AgentEventEmitter => ({
 describe('DefaultToolExecutorDispatcher', () => {
   beforeEach(() => {
     executeMock.mockReset()
+    toolExecutorConfig = undefined
   })
 
   it('waits for external confirmation and executes when approved', async () => {
@@ -97,6 +113,90 @@ describe('DefaultToolExecutorDispatcher', () => {
     expect(agentEventEmitter.emitToolExecutionStarted).toHaveBeenCalledTimes(1)
   })
 
+  it('emits injected execution start only after confirmation resolves', async () => {
+    const events: string[] = []
+    const agentEventEmitter = createEventEmitter()
+    vi.mocked(agentEventEmitter.emitToolAwaitingConfirmation).mockImplementation(async () => {
+      events.push('awaiting_confirmation')
+    })
+    vi.mocked(agentEventEmitter.emitToolExecutionStarted).mockImplementation(async () => {
+      events.push('started')
+    })
+    vi.mocked(agentEventEmitter.emitToolExecutionCompleted).mockImplementation(async () => {
+      events.push('completed')
+    })
+    const runtimeClock: RuntimeClock = {
+      now: vi.fn(() => 123)
+    }
+    const requestConfirmation = vi.fn(async () => {
+      events.push('request_confirmation')
+      return {
+        approved: true,
+        arguments: '{"command":"echo approved"}'
+      }
+    })
+    const executeToolCalls = vi.fn(async (calls, context) => {
+      events.push('execute_tool_calls')
+      context.onProgress({
+        id: calls[0].id!,
+        name: calls[0].function,
+        phase: 'started'
+      })
+      return [
+        {
+          id: 'tool-1',
+          index: 0,
+          name: 'execute_command',
+          content: { ok: true },
+          cost: 1,
+          status: 'success' as const
+        }
+      ]
+    })
+
+    const dispatcher = new DefaultToolExecutorDispatcher({
+      agentEventEmitter,
+      runtimeClock,
+      requestConfirmation,
+      executeToolCalls
+    })
+
+    const outcome = await dispatcher.dispatch({
+      batchId: 'batch-1',
+      stepId: 'step-1',
+      createdAt: 1,
+      calls: [
+        {
+          toolCallId: 'tool-1',
+          stepId: 'step-1',
+          index: 0,
+          name: 'execute_command',
+          arguments: '{"command":"echo original"}',
+          confirmationPolicy: {
+            mode: 'required',
+            source: 'user',
+            deniedResult: {
+              status: 'denied',
+              message: 'rejected'
+            }
+          },
+          status: 'pending'
+        }
+      ]
+    })
+
+    expect(outcome.status).toBe('completed')
+    expect(executeToolCalls).toHaveBeenCalledTimes(1)
+    expect(agentEventEmitter.emitToolExecutionStarted).toHaveBeenCalledTimes(1)
+    expect(events).toEqual([
+      'awaiting_confirmation',
+      'request_confirmation',
+      'execute_tool_calls',
+      'started',
+      'completed'
+    ])
+  })
+
   it('can treat aborted tool execution as non-terminal and keep result in completed outcome', async () => {
     executeMock.mockResolvedValue([
       {
@@ -154,7 +254,7 @@ describe('DefaultToolExecutorDispatcher', () => {
     expect(agentEventEmitter.emitLoopAborted).not.toHaveBeenCalled()
   })
 
-  it('measures completed tool cost from the model tool call start timestamp', async () => {
+  it('keeps execution cost separate from model-to-complete latency', async () => {
     executeMock.mockResolvedValue([
       {
         id: 'tool-1',
@@ -204,12 +304,16 @@ describe('DefaultToolExecutorDispatcher', () => {
     }
     expect(outcome.results[0]).toEqual(expect.objectContaining({
       toolCallId: 'tool-1',
-      cost: 1600
+      cost: 300,
+      executionStartedAt: 1200,
+      latencyCost: 1600
     }))
     expect(agentEventEmitter.emitToolExecutionCompleted).toHaveBeenCalledWith(expect.objectContaining({
       timestamp: 2600,
       result: expect.objectContaining({
-        cost: 1600
+        cost: 300,
+        executionStartedAt: 1200,
+        latencyCost: 1600
       })
     }))
   })

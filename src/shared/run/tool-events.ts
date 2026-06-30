@@ -7,7 +7,9 @@ export type RunToolCall = {
   status: 'pending' | 'executing' | 'success' | 'failed' | 'aborted'
   result?: unknown
   error?: string
+  executionStartedAt?: number
   cost?: number
+  latencyCost?: number
   index?: number
 }
 
@@ -39,7 +41,7 @@ export type RunToolEventPayloads = {
       filesystemReason?: string
     }
   }
-  'tool.execution.started': { toolCallId: string; name: string }
-  'tool.execution.completed': { toolCallId: string; result: unknown; cost: number }
+  'tool.execution.started': { toolCallId: string; name: string; timestamp: number; executionStartedAt: number }
+  'tool.execution.completed': { toolCallId: string; result: unknown; cost: number; latencyCost?: number; executionStartedAt?: number }
   'tool.execution.failed': { toolCallId: string; error: import('./lifecycle-events').SerializedError | Error }
 }

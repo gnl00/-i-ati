@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { HostRenderEventMapper } from '@main/hosts/shared/render'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 
 vi.mock('../../mapping/ChatEventMapper', () => ({
   ChatEventMapper: class {
@@ -302,6 +303,89 @@ describe('ChatRenderResponder', () => {
         })
       ])
     )
+  })
+
+  it('emits tool run events with execution and latency timing fields', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+
+    const adapter = new ChatRenderResponder(emitter, [placeholder], placeholder)
+
+    await dispatchAgentEvent(adapter, {
+      type: 'step.completed',
+      timestamp: 123,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 100,
+        completedAt: 123,
+        content: '',
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'read',
+            arguments: '{"path":"README.md"}'
+          },
+          index: 0
+        }],
+        finishReason: 'tool_calls'
+      }
+    } as any)
+
+    await dispatchAgentEvent(adapter, {
+      type: 'tool.execution_progress',
+      phase: 'started',
+      timestamp: 200,
+      stepId: 'step-1',
+      toolCallId: 'tool-1',
+      toolCallIndex: 0,
+      toolName: 'read'
+    })
+
+    await dispatchAgentEvent(adapter, {
+      type: 'tool.execution_progress',
+      phase: 'completed',
+      timestamp: 208,
+      result: {
+        status: 'success',
+        stepId: 'step-1',
+        toolCallId: 'tool-1',
+        toolCallIndex: 0,
+        toolName: 'read',
+        executionStartedAt: 200,
+        cost: 8,
+        latencyCost: 108,
+        content: 'file content'
+      }
+    })
+
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_TOOL_EVENTS.TOOL_EXECUTION_STARTED, {
+      toolCallId: 'tool-1',
+      name: 'read',
+      timestamp: 200,
+      executionStartedAt: 200
+    })
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED, {
+      toolCallId: 'tool-1',
+      result: 'file content',
+      cost: 8,
+      executionStartedAt: 200,
+      latencyCost: 108
+    })
   })
 
   it('serializes object tool results for persisted tool messages', async () => {

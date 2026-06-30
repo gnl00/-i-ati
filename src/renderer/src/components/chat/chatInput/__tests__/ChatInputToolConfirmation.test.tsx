@@ -17,6 +17,8 @@ const commandConfirmationProps: Array<{
   onConfirm: () => void | Promise<void>
   onCancel: () => void | Promise<void>
   disabled?: boolean
+  className?: string
+  animateOnMount?: boolean
 }> = []
 
 const invokeRunToolConfirm = vi.fn(async (_data: unknown) => ({ ok: true }))
@@ -161,6 +163,41 @@ describe('ChatInputToolConfirmation', () => {
     })
     expect(commandConfirmationProps[0].request.command).not.toContain('chat-1')
     expect(commandConfirmationProps[0].request.command).not.toContain('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+  })
+
+  it('keeps the confirmation height capped while delegating scroll to the card body', async () => {
+    useToolConfirmationStore.setState({
+      pendingRequests: [
+        {
+          toolCallId: 'call-long',
+          name: 'wiki_write',
+          args: {
+            name: 'long-entry',
+            content: 'x'.repeat(5000),
+            description: 'y'.repeat(3000)
+          }
+        }
+      ]
+    })
+
+    await act(async () => {
+      root.render(<ChatInputToolConfirmation className="pointer-events-auto px-0 pb-0" />)
+    })
+
+    const frame = container.querySelector('[data-testid="chat-input-tool-confirmation-frame"]')
+    const clip = container.querySelector('[data-testid="chat-input-tool-confirmation-clip"]')
+
+    expect(frame?.className).toContain('max-h-[clamp(168px,38vh,280px)]')
+    expect(frame?.className.split(' ')).toContain('shrink')
+    expect(frame?.className.split(' ')).toContain('pointer-events-auto')
+    expect(frame?.className.split(' ')).toContain('px-0')
+    expect(frame?.className.split(' ')).toContain('pb-0')
+    expect(frame?.className.split(' ')).not.toContain('px-2')
+    expect(frame?.className.split(' ')).not.toContain('pb-1')
+    expect(clip?.className).toContain('max-h-[clamp(168px,38vh,280px)]')
+    expect(commandConfirmationProps[0].className).toContain('max-h-[clamp(168px,38vh,280px)]')
+    expect(commandConfirmationProps[0].className).not.toContain('overflow-y-auto')
+    expect(commandConfirmationProps[0].animateOnMount).toBe(false)
   })
 
   it('confirms and cancels the active pending request', async () => {

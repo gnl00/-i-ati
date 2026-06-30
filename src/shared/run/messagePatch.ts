@@ -41,7 +41,9 @@ export function areSegmentsEquivalent(previous: MessageSegment, next: MessageSeg
         && previous.toolCallId === next.toolCallId
         && previous.toolCallIndex === next.toolCallIndex
         && previous.timestamp === next.timestamp
+        && previous.executionStartedAt === next.executionStartedAt
         && previous.cost === next.cost
+        && previous.latencyCost === next.latencyCost
         && previous.isError === next.isError
         && previous.content?.status === next.content?.status
         && previous.content?.args === next.content?.args

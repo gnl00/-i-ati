@@ -100,6 +100,7 @@ import {
   RUN_START,
   RUN_CANCEL,
   RUN_TOOL_CONFIRM,
+  RUN_PERMISSION_APPROVAL_MODE_UPDATE,
   RUN_EVENT,
   CONFIG_EVENT,
   PLUGIN_EVENT,
@@ -663,6 +664,14 @@ export async function invokeRunToolConfirm(data: {
 }): Promise<{ ok: boolean }> {
   const ipc = getElectronIPC()
   return await ipc.invoke(RUN_TOOL_CONFIRM, data)
+}
+
+export async function invokeRunPermissionApprovalModeUpdate(data: {
+  chatUuid: string
+  permissionApprovalMode: PermissionApprovalMode
+}): Promise<{ updated: boolean }> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(RUN_PERMISSION_APPROVAL_MODE_UPDATE, data)
 }
 
 type RunEventHandler = (event: RunEvent) => void

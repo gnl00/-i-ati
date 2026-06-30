@@ -32,7 +32,7 @@ const {
   })),
   updateChatMock: vi.fn(),
   updateMessageMock: vi.fn(),
-  generateTitleMock: vi.fn(async () => 'generated title'),
+  generateTitleMock: vi.fn(async () => ({ type: 'text', content: 'generated title' })),
   compressionExecuteMock: vi.fn(async () => ({ success: true }))
 }))
 
@@ -85,6 +85,10 @@ vi.mock('@main/agent/tools', () => ({
   ToolExecutor: class {
     execute = vi.fn(async () => [])
   }
+}))
+
+vi.mock('@main/agent', () => ({
+  agent: generateTitleMock
 }))
 
 vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
@@ -256,7 +260,7 @@ describe('RunService', () => {
     updateChatMock.mockReset()
     updateMessageMock.mockReset()
     generateTitleMock.mockReset()
-    generateTitleMock.mockResolvedValue('generated title')
+    generateTitleMock.mockResolvedValue({ type: 'text', content: 'generated title' })
     compressionExecuteMock.mockReset()
     compressionExecuteMock.mockResolvedValue({ success: true })
     ;(DatabaseService.getConfig as any).mockReturnValue({
@@ -339,7 +343,7 @@ describe('RunService', () => {
   })
 
   it('does not wait for post-run title or compression jobs before resolving execute', async () => {
-    const titleDeferred = createDeferred<string>()
+    const titleDeferred = createDeferred<any>()
     const compressionDeferred = createDeferred<any>()
     generateTitleMock.mockReturnValueOnce(titleDeferred.promise)
     compressionExecuteMock.mockReturnValueOnce(compressionDeferred.promise)
@@ -391,7 +395,7 @@ describe('RunService', () => {
       instance.emit.mock.calls.some(call => call[0] === RUN_EVENTS.RUN_COMPLETED)
     )).toBe(true)
 
-    titleDeferred.resolve('async title')
+    titleDeferred.resolve({ type: 'text', content: 'async title' })
     compressionDeferred.resolve({ success: true })
     await Promise.all([titleDeferred.promise, compressionDeferred.promise])
   })

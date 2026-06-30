@@ -30,6 +30,23 @@
   - 属于协议续上下文事实
   - 应该在 loop 中被整理后写入 `transcript/`
 
+### Tool timing 字段语义
+
+`ToolResultFact` 中的 timing 字段按执行边界拆分：
+
+- `cost`
+  - 表示实际 tool handler 执行耗时
+  - 起点是 `tool.execution_progress` 的 `started` 事件
+  - 终点是 completed / failed / aborted result 生成时间
+- `executionStartedAt`
+  - 表示实际执行开始的 runtime timestamp
+  - UI running duration 优先使用这个字段
+- `latencyCost`
+  - 表示模型开始输出该 tool call 到结果完成的端到端耗时
+  - 用于调试排队、确认等待、批量顺序执行等链路开销
+
+`tool_call_started` 仍用于预渲染和排序；`tool_call_ready` 仍是进入 batch 组装的执行触发事实。
+
 ## 这一层不负责什么
 
 - 不决定外部输出

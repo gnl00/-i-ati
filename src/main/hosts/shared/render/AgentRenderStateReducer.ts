@@ -22,7 +22,9 @@ const toToolCallState = (
     toolCallIndex: toolCall.index,
     name: toolCall.function.name,
     appearanceOrder: existing?.appearanceOrder,
+    executionStartedAt: existing?.executionStartedAt,
     cost: existing?.cost,
+    latencyCost: existing?.latencyCost,
     status: existing?.status ?? 'pending',
     result: existing?.result,
     error: existing?.error
@@ -352,6 +354,7 @@ export class AgentRenderStateReducer {
             toolCallId: event.toolCallId,
             toolCallIndex: event.toolCallIndex,
             name: event.toolName,
+            executionStartedAt: event.timestamp,
             status: 'running'
           })
           return this.snapshot()
@@ -525,7 +528,9 @@ export class AgentRenderStateReducer {
       toolCallIndex: result.toolCallIndex,
       name: result.toolName,
       status: toToolResultStatus(result),
-      cost: result.cost,
+      ...(result.executionStartedAt !== undefined ? { executionStartedAt: result.executionStartedAt } : {}),
+      ...(result.cost !== undefined ? { cost: result.cost } : {}),
+      ...(result.latencyCost !== undefined ? { latencyCost: result.latencyCost } : {}),
       result: result.content,
       error: result.error?.message
     })

@@ -125,6 +125,7 @@ src/main/
   - shell 层 run 生命周期协调器
   - 通过 `ChatAgentAdapter` 获取 chat-specific prepare/finalize 能力
   - 通过当前主 runtime 执行 run
+  - 持有 active run 的 mutable runtime context
 - [runtime/RunLifecycleEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunLifecycleEventMapper.ts)
   - run 生命周期事件发射
 - [runtime/RunFinalizer.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunFinalizer.ts)
@@ -144,6 +145,24 @@ src/main/
 - emitter / confirmation infrastructure
 
 所以 `chatRun` 当前更像 shell 层，而不是 chat adapter 本体。
+
+### Mutable runtime context
+
+`run:start` payload 和 `chat.ready` event 是启动时快照，用于 request 构造、事件追踪和日志解释。运行过程中可变的控制面配置放在 active `AgentRun` 持有的 mutable runtime context 中。
+
+当前 mutable runtime context 覆盖：
+
+- `permissionApprovalMode`
+
+Renderer 切换 permission mode 时会：
+
+1. 更新当前 chat store。
+2. 写入 `chats.permission_approval_mode`。
+3. 通过 `run:permission-approval-mode:update` 通知 main。
+4. `RunManager` 更新匹配 `chatUuid` 的 active run runtime context。
+5. `DefaultMainAgentRuntimeRunner` 在每批 tool call 执行前读取最新 `permissionApprovalMode`。
+
+当 mode 切到 `auto` 时，main 会释放当前 submission 已 pending 的 tool confirmation，避免运行中已经进入等待态的工具继续等到 timeout。事件流会追加 `run.permission_approval_mode.changed`，用于解释同一 submission 中不同 tool call 的确认策略变化。
 
 ## chatPostRun
 

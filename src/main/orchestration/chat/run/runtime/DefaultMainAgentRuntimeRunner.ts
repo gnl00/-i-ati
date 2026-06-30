@@ -1,4 +1,4 @@
-import { ToolExecutor } from '@main/agent/tools'
+import { ToolExecutor, type ToolExecutorConfig } from '@main/agent/tools'
 import type { ToolCallProps } from '@main/agent/contracts'
 import { DefaultAgentEventBus } from '@main/agent/runtime/events/AgentEventBus'
 import { DefaultAgentRuntime } from '@main/agent/runtime/AgentRuntime'
@@ -87,7 +87,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
             resolveConfirmationPolicy: () => ({ mode: 'not_required' })
           }
         ),
-        executeToolCalls: (calls) => this.executeToolCalls(calls, input),
+        executeToolCalls: (calls, context) => this.executeToolCalls(calls, input, context.onProgress),
         toolResultNormalizationScopeId: input.prepared.runSpec.runtimeContext.chatUuid,
         loadedSkillsTranscriptContextProvider: new ChatLoadedSkillsTranscriptContextProvider(
           input.prepared.runSpec.runtimeContext.chatId
@@ -112,8 +112,15 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
 
   private async executeToolCalls(
     calls: ToolCallProps[],
-    input: MainAgentRuntimeRunnerInput
+    input: MainAgentRuntimeRunnerInput,
+    onProgress?: ToolExecutorConfig['onProgress']
   ) {
+    const permissionApprovalMode = normalizePermissionApprovalMode(
+      input.runtimeContext?.getPermissionApprovalMode()
+        ?? input.runInput.input.permissionApprovalMode
+        ?? input.prepared.chatContext.chat.permissionApprovalMode
+    )
+
     const toolExecutor = new ToolExecutor({
       maxConcurrency: 3,
       signal: input.signal,
@@ -125,8 +132,9 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       },
       approvalPolicy: {
         mode: 'strict',
-        permissionApprovalMode: normalizePermissionApprovalMode(input.runInput.input.permissionApprovalMode)
+        permissionApprovalMode
       },
+      onProgress,
       requestConfirmation: (request) => input.toolConfirmationRequester.request(request)
     })
 

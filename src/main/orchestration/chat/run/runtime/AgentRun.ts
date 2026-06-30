@@ -9,7 +9,8 @@ import type { RunResult } from '@main/agent/contracts'
 import { RunLifecycleEventMapper } from './RunLifecycleEventMapper'
 import { RunFinalizer } from './RunFinalizer'
 import { serializeError } from '@main/utils/serializeError'
-import type { MainAgentRuntimeRunner } from './MainAgentRuntimeRunner'
+import { normalizePermissionApprovalMode, type PermissionApprovalMode } from '@tools/approval'
+import type { MainAgentRuntimeContext, MainAgentRuntimeRunner } from './MainAgentRuntimeRunner'
 
 export type AgentRunServices = {
   mainAgentRuntimeRunner: MainAgentRuntimeRunner
@@ -25,11 +26,12 @@ export type AgentRunRuntime = {
 
 export class AgentRun {
   readonly submissionId: string
-  readonly chatUuid?: string
+  chatUuid?: string
   readonly controller = new AbortController()
   readonly emitter: RunEventEmitter
   private readonly lifecycle: RunLifecycleEventMapper
   private readonly outcomeHandler = new RunFinalizer()
+  private readonly runtimeContext: MainAgentRuntimeContext
 
   constructor(
     private readonly input: MainAgentRunInput,
@@ -40,6 +42,15 @@ export class AgentRun {
     this.chatUuid = input.chatUuid
     this.emitter = runtime.emitter
     this.lifecycle = new RunLifecycleEventMapper(runtime.emitter)
+    let permissionApprovalMode = input.input.permissionApprovalMode
+      ? normalizePermissionApprovalMode(input.input.permissionApprovalMode)
+      : undefined
+    this.runtimeContext = {
+      getPermissionApprovalMode: () => permissionApprovalMode,
+      setPermissionApprovalMode: (mode) => {
+        permissionApprovalMode = mode ? normalizePermissionApprovalMode(mode) : undefined
+      }
+    }
   }
 
   emitAccepted(): void {
@@ -50,6 +61,12 @@ export class AgentRun {
     if (!this.controller.signal.aborted) {
       this.controller.abort()
     }
+  }
+
+  setPermissionApprovalMode(mode: PermissionApprovalMode): void {
+    const nextMode = normalizePermissionApprovalMode(mode)
+    this.runtimeContext.setPermissionApprovalMode(nextMode)
+    this.lifecycle.emitPermissionApprovalModeChanged(nextMode)
   }
 
   async run(): Promise<RunResult> {
@@ -63,10 +80,12 @@ export class AgentRun {
         chatId: runSpec.runtimeContext.chatId,
         chatUuid: runSpec.runtimeContext.chatUuid
       })
+      this.chatUuid = runSpec.runtimeContext.chatUuid
 
       const runResult = await this.services.mainAgentRuntimeRunner.run({
         runInput: this.input,
         prepared: { runSpec, chatContext },
+        runtimeContext: this.runtimeContext,
         emitter: this.emitter,
         hostRenderSinks: this.runtime.hostRenderSinks,
         signal: this.controller.signal,

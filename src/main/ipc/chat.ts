@@ -28,9 +28,11 @@ import {
   RUN_START,
   RUN_CANCEL,
   RUN_TOOL_CONFIRM,
+  RUN_PERMISSION_APPROVAL_MODE_UPDATE,
   RUN_COMPRESSION_EXECUTE,
   RUN_TITLE_GENERATE
 } from '@shared/constants'
+import { normalizePermissionApprovalMode, type PermissionApprovalMode } from '@tools/approval'
 
 const runService = new RunService()
 const logger = createLogger('DatabaseIPC')
@@ -100,6 +102,17 @@ export function registerChatHandlers(): void {
     return { ok: true }
   }
 
+  const handleRunPermissionApprovalModeUpdate = async (
+    _event: Electron.IpcMainInvokeEvent,
+    data: { chatUuid: string; permissionApprovalMode: PermissionApprovalMode }
+  ) => {
+    const updated = runService.updatePermissionApprovalModeForChat(
+      data.chatUuid,
+      normalizePermissionApprovalMode(data.permissionApprovalMode)
+    )
+    return { updated }
+  }
+
   ipcMain.handle(DB_CHAT_SAVE, async (_event, data) => {
     logger.info('chat.save')
     return DatabaseService.saveChat(data)
@@ -156,6 +169,8 @@ export function registerChatHandlers(): void {
 
   ipcMain.handle(RUN_TOOL_CONFIRM, handleRunToolConfirm)
   ipcMain.handle(LEGACY_RUN_TOOL_CONFIRM, handleRunToolConfirm)
+
+  ipcMain.handle(RUN_PERMISSION_APPROVAL_MODE_UPDATE, handleRunPermissionApprovalModeUpdate)
 
   ipcMain.handle(RUN_COMPRESSION_EXECUTE, async (_event, data: CompressionExecutionInput) => {
     console.log('[Compression IPC] Execute')

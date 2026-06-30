@@ -1,4 +1,5 @@
 import { updateChat } from '@renderer/db/ChatRepository'
+import { invokeRunPermissionApprovalModeUpdate } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { getChatFromList } from '@renderer/utils/chatWorkspace'
 import {
@@ -211,6 +212,12 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
 
       await updateChat(updatedChat)
       get().updateChatList(updatedChat)
+      if (updatedChat.uuid) {
+        await invokeRunPermissionApprovalModeUpdate({
+          chatUuid: updatedChat.uuid,
+          permissionApprovalMode: nextMode
+        })
+      }
     },
 
     updateWorkspacePath: async (workspacePath) => {
