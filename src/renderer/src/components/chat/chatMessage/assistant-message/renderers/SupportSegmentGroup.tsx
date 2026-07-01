@@ -1,4 +1,5 @@
 import { cn } from '@renderer/lib/utils'
+import { AnimatePresence, motion, useReducedMotion, type Transition } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { Check, ChevronDown, ChevronUp, Lightbulb, Loader2, Wrench, X } from 'lucide-react'
 import React, { memo, useEffect, useMemo, useState } from 'react'
@@ -32,6 +33,7 @@ type ReasoningRenderItem = SupportSegmentRenderItem & {
 
 export interface SupportSegmentGroupProps {
   items: SupportSegmentRenderItem[]
+  forceReducedMotion?: boolean
 }
 
 interface SupportSegmentGroupExpansionPolicy {
@@ -69,6 +71,11 @@ interface ToolPhaseMetrics {
   totalDurationMs: number
 }
 
+const supportSegmentAppendTransition: Transition = {
+  duration: 0.2,
+  ease: [0.22, 1, 0.36, 1]
+}
+
 const baseRowButtonClassName = cn(
   'group flex w-full cursor-pointer justify-start rounded-lg border border-transparent px-1 py-0.5 text-left outline-hidden',
   'transition-[background-color,border-color] duration-150',
@@ -90,8 +97,7 @@ const getPhaseKey = (
   items: SupportSegmentRenderItem[]
 ): string => {
   const firstItem = items[0]
-  const lastItem = items[items.length - 1]
-  return `${kind}:${firstItem.key}:${lastItem.key}:${items.length}`
+  return `${kind}:${firstItem.key}`
 }
 
 export const projectSupportSegmentPhases = (
@@ -272,7 +278,7 @@ const getSupportSegmentGroupExpansionPolicy = (
 }
 
 const getSupportSegmentGroupIdentity = (items: SupportSegmentRenderItem[]): string => (
-  items.map(item => item.key).join('\u001f')
+  items[0] ? `${items[0].layer}:${items[0].key}:${items[0].order}` : 'empty'
 )
 
 const getSupportSegmentGroupStatusSignature = (items: SupportSegmentRenderItem[]): string => (
@@ -509,10 +515,12 @@ const getThoughtPhaseDurationText = (
 
 const SupportThoughtPhase = memo(({
   phase,
-  liveNow
+  liveNow,
+  shouldReduceMotion
 }: {
   phase: ThoughtSupportSegmentPhase
   liveNow: number
+  shouldReduceMotion: boolean
 }) => {
   const isThinking = phase.items.some(item => item.isStreamingTail)
   const durationText = getThoughtPhaseDurationText(phase.items, liveNow)
@@ -541,13 +549,23 @@ const SupportThoughtPhase = memo(({
         ) : null}
       </div>
       <div className="mt-0.5 flex flex-col gap-0.5">
-        {phase.items.map(item => (
-          <SupportReasoningGroupRow
-            key={item.key}
-            item={item}
-            variant="preview"
-          />
-        ))}
+        <AnimatePresence initial={false}>
+          {phase.items.map(item => (
+            <motion.div
+              key={item.key}
+              layout={shouldReduceMotion ? false : 'position'}
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 4, scale: 0.995 }}
+              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2, scale: 0.998 }}
+              transition={supportSegmentAppendTransition}
+            >
+              <SupportReasoningGroupRow
+                item={item}
+                variant="preview"
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </section>
   )
@@ -559,18 +577,18 @@ const SupportToolPhaseTimelineRow = memo(({
   item,
   isFirst,
   isLast,
-  showConnector
+  showTimeline
 }: {
   item: ToolCallRenderItem
   isFirst: boolean
   isLast: boolean
-  showConnector: boolean
+  showTimeline: boolean
 }) => (
   <div
-    data-testid={`support-segment-tool-timeline-row-${item.segment.segmentId}`}
-    className="relative pl-3"
+    data-testid={showTimeline ? `support-segment-tool-timeline-row-${item.segment.segmentId}` : undefined}
+    className={cn('relative', showTimeline && 'pl-3')}
   >
-    {showConnector ? (
+    {showTimeline ? (
       <span
         aria-hidden="true"
         className={cn(
@@ -580,16 +598,18 @@ const SupportToolPhaseTimelineRow = memo(({
         )}
       />
     ) : null}
-    <span
-      aria-hidden="true"
-      className="absolute left-0 top-2.5 h-1.5 w-1.5 rounded-full border border-slate-300/75 bg-white dark:border-slate-700/80 dark:bg-slate-950"
-    />
+    {showTimeline ? (
+      <span
+        aria-hidden="true"
+        className="absolute left-0 top-2.5 h-1.5 w-1.5 rounded-full border border-slate-300/75 bg-white dark:border-slate-700/80 dark:bg-slate-950"
+      />
+    ) : null}
     <SupportToolCallGroupRow item={item} />
   </div>
 ), (prevProps, nextProps) => (
   prevProps.isFirst === nextProps.isFirst
     && prevProps.isLast === nextProps.isLast
-    && prevProps.showConnector === nextProps.showConnector
+    && prevProps.showTimeline === nextProps.showTimeline
     && areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item)
 ))
 
@@ -597,16 +617,18 @@ SupportToolPhaseTimelineRow.displayName = 'SupportToolPhaseTimelineRow'
 
 const SupportToolPhase = memo(({
   phase,
-  liveNow
+  liveNow,
+  shouldReduceMotion
 }: {
   phase: ToolSupportSegmentPhase
   liveNow: number
+  shouldReduceMotion: boolean
 }) => {
   const metrics = getToolPhaseMetrics(phase.items, liveNow)
   const totalDurationText = formatCompactDurationText(metrics.totalDurationMs)
-  const firstToolItem = phase.items[0]
+  const hasMultipleTools = phase.items.length > 1
 
-  if (!firstToolItem) {
+  if (phase.items.length === 0) {
     return null
   }
 
@@ -627,7 +649,7 @@ const SupportToolPhase = memo(({
           density="compact"
           hoverResponse="none"
         />
-        {phase.items.length > 1 ? (
+        {hasMultipleTools ? (
           <div className="flex min-w-0 flex-wrap items-center gap-1">
             <SupportPhaseMetricChip>
               {metrics.successCount}/{phase.items.length} success
@@ -638,26 +660,33 @@ const SupportToolPhase = memo(({
           </div>
         ) : null}
       </div>
-      {phase.items.length === 1 ? (
-        <div className="mt-0.5">
-          <SupportToolCallGroupRow item={firstToolItem} />
-        </div>
-      ) : (
-        <div
-          data-testid="support-segment-tool-timeline"
-          className="mt-1 flex flex-col gap-1.5"
-        >
+      <div
+        data-testid={hasMultipleTools ? 'support-segment-tool-timeline' : undefined}
+        className={cn(
+          'mt-0.5 flex flex-col',
+          hasMultipleTools ? 'gap-1.5' : 'gap-0.5'
+        )}
+      >
+        <AnimatePresence initial={false}>
           {phase.items.map((item, index) => (
-            <SupportToolPhaseTimelineRow
+            <motion.div
               key={item.key}
-              item={item}
-              isFirst={index === 0}
-              isLast={index === phase.items.length - 1}
-              showConnector={true}
-            />
+              layout={shouldReduceMotion ? false : 'position'}
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 4, scale: 0.995 }}
+              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2, scale: 0.998 }}
+              transition={supportSegmentAppendTransition}
+            >
+              <SupportToolPhaseTimelineRow
+                item={item}
+                isFirst={index === 0}
+                isLast={index === phase.items.length - 1}
+                showTimeline={hasMultipleTools}
+              />
+            </motion.div>
           ))}
-        </div>
-      )}
+        </AnimatePresence>
+      </div>
     </section>
   )
 })
@@ -666,17 +695,19 @@ SupportToolPhase.displayName = 'SupportToolPhase'
 
 const SupportSegmentPhaseView = memo(({
   phase,
-  liveNow
+  liveNow,
+  shouldReduceMotion
 }: {
   phase: SupportSegmentPhase
   liveNow: number
+  shouldReduceMotion: boolean
 }) => {
   if (phase.kind === 'thoughtPhase') {
-    return <SupportThoughtPhase phase={phase} liveNow={liveNow} />
+    return <SupportThoughtPhase phase={phase} liveNow={liveNow} shouldReduceMotion={shouldReduceMotion} />
   }
 
   if (phase.kind === 'toolPhase') {
-    return <SupportToolPhase phase={phase} liveNow={liveNow} />
+    return <SupportToolPhase phase={phase} liveNow={liveNow} shouldReduceMotion={shouldReduceMotion} />
   }
 
   return <SupportSegmentGroupRow item={phase.item} />
@@ -832,7 +863,8 @@ const SupportSegmentCollapsedSummaryRow = memo(({
 
 SupportSegmentCollapsedSummaryRow.displayName = 'SupportSegmentCollapsedSummaryRow'
 
-const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ items }) => {
+const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ items, forceReducedMotion = false }) => {
+  const shouldReduceMotion = forceReducedMotion || Boolean(useReducedMotion())
   const groupIdentity = useMemo(() => getSupportSegmentGroupIdentity(items), [items])
   const groupStatusSignature = useMemo(() => getSupportSegmentGroupStatusSignature(items), [items])
   const expansionPolicy = useMemo(() => getSupportSegmentGroupExpansionPolicy(items), [items])
@@ -913,55 +945,59 @@ const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ item
     setIsExpanded(false)
   }
 
-  return (
-    <div
-      data-testid="support-segment-group"
-      className="my-1 flex w-full max-w-[680px] flex-col gap-0.5 rounded-lg border border-slate-200/48 bg-white/34 p-1 dark:border-slate-800/72 dark:bg-white/3 dark:shadow-black/20"
-    >
-      {shouldRenderCollapsed ? (
-        <>
-          {collapsedLeadingPhases.map(phase => (
-            <SupportSegmentPhaseView
-              key={phase.key}
-              phase={phase}
-              liveNow={liveNow}
-            />
-          ))}
-          <SupportSegmentCollapsedSummaryRow
-            hiddenItems={hiddenItems}
-            onExpand={onExpand}
-          />
-          {collapsedTrailingPhases.map(phase => (
-            <SupportSegmentPhaseView
-              key={phase.key}
-              phase={phase}
-              liveNow={liveNow}
-            />
-          ))}
-        </>
-      ) : (
-        <>
-          {phases.map(phase => (
-            <SupportSegmentPhaseView
-              key={phase.key}
-              phase={phase}
-              liveNow={liveNow}
-            />
-          ))}
-          {canCollapse ? (
-            <SupportSegmentGroupCollapseRow
-              onCollapse={onCollapse}
-            />
-          ) : null}
-        </>
-      )}
+  const renderPhase = (phase: SupportSegmentPhase) => (
+    <div key={phase.key}>
+      <SupportSegmentPhaseView
+        phase={phase}
+        liveNow={liveNow}
+        shouldReduceMotion={shouldReduceMotion}
+      />
     </div>
+  )
+
+  return (
+    <motion.div
+      data-testid="support-segment-group"
+      data-state={shouldRenderCollapsed ? 'collapsed' : 'expanded'}
+      layout={shouldReduceMotion ? false : 'size'}
+      className="my-1 flex w-full max-w-[680px] flex-col gap-0.5 overflow-hidden rounded-lg border border-slate-200/48 bg-white/34 p-1 dark:border-slate-800/72 dark:bg-white/3 dark:shadow-black/20"
+      transition={supportSegmentAppendTransition}
+    >
+      <div className="flex flex-col gap-0.5">
+        {shouldRenderCollapsed ? (
+          <>
+            {collapsedLeadingPhases.map(renderPhase)}
+            <div key="summary">
+              <SupportSegmentCollapsedSummaryRow
+                hiddenItems={hiddenItems}
+                onExpand={onExpand}
+              />
+            </div>
+            {collapsedTrailingPhases.map(renderPhase)}
+          </>
+        ) : (
+          <>
+            {phases.map(renderPhase)}
+            {canCollapse ? (
+              <div key="collapse">
+                <SupportSegmentGroupCollapseRow
+                  onCollapse={onCollapse}
+                />
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </motion.div>
   )
 }
 
 export const SupportSegmentGroup = memo(
   SupportSegmentGroupComponent,
-  (prevProps, nextProps) => areSupportSegmentRenderItemListsEqual(prevProps.items, nextProps.items)
+  (prevProps, nextProps) => (
+    prevProps.forceReducedMotion === nextProps.forceReducedMotion
+      && areSupportSegmentRenderItemListsEqual(prevProps.items, nextProps.items)
+  )
 )
 
 SupportSegmentGroup.displayName = 'SupportSegmentGroup'

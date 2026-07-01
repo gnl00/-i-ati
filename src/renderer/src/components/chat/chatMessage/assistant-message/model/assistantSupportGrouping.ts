@@ -14,6 +14,10 @@ export type SupportRenderUnit =
       items: SupportSegmentRenderItem[]
     }
 
+export interface BuildSupportRenderUnitsOptions {
+  groupSingletons?: boolean
+}
+
 const isGroupableSupportItem = (item: SupportSegmentRenderItem): boolean => (
   item.segment.type === 'toolCall' || item.segment.type === 'reasoning'
 )
@@ -43,7 +47,8 @@ const toSupportGroupUnit = (items: SupportSegmentRenderItem[]): SupportRenderUni
 })
 
 export function buildSupportRenderUnits(
-  items: SupportSegmentRenderItem[]
+  items: SupportSegmentRenderItem[],
+  options: BuildSupportRenderUnitsOptions = {}
 ): SupportRenderUnit[] {
   const units: SupportRenderUnit[] = []
   let index = 0
@@ -65,7 +70,11 @@ export function buildSupportRenderUnits(
       cursor += 1
     }
 
-    units.push(groupItems.length > 1 ? toSupportGroupUnit(groupItems) : toSingleUnit(first))
+    units.push(
+      groupItems.length > 1 || options.groupSingletons
+        ? toSupportGroupUnit(groupItems)
+        : toSingleUnit(first)
+    )
     index = cursor
   }
 

@@ -332,6 +332,72 @@ describe('mapAssistantMessage', () => {
     ).toEqual(['tool-1', 'tool-2', 'tool-3'])
   })
 
+  it('wraps latest streaming singleton support items in a stable support group', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      },
+      previewMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'streaming-tool',
+            name: 'read',
+            toolCallId: 'streaming-tool',
+            status: 'running'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: true,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits).toHaveLength(1)
+    expect(renderState.transcript.supportUnits[0]).toMatchObject({
+      type: 'supportGroup',
+      key: 'support-group:preview-streaming-tool-0',
+      order: 0
+    })
+    expect(renderState.transcript.supportUnits[0].type === 'supportGroup'
+      ? renderState.transcript.supportUnits[0].items.map(item => item.segment.segmentId)
+      : []
+    ).toEqual(['streaming-tool'])
+  })
+
+  it('keeps settled singleton support items as single render units', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'settled-tool',
+            name: 'read',
+            toolCallId: 'settled-tool'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits).toHaveLength(1)
+    expect(renderState.transcript.supportUnits[0]).toMatchObject({
+      type: 'single',
+      key: 'committed-settled-tool-0',
+      order: 0
+    })
+  })
+
   it('groups tool, reasoning, and tool into one support render unit', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
@@ -428,7 +494,7 @@ describe('mapAssistantMessage', () => {
     expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['single', 'single'])
   })
 
-  it('keeps layer changes as support group boundaries', () => {
+  it('keeps layer changes as support group boundaries during streaming', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -467,7 +533,13 @@ describe('mapAssistantMessage', () => {
       { id: 'committed-tool', layer: 'committed', order: 0 },
       { id: 'preview-tool', layer: 'preview', order: 1 }
     ])
-    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['single', 'single'])
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['supportGroup', 'supportGroup'])
+    expect(renderState.transcript.supportUnits.map(unit => (
+      unit.type === 'supportGroup' ? unit.items.map(item => item.segment.segmentId) : []
+    ))).toEqual([
+      ['committed-tool'],
+      ['preview-tool']
+    ])
   })
 
   it('keeps errors as support group boundaries', () => {

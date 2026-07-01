@@ -2,9 +2,34 @@
 
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
+
+vi.mock('framer-motion', async () => {
+  const React = await import('react')
+
+  const passthrough = (tag: string) => (
+    React.forwardRef<HTMLElement, Record<string, unknown> & { children?: React.ReactNode }>(({
+      children,
+      animate: _animate,
+      exit: _exit,
+      initial: _initial,
+      layout: _layout,
+      transition: _transition,
+      ...props
+    }, ref) => React.createElement(tag, { ...props, ref } as any, children as React.ReactNode))
+  )
+
+  return {
+    AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+    motion: {
+      div: passthrough('div')
+    },
+    useReducedMotion: () => false
+  }
+})
+
 import {
   projectSupportSegmentPhases,
   SupportSegmentGroup
@@ -113,6 +138,21 @@ describe('SupportSegmentGroup', () => {
     ])
   })
 
+  it('keeps phase keys anchored to the first item while appending to a phase', () => {
+    const initialPhases = projectSupportSegmentPhases([
+      toolCallItem({ id: 'tool-1', order: 0 }),
+      toolCallItem({ id: 'tool-2', order: 1 })
+    ])
+    const appendedPhases = projectSupportSegmentPhases([
+      toolCallItem({ id: 'tool-1', order: 0 }),
+      toolCallItem({ id: 'tool-2', order: 1 }),
+      toolCallItem({ id: 'tool-3', order: 2 })
+    ])
+
+    expect(initialPhases[0]?.key).toBe('toolPhase:tool-1')
+    expect(appendedPhases[0]?.key).toBe(initialPhases[0]?.key)
+  })
+
   it('collapses completed groups longer than three items into first, summary, and last rows', async () => {
     await act(async () => {
       root.render(<SupportSegmentGroup items={mixedItems()} />)
@@ -120,6 +160,8 @@ describe('SupportSegmentGroup', () => {
 
     expect(container.querySelector('[data-testid="support-segment-group"]')).toBeTruthy()
     expect(container.querySelector('[data-testid="support-segment-group"]')?.className).toContain('max-w-[680px]')
+    expect(container.querySelector('[data-testid="support-segment-group"]')?.className).toContain('overflow-hidden')
+    expect(container.querySelector('[data-testid="support-segment-group"]')?.getAttribute('data-state')).toBe('collapsed')
     expect(row(container, 'tool-1')).toBeTruthy()
     expect(row(container, 'tool-3')).toBeTruthy()
     expect(row(container, 'thought-1')).toBeNull()
@@ -130,6 +172,52 @@ describe('SupportSegmentGroup', () => {
     expect(container.querySelector('[data-testid="support-segment-summary-row"]')?.textContent).toContain('2 thoughts')
     expect(container.querySelectorAll('[data-testid="support-segment-phase-tool"]')).toHaveLength(2)
     expect(container.querySelector('[data-testid="support-segment-summary-footer"]')).toBeNull()
+  })
+
+  it('auto-collapses forced expanded groups after running and pending tools settle', async () => {
+    const runningItems = [
+      toolCallItem({ id: 'tool-1', order: 0 }),
+      reasoningItem({ id: 'thought-1', order: 1 }),
+      toolCallItem({ id: 'tool-2', order: 2, status: 'running' }),
+      reasoningItem({ id: 'thought-2', order: 3 }),
+      toolCallItem({ id: 'tool-3', order: 4, status: 'pending' })
+    ]
+    const completedItems = [
+      toolCallItem({ id: 'tool-1', order: 0 }),
+      reasoningItem({ id: 'thought-1', order: 1 }),
+      toolCallItem({ id: 'tool-2', order: 2 }),
+      reasoningItem({ id: 'thought-2', order: 3 }),
+      toolCallItem({ id: 'tool-3', order: 4 })
+    ]
+
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={runningItems} />)
+    })
+
+    const groupShell = container.querySelector('[data-testid="support-segment-group"]')
+    expect(groupShell?.getAttribute('data-state')).toBe('expanded')
+    expect(container.querySelector('[data-testid="support-segment-summary-row"]')).toBeNull()
+    expect(row(container, 'tool-1')).toBeTruthy()
+    expect(row(container, 'thought-1')).toBeTruthy()
+    expect(row(container, 'tool-2')).toBeTruthy()
+    expect(row(container, 'thought-2')).toBeTruthy()
+    expect(row(container, 'tool-3')).toBeTruthy()
+
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={completedItems} />)
+    })
+
+    const summaryRow = container.querySelector('[data-testid="support-segment-summary-row"]')
+    expect(container.querySelector('[data-testid="support-segment-group"]')).toBe(groupShell)
+    expect(container.querySelector('[data-testid="support-segment-group"]')?.getAttribute('data-state')).toBe('collapsed')
+    expect(summaryRow?.textContent).toContain('+3 hidden')
+    expect(summaryRow?.textContent).toContain('1 tool')
+    expect(summaryRow?.textContent).toContain('2 thoughts')
+    expect(row(container, 'tool-1')).toBeTruthy()
+    expect(row(container, 'tool-3')).toBeTruthy()
+    expect(row(container, 'thought-1')).toBeNull()
+    expect(row(container, 'tool-2')).toBeNull()
+    expect(row(container, 'thought-2')).toBeNull()
   })
 
   it('expands collapsed groups from the summary row', async () => {
@@ -168,6 +256,36 @@ describe('SupportSegmentGroup', () => {
     expect(row(container, 'thought-1')).toBeNull()
     expect(row(container, 'tool-2')).toBeNull()
     expect(row(container, 'thought-2')).toBeNull()
+  })
+
+  it('keeps user expansion when appending a completed support item', async () => {
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={mixedItems()} />)
+    })
+
+    const summaryRow = container.querySelector<HTMLButtonElement>('[data-testid="support-segment-summary-row"]')
+    expect(summaryRow).toBeTruthy()
+
+    await act(async () => {
+      summaryRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const groupShell = container.querySelector('[data-testid="support-segment-group"]')
+    expect(row(container, 'thought-1')).toBeTruthy()
+    expect(row(container, 'tool-2')).toBeTruthy()
+
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={[
+        ...mixedItems(),
+        toolCallItem({ id: 'tool-4', name: 'verify', order: 5 })
+      ]} />)
+    })
+
+    expect(container.querySelector('[data-testid="support-segment-group"]')).toBe(groupShell)
+    expect(container.querySelector('[data-testid="support-segment-summary-row"]')).toBeNull()
+    expect(row(container, 'thought-1')).toBeTruthy()
+    expect(row(container, 'tool-2')).toBeTruthy()
+    expect(row(container, 'tool-4')).toBeTruthy()
   })
 
   it('renders thought and tool phases with compact metrics and timeline rows', async () => {
@@ -257,6 +375,33 @@ describe('SupportSegmentGroup', () => {
       expect(phase.textContent).not.toContain('/1 success')
       expect(phase.textContent).not.toContain('total')
     })
+  })
+
+  it('keeps the first tool row mounted when a second tool appends to the phase', async () => {
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={[
+        toolCallItem({ id: 'tool-1', name: 'read', order: 0 })
+      ]} />)
+    })
+
+    const groupShell = container.querySelector('[data-testid="support-segment-group"]')
+    const firstToolRow = row(container, 'tool-1')
+
+    expect(firstToolRow).toBeTruthy()
+    expect(container.querySelectorAll('[data-testid^="support-segment-tool-timeline-row-"]')).toHaveLength(0)
+
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={[
+        toolCallItem({ id: 'tool-1', name: 'read', order: 0 }),
+        toolCallItem({ id: 'tool-2', name: 'grep', order: 1 })
+      ]} />)
+    })
+
+    expect(container.querySelector('[data-testid="support-segment-group"]')).toBe(groupShell)
+    expect(row(container, 'tool-1')).toBe(firstToolRow)
+    expect(row(container, 'tool-2')).toBeTruthy()
+    expect(container.querySelectorAll('[data-testid^="support-segment-tool-timeline-row-"]')).toHaveLength(2)
+    expect(container.querySelector('[data-testid="support-segment-phase-tool"]')?.textContent).toContain('2 calls')
   })
 
   it('renders tool call reasons in grouped tool rows', async () => {
