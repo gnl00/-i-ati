@@ -1,165 +1,53 @@
 import { describe, expect, it } from 'vitest'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
-import {
-  buildActiveToolCallReason,
-  buildToolCallReasonItem,
-  buildToolCallReasonModel
-} from '../model/toolCallReason'
-import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
+import { getReasonFromToolCall } from '../model/toolCallReason'
 
-const toolCallItem = (args: {
-  id: string
-  name: string
-  order: number
-  reason?: string
-  status?: string
-  cost?: number
-  result?: unknown
-}): SupportSegmentRenderItem => ({
-  key: args.id,
-  layer: 'committed',
-  sourceIndex: args.order,
-  order: args.order,
-  isStreamingTail: false,
-  segment: {
-    type: 'toolCall',
-    segmentId: `segment-${args.id}`,
-    name: args.name,
-    timestamp: 1,
-    toolCallId: args.id,
-    toolCallIndex: args.order,
-    cost: args.cost,
-    content: {
-      toolName: args.name,
-      args: JSON.stringify({
-        input: 'value',
-        ...(args.reason ? { [TOOL_CALL_REASON_PARAMETER_NAME]: args.reason } : {})
-      }),
-      status: args.status ?? 'pending',
-      ...(args.result !== undefined ? { result: args.result } : {})
-    }
+const toolCallSegment = (args: {
+  id?: string
+  name?: string
+  args?: unknown
+}): ToolCallSegment => ({
+  type: 'toolCall',
+  segmentId: args.id ?? 'segment-tool-1',
+  name: args.name ?? 'read',
+  timestamp: 1,
+  toolCallId: args.id ?? 'tool-1',
+  toolCallIndex: 0,
+  content: {
+    toolName: args.name ?? 'read',
+    status: 'pending',
+    args: args.args
   }
 })
 
 describe('toolCallReason', () => {
-  it('builds a single reason item from a tool call segment', () => {
-    expect(buildToolCallReasonItem(toolCallItem({
-      id: 'tool-1',
-      name: 'read',
-      order: 1,
-      reason: 'Inspect the current layout implementation.'
-    }))).toEqual({
-      id: 'tool-1',
-      toolName: 'read',
-      reason: 'Inspect the current layout implementation.',
-      order: 1,
-      isTerminal: false
-    })
-  })
-
-  it('extracts explicit tool_call_reason values from tool call segments in order', () => {
-    const model = buildToolCallReasonModel([
-      toolCallItem({
-        id: 'tool-2',
-        name: 'grep',
-        order: 2,
-        reason: 'Find the definition before reading surrounding code.'
-      }),
-      toolCallItem({
-        id: 'tool-1',
-        name: 'read',
-        order: 1,
-        reason: 'Inspect the current layout implementation.'
-      }),
-      toolCallItem({
-        id: 'tool-3',
-        name: 'ls',
-        order: 3
-      })
-    ])
-
-    expect(model.items).toEqual([
-      {
-        id: 'tool-1',
-        toolName: 'read',
-        reason: 'Inspect the current layout implementation.',
-        order: 1,
-        isTerminal: false
-      },
-      {
-        id: 'tool-2',
-        toolName: 'grep',
-        reason: 'Find the definition before reading surrounding code.',
-        order: 2,
-        isTerminal: false
+  it('extracts reason values from object args', () => {
+    expect(getReasonFromToolCall(toolCallSegment({
+      args: {
+        input: 'value',
+        [TOOL_CALL_REASON_PARAMETER_NAME]: 'Inspect the current layout implementation.'
       }
-    ])
+    }))).toBe('Inspect the current layout implementation.')
   })
 
-  it('selects the earliest non-terminal reason and hides it after all tool calls complete', () => {
-    expect(buildActiveToolCallReason([
-      toolCallItem({
-        id: 'tool-1',
-        name: 'read',
-        order: 1,
-        reason: 'Read the file first.',
-        status: 'success',
-        result: { ok: true }
-      }),
-      toolCallItem({
-        id: 'tool-2',
-        name: 'search',
-        order: 2,
-        reason: 'Search after reading.',
-        status: 'running'
-      }),
-      toolCallItem({
-        id: 'tool-3',
-        name: 'shell',
-        order: 3,
-        reason: 'Typecheck at the end.',
-        status: 'pending'
-      })
-    ])?.id).toBe('tool-2')
-
-    expect(buildActiveToolCallReason([
-      toolCallItem({
-        id: 'tool-1',
-        name: 'read',
-        order: 1,
-        reason: 'Read the file first.',
-        status: 'success',
-        result: { ok: true }
-      }),
-      toolCallItem({
-        id: 'tool-2',
-        name: 'search',
-        order: 2,
-        reason: 'Search after reading.',
-        status: 'success',
-        result: { ok: true }
-      })
-    ])).toBeUndefined()
-  })
-
-  it('extracts escaped tool_call_reason values without parsing the full args payload', () => {
-    const baseItem = toolCallItem({
-      id: 'tool-1',
+  it('extracts reason values from JSON string args without parsing the full payload', () => {
+    expect(getReasonFromToolCall(toolCallSegment({
       name: 'write',
-      order: 1
-    })
-    const baseSegment = baseItem.segment as ToolCallSegment
+      args: '{"content":"large unfinished payload","tool_call_reason":"Write \\"quoted\\" content before running tests.","path":"src/file.ts"}'
+    }))).toBe('Write "quoted" content before running tests.')
+  })
 
-    expect(buildToolCallReasonItem({
-      ...baseItem,
-      segment: {
-        ...baseSegment,
-        content: {
-          toolName: 'write',
-          args: '{"content":"large unfinished payload","tool_call_reason":"Write \\"quoted\\" content before running tests.","path":"src/file.ts"}',
-          status: 'pending'
-        }
+  it('returns undefined for blank or missing reason values', () => {
+    expect(getReasonFromToolCall(toolCallSegment({
+      args: {
+        input: 'value'
       }
-    })?.reason).toBe('Write "quoted" content before running tests.')
+    }))).toBeUndefined()
+
+    expect(getReasonFromToolCall(toolCallSegment({
+      args: {
+        [TOOL_CALL_REASON_PARAMETER_NAME]: '   '
+      }
+    }))).toBeUndefined()
   })
 })

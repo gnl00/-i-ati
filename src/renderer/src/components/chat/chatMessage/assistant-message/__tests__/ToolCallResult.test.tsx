@@ -181,6 +181,10 @@ function getTrigger(container: HTMLElement, name = 'search'): HTMLButtonElement 
   return trigger as HTMLButtonElement
 }
 
+function countTextOccurrences(source: string, text: string): number {
+  return source.split(text).length - 1
+}
+
 async function openToolCall(container: HTMLElement, name = 'search') {
   const trigger = getTrigger(container, name)
   await act(async () => {
@@ -360,25 +364,81 @@ describe('ToolCallResult cost display', () => {
     expect(container.textContent).toContain('2.200s')
   })
 
-  it('keeps tool_call_reason out of the summary parameters', async () => {
+  it('shows tool_call_reason in the trigger and keeps it out of summary parameters', async () => {
+    const reason = 'Explain why search is needed before fetching live data.'
+
     await act(async () => {
       root.render(
         <ToolCallResult
           toolCall={createToolCallSegment('completed', 1680, {
             query: 'latest status',
-            [TOOL_CALL_REASON_PARAMETER_NAME]: 'Explain why search is needed before fetching live data.'
+            [TOOL_CALL_REASON_PARAMETER_NAME]: reason
           })}
           index={0}
         />
       )
     })
 
+    expect(container.textContent).toContain(reason)
+    const triggerContent = container.querySelector('[data-testid="tool-call-trigger-content-committed:step-1:tool:tool-1"]')
+    const triggerReason = container.querySelector('[data-testid="tool-call-trigger-reason-committed:step-1:tool:tool-1"]')
+    const triggerDuration = container.querySelector('[data-testid="tool-call-trigger-duration-committed:step-1:tool:tool-1"]')
+
+    expect(triggerContent?.className).toContain('grid-cols-[auto_minmax(0,1fr)_auto]')
+    expect(triggerReason?.textContent).toBe(reason)
+    expect(triggerReason?.className).toContain('truncate')
+    expect(triggerReason?.className).toContain('text-slate-500')
+    expect(triggerDuration?.className).toContain('justify-self-end')
+
     await openToolCall(container)
 
     expect(document.body.textContent).toContain('latest status')
     expect(document.body.textContent).not.toContain(TOOL_CALL_REASON_PARAMETER_NAME)
-    expect(document.body.textContent).not.toContain('Explain why search is needed')
+    expect(countTextOccurrences(document.body.textContent ?? '', reason)).toBe(1)
     expect(container.textContent).not.toContain('latest status')
+
+    const responseButton = Array.from(document.body.querySelectorAll('button'))
+      .find((button) => button.textContent === 'Response')
+    await act(async () => {
+      responseButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(document.body.textContent).toContain('latest status')
+    expect(document.body.textContent).not.toContain(TOOL_CALL_REASON_PARAMETER_NAME)
+    expect(countTextOccurrences(document.body.textContent ?? '', reason)).toBe(1)
+  })
+
+  it('updates the pending trigger reason when streamed args add it', async () => {
+    const timestamp = Date.now()
+    const reason = 'Explain the pending search before execution starts.'
+
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createToolCallSegment('pending', undefined, {
+            query: 'latest status'
+          }, timestamp)}
+          index={0}
+        />
+      )
+    })
+
+    expect(container.querySelector('[data-testid="tool-call-trigger-reason-committed:step-1:tool:tool-1"]')).toBeNull()
+
+    await act(async () => {
+      root.render(
+        <ToolCallResult
+          toolCall={createToolCallSegment('pending', undefined, {
+            query: 'latest status',
+            [TOOL_CALL_REASON_PARAMETER_NAME]: reason
+          }, timestamp)}
+          index={0}
+        />
+      )
+    })
+
+    expect(container.querySelector('[data-testid="tool-call-trigger-reason-committed:step-1:tool:tool-1"]')?.textContent)
+      .toBe(reason)
   })
 
   it('hides streaming pending parameters until the tool call args are ready', async () => {
@@ -429,7 +489,7 @@ describe('ToolCallResult cost display', () => {
     await openToolCall(container)
 
     const detailButton = Array.from(document.body.querySelectorAll('button'))
-      .find((button) => button.textContent === 'Detail')
+      .find((button) => button.textContent === 'Response')
     await act(async () => {
       detailButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
@@ -453,7 +513,7 @@ describe('ToolCallResult cost display', () => {
     })
 
     expect(document.body.textContent).not.toContain('latest status')
-    expect(container.textContent).toContain('search')
+    expect(container.textContent).toContain('SEARCH')
   })
 
   it('shows web search results in the popout branch', async () => {

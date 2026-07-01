@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Gauge, Pause, Play, RotateCcw } from 'lucide-react'
 import { ModelBadgeNext } from '@renderer/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeNext'
-import type { ToolCallReasonItem } from '@renderer/components/chat/chatMessage/assistant-message/model/toolCallReason'
+import { ToolCallResult } from '@renderer/components/chat/chatMessage/assistant-message/toolcall/ToolCallResult'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
-const reasonSequence: ToolCallReasonItem[] = [
+interface ReasonPlaybackItem {
+  id: string
+  toolName: string
+  reason: string
+  order: number
+  isTerminal: boolean
+}
+
+const reasonSequence: ReasonPlaybackItem[] = [
   {
     id: 'history-search',
     toolName: 'search',
@@ -14,21 +23,21 @@ const reasonSequence: ToolCallReasonItem[] = [
   {
     id: 'history-read',
     toolName: 'read_file',
-    reason: 'Read the badge implementation so the reason history can be placed outside the model identity chip.',
+    reason: 'Read the badge implementation so the reason stays attached to the matching tool row.',
     order: 1,
     isTerminal: true
   },
   {
     id: 'history-patch',
     toolName: 'apply_patch',
-    reason: 'Add a horizontal reason trace that preserves earlier tool-call reasons during fast tool switches.',
+    reason: 'Add row-level reason display that keeps each tool call intention visible during fast updates.',
     order: 2,
     isTerminal: true
   },
   {
     id: 'history-test',
     toolName: 'typecheck',
-    reason: 'Verify the renderer type surface after threading the full reason list into the assistant header.',
+    reason: 'Verify the renderer type surface after moving reason display into each tool trigger.',
     order: 3,
     isTerminal: false
   }
@@ -66,6 +75,36 @@ function useReasonPlayback() {
   }
 }
 
+function buildReasonToolCall(item: ReasonPlaybackItem, index: number): ToolCallSegment {
+  return {
+    type: 'toolCall',
+    segmentId: `reason-history-${item.id}`,
+    name: item.toolName,
+    timestamp: Date.now() - (index + 1) * 720,
+    executionStartedAt: Date.now() - (index + 1) * 720,
+    cost: item.isTerminal ? 680 + index * 160 : undefined,
+    toolCallId: `reason-history-call-${item.id}`,
+    toolCallIndex: index,
+    isError: false,
+    content: {
+      toolName: item.toolName,
+      status: item.isTerminal ? 'completed' : 'running',
+      args: {
+        step: item.order + 1,
+        [TOOL_CALL_REASON_PARAMETER_NAME]: item.reason
+      },
+      ...(item.isTerminal
+        ? {
+            result: {
+              ok: true,
+              summary: `${item.toolName} completed`
+            }
+          }
+        : {})
+    }
+  }
+}
+
 function ViewportProbe({
   title,
   width,
@@ -73,7 +112,7 @@ function ViewportProbe({
 }: {
   title: string
   width: string
-  reasons: ToolCallReasonItem[]
+  reasons: ReasonPlaybackItem[]
 }) {
   return (
     <section className="rounded-2xl border border-slate-200/80 bg-white/78 p-4 shadow-[0_24px_70px_-52px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-slate-950/52">
@@ -90,18 +129,29 @@ function ViewportProbe({
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200/70 bg-slate-50/82 p-4 dark:border-white/8 dark:bg-black/20">
         <div style={{ width }} className="max-w-full">
-          <ModelBadgeNext
-            model="MiniMax-M2.5"
-            provider="minimax"
-            animate
-            emotionLabel="focused"
-            emotionEmoji="◐"
-            emotionIntensity={2}
-            toolCallReasons={reasons}
-          />
+          <div className="flex flex-col items-start gap-2">
+            <ModelBadgeNext
+              model="MiniMax-M2.5"
+              provider="minimax"
+              animate
+              emotionLabel="focused"
+              emotionEmoji="◐"
+              emotionIntensity={2}
+            />
+
+            <div className="flex w-full flex-col gap-1.5">
+              {reasons.map((item, index) => (
+                <ToolCallResult
+                  key={`${item.id}:${item.isTerminal ? 'terminal' : 'active'}`}
+                  toolCall={buildReasonToolCall(item, index)}
+                  index={index}
+                />
+              ))}
+            </div>
+          </div>
 
           <div className="mt-4 rounded-xl border border-dashed border-slate-200 px-3 py-2 text-xs leading-5 text-slate-500 dark:border-white/10 dark:text-slate-400">
-            Assistant message content starts here. The reason trace keeps its own horizontal space above the transcript body.
+            Assistant message content starts here. Tool reasons now stay attached to each tool trigger in the transcript body.
           </div>
         </div>
       </div>
@@ -130,7 +180,7 @@ export default function ToolCallReasonHistoryTestPage() {
               Keep rapid tool-call reasons readable.
             </h1>
             <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
-              This page stress-tests the new horizontal reason trace with a fast playback loop plus narrow and wide viewports.
+              This page stress-tests row-level tool reasons with a fast playback loop plus narrow and wide viewports.
             </p>
           </div>
 

@@ -81,11 +81,11 @@ vi.mock('../toolcall/ToolCallResult', async () => {
     return <div data-testid={`tool-${toolCall.toolCallId}`}>{toolCall.name}</div>
   })
 
-  const ToolCallHeader = ({
-    name
+  const ToolCallTriggerContent = ({
+    toolCall
   }: {
-    name: string
-  }) => <span>{name}</span>
+    toolCall: ToolCallSegment
+  }) => <span>{toolCall.name}</span>
 
   const ToolCallResultPanel = ({
     toolCall
@@ -95,8 +95,9 @@ vi.mock('../toolcall/ToolCallResult', async () => {
 
   return {
     ToolCallResult,
-    ToolCallHeader,
+    ToolCallTriggerContent,
     ToolCallResultPanel,
+    getToolCallTriggerButtonClassName: () => 'tool-call-trigger-button',
     getNormalizedStatus: (status: unknown) => typeof status === 'string' ? status.toLowerCase() : undefined,
     getToolCallHeaderState: (segment: ToolCallSegment) => {
       const status = typeof segment.content?.status === 'string' ? segment.content.status.toLowerCase() : undefined
@@ -438,7 +439,7 @@ beforeEach(() => {
     expect(headerRenderCount).toBe(1)
   })
 
-  it('passes the active tool call reason to the model badge', async () => {
+  it('keeps tool call reason props out of the model badge', async () => {
     await act(async () => {
       root.render(
         <AssistantMessage
@@ -461,21 +462,11 @@ beforeEach(() => {
       )
     })
 
-    expect(latestModelBadgeProps?.toolCallReason).toEqual({
-      id: 'tool-1',
-      toolName: 'read',
-      reason: 'Inspect the current layout implementation.',
-      order: 0,
-      isTerminal: false
+    expect(latestModelBadgeProps).toMatchObject({
+      model: 'gpt-5',
+      provider: undefined
     })
-    expect(latestModelBadgeProps?.toolCallReasons).toEqual([
-      {
-        id: 'tool-1',
-        toolName: 'read',
-        reason: 'Inspect the current layout implementation.',
-        order: 0,
-        isTerminal: false
-      }
-    ])
+    expect(latestModelBadgeProps).not.toHaveProperty('toolCallReason')
+    expect(latestModelBadgeProps).not.toHaveProperty('toolCallReasons')
   })
 })

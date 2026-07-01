@@ -1,19 +1,22 @@
 import { cn } from '@renderer/lib/utils'
 import type { LucideIcon } from 'lucide-react'
-import { Check, ChevronDown, ChevronUp, Lightbulb, Loader2, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Lightbulb, Loader2, Wrench, X } from 'lucide-react'
 import React, { memo, useEffect, useMemo, useState } from 'react'
 import { fixMalformedCodeBlocks } from '../../markdown/markdown-components'
 import { ErrorMessage } from '../../error-message'
 import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 import {
+  formatReasoningDurationText,
+  getReasoningDurationMs,
   ReasoningSegmentPanel,
   useReasoningDurationText
 } from '../segments/ReasoningSegmentNext'
 import {
   areToolCallSegmentsEqual,
   getToolCallHeaderState,
+  getToolCallTriggerButtonClassName,
   getToolCallTriggerAriaLabel,
-  ToolCallHeader,
+  ToolCallTriggerContent,
   ToolCallResultPanel
 } from '../toolcall/ToolCallResult'
 import { AssistantSegmentPopout } from './AssistantSegmentPopout'
@@ -31,23 +34,47 @@ export interface SupportSegmentGroupProps {
   items: SupportSegmentRenderItem[]
 }
 
-interface SupportSegmentGroupSummary {
-  stepCount: number
-  toolCount: number
-  thoughtCount: number
-}
-
 interface SupportSegmentGroupExpansionPolicy {
   defaultExpanded: boolean
   hasForceExpandedItem: boolean
 }
 
+type SupportSegmentRuntimeStatus = 'complete' | 'running' | 'pending' | 'error'
+
+interface ThoughtSupportSegmentPhase {
+  kind: 'thoughtPhase'
+  key: string
+  items: ReasoningRenderItem[]
+}
+
+interface ToolSupportSegmentPhase {
+  kind: 'toolPhase'
+  key: string
+  items: ToolCallRenderItem[]
+}
+
+interface SingleSupportSegmentPhase {
+  kind: 'singleItem'
+  key: string
+  item: SupportSegmentRenderItem
+}
+
+type SupportSegmentPhase =
+  | ThoughtSupportSegmentPhase
+  | ToolSupportSegmentPhase
+  | SingleSupportSegmentPhase
+
+interface ToolPhaseMetrics {
+  successCount: number
+  totalDurationMs: number
+}
+
 const baseRowButtonClassName = cn(
   'group flex w-full cursor-pointer justify-start rounded-lg border border-transparent px-1 py-0.5 text-left outline-hidden',
   'transition-[background-color,border-color] duration-150',
-  'hover:border-slate-200/65 hover:bg-slate-100/58',
+  'hover:border-slate-200/56 hover:bg-slate-100/42',
   'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-  'dark:hover:border-white/7 dark:hover:bg-white/4 dark:focus-visible:ring-slate-500/80'
+  'dark:hover:border-white/7 dark:hover:bg-white/3 dark:focus-visible:ring-slate-500/80'
 )
 
 const isToolCallRenderItem = (item: SupportSegmentRenderItem): item is ToolCallRenderItem => (
@@ -58,29 +85,162 @@ const isReasoningRenderItem = (item: SupportSegmentRenderItem): item is Reasonin
   item.segment.type === 'reasoning'
 )
 
-const getSupportSegmentGroupSummary = (
+const getPhaseKey = (
+  kind: ThoughtSupportSegmentPhase['kind'] | ToolSupportSegmentPhase['kind'],
   items: SupportSegmentRenderItem[]
-): SupportSegmentGroupSummary => {
-  return items.reduce<SupportSegmentGroupSummary>((summary, item) => {
-    if (item.segment.type === 'toolCall') {
-      summary.toolCount += 1
-    }
-
-    if (item.segment.type === 'reasoning') {
-      summary.thoughtCount += 1
-    }
-
-    return summary
-  }, {
-    stepCount: items.length,
-    toolCount: 0,
-    thoughtCount: 0
-  })
+): string => {
+  const firstItem = items[0]
+  const lastItem = items[items.length - 1]
+  return `${kind}:${firstItem.key}:${lastItem.key}:${items.length}`
 }
 
-const formatSupportSegmentGroupSummary = (summary: SupportSegmentGroupSummary): string => (
-  `${summary.toolCount} Tool(s) and ${summary.thoughtCount} Thought(s)`
+export const projectSupportSegmentPhases = (
+  items: SupportSegmentRenderItem[]
+): SupportSegmentPhase[] => {
+  const phases: SupportSegmentPhase[] = []
+  let activeThoughtItems: ReasoningRenderItem[] = []
+  let activeToolItems: ToolCallRenderItem[] = []
+
+  const flushThoughtPhase = () => {
+    if (activeThoughtItems.length === 0) {
+      return
+    }
+
+    phases.push({
+      kind: 'thoughtPhase',
+      key: getPhaseKey('thoughtPhase', activeThoughtItems),
+      items: activeThoughtItems
+    })
+    activeThoughtItems = []
+  }
+
+  const flushToolPhase = () => {
+    if (activeToolItems.length === 0) {
+      return
+    }
+
+    phases.push({
+      kind: 'toolPhase',
+      key: getPhaseKey('toolPhase', activeToolItems),
+      items: activeToolItems
+    })
+    activeToolItems = []
+  }
+
+  items.forEach((item) => {
+    if (isReasoningRenderItem(item)) {
+      flushToolPhase()
+      activeThoughtItems.push(item)
+      return
+    }
+
+    if (isToolCallRenderItem(item)) {
+      flushThoughtPhase()
+      activeToolItems.push(item)
+      return
+    }
+
+    flushThoughtPhase()
+    flushToolPhase()
+    phases.push({
+      kind: 'singleItem',
+      key: `singleItem:${item.key}`,
+      item
+    })
+  })
+
+  flushThoughtPhase()
+  flushToolPhase()
+
+  return phases
+}
+
+const getToolCallDurationMs = (
+  segment: ToolCallSegment,
+  liveNow: number
+): number => {
+  if (typeof segment.cost === 'number') {
+    return Math.max(0, segment.cost)
+  }
+
+  const state = getToolCallHeaderState(segment)
+  const startedAt = segment.executionStartedAt ?? segment.timestamp
+
+  if (state.isRunning && typeof startedAt === 'number') {
+    return Math.max(0, liveNow - startedAt)
+  }
+
+  return 0
+}
+
+const getThoughtDurationMs = (
+  item: ReasoningRenderItem,
+  liveNow: number
+): number => (
+  getReasoningDurationMs(item.segment, item.isStreamingTail, liveNow) ?? 0
 )
+
+const formatCompactDurationText = (durationMs: number): string => {
+  const normalizedDurationMs = Math.max(0, durationMs)
+
+  if (normalizedDurationMs === 0) {
+    return '0s'
+  }
+
+  const seconds = normalizedDurationMs / 1000
+
+  if (seconds < 1) {
+    return `${seconds.toFixed(3)}s`
+  }
+
+  if (seconds < 10) {
+    return `${seconds.toFixed(2)}s`
+  }
+
+  return `${seconds.toFixed(1)}s`
+}
+
+const pluralize = (count: number, singular: string, plural = `${singular}s`): string => (
+  `${count} ${count === 1 ? singular : plural}`
+)
+
+const getToolCallRuntimeStatus = (segment: ToolCallSegment): SupportSegmentRuntimeStatus => {
+  const state = getToolCallHeaderState(segment)
+
+  if (state.isError) return 'error'
+  if (state.isRunning) return 'running'
+  if (state.isPending) return 'pending'
+
+  return 'complete'
+}
+
+const getToolPhaseMetrics = (
+  items: ToolCallRenderItem[],
+  liveNow: number
+): ToolPhaseMetrics => {
+  const totalDurationMs = items.reduce((total, item) => (
+    total + getToolCallDurationMs(item.segment, liveNow)
+  ), 0)
+  const statuses = items.map(item => getToolCallRuntimeStatus(item.segment))
+  const successCount = statuses.filter(status => status === 'complete').length
+
+  return {
+    successCount,
+    totalDurationMs
+  }
+}
+
+const formatCollapsedSupportSegmentSummary = (items: SupportSegmentRenderItem[]): string => {
+  const toolCount = items.filter(isToolCallRenderItem).length
+  const thoughtCount = items.filter(isReasoningRenderItem).length
+  const parts = [
+    `${items.length} hidden`,
+    toolCount > 0 ? pluralize(toolCount, 'tool') : null,
+    thoughtCount > 0 ? pluralize(thoughtCount, 'thought') : null
+  ].filter((part): part is string => Boolean(part))
+
+  return `+${parts.join(' · ')}`
+}
 
 const getSupportSegmentGroupExpansionPolicy = (
   items: SupportSegmentRenderItem[]
@@ -93,12 +253,16 @@ const getSupportSegmentGroupExpansionPolicy = (
   }
 
   const hasForceExpandedItem = items.some((item) => {
-    if (!isToolCallRenderItem(item)) {
-      return false
+    if (isToolCallRenderItem(item)) {
+      const state = getToolCallHeaderState(item.segment)
+      return state.isRunning || state.isPending || state.isError
     }
 
-    const state = getToolCallHeaderState(item.segment)
-    return state.isRunning || state.isPending || state.isError
+    if (isReasoningRenderItem(item)) {
+      return item.isStreamingTail
+    }
+
+    return item.segment.type === 'error'
   })
 
   return {
@@ -207,17 +371,21 @@ const SupportToolCallGroupRow = memo(({
           type="button"
           data-testid={`support-segment-row-${item.segment.segmentId}`}
           aria-label={getToolCallTriggerAriaLabel(item.segment.name, statusLabel)}
-          className={baseRowButtonClassName}
+          className={getToolCallTriggerButtonClassName({
+            isError,
+            isRunning,
+            isPending,
+            density: 'compact'
+          })}
         >
-          <ToolCallHeader
-            name={item.segment.name}
+          <ToolCallTriggerContent
+            toolCall={item.segment}
             isError={isError}
             isRunning={isRunning}
             isPending={isPending}
             isOpen={isOpen}
-            cost={item.segment.cost}
-            runningStartedAt={item.segment.executionStartedAt ?? item.segment.timestamp}
             density="compact"
+            className="w-full"
           />
         </button>
       )}
@@ -232,14 +400,22 @@ const SupportToolCallGroupRow = memo(({
 
 SupportToolCallGroupRow.displayName = 'SupportToolCallGroupRow'
 
+const getReasoningPreviewText = (content: string): string => {
+  const previewText = content.replace(/\s+/g, ' ').trim()
+  return previewText || 'Open thought'
+}
+
 const SupportReasoningGroupRow = memo(({
-  item
+  item,
+  variant = 'header'
 }: {
   item: ReasoningRenderItem
+  variant?: 'header' | 'preview'
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const fixedContent = fixMalformedCodeBlocks(item.segment.content)
   const durationText = useReasoningDurationText(item.segment, item.isStreamingTail)
+  const previewText = useMemo(() => getReasoningPreviewText(fixedContent), [fixedContent])
 
   return (
     <AssistantSegmentPopout
@@ -250,16 +426,26 @@ const SupportReasoningGroupRow = memo(({
           type="button"
           data-testid={`support-segment-row-${item.segment.segmentId}`}
           aria-label="Inspect thought process"
-          className={baseRowButtonClassName}
+          className={cn(
+            baseRowButtonClassName,
+            variant === 'preview' && 'px-2 py-1'
+          )}
         >
-          <SupportSegmentHeader
-            icon={Lightbulb}
-            name="Thought"
-            duration={durationText}
-            tone="neutral"
-            density="compact"
-            isOpen={isOpen}
-          />
+          {variant === 'preview' ? (
+            <span className="block min-w-0 truncate text-[10.5px] font-medium leading-snug text-slate-500 dark:text-slate-400">
+              {previewText}
+            </span>
+          ) : (
+            <SupportSegmentHeader
+              icon={Lightbulb}
+              name={item.isStreamingTail ? 'Thinking' : 'Thought'}
+              duration={durationText}
+              tone="neutral"
+              density="compact"
+              isOpen={isOpen}
+              hoverResponse="none"
+            />
+          )}
         </button>
       )}
     >
@@ -269,7 +455,10 @@ const SupportReasoningGroupRow = memo(({
       />
     </AssistantSegmentPopout>
   )
-}, (prevProps, nextProps) => areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item))
+}, (prevProps, nextProps) => (
+  prevProps.variant === nextProps.variant
+    && areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item)
+))
 
 SupportReasoningGroupRow.displayName = 'SupportReasoningGroupRow'
 
@@ -294,6 +483,206 @@ const SupportSegmentGroupRow = memo(({
 }, (prevProps, nextProps) => areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item))
 
 SupportSegmentGroupRow.displayName = 'SupportSegmentGroupRow'
+
+const SupportPhaseMetricChip = memo(({
+  children
+}: {
+  children: React.ReactNode
+}) => (
+  <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-slate-100/42 px-1.5 text-[10px] font-medium leading-none text-slate-500 dark:bg-white/4 dark:text-slate-400">
+    {children}
+  </span>
+))
+
+SupportPhaseMetricChip.displayName = 'SupportPhaseMetricChip'
+
+const getThoughtPhaseDurationText = (
+  items: ReasoningRenderItem[],
+  liveNow: number
+): string | undefined => {
+  const totalDurationMs = items.reduce((total, item) => (
+    total + getThoughtDurationMs(item, liveNow)
+  ), 0)
+
+  return formatReasoningDurationText(totalDurationMs || undefined)
+}
+
+const SupportThoughtPhase = memo(({
+  phase,
+  liveNow
+}: {
+  phase: ThoughtSupportSegmentPhase
+  liveNow: number
+}) => {
+  const isThinking = phase.items.some(item => item.isStreamingTail)
+  const durationText = getThoughtPhaseDurationText(phase.items, liveNow)
+
+  return (
+    <section
+      data-testid="support-segment-phase-thought"
+      className="rounded-md border-t border-slate-200/42 px-1 py-1 first:border-t-0 first:pt-0 dark:border-white/7"
+    >
+      <div
+        data-testid="support-segment-phase-header"
+        className="flex min-w-0 items-center justify-between gap-2 px-1"
+      >
+        <SupportSegmentHeader
+          icon={Lightbulb}
+          name={isThinking ? 'Thinking' : 'Thought'}
+          duration={durationText}
+          tone="neutral"
+          density="compact"
+          hoverResponse="none"
+        />
+        {phase.items.length > 1 ? (
+          <span className="shrink-0 text-[10px] font-medium leading-none text-slate-400 dark:text-slate-500">
+            {pluralize(phase.items.length, 'step')}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-0.5 flex flex-col gap-0.5">
+        {phase.items.map(item => (
+          <SupportReasoningGroupRow
+            key={item.key}
+            item={item}
+            variant="preview"
+          />
+        ))}
+      </div>
+    </section>
+  )
+})
+
+SupportThoughtPhase.displayName = 'SupportThoughtPhase'
+
+const SupportToolPhaseTimelineRow = memo(({
+  item,
+  isFirst,
+  isLast,
+  showConnector
+}: {
+  item: ToolCallRenderItem
+  isFirst: boolean
+  isLast: boolean
+  showConnector: boolean
+}) => (
+  <div
+    data-testid={`support-segment-tool-timeline-row-${item.segment.segmentId}`}
+    className="relative pl-3"
+  >
+    {showConnector ? (
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute left-[3px] w-px bg-slate-200/62 dark:bg-slate-700/50',
+          isFirst ? 'top-2.5' : 'top-0',
+          isLast ? 'bottom-[calc(100%-0.625rem)]' : 'bottom-0'
+        )}
+      />
+    ) : null}
+    <span
+      aria-hidden="true"
+      className="absolute left-0 top-2.5 h-1.5 w-1.5 rounded-full border border-slate-300/75 bg-white dark:border-slate-700/80 dark:bg-slate-950"
+    />
+    <SupportToolCallGroupRow item={item} />
+  </div>
+), (prevProps, nextProps) => (
+  prevProps.isFirst === nextProps.isFirst
+    && prevProps.isLast === nextProps.isLast
+    && prevProps.showConnector === nextProps.showConnector
+    && areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item)
+))
+
+SupportToolPhaseTimelineRow.displayName = 'SupportToolPhaseTimelineRow'
+
+const SupportToolPhase = memo(({
+  phase,
+  liveNow
+}: {
+  phase: ToolSupportSegmentPhase
+  liveNow: number
+}) => {
+  const metrics = getToolPhaseMetrics(phase.items, liveNow)
+  const totalDurationText = formatCompactDurationText(metrics.totalDurationMs)
+  const firstToolItem = phase.items[0]
+
+  if (!firstToolItem) {
+    return null
+  }
+
+  return (
+    <section
+      data-testid="support-segment-phase-tool"
+      className="rounded-md border-t border-slate-200/42 px-1 py-1 first:border-t-0 first:pt-0 dark:border-white/7"
+    >
+      <div
+        data-testid="support-segment-phase-header"
+        className="flex min-w-0 flex-wrap items-center justify-between gap-1.5 px-1"
+      >
+        <SupportSegmentHeader
+          icon={Wrench}
+          name="Tool execution"
+          duration={pluralize(phase.items.length, 'call')}
+          tone="neutral"
+          density="compact"
+          hoverResponse="none"
+        />
+        {phase.items.length > 1 ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-1">
+            <SupportPhaseMetricChip>
+              {metrics.successCount}/{phase.items.length} success
+            </SupportPhaseMetricChip>
+            <SupportPhaseMetricChip>
+              {totalDurationText} total
+            </SupportPhaseMetricChip>
+          </div>
+        ) : null}
+      </div>
+      {phase.items.length === 1 ? (
+        <div className="mt-0.5">
+          <SupportToolCallGroupRow item={firstToolItem} />
+        </div>
+      ) : (
+        <div
+          data-testid="support-segment-tool-timeline"
+          className="mt-1 flex flex-col gap-1.5"
+        >
+          {phase.items.map((item, index) => (
+            <SupportToolPhaseTimelineRow
+              key={item.key}
+              item={item}
+              isFirst={index === 0}
+              isLast={index === phase.items.length - 1}
+              showConnector={true}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+})
+
+SupportToolPhase.displayName = 'SupportToolPhase'
+
+const SupportSegmentPhaseView = memo(({
+  phase,
+  liveNow
+}: {
+  phase: SupportSegmentPhase
+  liveNow: number
+}) => {
+  if (phase.kind === 'thoughtPhase') {
+    return <SupportThoughtPhase phase={phase} liveNow={liveNow} />
+  }
+
+  if (phase.kind === 'toolPhase') {
+    return <SupportToolPhase phase={phase} liveNow={liveNow} />
+  }
+
+  return <SupportSegmentGroupRow item={phase.item} />
+})
+
+SupportSegmentPhaseView.displayName = 'SupportSegmentPhaseView'
 
 const getSummaryIconMeta = (item: SupportSegmentRenderItem): {
   Icon: LucideIcon
@@ -378,35 +767,33 @@ const SupportSegmentSummaryIconStrip = memo(({
 
 SupportSegmentSummaryIconStrip.displayName = 'SupportSegmentSummaryIconStrip'
 
-const SupportSegmentGroupSummaryHeader = memo(({
-  summaryText,
+const SupportSegmentGroupCollapseRow = memo(({
   onCollapse
 }: {
-  summaryText: string
   onCollapse: () => void
 }) => (
   <button
     type="button"
-    data-testid="support-segment-summary-header"
-    aria-label={`Collapse support group, ${summaryText}`}
+    data-testid="support-segment-collapse-row"
+    aria-label="Hide support details"
     className={cn(
-      'group/header mb-0.5 flex w-full items-center justify-between gap-2 rounded-lg px-4 py-1 text-left outline-hidden',
-      'text-[10px] font-semibold leading-none text-slate-400 transition-[background-color,color] duration-150',
-      'hover:bg-slate-100/52 hover:text-slate-500',
+      'group/collapse mt-0.5 flex w-full items-center justify-between gap-2 rounded-md border-t border-slate-200/42 px-2 py-1 text-left outline-hidden',
+      'text-[10px] font-medium leading-none text-slate-400 transition-[background-color,border-color,color] duration-150',
+      'hover:border-slate-200/70 hover:bg-slate-100/42 hover:text-slate-500',
       'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-      'dark:text-slate-500 dark:hover:bg-white/4 dark:hover:text-slate-300 dark:focus-visible:ring-slate-500/80'
+      'dark:border-white/7 dark:text-slate-500 dark:hover:border-white/10 dark:hover:bg-white/3 dark:hover:text-slate-300 dark:focus-visible:ring-slate-500/80'
     )}
     onClick={onCollapse}
   >
-    <span className="min-w-0 truncate">{summaryText}</span>
+    <span className="min-w-0 truncate">Hide</span>
     <ChevronUp
       aria-hidden="true"
-      className="h-3 w-3 shrink-0 text-slate-400 transition-colors duration-150 group-hover/header:text-slate-500 dark:text-slate-500 dark:group-hover/header:text-slate-300"
+      className="h-3 w-3 shrink-0 text-slate-400 transition-colors duration-150 group-hover/collapse:text-slate-500 dark:text-slate-500 dark:group-hover/collapse:text-slate-300"
     />
   </button>
 ))
 
-SupportSegmentGroupSummaryHeader.displayName = 'SupportSegmentGroupSummaryHeader'
+SupportSegmentGroupCollapseRow.displayName = 'SupportSegmentGroupCollapseRow'
 
 const SupportSegmentCollapsedSummaryRow = memo(({
   hiddenItems,
@@ -414,30 +801,34 @@ const SupportSegmentCollapsedSummaryRow = memo(({
 }: {
   hiddenItems: SupportSegmentRenderItem[]
   onExpand: () => void
-}) => (
-  <button
-    type="button"
-    data-testid="support-segment-summary-row"
-    aria-label={`Expand ${hiddenItems.length} summarized support steps`}
-    className={cn(
-      'group/summary flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-transparent px-2 py-1 text-left outline-hidden',
-      'text-[10px] font-semibold leading-none text-slate-500 transition-[background-color,border-color,color] duration-150',
-      'hover:border-slate-200/65 hover:bg-slate-100/58 hover:text-slate-600',
-      'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-      'dark:text-slate-400 dark:hover:border-white/7 dark:hover:bg-white/4 dark:hover:text-slate-200 dark:focus-visible:ring-slate-500/80'
-    )}
-    onClick={onExpand}
-  >
-    <span className="inline-flex min-w-0 items-center gap-1.5">
-      <span className="shrink-0 tabular-nums">+{hiddenItems.length} steps</span>
-      <ChevronDown
-        aria-hidden="true"
-        className="h-3 w-3 shrink-0 text-slate-400 transition-colors duration-150 group-hover/summary:text-slate-500 dark:text-slate-500 dark:group-hover/summary:text-slate-300"
-      />
-    </span>
-    <SupportSegmentSummaryIconStrip items={hiddenItems} />
-  </button>
-))
+}) => {
+  const summaryText = formatCollapsedSupportSegmentSummary(hiddenItems)
+
+  return (
+    <button
+      type="button"
+      data-testid="support-segment-summary-row"
+      aria-label={`Expand ${summaryText}`}
+      className={cn(
+        'group/summary flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-transparent px-2 py-1 text-left outline-hidden',
+        'text-[10px] font-semibold leading-none text-slate-500 transition-[background-color,border-color,color] duration-150',
+        'hover:border-slate-200/65 hover:bg-slate-100/58 hover:text-slate-600',
+        'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'dark:text-slate-400 dark:hover:border-white/7 dark:hover:bg-white/4 dark:hover:text-slate-200 dark:focus-visible:ring-slate-500/80'
+      )}
+      onClick={onExpand}
+    >
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <span className="min-w-0 truncate tabular-nums">{summaryText}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className="h-3 w-3 shrink-0 text-slate-400 transition-colors duration-150 group-hover/summary:text-slate-500 dark:text-slate-500 dark:group-hover/summary:text-slate-300"
+        />
+      </span>
+      <SupportSegmentSummaryIconStrip items={hiddenItems} />
+    </button>
+  )
+})
 
 SupportSegmentCollapsedSummaryRow.displayName = 'SupportSegmentCollapsedSummaryRow'
 
@@ -445,8 +836,23 @@ const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ item
   const groupIdentity = useMemo(() => getSupportSegmentGroupIdentity(items), [items])
   const groupStatusSignature = useMemo(() => getSupportSegmentGroupStatusSignature(items), [items])
   const expansionPolicy = useMemo(() => getSupportSegmentGroupExpansionPolicy(items), [items])
-  const summary = useMemo(() => getSupportSegmentGroupSummary(items), [items])
-  const summaryText = useMemo(() => formatSupportSegmentGroupSummary(summary), [summary])
+  const phases = useMemo(() => projectSupportSegmentPhases(items), [items])
+  const collapsedLeadingPhases = useMemo(() => (
+    projectSupportSegmentPhases(items.slice(0, 1))
+  ), [items])
+  const collapsedTrailingPhases = useMemo(() => (
+    projectSupportSegmentPhases(items.slice(-1))
+  ), [items])
+  const hasLiveTiming = useMemo(() => (
+    items.some((item) => {
+      if (isToolCallRenderItem(item)) {
+        return getToolCallHeaderState(item.segment).isRunning
+      }
+
+      return isReasoningRenderItem(item) && item.isStreamingTail
+    })
+  ), [items])
+  const [liveNow, setLiveNow] = useState(() => Date.now())
   const [isExpanded, setIsExpanded] = useState(() => expansionPolicy.defaultExpanded)
   const [hasUserExpansionChoice, setHasUserExpansionChoice] = useState(false)
   const [trackedGroupIdentity, setTrackedGroupIdentity] = useState(groupIdentity)
@@ -477,6 +883,20 @@ const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ item
     trackedGroupIdentity
   ])
 
+  useEffect(() => {
+    if (!hasLiveTiming) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      setLiveNow(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [hasLiveTiming])
+
   if (items.length === 0) {
     return null
   }
@@ -496,27 +916,44 @@ const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ item
   return (
     <div
       data-testid="support-segment-group"
-      className="my-1 flex w-fit max-w-full flex-col gap-0.5 rounded-lg border border-slate-200/48 bg-white/36 p-1 dark:border-slate-800/72 dark:bg-white/3 dark:shadow-black/20"
+      className="my-1 flex w-full max-w-[680px] flex-col gap-0.5 rounded-lg border border-slate-200/48 bg-white/34 p-1 dark:border-slate-800/72 dark:bg-white/3 dark:shadow-black/20"
     >
-      {canCollapse && isExpanded ? (
-        <SupportSegmentGroupSummaryHeader
-          summaryText={summaryText}
-          onCollapse={onCollapse}
-        />
-      ) : null}
       {shouldRenderCollapsed ? (
         <>
-          <SupportSegmentGroupRow key={items[0].key} item={items[0]} />
+          {collapsedLeadingPhases.map(phase => (
+            <SupportSegmentPhaseView
+              key={phase.key}
+              phase={phase}
+              liveNow={liveNow}
+            />
+          ))}
           <SupportSegmentCollapsedSummaryRow
             hiddenItems={hiddenItems}
             onExpand={onExpand}
           />
-          <SupportSegmentGroupRow key={items[items.length - 1].key} item={items[items.length - 1]} />
+          {collapsedTrailingPhases.map(phase => (
+            <SupportSegmentPhaseView
+              key={phase.key}
+              phase={phase}
+              liveNow={liveNow}
+            />
+          ))}
         </>
       ) : (
-        items.map(item => (
-          <SupportSegmentGroupRow key={item.key} item={item} />
-        ))
+        <>
+          {phases.map(phase => (
+            <SupportSegmentPhaseView
+              key={phase.key}
+              phase={phase}
+              liveNow={liveNow}
+            />
+          ))}
+          {canCollapse ? (
+            <SupportSegmentGroupCollapseRow
+              onCollapse={onCollapse}
+            />
+          ) : null}
+        </>
       )}
     </div>
   )

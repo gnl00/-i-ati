@@ -8,10 +8,6 @@ import type {
   SupportSegmentRenderItem,
   TextSegmentRenderItem
 } from '@renderer/components/chat/chatMessage/assistant-message/model/assistantMessageMapper'
-import {
-  buildActiveToolCallReason,
-  buildToolCallReasonModel
-} from '@renderer/components/chat/chatMessage/assistant-message/model/toolCallReason'
 import { buildSupportRenderUnits } from '@renderer/components/chat/chatMessage/assistant-message/model/assistantSupportGrouping'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -187,9 +183,7 @@ function buildAssistantModel(args: {
         modelProvider: args.provider ?? 'anthropic',
         emotionLabel: 'focused',
         emotionEmoji: '◐',
-        emotionIntensity: 2,
-        toolCallReason: buildActiveToolCallReason(args.supportItems),
-        toolCallReasons: buildToolCallReasonModel(args.supportItems).items
+        emotionIntensity: 2
       }
     },
     body: {
@@ -231,7 +225,7 @@ const assistantCases: AssistantMockCase[] = [
   {
     id: 'single',
     title: 'Single Tool Reason',
-    note: 'A short reason should read as a compact bridge between the model badge and the answer.',
+    note: 'A short reason should read as a compact subtitle on the matching tool row.',
     viewport: 'wide',
     model: buildAssistantModel({
       index: 0,
@@ -248,7 +242,7 @@ const assistantCases: AssistantMockCase[] = [
           name: 'read_file',
           order: 1,
           sourceIndex: 0,
-          reason: 'Inspect the current assistant message layout before adding a new reason trace row.',
+          reason: 'Inspect the current assistant message layout before adding a new tool row reason.',
           args: {
             path: 'src/renderer/src/components/chat/chatMessage/assistant-message/AssistantMessageLayout.tsx'
           },
@@ -264,8 +258,8 @@ const assistantCases: AssistantMockCase[] = [
   },
   {
     id: 'multi',
-    title: 'Multi Tool Reason Trace',
-    note: 'Completed and running tool reasons should stay in one horizontal trace from old to new.',
+    title: 'Multi Tool Reasons',
+    note: 'Completed and running tool reasons should stay attached to their tool rows from old to new.',
     viewport: 'wide',
     model: buildAssistantModel({
       index: 1,
@@ -305,7 +299,7 @@ const assistantCases: AssistantMockCase[] = [
           name: 'read_file',
           order: 3,
           sourceIndex: 2,
-          reason: 'Read the assistant message renderer to place the reason trace at the exact TODO location.',
+          reason: 'Read the assistant message renderer to place the reason on the exact tool trigger.',
           args: {
             path: 'src/renderer/src/components/chat/chatMessage/assistant-message/AssistantMessageLayout.tsx'
           },
@@ -353,7 +347,7 @@ const assistantCases: AssistantMockCase[] = [
           name: 'apply_patch',
           order: 1,
           sourceIndex: 0,
-          reason: 'Patch only the reason trace presentation after confirming that the reason argument is extracted from both object args and JSON-string args, then keep the visual treatment compact enough for a dense assistant transcript with multiple tool calls.',
+          reason: 'Patch only the tool row reason presentation after confirming that the reason argument is extracted from both object args and JSON-string args, then keep the visual treatment compact enough for a dense assistant transcript with multiple tool calls.',
           args: {
             files: [
               'model/toolCallReason.ts',
@@ -383,7 +377,7 @@ const assistantCases: AssistantMockCase[] = [
       textItems: [
         buildTextItem(
           'narrow-answer',
-          'I am still checking the renderer path. The reason trace should stay readable while the tool card below is in a running state.',
+          'I am still checking the renderer path. The tool row reason should stay readable while the tool card below is in a running state.',
           0
         )
       ],
@@ -395,7 +389,7 @@ const assistantCases: AssistantMockCase[] = [
           sourceIndex: 0,
           reason: 'Read the target component while the assistant response is still streaming so the preview state can show a reason immediately.',
           args: {
-            path: 'src/renderer/src/components/chat/chatMessage/assistant-message/ToolCallReasonTrace.tsx',
+            path: 'src/renderer/src/components/chat/chatMessage/assistant-message/toolcall/ToolCallResult.tsx',
             helper: 'src/renderer/src/components/chat/chatMessage/assistant-message/model/toolCallReason.ts',
             start_line: 1,
             max_lines: 120
@@ -502,7 +496,7 @@ function buildSequentialAssistantModel(activeIndex: number): AssistantMessageLay
       buildTextItem(
         `sequential-${activeTool?.id ?? 'complete'}`,
         isDoneStage
-          ? 'Sequential execution mock. All tool calls are complete, and the reason trace keeps the full path visible.'
+          ? 'Sequential execution mock. All tool calls are complete, and each reason stays visible on its tool row.'
           : `Sequential execution mock. The active tool is ${activeToolName}; previous tool calls stay completed so the next reason can be reviewed in context.`,
         0
       )
@@ -685,7 +679,7 @@ function ContainerWiringPanel() {
       buildContainerToolCallSegment({
         id: 'active-read',
         name: 'read_file',
-        reason: 'Verify the production AssistantMessage container passes toolCallReason into ModelBadgeNext.',
+        reason: 'Verify the production AssistantMessage container keeps reason data on each tool row.',
         status: 'running',
         index: 1,
         args: {
@@ -782,7 +776,7 @@ export default function ToolCallReasonTraceTestPage() {
               Tool Call Reason Playground
             </p>
             <h1 className="text-2xl font-semibold text-slate-950 dark:text-white">
-              Mock the model reason trace inside the assistant message stack.
+              Mock tool row reasons inside the assistant message stack.
             </h1>
             <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
               These cases render the real `AssistantMessageLayout` with mocked tool calls that include `tool_call_reason`, so spacing and wrapping can be tuned against actual text, reasoning, and tool-result rows.

@@ -14,6 +14,7 @@ export interface SupportSegmentHeaderProps {
   className?: string
   nameClassName?: string
   iconClassName?: string
+  hoverResponse?: 'subtle' | 'none'
 }
 
 const toneClassNames: Record<SupportSegmentHeaderTone, string> = {
@@ -32,7 +33,8 @@ export const SupportSegmentHeader = React.memo(({
   isOpen = false,
   className,
   nameClassName,
-  iconClassName
+  iconClassName,
+  hoverResponse = 'subtle'
 }: SupportSegmentHeaderProps) => {
   const isCompact = density === 'compact'
 
@@ -41,7 +43,7 @@ export const SupportSegmentHeader = React.memo(({
       data-testid="support-segment-header"
       className={cn(
         'inline-flex max-w-full items-center text-slate-600 transition-colors duration-150 ease-out dark:text-slate-300',
-        'group-hover:bg-slate-100/55 dark:group-hover:bg-white/4',
+        hoverResponse === 'subtle' && 'group-hover:bg-slate-100/55 dark:group-hover:bg-white/4',
         isCompact ? 'gap-1.5 rounded-lg px-1.5 py-0.5 text-[10px]' : 'gap-2 rounded-lg px-2 py-1 text-[11px]',
         className
       )}
@@ -64,7 +66,7 @@ export const SupportSegmentHeader = React.memo(({
       </span>
       <span
         className={cn(
-          'min-w-0 truncate font-semibold leading-none tracking-tight',
+          'min-w-0 truncate uppercase font-semibold leading-none tracking-wide',
           isCompact ? 'text-[10px]' : 'text-[11px]',
           tone === 'danger' ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300',
           nameClassName

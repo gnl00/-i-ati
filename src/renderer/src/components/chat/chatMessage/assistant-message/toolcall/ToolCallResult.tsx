@@ -3,16 +3,15 @@ import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
+import type { LucideIcon } from 'lucide-react'
 import { Braces, Check, Clipboard, FileText, List, Loader2, PencilLine, Search, Trash2, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
 import { AssistantSegmentPopout } from '../renderers/AssistantSegmentPopout'
-import {
-  SupportSegmentHeader,
-  type SupportSegmentHeaderTone
-} from '../renderers/SupportSegmentHeader'
+import type { SupportSegmentHeaderTone } from '../renderers/SupportSegmentHeader'
+import { getReasonFromToolCall } from '../model/toolCallReason'
 
 export interface ToolCallResultProps {
   toolCall: ToolCallSegment
@@ -68,6 +67,38 @@ const TOOL_CALL_ARGS_READY_STATUSES = new Set([
 
 function filterDisplayParamEntries(entries: Array<[string, unknown]>): Array<[string, unknown]> {
   return entries.filter(([key]) => key !== TOOL_CALL_REASON_PARAMETER_NAME)
+}
+
+function getDisplayArgs(args: ToolCallResponse['args']): ToolCallResponse['args'] {
+  if (!args) {
+    return args
+  }
+
+  if (typeof args === 'string') {
+    try {
+      const parsed = JSON.parse(args)
+      if (isRecord(parsed)) {
+        return Object.fromEntries(filterDisplayParamEntries(Object.entries(parsed)))
+      }
+    } catch {
+      return args
+    }
+
+    return args
+  }
+
+  return Object.fromEntries(filterDisplayParamEntries(Object.entries(args)))
+}
+
+function getDisplayToolResponsePayload(toolResponse: ToolCallResponse | undefined): ToolCallResponse | undefined {
+  if (!toolResponse || toolResponse.args === undefined) {
+    return toolResponse
+  }
+
+  return {
+    ...toolResponse,
+    args: getDisplayArgs(toolResponse.args)
+  }
 }
 
 function isRecord(value: unknown): value is WikiResultRecord {
@@ -329,6 +360,10 @@ function hasSameToolCallRenderState(
     return false
   }
 
+  if (getReasonFromToolCall(previousSegment) !== getReasonFromToolCall(nextSegment)) {
+    return false
+  }
+
   const previousArgsReady = areToolCallArgsReady(previous, previousSegment)
   const nextArgsReady = areToolCallArgsReady(next, nextSegment)
 
@@ -365,17 +400,19 @@ const ToolCallDuration = React.memo(({
   cost,
   isRunning,
   runningStartedAt,
-  className
+  className,
+  dataTestId
 }: {
   cost?: number
   isRunning: boolean
   runningStartedAt?: number
   className?: string
+  dataTestId?: string
 }) => {
   const displayCostMs = useAnimatedToolCost(cost, isRunning, runningStartedAt)
 
   return (
-    <span className={className}>
+    <span data-testid={dataTestId} className={className}>
       {formatToolCost(displayCostMs)}
     </span>
   )
@@ -383,57 +420,152 @@ const ToolCallDuration = React.memo(({
 
 ToolCallDuration.displayName = 'ToolCallDuration'
 
-export const ToolCallHeader = React.memo(({
-  name,
+function getToolCallStatusIconMeta(args: {
+  isError: boolean
+  isRunning: boolean
+  isPending: boolean
+}): {
+  Icon: LucideIcon
+  className: string
+  iconClassName?: string
+} {
+  if (args.isError) {
+    return {
+      Icon: X,
+      className: 'border-red-200/70 bg-red-50/85 text-red-600 dark:border-red-900/45 dark:bg-red-950/28 dark:text-red-300'
+    }
+  }
+
+  if (args.isRunning || args.isPending) {
+    return {
+      Icon: Loader2,
+      className: 'border-amber-200/70 bg-amber-50/85 text-amber-700 dark:border-amber-900/45 dark:bg-amber-950/26 dark:text-amber-200',
+      iconClassName: args.isRunning ? 'animate-spin' : undefined
+    }
+  }
+
+  return {
+    Icon: Check,
+    className: 'border-emerald-200/70 bg-emerald-50/85 text-emerald-700 dark:border-emerald-900/42 dark:bg-emerald-950/24 dark:text-emerald-300'
+  }
+}
+
+export function getToolCallTriggerButtonClassName({
+  isError,
+  isRunning,
+  isPending,
+  density = 'regular',
+  className
+}: {
+  isError: boolean
+  isRunning: boolean
+  isPending: boolean
+  density?: 'regular' | 'compact'
+  className?: string
+}): string {
+  return cn(
+    'group/toolcall inline-flex w-full max-w-[680px] cursor-pointer justify-start rounded-lg border text-left outline-hidden',
+    'transition-[background-color,border-color,box-shadow] duration-150 ease-out',
+    'border-slate-200/36 bg-white/34 hover:border-slate-200/54 hover:bg-slate-50/82',
+    'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+    'dark:border-slate-800/70 dark:bg-white/3 dark:hover:border-slate-700/78 dark:hover:bg-white/5 dark:focus-visible:ring-slate-500/80',
+    density === 'compact' ? 'px-1.5 py-1' : 'px-2 py-1.5',
+    isError && 'border-red-200/68 hover:border-red-300/74 dark:border-red-900/38 dark:hover:border-red-800/58',
+    (isRunning || isPending) && !isError
+      && 'border-amber-200/56 hover:border-amber-300/68 dark:border-amber-900/32 dark:hover:border-amber-800/52',
+    className
+  )
+}
+
+export const ToolCallTriggerContent = React.memo(({
+  toolCall,
   isError,
   isRunning,
   isPending,
   isOpen,
-  cost,
-  runningStartedAt,
-  density = 'regular'
+  density = 'regular',
+  className
 }: {
-  name: string
+  toolCall: ToolCallSegment
   isError: boolean
   isRunning: boolean
   isPending: boolean
   isOpen: boolean
-  cost?: number
-  runningStartedAt: number
   density?: 'regular' | 'compact'
+  className?: string
 }) => {
-  const StatusIcon = isError
-    ? X
-    : isRunning
-      ? Loader2
-      : Check
-  const tone: SupportSegmentHeaderTone = isError
-    ? 'danger'
-    : isRunning || isPending
-      ? 'warning'
-      : 'success'
+  const reason = getReasonFromToolCall(toolCall)
+  const isCompact = density === 'compact'
+  const {
+    Icon: StatusIcon,
+    className: statusIconClassName,
+    iconClassName
+  } = getToolCallStatusIconMeta({ isError, isRunning, isPending })
 
   return (
-    <SupportSegmentHeader
-      icon={StatusIcon}
-      name={name}
-      duration={(
-        <ToolCallDuration
-          cost={cost}
-          isRunning={isRunning}
-          runningStartedAt={runningStartedAt}
-        />
+    <span
+      data-testid={`tool-call-trigger-content-${toolCall.segmentId}`}
+      className={cn(
+        'grid max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center overflow-hidden',
+        isCompact ? 'gap-x-2' : 'gap-x-2.5',
+        className
       )}
-      tone={tone}
-      density={density}
-      isOpen={isOpen}
-      nameClassName="uppercase"
-      iconClassName={isRunning ? 'animate-spin' : undefined}
-    />
+    >
+      <span
+        data-testid={`tool-call-trigger-status-${toolCall.segmentId}`}
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-md border transition-transform duration-150 ease-out',
+          isCompact ? 'h-5 w-5' : 'h-6 w-6',
+          isOpen && 'scale-105',
+          statusIconClassName
+        )}
+        aria-hidden="true"
+      >
+        <StatusIcon
+          className={cn(
+            isCompact ? 'h-3 w-3' : 'h-3.5 w-3.5',
+            iconClassName
+          )}
+        />
+      </span>
+      <span className="flex min-w-0 flex-col justify-center">
+        <span
+          data-testid={`tool-call-trigger-name-${toolCall.segmentId}`}
+          className={cn(
+            'block min-w-0 truncate font-semibold leading-none text-slate-500 dark:text-slate-200',
+            isCompact ? 'text-[10.5px]' : 'text-[11px]'
+          )}
+        >
+          {toolCall.name.toUpperCase()}
+        </span>
+        {reason ? (
+          <span
+            data-testid={`tool-call-trigger-reason-${toolCall.segmentId}`}
+            title={reason}
+            className={cn(
+              'mt-0.5 block w-full max-w-full truncate whitespace-nowrap font-medium leading-snug text-slate-500 dark:text-slate-400',
+              isCompact ? 'text-[10px]' : 'text-[10.5px]'
+            )}
+          >
+            {reason}
+          </span>
+        ) : null}
+      </span>
+      <ToolCallDuration
+        cost={toolCall.cost}
+        isRunning={isRunning}
+        runningStartedAt={toolCall.executionStartedAt ?? toolCall.timestamp}
+        dataTestId={`tool-call-trigger-duration-${toolCall.segmentId}`}
+        className={cn(
+          'shrink-0 justify-self-end self-center text-right font-medium tabular-nums leading-none text-slate-400 dark:text-slate-500',
+          isCompact ? 'text-[10px]' : 'text-[10.5px]'
+        )}
+      />
+    </span>
   )
 })
 
-ToolCallHeader.displayName = 'ToolCallHeader'
+ToolCallTriggerContent.displayName = 'ToolCallTriggerContent'
 
 function SegmentedToggle({
   leftLabel,
@@ -718,6 +850,9 @@ export const ToolCallResultPanel = React.memo(({
   const isSubagentTool = toolName === 'subagent_spawn' || toolName === 'subagent_wait'
   const subagentData = isSubagentTool ? (resultPayload ?? toolResponse) : null
   const wikiSummaryPayload = hasWikiSummaryPayload ? resultPayload : null
+  const detailPayload = useMemo(() => (
+    resultPayload ?? getDisplayToolResponsePayload(toolResponse)
+  ), [resultPayload, toolResponse])
   const areArgsReady = areToolCallArgsReady(toolResponse, tc)
   const [isJsonExpanded, setIsJsonExpanded] = useState(false)
   const shouldPrepareSummary = !showDetails && areArgsReady
@@ -755,14 +890,14 @@ export const ToolCallResultPanel = React.memo(({
 
   const jsonBaseContent = useMemo(() => {
     if (!shouldPrepareDetails) return ''
-    if (!isJsonExpanded && isContentLong && resultPayload && typeof resultPayload === 'object') {
+    if (!isJsonExpanded && isContentLong && detailPayload && typeof detailPayload === 'object') {
       const preview = contentString
         ? `${contentString.slice(0, CONTENT_CHAR_THRESHOLD)}${contentString.length > CONTENT_CHAR_THRESHOLD ? '...' : ''}`
         : contentString
-      return JSON.stringify({ ...(resultPayload as Record<string, unknown>), content: preview }, null, 2)
+      return JSON.stringify({ ...(detailPayload as Record<string, unknown>), content: preview }, null, 2)
     }
-    return JSON.stringify(resultPayload ?? toolResponse, null, 2)
-  }, [contentString, isContentLong, isJsonExpanded, resultPayload, shouldPrepareDetails, toolResponse])
+    return JSON.stringify(detailPayload, null, 2)
+  }, [contentString, detailPayload, isContentLong, isJsonExpanded, shouldPrepareDetails])
 
   const jsonLines = useMemo(() => (
     shouldPrepareDetails ? jsonBaseContent.split('\n') : []
@@ -821,8 +956,8 @@ export const ToolCallResultPanel = React.memo(({
               </div>
 
               <SegmentedToggle
-                leftLabel="Summary"
-                rightLabel="Detail"
+                leftLabel="Request"
+                rightLabel="Response"
                 rightActive={showDetails}
                 onLeftClick={(e) => {
                   e.stopPropagation()
@@ -949,16 +1084,19 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
           <button
             type="button"
             aria-label={getToolCallTriggerAriaLabel(tc.name, statusLabel)}
-            className="group inline-flex w-auto flex-none cursor-pointer justify-start gap-2 rounded-lg py-0 text-left outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-slate-500/80"
+            className={getToolCallTriggerButtonClassName({
+              isError,
+              isRunning,
+              isPending
+            })}
           >
-            <ToolCallHeader
-              name={tc.name}
+            <ToolCallTriggerContent
+              toolCall={tc}
               isError={isError}
               isRunning={isRunning}
               isPending={isPending}
               isOpen={isOpen}
-              cost={tc.cost}
-              runningStartedAt={tc.executionStartedAt ?? tc.timestamp}
+              className="w-full"
             />
           </button>
         )}

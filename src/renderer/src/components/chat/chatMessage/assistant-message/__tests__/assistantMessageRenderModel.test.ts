@@ -506,7 +506,7 @@ describe('mapAssistantMessage', () => {
     ))).toEqual(['tool-1', 'error-1', 'tool-2'])
   })
 
-  it('projects the earliest non-terminal tool call reason into the header', () => {
+  it('keeps tool call reason data on support items while projecting a lean header', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -544,71 +544,18 @@ describe('mapAssistantMessage', () => {
       accounts: []
     })
 
-    expect(renderState.header.toolCallReason).toEqual({
-      id: 'tool-2',
-      toolName: 'search',
-      reason: 'Search second.',
-      order: 1,
-      isTerminal: false
+    expect(renderState.header).toEqual({
+      badgeModel: 'gpt-5',
+      modelProvider: undefined,
+      emotionLabel: undefined,
+      emotionEmoji: undefined,
+      emotionIntensity: undefined
     })
-    expect(renderState.header.toolCallReasons).toEqual([
-      {
-        id: 'tool-1',
-        toolName: 'read',
-        reason: 'Read first.',
-        order: 0,
-        isTerminal: true
-      },
-      {
-        id: 'tool-2',
-        toolName: 'search',
-        reason: 'Search second.',
-        order: 1,
-        isTerminal: false
-      },
-      {
-        id: 'tool-3',
-        toolName: 'shell',
-        reason: 'Typecheck last.',
-        order: 2,
-        isTerminal: false
-      }
-    ])
-  })
-
-  it('hides the header tool call reason after tool calls reach terminal status', () => {
-    const renderState = mapAssistantMessage({
-      committedMessage: {
-        role: 'assistant',
-        model: 'gpt-5',
-        content: '',
-        segments: [
-          toolCallSegment({
-            id: 'tool-1',
-            name: 'read',
-            toolCallId: 'tool-1',
-            reason: 'Read first.',
-            status: 'success',
-            result: { ok: true }
-          })
-        ]
-      }
-    }, {
-      isLatest: true,
-      isStreaming: false,
-      providerDefinitions: [],
-      accounts: []
-    })
-
-    expect(renderState.header.toolCallReason).toBeUndefined()
-    expect(renderState.header.toolCallReasons).toEqual([
-      {
-        id: 'tool-1',
-        toolName: 'read',
-        reason: 'Read first.',
-        order: 0,
-        isTerminal: true
-      }
+    expect(renderState.transcript.supportItems).toHaveLength(3)
+    expect(renderState.transcript.supportItems.map(item => item.segment.type)).toEqual([
+      'toolCall',
+      'toolCall',
+      'toolCall'
     ])
   })
 })

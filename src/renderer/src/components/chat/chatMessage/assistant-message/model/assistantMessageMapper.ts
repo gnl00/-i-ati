@@ -2,11 +2,6 @@ import {
   buildAssistantMessageFacts
 } from './assistantMessageFacts'
 import {
-  buildActiveToolCallReason,
-  buildToolCallReasonModel,
-  type ToolCallReasonItem
-} from './toolCallReason'
-import {
   buildSupportRenderUnits,
   type SupportRenderUnit
 } from './assistantSupportGrouping'
@@ -51,8 +46,6 @@ export interface AssistantMessageHeaderProjection {
   emotionLabel?: string
   emotionEmoji?: string
   emotionIntensity?: number
-  toolCallReason?: ToolCallReasonItem
-  toolCallReasons?: ToolCallReasonItem[]
 }
 
 export interface AssistantMessageTranscriptProjection {
@@ -171,9 +164,6 @@ export function mapAssistantMessage(
     .filter((entry): entry is { kind: 'support'; item: SupportSegmentRenderItem } => entry.kind === 'support')
     .map(entry => entry.item)
   const supportUnits = buildSupportRenderUnits(supportItems)
-  const toolCallReason = buildActiveToolCallReason(supportItems)
-  const toolCallReasonItems = buildToolCallReasonModel(supportItems).items
-  const toolCallReasons = toolCallReasonItems.length > 0 ? toolCallReasonItems : undefined
 
   return {
     header: {
@@ -181,9 +171,7 @@ export function mapAssistantMessage(
       modelProvider: resolveMessageProvider(facts.badge.modelRef, providerDefinitions, accounts),
       emotionLabel: facts.emotion.label,
       emotionEmoji: facts.emotion.emoji,
-      emotionIntensity: facts.emotion.intensity,
-      toolCallReason,
-      toolCallReasons
+      emotionIntensity: facts.emotion.intensity
     },
     transcript: {
       isOverlayPreview: facts.isOverlayPreview,

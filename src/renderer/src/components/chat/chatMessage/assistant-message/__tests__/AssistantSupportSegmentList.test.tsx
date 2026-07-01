@@ -9,19 +9,37 @@ import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 import { buildSupportRenderUnits } from '../model/assistantSupportGrouping'
 
 vi.mock('../renderers/AssistantSupportSegmentContent', () => ({
-  AssistantSupportSegmentContent: ({ item }: { item: SupportSegmentRenderItem }) => (
-    <div data-testid={`support-content-${item.segment.segmentId}`}>
-      {item.segment.type === 'toolCall' ? item.segment.name : item.segment.type}
-    </div>
-  )
+  AssistantSupportSegmentContent: ({ item }: { item: SupportSegmentRenderItem }) => {
+    const args = item.segment.type === 'toolCall' && item.segment.content?.args
+    const reason = args && typeof args === 'object' && !Array.isArray(args)
+      ? (args as Record<string, unknown>)[TOOL_CALL_REASON_PARAMETER_NAME]
+      : undefined
+
+    return (
+      <div data-testid={`support-content-${item.segment.segmentId}`}>
+        {item.segment.type === 'toolCall' ? item.segment.name : item.segment.type}
+        {typeof reason === 'string' ? reason : null}
+      </div>
+    )
+  }
 }))
 
 vi.mock('../renderers/SupportSegmentGroup', () => ({
   SupportSegmentGroup: ({ items }: { items: SupportSegmentRenderItem[] }) => (
     <div data-testid="support-segment-group">
-      {items.map(item => (
-        <span key={item.key}>{item.segment.type === 'toolCall' ? item.segment.name : item.segment.type}</span>
-      ))}
+      {items.map((item) => {
+        const args = item.segment.type === 'toolCall' && item.segment.content?.args
+        const reason = args && typeof args === 'object' && !Array.isArray(args)
+          ? (args as Record<string, unknown>)[TOOL_CALL_REASON_PARAMETER_NAME]
+          : undefined
+
+        return (
+          <span key={item.key}>
+            {item.segment.type === 'toolCall' ? item.segment.name : item.segment.type}
+            {typeof reason === 'string' ? reason : null}
+          </span>
+        )
+      })}
     </div>
   ),
   areSupportSegmentRenderItemsEqual: (
@@ -99,7 +117,7 @@ describe('AssistantSupportSegmentList', () => {
     container.remove()
   })
 
-  it('renders tool outputs without inline tool call reason text', async () => {
+  it('passes tool call reason data into grouped support rows', async () => {
     await act(async () => {
       root.render(
         <AssistantSupportSegmentList
@@ -125,8 +143,8 @@ describe('AssistantSupportSegmentList', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0].textContent).toContain('read')
     expect(rows[1].textContent).toContain('search')
-    expect(container.textContent).not.toContain('Inspect the layout first.')
-    expect(container.textContent).not.toContain('Find the matching renderer path.')
+    expect(container.textContent).toContain('Inspect the layout first.')
+    expect(container.textContent).toContain('Find the matching renderer path.')
   })
 
   it('renders grouped mixed support rows with each item visible', async () => {
