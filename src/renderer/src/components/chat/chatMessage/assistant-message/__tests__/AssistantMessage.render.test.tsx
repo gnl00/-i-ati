@@ -81,8 +81,42 @@ vi.mock('../toolcall/ToolCallResult', async () => {
     return <div data-testid={`tool-${toolCall.toolCallId}`}>{toolCall.name}</div>
   })
 
+  const ToolCallHeader = ({
+    name
+  }: {
+    name: string
+  }) => <span>{name}</span>
+
+  const ToolCallResultPanel = ({
+    toolCall
+  }: {
+    toolCall: ToolCallSegment
+  }) => <div>{toolCall.name}</div>
+
   return {
-    ToolCallResult
+    ToolCallResult,
+    ToolCallHeader,
+    ToolCallResultPanel,
+    getNormalizedStatus: (status: unknown) => typeof status === 'string' ? status.toLowerCase() : undefined,
+    getToolCallHeaderState: (segment: ToolCallSegment) => {
+      const status = typeof segment.content?.status === 'string' ? segment.content.status.toLowerCase() : undefined
+      const isError = Boolean(segment.isError) || status === 'error' || status === 'failed'
+      const isPending = !isError && status === 'pending'
+      const isRunning = !isError && status === 'running'
+      return {
+        toolResponse: segment.content,
+        status,
+        isError,
+        isPending,
+        isRunning,
+        statusLabel: isError ? 'failed' : isRunning ? 'running' : isPending ? 'pending' : 'completed',
+        tone: isError ? 'danger' : isRunning || isPending ? 'warning' : 'success'
+      }
+    },
+    getToolCallTriggerAriaLabel: (name: string, statusLabel: string) => (
+      `Inspect ${name} tool call, status ${statusLabel}`
+    ),
+    areToolCallSegmentsEqual: (previous: ToolCallSegment, next: ToolCallSegment) => previous === next
   }
 })
 

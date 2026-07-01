@@ -6,6 +6,10 @@ import {
   buildToolCallReasonModel,
   type ToolCallReasonItem
 } from './toolCallReason'
+import {
+  buildSupportRenderUnits,
+  type SupportRenderUnit
+} from './assistantSupportGrouping'
 
 type SegmentRenderLayer = 'committed' | 'preview'
 
@@ -55,6 +59,7 @@ export interface AssistantMessageTranscriptProjection {
   isOverlayPreview: boolean
   textItems: TextSegmentRenderItem[]
   supportItems: SupportSegmentRenderItem[]
+  supportUnits: SupportRenderUnit[]
 }
 
 export interface AssistantMessageRenderState {
@@ -165,6 +170,7 @@ export function mapAssistantMessage(
   const supportItems = orderedItems
     .filter((entry): entry is { kind: 'support'; item: SupportSegmentRenderItem } => entry.kind === 'support')
     .map(entry => entry.item)
+  const supportUnits = buildSupportRenderUnits(supportItems)
   const toolCallReason = buildActiveToolCallReason(supportItems)
   const toolCallReasonItems = buildToolCallReasonModel(supportItems).items
   const toolCallReasons = toolCallReasonItems.length > 0 ? toolCallReasonItems : undefined
@@ -182,13 +188,15 @@ export function mapAssistantMessage(
     transcript: {
       isOverlayPreview: facts.isOverlayPreview,
       textItems,
-      supportItems
+      supportItems,
+      supportUnits
     }
   }
 }
 
 export type {
   SegmentRenderLayer,
+  SupportRenderUnit,
   SupportSegmentRenderItem,
   TextSegmentRenderItem
 }

@@ -6,13 +6,32 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { AssistantSupportSegmentList } from '../renderers/AssistantSupportSegmentList'
 import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
+import { buildSupportRenderUnits } from '../model/assistantSupportGrouping'
 
 vi.mock('../renderers/AssistantSupportSegmentContent', () => ({
   AssistantSupportSegmentContent: ({ item }: { item: SupportSegmentRenderItem }) => (
-    <div data-testid={`support-${item.segment.segmentId}`}>
+    <div data-testid={`support-content-${item.segment.segmentId}`}>
       {item.segment.type === 'toolCall' ? item.segment.name : item.segment.type}
     </div>
   )
+}))
+
+vi.mock('../renderers/SupportSegmentGroup', () => ({
+  SupportSegmentGroup: ({ items }: { items: SupportSegmentRenderItem[] }) => (
+    <div data-testid="support-segment-group">
+      {items.map(item => (
+        <span key={item.key}>{item.segment.type === 'toolCall' ? item.segment.name : item.segment.type}</span>
+      ))}
+    </div>
+  ),
+  areSupportSegmentRenderItemsEqual: (
+    previous: SupportSegmentRenderItem,
+    next: SupportSegmentRenderItem
+  ) => previous.key === next.key && previous.segment === next.segment,
+  areSupportSegmentRenderItemListsEqual: (
+    previous: SupportSegmentRenderItem[],
+    next: SupportSegmentRenderItem[]
+  ) => previous.length === next.length && previous.every((item, index) => item.key === next[index].key)
 }))
 
 const toolCallItem = (args: {
@@ -44,6 +63,24 @@ const toolCallItem = (args: {
   }
 })
 
+const reasoningItem = (args: {
+  id: string
+  order: number
+  content: string
+}): SupportSegmentRenderItem => ({
+  key: args.id,
+  layer: 'committed',
+  sourceIndex: args.order,
+  order: args.order,
+  isStreamingTail: false,
+  segment: {
+    type: 'reasoning',
+    segmentId: `segment-${args.id}`,
+    content: args.content,
+    timestamp: 1
+  }
+})
+
 describe('AssistantSupportSegmentList', () => {
   let container: HTMLDivElement
   let root: Root
@@ -66,7 +103,7 @@ describe('AssistantSupportSegmentList', () => {
     await act(async () => {
       root.render(
         <AssistantSupportSegmentList
-          items={[
+          units={buildSupportRenderUnits([
             toolCallItem({
               id: 'tool-1',
               name: 'read',
@@ -76,10 +113,10 @@ describe('AssistantSupportSegmentList', () => {
             toolCallItem({
               id: 'tool-2',
               name: 'search',
-              order: 2,
+              order: 3,
               reason: 'Find the matching renderer path.'
             })
-          ]}
+          ])}
         />
       )
     })
@@ -90,5 +127,39 @@ describe('AssistantSupportSegmentList', () => {
     expect(rows[1].textContent).toContain('search')
     expect(container.textContent).not.toContain('Inspect the layout first.')
     expect(container.textContent).not.toContain('Find the matching renderer path.')
+  })
+
+  it('renders grouped mixed support rows with each item visible', async () => {
+    await act(async () => {
+      root.render(
+        <AssistantSupportSegmentList
+          units={buildSupportRenderUnits([
+            toolCallItem({
+              id: 'tool-1',
+              name: 'read',
+              order: 1,
+              reason: 'Inspect the layout first.'
+            }),
+            reasoningItem({
+              id: 'thought-1',
+              order: 2,
+              content: 'Think through the next read.'
+            }),
+            toolCallItem({
+              id: 'tool-2',
+              name: 'shell',
+              order: 3,
+              reason: 'Run the focused tests.'
+            })
+          ])}
+        />
+      )
+    })
+
+    expect(container.querySelectorAll('[data-testid="support-segment-group"]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-testid^="support-content-"]')).toHaveLength(0)
+    expect(container.textContent).toContain('read')
+    expect(container.textContent).toContain('reasoning')
+    expect(container.textContent).toContain('shell')
   })
 })

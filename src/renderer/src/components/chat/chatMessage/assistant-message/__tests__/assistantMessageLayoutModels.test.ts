@@ -33,7 +33,8 @@ describe('buildAssistantMessageLayoutModels', () => {
       transcriptProjection: {
         isOverlayPreview: true,
         textItems: [],
-        supportItems: []
+        supportItems: [],
+        supportUnits: []
       },
       textPlayback: {
         committed: {

@@ -176,7 +176,7 @@ const createRunningWikiToolCallSegment = (
 })
 
 function getTrigger(container: HTMLElement, name = 'search'): HTMLButtonElement {
-  const trigger = container.querySelector<HTMLButtonElement>(`button[aria-label="Inspect ${name} tool call"]`)
+  const trigger = container.querySelector<HTMLButtonElement>(`button[aria-label^="Inspect ${name} tool call"]`)
   expect(trigger).toBeTruthy()
   return trigger as HTMLButtonElement
 }
@@ -266,6 +266,25 @@ describe('ToolCallResult cost display', () => {
     })
     container.remove()
     vi.useRealTimers()
+  })
+
+  it('uses icon-only visible status with semantic status in the aria label', async () => {
+    const cases: Array<{ status: string; ariaStatus: string; cost?: number }> = [
+      { status: 'completed', ariaStatus: 'completed', cost: 1680 },
+      { status: 'running', ariaStatus: 'running' },
+      { status: 'pending', ariaStatus: 'pending' },
+      { status: 'error', ariaStatus: 'failed' }
+    ]
+
+    for (const testCase of cases) {
+      await act(async () => {
+        root.render(<ToolCallResult toolCall={createToolCallSegment(testCase.status, testCase.cost)} index={0} />)
+      })
+
+      const trigger = getTrigger(container)
+      expect(trigger.getAttribute('aria-label')).toContain(`status ${testCase.ariaStatus}`)
+      expect(container.textContent).not.toMatch(/\b(?:OK|ERR|RUNNING|PENDING)\b/)
+    }
   })
 
   it('increments while running and settles on the final cost', async () => {

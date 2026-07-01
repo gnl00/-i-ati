@@ -16,6 +16,17 @@ const reasoningSegment = (id: string, content: string, timestamp = 2): Reasoning
   timestamp
 })
 
+const errorSegment = (id: string, timestamp = 4): ErrorSegment => ({
+  type: 'error',
+  segmentId: id,
+  content: 'failed',
+  error: {
+    name: 'ToolError',
+    message: 'Tool failed',
+    timestamp
+  }
+})
+
 const toolCallSegment = (args: {
   id: string
   name: string
@@ -278,6 +289,221 @@ describe('mapAssistantMessage', () => {
       { id: 'preview-reasoning-1', isStreamingTail: false },
       { id: 'preview-reasoning-2', isStreamingTail: true }
     ])
+  })
+
+  it('groups consecutive tool calls into one support render unit', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'tool-1',
+            name: 'read',
+            toolCallId: 'tool-1'
+          }),
+          toolCallSegment({
+            id: 'tool-2',
+            name: 'search',
+            toolCallId: 'tool-2'
+          }),
+          toolCallSegment({
+            id: 'tool-3',
+            name: 'shell',
+            toolCallId: 'tool-3'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits).toHaveLength(1)
+    expect(renderState.transcript.supportUnits[0]).toMatchObject({
+      type: 'supportGroup',
+      order: 0
+    })
+    expect(renderState.transcript.supportUnits[0].type === 'supportGroup'
+      ? renderState.transcript.supportUnits[0].items.map(item => item.segment.segmentId)
+      : []
+    ).toEqual(['tool-1', 'tool-2', 'tool-3'])
+  })
+
+  it('groups tool, reasoning, and tool into one support render unit', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'tool-1',
+            name: 'read',
+            toolCallId: 'tool-1'
+          }),
+          reasoningSegment('reasoning-1', 'thinking'),
+          toolCallSegment({
+            id: 'tool-2',
+            name: 'search',
+            toolCallId: 'tool-2'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits).toHaveLength(1)
+    expect(renderState.transcript.supportUnits[0]).toMatchObject({
+      type: 'supportGroup',
+      order: 0
+    })
+    expect(renderState.transcript.supportUnits[0].type === 'supportGroup'
+      ? renderState.transcript.supportUnits[0].items.map(item => item.segment.segmentId)
+      : []
+    ).toEqual(['tool-1', 'reasoning-1', 'tool-2'])
+  })
+
+  it('groups consecutive reasoning segments into one support render unit', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          reasoningSegment('reasoning-1', 'one'),
+          reasoningSegment('reasoning-2', 'two'),
+          reasoningSegment('reasoning-3', 'three')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits).toHaveLength(1)
+    expect(renderState.transcript.supportUnits[0]).toMatchObject({
+      type: 'supportGroup',
+      order: 0
+    })
+    expect(renderState.transcript.supportUnits[0].type === 'supportGroup'
+      ? renderState.transcript.supportUnits[0].items.map(item => item.segment.segmentId)
+      : []
+    ).toEqual(['reasoning-1', 'reasoning-2', 'reasoning-3'])
+  })
+
+  it('keeps text order gaps as support group boundaries', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'middle',
+        segments: [
+          toolCallSegment({
+            id: 'tool-1',
+            name: 'read',
+            toolCallId: 'tool-1'
+          }),
+          textSegment('text-1', 'middle'),
+          toolCallSegment({
+            id: 'tool-2',
+            name: 'search',
+            toolCallId: 'tool-2'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportItems.map(item => item.order)).toEqual([0, 2])
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['single', 'single'])
+  })
+
+  it('keeps layer changes as support group boundaries', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'committed-tool',
+            name: 'read',
+            toolCallId: 'committed-tool'
+          })
+        ]
+      },
+      previewMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'preview-tool',
+            name: 'search',
+            toolCallId: 'preview-tool'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: true,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportItems.map(item => ({
+      id: item.segment.segmentId,
+      layer: item.layer,
+      order: item.order
+    }))).toEqual([
+      { id: 'committed-tool', layer: 'committed', order: 0 },
+      { id: 'preview-tool', layer: 'preview', order: 1 }
+    ])
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['single', 'single'])
+  })
+
+  it('keeps errors as support group boundaries', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          toolCallSegment({
+            id: 'tool-1',
+            name: 'read',
+            toolCallId: 'tool-1'
+          }),
+          errorSegment('error-1'),
+          toolCallSegment({
+            id: 'tool-2',
+            name: 'search',
+            toolCallId: 'tool-2'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'single',
+      'single',
+      'single'
+    ])
+    expect(renderState.transcript.supportUnits.map(unit => (
+      unit.type === 'single' ? unit.item.segment.segmentId : 'group'
+    ))).toEqual(['tool-1', 'error-1', 'tool-2'])
   })
 
   it('projects the earliest non-terminal tool call reason into the header', () => {

@@ -39,7 +39,7 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
           items={transcript.textItems}
           isOverlayPreview={transcript.isOverlayPreview}
         />
-        <AssistantSupportSegmentList items={transcript.supportItems} />
+        <AssistantSupportSegmentList units={transcript.supportUnits} />
       </div>
 
     </>

@@ -12,6 +12,7 @@ import {
   buildActiveToolCallReason,
   buildToolCallReasonModel
 } from '@renderer/components/chat/chatMessage/assistant-message/model/toolCallReason'
+import { buildSupportRenderUnits } from '@renderer/components/chat/chatMessage/assistant-message/model/assistantSupportGrouping'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
@@ -198,7 +199,8 @@ function buildAssistantModel(args: {
       transcript: {
         isOverlayPreview: false,
         textItems: args.textItems,
-        supportItems: args.supportItems
+        supportItems: args.supportItems,
+        supportUnits: buildSupportRenderUnits(args.supportItems)
       },
       textPlayback: {
         committed: {

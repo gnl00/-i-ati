@@ -78,6 +78,7 @@ describe('ReasoningSegmentNext', () => {
     })
 
     expect(container.textContent).toContain('Thought')
+    expect(container.querySelector('[data-testid="support-segment-header"]')?.textContent).toContain('Thought')
     expect(container.textContent).not.toContain('inspect current code')
 
     await openReasoning(container)
@@ -142,6 +143,7 @@ describe('ReasoningSegmentNext', () => {
     })
 
     expect(container.textContent).toContain('2s')
+    expect(container.querySelector('[data-testid="support-segment-header-duration"]')?.textContent).toContain('2s')
 
     await act(async () => {
       vi.advanceTimersByTime(5000)

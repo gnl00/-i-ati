@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { fixMalformedCodeBlocks } from '../../markdown/markdown-components'
 import { remarkPreserveLineBreaks } from '../../markdown/markdown-plugins'
 import { AssistantSegmentPopout } from '../renderers/AssistantSegmentPopout'
+import { SupportSegmentHeader } from '../renderers/SupportSegmentHeader'
 
 interface ReasoningSegmentNextProps {
   segment: ReasoningSegment
@@ -19,7 +20,7 @@ interface ReasoningSegmentPanelProps {
   fixedContent: string
 }
 
-const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
+export const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
   content,
   fixedContent
 }) => {
@@ -83,12 +84,34 @@ const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
   )
 }
 
-export const ReasoningSegmentNext: React.FC<ReasoningSegmentNextProps> = memo(({
-  segment,
-  isStreaming = false
-}) => {
-  const fixedContent = fixMalformedCodeBlocks(segment.content)
-  const [isOpen, setIsOpen] = React.useState(false)
+export function getReasoningDurationMs(
+  segment: ReasoningSegment,
+  isStreaming: boolean,
+  liveNow: number
+): number | undefined {
+  if (typeof segment.timestamp !== 'number') {
+    return undefined
+  }
+
+  if (typeof segment.endedAt === 'number' && segment.endedAt >= segment.timestamp) {
+    return segment.endedAt - segment.timestamp
+  }
+
+  if (isStreaming) {
+    return Math.max(0, liveNow - segment.timestamp)
+  }
+
+  return undefined
+}
+
+export function formatReasoningDurationText(durationMs: number | undefined): string | undefined {
+  return durationMs != null ? `${Math.max(1, Math.ceil(durationMs / 1000))}s` : undefined
+}
+
+export function useReasoningDurationText(
+  segment: ReasoningSegment,
+  isStreaming: boolean
+): string | undefined {
   const [liveNow, setLiveNow] = React.useState(() => Date.now())
 
   React.useEffect(() => {
@@ -107,23 +130,20 @@ export const ReasoningSegmentNext: React.FC<ReasoningSegmentNextProps> = memo(({
     }
   }, [isStreaming])
 
-  const durationMs = React.useMemo(() => {
-    if (typeof segment.timestamp !== 'number') {
-      return undefined
-    }
+  const durationMs = React.useMemo(() => (
+    getReasoningDurationMs(segment, isStreaming, liveNow)
+  ), [isStreaming, liveNow, segment])
 
-    if (typeof segment.endedAt === 'number' && segment.endedAt >= segment.timestamp) {
-      return segment.endedAt - segment.timestamp
-    }
+  return formatReasoningDurationText(durationMs)
+}
 
-    if (isStreaming) {
-      return Math.max(0, liveNow - segment.timestamp)
-    }
-
-    return undefined
-  }, [isStreaming, liveNow, segment.endedAt, segment.timestamp])
-
-  const thoughtSeconds = durationMs != null ? Math.max(1, Math.ceil(durationMs / 1000)) : undefined
+export const ReasoningSegmentNext: React.FC<ReasoningSegmentNextProps> = memo(({
+  segment,
+  isStreaming = false
+}) => {
+  const fixedContent = fixMalformedCodeBlocks(segment.content)
+  const [isOpen, setIsOpen] = React.useState(false)
+  const durationText = useReasoningDurationText(segment, isStreaming)
 
   return (
     <div className="my-2 w-full">
@@ -142,33 +162,14 @@ export const ReasoningSegmentNext: React.FC<ReasoningSegmentNextProps> = memo(({
                 'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-slate-500/80'
               )}
             >
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-xl px-2 py-1',
-                  'transition-colors duration-200 ease-out',
-                  'group-hover:bg-slate-100/45 dark:group-hover:bg-white/4'
-                )}
-              >
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg bg-slate-200/45 text-slate-600 dark:bg-white/5 dark:text-slate-300">
-                  <Lightbulb className={cn(
-                    'w-3 h-3 dark:text-slate-500',
-                    'transition-all duration-300 ease-out',
-                    isOpen && 'scale-110 rotate-12'
-                  )} />
-                </span>
-                <span
-                  className={cn(
-                    'select-none text-[10px] font-semibold tracking-tight tabular-nums uppercase',
-                    'text-slate-600 dark:text-slate-300',
-                    'transition-colors duration-200 ease-out'
-                  )}
-                >
-                  Thought
-                </span>
-                <span className='text-slate-400/90 dark:text-slate-300 text-[10px]'>
-                  { thoughtSeconds && ` · ${thoughtSeconds}s`}
-                </span>
-              </span>
+              <SupportSegmentHeader
+                icon={Lightbulb}
+                name="Thought"
+                duration={durationText}
+                tone="neutral"
+                density="regular"
+                isOpen={isOpen}
+              />
             </button>
           )}
         >

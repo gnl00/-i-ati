@@ -3,20 +3,24 @@ import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Braces, Check, Clipboard, FileText, List, Loader2, PencilLine, Search, Trash2, Wrench, X } from 'lucide-react'
+import { Braces, Check, Clipboard, FileText, List, Loader2, PencilLine, Search, Trash2, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
 import { AssistantSegmentPopout } from '../renderers/AssistantSegmentPopout'
+import {
+  SupportSegmentHeader,
+  type SupportSegmentHeaderTone
+} from '../renderers/SupportSegmentHeader'
 
-interface ToolCallResultProps {
+export interface ToolCallResultProps {
   toolCall: ToolCallSegment
   index: number
 }
 
 type ToolCallRenderContent = Record<string, unknown> | undefined
-type ToolCallResponse = {
+export type ToolCallResponse = {
   toolName?: string
   args?: Record<string, unknown> | string
   result?: any
@@ -24,6 +28,15 @@ type ToolCallResponse = {
   error?: string
   raw?: any
   results?: any[]
+}
+export interface ToolCallHeaderState {
+  toolResponse: ToolCallResponse | undefined
+  status: string | undefined
+  isError: boolean
+  isPending: boolean
+  isRunning: boolean
+  statusLabel: 'completed' | 'failed' | 'pending' | 'running'
+  tone: SupportSegmentHeaderTone
 }
 type WikiToolName = 'wiki_list' | 'wiki_read' | 'wiki_write' | 'wiki_delete' | 'wiki_search'
 type WikiResultRecord = Record<string, unknown>
@@ -33,6 +46,14 @@ const TOOL_COST_REDUCED_TICK_MS = 250
 const TOOL_COST_SETTLE_MS = 360
 const JSON_LINE_THRESHOLD = 24
 const CONTENT_CHAR_THRESHOLD = 1500
+const TOOL_CALL_ERROR_STATUSES = new Set([
+  'failed',
+  'error',
+  'aborted',
+  'denied',
+  'timeout',
+  'cancelled'
+])
 const TOOL_CALL_ARGS_READY_STATUSES = new Set([
   'running',
   'success',
@@ -193,8 +214,45 @@ function getToolCallRenderContent(segment: ToolCallSegment): ToolCallRenderConte
   return segment.content as ToolCallRenderContent
 }
 
-function getNormalizedStatus(status: unknown): string | undefined {
+export function getNormalizedStatus(status: unknown): string | undefined {
   return typeof status === 'string' ? status.toLowerCase() : undefined
+}
+
+export function getToolCallHeaderState(segment: ToolCallSegment): ToolCallHeaderState {
+  const toolResponse = segment.content as ToolCallResponse | undefined
+  const status = getNormalizedStatus(toolResponse?.status)
+  const isError = Boolean(segment.isError) || Boolean(status && TOOL_CALL_ERROR_STATUSES.has(status))
+  const isPending = !isError && status === 'pending'
+  const isRunning = !isError && status === 'running'
+  const statusLabel = isError
+    ? 'failed'
+    : isRunning
+      ? 'running'
+      : isPending
+        ? 'pending'
+        : 'completed'
+  const tone: SupportSegmentHeaderTone = isError
+    ? 'danger'
+    : isRunning || isPending
+      ? 'warning'
+      : 'success'
+
+  return {
+    toolResponse,
+    status,
+    isError,
+    isPending,
+    isRunning,
+    statusLabel,
+    tone
+  }
+}
+
+export function getToolCallTriggerAriaLabel(
+  toolName: string,
+  statusLabel: ToolCallHeaderState['statusLabel']
+): string {
+  return `Inspect ${toolName} tool call, status ${statusLabel}`
 }
 
 function hasToolCallTerminalPayload(content: ToolCallRenderContent): boolean {
@@ -279,7 +337,7 @@ function hasSameToolCallRenderState(
     : true
 }
 
-const areToolCallSegmentsEqual = (
+export const areToolCallSegmentsEqual = (
   previous: ToolCallSegment,
   next: ToolCallSegment
 ): boolean => {
@@ -325,14 +383,15 @@ const ToolCallDuration = React.memo(({
 
 ToolCallDuration.displayName = 'ToolCallDuration'
 
-const ToolCallHeader = React.memo(({
+export const ToolCallHeader = React.memo(({
   name,
   isError,
   isRunning,
   isPending,
   isOpen,
   cost,
-  runningStartedAt
+  runningStartedAt,
+  density = 'regular'
 }: {
   name: string
   isError: boolean
@@ -341,55 +400,36 @@ const ToolCallHeader = React.memo(({
   isOpen: boolean
   cost?: number
   runningStartedAt: number
+  density?: 'regular' | 'compact'
 }) => {
-  const statusTone = isError
-    ? 'bg-red-100/85 text-red-700 dark:bg-red-900/24 dark:text-red-300'
-    : isRunning || isPending
-      ? 'bg-amber-100/85 text-amber-600 dark:bg-amber-900/24 dark:text-amber-200'
-      : 'bg-emerald-100/85 text-emerald-700 dark:bg-emerald-900/24 dark:text-emerald-300'
-  const statusIcon = isError
-    ? <X className="w-2.5 h-2.5" />
+  const StatusIcon = isError
+    ? X
     : isRunning
-      ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-      : <Check className="w-2.5 h-2.5" />
-  const statusLabel = isError ? 'ERR' : isRunning ? 'RUNNING' : isPending ? 'PENDING' : 'OK'
+      ? Loader2
+      : Check
+  const tone: SupportSegmentHeaderTone = isError
+    ? 'danger'
+    : isRunning || isPending
+      ? 'warning'
+      : 'success'
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 w-fit')}>
-      <span className="inline-flex items-center gap-2 rounded-xl px-2 py-1 transition-colors duration-200 ease-out group-hover:bg-slate-100/55 dark:group-hover:bg-white/4">
-        <span className={cn(
-          'inline-flex items-center gap-1.5 px-1.5 py-1 rounded-full text-[10px] font-semibold leading-none',
-          statusTone
-        )}>
-          {statusIcon}
-          {statusLabel}
-        </span>
-
-        <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100/60 px-2 py-1 dark:bg-white/4">
-          <Wrench className={cn(
-            'w-3 h-3 dark:text-zinc-500/70 transition-all duration-300',
-            isOpen && 'scale-110 rotate-6'
-          )} />
-        </span>
-
-        <span className={cn(
-          'text-[11px] font-semibold tracking-tight leading-none',
-          isError ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300'
-        )}>
-          <span className="uppercase">
-            {name}
-          </span>
-          <span className="text-slate-400/90 dark:text-slate-300 text-[10px]">
-            {' · '}
-            <ToolCallDuration
-              cost={cost}
-              isRunning={isRunning}
-              runningStartedAt={runningStartedAt}
-            />
-          </span>
-        </span>
-      </span>
-    </div>
+    <SupportSegmentHeader
+      icon={StatusIcon}
+      name={name}
+      duration={(
+        <ToolCallDuration
+          cost={cost}
+          isRunning={isRunning}
+          runningStartedAt={runningStartedAt}
+        />
+      )}
+      tone={tone}
+      density={density}
+      isOpen={isOpen}
+      nameClassName="uppercase"
+      iconClassName={isRunning ? 'animate-spin' : undefined}
+    />
   )
 })
 
@@ -638,12 +678,12 @@ function WikiToolSummary({
   return <WikiSearchSummary payload={payload} />
 }
 
-type ToolCallResultPanelProps = {
+export type ToolCallResultPanelProps = {
   toolCall: ToolCallSegment
   toolResponse: ToolCallResponse | undefined
 }
 
-const ToolCallResultPanel = React.memo(({
+export const ToolCallResultPanel = React.memo(({
   toolCall: tc,
   toolResponse
 }: ToolCallResultPanelProps) => {
@@ -882,11 +922,13 @@ ToolCallResultPanel.displayName = 'ToolCallResultPanel'
 
 const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const toolResponse = tc.content as ToolCallResponse | undefined
-  const isError = Boolean(tc.isError)
-  const status = getNormalizedStatus(toolResponse?.status)
-  const isPending = !isError && status === 'pending'
-  const isRunning = !isError && status === 'running'
+  const {
+    toolResponse,
+    isError,
+    isPending,
+    isRunning,
+    statusLabel
+  } = getToolCallHeaderState(tc)
 
   return (
     <motion.div
@@ -906,8 +948,8 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
         renderTrigger={({ isOpen }) => (
           <button
             type="button"
-            aria-label={`Inspect ${tc.name} tool call`}
-            className="group inline-flex w-auto flex-none cursor-pointer justify-start gap-2 rounded-xl py-0 text-left outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-slate-500/80"
+            aria-label={getToolCallTriggerAriaLabel(tc.name, statusLabel)}
+            className="group inline-flex w-auto flex-none cursor-pointer justify-start gap-2 rounded-lg py-0 text-left outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-slate-500/80"
           >
             <ToolCallHeader
               name={tc.name}
