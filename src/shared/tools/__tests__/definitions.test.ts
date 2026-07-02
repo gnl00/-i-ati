@@ -74,4 +74,28 @@ describe('tool definitions', () => {
       )
     ).toThrow('Duplicate tool definition: test_tool')
   })
+
+  it('supports top-level vision agent image arrays without requiring nested images', () => {
+    const tool = (tools as ToolDefinition[])
+      .find(candidate => candidate.function.name === 'vision_agent_analyze')
+
+    expect(tool).toBeDefined()
+    expect(tool?.function.parameters.properties.image_refs).toEqual(expect.objectContaining({
+      type: 'array'
+    }))
+    expect(tool?.function.parameters.properties.urls).toEqual(expect.objectContaining({
+      type: 'array'
+    }))
+    expect(tool?.function.parameters.properties.raw_data).toEqual(expect.objectContaining({
+      type: 'array'
+    }))
+    expect(tool?.function.parameters.properties.timeout_seconds).toEqual(expect.objectContaining({
+      type: 'number',
+      minimum: 5,
+      maximum: 120
+    }))
+    expect(tool?.function.parameters.required).toContain('prompt')
+    expect(tool?.function.parameters.required).not.toContain('images')
+    expect(tool?.function.parameters.additionalProperties).toBe(false)
+  })
 })

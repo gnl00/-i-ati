@@ -63,20 +63,20 @@ export class TelegramCommandService {
     return this.activeRuns.has(chatKey)
   }
 
-  async execute(command: TelegramCommand, envelope: TelegramInboundEnvelope, defaultModelRef: ModelRef): Promise<TelegramCommandResponse> {
+  async execute(command: TelegramCommand, envelope: TelegramInboundEnvelope, mainModelRef: ModelRef): Promise<TelegramCommandResponse> {
     switch (command.name) {
       case 'newchat':
-        return await this.handleNewChat(envelope, defaultModelRef)
+        return await this.handleNewChat(envelope, mainModelRef)
       case 'models':
-        return await this.handleModels(envelope, defaultModelRef, 0)
+        return await this.handleModels(envelope, mainModelRef, 0)
       case 'model':
-        return await this.handleModel(command.args, envelope, defaultModelRef)
+        return await this.handleModel(command.args, envelope, mainModelRef)
       case 'tools':
         return this.handleTools(0)
       case 'workspace':
-        return await this.handleWorkspace(command.args, envelope, defaultModelRef)
+        return await this.handleWorkspace(command.args, envelope, mainModelRef)
       case 'status':
-        return await this.handleStatus(envelope, defaultModelRef)
+        return await this.handleStatus(envelope, mainModelRef)
       case 'stop':
         return this.handleStop(envelope)
       case 'help':
@@ -89,11 +89,11 @@ export class TelegramCommandService {
   async executeCallback(
     callback: TelegramCommandCallback,
     envelope: TelegramInboundEnvelope,
-    defaultModelRef: ModelRef
+    mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
     switch (callback.type) {
       case 'models':
-        return await this.handleModels(envelope, defaultModelRef, callback.page)
+        return await this.handleModels(envelope, mainModelRef, callback.page)
       case 'tools':
         return this.handleTools(callback.page)
       default:
@@ -101,14 +101,14 @@ export class TelegramCommandService {
     }
   }
 
-  private async handleNewChat(envelope: TelegramInboundEnvelope, defaultModelRef: ModelRef): Promise<TelegramCommandResponse> {
+  private async handleNewChat(envelope: TelegramInboundEnvelope, mainModelRef: ModelRef): Promise<TelegramCommandResponse> {
     const created = await this.hostChatBindingService.createAndBind({
       hostType: 'telegram',
       hostChatId: envelope.chatId,
       hostThreadId: envelope.threadId,
       hostUserId: envelope.fromUserId,
       title: 'NewChat',
-      modelRef: defaultModelRef,
+      modelRef: mainModelRef,
       metadata: {
         chatType: envelope.chatType,
         username: envelope.username,
@@ -116,7 +116,7 @@ export class TelegramCommandService {
       }
     })
 
-    const modelLabel = this.resolveModelLabel(defaultModelRef) ?? defaultModelRef.modelId
+    const modelLabel = this.resolveModelLabel(mainModelRef) ?? mainModelRef.modelId
 
     return { text: [
       'Started a new chat.',
@@ -127,10 +127,10 @@ export class TelegramCommandService {
 
   private async handleModels(
     envelope: TelegramInboundEnvelope,
-    defaultModelRef: ModelRef,
+    mainModelRef: ModelRef,
     page: number
   ): Promise<TelegramCommandResponse> {
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
     const models = this.getAvailableModels()
 
     if (models.length === 0) {
@@ -174,9 +174,9 @@ export class TelegramCommandService {
   private async handleModel(
     args: string,
     envelope: TelegramInboundEnvelope,
-    defaultModelRef: ModelRef
+    mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
 
     if (!args.trim()) {
       const currentLabel = chat.modelRef
@@ -257,7 +257,7 @@ export class TelegramCommandService {
   private async handleWorkspace(
     args: string,
     envelope: TelegramInboundEnvelope,
-    defaultModelRef: ModelRef
+    mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
     const parts = args.trim().split(/\s+/)
     const subcommand = parts[0]?.toLowerCase()
@@ -265,11 +265,11 @@ export class TelegramCommandService {
 
     switch (subcommand) {
       case 'get':
-        return await this.handleWorkspaceGet(envelope, defaultModelRef)
+        return await this.handleWorkspaceGet(envelope, mainModelRef)
       case 'set':
-        return await this.handleWorkspaceSet(subArgs, envelope, defaultModelRef)
+        return await this.handleWorkspaceSet(subArgs, envelope, mainModelRef)
       case 'clear':
-        return await this.handleWorkspaceClear(envelope, defaultModelRef)
+        return await this.handleWorkspaceClear(envelope, mainModelRef)
       default:
         return { text: [
           'Usage:',
@@ -282,9 +282,9 @@ export class TelegramCommandService {
 
   private async handleWorkspaceGet(
     envelope: TelegramInboundEnvelope,
-    defaultModelRef: ModelRef
+    mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
     const workspacePath = chat.workspacePath ?? getDefaultWorkspacePath(chat.uuid)
     return { text: `Current workspace: ${workspacePath}` }
   }
@@ -292,7 +292,7 @@ export class TelegramCommandService {
   private async handleWorkspaceSet(
     inputPath: string,
     envelope: TelegramInboundEnvelope,
-    defaultModelRef: ModelRef
+    mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
     if (!inputPath) {
       return { text: 'Usage: /workspace set <path>' }
@@ -311,7 +311,7 @@ export class TelegramCommandService {
       return { text: `Path does not exist: ${inputPath}` }
     }
 
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
     DatabaseService.updateChat({ ...chat, workspacePath: inputPath, updateTime: Date.now() })
 
     return { text: `Workspace updated.\nPath: ${inputPath}` }
@@ -319,16 +319,16 @@ export class TelegramCommandService {
 
   private async handleWorkspaceClear(
     envelope: TelegramInboundEnvelope,
-    defaultModelRef: ModelRef
+    mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
     const defaultPath = getDefaultWorkspacePath(chat.uuid)
     DatabaseService.updateChat({ ...chat, workspacePath: defaultPath, updateTime: Date.now() })
     return { text: `Workspace reset to default.\nPath: ${defaultPath}` }
   }
 
-  private async handleStatus(envelope: TelegramInboundEnvelope, defaultModelRef: ModelRef): Promise<TelegramCommandResponse> {
-    const { chat, binding } = await this.adapter.resolveOrCreateSession(envelope, defaultModelRef)
+  private async handleStatus(envelope: TelegramInboundEnvelope, mainModelRef: ModelRef): Promise<TelegramCommandResponse> {
+    const { chat, binding } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
     const currentModel = chat.modelRef ? this.findModelByRef(chat.modelRef, this.getAvailableModels()) : undefined
     const modelLabel = chat.modelRef
       ? (this.resolveModelLabel(chat.modelRef) ?? chat.modelRef.modelId)
@@ -364,7 +364,7 @@ export class TelegramCommandService {
   private handleHelp(): TelegramCommandResponse {
     return { text: [
       'Available commands:',
-      '/newchat - Start a new chat with the default model',
+      '/newchat - Start a new chat with the main model',
       '/models - List all available models',
       '/model <provider> <model-id> - Set the current chat model',
       '/tools - List available tools',

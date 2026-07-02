@@ -7,7 +7,7 @@ import { agent, type AgentToolCallResult } from '@main/agent'
 import { SMART_MESSAGE_TTL_MS } from '@shared/constants/smartMessages'
 import { resolveRequestOverrides } from '@main/request/overrides'
 import { buildSmartMessagePrompt } from '@shared/prompts'
-import { resolveNewChatModelRef } from '@shared/services/ChatModelResolver'
+import { resolveLiteModelRef } from '@shared/services/ChatModelResolver'
 import {
   GENERATE_SMART_MESSAGES_TOOL_NAME,
   generateSmartMessagesTool
@@ -320,7 +320,7 @@ export class SmartMessageGenerationService {
   private resolveModelContext() {
     const config = DatabaseService.getConfig()
     if (!config) return null
-    const modelRef = resolveNewChatModelRef(config)
+    const modelRef = resolveLiteModelRef(config)
     if (!modelRef) return null
     return this.modelContextResolver.resolve(config, modelRef)
   }

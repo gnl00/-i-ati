@@ -1,4 +1,5 @@
 import type { ConfigDao } from '@main/db/dao/ConfigDao'
+import { normalizeAppConfigModelSlots } from '@shared/services/ChatModelResolver'
 import { ProviderDefinitionLoader } from '../core/ProviderDefinitionLoader'
 import type { ProviderRepository } from './ProviderRepository'
 
@@ -21,7 +22,7 @@ export class ConfigRepository {
     const row = this.requireConfigRepo().getConfig()
     if (!row) return undefined
 
-    const config = JSON.parse(row.value) as IAppConfig
+    const config = normalizeAppConfigModelSlots(JSON.parse(row.value) as IAppConfig)
     const { mcp: _legacyMcp, plugins: _legacyPlugins, ...baseConfig } = config
     const providerDefinitions = this.requireProviderRepository().getProviderDefinitions()
     const accounts = this.requireProviderRepository().getProviderAccounts()
@@ -36,18 +37,19 @@ export class ConfigRepository {
   saveConfig(config: IAppConfig): void {
     this.assertDbReady()
 
-    const hasDefinitions = Object.prototype.hasOwnProperty.call(config, 'providerDefinitions')
-    const hasAccounts = Object.prototype.hasOwnProperty.call(config, 'accounts')
+    const normalizedInput = normalizeAppConfigModelSlots(config)
+    const hasDefinitions = Object.prototype.hasOwnProperty.call(normalizedInput, 'providerDefinitions')
+    const hasAccounts = Object.prototype.hasOwnProperty.call(normalizedInput, 'accounts')
 
     if (hasDefinitions) {
-      this.requireProviderRepository().saveProviderDefinitionsToDb(config.providerDefinitions ?? [])
+      this.requireProviderRepository().saveProviderDefinitionsToDb(normalizedInput.providerDefinitions ?? [])
     }
 
     if (hasAccounts) {
-      this.requireProviderRepository().saveProviderAccountsToDb(config.accounts ?? [])
+      this.requireProviderRepository().saveProviderAccountsToDb(normalizedInput.accounts ?? [])
     }
 
-    const { providerDefinitions: _defs, accounts: _accounts, mcp: _mcp, plugins: _plugins, ...baseConfig } = config
+    const { providerDefinitions: _defs, accounts: _accounts, mcp: _mcp, plugins: _plugins, ...baseConfig } = normalizedInput
     const normalizedConfig: IAppConfig = {
       ...baseConfig
     }

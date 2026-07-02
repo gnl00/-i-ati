@@ -63,7 +63,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const editUserInstructionDraft = useChatStore(state => state.editUserInstructionDraft)
 
   const {
-    defaultModel,
+    mainModel,
     getModelOptions,
     resolveModelRef,
     providersRevision,
@@ -76,8 +76,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   }, [getModelOptions, providersRevision])
 
   const selectedModel = useMemo(() => {
-    return resolveModelRef(selectedModelRef ?? defaultModel)
-  }, [defaultModel, providersRevision, resolveModelRef, selectedModelRef])
+    return resolveModelRef(selectedModelRef ?? mainModel)
+  }, [mainModel, providersRevision, resolveModelRef, selectedModelRef])
   const thinkingCapability = useMemo(() => {
     if (!selectedModel) {
       return undefined
@@ -114,7 +114,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     if (!selectedModel) {
       ensureSelectedModelRef()
     }
-  }, [ensureSelectedModelRef, selectedModel, modelOptions.length, defaultModel])
+  }, [ensureSelectedModelRef, selectedModel, modelOptions.length, mainModel])
 
   // Use MCP connection hook
   const {

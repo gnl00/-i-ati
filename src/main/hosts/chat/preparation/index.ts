@@ -1,6 +1,7 @@
 import { RunEnvironmentService } from './RunEnvironmentService'
 import { RunRequestFactory } from './RunRequestFactory'
 import { StepBootstrapService } from './StepBootstrapService'
+import { ChatEventMapper } from '../mapping'
 import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
 import type { MainAgentRunInput, RunPreparationResult } from './types'
 
@@ -16,8 +17,14 @@ export class ChatPreparationPipeline {
     emitter: RunEventEmitter
   ): Promise<RunPreparationResult> {
     const environment = await this.runEnvironmentService.prepare(input, emitter)
-    const step = this.stepBootstrapService.bootstrap(environment, input, emitter)
+    const chatEventMapper = new ChatEventMapper(emitter)
+    chatEventMapper.emitChatReady(environment.chat, environment.workspacePath)
+    if (environment.historyMessages.length > 0) {
+      chatEventMapper.emitMessagesLoaded(environment.historyMessages)
+    }
+    const step = await this.stepBootstrapService.bootstrap(environment, input, emitter)
     const requestBuild = await this.runRequestFactory.build(environment, step, input.input)
+    const createdMessages = step.messageBuffer.slice(environment.historyMessages.length)
 
     return {
       runSpec: {
@@ -35,7 +42,8 @@ export class ChatPreparationPipeline {
         chat: environment.chat,
         workspacePath: environment.workspacePath,
         historyMessages: environment.historyMessages,
-        createdMessages: [step.messageBuffer[step.messageBuffer.length - 1]],
+        createdMessages,
+        earlyEmittedMessageIds: step.earlyEmittedMessageIds,
         messageEntities: step.messageBuffer,
         assistantDraft: step.assistantDraft
       }

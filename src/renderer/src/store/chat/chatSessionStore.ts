@@ -5,7 +5,7 @@ import { getChatFromList } from '@renderer/utils/chatWorkspace'
 import {
   isModelRefAvailable,
   resolveExistingChatModelRef,
-  resolveNewChatModelRef
+  resolveMainModelRef
 } from '@shared/services/ChatModelResolver'
 import {
   DEFAULT_PERMISSION_APPROVAL_MODE,
@@ -80,7 +80,7 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
 
       const resolved = currentChat
         ? resolveExistingChatModelRef(appConfig, currentChat, get().messages)
-        : resolveNewChatModelRef(appConfig)
+        : resolveMainModelRef(appConfig)
 
       set({ selectedModelRef: resolved } as Partial<T>)
       return resolved
@@ -90,7 +90,7 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
       const appConfig = useAppConfigStore.getState().getAppConfig()
       const resolved = chat
         ? resolveExistingChatModelRef(appConfig, chat, messages)
-        : resolveNewChatModelRef(appConfig)
+        : resolveMainModelRef(appConfig)
 
       set({ selectedModelRef: resolved } as Partial<T>)
       return resolved

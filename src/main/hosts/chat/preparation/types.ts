@@ -17,6 +17,7 @@ export type MainAgentRunInput = {
   submissionId: string
   input: HostRunInputState
   modelRef: ModelRef
+  chatModelRef?: ModelRef
   chatId?: number
   chatUuid?: string
 }
@@ -31,6 +32,7 @@ export type RunEnvironment = {
 export type StepBootstrap = {
   messageBuffer: MessageEntity[]
   assistantDraft: MessageEntity
+  earlyEmittedMessageIds: number[]
 }
 
 export type ChatHostRunContext = {
@@ -38,6 +40,7 @@ export type ChatHostRunContext = {
   workspacePath: string
   historyMessages: MessageEntity[]
   createdMessages: MessageEntity[]
+  earlyEmittedMessageIds: number[]
   messageEntities: MessageEntity[]
   assistantDraft: MessageEntity
 }

@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { configDb } from '@main/db/config'
 import { createLogger } from '@main/logging/LogService'
 import { ProviderConnectionTestService } from '@main/services/providers/ProviderConnectionTestService'
+import { ProviderModelsFetchService } from '@main/services/providers/ProviderModelsFetchService'
 import {
   DB_PROVIDER_DEFINITIONS_GET_ALL,
   DB_PROVIDER_DEFINITION_SAVE,
@@ -12,8 +13,13 @@ import {
   DB_PROVIDER_MODEL_SAVE,
   DB_PROVIDER_MODEL_DELETE,
   DB_PROVIDER_MODEL_SET_ENABLED,
+  PROVIDER_FETCH_MODELS,
   PROVIDER_TEST_CONNECTION
 } from '@shared/constants'
+import type {
+  FetchProviderModelsRequest,
+  FetchProviderModelsResponse
+} from '@shared/providers/fetchModels'
 import type {
   ProviderTestConnectionRequest,
   ProviderTestConnectionResponse
@@ -21,6 +27,7 @@ import type {
 
 const logger = createLogger('DatabaseIPC')
 const providerConnectionTestService = new ProviderConnectionTestService()
+const providerModelsFetchService = new ProviderModelsFetchService()
 
 export function registerProviderHandlers(): void {
   ipcMain.handle(DB_PROVIDER_DEFINITIONS_GET_ALL, async (_event) => {
@@ -76,6 +83,17 @@ export function registerProviderHandlers(): void {
         accountId: request.account?.id
       })
       return providerConnectionTestService.testConnection(request)
+    }
+  )
+
+  ipcMain.handle(
+    PROVIDER_FETCH_MODELS,
+    async (_event, request: FetchProviderModelsRequest): Promise<FetchProviderModelsResponse> => {
+      logger.info('provider.fetch_models', {
+        providerId: request.account?.providerId,
+        accountId: request.account?.id
+      })
+      return providerModelsFetchService.fetchModels(request)
     }
   )
 }

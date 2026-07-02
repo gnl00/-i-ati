@@ -301,7 +301,7 @@ const resolveModelConfig = (
     chat.model_account_id && chat.model_model_id
       ? { accountId: chat.model_account_id, modelId: chat.model_model_id }
       : undefined,
-    config.tools?.defaultModel
+    config.tools?.mainModel
   ].filter((modelRef): modelRef is ModelRef => Boolean(modelRef))
 
   for (const modelRef of candidates) {

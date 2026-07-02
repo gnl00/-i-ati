@@ -66,7 +66,7 @@ const config = {
     }]
   }],
   tools: {
-    defaultModel: {
+    liteModel: {
       accountId: 'account-1',
       modelId: 'model-1'
     }

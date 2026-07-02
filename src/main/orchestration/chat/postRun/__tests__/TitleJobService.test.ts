@@ -110,9 +110,7 @@ const args = {
 } as any
 
 const config = {
-  tools: {
-    titleGenerateEnabled: true
-  }
+  tools: {}
 } as any
 
 describe('TitleJobService', () => {
@@ -206,6 +204,46 @@ describe('TitleJobService', () => {
       chatUuid: 'chat-1',
       title: 'generated title'
     }))
+  })
+
+  it('uses lite model config when title generation model context resolves', async () => {
+    const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
+    const liteConfig = {
+      providerDefinitions: [{
+        id: 'provider-lite',
+        adapterPluginId: 'openai-chat-compatible-adapter'
+      }],
+      accounts: [{
+        id: 'account-lite',
+        providerId: 'provider-lite',
+        apiUrl: 'https://example.com',
+        apiKey: 'lite-key',
+        models: [{
+          id: 'model-lite',
+          label: 'model-lite',
+          type: 'llm'
+        }]
+      }],
+      tools: {
+        liteModel: {
+          accountId: 'account-lite',
+          modelId: 'model-lite'
+        }
+      }
+    } as any
+
+    await service.run(args, liteConfig)
+
+    expect(titleAgentMock).toHaveBeenCalledTimes(1)
+    expect(titleAgentMock.mock.calls[0][5]).toEqual(expect.objectContaining({
+      model: expect.objectContaining({ id: 'model-lite' }),
+      account: expect.objectContaining({ id: 'account-lite' }),
+      providerDefinition: expect.objectContaining({ id: 'provider-lite' })
+    }))
+    expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.TITLE_GENERATION_STARTED, {
+      model: expect.objectContaining({ id: 'model-lite' }),
+      contentLength: args.content.length
+    })
   })
 
   it('flattens title context without assistant tool calls or reasoning payload', async () => {

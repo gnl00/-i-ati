@@ -11,6 +11,7 @@
 import { agent } from '@main/agent'
 import { resolveRequestOverrides } from '@main/request/overrides'
 import { buildCompressionPrompt } from '@shared/prompts'
+import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
 import DatabaseService from '@main/db/DatabaseService'
 import { createLogger } from '@main/logging/LogService'
 import { CompressionTranscriptBuilder } from './CompressionTranscriptBuilder'
@@ -184,16 +185,28 @@ export class MessageCompressionService {
   private splitIntoMessagePairs(messages: MessageEntity[]): MessageEntity[][] {
     const pairs: MessageEntity[][] = []
     let currentPair: MessageEntity[] = []
+    let currentPairHasVisibleUser = false
+    let currentPairHasNonUserMessage = false
 
     messages.forEach(message => {
-      if (message.body.role === 'user') {
-        if (currentPair.length > 0) {
+      const isVisibleUserMessage = message.body.role === 'user'
+        && (!message.body.source || !HIDDEN_MESSAGE_SOURCES.has(message.body.source))
+
+      if (isVisibleUserMessage) {
+        if (currentPair.length > 0 && (currentPairHasVisibleUser || currentPairHasNonUserMessage)) {
           pairs.push(currentPair)
+          currentPair = [message]
+          currentPairHasNonUserMessage = false
+        } else {
+          currentPair = [...currentPair, message]
         }
-        currentPair = [message]
+        currentPairHasVisibleUser = true
         return
       }
 
+      if (message.body.role !== 'user') {
+        currentPairHasNonUserMessage = true
+      }
       currentPair.push(message)
     })
 

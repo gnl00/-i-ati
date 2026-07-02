@@ -16,7 +16,10 @@ import { TelegramUpdateMapper } from './TelegramUpdateMapper'
 import { TelegramFileService } from './TelegramFileService'
 import { TelegramCommandService } from './TelegramCommandService'
 import { parseTelegramCommand, parseTelegramCommandCallback } from './telegram-command-parser'
-import { resolveExistingChatModelRef } from '@shared/services/ChatModelResolver'
+import {
+  resolveExistingChatModelRef,
+  resolveMainModelRef
+} from '@shared/services/ChatModelResolver'
 
 export class TelegramGatewayService {
   private static readonly IMPLEMENTATION_MARKER = 'telegram-gateway-dev-marker-2026-03-25-v2'
@@ -139,7 +142,7 @@ export class TelegramGatewayService {
     configured: boolean
     enabled: boolean
     mode?: 'polling' | 'webhook'
-    hasDefaultModel: boolean
+    hasMainModel: boolean
     lastUpdateId: number
     botUsername?: string
     botId?: string
@@ -150,8 +153,8 @@ export class TelegramGatewayService {
   } {
     const appConfig = this.appConfigStore.getConfig()
     const telegram = appConfig?.telegram
-    const defaultModel = appConfig?.tools?.defaultModel
-    const hasDefaultModel = Boolean(defaultModel && this.modelResolver.resolve(appConfig ?? {}, defaultModel))
+    const mainModel = appConfig ? resolveMainModelRef(appConfig) : undefined
+    const hasMainModel = Boolean(mainModel && this.modelResolver.resolve(appConfig ?? {}, mainModel))
 
     return {
       running: this.running,
@@ -159,7 +162,7 @@ export class TelegramGatewayService {
       configured: Boolean(telegram?.botToken),
       enabled: Boolean(telegram?.enabled),
       mode: telegram?.mode,
-      hasDefaultModel,
+      hasMainModel,
       lastUpdateId: this.lastUpdateId,
       botUsername: this.botUsername,
       botId: this.botId,
@@ -185,15 +188,15 @@ export class TelegramGatewayService {
 
     const appConfig = this.appConfigStore.requireConfig()
     const config = appConfig.telegram
-    const defaultModel = appConfig.tools?.defaultModel
+    const mainModel = resolveMainModelRef(appConfig)
 
     if (!config?.enabled || !config.botToken) {
       this.logger.info('start.skipped', { reason: 'telegram not configured' })
       return
     }
 
-    if (!defaultModel || !this.modelResolver.resolve(appConfig, defaultModel)) {
-      this.logger.warn('start.skipped', { reason: 'default model unavailable for telegram' })
+    if (!mainModel || !this.modelResolver.resolve(appConfig, mainModel)) {
+      this.logger.warn('start.skipped', { reason: 'main model unavailable for telegram' })
       return
     }
 
@@ -211,7 +214,7 @@ export class TelegramGatewayService {
     void this.performStart({
       runId: currentRunId,
       botToken: config.botToken,
-      defaultModel
+      mainModel
     })
   }
 
@@ -222,10 +225,10 @@ export class TelegramGatewayService {
     }
 
     const appConfig = this.appConfigStore.requireConfig()
-    const defaultModel = appConfig.tools?.defaultModel
+    const mainModel = resolveMainModelRef(appConfig)
 
-    if (!defaultModel || !this.modelResolver.resolve(appConfig, defaultModel)) {
-      throw new Error('Default model unavailable for telegram')
+    if (!mainModel || !this.modelResolver.resolve(appConfig, mainModel)) {
+      throw new Error('Main model unavailable for telegram')
     }
 
     if (this.running || this.starting) {
@@ -246,7 +249,7 @@ export class TelegramGatewayService {
     await this.performStart({
       runId: currentRunId,
       botToken: token,
-      defaultModel,
+      mainModel,
       awaitReady: true
     })
   }
@@ -336,9 +339,9 @@ export class TelegramGatewayService {
   private async handleCommand(
     envelope: TelegramInboundEnvelope,
     command: NonNullable<ReturnType<typeof parseTelegramCommand>>,
-    defaultModelRef: ModelRef
+    mainModelRef: ModelRef
   ): Promise<void> {
-    const response = await this.commandService.execute(command, envelope, defaultModelRef)
+    const response = await this.commandService.execute(command, envelope, mainModelRef)
     if (!this.bot) {
       return
     }
@@ -367,7 +370,7 @@ export class TelegramGatewayService {
     this.lastMessageProcessedAt = Date.now()
   }
 
-  private async handleEnvelope(envelope: TelegramInboundEnvelope, modelRef: ModelRef): Promise<void> {
+  private async handleEnvelope(envelope: TelegramInboundEnvelope, mainModelRef: ModelRef): Promise<void> {
     this.logger.info('update.received', {
       updateId: envelope.updateId,
       chatId: envelope.chatId,
@@ -396,37 +399,29 @@ export class TelegramGatewayService {
       return
     }
 
-    const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, modelRef)
-    const effectiveModelRef = this.resolveModelRefForChat(chat, modelRef)
+    const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
+    const chatModelRef = this.resolveModelRefForChat(chat, mainModelRef)
     const attachmentContext = this.bot
       ? await this.fileService.buildAttachmentContext(this.bot, envelope)
       : { mediaCtx: [], documentTextBlocks: [] }
-    const modelContext = this.modelResolver.resolve(this.appConfigStore.requireConfig(), effectiveModelRef)
+    const appConfig = this.appConfigStore.requireConfig()
+    const modelContext = this.modelResolver.resolve(appConfig, chatModelRef)
 
     this.logger.info('model.selected', {
       updateId: envelope.updateId,
       chatId: envelope.chatId,
       chatUuid: chat.uuid,
       created,
-      model: `${effectiveModelRef.accountId}/${effectiveModelRef.modelId}`,
+      model: `${chatModelRef.accountId}/${chatModelRef.modelId}`,
       modelType: modelContext?.model.type,
       mediaCount: attachmentContext.mediaCtx.length
     })
 
-    if (attachmentContext.mediaCtx.length > 0 && modelContext?.model.type === 'llm') {
-      this.logger.warn('media.unused_by_current_model', {
-        updateId: envelope.updateId,
-        chatId: envelope.chatId,
-        chatUuid: chat.uuid,
-        model: `${effectiveModelRef.accountId}/${effectiveModelRef.modelId}`,
-        mediaCount: attachmentContext.mediaCtx.length
-      })
-    }
-
     const input = this.adapter.buildRunInput({
       submissionId: uuidv4(),
       envelope,
-      modelRef: effectiveModelRef,
+      modelRef: chatModelRef,
+      chatModelRef,
       chat,
       mediaCtx: attachmentContext.mediaCtx,
       attachmentTextBlocks: attachmentContext.documentTextBlocks
@@ -470,10 +465,10 @@ export class TelegramGatewayService {
   private async performStart(args: {
     runId: number
     botToken: string
-    defaultModel: ModelRef
+    mainModel: ModelRef
     awaitReady?: boolean
   }): Promise<void> {
-    const { runId, botToken, defaultModel, awaitReady = false } = args
+    const { runId, botToken, mainModel, awaitReady = false } = args
     this.logger.info('perform_start.enter', {
       marker: TelegramGatewayService.IMPLEMENTATION_MARKER,
       runId
@@ -556,7 +551,7 @@ export class TelegramGatewayService {
         botId: String(me.id)
       })
 
-      this.registerHandlers(bot, defaultModel)
+      this.registerHandlers(bot, mainModel)
       this.bot = bot
       this.lastUpdateId = 0
       this.botUsername = me.username
@@ -606,7 +601,7 @@ export class TelegramGatewayService {
           this.logger.info('start.completed', {
             runId,
             mode: 'polling',
-            defaultModel: `${defaultModel.accountId}/${defaultModel.modelId}`,
+            mainModel: `${mainModel.accountId}/${mainModel.modelId}`,
             lastUpdateId: this.lastUpdateId,
             botUsername: this.botUsername,
             botId: this.botId
@@ -810,8 +805,8 @@ export class TelegramGatewayService {
     })
   }
 
-  private resolveModelRefForChat(chat: ChatEntity, defaultModelRef: ModelRef): ModelRef {
+  private resolveModelRefForChat(chat: ChatEntity, mainModelRef: ModelRef): ModelRef {
     const config = this.appConfigStore.requireConfig()
-    return resolveExistingChatModelRef(config, chat) ?? defaultModelRef
+    return resolveExistingChatModelRef(config, chat) ?? mainModelRef
   }
 }

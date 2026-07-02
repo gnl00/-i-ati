@@ -3,7 +3,7 @@ import { invokeProviderTestConnection } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { toast } from 'sonner'
-import FetchModelsDrawer from './FetchModelsDrawer'
+import FetchModelsDrawer, { type FetchModelsTarget } from './FetchModelsDrawer'
 import { v4 as uuidv4 } from 'uuid'
 import { ProviderModelsPanel } from './ProviderModelsPanel'
 import ProviderConfigurations from './ProviderConfigurations'
@@ -21,6 +21,25 @@ interface ProvidersManagerProps {
 
 const normalizeProviderId = (name: string): string => {
     return name.trim().toLowerCase().replace(/\s+/g, '-')
+}
+
+const cloneAccountForFetchTarget = (account: ProviderAccount): ProviderAccount => {
+    return {
+        ...account,
+        models: account.models.map(model => ({
+            ...model,
+            modalities: model.modalities ? [...model.modalities] : undefined,
+            capabilities: model.capabilities ? [...model.capabilities] : undefined
+        }))
+    }
+}
+
+const cloneDefinitionForFetchTarget = (definition: ProviderDefinition): ProviderDefinition => {
+    return {
+        ...definition,
+        payloadExtensions: definition.payloadExtensions ? { ...definition.payloadExtensions } : undefined,
+        requestOverrides: definition.requestOverrides ? { ...definition.requestOverrides } : undefined
+    }
 }
 
 const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
@@ -54,6 +73,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
     const [newDefinitionIconKey, setNewDefinitionIconKey] = useState<string | undefined>(undefined)
 
     const [showFetchModelsDrawer, setShowFetchModelsDrawer] = useState<boolean>(false)
+    const [fetchModelsTarget, setFetchModelsTarget] = useState<FetchModelsTarget | undefined>(undefined)
     const [showNewApiKey, setShowNewApiKey] = useState<boolean>(false)
     const adapterOptions = useMemo(() => {
         return getRequestAdapterOptionsFromPlugins(plugins)
@@ -191,6 +211,50 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
         toast.success('Copied')
     }
 
+    const createFetchModelsTarget = (): FetchModelsTarget | undefined => {
+        if (!currentAccount) {
+            toast.error('Please select an account first')
+            return undefined
+        }
+
+        const providerDefinition = visibleProviderDefinitions.find(def => def.id === currentAccount.providerId)
+        if (!providerDefinition) {
+            toast.error('Provider configuration is incomplete')
+            return undefined
+        }
+
+        return {
+            account: cloneAccountForFetchTarget(currentAccount),
+            providerDefinition: cloneDefinitionForFetchTarget(providerDefinition)
+        }
+    }
+
+    const openFetchModelsDrawer = () => {
+        const target = createFetchModelsTarget()
+        if (!target) {
+            return
+        }
+
+        setFetchModelsTarget(target)
+        setShowFetchModelsDrawer(true)
+    }
+
+    const handleFetchModelsDrawerOpenChange = (open: boolean) => {
+        if (!open) {
+            setShowFetchModelsDrawer(false)
+            setFetchModelsTarget(undefined)
+            return
+        }
+
+        const target = createFetchModelsTarget()
+        if (!target) {
+            return
+        }
+
+        setFetchModelsTarget(target)
+        setShowFetchModelsDrawer(true)
+    }
+
     const onProviderCardClick = (definition: ProviderDefinition) => {
         setSelectedProviderId(definition.id)
     }
@@ -259,7 +323,6 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
         removeAccount(account.id)
     }
 
-    const currentDefinition = visibleProviderDefinitions.find(def => def.id === currentAccount?.providerId)
     const selectedDefinition = visibleProviderDefinitions.find(def => def.id === selectedProviderId)
     const defaultApiUrl = selectedDefinition?.defaultApiUrl || ''
 
@@ -326,7 +389,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                                 selectedProviderId={selectedProviderId}
                                 currentAccount={currentAccount}
                                 onModelTableCellClick={onModelTableCellClick}
-                                onOpenFetchModels={() => setShowFetchModelsDrawer(true)}
+                                onOpenFetchModels={openFetchModelsDrawer}
                                 isFetchDisabled={!currentAccount?.apiKey}
                                 ensureAccountForProvider={ensureAccountForProvider}
                             />
@@ -338,9 +401,8 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
             {/* Fetch Models Drawer */}
             <FetchModelsDrawer
                 open={showFetchModelsDrawer}
-                onOpenChange={setShowFetchModelsDrawer}
-                currentAccount={currentAccount}
-                providerDefinition={currentDefinition}
+                onOpenChange={handleFetchModelsDrawerOpenChange}
+                target={fetchModelsTarget}
             />
         </SettingsPageShell>
     )

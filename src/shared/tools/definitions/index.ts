@@ -24,6 +24,7 @@ import { telegramTools } from '../telegram/definitions'
 import { titleTools } from '../title/definitions'
 import { todoTools } from '../todo/definitions'
 import { userInfoTools } from '../userInfo/definitions'
+import { visionAgentTools } from '../visionAgent/definitions'
 import { webTools } from '../webTools/definitions'
 import { wikiTools } from '../wiki/definitions'
 import { workContextTools } from '../workContext/definitions'
@@ -50,6 +51,7 @@ export const tools = mergeToolDefinitions(
   titleTools,
   todoTools,
   userInfoTools,
+  visionAgentTools,
   wikiTools,
   activityJournalTools,
   knowledgebaseTools,

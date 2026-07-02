@@ -77,9 +77,9 @@ declare interface IAppConfig {
   providerDefinitions?: ProviderDefinition[]
   accounts?: ProviderAccount[]
   tools?: {
-    defaultModel?: ModelRef
-    titleGenerateModel?: ModelRef
-    titleGenerateEnabled?: boolean
+    mainModel?: ModelRef
+    liteModel?: ModelRef
+    visionModel?: ModelRef
     maxWebSearchItems?: number
     memoryEnabled?: boolean
     streamChunkDebugEnabled?: boolean

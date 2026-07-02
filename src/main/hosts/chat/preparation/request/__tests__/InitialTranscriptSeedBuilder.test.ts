@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { InitialTranscriptSeedBuilder } from '../InitialTranscriptSeedBuilder'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 describe('InitialTranscriptSeedBuilder', () => {
   it('maps user, assistant, tool, and reasoning messages to transcript seed', () => {
@@ -91,6 +92,25 @@ describe('InitialTranscriptSeedBuilder', () => {
       content: 'done',
       reasoning: undefined,
       toolCalls: undefined
+    }])
+  })
+
+  it('keeps hidden vision observation source in user transcript seed', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+
+    const seed = builder.build([{
+      role: 'user',
+      source: MESSAGE_SOURCE.VISION_OBSERVATION,
+      content: '<vision_observation image_ref="message:101" status="ok">Summary</vision_observation>',
+      createdAt: 40,
+      segments: []
+    }] as ChatMessage[])
+
+    expect(seed).toEqual([{
+      kind: 'user',
+      timestamp: 40,
+      source: MESSAGE_SOURCE.VISION_OBSERVATION,
+      content: '<vision_observation image_ref="message:101" status="ok">Summary</vision_observation>'
     }])
   })
 })

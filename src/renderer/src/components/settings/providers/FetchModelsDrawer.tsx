@@ -22,37 +22,31 @@ import { cn } from '@renderer/lib/utils'
 import { Check, Download, Loader2, RefreshCw, Search, X } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
+import { invokeProviderFetchModels } from '@renderer/invoker/ipcInvoker'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import ExpandableSearchInput from '../common/ExpandableSearchInput'
+import {
+    buildFetchModelsCacheKey,
+    type FetchModelsTarget
+} from './FetchModelsDrawer.cacheKey'
 
-// API 响应类型
-interface ApiModelItem {
-    id: string
-    object: string
-    owned_by: string
-    permission?: any[]
-}
-
-interface ApiModelsResponse {
-    data: ApiModelItem[]
-    object: 'list'
-}
+export type { FetchModelsTarget } from './FetchModelsDrawer.cacheKey'
 
 // 缓存数据结构
 interface CachedModels {
     models: AccountModel[]
     timestamp: number
-    accountId: string
+    cacheKey: string
 }
 
 interface FetchModelsDrawerProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    currentAccount: ProviderAccount | undefined
-    providerDefinition?: ProviderDefinition
+    target: FetchModelsTarget | undefined
 }
 
 const CACHE_TTL = 60 * 1000 // 1 分钟缓存过期时间
+const PAGE_SIZE = 20
 const FETCH_PENDING_ROWS = Array.from({ length: 8 }, (_, index) => index)
 const MODEL_TABLE_CLASSNAME = 'table-fixed'
 const MODEL_SELECTION_COLUMN_CLASSNAME = 'w-[50px] min-w-[50px] max-w-[50px] pl-6'
@@ -73,8 +67,7 @@ const MODEL_SELECTION_CHECKBOX_CLASSNAME = cn(
 const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     open,
     onOpenChange,
-    currentAccount,
-    providerDefinition
+    target
 }) => {
     const { addModel } = useAppConfigStore()
     const [isFetching, setIsFetching] = useState<boolean>(false)
@@ -83,82 +76,40 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     const [searchQuery, setSearchQuery] = useState<string>('')
 
     // 分页状态
-    const [displayedCount, setDisplayedCount] = useState<number>(20)
-    const PAGE_SIZE = 20
+    const [displayedCount, setDisplayedCount] = useState<number>(PAGE_SIZE)
 
     // 为每个 provider 缓存模型数据
     const [modelsCache, setModelsCache] = useState<Map<string, CachedModels>>(new Map())
-    const accountDisplayLabel = currentAccount
-        ? providerDefinition
-            ? `${providerDefinition.displayName} · ${currentAccount.label}`
-            : currentAccount.label
+    const activeAccount = target?.account
+    const activeProviderDefinition = target?.providerDefinition
+    const activeCacheKey = target ? buildFetchModelsCacheKey(target) : undefined
+    const activeCacheKeyRef = React.useRef<string | undefined>(undefined)
+    activeCacheKeyRef.current = activeCacheKey
+    const accountDisplayLabel = activeAccount
+        ? activeProviderDefinition
+            ? `${activeProviderDefinition.displayName} · ${activeAccount.label}`
+            : activeAccount.label
         : 'selected account'
 
-    // 工具函数
-    const inferModelType = (modelId: string): ModelType => {
-        const id = modelId.toLowerCase()
-
-        // 图像生成模型
-        if (id.includes('dall-e') || id.includes('stable-diffusion') ||
-            id.includes('imagen') || id.includes('midjourney')) {
-            return 'img_gen'
-        }
-
-        // 明确多模态模型
-        if (id.includes('gpt-4o') || id.includes('omni') ||
-            id.includes('gemini') || id.includes('multimodal') ||
-            id.includes('mllm')) {
-            return 'mllm'
-        }
-
-        // 视觉语言模型
-        if (id.includes('vision')) {
-            return 'vlm'
-        }
-
-        // 默认大语言模型
-        return 'llm'
-    }
-
-    const transformApiModelsToAccountModels = (
-        response: ApiModelsResponse
-    ): AccountModel[] => {
-        return response.data.map(apiModel => ({
-            id: apiModel.id,
-            label: apiModel.id,
-            type: inferModelType(apiModel.id),
-            enabled: true
-        }))
-    }
+    const resetFetchedModelState = React.useCallback(() => {
+        setFetchedModels([])
+        setSelectedModelIds(new Set())
+        setSearchQuery('')
+        setDisplayedCount(PAGE_SIZE)
+    }, [])
 
     const fetchModelsFromProvider = async (account: ProviderAccount): Promise<AccountModel[]> => {
-        let baseUrl = account.apiUrl.replace(/\/$/, '')
-        let endpoint = ''
-
-        // Heuristic: If baseUrl ends with /v1, just append /models
-        // Otherwise append /v1/models (standard for OpenAI, Anthropic, etc.)
-        if (baseUrl.endsWith('/v1')) {
-            endpoint = `${baseUrl}/models`
-        } else {
-            endpoint = `${baseUrl}/v1/models`
-        }
-
-        const response = await fetch(endpoint, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${account.apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            signal: AbortSignal.timeout(30000),
+        const response = await invokeProviderFetchModels({
+            account
         })
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}))
-            throw new Error(`API Error: ${response.status} - ${error.message || response.statusText}`)
+        if (response.ok) {
+            return response.models
         }
 
-        const data: ApiModelsResponse = await response.json()
-        return transformApiModelsToAccountModels(data)
+        throw Object.assign(new Error(response.error), {
+            status: response.status
+        })
     }
 
     // 事件处理函数
@@ -209,7 +160,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
 
     const handleSelectAll = () => {
         const filteredIds = getFilteredModels().map(m => m.id)
-        const currentAccountIds = new Set(currentAccount?.models.map(m => m.id) || [])
+        const currentAccountIds = new Set(activeAccount?.models.map(m => m.id) || [])
         // Only select ones that aren't already added
         const selectableIds = filteredIds.filter(id => !currentAccountIds.has(id))
 
@@ -221,18 +172,24 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     }
 
     const handleImportSelected = () => {
-        if (!currentAccount || selectedModelIds.size === 0) {
+        if (!activeAccount || selectedModelIds.size === 0) {
             return
         }
 
-        const existingIds = new Set(currentAccount.models.map(m => m.id))
+        const latestAccount = useAppConfigStore.getState().getAccountById(activeAccount.id)
+        if (!latestAccount) {
+            toast.error('Selected account is unavailable')
+            return
+        }
+
+        const existingIds = new Set(latestAccount.models.map(m => m.id))
         const modelsToAdd = fetchedModels.filter(m =>
             selectedModelIds.has(m.id) && !existingIds.has(m.id)
         )
         const skippedCount = selectedModelIds.size - modelsToAdd.length
 
         modelsToAdd.forEach(model => {
-            addModel(currentAccount.id, model)
+            addModel(activeAccount.id, model)
         })
 
         onOpenChange(false)
@@ -246,19 +203,26 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     }
 
     const handleFetch = async () => {
-        if (!currentAccount) {
+        const requestTarget = target
+        const requestCacheKey = requestTarget ? buildFetchModelsCacheKey(requestTarget) : undefined
+
+        if (!requestTarget || !requestCacheKey) {
             toast.error('Please select an account first')
             return
         }
 
-        if (!currentAccount.apiKey) {
+        if (!requestTarget.account.apiKey) {
             toast.error('API Key is required to fetch models')
             return
         }
 
         setIsFetching(true)
         try {
-            const models = await fetchModelsFromProvider(currentAccount)
+            const models = await fetchModelsFromProvider(requestTarget.account)
+
+            if (activeCacheKeyRef.current !== requestCacheKey) {
+                return
+            }
 
             if (models.length === 0) {
                 toast.warning('No models found for this provider')
@@ -272,19 +236,25 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
             // 更新缓存
             setModelsCache(prev => {
                 const newCache = new Map(prev)
-                newCache.set(currentAccount.id, {
+                newCache.set(requestCacheKey, {
                     models,
                     timestamp: Date.now(),
-                    accountId: currentAccount.id
+                    cacheKey: requestCacheKey
                 })
                 return newCache
             })
 
             toast.success(`Fetched ${models.length} model(s)`)
         } catch (error: any) {
+            if (activeCacheKeyRef.current !== requestCacheKey) {
+                return
+            }
+
             console.error('Failed to fetch models:', error)
 
-            if (error.name === 'AbortError') {
+            if (error.status === 401 || error.status === 403) {
+                toast.error('Authentication failed - check your API key')
+            } else if (error.message === 'Request timeout (30s)') {
                 toast.error('Request timeout (30s)')
             } else if (error.message.includes('401') || error.message.includes('403')) {
                 toast.error('Authentication failed - check your API key')
@@ -292,7 +262,9 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 toast.error(`Failed to fetch models: ${error.message}`)
             }
         } finally {
-            setIsFetching(false)
+            if (activeCacheKeyRef.current === requestCacheKey) {
+                setIsFetching(false)
+            }
         }
     }
 
@@ -302,8 +274,8 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
     }, [searchQuery])
 
     // 检查缓存是否有效
-    const isCacheValid = (accountId: string): boolean => {
-        const cached = modelsCache.get(accountId)
+    const isCacheValid = (cacheKey: string): boolean => {
+        const cached = modelsCache.get(cacheKey)
         if (!cached) return false
 
         const now = Date.now()
@@ -312,21 +284,31 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
 
     // 当 Drawer 打开时，检查缓存或重新获取
     React.useEffect(() => {
-        if (open && currentAccount?.apiKey) {
-            const cached = modelsCache.get(currentAccount.id)
-
-            if (cached && isCacheValid(currentAccount.id)) {
-                // 使用缓存数据
-                setFetchedModels(cached.models)
-                setSelectedModelIds(new Set())
-                setSearchQuery('')
-                setDisplayedCount(PAGE_SIZE) // 重置分页
-            } else {
-                // 缓存不存在或已过期，重新获取
-                handleFetch()
-            }
+        if (!open) {
+            setIsFetching(false)
+            return
         }
-    }, [open, currentAccount?.id, currentAccount?.apiKey])
+
+        if (!target?.account.apiKey || !activeCacheKey) {
+            resetFetchedModelState()
+            return
+        }
+
+        const cached = modelsCache.get(activeCacheKey)
+
+        if (cached && isCacheValid(activeCacheKey)) {
+            // 使用缓存数据
+            setFetchedModels(cached.models)
+            setSelectedModelIds(new Set())
+            setSearchQuery('')
+            setDisplayedCount(PAGE_SIZE) // 重置分页
+            return
+        }
+
+        // 缓存不存在或已过期，重新获取
+        resetFetchedModelState()
+        handleFetch()
+    }, [open, activeCacheKey, target?.account.apiKey])
 
     const filteredModels = getFilteredModels()
 
@@ -349,7 +331,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                 Fetch and import available models from your provider
                             </span>
                           </DrawerDescription>
-                          {currentAccount && (
+                          {activeAccount && (
                             <Badge
                               variant="outline"
                               className="text-[10px] font-semibold px-3 py-0 bg-slate-100/80 dark:bg-slate-900/80 border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 backdrop-blur-xs"
@@ -363,7 +345,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                         variant="ghost"
                         size="icon"
                         onClick={handleFetch}
-                        disabled={isFetching}
+                        disabled={isFetching || !activeAccount}
                         className={cn(
                             "h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xs z-10",
                             "hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100/70 dark:hover:bg-slate-800/60",
@@ -500,10 +482,10 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                         <TableRow className="hover:bg-transparent">
                                             <TableHead className={cn(MODEL_SELECTION_COLUMN_CLASSNAME, 'text-[10px] text-slate-500 dark:text-slate-500 tracking-wider')}>
                                                 <Checkbox
-                                                    checked={selectedModelIds.size > 0 && selectedModelIds.size === filteredModels.filter(m => !currentAccount?.models.some(em => em.id === m.id)).length}
+                                                    checked={selectedModelIds.size > 0 && selectedModelIds.size === filteredModels.filter(m => !activeAccount?.models.some(em => em.id === m.id)).length}
                                                     onCheckedChange={(checked) => checked === true ? handleSelectAll() : handleDeselectAll()}
                                                     className={MODEL_SELECTION_CHECKBOX_CLASSNAME}
-                                                    disabled={filteredModels.every(m => currentAccount?.models.some(em => em.id === m.id))}
+                                                    disabled={filteredModels.every(m => activeAccount?.models.some(em => em.id === m.id))}
                                                 />
                                             </TableHead>
                                             <TableHead className={MODEL_HEADER_CELL_CLASSNAME}>
@@ -527,7 +509,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                     <TableBody>
                                         {filteredModels.map((model, idx) => {
                                             const isSelected = selectedModelIds.has(model.id)
-                                            const isExisting = currentAccount?.models.some(m => m.id === model.id)
+                                            const isExisting = activeAccount?.models.some(m => m.id === model.id)
 
                                             return (
                                                 <TableRow

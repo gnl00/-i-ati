@@ -117,7 +117,7 @@ describe('TelegramToolsProcessor', () => {
         }
       ],
       tools: {
-        defaultModel: {
+        mainModel: {
           accountId: 'acc-1',
           modelId: 'gpt-5.4'
         }

@@ -55,6 +55,13 @@ describe('DefaultRequestMaterializer', () => {
           content: [{ type: 'input_text', text: '<awake_state>{"chat_meta":{"chat_id":1}}</awake_state>' }]
         },
         {
+          recordId: 'available-images-context',
+          kind: 'user',
+          timestamp: 2,
+          source: MESSAGE_SOURCE.AVAILABLE_IMAGES_CONTEXT,
+          content: [{ type: 'input_text', text: '<available_images><image ref="message:101#image:1" /></available_images>' }]
+        },
+        {
           recordId: 'current-user',
           kind: 'user',
           timestamp: 2,
@@ -97,6 +104,7 @@ describe('DefaultRequestMaterializer', () => {
     expect((currentContent[1] as { text: string }).text).toContain('<system-environment>')
     expect((currentContent[1] as { text: string }).text).toContain('<user_info_context>')
     expect((currentContent[1] as { text: string }).text).toContain('<awake_state>')
+    expect((currentContent[1] as { text: string }).text).toContain('<available_images>')
   })
 
   it('preserves assistant reasoning for protocol replay', () => {
@@ -140,6 +148,388 @@ describe('DefaultRequestMaterializer', () => {
         content: 'answer',
         reasoning: 'thinking trace',
         toolCalls: undefined
+      }
+    ])
+  })
+
+  it('redacts vision agent image payloads from assistant tool call replay', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const visionArguments = JSON.stringify({
+      chat_uuid: 'chat-runtime',
+      images: [
+        {
+          ref: 'message:101#image:1',
+          url: 'https://cdn.example/image.png?X-Amz-Signature=secret-token'
+        },
+        {
+          raw_data: 'data:image/png;base64,raw-secret'
+        }
+      ],
+      url: 'https://cdn.example/legacy.png?token=legacy-token',
+      urls: ['https://cdn.example/top-level.png?signed=top-level-token'],
+      raw_data: ['data:image/jpeg;base64,legacy-secret'],
+      prompt: 'inspect'
+    })
+    const nonVisionArguments = JSON.stringify({
+      url: 'https://example.invalid/plain.png',
+      raw_data: 'keep-this-non-vision-argument'
+    })
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [
+        {
+          recordId: 'assistant-1',
+          kind: 'assistant_step',
+          timestamp: 2,
+          step: {
+            stepId: 'step-1',
+            stepIndex: 0,
+            startedAt: 1,
+            completedAt: 2,
+            status: 'completed',
+            content: '',
+            toolCalls: [
+              {
+                id: 'call-vision',
+                type: 'function',
+                function: {
+                  name: 'vision_agent_analyze',
+                  arguments: visionArguments
+                }
+              },
+              {
+                id: 'call-non-vision',
+                type: 'function',
+                function: {
+                  name: 'debug_echo',
+                  arguments: nonVisionArguments
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    const serializedMessages = JSON.stringify(request.messages)
+    expect(serializedMessages).not.toContain('data:image')
+    expect(serializedMessages).not.toContain('secret-token')
+    expect(serializedMessages).not.toContain('legacy-token')
+    expect(serializedMessages).not.toContain('top-level-token')
+
+    const assistantMessage = request.messages[0]
+    expect(assistantMessage.role).toBe('assistant')
+    if (assistantMessage.role !== 'assistant') {
+      throw new Error('Expected assistant protocol message')
+    }
+    const [visionToolCall, nonVisionToolCall] = assistantMessage.toolCalls ?? []
+    const redactedArguments = JSON.parse(visionToolCall.function.arguments)
+    expect(redactedArguments).toMatchObject({
+      chat_uuid: 'chat-runtime',
+      images: [
+        {
+          ref: 'message:101#image:1',
+          url: '[REDACTED]'
+        },
+        {
+          raw_data: '[REDACTED]'
+        }
+      ],
+      url: '[REDACTED]',
+      urls: ['[REDACTED]'],
+      raw_data: ['[REDACTED]'],
+      prompt: 'inspect'
+    })
+    expect(nonVisionToolCall.function.arguments).toBe(nonVisionArguments)
+  })
+
+  it('redacts vision agent array arguments from assistant tool call replay', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const visionArguments = JSON.stringify([
+      {
+        ref: 'message:101#image:1',
+        url: 'https://cdn.example/image.png?X-Amz-Signature=array-secret'
+      },
+      'data:image/png;base64,array-raw-secret',
+      {
+        urls: ['https://cdn.example/second.png?signature=second-secret'],
+        raw_data: ['data:image/jpeg;base64,array-legacy-secret']
+      }
+    ])
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [
+        {
+          recordId: 'assistant-1',
+          kind: 'assistant_step',
+          timestamp: 2,
+          step: {
+            stepId: 'step-1',
+            stepIndex: 0,
+            startedAt: 1,
+            completedAt: 2,
+            status: 'completed',
+            content: '',
+            toolCalls: [
+              {
+                id: 'call-vision',
+                type: 'function',
+                function: {
+                  name: 'vision_agent_analyze',
+                  arguments: visionArguments
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    const serializedMessages = JSON.stringify(request.messages)
+    expect(serializedMessages).not.toContain('data:image')
+    expect(serializedMessages).not.toContain('array-secret')
+    expect(serializedMessages).not.toContain('second-secret')
+    expect(serializedMessages).not.toContain('array-legacy-secret')
+
+    const assistantMessage = request.messages[0]
+    expect(assistantMessage.role).toBe('assistant')
+    if (assistantMessage.role !== 'assistant') {
+      throw new Error('Expected assistant protocol message')
+    }
+    const [visionToolCall] = assistantMessage.toolCalls ?? []
+    expect(JSON.parse(visionToolCall.function.arguments)).toEqual([
+      {
+        ref: 'message:101#image:1',
+        url: '[REDACTED]'
+      },
+      '[REDACTED]',
+      {
+        urls: ['[REDACTED]'],
+        raw_data: ['[REDACTED]']
+      }
+    ])
+  })
+
+  it('redacts vision agent primitive string arguments from assistant tool call replay', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [
+        {
+          recordId: 'assistant-1',
+          kind: 'assistant_step',
+          timestamp: 2,
+          step: {
+            stepId: 'step-1',
+            stepIndex: 0,
+            startedAt: 1,
+            completedAt: 2,
+            status: 'completed',
+            content: '',
+            toolCalls: [
+              {
+                id: 'call-vision',
+                type: 'function',
+                function: {
+                  name: 'vision_agent_analyze',
+                  arguments: JSON.stringify('data:image/png;base64,primitive-secret')
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    const serializedMessages = JSON.stringify(request.messages)
+    expect(serializedMessages).not.toContain('data:image')
+    expect(serializedMessages).not.toContain('primitive-secret')
+
+    const assistantMessage = request.messages[0]
+    expect(assistantMessage.role).toBe('assistant')
+    if (assistantMessage.role !== 'assistant') {
+      throw new Error('Expected assistant protocol message')
+    }
+    const [visionToolCall] = assistantMessage.toolCalls ?? []
+    expect(JSON.parse(visionToolCall.function.arguments)).toBe('[REDACTED]')
+  })
+
+  it('strips raw image parts and preserves hidden vision observation text', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [
+        {
+          recordId: 'current-user',
+          kind: 'user',
+          timestamp: 2,
+          content: [
+            { type: 'input_image', imageUrl: 'data:image/png;base64,abc', detail: 'auto' },
+            { type: 'input_text', text: 'describe this' }
+          ]
+        },
+        {
+          recordId: 'vision-observation',
+          kind: 'user',
+          timestamp: 2,
+          source: MESSAGE_SOURCE.VISION_OBSERVATION,
+          content: [{
+            type: 'input_text',
+            text: '<vision_observation image_ref="message:101" status="ok">Summary: chart</vision_observation>'
+          }]
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    expect(request.messages).toEqual([
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'describe this' }]
+      },
+      {
+        role: 'user',
+        content: [{
+          type: 'input_text',
+          text: '<vision_observation image_ref="message:101" status="ok">Summary: chart</vision_observation>'
+        }]
+      }
+    ])
+  })
+
+  it('strips prior image parts while preserving observation and text follow-up context', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 4,
+      records: [
+        {
+          recordId: 'image-user',
+          kind: 'user',
+          timestamp: 1,
+          content: [
+            { type: 'input_image', imageUrl: 'data:image/png;base64,abc', detail: 'auto' },
+            { type: 'input_text', text: 'what is shown here?' }
+          ]
+        },
+        {
+          recordId: 'vision-observation',
+          kind: 'user',
+          timestamp: 1,
+          source: MESSAGE_SOURCE.VISION_OBSERVATION,
+          content: [{
+            type: 'input_text',
+            text: '<vision_observation image_ref="message:101" status="ok">Summary: invoice screenshot</vision_observation>'
+          }]
+        },
+        {
+          recordId: 'assistant-reply',
+          kind: 'assistant_step',
+          timestamp: 2,
+          step: {
+            stepId: 'step-1',
+            stepIndex: 0,
+            startedAt: 2,
+            completedAt: 3,
+            status: 'completed',
+            content: 'It shows an invoice.',
+            toolCalls: []
+          }
+        },
+        {
+          recordId: 'follow-up',
+          kind: 'user',
+          timestamp: 4,
+          content: [{ type: 'input_text', text: 'extract the total only' }]
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    const serializedMessages = JSON.stringify(request.messages)
+    expect(serializedMessages).not.toContain('input_image')
+    expect(serializedMessages).toContain('what is shown here?')
+    expect(serializedMessages).toContain('Summary: invoice screenshot')
+    expect(serializedMessages).toContain('It shows an invoice.')
+    expect(serializedMessages).toContain('extract the total only')
+    expect(request.messages).toEqual([
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'what is shown here?' }]
+      },
+      {
+        role: 'user',
+        content: [{
+          type: 'input_text',
+          text: '<vision_observation image_ref="message:101" status="ok">Summary: invoice screenshot</vision_observation>'
+        }]
+      },
+      {
+        role: 'assistant',
+        content: 'It shows an invoice.',
+        reasoning: undefined,
+        toolCalls: undefined
+      },
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'extract the total only' }]
       }
     ])
   })

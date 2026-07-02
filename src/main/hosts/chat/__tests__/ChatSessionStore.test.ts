@@ -87,6 +87,44 @@ describe('ChatSessionStore.finalizeChatEntity', () => {
     expect(result.title).toBe('Existing title')
   })
 
+  it('uses chatModelRef when the execution model differs from the chat model', () => {
+    const store = new ChatSessionStore()
+    const chatEntity = {
+      id: 4,
+      uuid: 'chat-4',
+      title: 'NewChat',
+      messages: [],
+      modelRef: { accountId: 'account-main', modelId: 'model-main' },
+      workspacePath: './workspaces/chat-4',
+      userInstruction: '',
+      createTime: 1,
+      updateTime: 1
+    } as ChatEntity
+
+    getChatByIdMock.mockReturnValue(chatEntity)
+
+    store.finalizeChatEntity(
+      chatEntity,
+      'image input',
+      {
+        accountId: 'account-vision',
+        modelId: 'model-vision'
+      },
+      {
+        accountId: 'account-main',
+        modelId: 'model-main'
+      }
+    )
+
+    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
+      id: 4,
+      modelRef: {
+        accountId: 'account-main',
+        modelId: 'model-main'
+      }
+    }))
+  })
+
   it('preserves a generated title from the latest persisted chat', () => {
     const store = new ChatSessionStore()
     const staleChatEntity = {

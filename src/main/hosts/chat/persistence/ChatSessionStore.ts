@@ -23,6 +23,7 @@ export class ChatSessionStore {
 
     const chatUuid = uuidv4()
     const workspacePath = `./${DEFAULT_WORKSPACE_DIR}/${chatUuid}`
+    const chatModelRef = input.chatModelRef ?? input.modelRef
     await fs.mkdir(path.join(app.getPath('userData'), DEFAULT_WORKSPACE_DIR, chatUuid), {
       recursive: true
     })
@@ -31,7 +32,7 @@ export class ChatSessionStore {
       uuid: chatUuid,
       title: 'NewChat',
       messages: [],
-      modelRef: input.modelRef,
+      modelRef: chatModelRef,
       workspacePath,
       userInstruction: input.input.chatUserInstruction || '',
       permissionApprovalMode: normalizePermissionApprovalMode(input.input.permissionApprovalMode),
@@ -56,9 +57,11 @@ export class ChatSessionStore {
   finalizeChatEntity(
     chatEntity: ChatEntity,
     _inputText: string,
-    modelRef: ModelRef
+    modelRef: ModelRef,
+    chatModelRef?: ModelRef
   ): ChatEntity {
     const latestChat = this.reloadChatEntity(chatEntity)
+    const nextModelRef = chatModelRef ?? modelRef
     const nextTitle = isDefaultChatTitle(latestChat.title)
       ? 'NewChat'
       : latestChat.title
@@ -66,7 +69,7 @@ export class ChatSessionStore {
     const updatedChat: ChatEntity = {
       ...latestChat,
       title: nextTitle || latestChat.title || 'NewChat',
-      modelRef,
+      modelRef: nextModelRef,
       updateTime: Date.now()
     }
 

@@ -3,6 +3,7 @@ import { CHAT_HOST_EVENTS, CHAT_RENDER_EVENTS } from '@shared/run/events'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 const latestStore = {
   currentChatUuid: 'chat-live',
@@ -188,6 +189,83 @@ describe('handleChatRunEvent', () => {
     expect(latestStore.setScrollHint).toHaveBeenCalledWith(expect.objectContaining({
       type: 'user-sent',
       messageId: 11
+    }))
+  })
+
+  it('upserts hidden user messages without treating them as user-sent scroll intent', async () => {
+    latestStore.currentChatUuid = 'chat-1'
+    const input = createInput()
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_RENDER_EVENTS.MESSAGE_CREATED,
+      payload: {
+        message: {
+          id: 12,
+          chatId: 1,
+          chatUuid: 'chat-1',
+          body: {
+            role: 'user',
+            source: MESSAGE_SOURCE.VISION_OBSERVATION,
+            content: '<vision_observation status="ok">Summary</vision_observation>',
+            segments: []
+          }
+        }
+      }
+    })
+
+    expect(latestStore.upsertMessageForChat).toHaveBeenCalledWith('chat-1', expect.objectContaining({ id: 12 }))
+    expect(latestStore.clearPendingUserMessage).not.toHaveBeenCalled()
+    expect(latestStore.setScrollHint).not.toHaveBeenCalled()
+    expect(input.chatStore.setScrollHint).not.toHaveBeenCalled()
+  })
+
+  it('uses the last visible message as the conversation-switch scroll target', async () => {
+    latestStore.currentChatUuid = 'chat-1'
+    const input = createInput()
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_HOST_EVENTS.MESSAGES_LOADED,
+      payload: {
+        messages: [
+          {
+            id: 10,
+            chatId: 1,
+            chatUuid: 'chat-1',
+            body: {
+              role: 'user',
+              content: 'visible',
+              segments: []
+            }
+          },
+          {
+            id: 11,
+            chatId: 1,
+            chatUuid: 'chat-1',
+            body: {
+              role: 'user',
+              source: MESSAGE_SOURCE.VISION_OBSERVATION,
+              content: '<vision_observation status="ok">Summary</vision_observation>',
+              segments: []
+            }
+          }
+        ] as MessageEntity[]
+      }
+    })
+
+    expect(input.chatStore.setMessagesForChat).toHaveBeenCalledWith('chat-1', expect.any(Array))
+    expect(input.chatStore.setScrollHint).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'conversation-switch',
+      index: 0
     }))
   })
 

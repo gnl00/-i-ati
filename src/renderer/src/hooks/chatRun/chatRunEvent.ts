@@ -5,6 +5,7 @@ import { scheduleAssistantStreamingPerfRecentSessionFlush } from '@renderer/comp
 import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
+import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
 import type { RunEvent } from '@shared/run/events'
@@ -136,12 +137,20 @@ function handleMessagesLoaded(
     chatStore.setMessages(event.payload.messages)
   }
 
-  if (event.payload.messages.length > 0 && (!chatUuid || getLatestChatStore().currentChatUuid === chatUuid)) {
+  let latestVisibleMessageIndex = -1
+  for (let index = event.payload.messages.length - 1; index >= 0; index -= 1) {
+    const message = event.payload.messages[index]
+    if (!message.body.source || !HIDDEN_MESSAGE_SOURCES.has(message.body.source)) {
+      latestVisibleMessageIndex = index
+      break
+    }
+  }
+  if (latestVisibleMessageIndex >= 0 && (!chatUuid || getLatestChatStore().currentChatUuid === chatUuid)) {
     const latestStore = getLatestChatStore()
     chatStore.setScrollHint({
       type: 'conversation-switch',
       chatUuid: chatUuid ?? latestStore.currentChatUuid,
-      index: event.payload.messages.length - 1,
+      index: latestVisibleMessageIndex,
       align: 'end'
     })
   } else if (!chatUuid || getLatestChatStore().currentChatUuid === chatUuid) {
@@ -157,6 +166,8 @@ function handleRunMessageEvent(
 ): void {
   const { message } = event.payload
   const latestStore = getLatestChatStore()
+  const isVisibleUserMessage = message.body.role === 'user'
+    && (!message.body.source || !HIDDEN_MESSAGE_SOURCES.has(message.body.source))
 
   if (message.body.role === 'assistant') {
     const runStatus = chatUuid ? latestStore.getRunStatusForChat(chatUuid) : latestStore
@@ -180,7 +191,7 @@ function handleRunMessageEvent(
 
   if (
     event.type === CHAT_RENDER_EVENTS.MESSAGE_CREATED
-    && message.body.role === 'user'
+    && isVisibleUserMessage
     && (!chatUuid || latestStore.currentChatUuid === chatUuid)
   ) {
     latestStore.clearPendingUserMessage(event.submissionId)

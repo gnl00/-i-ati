@@ -24,6 +24,7 @@ export type EmbeddedToolCapability =
   | 'todo'
   | 'registry'
   | 'chat'
+  | 'vision'
 
 export interface EmbeddedToolMetadata {
   capability: EmbeddedToolCapability

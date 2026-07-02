@@ -54,6 +54,133 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     upsertEmotionStateMock.mockReset()
   })
 
+  it('persists media content for vision-capable llm models', () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    store.createUserMessage(
+      chatEntity,
+      {
+        id: 'gpt-vision',
+        label: 'GPT Vision',
+        type: 'llm',
+        modalities: ['text', 'image']
+      },
+      {
+        textCtx: 'describe this',
+        mediaCtx: ['data:image/png;base64,abc']
+      }
+    )
+
+    expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'data:image/png;base64,abc',
+              detail: 'auto'
+            }
+          },
+          {
+            type: 'text',
+            text: 'describe this'
+          }
+        ]
+      })
+    }))
+  })
+
+  it('persists media content for text models when mediaCtx has images', () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    store.createUserMessage(
+      chatEntity,
+      {
+        id: 'text-model',
+        label: 'Text Model',
+        type: 'llm'
+      },
+      {
+        textCtx: 'describe this',
+        mediaCtx: ['data:image/png;base64,abc']
+      }
+    )
+
+    expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'data:image/png;base64,abc',
+              detail: 'auto'
+            }
+          },
+          {
+            type: 'text',
+            text: 'describe this'
+          }
+        ]
+      })
+    }))
+  })
+
+  it('persists hidden vision observation messages', () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    const entity = store.persistVisionObservationMessage(
+      chatEntity,
+      '<vision_observation status="ok">Summary</vision_observation>',
+      {
+        type: 'telegram',
+        direction: 'inbound',
+        peerId: '123'
+      }
+    )
+
+    expect(entity.id).toBe(102)
+    expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({
+        role: 'user',
+        source: MESSAGE_SOURCE.VISION_OBSERVATION,
+        content: '<vision_observation status="ok">Summary</vision_observation>',
+        host: expect.objectContaining({
+          type: 'telegram',
+          peerId: '123'
+        })
+      })
+    }))
+    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [102]
+    }))
+  })
+
   it('writes usage totalTokens into the finalized assistant message', async () => {
     const store = new ChatStepStore()
     const chatEntity = {

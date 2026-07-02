@@ -12,6 +12,13 @@ Renderer responsibilities stay narrow:
 
 Main remains responsible for execution, persistence, and ordering.
 
+`invokeRunStart` uses `modelRef` for the MainAgent chat-selected execution model. `chatModelRef` carries the same persisted chat model for desktop chat runs, while image understanding is handled by the VisionObservation sidecar during main-process preparation.
+
+Image sends use two display paths for fast feedback:
+
+- `useChatRun` creates a pending user message when the submission has text or media, including pure image sends.
+- Main preparation emits `CHAT_READY` first, then emits the persisted visible user image message immediately after `StepBootstrapService` saves it. The later hidden vision observation arrives through the normal committed message path.
+
 ## Files
 
 - `useChatRun.ts`

@@ -47,16 +47,11 @@ export class ChatAgentAdapter {
   ): Promise<RunPreparationResult> {
     return this.preparationPipeline.prepare(input, emitter).then((prepared) => {
       const chatEventMapper = new ChatEventMapper(emitter)
-
-      chatEventMapper.emitChatReady(
-        prepared.chatContext.chat,
-        prepared.chatContext.workspacePath
-      )
-      if (prepared.chatContext.historyMessages.length > 0) {
-        chatEventMapper.emitMessagesLoaded(prepared.chatContext.historyMessages)
-      }
+      const earlyEmittedMessageIds = new Set(prepared.chatContext.earlyEmittedMessageIds ?? [])
       for (const message of prepared.chatContext.createdMessages) {
-        chatEventMapper.emitMessageCreated(message)
+        if (message.id == null || !earlyEmittedMessageIds.has(message.id)) {
+          chatEventMapper.emitMessageCreated(message)
+        }
       }
 
       return prepared
@@ -86,7 +81,8 @@ export class ChatAgentAdapter {
     const finalizedChat = this.finalizeService.finalizeChatEntity(
       chatContext.chat,
       input.input.textCtx,
-      input.modelRef
+      input.modelRef,
+      input.chatModelRef
     )
     const chatEventMapper = new ChatEventMapper(emitter)
     chatEventMapper.emitMessageCreated(updatedAssistantMessage)

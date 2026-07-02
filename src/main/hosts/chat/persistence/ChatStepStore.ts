@@ -25,7 +25,6 @@ const buildRunStoppedBoundaryContent = (reason: string): string => [
 ].join('\n')
 
 const buildUserMessage = (
-  model: AccountModel,
   textCtx: string,
   mediaCtx: ClipbordImg[] | string[],
   source?: string,
@@ -41,14 +40,11 @@ const buildUserMessage = (
     ...(host ? { host } : {})
   }
 
-  if (model.type === 'llm' || model.type === 'img_gen') {
-    return { ...messageBody, content: textCtx.trim() }
-  }
-
-  if (model.type === 'vlm' || model.type === 'mllm') {
-    const imgContents: VLMContent[] = mediaCtx.map((imgBase64) => ({
+  const imageUrls = normalizeMediaUrls(mediaCtx)
+  if (imageUrls.length > 0) {
+    const imgContents: VLMContent[] = imageUrls.map((imgBase64) => ({
       type: 'image_url' as const,
-      image_url: { url: imgBase64 as string, detail: 'auto' as const }
+      image_url: { url: imgBase64, detail: 'auto' as const }
     }))
 
     return {
@@ -57,17 +53,43 @@ const buildUserMessage = (
     }
   }
 
-  throw new Error('Unsupported model type')
+  return { ...messageBody, content: textCtx.trim() }
 }
+
+export const normalizeMediaUrls = (mediaCtx: ClipbordImg[] | string[]): string[] => (
+  mediaCtx
+    .map((media) => {
+      if (!media) {
+        return ''
+      }
+
+      if (typeof media === 'string') {
+        return media
+      }
+
+      if (media instanceof ArrayBuffer) {
+        return ''
+      }
+
+      const maybeContent = media as unknown as VLMContent
+      if (maybeContent.type === 'image_url' && maybeContent.image_url?.url) {
+        return maybeContent.image_url.url
+      }
+
+      return String(media)
+    })
+    .map(media => media.trim())
+    .filter(Boolean)
+)
 
 export class ChatStepStore implements ConversationStore {
   createUserMessage(
     chatEntity: ChatEntity,
-    model: AccountModel,
+    _model: AccountModel,
     input: HostRunInputState
   ): MessageEntity {
     const entity: MessageEntity = {
-      body: buildUserMessage(model, input.textCtx, input.mediaCtx, input.source, input.host),
+      body: buildUserMessage(input.textCtx, input.mediaCtx, input.source, input.host),
       chatId: chatEntity.id,
       chatUuid: chatEntity.uuid
     }
@@ -99,6 +121,30 @@ export class ChatStepStore implements ConversationStore {
       chatId: chatEntity.id,
       chatUuid: chatEntity.uuid
     }
+  }
+
+  persistVisionObservationMessage(
+    chatEntity: ChatEntity,
+    content: string,
+    host?: ChatMessageHostMeta
+  ): MessageEntity {
+    const body: ChatMessage = {
+      createdAt: Date.now(),
+      role: 'user',
+      source: MESSAGE_SOURCE.VISION_OBSERVATION,
+      content,
+      segments: [],
+      ...(host ? { host } : {})
+    }
+    const entity: MessageEntity = {
+      chatId: chatEntity.id,
+      chatUuid: chatEntity.uuid,
+      body
+    }
+
+    entity.id = DatabaseService.saveMessage(entity)
+    this.attachMessageToChat(chatEntity, entity.id)
+    return entity
   }
 
   persistToolResultMessage(

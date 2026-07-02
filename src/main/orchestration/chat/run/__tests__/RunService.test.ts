@@ -130,7 +130,10 @@ vi.mock('@main/db/DatabaseService', () => ({
         requestOverrides: undefined
       }],
       tools: {
-        titleGenerateEnabled: false
+        mainModel: {
+          accountId: 'account-1',
+          modelId: 'model-1'
+        }
       },
       compression: {
         enabled: false,
@@ -277,7 +280,10 @@ describe('RunService', () => {
         requestOverrides: undefined
       }],
       tools: {
-        titleGenerateEnabled: false
+        mainModel: {
+          accountId: 'account-1',
+          modelId: 'model-1'
+        }
       },
       compression: {
         enabled: false,
@@ -361,7 +367,10 @@ describe('RunService', () => {
         requestOverrides: undefined
       }],
       tools: {
-        titleGenerateEnabled: true
+        mainModel: {
+          accountId: 'account-1',
+          modelId: 'model-1'
+        }
       },
       compression: {
         enabled: true,

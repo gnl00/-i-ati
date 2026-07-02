@@ -42,8 +42,21 @@ vi.mock('@main/db/DatabaseService', () => ({
           apiUrl: 'https://example.com/v1',
           apiKey: 'test',
           models: [{ id: 'model-1', label: 'model-1', type: 'llm' }]
+        },
+        {
+          id: 'account-lite',
+          label: 'lite',
+          apiUrl: 'https://example.com/v1',
+          apiKey: 'test',
+          models: [{ id: 'model-lite', label: 'model-lite', type: 'llm' }]
         }
-      ]
+      ],
+      tools: {
+        liteModel: {
+          accountId: 'account-lite',
+          modelId: 'model-lite'
+        }
+      }
     })),
     saveRunEvent: vi.fn(() => 1),
   }
@@ -178,6 +191,14 @@ describe('SchedulerService', () => {
     expect(DatabaseService.saveMessage).not.toHaveBeenCalled()
     expect(mockSubmit).toHaveBeenCalledTimes(1)
     expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      modelRef: {
+        accountId: 'account-lite',
+        modelId: 'model-lite'
+      },
+      chatModelRef: {
+        accountId: 'account-1',
+        modelId: 'model-1'
+      },
       input: expect.objectContaining({
         textCtx: dueTask.goal,
         mediaCtx: [],

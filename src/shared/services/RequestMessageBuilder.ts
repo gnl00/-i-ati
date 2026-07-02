@@ -10,6 +10,7 @@
  * 5. 验证消息合法性
  */
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import { sanitizeRawImageDataUrls } from '@shared/services/RawImageDataSanitizer'
 
 export interface RequestMessageBuildResult {
   systemPrompt?: string
@@ -165,7 +166,7 @@ class RequestMessageBuilder {
     return {
       role: 'user',
       source: MESSAGE_SOURCE.COMPRESSION_SUMMARY,
-      content: `[Previous conversation summary (${summary.messageIds.length} messages compressed)]\n\n${summary.summary}`,
+      content: `[Previous conversation summary (${summary.messageIds.length} messages compressed)]\n\n${sanitizeRawImageDataUrls(summary.summary)}`,
       segments: []
     }
   }

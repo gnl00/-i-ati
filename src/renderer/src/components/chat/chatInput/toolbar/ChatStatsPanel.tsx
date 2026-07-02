@@ -81,8 +81,8 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
 
   const activeModel = React.useMemo(() => {
-    const accountId = selectedModelRef?.accountId ?? appConfig?.tools?.defaultModel?.accountId
-    const modelId = selectedModelRef?.modelId ?? appConfig?.tools?.defaultModel?.modelId
+    const accountId = selectedModelRef?.accountId ?? appConfig?.tools?.mainModel?.accountId
+    const modelId = selectedModelRef?.modelId ?? appConfig?.tools?.mainModel?.modelId
     if (!accountId || !modelId) {
       return undefined
     }
@@ -90,7 +90,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
     return appConfig?.accounts
       ?.find(account => account.id === accountId)
       ?.models.find(model => model.id === modelId)
-  }, [appConfig?.accounts, appConfig?.tools?.defaultModel, selectedModelRef])
+  }, [appConfig?.accounts, appConfig?.tools?.mainModel, selectedModelRef])
 
   const compressionTokenTotal = React.useMemo(() => {
     return messages.reduce((sum, msg) => {

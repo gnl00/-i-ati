@@ -4,7 +4,7 @@ import { planningDb } from '@main/db/planning'
 import { RunService } from '@main/orchestration/chat/run'
 import { createLogger } from '@main/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
-import { resolveNewChatModelRef } from '@shared/services/ChatModelResolver'
+import { resolveLiteModelRef } from '@shared/services/ChatModelResolver'
 import { ScheduleEventEmitter } from './event-emitter'
 import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
 
@@ -121,7 +121,7 @@ export class SchedulerService {
       })
 
       const payload = this.parsePayload(task.payload)
-      const modelRef = payload.modelRef ?? chat.modelRef ?? this.resolveFallbackModelRef()
+      const modelRef = payload.modelRef ?? this.resolveFallbackModelRef() ?? chat.modelRef
       if (!modelRef) {
         throw new Error(`No modelRef resolved for chat_uuid=${task.chat_uuid}`)
       }
@@ -154,6 +154,7 @@ export class SchedulerService {
         chatId: chat.id,
         chatUuid: chat.uuid,
         modelRef,
+        ...(chat.modelRef ? { chatModelRef: chat.modelRef } : {}),
         input: {
           textCtx: prompt,
           mediaCtx: [],
@@ -225,7 +226,7 @@ export class SchedulerService {
   private resolveFallbackModelRef(): ModelRef | undefined {
     const config = DatabaseService.getConfig()
     if (!config) return undefined
-    return resolveNewChatModelRef(config)
+    return resolveLiteModelRef(config)
   }
 
   private emitScheduleUpdated(taskId: string): void {

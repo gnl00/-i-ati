@@ -4,7 +4,7 @@ import { CompressionTranscriptBuilder } from '../CompressionTranscriptBuilder'
 const message = (
   id: number,
   role: ChatMessage['role'],
-  content: string,
+  content: ChatMessage['content'],
   overrides: Partial<ChatMessage> = {}
 ): MessageEntity => ({
   id,
@@ -75,5 +75,29 @@ describe('CompressionTranscriptBuilder', () => {
       '}',
       '</tool_result>'
     ].join('\n'))
+  })
+
+  it('omits raw image data from VLM image parts', () => {
+    const transcript = new CompressionTranscriptBuilder().build([
+      message(5, 'user', [
+        {
+          type: 'image_url',
+          image_url: {
+            url: 'data:image/png;base64,raw-image-payload',
+            detail: 'auto'
+          }
+        },
+        {
+          type: 'text',
+          text: 'please inspect this screenshot'
+        }
+      ])
+    ])
+
+    expect(transcript).toContain('[Image omitted from compression input] #1')
+    expect(transcript).toContain('please inspect this screenshot')
+    expect(transcript).not.toContain('data:image')
+    expect(transcript).not.toContain('raw-image-payload')
+    expect(transcript).not.toContain('"image_url"')
   })
 })

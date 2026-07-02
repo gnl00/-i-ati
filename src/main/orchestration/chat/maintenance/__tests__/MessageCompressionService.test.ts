@@ -28,6 +28,7 @@ vi.mock('@main/logging/LogService', () => ({
 }))
 
 import { MessageCompressionService } from '../MessageCompressionService'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 const config: CompressionConfig = {
   enabled: true,
@@ -60,7 +61,7 @@ const providerDefinition: ProviderDefinition = {
 const message = (
   id: number,
   role: ChatMessage['role'],
-  content: string,
+  content: ChatMessage['content'],
   tokens?: number,
   overrides: Partial<ChatMessage> = {}
 ): MessageEntity => ({
@@ -176,6 +177,45 @@ describe('MessageCompressionService', () => {
       messagesToCompress: [3, 4],
       messagesToKeep: [5, 6, 7, 8, 9, 10, 11],
       existingSummaries: summaries
+    })
+  })
+
+  it('keeps hidden vision observations with their visible user message pair', () => {
+    const service = new MessageCompressionService()
+    const visibleImageContent: VLMContent[] = [
+      {
+        type: 'image_url',
+        image_url: {
+          url: 'data:image/png;base64,visible-image',
+          detail: 'auto'
+        }
+      },
+      {
+        type: 'text',
+        text: 'what is shown here?'
+      }
+    ]
+    const messages = [
+      message(1, 'user', 'old user'),
+      message(2, 'assistant', 'old assistant', 700),
+      message(3, 'user', visibleImageContent),
+      message(4, 'user', '<vision_observation>summary</vision_observation>', undefined, {
+        source: MESSAGE_SOURCE.VISION_OBSERVATION
+      }),
+      message(5, 'assistant', 'image answer'),
+      message(6, 'user', 'latest user 2'),
+      message(7, 'assistant', 'latest assistant 2'),
+      message(8, 'user', 'latest user 3'),
+      message(9, 'assistant', 'latest assistant 3')
+    ]
+
+    const strategy = service.analyzeCompressionStrategy(messages, [], model, config)
+
+    expect(strategy).toEqual({
+      shouldCompress: true,
+      messagesToCompress: [1, 2],
+      messagesToKeep: [3, 4, 5, 6, 7, 8, 9],
+      existingSummaries: []
     })
   })
 
@@ -409,5 +449,39 @@ describe('MessageCompressionService', () => {
     expect(prompt).toContain('pending')
     expect(prompt).toContain('Output only the final summary.')
     expect(prompt).toContain('Pending Tasks')
+  })
+
+  it('keeps raw image data out of the compactor request input', async () => {
+    const service = new MessageCompressionService()
+    agentMock.mockResolvedValue({ type: 'text', content: 'summary' })
+
+    await service.generateSummary(
+      [
+        message(11, 'user', [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'data:image/jpeg;base64,secret-image-data',
+              detail: 'high'
+            }
+          },
+          {
+            type: 'text',
+            text: 'what is in this image?'
+          }
+        ])
+      ],
+      model,
+      account,
+      providerDefinition
+    )
+
+    const messages = agentMock.mock.calls[0][3] as ChatMessage[]
+    const prompt = messages[0].content as string
+
+    expect(prompt).toContain('[Image omitted from compression input] #1')
+    expect(prompt).toContain('what is in this image?')
+    expect(prompt).not.toContain('data:image')
+    expect(prompt).not.toContain('secret-image-data')
   })
 })

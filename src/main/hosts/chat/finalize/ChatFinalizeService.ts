@@ -36,8 +36,9 @@ export class ChatFinalizeService {
   finalizeChatEntity(
     chatEntity: ChatEntity,
     inputText: string,
-    modelRef: ModelRef
+    modelRef: ModelRef,
+    chatModelRef?: ModelRef
   ): ChatEntity {
-    return this.chatSessionStore.finalizeChatEntity(chatEntity, inputText, modelRef)
+    return this.chatSessionStore.finalizeChatEntity(chatEntity, inputText, modelRef, chatModelRef)
   }
 }

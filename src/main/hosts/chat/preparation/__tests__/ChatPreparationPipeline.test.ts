@@ -112,9 +112,12 @@ import DatabaseService from '@main/db/DatabaseService'
 import {
   ChatPreparationPipeline,
   RunEnvironmentService,
+  StepBootstrapService,
   type RunEnvironment
 } from '..'
 import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
+import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
+import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 const config = {
@@ -256,6 +259,7 @@ describe('ChatPreparationPipeline', () => {
     expect(chatContext.chat).toEqual(chatEntity)
     expect(chatContext.historyMessages).toEqual(historyMessages)
     expect(chatContext.createdMessages).toHaveLength(1)
+    expect(chatContext.earlyEmittedMessageIds).toEqual([101])
     expect(chatContext.messageEntities).toHaveLength(2)
     expect(chatContext.messageEntities[0]).toEqual(historyMessages[0])
     expect(chatContext.assistantDraft).toEqual(expect.objectContaining({
@@ -296,7 +300,22 @@ describe('ChatPreparationPipeline', () => {
       message.kind === 'user'
       && message.content === 'hello'
     ))).toHaveLength(1)
-    expect(emitter.emit).not.toHaveBeenCalled()
+    expect(emitter.emit).toHaveBeenNthCalledWith(1, CHAT_HOST_EVENTS.CHAT_READY, {
+      chatEntity,
+      workspacePath: './workspaces/chat-1'
+    })
+    expect(emitter.emit).toHaveBeenNthCalledWith(2, CHAT_HOST_EVENTS.MESSAGES_LOADED, {
+      messages: historyMessages
+    })
+    expect(emitter.emit).toHaveBeenNthCalledWith(3, CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
+      message: expect.objectContaining({
+        id: 101,
+        body: expect.objectContaining({
+          role: 'user',
+          content: 'hello'
+        })
+      })
+    })
     expect(runSpec.requestSpec).toEqual(expect.objectContaining({
       adapterPluginId: 'openai-chat-compatible-adapter',
       model: 'model-1',
@@ -311,6 +330,155 @@ describe('ChatPreparationPipeline', () => {
         content: 'hello'
       })
     ]))
+  })
+
+  it('adds hidden vision observation after visible image user message', async () => {
+    const visionObservation = {
+      id: 202,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'user',
+        source: MESSAGE_SOURCE.VISION_OBSERVATION,
+        content: '<vision_observation image_ref="message:101" status="ok">Summary: chart</vision_observation>',
+        segments: []
+      }
+    } as MessageEntity
+    const visionObservationService = {
+      observe: vi.fn(async () => visionObservation)
+    }
+    const service = new ChatPreparationPipeline(
+      new RunEnvironmentService(),
+      new StepBootstrapService(undefined, visionObservationService as any)
+    )
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const prepared = await service.prepare({
+      ...input,
+      input: {
+        ...input.input,
+        textCtx: 'describe this',
+        mediaCtx: ['data:image/png;base64,abc']
+      }
+    }, emitter)
+
+    expect(visionObservationService.observe).toHaveBeenCalledWith(expect.objectContaining({
+      chat: chatEntity,
+      userMessage: expect.objectContaining({
+        id: 101,
+        body: expect.objectContaining({
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: 'data:image/png;base64,abc',
+                detail: 'auto'
+              }
+            },
+            {
+              type: 'text',
+              text: 'describe this'
+            }
+          ]
+        })
+      }),
+      textCtx: 'describe this',
+      mediaCtx: ['data:image/png;base64,abc']
+    }))
+    expect(prepared.chatContext.createdMessages).toHaveLength(2)
+    expect(prepared.chatContext.earlyEmittedMessageIds).toEqual([101])
+    expect(prepared.chatContext.messageEntities[prepared.chatContext.messageEntities.length - 2]?.body.content).toEqual([
+      {
+        type: 'image_url',
+        image_url: {
+          url: 'data:image/png;base64,abc',
+          detail: 'auto'
+        }
+      },
+      {
+        type: 'text',
+        text: 'describe this'
+      }
+    ])
+    expect(prepared.chatContext.messageEntities[prepared.chatContext.messageEntities.length - 1]).toBe(visionObservation)
+    expect(prepared.runSpec.requestSpec.model).toBe('model-1')
+    expect(prepared.runSpec.initialTranscriptSeed).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'user',
+        source: MESSAGE_SOURCE.VISION_OBSERVATION,
+        content: expect.stringContaining('Summary: chart')
+      })
+    ]))
+  })
+
+  it('emits the visible image user message before vision observation resolves', async () => {
+    const visionObservation = {
+      id: 202,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'user',
+        source: MESSAGE_SOURCE.VISION_OBSERVATION,
+        content: '<vision_observation image_ref="message:101" status="ok">Summary: chart</vision_observation>',
+        segments: []
+      }
+    } as MessageEntity
+    let resolveVisionObservation: (message: MessageEntity) => void = () => {}
+    const visionObservationService = {
+      observe: vi.fn(() => new Promise<MessageEntity>((resolve) => {
+        resolveVisionObservation = resolve
+      }))
+    }
+    const service = new ChatPreparationPipeline(
+      new RunEnvironmentService(),
+      new StepBootstrapService(undefined, visionObservationService as any)
+    )
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const preparePromise = service.prepare({
+      ...input,
+      input: {
+        ...input.input,
+        textCtx: 'describe this',
+        mediaCtx: ['data:image/png;base64,abc']
+      }
+    }, emitter)
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(visionObservationService.observe).toHaveBeenCalled()
+    expect(emitter.emit).toHaveBeenNthCalledWith(1, CHAT_HOST_EVENTS.CHAT_READY, {
+      chatEntity,
+      workspacePath: './workspaces/chat-1'
+    })
+    expect(emitter.emit).toHaveBeenNthCalledWith(2, CHAT_HOST_EVENTS.MESSAGES_LOADED, {
+      messages: historyMessages
+    })
+    expect(emitter.emit).toHaveBeenNthCalledWith(3, CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
+      message: expect.objectContaining({
+        id: 101,
+        body: expect.objectContaining({
+          role: 'user'
+        })
+      })
+    })
+
+    resolveVisionObservation(visionObservation)
+    const prepared = await preparePromise
+
+    expect(prepared.chatContext.createdMessages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 101
+      }),
+      visionObservation
+    ]))
+    expect(prepared.chatContext.earlyEmittedMessageIds).toEqual([101])
   })
 
   it('injects system environment and awake_state as ephemeral context before the current user input', async () => {

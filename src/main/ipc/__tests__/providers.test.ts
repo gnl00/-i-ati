@@ -9,10 +9,12 @@ import {
   DB_PROVIDER_MODEL_DELETE,
   DB_PROVIDER_MODEL_SAVE,
   DB_PROVIDER_MODEL_SET_ENABLED,
+  PROVIDER_FETCH_MODELS,
   PROVIDER_TEST_CONNECTION
 } from '@shared/constants'
 
-const { ipcMainHandleMock, testConnectionMock } = vi.hoisted(() => ({
+const { fetchModelsMock, ipcMainHandleMock, testConnectionMock } = vi.hoisted(() => ({
+  fetchModelsMock: vi.fn(),
   ipcMainHandleMock: vi.fn(),
   testConnectionMock: vi.fn()
 }))
@@ -43,6 +45,12 @@ vi.mock('@main/services/providers/ProviderConnectionTestService', () => ({
   }
 }))
 
+vi.mock('@main/services/providers/ProviderModelsFetchService', () => ({
+  ProviderModelsFetchService: class {
+    fetchModels = fetchModelsMock
+  }
+}))
+
 vi.mock('@main/logging/LogService', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
@@ -54,6 +62,7 @@ vi.mock('@main/logging/LogService', () => ({
 
 describe('registerProviderHandlers', () => {
   beforeEach(() => {
+    fetchModelsMock.mockReset()
     ipcMainHandleMock.mockReset()
     testConnectionMock.mockReset()
   })
@@ -74,6 +83,7 @@ describe('registerProviderHandlers', () => {
     expect(registeredChannels).toContain(DB_PROVIDER_MODEL_DELETE)
     expect(registeredChannels).toContain(DB_PROVIDER_MODEL_SET_ENABLED)
     expect(registeredChannels).toContain(PROVIDER_TEST_CONNECTION)
+    expect(registeredChannels).toContain(PROVIDER_FETCH_MODELS)
   })
 
   it('delegates provider test requests to the connection test service', async () => {
@@ -112,6 +122,46 @@ describe('registerProviderHandlers', () => {
       ok: true,
       modelId: 'model-1',
       contentPreview: 'pong'
+    })
+  })
+
+  it('delegates provider fetch models requests to the fetch service', async () => {
+    fetchModelsMock.mockResolvedValue({
+      ok: true,
+      endpoint: 'https://example.test/v1/models',
+      models: [{
+        id: 'model-1',
+        label: 'Model 1',
+        type: 'llm',
+        enabled: true
+      }]
+    })
+    const request = {
+      account: {
+        id: 'account-1',
+        providerId: 'provider-1',
+        label: 'Account 1',
+        apiUrl: 'https://example.test/v1',
+        apiKey: 'key-1',
+        models: []
+      }
+    }
+    const { registerProviderHandlers } = await import('../providers')
+
+    registerProviderHandlers()
+    const handler = ipcMainHandleMock.mock.calls.find(([channel]) => channel === PROVIDER_FETCH_MODELS)?.[1]
+    const response = await handler({}, request)
+
+    expect(fetchModelsMock).toHaveBeenCalledWith(request)
+    expect(response).toEqual({
+      ok: true,
+      endpoint: 'https://example.test/v1/models',
+      models: [{
+        id: 'model-1',
+        label: 'Model 1',
+        type: 'llm',
+        enabled: true
+      }]
     })
   })
 })

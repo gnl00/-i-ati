@@ -46,7 +46,7 @@ describe('generateTitle', () => {
     expect(unifiedChatRequestMock).toHaveBeenCalledWith(expect.objectContaining({
       stream: false,
       options: {
-        maxTokens: 128,
+        maxTokens: 32,
         thinking: { enabled: false }
       },
       messages: [

@@ -73,8 +73,12 @@ const REQUEST_CONTEXT_SOURCES = new Set<string>([
   MESSAGE_SOURCE.USER_INFO_CONTEXT,
   MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT,
   MESSAGE_SOURCE.EMOTION_CONTEXT,
-  MESSAGE_SOURCE.AWAKE_CONTEXT
+  MESSAGE_SOURCE.AWAKE_CONTEXT,
+  MESSAGE_SOURCE.AVAILABLE_IMAGES_CONTEXT
 ])
+
+const REDACTED_ARGUMENT_VALUE = '[REDACTED]'
+const VISION_AGENT_ANALYZE_TOOL_NAME = 'vision_agent_analyze'
 
 const isRequestContextRecord = (
   record: AgentTranscriptRecord
@@ -121,6 +125,107 @@ const appendRequestContext = (
     contextPart
   ]
 }
+
+const stripRawImageParts = (content: AgentContentPart[]): AgentContentPart[] => (
+  content.filter(part => part.type !== 'input_image')
+)
+
+const isRecordObject = (value: unknown): value is Record<string, unknown> => (
+  Boolean(value)
+  && typeof value === 'object'
+  && !Array.isArray(value)
+)
+
+const redactVisionImageInput = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    return REDACTED_ARGUMENT_VALUE
+  }
+  if (Array.isArray(value)) {
+    return value.map(redactVisionImageInput)
+  }
+  if (!isRecordObject(value)) {
+    return value
+  }
+
+  const next = { ...value }
+  if (typeof next.url === 'string') {
+    next.url = REDACTED_ARGUMENT_VALUE
+  }
+  if (typeof next.raw_data === 'string') {
+    next.raw_data = REDACTED_ARGUMENT_VALUE
+  }
+  if (Array.isArray(next.url)) {
+    next.url = next.url.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
+  }
+  if (Array.isArray(next.urls)) {
+    next.urls = next.urls.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
+  }
+  if (Array.isArray(next.raw_data)) {
+    next.raw_data = next.raw_data.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
+  }
+  return next
+}
+
+const redactStringOrStringArray = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    return REDACTED_ARGUMENT_VALUE
+  }
+  if (Array.isArray(value)) {
+    return value.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
+  }
+  return value
+}
+
+const sanitizeVisionAgentAnalyzeArguments = (rawArguments: string): string => {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawArguments)
+  } catch {
+    return JSON.stringify({ redacted: true })
+  }
+
+  if (Array.isArray(parsed)) {
+    return JSON.stringify(parsed.map(redactVisionImageInput))
+  }
+
+  if (!isRecordObject(parsed)) {
+    return typeof parsed === 'string'
+      ? JSON.stringify(REDACTED_ARGUMENT_VALUE)
+      : JSON.stringify(parsed)
+  }
+
+  const sanitized: Record<string, unknown> = { ...parsed }
+  if (Array.isArray(sanitized.images)) {
+    sanitized.images = sanitized.images.map(redactVisionImageInput)
+  }
+  if ('url' in sanitized) {
+    sanitized.url = redactStringOrStringArray(sanitized.url)
+  }
+  if ('urls' in sanitized) {
+    sanitized.urls = redactStringOrStringArray(sanitized.urls)
+  }
+  if ('raw_data' in sanitized) {
+    sanitized.raw_data = redactStringOrStringArray(sanitized.raw_data)
+  }
+
+  return JSON.stringify(sanitized)
+}
+
+const sanitizeAssistantToolCallsForRequest = (toolCalls: IToolCall[]): IToolCall[] => (
+  toolCalls.map(toolCall => {
+    if (toolCall.function?.name !== VISION_AGENT_ANALYZE_TOOL_NAME) {
+      return toolCall
+    }
+
+    return {
+      ...toolCall,
+      function: {
+        ...toolCall.function,
+        arguments: sanitizeVisionAgentAnalyzeArguments(toolCall.function.arguments)
+      }
+    }
+  })
+)
 
 const hasFollowingAssistantStep = (
   records: AgentTranscriptRecord[],
@@ -170,7 +275,7 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
         case 'user':
           messages.push({
             role: 'user',
-            content: appendRequestContext(record.content, pendingRequestContextParts)
+            content: stripRawImageParts(appendRequestContext(record.content, pendingRequestContextParts))
           })
           pendingRequestContextParts = []
           break
@@ -180,7 +285,9 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
             role: 'assistant',
             content: record.step.content,
             reasoning: record.step.reasoning,
-            toolCalls: record.step.toolCalls.length > 0 ? [...record.step.toolCalls] : undefined
+            toolCalls: record.step.toolCalls.length > 0
+              ? sanitizeAssistantToolCallsForRequest(record.step.toolCalls)
+              : undefined
           })
           break
         case 'tool_result':

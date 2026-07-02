@@ -1,13 +1,13 @@
 import { AnimatedTabsList } from '@renderer/components/ui/animated-tabs'
-import { Tabs, TabsContent } from "@renderer/components/ui/tabs"
+import { Tabs, TabsContent } from '@renderer/components/ui/tabs'
 import { cn } from '@renderer/lib/utils'
 import React, { useEffect, useRef, useState } from 'react'
 
 import { Badge } from '@renderer/components/ui/badge'
-import { Button } from "@renderer/components/ui/button"
+import { Button } from '@renderer/components/ui/button'
 import { useAppConfigStore } from '@renderer/store/appConfig'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
-import { BookOpen, Brain, Plug, Puzzle, Server, Sparkles, Wrench } from "lucide-react"
+import { BookOpen, Brain, Plug, Puzzle, Server, Sparkles, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 
 import KnowledgebaseManager from './KnowledgebaseManager'
@@ -32,9 +32,9 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
         setAppConfig,
         accounts,
         providerDefinitions,
-        defaultModel,
-        titleGenerateModel,
-        titleGenerateEnabled,
+        mainModel,
+        liteModel,
+        visionModel,
         memoryEnabled,
         setMemoryEnabled,
         streamChunkDebugEnabled,
@@ -118,15 +118,16 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     }, [appConfig])
 
     const saveConfigurationClick = async (): Promise<void> => {
+        const savedToolSettings = appConfig?.tools || {}
         const updatedAppConfig = {
-            ...appConfig,
+            ...(appConfig || {}),
             accounts: accounts,
             providerDefinitions: providerDefinitions,
             tools: {
-                ...appConfig.tools,
-                defaultModel: defaultModel,
-                titleGenerateModel: titleGenerateModel,
-                titleGenerateEnabled: titleGenerateEnabled,
+                ...savedToolSettings,
+                mainModel,
+                liteModel,
+                visionModel,
                 maxWebSearchItems: maxWebSearchItems,
                 memoryEnabled: memoryEnabled,
                 streamChunkDebugEnabled: streamChunkDebugEnabled
@@ -214,16 +215,17 @@ const PreferenceComponent: React.FC<PreferenceProps> = () => {
     const savedMcpConfig = savedMcpServerConfig || { mcpServers: {} }
 
     const toolsDirty = maxWebSearchItems !== (savedTools.maxWebSearchItems ?? 3)
-        || titleGenerateEnabled !== (savedTools.titleGenerateEnabled ?? true)
         || memoryEnabled !== (savedTools.memoryEnabled ?? true)
         || streamChunkDebugEnabled !== (savedTools.streamChunkDebugEnabled ?? false)
         || telegramEnabled !== (appConfig?.telegram?.enabled ?? false)
         || telegramBotToken !== (appConfig?.telegram?.botToken ?? '')
         || emotionAssetPack !== (appConfig?.emotion?.assetPack ?? 'default')
-        || defaultModel?.accountId !== savedTools.defaultModel?.accountId
-        || defaultModel?.modelId !== savedTools.defaultModel?.modelId
-        || titleGenerateModel?.accountId !== savedTools.titleGenerateModel?.accountId
-        || titleGenerateModel?.modelId !== savedTools.titleGenerateModel?.modelId
+        || mainModel?.accountId !== savedTools.mainModel?.accountId
+        || mainModel?.modelId !== savedTools.mainModel?.modelId
+        || liteModel?.accountId !== savedTools.liteModel?.accountId
+        || liteModel?.modelId !== savedTools.liteModel?.modelId
+        || visionModel?.accountId !== savedTools.visionModel?.accountId
+        || visionModel?.modelId !== savedTools.visionModel?.modelId
 
     const compressionDirty = compressionEnabled !== (savedCompression?.enabled ?? true)
         || compressionTriggerTokenRatio !== (savedCompression?.triggerTokenRatio ?? 0.7)

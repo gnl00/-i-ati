@@ -29,6 +29,9 @@ Refactor database layer to separate provider/account/model data into dedicated t
 - Renderer `ProviderRepository` supports:
   - provider definitions + accounts
   - model save/delete/set-enabled
+- Fetch Models now runs through `provider:fetch-models` IPC. The renderer passes the selected account to main, and main performs the `/models` request through `ProviderModelsFetchService`.
+- `ProviderModelsFetchService` prefers Electron `net.fetch` so model discovery follows the desktop network stack, while tests can inject a fetch implementation and runtime can fall back to global `fetch`.
+- Recommended API Base URL values stop at the provider version/base segment, for example `https://ark.example.com/api/v3`. Fetch Models normalizes this to `https://ark.example.com/api/v3/models`. A fully configured `.../models` URL is preserved.
 
 ### Renderer Store & Export
 - `useAppConfigStore` now persists provider/account/model changes via ProviderRepository.
@@ -51,5 +54,5 @@ Refactor database layer to separate provider/account/model data into dedicated t
 - `src/renderer/src/db/ConfigRepository.ts`
 
 ## Tests/Checks
-- `npm run test:run -- DatabaseService` → no tests found (expected).
-- `npm run typecheck:node` still reports pre-existing errors outside this change set.
+- `pnpm exec vitest run src/shared/providers/__tests__/fetchModels.test.ts src/main/services/providers/__tests__/ProviderModelsFetchService.test.ts src/main/ipc/__tests__/providers.test.ts src/renderer/src/components/settings/providers/__tests__/FetchModelsDrawer.cacheKey.test.ts`
+- `pnpm run typecheck`

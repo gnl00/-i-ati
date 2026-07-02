@@ -152,10 +152,12 @@ export default function useChatRun() {
     }
 
     const state = useChatStore.getState()
-    const modelRef = state.selectedModelRef ?? state.ensureSelectedModelRef()
-    if (!modelRef) {
+    const baseModelRef = state.selectedModelRef ?? state.ensureSelectedModelRef()
+    if (!baseModelRef) {
       return
     }
+    const modelRef = baseModelRef
+    const chatModelRef = baseModelRef
 
     const submissionId = uuidv4()
     const controller = new AbortController()
@@ -195,7 +197,9 @@ export default function useChatRun() {
       cleanupActiveRun
     })
 
-    if (textCtx.trim()) {
+    const hasPendingUserContent = textCtx.trim().length > 0
+      || mediaCtx.some(media => Boolean(media))
+    if (hasPendingUserContent) {
       chatStore.setPendingUserMessage({
         submissionId,
         chatUuid: state.currentChatUuid ?? null,
@@ -228,6 +232,7 @@ export default function useChatRun() {
           permissionApprovalMode: state.permissionApprovalMode
         },
         modelRef,
+        chatModelRef,
         chatId: state.currentChatId ?? undefined,
         chatUuid: state.currentChatUuid ?? undefined
       })

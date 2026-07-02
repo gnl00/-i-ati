@@ -9,6 +9,7 @@ import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { AppConfigStore } from '../config'
 import {
   AwakeContextProvider,
+  AvailableImagesContextProvider,
   CompressionSummaryResolver,
   KnowledgebaseContextProvider,
   SystemEnvironmentContextProvider,
@@ -45,7 +46,8 @@ export class RunRequestFactory {
     private readonly userInfoPromptProvider = new UserInfoPromptProvider(),
     private readonly systemEnvironmentContextProvider = new SystemEnvironmentContextProvider(),
     private readonly awakeContextProvider = new AwakeContextProvider(),
-    private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider()
+    private readonly knowledgebaseContextProvider = new KnowledgebaseContextProvider(),
+    private readonly availableImagesContextProvider = new AvailableImagesContextProvider()
   ) {}
 
   async build(
@@ -71,11 +73,22 @@ export class RunRequestFactory {
         compressionSummary
       })
     ])
+    const availableImagesContext = this.availableImagesContextProvider.build(
+      step.messageBuffer,
+      compressionSummary
+    )
 
     const requestMessageBuild = new RequestMessageBuilder()
       .setSystemPrompts(systemPrompts)
       .setEphemeralContextMessages(
-        [loadedSkillsContext, userInfoContext, knowledgebaseContext, systemEnvironmentContext, awakeContext]
+        [
+          loadedSkillsContext,
+          userInfoContext,
+          knowledgebaseContext,
+          systemEnvironmentContext,
+          awakeContext,
+          availableImagesContext
+        ]
           .filter((message): message is ChatMessage => Boolean(message))
       )
       .setUserInstruction(mergedUserInstruction)

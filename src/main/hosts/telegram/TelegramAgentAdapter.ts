@@ -36,6 +36,7 @@ export class TelegramAgentAdapter {
     submissionId: string
     envelope: TelegramInboundEnvelope
     modelRef: ModelRef
+    chatModelRef?: ModelRef
     chat: ChatEntity
     mediaCtx?: string[]
     attachmentTextBlocks?: string[]
@@ -44,6 +45,7 @@ export class TelegramAgentAdapter {
       submissionId,
       envelope,
       modelRef,
+      chatModelRef,
       chat,
       mediaCtx = [],
       attachmentTextBlocks = []
@@ -52,6 +54,7 @@ export class TelegramAgentAdapter {
     return {
       submissionId,
       modelRef,
+      ...(chatModelRef ? { chatModelRef } : {}),
       chatId: chat.id,
       chatUuid: chat.uuid,
       input: {

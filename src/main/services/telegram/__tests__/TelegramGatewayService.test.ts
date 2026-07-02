@@ -14,6 +14,10 @@ const {
     accountId: 'account-openai',
     modelId: 'gpt-4.1'
   }
+  const visionModelRef = {
+    accountId: 'account-openai',
+    modelId: 'gpt-4o-vision'
+  }
 
   const chat = {
     id: 10,
@@ -56,12 +60,18 @@ const {
             id: 'gpt-4.1',
             label: 'GPT-4.1',
             type: 'llm'
+          },
+          {
+            id: 'gpt-4o-vision',
+            label: 'GPT-4o Vision',
+            type: 'vlm'
           }
         ]
       }
     ],
     tools: {
-      defaultModel: modelRef
+      mainModel: modelRef,
+      visionModel: visionModelRef
     },
     telegram: {
       enabled: true,
@@ -182,6 +192,10 @@ const createService = (args: {
   sendMessage?: ReturnType<typeof vi.fn>
   runExecute?: ReturnType<typeof vi.fn>
   hasActiveSubmission?: ReturnType<typeof vi.fn>
+  attachmentContext?: {
+    mediaCtx: any[]
+    documentTextBlocks: string[]
+  }
 } = {}): TelegramGatewayService => {
   const service = new TelegramGatewayService()
 
@@ -198,14 +212,15 @@ const createService = (args: {
       binding,
       created: false
     }),
-    buildRunInput: vi.fn().mockReturnValue({
+    buildRunInput: vi.fn((inputArgs) => ({
       submissionId: 'submission-id',
-      modelRef,
+      modelRef: inputArgs.modelRef,
+      chatModelRef: inputArgs.chatModelRef,
       chatId: chat.id,
       chatUuid: chat.uuid,
       input: {
         textCtx: 'hello',
-        mediaCtx: [],
+        mediaCtx: inputArgs.mediaCtx,
         source: 'telegram',
         stream: true
       },
@@ -223,14 +238,14 @@ const createService = (args: {
         threadId: '9',
         replyToMessageId: '55'
       }
-    })
+    }))
   }
   ;(service as any).appConfigStore = {
     requireConfig: vi.fn(() => config),
     getConfig: vi.fn(() => config)
   }
   ;(service as any).fileService = {
-    buildAttachmentContext: vi.fn().mockResolvedValue({
+    buildAttachmentContext: vi.fn().mockResolvedValue(args.attachmentContext ?? {
       mediaCtx: [],
       documentTextBlocks: []
     })
@@ -346,6 +361,33 @@ describe('TelegramGatewayService', () => {
 
     expect(logger.error).toHaveBeenCalledWith('update.run_failed', runError)
     expect(commandService.unregisterActiveSubmission).toHaveBeenCalledWith('123:9', 'submission-id')
+  })
+
+  it('keeps chat model for Telegram media and passes mediaCtx into the shared run path', async () => {
+    const runExecute = vi.fn().mockResolvedValue({ state: 'completed' })
+    const service = createService({
+      runExecute,
+      attachmentContext: {
+        mediaCtx: [{
+          type: 'image_url',
+          image_url: { url: 'data:image/png;base64,abc' }
+        }],
+        documentTextBlocks: []
+      }
+    })
+
+    await (service as any).handleEnvelope(createEnvelope({
+      media: [{ kind: 'photo', fileId: 'file-1' }] as any
+    }), modelRef)
+
+    expect(runExecute).toHaveBeenCalledTimes(1)
+    expect(runExecute.mock.calls[0][0].modelRef).toEqual(modelRef)
+    expect(runExecute.mock.calls[0][0].chatModelRef).toEqual(modelRef)
+    expect(runExecute.mock.calls[0][0].input.mediaCtx).toHaveLength(1)
+    expect(logger.info).toHaveBeenCalledWith('model.selected', expect.objectContaining({
+      model: 'account-openai/gpt-4.1',
+      mediaCount: 1
+    }))
   })
 
   it('sends Telegram approval buttons for tool confirmation events', async () => {

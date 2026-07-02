@@ -15,6 +15,10 @@ import type {
   ProviderTestConnectionRequest,
   ProviderTestConnectionResponse
 } from '@shared/providers/testConnection'
+import type {
+  FetchProviderModelsRequest,
+  FetchProviderModelsResponse
+} from '@shared/providers/fetchModels'
 import type { ScheduleEvent } from '@shared/schedule/events'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import type { ScheduleTask, ScheduleTaskStatus } from '@shared/tools/schedule'
@@ -82,6 +86,7 @@ import {
   DB_PROVIDER_MODEL_SAVE,
   DB_PROVIDER_MODEL_DELETE,
   DB_PROVIDER_MODEL_SET_ENABLED,
+  PROVIDER_FETCH_MODELS,
   PROVIDER_TEST_CONNECTION,
   MODELS_GET_MODEL_CAPABILITIES,
   DB_ASSISTANT_SAVE,
@@ -472,7 +477,7 @@ export async function invokeTelegramGatewayStatus(): Promise<{
   configured: boolean
   enabled: boolean
   mode?: 'polling' | 'webhook'
-  hasDefaultModel: boolean
+  hasMainModel: boolean
   lastUpdateId: number
   botUsername?: string
   botId?: string
@@ -501,7 +506,7 @@ export async function invokeTelegramGatewayStart(): Promise<{
   configured: boolean
   enabled: boolean
   mode?: 'polling' | 'webhook'
-  hasDefaultModel: boolean
+  hasMainModel: boolean
   lastUpdateId: number
   botUsername?: string
   botId?: string
@@ -520,7 +525,7 @@ export async function invokeTelegramGatewayStop(): Promise<{
   configured: boolean
   enabled: boolean
   mode?: 'polling' | 'webhook'
-  hasDefaultModel: boolean
+  hasMainModel: boolean
   lastUpdateId: number
   botUsername?: string
   botId?: string
@@ -622,6 +627,13 @@ export async function invokeProviderTestConnection(
   return await ipc.invoke(PROVIDER_TEST_CONNECTION, request)
 }
 
+export async function invokeProviderFetchModels(
+  request: FetchProviderModelsRequest
+): Promise<FetchProviderModelsResponse> {
+  const ipc = getElectronIPC()
+  return await ipc.invoke(PROVIDER_FETCH_MODELS, request)
+}
+
 export async function invokeModelsGetModelCapabilities(
   request: GetModelCapabilitiesRequest
 ): Promise<GetModelCapabilitiesResponse> {
@@ -644,6 +656,7 @@ export async function invokeRunStart(data: {
     permissionApprovalMode?: PermissionApprovalMode
   }
   modelRef: ModelRef
+  chatModelRef?: ModelRef
   chatId?: number
   chatUuid?: string
 }): Promise<{ accepted: boolean; submissionId: string }> {

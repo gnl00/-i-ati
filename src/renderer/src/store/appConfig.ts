@@ -2,6 +2,11 @@ import { create } from 'zustand'
 import { toast } from 'sonner'
 import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
+import {
+  isModelRefAvailable,
+  isVisionModelRefAvailable,
+  normalizeAppConfigModelSlots
+} from '@shared/services/ChatModelResolver'
 import { defaultConfig } from '../config'
 import { getConfig, initConfig, saveConfig } from '../db/ConfigRepository'
 import { subscribeConfigEvents, subscribePluginEvents } from '../invoker/ipcInvoker'
@@ -209,6 +214,129 @@ const setProviderModelEnabled = async (accountId: string, modelId: string, enabl
   }
 }
 
+type ModelSlotCleanupState = {
+  appConfig: IAppConfig
+  providerDefinitions: ProviderDefinition[]
+  accounts: ProviderAccount[]
+  mainModel: ModelRef | undefined
+  liteModel: ModelRef | undefined
+  visionModel: ModelRef | undefined
+}
+
+type ModelSlotCleanupResult = {
+  appConfig: IAppConfig
+  mainModel: ModelRef | undefined
+  liteModel: ModelRef | undefined
+  visionModel: ModelRef | undefined
+  changed: boolean
+}
+
+const areModelRefsEqual = (left: ModelRef | undefined, right: ModelRef | undefined): boolean => {
+  return left?.accountId === right?.accountId && left?.modelId === right?.modelId
+}
+
+const stripProviderStateForConfigPersistence = (config: IAppConfig): IAppConfig => {
+  const { providerDefinitions: _definitions, accounts: _accounts, ...baseConfig } = config
+  return baseConfig
+}
+
+const hasEnabledProviderDefinitionForRef = (
+  config: IAppConfig,
+  ref: ModelRef | undefined
+): boolean => {
+  const account = config.accounts?.find(item => item.id === ref?.accountId)
+  if (!account) {
+    return false
+  }
+
+  const definition = config.providerDefinitions?.find(item => item.id === account.providerId)
+  return Boolean(definition && definition.enabled !== false)
+}
+
+const isModelSlotAvailable = (config: IAppConfig, ref: ModelRef | undefined): boolean => {
+  return hasEnabledProviderDefinitionForRef(config, ref) && isModelRefAvailable(config, ref)
+}
+
+const isVisionModelSlotAvailable = (config: IAppConfig, ref: ModelRef | undefined): boolean => {
+  return hasEnabledProviderDefinitionForRef(config, ref) && isVisionModelRefAvailable(config, ref)
+}
+
+const cleanupModelSlotsForProviderState = (
+  state: ModelSlotCleanupState,
+  providerDefinitions: ProviderDefinition[] = state.providerDefinitions,
+  accounts: ProviderAccount[] = state.accounts
+): ModelSlotCleanupResult => {
+  const currentTools = state.appConfig.tools ?? {}
+  const candidateTools = {
+    ...currentTools,
+    mainModel: state.mainModel,
+    liteModel: state.liteModel,
+    visionModel: state.visionModel
+  }
+  const availabilityConfig: IAppConfig = {
+    ...state.appConfig,
+    providerDefinitions,
+    accounts,
+    tools: candidateTools
+  }
+  const mainModel = isModelSlotAvailable(availabilityConfig, state.mainModel)
+    ? state.mainModel
+    : undefined
+  const liteModel = isModelSlotAvailable(availabilityConfig, state.liteModel)
+    ? state.liteModel
+    : undefined
+  const visionModel = isVisionModelSlotAvailable(availabilityConfig, state.visionModel)
+    ? state.visionModel
+    : undefined
+  const nextTools = {
+    ...currentTools,
+    mainModel,
+    liteModel,
+    visionModel
+  }
+  const changed = !areModelRefsEqual(state.mainModel, mainModel)
+    || !areModelRefsEqual(state.liteModel, liteModel)
+    || !areModelRefsEqual(state.visionModel, visionModel)
+    || !areModelRefsEqual(currentTools.mainModel, mainModel)
+    || !areModelRefsEqual(currentTools.liteModel, liteModel)
+    || !areModelRefsEqual(currentTools.visionModel, visionModel)
+
+  return {
+    appConfig: changed
+      ? {
+        ...state.appConfig,
+        tools: nextTools
+      }
+      : state.appConfig,
+    mainModel,
+    liteModel,
+    visionModel,
+    changed
+  }
+}
+
+const persistAppConfigModelSlotCleanup = async (config?: IAppConfig): Promise<void> => {
+  if (!config) {
+    return
+  }
+
+  try {
+    await saveConfig(stripProviderStateForConfigPersistence(config))
+  } catch (error) {
+    logger.error('provider_model_slots.cleanup_persist_failed', error)
+  }
+}
+
+const persistAfterModelSlotCleanup = (
+  cleanupConfig: IAppConfig | undefined,
+  persist: () => Promise<void>
+): void => {
+  void (async () => {
+    await persistAppConfigModelSlotCleanup(cleanupConfig)
+    await persist()
+  })()
+}
+
 type AppConfigState = {
   appVersion: string
   appConfig: IAppConfig
@@ -216,9 +344,9 @@ type AppConfigState = {
   accounts: ProviderAccount[]
   providersRevision: number
   currentAccountId: string | undefined
-  defaultModel: ModelRef | undefined
-  titleGenerateModel: ModelRef | undefined
-  titleGenerateEnabled: boolean
+  mainModel: ModelRef | undefined
+  liteModel: ModelRef | undefined
+  visionModel: ModelRef | undefined
   memoryEnabled: boolean
   streamChunkDebugEnabled: boolean
   mcpServerConfig: McpServerConfig
@@ -263,9 +391,9 @@ type AppConfigAction = {
   removeModel: (accountId: string, modelId: string) => void
   toggleModelEnabled: (accountId: string, modelId: string) => void
 
-  setDefaultModel: (modelRef: ModelRef | undefined) => void
-  setTitleGenerateModel: (modelRef: ModelRef | undefined) => void
-  setTitleGenerateEnabled: (state: boolean) => void
+  setMainModel: (modelRef: ModelRef | undefined) => void
+  setLiteModel: (modelRef: ModelRef | undefined) => void
+  setVisionModel: (modelRef: ModelRef | undefined) => void
   setMemoryEnabled: (state: boolean) => void
   setStreamChunkDebugEnabled: (state: boolean) => void
   setMcpServerConfig: (config: McpServerConfig) => void
@@ -288,11 +416,11 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   accounts: defaultConfig.accounts || [],
   providersRevision: 0,
   currentAccountId: undefined,
-  defaultModel: defaultConfig.tools?.defaultModel || undefined,
+  mainModel: defaultConfig.tools?.mainModel || undefined,
 
   // State - Tool settings
-  titleGenerateModel: defaultConfig.tools?.titleGenerateModel || undefined,
-  titleGenerateEnabled: defaultConfig.tools?.titleGenerateEnabled ?? true,
+  liteModel: defaultConfig.tools?.liteModel || undefined,
+  visionModel: defaultConfig.tools?.visionModel || undefined,
   memoryEnabled: defaultConfig.tools?.memoryEnabled ?? true,
   streamChunkDebugEnabled: defaultConfig.tools?.streamChunkDebugEnabled ?? false,
   mcpServerConfig: { mcpServers: {} },
@@ -310,15 +438,16 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Internal setter (used by initializeAppConfig)
   _setAppConfig: (config: IAppConfig) => {
+    const normalizedConfig = normalizeAppConfigModelSlots(config)
     const nextProviderDefinitions = normalizeProviderDefinitions(
-      config.providerDefinitions || []
+      normalizedConfig.providerDefinitions || []
     )
-    const nextAccounts = normalizeAccounts(config.accounts || [])
-    const nextKnowledgebase = config.knowledgebase ?? defaultConfig.knowledgebase
+    const nextAccounts = normalizeAccounts(normalizedConfig.accounts || [])
+    const nextKnowledgebase = normalizedConfig.knowledgebase ?? defaultConfig.knowledgebase
 
     set({
       appConfig: {
-        ...config,
+        ...normalizedConfig,
         knowledgebase: nextKnowledgebase,
         providerDefinitions: nextProviderDefinitions,
         accounts: nextAccounts
@@ -326,13 +455,13 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts,
       providersRevision: 0,
-      defaultModel: config.tools?.defaultModel || undefined,
-      titleGenerateModel: config.tools?.titleGenerateModel || undefined,
-      titleGenerateEnabled: config.tools?.titleGenerateEnabled ?? true,
-      memoryEnabled: config.tools?.memoryEnabled ?? true,
-      streamChunkDebugEnabled: config.tools?.streamChunkDebugEnabled ?? false,
+      mainModel: normalizedConfig.tools?.mainModel || undefined,
+      liteModel: normalizedConfig.tools?.liteModel || undefined,
+      visionModel: normalizedConfig.tools?.visionModel || undefined,
+      memoryEnabled: normalizedConfig.tools?.memoryEnabled ?? true,
+      streamChunkDebugEnabled: normalizedConfig.tools?.streamChunkDebugEnabled ?? false,
       knowledgebase: nextKnowledgebase,
-      compression: config.compression
+      compression: normalizedConfig.compression
     })
   },
 
@@ -364,14 +493,15 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Public setter (saves to SQLite)
   setAppConfig: async (updatedConfig: IAppConfig) => {
+    const normalizedUpdatedConfig = normalizeAppConfigModelSlots(updatedConfig)
     const nextProviderDefinitions = normalizeProviderDefinitions(
-      updatedConfig.providerDefinitions || []
+      normalizedUpdatedConfig.providerDefinitions || []
     )
-    const nextAccounts = normalizeAccounts(updatedConfig.accounts || [])
+    const nextAccounts = normalizeAccounts(normalizedUpdatedConfig.accounts || [])
 
     const nextConfig = {
-      ...updatedConfig,
-      knowledgebase: updatedConfig.knowledgebase ?? defaultConfig.knowledgebase,
+      ...normalizedUpdatedConfig,
+      knowledgebase: normalizedUpdatedConfig.knowledgebase ?? defaultConfig.knowledgebase,
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts
     }
@@ -384,9 +514,9 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts,
       providersRevision: 0,
-      defaultModel: nextConfig.tools?.defaultModel || undefined,
-      titleGenerateModel: nextConfig.tools?.titleGenerateModel || undefined,
-      titleGenerateEnabled: nextConfig.tools?.titleGenerateEnabled ?? true,
+      mainModel: nextConfig.tools?.mainModel || undefined,
+      liteModel: nextConfig.tools?.liteModel || undefined,
+      visionModel: nextConfig.tools?.visionModel || undefined,
       memoryEnabled: nextConfig.tools?.memoryEnabled ?? true,
       streamChunkDebugEnabled: nextConfig.tools?.streamChunkDebugEnabled ?? false,
       knowledgebase: nextConfig.knowledgebase,
@@ -415,21 +545,50 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   setProviderDefinitions: (definitions) => {
     const prevDefinitions = get().providerDefinitions
     const nextDefinitions = normalizeProviderDefinitions(definitions)
+    let cleanupConfigToPersist: IAppConfig | undefined
     set((state) => ({
-      providerDefinitions: nextDefinitions,
-      accounts: normalizeAccounts(state.accounts),
-      providersRevision: state.providersRevision + 1
+      ...(() => {
+        const nextAccounts = normalizeAccounts(state.accounts)
+        const cleanup = cleanupModelSlotsForProviderState(state, nextDefinitions, nextAccounts)
+        cleanupConfigToPersist = cleanup.changed ? cleanup.appConfig : undefined
+        return {
+          appConfig: cleanup.appConfig,
+          providerDefinitions: nextDefinitions,
+          accounts: nextAccounts,
+          mainModel: cleanup.mainModel,
+          liteModel: cleanup.liteModel,
+          visionModel: cleanup.visionModel,
+          providersRevision: state.providersRevision + 1
+        }
+      })()
     }))
-    void persistProviderDefinitions(prevDefinitions, nextDefinitions)
+    persistAfterModelSlotCleanup(
+      cleanupConfigToPersist,
+      () => persistProviderDefinitions(prevDefinitions, nextDefinitions)
+    )
   },
   setAccounts: (accounts) => {
     const prevAccounts = get().accounts
     const nextAccounts = normalizeAccounts(accounts)
+    let cleanupConfigToPersist: IAppConfig | undefined
     set((state) => ({
-      accounts: nextAccounts,
-      providersRevision: state.providersRevision + 1
+      ...(() => {
+        const cleanup = cleanupModelSlotsForProviderState(state, state.providerDefinitions, nextAccounts)
+        cleanupConfigToPersist = cleanup.changed ? cleanup.appConfig : undefined
+        return {
+          appConfig: cleanup.appConfig,
+          accounts: nextAccounts,
+          mainModel: cleanup.mainModel,
+          liteModel: cleanup.liteModel,
+          visionModel: cleanup.visionModel,
+          providersRevision: state.providersRevision + 1
+        }
+      })()
     }))
-    void persistProviderAccounts(prevAccounts, nextAccounts)
+    persistAfterModelSlotCleanup(
+      cleanupConfigToPersist,
+      () => persistProviderAccounts(prevAccounts, nextAccounts)
+    )
   },
   setCurrentAccountId: (accountId) => set({ currentAccountId: accountId }),
 
@@ -539,20 +698,26 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   },
 
   removeAccount: (accountId) => {
+    let cleanupConfigToPersist: IAppConfig | undefined
     set((state) => {
       const nextAccounts = state.accounts.filter(account => account.id !== accountId)
-      const shouldClearDefaultModel = state.defaultModel?.accountId === accountId
-      const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
+      const cleanup = cleanupModelSlotsForProviderState(state, state.providerDefinitions, nextAccounts)
+      cleanupConfigToPersist = cleanup.changed ? cleanup.appConfig : undefined
 
       return {
+        appConfig: cleanup.appConfig,
         accounts: nextAccounts,
         currentAccountId: state.currentAccountId === accountId ? undefined : state.currentAccountId,
-        defaultModel: shouldClearDefaultModel ? undefined : state.defaultModel,
-        titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+        mainModel: cleanup.mainModel,
+        liteModel: cleanup.liteModel,
+        visionModel: cleanup.visionModel,
         providersRevision: state.providersRevision + 1
       }
     })
-    void removeProviderAccount(accountId)
+    persistAfterModelSlotCleanup(
+      cleanupConfigToPersist,
+      () => removeProviderAccount(accountId)
+    )
   },
 
   addModel: (accountId, model) => {
@@ -577,6 +742,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   updateModel: (accountId, modelId, updates) => {
     let updatedAccount: ProviderAccount | undefined
     let nextModel: AccountModel | undefined
+    let cleanupConfigToPersist: IAppConfig | undefined
     set((state) => {
       const nextAccounts = state.accounts.map(account =>
         account.id === accountId
@@ -594,52 +760,60 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
           : account
       )
       updatedAccount = nextAccounts.find(account => account.id === accountId)
+      const cleanup = cleanupModelSlotsForProviderState(state, state.providerDefinitions, nextAccounts)
+      cleanupConfigToPersist = cleanup.changed ? cleanup.appConfig : undefined
       return {
+        appConfig: cleanup.appConfig,
         accounts: nextAccounts,
+        mainModel: cleanup.mainModel,
+        liteModel: cleanup.liteModel,
+        visionModel: cleanup.visionModel,
         providersRevision: state.providersRevision + 1
       }
     })
     if (updatedAccount && nextModel) {
-      void persistProviderModel(accountId, nextModel)
+      persistAfterModelSlotCleanup(
+        cleanupConfigToPersist,
+        () => persistProviderModel(accountId, nextModel!)
+      )
     }
   },
 
   removeModel: (accountId, modelId) => {
     let updatedAccount: ProviderAccount | undefined
+    let cleanupConfigToPersist: IAppConfig | undefined
     set((state) => {
-      const shouldClearDefaultModel = state.defaultModel?.accountId === accountId
-        && state.defaultModel?.modelId === modelId
-      const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
-        && state.titleGenerateModel?.modelId === modelId
-
       const nextAccounts = state.accounts.map(account =>
         account.id === accountId
           ? { ...account, models: account.models.filter(model => model.id !== modelId) }
           : account
       )
       updatedAccount = nextAccounts.find(account => account.id === accountId)
+      const cleanup = cleanupModelSlotsForProviderState(state, state.providerDefinitions, nextAccounts)
+      cleanupConfigToPersist = cleanup.changed ? cleanup.appConfig : undefined
 
       return {
+        appConfig: cleanup.appConfig,
         accounts: nextAccounts,
-        defaultModel: shouldClearDefaultModel ? undefined : state.defaultModel,
-        titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+        mainModel: cleanup.mainModel,
+        liteModel: cleanup.liteModel,
+        visionModel: cleanup.visionModel,
         providersRevision: state.providersRevision + 1
       }
     })
     if (updatedAccount) {
-      void removeProviderModel(accountId, modelId)
+      persistAfterModelSlotCleanup(
+        cleanupConfigToPersist,
+        () => removeProviderModel(accountId, modelId)
+      )
     }
   },
 
   toggleModelEnabled: (accountId, modelId) => {
     let updatedAccount: ProviderAccount | undefined
     let nextEnabled = true
+    let cleanupConfigToPersist: IAppConfig | undefined
     set((state) => {
-      const shouldClearDefaultModel = state.defaultModel?.accountId === accountId
-        && state.defaultModel?.modelId === modelId
-      const shouldClearTitleModel = state.titleGenerateModel?.accountId === accountId
-        && state.titleGenerateModel?.modelId === modelId
-
       const nextAccounts = state.accounts.map(account =>
         account.id === accountId
           ? {
@@ -656,23 +830,30 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
           : account
       )
       updatedAccount = nextAccounts.find(account => account.id === accountId)
+      const cleanup = cleanupModelSlotsForProviderState(state, state.providerDefinitions, nextAccounts)
+      cleanupConfigToPersist = cleanup.changed ? cleanup.appConfig : undefined
 
       return {
+        appConfig: cleanup.appConfig,
         accounts: nextAccounts,
-        defaultModel: shouldClearDefaultModel && !nextEnabled ? undefined : state.defaultModel,
-        titleGenerateModel: shouldClearTitleModel ? undefined : state.titleGenerateModel,
+        mainModel: cleanup.mainModel,
+        liteModel: cleanup.liteModel,
+        visionModel: cleanup.visionModel,
         providersRevision: state.providersRevision + 1
       }
     })
     if (updatedAccount) {
-      void setProviderModelEnabled(accountId, modelId, nextEnabled)
+      persistAfterModelSlotCleanup(
+        cleanupConfigToPersist,
+        () => setProviderModelEnabled(accountId, modelId, nextEnabled)
+      )
     }
   },
 
   // Tool setting actions
-  setDefaultModel: (modelRef) => set({ defaultModel: modelRef }),
-  setTitleGenerateModel: (modelRef) => set({ titleGenerateModel: modelRef }),
-  setTitleGenerateEnabled: (state) => set({ titleGenerateEnabled: state }),
+  setMainModel: (modelRef) => set({ mainModel: modelRef }),
+  setLiteModel: (modelRef) => set({ liteModel: modelRef }),
+  setVisionModel: (modelRef) => set({ visionModel: modelRef }),
   setMemoryEnabled: (state) => set({ memoryEnabled: state }),
   setStreamChunkDebugEnabled: (state) => set({ streamChunkDebugEnabled: state }),
   setMcpServerConfig: (config) => set({ mcpServerConfig: config }),

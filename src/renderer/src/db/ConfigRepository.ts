@@ -3,6 +3,7 @@ import {
   invokeDbConfigSave,
   invokeDbConfigInit
 } from '@renderer/invoker/ipcInvoker'
+import { normalizeAppConfigModelSlots } from '@shared/services/ChatModelResolver'
 
 // Get config (returns undefined if not found)
 const getConfig = async (): Promise<IAppConfig | undefined> => {
@@ -43,7 +44,7 @@ const exportConfigAsJSON = async (options?: {
 
 // Import config from JSON string
 const importConfigFromJSON = async (jsonString: string): Promise<void> => {
-  const config = JSON.parse(jsonString) as IAppConfig
+  const config = normalizeAppConfigModelSlots(JSON.parse(jsonString) as IAppConfig)
   // Validate basic structure
   if (!config.version) throw new Error('Invalid config format')
   await saveConfig(config)

@@ -78,12 +78,12 @@ const envelope = {
   receivedAt: 1
 } as const
 
-const defaultModelRef: ModelRef = {
+const mainModelRef: ModelRef = {
   accountId: 'account-openai',
   modelId: 'gpt-4.1'
 }
 
-const createChat = (modelRef: ModelRef = defaultModelRef): ChatEntity => ({
+const createChat = (modelRef: ModelRef = mainModelRef): ChatEntity => ({
   id: 1,
   uuid: 'chat-uuid',
   title: 'NewChat',
@@ -145,7 +145,7 @@ const createService = (
 const execute = async (
   service: TelegramCommandService,
   command: TelegramCommand
-) => service.execute(command, envelope as any, defaultModelRef)
+) => service.execute(command, envelope as any, mainModelRef)
 
 describe('TelegramCommandService', () => {
   beforeEach(() => {

@@ -10,6 +10,7 @@ import { ChatSessionStore } from '@main/hosts/chat/persistence/ChatSessionStore'
 import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
 import { extractSearchableMessageText } from '@main/services/messages/MessageSegmentContent'
 import { buildTitleAgentSystemPrompt } from '@shared/prompts/title-agent'
+import { resolveLiteModelRef } from '@shared/services/ChatModelResolver'
 import { createPostRunEmitter } from './utils'
 import type { PostRunJobInput } from './types'
 
@@ -102,11 +103,7 @@ export class TitleJobService {
     private readonly titleAgent: typeof agent = agent
   ) {}
 
-  shouldRun(args: PostRunJobInput, config: IAppConfig): boolean {
-    if (!config.tools?.titleGenerateEnabled) {
-      return false
-    }
-
+  shouldRun(args: PostRunJobInput, _config: IAppConfig): boolean {
     if (!isDefaultChatTitle(args.chatEntity.title)) {
       return false
     }
@@ -116,18 +113,11 @@ export class TitleJobService {
 
   async run(args: PostRunJobInput, config: IAppConfig): Promise<void> {
     if (!this.shouldRun(args, config)) {
-      if (!config.tools?.titleGenerateEnabled) {
-        this.logger.debug('title.job.skipped.disabled', {
-          chatUuid: args.chatEntity.uuid,
-          chatId: args.chatEntity.id
-        })
-      } else {
-        this.logger.debug('title.job.skipped.existing_title', {
-          chatUuid: args.chatEntity.uuid,
-          chatId: args.chatEntity.id,
-          currentTitle: args.chatEntity.title
-        })
-      }
+      this.logger.debug('title.job.skipped.existing_title', {
+        chatUuid: args.chatEntity.uuid,
+        chatId: args.chatEntity.id,
+        currentTitle: args.chatEntity.title
+      })
       return
     }
 
@@ -145,13 +135,13 @@ export class TitleJobService {
       return
     }
 
-    const titleRef = config.tools?.titleGenerateModel
-    const titleContext = titleRef
-      ? this.chatModelContextResolver.resolve(config, titleRef)
+    const liteRef = resolveLiteModelRef(config)
+    const liteContext = liteRef
+      ? this.chatModelContextResolver.resolve(config, liteRef)
       : undefined
-    const model = titleContext?.model ?? args.modelContext.model
-    const account = titleContext?.account ?? args.modelContext.account
-    const providerDefinition = titleContext?.providerDefinition ?? args.modelContext.providerDefinition
+    const model = liteContext?.model ?? args.modelContext.model
+    const account = liteContext?.account ?? args.modelContext.account
+    const providerDefinition = liteContext?.providerDefinition ?? args.modelContext.providerDefinition
     const emitter = createPostRunEmitter(this.emitterFactory, args)
     const chatEventMapper = new ChatEventMapper(emitter)
 

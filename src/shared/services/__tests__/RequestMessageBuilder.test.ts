@@ -119,4 +119,53 @@ describe('RequestMessageBuilder', () => {
     expect(result.chatMessages[0].source).toBe(MESSAGE_SOURCE.COMPRESSION_SUMMARY)
     expect(result.chatMessages[1].source).toBe(MESSAGE_SOURCE.SKILLS_CONTEXT)
   })
+
+  it('omits raw image data from compressed summary messages', () => {
+    const messages = [
+      {
+        id: 1,
+        body: {
+          role: 'user',
+          content: 'old user',
+          segments: []
+        }
+      },
+      {
+        id: 2,
+        body: {
+          role: 'assistant',
+          content: 'old assistant',
+          segments: []
+        }
+      },
+      {
+        id: 3,
+        body: {
+          role: 'user',
+          content: 'new user',
+          segments: []
+        }
+      }
+    ] as MessageEntity[]
+
+    const result = new RequestMessageBuilder()
+      .setMessages(messages)
+      .setCompressionSummary({
+        chatId: 1,
+        chatUuid: 'chat-1',
+        messageIds: [1, 2],
+        startMessageId: 1,
+        endMessageId: 2,
+        summary: `summary copied data:image/png;base64,secret-image-data and ${'a'.repeat(180)}`,
+        compressedAt: 1,
+        status: 'active'
+      })
+      .build()
+
+    const compressedContent = result.chatMessages[0].content as string
+    expect(compressedContent).toContain('[Image data omitted]')
+    expect(compressedContent).not.toContain('data:image')
+    expect(compressedContent).not.toContain('secret-image-data')
+    expect(compressedContent).not.toContain('a'.repeat(180))
+  })
 })

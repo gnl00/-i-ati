@@ -3,7 +3,7 @@ import { SettingsInlineModelSelector } from '@renderer/components/shared/model-s
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select'
-import { Switch } from "@renderer/components/ui/switch"
+import { Switch } from '@renderer/components/ui/switch'
 import { exportConfigAsJSON, getConfig, importConfigFromJSON } from '@renderer/db/ConfigRepository'
 import {
     invokeOpenPath,
@@ -16,7 +16,8 @@ import {
 import { cn } from '@renderer/lib/utils'
 import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
 import { useAppConfigStore } from '@renderer/store/appConfig'
-import { Eye, EyeOff, LoaderCircle, Send } from 'lucide-react'
+import { isVisionModel } from '@shared/services/ChatModelResolver'
+import { Eye, EyeOff, LoaderCircle, Send, X } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -28,11 +29,17 @@ import {
     SettingsSectionHeader,
     SettingsToolbar,
     SettingsToolbarLabel,
+    settingsIconButtonClassName,
     settingsInputClassName,
     settingsOutlineButtonClassName,
     settingsPrimaryButtonClassName
 } from './common/SettingsLayout'
 import { Button } from '../ui/button'
+
+const modelRouteRowClassName = 'flex-col items-stretch gap-2 border-t border-gray-100 px-4 py-3 first:border-t-0 dark:border-gray-700/50 sm:flex-row sm:items-center sm:gap-4'
+const modelRouteControlClassName = 'w-full min-w-0 justify-end gap-1.5 sm:w-auto'
+const modelRouteSelectorClassName = 'w-full min-w-0 max-w-full sm:w-[260px]'
+const modelRouteChipClassName = 'inline-flex h-4 shrink-0 items-center rounded border border-gray-200 bg-gray-50 px-1.5 text-[9px] font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'
 
 interface ToolsManagerProps {
     maxWebSearchItems: number
@@ -69,28 +76,29 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
 }) => {
     const {
         appConfig,
-        defaultModel,
+        mainModel,
         getModelOptions,
         providersRevision,
         resolveModelRef,
-        setDefaultModel,
-        titleGenerateModel,
-        setTitleGenerateModel,
-        titleGenerateEnabled,
-        setTitleGenerateEnabled,
+        setMainModel,
+        liteModel,
+        setLiteModel,
+        visionModel,
+        setVisionModel,
         setAppConfig,
     } = useAppConfigStore()
 
     const logger = React.useMemo(() => createRendererLogger('ToolsManager'), [])
-    const [selectDefaultModelPopoutState, setSelectDefaultModelPopoutState] = useState(false)
-    const [selectTitleModelPopoutState, setSelectTitleModelPopoutState] = useState(false)
+    const [selectMainModelPopoutState, setSelectMainModelPopoutState] = useState(false)
+    const [selectLiteModelPopoutState, setSelectLiteModelPopoutState] = useState(false)
+    const [selectVisionModelPopoutState, setSelectVisionModelPopoutState] = useState(false)
     const [telegramGatewayStatus, setTelegramGatewayStatus] = useState<{
         running: boolean
         starting: boolean
         configured: boolean
         enabled: boolean
         mode?: 'polling' | 'webhook'
-        hasDefaultModel: boolean
+        hasMainModel: boolean
         lastUpdateId: number
         botUsername?: string
         botId?: string
@@ -110,12 +118,18 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     const modelOptions = React.useMemo(() => {
         return getModelOptions()
     }, [getModelOptions, providersRevision])
-    const selectedDefaultModel = React.useMemo(() => {
-        return resolveModelRef(defaultModel)
-    }, [defaultModel, providersRevision, resolveModelRef])
-    const selectedTitleModel = React.useMemo(() => {
-        return resolveModelRef(titleGenerateModel)
-    }, [providersRevision, resolveModelRef, titleGenerateModel])
+    const visionModelOptions = React.useMemo(() => {
+        return modelOptions.filter(option => isVisionModel(option.model))
+    }, [modelOptions])
+    const selectedMainModel = React.useMemo(() => {
+        return resolveModelRef(mainModel)
+    }, [mainModel, providersRevision, resolveModelRef])
+    const selectedLiteModel = React.useMemo(() => {
+        return resolveModelRef(liteModel)
+    }, [providersRevision, resolveModelRef, liteModel])
+    const selectedVisionModel = React.useMemo(() => {
+        return resolveModelRef(visionModel)
+    }, [providersRevision, resolveModelRef, visionModel])
 
     const refreshTelegramGatewayStatus = async (): Promise<void> => {
         const nextStatus = await invokeTelegramGatewayStatus()
@@ -218,80 +232,133 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
         <SettingsPageShell scrollable contentClassName="space-y-2">
             <SettingsSection>
                 <SettingsSectionHeader
-                    title={<Label className="cursor-default">Default Model</Label>}
+                    title={<Label className="cursor-default">Model Routing</Label>}
                     badges={(
-                        <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                            CHAT
+                        <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700">
+                            ROUTING
                         </Badge>
                     )}
-                    description="Used by chat when no model is selected. If unset, the first available model in the list is used automatically."
+                    description="Choose defaults for chat, background tasks, and image-aware requests."
                 />
-                <SettingsToolbar>
-                    <div className="flex items-center justify-between gap-4">
-                        <SettingsToolbarLabel>Default Target</SettingsToolbarLabel>
-                        <div className="flex items-center gap-2">
-                            <SettingsInlineModelSelector
-                                selectedModel={selectedDefaultModel}
-                                modelOptions={modelOptions}
-                                isOpen={selectDefaultModelPopoutState}
-                                onOpenChange={setSelectDefaultModelPopoutState}
-                                onModelSelect={(ref) => {
-                                    setSelectDefaultModelPopoutState(false)
-                                    setDefaultModel(ref)
-                                }}
-                            />
-                            {defaultModel && (
-                                <button
-                                    type="button"
-                                    className={cn(settingsOutlineButtonClassName, 'h-8 px-2 rounded-lg bg-white dark:bg-gray-800')}
-                                    onClick={() => setDefaultModel(undefined)}
-                                >
-                                    Clear
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </SettingsToolbar>
-            </SettingsSection>
-
-            <SettingsSection>
-                <SettingsSectionHeader
-                    title={(
-                        <Label htmlFor="toggle-title-generation" className="cursor-default">
-                            Title Generation
-                        </Label>
-                    )}
-                    badges={(
-                        <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                            TITLE
-                        </Badge>
-                    )}
-                    description="Automatically analyze conversation context and generate concise, meaningful titles using AI models."
-                    actions={(
-                        <Switch
-                            checked={titleGenerateEnabled}
-                            onCheckedChange={setTitleGenerateEnabled}
-                            id="toggle-title-generation"
-                            className="data-[state=checked]:bg-blue-500 mt-0.5 shrink-0"
-                        />
-                    )}
-                />
-                <SettingsCollapsibleArea open={titleGenerateEnabled}>
-                    <div className="px-4 py-2.5 flex items-center justify-between gap-4">
-                        <SettingsToolbarLabel>Target Model</SettingsToolbarLabel>
-                        <SettingsInlineModelSelector
-                            selectedModel={selectedTitleModel}
-                            modelOptions={modelOptions}
-                            isOpen={selectTitleModelPopoutState}
-                            onOpenChange={setSelectTitleModelPopoutState}
-                            onModelSelect={(ref) => {
-                                setSelectTitleModelPopoutState(false)
-                                setTitleGenerateModel(ref)
-                            }}
-                            disabled={!titleGenerateEnabled}
-                        />
-                    </div>
-                </SettingsCollapsibleArea>
+                <div className="border-t border-gray-100 bg-gray-50/50 dark:border-gray-700/50 dark:bg-gray-900/20">
+                    <SettingsFieldRow
+                        className={modelRouteRowClassName}
+                        title={(
+                            <span className="flex min-w-0 items-center gap-2">
+                                <span>Main Model</span>
+                                <span className={modelRouteChipClassName}>CHAT</span>
+                            </span>
+                        )}
+                        description="New chat sessions use this route. Fallback: first available model."
+                        control={(
+                            <SettingsControlGroup className={modelRouteControlClassName}>
+                                <SettingsInlineModelSelector
+                                    selectedModel={selectedMainModel}
+                                    modelOptions={modelOptions}
+                                    isOpen={selectMainModelPopoutState}
+                                    onOpenChange={setSelectMainModelPopoutState}
+                                    ariaLabel="Select main model"
+                                    triggerClassName={modelRouteSelectorClassName}
+                                    onModelSelect={(ref) => {
+                                        setSelectMainModelPopoutState(false)
+                                        setMainModel(ref)
+                                    }}
+                                />
+                                {mainModel && (
+                                    <button
+                                        type="button"
+                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-gray-800')}
+                                        aria-label="Clear main model"
+                                        title="Clear main model"
+                                        onClick={() => setMainModel(undefined)}
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </SettingsControlGroup>
+                        )}
+                    />
+                    <SettingsFieldRow
+                        className={modelRouteRowClassName}
+                        title={(
+                            <span className="flex min-w-0 items-center gap-2">
+                                <span>Lite Model</span>
+                                <span className={modelRouteChipClassName}>LITE</span>
+                            </span>
+                        )}
+                        description="Title generation, Smart Messages, and scheduler jobs use this route. Fallback: Main Model."
+                        control={(
+                            <SettingsControlGroup className={modelRouteControlClassName}>
+                                <SettingsInlineModelSelector
+                                    selectedModel={selectedLiteModel}
+                                    modelOptions={modelOptions}
+                                    isOpen={selectLiteModelPopoutState}
+                                    onOpenChange={setSelectLiteModelPopoutState}
+                                    ariaLabel="Select lite model"
+                                    triggerClassName={modelRouteSelectorClassName}
+                                    onModelSelect={(ref) => {
+                                        setSelectLiteModelPopoutState(false)
+                                        setLiteModel(ref)
+                                    }}
+                                />
+                                {liteModel && (
+                                    <button
+                                        type="button"
+                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-gray-800')}
+                                        aria-label="Clear lite model"
+                                        title="Clear lite model"
+                                        onClick={() => setLiteModel(undefined)}
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </SettingsControlGroup>
+                        )}
+                    />
+                    <SettingsFieldRow
+                        className={modelRouteRowClassName}
+                        title={(
+                            <span className="flex min-w-0 items-center gap-2">
+                                <span>Vision Model</span>
+                                <span className={modelRouteChipClassName}>IMAGE</span>
+                            </span>
+                        )}
+                        description="Image messages use this route. Fallback: first vision-capable model, then Main Model."
+                        control={(
+                            <SettingsControlGroup className={modelRouteControlClassName}>
+                                {visionModelOptions.length > 0 ? (
+                                    <SettingsInlineModelSelector
+                                        selectedModel={selectedVisionModel}
+                                        modelOptions={visionModelOptions}
+                                        isOpen={selectVisionModelPopoutState}
+                                        onOpenChange={setSelectVisionModelPopoutState}
+                                        ariaLabel="Select vision model"
+                                        triggerClassName={modelRouteSelectorClassName}
+                                        onModelSelect={(ref) => {
+                                            setSelectVisionModelPopoutState(false)
+                                            setVisionModel(ref)
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="flex h-8 w-full min-w-0 max-w-full items-center rounded-lg border border-gray-200 bg-white px-3 text-[11.5px] text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500 sm:w-[260px]">
+                                        Add a vision-capable model in Providers.
+                                    </div>
+                                )}
+                                {visionModel && (
+                                    <button
+                                        type="button"
+                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-gray-800')}
+                                        aria-label="Clear vision model"
+                                        title="Clear vision model"
+                                        onClick={() => setVisionModel(undefined)}
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </SettingsControlGroup>
+                        )}
+                    />
+                </div>
             </SettingsSection>
 
             <SettingsSection>
@@ -387,7 +454,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                             TELEGRAM
                         </Badge>
                     )}
-                    description="Enable Telegram bot polling. Telegram conversations use the app default model and sync into the existing chat timeline."
+                    description="Enable Telegram bot polling. Telegram conversations use the app main model and sync into the existing chat timeline."
                     actions={(
                         <Switch
                             checked={telegramEnabled}
@@ -444,7 +511,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                             )}
                         />
                         <div className="rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-2 text-[11px] leading-relaxed text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
-                            Telegram gateway uses the current <span className="font-semibold">Default Model</span>. If no default model is configured, the gateway will stay disabled even if this switch is on.
+                            Telegram gateway uses the current <span className="font-semibold">Main Model</span>. Configure a main model before starting the gateway.
                         </div>
                         <div className="flex items-start justify-between gap-4 rounded-lg border border-gray-200/70 bg-white/80 px-3 py-2.5 dark:border-gray-700/70 dark:bg-gray-950/40">
                             <div className="min-w-0 flex-1 space-y-1">
@@ -452,12 +519,12 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                     <div className="flex min-w-0 items-center gap-2">
                                         <span className="text-[12px] font-medium text-gray-700 dark:text-gray-200">Gateway Status</span>
                                         <Badge variant="outline" className={cn(
-                                            "h-5 px-1.5 text-[10px] font-normal shrink-0",
+                                            'h-5 px-1.5 text-[10px] font-normal shrink-0',
                                             telegramGatewayStatus?.running
-                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
+                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300'
                                                 : telegramGatewayStatus?.starting
-                                                    ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300"
-                                                    : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                                                    ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300'
+                                                    : 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
                                         )}>
                                             {telegramGatewayStatus?.running ? 'Running' : telegramGatewayStatus?.starting ? 'Starting' : 'Stopped'}
                                         </Badge>
@@ -537,8 +604,8 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                     </div>
                                 </div>
                                 <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                                    {telegramGatewayStatus?.hasDefaultModel === false
-                                        ? 'Default model missing. Save a default model before starting Telegram.'
+                                    {telegramGatewayStatus?.hasMainModel === false
+                                        ? 'Main model missing. Save a main model before starting Telegram.'
                                         : telegramGatewayStatus?.starting
                                             ? 'Telegram gateway is starting in the background...'
                                         : telegramGatewayStatus?.configured === false

@@ -44,6 +44,7 @@ describe('ChatAgentAdapter', () => {
           }
         }
       ],
+      earlyEmittedMessageIds: [],
       messageEntities: [],
       assistantDraft: {
         body: {
@@ -81,7 +82,7 @@ describe('ChatAgentAdapter', () => {
     }
   })
 
-  it('emits chat preparation events during prepareRun', async () => {
+  it('emits created messages that remain after preparation', async () => {
     const adapter = new ChatAgentAdapter(preparationPipeline as any, finalizeService as any)
     const emitter = {
       emit: vi.fn()
@@ -90,15 +91,43 @@ describe('ChatAgentAdapter', () => {
     const result = await adapter.prepareRun({ submissionId: 'submission-1' } as any, emitter)
 
     expect(result).toBe(prepared)
-    expect(emitter.emit).toHaveBeenCalledWith(CHAT_HOST_EVENTS.CHAT_READY, {
-      chatEntity: prepared.chatContext.chat,
-      workspacePath: prepared.chatContext.workspacePath
-    })
-    expect(emitter.emit).toHaveBeenCalledWith(CHAT_HOST_EVENTS.MESSAGES_LOADED, {
-      messages: prepared.chatContext.historyMessages
-    })
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
       message: prepared.chatContext.createdMessages[0]
+    })
+  })
+
+  it('skips created messages already emitted during preparation', async () => {
+    const visionObservation = {
+      id: 202,
+      body: {
+        role: 'user',
+        source: 'vision_observation',
+        content: '<vision_observation>summary</vision_observation>'
+      }
+    }
+    const preparedWithEarlyMessage = {
+      ...prepared,
+      chatContext: {
+        ...prepared.chatContext,
+        createdMessages: [
+          prepared.chatContext.createdMessages[0],
+          visionObservation
+        ],
+        earlyEmittedMessageIds: [101]
+      }
+    }
+    preparationPipeline.prepare.mockResolvedValueOnce(preparedWithEarlyMessage)
+    const adapter = new ChatAgentAdapter(preparationPipeline as any, finalizeService as any)
+    const emitter = {
+      emit: vi.fn()
+    } as any
+
+    const result = await adapter.prepareRun({ submissionId: 'submission-1' } as any, emitter)
+
+    expect(result).toBe(preparedWithEarlyMessage)
+    expect(emitter.emit).toHaveBeenCalledTimes(1)
+    expect(emitter.emit).toHaveBeenCalledWith(CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
+      message: visionObservation
     })
   })
 
@@ -150,7 +179,8 @@ describe('ChatAgentAdapter', () => {
       input: {
         submissionId: 'submission-1',
         input: { textCtx: 'hi' },
-        modelRef: { modelId: 'model-1', accountId: 'account-1' }
+        modelRef: { modelId: 'model-vision', accountId: 'account-vision' },
+        chatModelRef: { modelId: 'model-1', accountId: 'account-1' }
       } as any,
       runSpec: prepared.runSpec as any,
       chatContext: prepared.chatContext as any,
@@ -171,6 +201,12 @@ describe('ChatAgentAdapter', () => {
       prepared.chatContext.chat,
       finalizedAssistantMessage,
       usage
+    )
+    expect(finalizeService.finalizeChatEntity).toHaveBeenCalledWith(
+      prepared.chatContext.chat,
+      'hi',
+      { modelId: 'model-vision', accountId: 'account-vision' },
+      { modelId: 'model-1', accountId: 'account-1' }
     )
     expect(emitter.emit).toHaveBeenCalledWith(CHAT_HOST_EVENTS.CHAT_UPDATED, {
       chatEntity: finalizedChat

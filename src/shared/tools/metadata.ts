@@ -19,6 +19,7 @@ import { telegramToolMetadata } from './telegram/metadata'
 import { titleToolMetadata } from './title/metadata'
 import { todoToolMetadata } from './todo/metadata'
 import { userInfoToolMetadata } from './userInfo/metadata'
+import { visionAgentToolMetadata } from './visionAgent/metadata'
 import { webToolMetadata } from './webTools/metadata'
 import { wikiToolMetadata } from './wiki/metadata'
 import { workContextToolMetadata } from './workContext/metadata'
@@ -49,6 +50,7 @@ export const embeddedToolMetadata = mergeEmbeddedToolMetadata(
   titleToolMetadata,
   todoToolMetadata,
   userInfoToolMetadata,
+  visionAgentToolMetadata,
   wikiToolMetadata,
   activityJournalToolMetadata,
   knowledgebaseToolMetadata,

@@ -1,3 +1,9 @@
+import {
+  sanitizeCompressionContent,
+  sanitizeRawImageData,
+  sanitizeRawImageDataUrls
+} from '@shared/services/RawImageDataSanitizer'
+
 type ToolCallEntry = {
   call: IToolCall
   result?: MessageEntity
@@ -136,14 +142,15 @@ export class CompressionTranscriptBuilder {
       return this.formatStructuredText(content)
     }
 
-    return JSON.stringify(content, null, 2)
+    return JSON.stringify(sanitizeCompressionContent(content), null, 2)
   }
 
   private formatStructuredText(text: string): string {
+    const sanitizedText = sanitizeRawImageDataUrls(text)
     try {
-      return JSON.stringify(JSON.parse(text), null, 2)
+      return JSON.stringify(sanitizeRawImageData(JSON.parse(sanitizedText)), null, 2)
     } catch {
-      return text
+      return sanitizedText
     }
   }
 }

@@ -77,6 +77,7 @@ import {
   processUserInfoGet,
   processUserInfoSet
 } from '@main/tools/userInfo/UserInfoToolsProcessor'
+import { processVisionAgentAnalyze } from '@main/tools/visionAgent/VisionAgentToolsProcessor'
 import {
   processActivityJournalAppend,
   processActivityJournalList,
@@ -186,6 +187,7 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   todo_delete: processTodoDelete,
   user_info_get: processUserInfoGet,
   user_info_set: processUserInfoSet,
+  vision_agent_analyze: processVisionAgentAnalyze,
   activity_journal_append: processActivityJournalAppend,
   activity_journal_list: processActivityJournalList,
   activity_journal_search: processActivityJournalSearch,
