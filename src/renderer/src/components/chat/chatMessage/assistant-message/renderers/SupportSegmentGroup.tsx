@@ -1,4 +1,5 @@
 import { cn } from '@renderer/lib/utils'
+import { SizeAnimatedPanel } from '@renderer/components/ui/size-animated-panel'
 import { AnimatePresence, motion, useReducedMotion, type Transition } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { Check, ChevronDown, ChevronUp, Lightbulb, Loader2, Wrench, X } from 'lucide-react'
@@ -41,6 +42,11 @@ interface SupportSegmentGroupExpansionPolicy {
   hasForceExpandedItem: boolean
 }
 
+interface SupportSegmentUserExpansionChoice {
+  identity: string
+  expanded: boolean
+}
+
 type SupportSegmentRuntimeStatus = 'complete' | 'running' | 'pending' | 'error'
 
 interface ThoughtSupportSegmentPhase {
@@ -66,14 +72,31 @@ type SupportSegmentPhase =
   | ToolSupportSegmentPhase
   | SingleSupportSegmentPhase
 
+interface SupportSegmentCollapsedPreviewPlan {
+  leadingPhases: SupportSegmentPhase[]
+  hiddenItems: SupportSegmentRenderItem[]
+  hiddenPhases: SupportSegmentPhase[]
+  trailingPhases: SupportSegmentPhase[]
+}
+
+interface SupportSegmentDisplayPlan {
+  fullFlowPhases: SupportSegmentPhase[]
+  collapsedPreview: SupportSegmentCollapsedPreviewPlan | null
+}
+
 interface ToolPhaseMetrics {
   successCount: number
   totalDurationMs: number
 }
 
-const supportSegmentAppendTransition: Transition = {
+const supportSegmentRowAppendTransition: Transition = {
   duration: 0.2,
   ease: [0.22, 1, 0.36, 1]
+}
+
+const supportSegmentControlTransition: Transition = {
+  duration: 0.18,
+  ease: [0.32, 0.72, 0, 1]
 }
 
 const baseRowButtonClassName = cn(
@@ -159,6 +182,32 @@ export const projectSupportSegmentPhases = (
   flushToolPhase()
 
   return phases
+}
+
+const createSupportSegmentDisplayPlan = (
+  items: SupportSegmentRenderItem[],
+  canCollapse: boolean
+): SupportSegmentDisplayPlan => {
+  const fullFlowPhases = projectSupportSegmentPhases(items)
+
+  if (!canCollapse) {
+    return {
+      fullFlowPhases,
+      collapsedPreview: null
+    }
+  }
+
+  const hiddenItems = items.slice(1, -1)
+
+  return {
+    fullFlowPhases,
+    collapsedPreview: {
+      leadingPhases: projectSupportSegmentPhases(items.slice(0, 1)),
+      hiddenItems,
+      hiddenPhases: projectSupportSegmentPhases(hiddenItems),
+      trailingPhases: projectSupportSegmentPhases(items.slice(-1))
+    }
+  }
 }
 
 const getToolCallDurationMs = (
@@ -258,37 +307,35 @@ const getSupportSegmentGroupExpansionPolicy = (
     }
   }
 
-  const hasForceExpandedItem = items.some((item) => {
+  const hasActiveRuntimeItem = items.some((item) => {
     if (isToolCallRenderItem(item)) {
       const state = getToolCallHeaderState(item.segment)
-      return state.isRunning || state.isPending || state.isError
+      return state.isRunning || state.isPending
     }
 
     if (isReasoningRenderItem(item)) {
       return item.isStreamingTail
     }
 
+    return false
+  })
+
+  const hasAttentionItem = items.some((item) => {
+    if (isToolCallRenderItem(item)) {
+      return getToolCallHeaderState(item.segment).isError
+    }
+
     return item.segment.type === 'error'
   })
 
   return {
-    defaultExpanded: hasForceExpandedItem,
-    hasForceExpandedItem
+    defaultExpanded: hasActiveRuntimeItem || hasAttentionItem,
+    hasForceExpandedItem: hasActiveRuntimeItem
   }
 }
 
 const getSupportSegmentGroupIdentity = (items: SupportSegmentRenderItem[]): string => (
   items[0] ? `${items[0].layer}:${items[0].key}:${items[0].order}` : 'empty'
-)
-
-const getSupportSegmentGroupStatusSignature = (items: SupportSegmentRenderItem[]): string => (
-  items.map((item) => {
-    if (isToolCallRenderItem(item)) {
-      return `${item.key}:${getToolCallHeaderState(item.segment).statusLabel}`
-    }
-
-    return `${item.key}:${item.segment.type}:${item.isStreamingTail ? 'streaming' : 'settled'}`
-  }).join('\u001f')
 )
 
 const hasSameItemIdentity = (
@@ -554,10 +601,10 @@ const SupportThoughtPhase = memo(({
             <motion.div
               key={item.key}
               layout={shouldReduceMotion ? false : 'position'}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 4, scale: 0.995 }}
-              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
-              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2, scale: 0.998 }}
-              transition={supportSegmentAppendTransition}
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 3 }}
+              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2 }}
+              transition={supportSegmentRowAppendTransition}
             >
               <SupportReasoningGroupRow
                 item={item}
@@ -672,10 +719,10 @@ const SupportToolPhase = memo(({
             <motion.div
               key={item.key}
               layout={shouldReduceMotion ? false : 'position'}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 4, scale: 0.995 }}
-              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
-              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2, scale: 0.998 }}
-              transition={supportSegmentAppendTransition}
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 3 }}
+              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2 }}
+              transition={supportSegmentRowAppendTransition}
             >
               <SupportToolPhaseTimelineRow
                 item={item}
@@ -864,17 +911,14 @@ const SupportSegmentCollapsedSummaryRow = memo(({
 SupportSegmentCollapsedSummaryRow.displayName = 'SupportSegmentCollapsedSummaryRow'
 
 const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ items, forceReducedMotion = false }) => {
-  const shouldReduceMotion = forceReducedMotion || Boolean(useReducedMotion())
+  const prefersReducedMotion = Boolean(useReducedMotion())
+  const shouldReduceMotion = forceReducedMotion || prefersReducedMotion
   const groupIdentity = useMemo(() => getSupportSegmentGroupIdentity(items), [items])
-  const groupStatusSignature = useMemo(() => getSupportSegmentGroupStatusSignature(items), [items])
   const expansionPolicy = useMemo(() => getSupportSegmentGroupExpansionPolicy(items), [items])
-  const phases = useMemo(() => projectSupportSegmentPhases(items), [items])
-  const collapsedLeadingPhases = useMemo(() => (
-    projectSupportSegmentPhases(items.slice(0, 1))
-  ), [items])
-  const collapsedTrailingPhases = useMemo(() => (
-    projectSupportSegmentPhases(items.slice(-1))
-  ), [items])
+  const canCollapse = items.length > 3
+  const displayPlan = useMemo(() => (
+    createSupportSegmentDisplayPlan(items, canCollapse)
+  ), [canCollapse, items])
   const hasLiveTiming = useMemo(() => (
     items.some((item) => {
       if (isToolCallRenderItem(item)) {
@@ -885,34 +929,21 @@ const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ item
     })
   ), [items])
   const [liveNow, setLiveNow] = useState(() => Date.now())
-  const [isExpanded, setIsExpanded] = useState(() => expansionPolicy.defaultExpanded)
-  const [hasUserExpansionChoice, setHasUserExpansionChoice] = useState(false)
-  const [trackedGroupIdentity, setTrackedGroupIdentity] = useState(groupIdentity)
+  const [userExpansionChoice, setUserExpansionChoice] = useState<SupportSegmentUserExpansionChoice | null>(null)
+  const hasCurrentUserExpansionChoice = userExpansionChoice?.identity === groupIdentity
+  const isExpanded = expansionPolicy.hasForceExpandedItem
+    ? true
+    : hasCurrentUserExpansionChoice
+      ? userExpansionChoice.expanded
+      : expansionPolicy.defaultExpanded
 
   useEffect(() => {
-    if (trackedGroupIdentity !== groupIdentity) {
-      setTrackedGroupIdentity(groupIdentity)
-      setHasUserExpansionChoice(false)
-      setIsExpanded(expansionPolicy.defaultExpanded)
-      return
-    }
-
-    if (expansionPolicy.hasForceExpandedItem) {
-      setHasUserExpansionChoice(false)
-      setIsExpanded(true)
-      return
-    }
-
-    if (!hasUserExpansionChoice) {
-      setIsExpanded(expansionPolicy.defaultExpanded)
+    if (expansionPolicy.hasForceExpandedItem && hasCurrentUserExpansionChoice) {
+      setUserExpansionChoice(null)
     }
   }, [
-    expansionPolicy.defaultExpanded,
     expansionPolicy.hasForceExpandedItem,
-    groupIdentity,
-    groupStatusSignature,
-    hasUserExpansionChoice,
-    trackedGroupIdentity
+    hasCurrentUserExpansionChoice
   ])
 
   useEffect(() => {
@@ -933,16 +964,18 @@ const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ item
     return null
   }
 
-  const canCollapse = items.length > 3
   const shouldRenderCollapsed = canCollapse && !isExpanded
-  const hiddenItems = shouldRenderCollapsed ? items.slice(1, -1) : []
   const onExpand = () => {
-    setHasUserExpansionChoice(true)
-    setIsExpanded(true)
+    setUserExpansionChoice({
+      identity: groupIdentity,
+      expanded: true
+    })
   }
   const onCollapse = () => {
-    setHasUserExpansionChoice(true)
-    setIsExpanded(false)
+    setUserExpansionChoice({
+      identity: groupIdentity,
+      expanded: false
+    })
   }
 
   const renderPhase = (phase: SupportSegmentPhase) => (
@@ -956,39 +989,61 @@ const SupportSegmentGroupComponent: React.FC<SupportSegmentGroupProps> = ({ item
   )
 
   return (
-    <motion.div
+    <div
       data-testid="support-segment-group"
       data-state={shouldRenderCollapsed ? 'collapsed' : 'expanded'}
-      layout={shouldReduceMotion ? false : 'size'}
       className="my-1 flex w-full max-w-[680px] flex-col gap-0.5 overflow-hidden rounded-lg border border-slate-200/48 bg-white/34 p-1 dark:border-slate-800/72 dark:bg-white/3 dark:shadow-black/20"
-      transition={supportSegmentAppendTransition}
     >
       <div className="flex flex-col gap-0.5">
-        {shouldRenderCollapsed ? (
+        {displayPlan.collapsedPreview ? (
           <>
-            {collapsedLeadingPhases.map(renderPhase)}
-            <div key="summary">
-              <SupportSegmentCollapsedSummaryRow
-                hiddenItems={hiddenItems}
-                onExpand={onExpand}
-              />
-            </div>
-            {collapsedTrailingPhases.map(renderPhase)}
+            {displayPlan.collapsedPreview.leadingPhases.map(renderPhase)}
+            <SizeAnimatedPanel
+              data-testid="support-segment-middle-panel"
+              expanded={!shouldRenderCollapsed}
+              reducedMotion={shouldReduceMotion}
+              contentClassName="flex flex-col gap-0.5"
+            >
+              {displayPlan.collapsedPreview.hiddenPhases.map(renderPhase)}
+            </SizeAnimatedPanel>
+            <AnimatePresence initial={false} mode="wait">
+              {shouldRenderCollapsed ? (
+                <motion.div
+                  key="summary"
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 2 }}
+                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2 }}
+                  transition={supportSegmentControlTransition}
+                >
+                  <SupportSegmentCollapsedSummaryRow
+                    hiddenItems={displayPlan.collapsedPreview.hiddenItems}
+                    onExpand={onExpand}
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+            {displayPlan.collapsedPreview.trailingPhases.map(renderPhase)}
+            <AnimatePresence initial={false} mode="wait">
+              {shouldRenderCollapsed ? null : (
+                <motion.div
+                  key="collapse"
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 2 }}
+                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2 }}
+                  transition={supportSegmentControlTransition}
+                >
+                  <SupportSegmentGroupCollapseRow
+                    onCollapse={onCollapse}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </>
         ) : (
-          <>
-            {phases.map(renderPhase)}
-            {canCollapse ? (
-              <div key="collapse">
-                <SupportSegmentGroupCollapseRow
-                  onCollapse={onCollapse}
-                />
-              </div>
-            ) : null}
-          </>
+          displayPlan.fullFlowPhases.map(renderPhase)
         )}
       </div>
-    </motion.div>
+    </div>
   )
 }
 

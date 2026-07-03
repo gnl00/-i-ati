@@ -9,16 +9,36 @@ import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 vi.mock('framer-motion', async () => {
   const React = await import('react')
 
+  const motionProp = (value: unknown) => {
+    if (value === undefined) {
+      return undefined
+    }
+
+    if (typeof value === 'string') {
+      return value
+    }
+
+    return JSON.stringify(value)
+  }
+
   const passthrough = (tag: string) => (
     React.forwardRef<HTMLElement, Record<string, unknown> & { children?: React.ReactNode }>(({
       children,
-      animate: _animate,
-      exit: _exit,
-      initial: _initial,
-      layout: _layout,
-      transition: _transition,
+      animate,
+      exit,
+      initial,
+      layout,
+      transition,
       ...props
-    }, ref) => React.createElement(tag, { ...props, ref } as any, children as React.ReactNode))
+    }, ref) => React.createElement(tag, {
+      ...props,
+      ref,
+      'data-motion-animate': motionProp(animate),
+      'data-motion-exit': motionProp(exit),
+      'data-motion-initial': motionProp(initial),
+      'data-motion-layout': motionProp(layout),
+      'data-motion-transition': motionProp(transition)
+    } as any, children as React.ReactNode))
   )
 
   return {
@@ -98,6 +118,27 @@ const row = (container: HTMLElement, id: string): HTMLElement | null => (
   container.querySelector(`[data-testid="support-segment-row-segment-${id}"]`)
 )
 
+const middlePanel = (container: HTMLElement): HTMLElement | null => (
+  container.querySelector('[data-testid="support-segment-middle-panel"]')
+)
+
+const supportRowIdsInDomOrder = (container: HTMLElement): string[] => (
+  Array.from(container.querySelectorAll<HTMLElement>('[data-testid^="support-segment-row-segment-"]'))
+    .map(element => element.dataset.testid?.replace('support-segment-row-segment-', '') ?? '')
+)
+
+const expectCollapseRowAfterSupportRow = (
+  container: HTMLElement,
+  id: string
+) => {
+  const supportRow = row(container, id)
+  const collapseRow = container.querySelector('[data-testid="support-segment-collapse-row"]')
+
+  expect(supportRow).toBeTruthy()
+  expect(collapseRow).toBeTruthy()
+  expect(supportRow?.compareDocumentPosition(collapseRow as Node) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+}
+
 describe('SupportSegmentGroup', () => {
   let container: HTMLDivElement
   let root: Root
@@ -162,15 +203,19 @@ describe('SupportSegmentGroup', () => {
     expect(container.querySelector('[data-testid="support-segment-group"]')?.className).toContain('max-w-[680px]')
     expect(container.querySelector('[data-testid="support-segment-group"]')?.className).toContain('overflow-hidden')
     expect(container.querySelector('[data-testid="support-segment-group"]')?.getAttribute('data-state')).toBe('collapsed')
+    expect(container.querySelector('[data-testid="support-segment-group"]')?.getAttribute('data-motion-layout')).toBeNull()
+    expect(middlePanel(container)?.getAttribute('data-state')).toBe('collapsed')
+    expect(middlePanel(container)?.getAttribute('aria-hidden')).toBe('true')
+    expect(middlePanel(container)?.hasAttribute('inert')).toBe(true)
     expect(row(container, 'tool-1')).toBeTruthy()
     expect(row(container, 'tool-3')).toBeTruthy()
-    expect(row(container, 'thought-1')).toBeNull()
-    expect(row(container, 'tool-2')).toBeNull()
-    expect(row(container, 'thought-2')).toBeNull()
+    expect(row(container, 'thought-1')).toBeTruthy()
+    expect(row(container, 'tool-2')).toBeTruthy()
+    expect(row(container, 'thought-2')).toBeTruthy()
     expect(container.querySelector('[data-testid="support-segment-summary-row"]')?.textContent).toContain('+3 hidden')
     expect(container.querySelector('[data-testid="support-segment-summary-row"]')?.textContent).toContain('1 tool')
     expect(container.querySelector('[data-testid="support-segment-summary-row"]')?.textContent).toContain('2 thoughts')
-    expect(container.querySelectorAll('[data-testid="support-segment-phase-tool"]')).toHaveLength(2)
+    expect(container.querySelectorAll('[data-testid="support-segment-phase-tool"]')).toHaveLength(3)
     expect(container.querySelector('[data-testid="support-segment-summary-footer"]')).toBeNull()
   })
 
@@ -210,14 +255,17 @@ describe('SupportSegmentGroup', () => {
     const summaryRow = container.querySelector('[data-testid="support-segment-summary-row"]')
     expect(container.querySelector('[data-testid="support-segment-group"]')).toBe(groupShell)
     expect(container.querySelector('[data-testid="support-segment-group"]')?.getAttribute('data-state')).toBe('collapsed')
+    expect(middlePanel(container)?.getAttribute('data-state')).toBe('collapsed')
+    expect(middlePanel(container)?.getAttribute('aria-hidden')).toBe('true')
+    expect(middlePanel(container)?.hasAttribute('inert')).toBe(true)
     expect(summaryRow?.textContent).toContain('+3 hidden')
     expect(summaryRow?.textContent).toContain('1 tool')
     expect(summaryRow?.textContent).toContain('2 thoughts')
     expect(row(container, 'tool-1')).toBeTruthy()
     expect(row(container, 'tool-3')).toBeTruthy()
-    expect(row(container, 'thought-1')).toBeNull()
-    expect(row(container, 'tool-2')).toBeNull()
-    expect(row(container, 'thought-2')).toBeNull()
+    expect(row(container, 'thought-1')).toBeTruthy()
+    expect(row(container, 'tool-2')).toBeTruthy()
+    expect(row(container, 'thought-2')).toBeTruthy()
   })
 
   it('expands collapsed groups from the summary row', async () => {
@@ -226,17 +274,25 @@ describe('SupportSegmentGroup', () => {
     })
 
     const summaryRow = container.querySelector<HTMLButtonElement>('[data-testid="support-segment-summary-row"]')
+    const collapsedPanel = middlePanel(container)
     expect(summaryRow).toBeTruthy()
+    expect(collapsedPanel).toBeTruthy()
+    expect(collapsedPanel?.getAttribute('data-state')).toBe('collapsed')
 
     await act(async () => {
       summaryRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
+    const expandedPanel = middlePanel(container)
     expect(row(container, 'tool-1')).toBeTruthy()
     expect(row(container, 'thought-1')).toBeTruthy()
     expect(row(container, 'tool-2')).toBeTruthy()
     expect(row(container, 'thought-2')).toBeTruthy()
     expect(row(container, 'tool-3')).toBeTruthy()
+    expect(expandedPanel).toBe(collapsedPanel)
+    expect(expandedPanel?.getAttribute('data-state')).toBe('expanded')
+    expect(expandedPanel?.getAttribute('aria-hidden')).toBeNull()
+    expect(expandedPanel?.hasAttribute('inert')).toBe(false)
     const collapseRow = container.querySelector<HTMLButtonElement>('[data-testid="support-segment-collapse-row"]')
     expect(collapseRow).toBeTruthy()
     expect(collapseRow?.textContent).toContain('Hide')
@@ -245,17 +301,81 @@ describe('SupportSegmentGroup', () => {
     expect(container.textContent).not.toContain('Complete · 5 steps · 3 tools')
     expect(container.querySelectorAll('[data-testid="support-segment-phase-tool"]')).toHaveLength(3)
     expect(container.querySelectorAll('[data-testid="support-segment-phase-thought"]')).toHaveLength(2)
+    expect(supportRowIdsInDomOrder(container)).toEqual([
+      'tool-1',
+      'thought-1',
+      'tool-2',
+      'thought-2',
+      'tool-3'
+    ])
+    expectCollapseRowAfterSupportRow(container, 'tool-3')
 
     await act(async () => {
       collapseRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
     expect(container.querySelector('[data-testid="support-segment-summary-row"]')).toBeTruthy()
+    expect(middlePanel(container)).toBe(collapsedPanel)
+    expect(middlePanel(container)?.getAttribute('data-state')).toBe('collapsed')
+    expect(middlePanel(container)?.getAttribute('aria-hidden')).toBe('true')
+    expect(middlePanel(container)?.hasAttribute('inert')).toBe(true)
     expect(row(container, 'tool-1')).toBeTruthy()
     expect(row(container, 'tool-3')).toBeTruthy()
-    expect(row(container, 'thought-1')).toBeNull()
-    expect(row(container, 'tool-2')).toBeNull()
-    expect(row(container, 'thought-2')).toBeNull()
+    expect(row(container, 'thought-1')).toBeTruthy()
+    expect(row(container, 'tool-2')).toBeTruthy()
+    expect(row(container, 'thought-2')).toBeTruthy()
+  })
+
+  it('renders expanded mixed sequences in item order with hide after the final row', async () => {
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={mixedItems()} />)
+    })
+
+    const summaryRow = container.querySelector<HTMLButtonElement>('[data-testid="support-segment-summary-row"]')
+
+    await act(async () => {
+      summaryRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(supportRowIdsInDomOrder(container)).toEqual([
+      'tool-1',
+      'thought-1',
+      'tool-2',
+      'thought-2',
+      'tool-3'
+    ])
+    expect(container.querySelectorAll('[data-testid="support-segment-phase-tool"]')).toHaveLength(3)
+    expect(container.querySelectorAll('[data-testid="support-segment-phase-thought"]')).toHaveLength(2)
+    expectCollapseRowAfterSupportRow(container, 'tool-3')
+  })
+
+  it('keeps adjacent middle thoughts in one expanded phase with hide after the final row', async () => {
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={[
+        toolCallItem({ id: 'tool-1', order: 0 }),
+        reasoningItem({ id: 'thought-1', order: 1 }),
+        reasoningItem({ id: 'thought-2', order: 2 }),
+        toolCallItem({ id: 'tool-2', order: 3 })
+      ]} />)
+    })
+
+    const summaryRow = container.querySelector<HTMLButtonElement>('[data-testid="support-segment-summary-row"]')
+
+    await act(async () => {
+      summaryRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const thoughtPhases = container.querySelectorAll('[data-testid="support-segment-phase-thought"]')
+
+    expect(supportRowIdsInDomOrder(container)).toEqual([
+      'tool-1',
+      'thought-1',
+      'thought-2',
+      'tool-2'
+    ])
+    expect(thoughtPhases).toHaveLength(1)
+    expect(thoughtPhases[0]?.textContent).toContain('2 steps')
+    expectCollapseRowAfterSupportRow(container, 'tool-2')
   })
 
   it('keeps user expansion when appending a completed support item', async () => {
@@ -286,15 +406,26 @@ describe('SupportSegmentGroup', () => {
     expect(row(container, 'thought-1')).toBeTruthy()
     expect(row(container, 'tool-2')).toBeTruthy()
     expect(row(container, 'tool-4')).toBeTruthy()
+    expect(supportRowIdsInDomOrder(container)).toEqual([
+      'tool-1',
+      'thought-1',
+      'tool-2',
+      'thought-2',
+      'tool-3',
+      'tool-4'
+    ])
+    expectCollapseRowAfterSupportRow(container, 'tool-4')
   })
 
-  it('renders thought and tool phases with compact metrics and timeline rows', async () => {
+  it('renders collapsible thought and tool regions with compact rows', async () => {
     await act(async () => {
       root.render(<SupportSegmentGroup items={[
-        reasoningItem({ id: 'thought-1', order: 0 }),
-        reasoningItem({ id: 'thought-2', order: 1 }),
-        toolCallItem({ id: 'tool-1', order: 2 }),
-        toolCallItem({ id: 'tool-2', order: 3 })
+        toolCallItem({ id: 'tool-0', order: 0 }),
+        reasoningItem({ id: 'thought-1', order: 1 }),
+        reasoningItem({ id: 'thought-2', order: 2 }),
+        toolCallItem({ id: 'tool-1', order: 3 }),
+        toolCallItem({ id: 'tool-2', order: 4 }),
+        toolCallItem({ id: 'tool-3', order: 5 })
       ]} />)
     })
 
@@ -303,21 +434,22 @@ describe('SupportSegmentGroup', () => {
       summaryRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    const thoughtPhase = container.querySelector('[data-testid="support-segment-phase-thought"]')
-    const toolPhase = container.querySelector('[data-testid="support-segment-phase-tool"]')
-    const timelineRows = container.querySelectorAll('[data-testid^="support-segment-tool-timeline-row-"]')
+    const panel = middlePanel(container)
+    const thoughtPhases = panel?.querySelectorAll('[data-testid="support-segment-phase-thought"]')
+    const toolPhases = panel?.querySelectorAll('[data-testid="support-segment-phase-tool"]')
+    const timelineRows = panel?.querySelectorAll('[data-testid^="support-segment-tool-timeline-row-"]')
 
-    expect(thoughtPhase?.textContent).toContain('Thought')
-    expect(thoughtPhase?.textContent).toContain('2 steps')
-    expect(thoughtPhase?.textContent).toContain('2s')
-    expect(toolPhase?.textContent).toContain('Tool execution')
-    expect(toolPhase?.textContent).toContain('2 calls')
-    expect(toolPhase?.textContent).toContain('2/2 success')
-    expect(toolPhase?.textContent).toContain('0.024s total')
-    expect(toolPhase?.textContent).not.toContain('avg')
+    expect(panel?.getAttribute('data-state')).toBe('expanded')
+    expect(thoughtPhases).toHaveLength(1)
+    expect(toolPhases).toHaveLength(1)
+    expect(thoughtPhases?.[0]?.textContent).toContain('Thought')
+    expect(thoughtPhases?.[0]?.textContent).toContain('2 steps')
+    expect(toolPhases?.[0]?.textContent).toContain('Tool execution')
+    expect(toolPhases?.[0]?.textContent).toContain('2 calls')
+    expect(toolPhases?.[0]?.textContent).toContain('2/2 success')
+    expect(toolPhases?.[0]?.textContent).toContain('0.024s total')
     expect(timelineRows).toHaveLength(2)
     expect(container.querySelector('[data-testid="support-segment-summary-footer"]')).toBeNull()
-    expect(container.textContent).not.toContain('Complete · 4 steps · 2 tools')
   })
 
   it('keeps running and pending tool groups expanded', async () => {
@@ -337,9 +469,18 @@ describe('SupportSegmentGroup', () => {
     expect(row(container, 'tool-2')).toBeTruthy()
     expect(row(container, 'thought-2')).toBeTruthy()
     expect(row(container, 'tool-3')).toBeTruthy()
+
+    const collapseRow = container.querySelector<HTMLButtonElement>('[data-testid="support-segment-collapse-row"]')
+
+    await act(async () => {
+      collapseRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(container.querySelector('[data-testid="support-segment-group"]')?.getAttribute('data-state')).toBe('expanded')
+    expect(container.querySelector('[data-testid="support-segment-summary-row"]')).toBeNull()
   })
 
-  it('keeps failed tool groups expanded', async () => {
+  it('opens failed tool groups by default and allows collapsing them', async () => {
     await act(async () => {
       root.render(<SupportSegmentGroup items={[
         toolCallItem({ id: 'tool-1', order: 0 }),
@@ -350,8 +491,19 @@ describe('SupportSegmentGroup', () => {
       ]} />)
     })
 
+    expect(container.querySelector('[data-testid="support-segment-group"]')?.getAttribute('data-state')).toBe('expanded')
     expect(container.querySelector('[data-testid="support-segment-summary-row"]')).toBeNull()
     expect(row(container, 'tool-2')).toBeTruthy()
+
+    const collapseRow = container.querySelector<HTMLButtonElement>('[data-testid="support-segment-collapse-row"]')
+
+    await act(async () => {
+      collapseRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(container.querySelector('[data-testid="support-segment-group"]')?.getAttribute('data-state')).toBe('collapsed')
+    expect(container.querySelector('[data-testid="support-segment-summary-row"]')).toBeTruthy()
+    expect(middlePanel(container)?.getAttribute('data-state')).toBe('collapsed')
   })
 
   it('keeps groups with three items expanded', async () => {
@@ -400,6 +552,10 @@ describe('SupportSegmentGroup', () => {
     expect(container.querySelector('[data-testid="support-segment-group"]')).toBe(groupShell)
     expect(row(container, 'tool-1')).toBe(firstToolRow)
     expect(row(container, 'tool-2')).toBeTruthy()
+    expect(row(container, 'tool-2')?.closest('[data-motion-initial]')?.getAttribute('data-motion-initial'))
+      .toBe('{"opacity":0,"y":3}')
+    expect(row(container, 'tool-2')?.closest('[data-motion-initial]')?.getAttribute('data-motion-initial'))
+      .not.toContain('scale')
     expect(container.querySelectorAll('[data-testid^="support-segment-tool-timeline-row-"]')).toHaveLength(2)
     expect(container.querySelector('[data-testid="support-segment-phase-tool"]')?.textContent).toContain('2 calls')
   })
@@ -467,5 +623,20 @@ describe('SupportSegmentGroup', () => {
 
     expect(container.querySelector('[data-testid="tool-call-trigger-reason-segment-tool-1"]')?.textContent)
       .toBe(reason)
+  })
+
+  it('renders static panel and row motion when reduced motion is forced', async () => {
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={mixedItems()} forceReducedMotion />)
+    })
+
+    const panel = middlePanel(container)
+    const middleRowMotion = row(container, 'tool-2')?.closest('[data-motion-initial]')
+
+    expect(panel?.className).toContain('transition-none')
+    expect(panel?.getAttribute('data-state')).toBe('collapsed')
+    expect(middleRowMotion?.getAttribute('data-motion-layout')).toBe('false')
+    expect(middleRowMotion?.getAttribute('data-motion-initial')).toBe('false')
+    expect(middleRowMotion?.getAttribute('data-motion-animate')).toBeNull()
   })
 })
