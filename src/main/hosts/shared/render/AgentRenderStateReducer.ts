@@ -86,6 +86,47 @@ const emptyMessageState = (): AgentRenderMessageState => ({
   toolCalls: []
 })
 
+/**
+ * PreviewEffect
+ *
+ * P2：把「本次 preview 更新是对现有 open block 的纯追加，还是结构性替换」这个语义
+ * 前移到 reducer（唯一 fold 点）计算，随 host event 下发。下游 responder 直接按它决定
+ * emit（text/reasoning segment patch vs 完整 preview），不再靠比较 previous/next blocks
+ * 把这个语义 diff 回来。
+ *
+ * - 'text_append'：本次 delta 追加到了同一个 open text block（blockId 不变、未新增/关闭 block）
+ * - 'reasoning_append'：本次 delta 追加到了同一个 open reasoning block
+ * - 'replace'：结构性变化（新 block / 关闭 block / tool 出现 / 首个 block 等），需完整 preview
+ */
+export type PreviewEffect = 'text_append' | 'reasoning_append' | 'replace'
+
+const computePreviewEffect = (
+  previousBlocks: AgentRenderBlock[],
+  nextBlocks: AgentRenderBlock[]
+): PreviewEffect => {
+  if (previousBlocks.length === 0 || previousBlocks.length !== nextBlocks.length) {
+    return 'replace'
+  }
+
+  const previousLast = previousBlocks[previousBlocks.length - 1]
+  const nextLast = nextBlocks[nextBlocks.length - 1]
+
+  if (previousLast.blockId !== nextLast.blockId) {
+    return 'replace'
+  }
+  if (typeof nextLast.endedAt === 'number' || typeof previousLast.endedAt === 'number') {
+    return 'replace'
+  }
+  if (nextLast.kind === 'text' && previousLast.kind === 'text') {
+    return 'text_append'
+  }
+  if (nextLast.kind === 'reasoning' && previousLast.kind === 'reasoning') {
+    return 'reasoning_append'
+  }
+  return 'replace'
+}
+
+
 const cloneBlock = (
   block: AgentRenderBlock
 ): AgentRenderBlock => ({ ...block })
@@ -317,7 +358,29 @@ export class AgentRenderStateReducer {
     lastUsage: undefined
   }
 
+  /**
+   * 以下三个信号在每次 apply() 时更新，供 HostRenderEventMapper 直接读取，
+   * 使 mapper / responder 不再需要自己 snapshot previous 并 diff（P2）。
+   */
+  // 本次 apply 产生的 preview 更新语义（仅 step.delta 有意义，其余事件为 'replace'）。
+  lastPreviewEffect: PreviewEffect = 'replace'
+  // 本次 apply 之前 preview 是否处于 active（非 null）——用于 committed 的 previewWasActive。
+  lastPreviewWasActive = false
+  // 本次 apply 是否改变了 lastUsage——用于决定是否 emit host.usage.updated。
+  lastUsageChanged = false
+
   apply(event: AgentEvent): AgentRenderState {
+    const usageBefore = this.state.lastUsage
+    this.lastPreviewWasActive = this.state.preview != null
+    this.lastPreviewEffect = 'replace'
+
+    const snapshot = this.applyEvent(event)
+
+    this.lastUsageChanged = this.state.lastUsage !== usageBefore
+    return snapshot
+  }
+
+  private applyEvent(event: AgentEvent): AgentRenderState {
     switch (event.type) {
       case 'step.started':
         this.state = {
@@ -399,6 +462,7 @@ export class AgentRenderStateReducer {
     }
 
     const preview = this.state.preview ?? emptyMessageState()
+    const previousBlocks = preview.blocks
     let previewToolCalls = [...preview.toolCalls]
     let previewBlocks = [...preview.blocks]
 
@@ -473,6 +537,8 @@ export class AgentRenderStateReducer {
         )
       }
     }
+
+    this.lastPreviewEffect = computePreviewEffect(previousBlocks, previewBlocks)
 
     this.state = {
       ...this.state,

@@ -14,6 +14,7 @@ export type {
   AgentRenderSegmentMapperOptions
 } from './AgentRenderSegmentMapper'
 export { AgentRenderStateReducer } from './AgentRenderStateReducer'
+export type { PreviewEffect } from './AgentRenderStateReducer'
 export {
   CommittedAssistantMessageController,
   type CommitAssistantMessageResult
@@ -23,4 +24,8 @@ export { HostRenderEventForwarder } from './HostRenderEventForwarder'
 export { HostRenderEventMapper } from './HostRenderEventMapper'
 export type { HostRenderEventSink } from './HostRenderEventSink'
 export type { HostRenderState } from './HostRenderState'
-export { HostRenderStateController } from './HostRenderStateController'
+export {
+  HostStepOutputPolicy,
+  DEFAULT_HIDDEN_TOOL_NAMES,
+  type HostStepOutputPolicyInput
+} from './HostStepOutputPolicy'

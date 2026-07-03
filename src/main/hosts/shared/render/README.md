@@ -5,7 +5,7 @@
 它的目标是：
 
 - 让 committed / preview / assistant message 真源尽量单点化
-- 把可复用的 host-side state fold 和 controller 从具体 host 中抽出来
+- 把可复用的 host-side state fold 从具体 host 中抽出来（收敛到 `HostRenderEventMapper` 单一 fold 点）
 - 避免 chat、telegram、未来 host 各自重写一套状态机
 
 ## Scope
@@ -27,7 +27,7 @@
 
 ```text
 runtime facts
-  -> shared/render state or controller
+  -> shared/render state fold (HostRenderEventMapper)
     -> host-specific mapper / transport policy
       -> host output protocol
 ```
@@ -73,19 +73,20 @@ AgentEvent
 - 产出宿主统一输入 `HostRenderEvent`
 - 在 runtime-native 事实和 host-facing render contract 之间做一次明确折叠
 
-这是当前 host runtime 的标准入口。
+这是当前 host runtime 的标准入口，也是 host 侧唯一的 render 状态 fold 点
+（committed / preview / lifecycle / usage 都由它收敛，见 `snapshot()`）。
 
-### `HostRenderStateController`
+### `HostStepOutputPolicy`
 
 文件：
 
-- [HostRenderStateController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostRenderStateController.ts)
+- [HostStepOutputPolicy.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostStepOutputPolicy.ts)
 
 职责：
 
-- 消费 `HostRenderEvent`
-- 维护 host-facing committed / preview / lifecycle / usage snapshot
-- 作为 chat / telegram 这类 host-specific policy 的共享状态真源
+- 集中「单个 step 的 runtime 事实 -> 外部宿主可见性」的规则
+- 回答某个 tool 是否对外隐藏（visible / hidden / tool-activity-only）
+- 供 chat + telegram 共用，避免两处 hidden-tool 名单各自漂移
 
 ### `AgentRenderSegmentMapper`
 
@@ -109,7 +110,6 @@ AgentEvent
 
 - 持有 committed assistant message entity 真源
 - 更新 in-memory message list
-- 生成 differential segment patches
 - 生成 committed assistant artifact
 
 这个 controller 的意义是把“提交 assistant message”这件事从具体 host output 中抽出来。
@@ -122,9 +122,8 @@ AgentEvent
 AgentEvent
   -> HostRenderEventMapper
     -> HostRenderEvent
-      -> HostRenderStateController
-        -> host transport policy / mapper
-          -> host output
+      -> host transport policy / mapper
+        -> host output
 ```
 
 当前例子：
@@ -138,7 +137,6 @@ chat 侧当前大致是：
 
 ```text
 ChatRenderResponder
-  -> HostRenderStateController
   -> ChatRenderMapper
   -> AgentRenderSegmentMapper
   -> CommittedAssistantMessageController
@@ -149,7 +147,7 @@ telegram 侧当前大致是：
 
 ```text
 TelegramRenderResponder
-  -> HostRenderStateController
+  -> HostStepOutputPolicy
   -> AgentRenderSegmentMapper
   -> telegram send/edit
 ```

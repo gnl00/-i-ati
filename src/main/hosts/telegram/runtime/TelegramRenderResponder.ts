@@ -2,7 +2,7 @@ import type { Bot } from 'grammy'
 import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
 import {
   AgentRenderSegmentMapper,
-  HostRenderStateController,
+  HostStepOutputPolicy,
   type AgentRenderToolCallState,
   type HostRenderEvent,
   type HostRenderEventSink
@@ -11,7 +11,6 @@ import { RUN_STATES } from '@shared/run/lifecycle-events'
 
 const STREAM_UPDATE_THROTTLE_MS = 400
 const MAX_TOOL_ARGS_DISPLAY_LENGTH = 200
-const TELEGRAM_HIDDEN_TOOL_MESSAGES = new Set(['emotion_report'])
 
 type SentTelegramMessage = {
   messageId: number
@@ -45,8 +44,8 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   private readonly bot: Bot
   private readonly envelope: TelegramInboundEnvelope
   private readonly logger?: TelegramRenderResponderArgs['logger']
-  private readonly renderState = new HostRenderStateController()
-  private readonly segments = new AgentRenderSegmentMapper()
+  private readonly policy = new HostStepOutputPolicy()
+  private readonly segments = new AgentRenderSegmentMapper({ policy: this.policy })
   private readonly textMessages = new Map<string, SentTelegramMessage>()
   private readonly toolStates = new Map<string, TelegramToolState>()
   private readonly pendingTextEdits = new Map<string, { text: string }>()
@@ -82,17 +81,14 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   private async handleEventInternal(event: HostRenderEvent): Promise<void> {
     switch (event.type) {
       case 'host.preview.updated':
-        this.renderState.apply(event)
         await this.renderPreview(event)
         return
 
       case 'host.committed.updated':
-        this.renderState.apply(event)
         await this.renderCommitted(event)
         return
 
       case 'host.preview.cleared':
-        this.renderState.apply(event)
         return
 
       case 'host.lifecycle.updated':
@@ -370,7 +366,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     toolName: string
     args?: string
   }): Promise<void> {
-    if (TELEGRAM_HIDDEN_TOOL_MESSAGES.has(args.toolName)) {
+    if (this.policy.isToolHidden(args.toolName)) {
       return
     }
 
@@ -401,7 +397,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     args?: string
     status: AgentRenderToolCallState['status']
   }): Promise<void> {
-    if (TELEGRAM_HIDDEN_TOOL_MESSAGES.has(args.toolName)) {
+    if (this.policy.isToolHidden(args.toolName)) {
       return
     }
 
@@ -453,7 +449,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     toolCallId: string
     toolName: string
   }): Promise<void> {
-    if (TELEGRAM_HIDDEN_TOOL_MESSAGES.has(args.toolName)) {
+    if (this.policy.isToolHidden(args.toolName)) {
       return
     }
 

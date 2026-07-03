@@ -73,7 +73,8 @@ const toolCall = (
 const previewUpdated = (preview: AgentRenderMessageState, timestamp = Date.now()): HostRenderEvent => ({
   type: 'host.preview.updated',
   timestamp,
-  preview
+  preview,
+  previewEffect: 'replace'
 })
 
 const committedUpdated = (

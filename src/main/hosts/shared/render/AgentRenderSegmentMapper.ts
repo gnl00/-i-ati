@@ -6,22 +6,29 @@ import type {
   AgentRenderToolCallState
 } from './AgentRenderState'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
+import { HostStepOutputPolicy } from './HostStepOutputPolicy'
 
 export type AgentRenderLayer = 'preview' | 'committed'
 
 export type AgentRenderSegmentMapperOptions = {
+  /**
+   * 可见性策略。默认使用共享的 HostStepOutputPolicy（含默认 hidden tool 名单）。
+   * 也允许传入 tool 名单数组/集合作为向后兼容的便捷写法。
+   */
+  policy?: HostStepOutputPolicy
   hiddenToolNames?: ReadonlySet<string> | string[]
 }
 
-const DEFAULT_HIDDEN_TOOL_NAMES = new Set(['emotion_report'])
-
-const normalizeHiddenToolNames = (
-  input?: ReadonlySet<string> | string[]
-): ReadonlySet<string> => {
-  if (!input) {
-    return DEFAULT_HIDDEN_TOOL_NAMES
+const resolvePolicy = (
+  options: AgentRenderSegmentMapperOptions
+): HostStepOutputPolicy => {
+  if (options.policy) {
+    return options.policy
   }
-  return Array.isArray(input) ? new Set(input) : input
+  if (options.hiddenToolNames) {
+    return new HostStepOutputPolicy(options.hiddenToolNames)
+  }
+  return new HostStepOutputPolicy()
 }
 
 const buildReasoningSegment = (
@@ -46,10 +53,10 @@ const buildTextSegment = (
 })
 
 export class AgentRenderSegmentMapper {
-  private readonly hiddenToolNames: ReadonlySet<string>
+  private readonly policy: HostStepOutputPolicy
 
   constructor(options: AgentRenderSegmentMapperOptions = {}) {
-    this.hiddenToolNames = normalizeHiddenToolNames(options.hiddenToolNames)
+    this.policy = resolvePolicy(options)
   }
 
   toMessageToolCall(toolCall: AgentRenderToolCallState): IToolCall {
@@ -183,7 +190,7 @@ export class AgentRenderSegmentMapper {
       timestamp: input.block.startedAt,
       toolCallId: call.toolCallId,
       toolCallIndex: call.toolCallIndex,
-      ...(this.hiddenToolNames.has(call.name)
+      ...(this.policy.isToolHidden(call.name)
         ? {
             presentation: {
               transcriptVisible: false

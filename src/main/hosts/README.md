@@ -87,7 +87,8 @@ host input adapter
 例子：
 
 - [AgentRenderStateReducer.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/AgentRenderStateReducer.ts)
-- [HostRenderStateController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostRenderStateController.ts)
+- [HostRenderEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostRenderEventMapper.ts)
+- [HostStepOutputPolicy.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostStepOutputPolicy.ts)
 - [AgentRenderSegmentMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/AgentRenderSegmentMapper.ts)
 - [CommittedAssistantMessageController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/CommittedAssistantMessageController.ts)
 
@@ -136,7 +137,6 @@ chat
     -> HostRenderEventMapper
       -> HostRenderEvent
         -> ChatRenderResponder
-          -> HostRenderStateController
           -> AgentRenderSegmentMapper
           -> ChatRenderMapper
           -> CommittedAssistantMessageController
@@ -150,7 +150,7 @@ telegram
     -> HostRenderEventMapper
       -> HostRenderEvent
         -> TelegramRenderResponder
-          -> HostRenderStateController
+          -> HostStepOutputPolicy
           -> AgentRenderSegmentMapper
           -> telegram send/edit transport
 ```

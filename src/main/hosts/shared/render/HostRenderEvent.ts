@@ -1,11 +1,21 @@
 import type { RunState } from '@shared/run/lifecycle-events'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
 import type { AgentRenderMessageState } from './AgentRenderState'
+import type { PreviewEffect } from './AgentRenderStateReducer'
 
 export interface HostRenderPreviewUpdatedEvent {
   type: 'host.preview.updated'
   timestamp: number
   preview: AgentRenderMessageState
+  /**
+   * 本次 preview 更新的语义，由 HostRenderEventMapper 内部 reducer（唯一 fold 点）计算。
+   *
+   * P2：append 语义前移。host 侧直接按此字段决定 emit：
+   * - 'text_append' / 'reasoning_append'：只发对应 segment patch（同一 open block 追加）
+   * - 'replace'：发完整 preview
+   * 下游不再自己比较 previous/next blocks 把这个语义 diff 回来。
+   */
+  previewEffect: PreviewEffect
 }
 
 export interface HostRenderPreviewClearedEvent {

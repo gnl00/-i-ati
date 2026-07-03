@@ -2,7 +2,6 @@ import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { extractEmotionFromToolSegments } from '@main/services/emotion/emotion-state'
 import {
   AgentRenderSegmentMapper,
-  type AgentRenderBlock,
   type AgentRenderLayer,
   type AgentRenderMessageState
 } from '@main/hosts/shared/render'
@@ -18,26 +17,6 @@ export class ChatRenderMapper {
       ...message,
       ...(emotion ? { emotion } : {})
     }
-  }
-
-  canEmitOptimizedTextPreviewPatch(
-    previousState: AgentRenderMessageState,
-    nextState: AgentRenderMessageState
-  ): boolean {
-    const previousLastBlock = previousState.blocks.at(-1)
-    const nextLastBlock = nextState.blocks.at(-1)
-    return this.isSameOpenBlockTransition(previousLastBlock, nextLastBlock, 'text')
-      && previousState.blocks.length === nextState.blocks.length
-  }
-
-  canEmitOptimizedReasoningPreviewPatch(
-    previousState: AgentRenderMessageState,
-    nextState: AgentRenderMessageState
-  ): boolean {
-    const previousLastBlock = previousState.blocks.at(-1)
-    const nextLastBlock = nextState.blocks.at(-1)
-    return this.isSameOpenBlockTransition(previousLastBlock, nextLastBlock, 'reasoning')
-      && previousState.blocks.length === nextState.blocks.length
   }
 
   buildPreviewBody(args: {
@@ -110,17 +89,5 @@ export class ChatRenderMapper {
     layer: AgentRenderLayer
   }): MessageSegment[] {
     return this.segments.buildSegments(input)
-  }
-
-  private isSameOpenBlockTransition(
-    previousBlock: AgentRenderBlock | undefined,
-    nextBlock: AgentRenderBlock | undefined,
-    expectedKind: AgentRenderBlock['kind']
-  ): boolean {
-    return previousBlock?.kind === expectedKind
-      && nextBlock?.kind === expectedKind
-      && previousBlock.blockId === nextBlock.blockId
-      && typeof previousBlock.endedAt !== 'number'
-      && typeof nextBlock.endedAt !== 'number'
   }
 }

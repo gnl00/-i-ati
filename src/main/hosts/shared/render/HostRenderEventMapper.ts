@@ -1,17 +1,57 @@
 import { RUN_STATES } from '@shared/run/lifecycle-events'
+import type { RunState } from '@shared/run/lifecycle-events'
 import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { AgentRenderStateReducer } from './AgentRenderStateReducer'
 import type { HostRenderEvent } from './HostRenderEvent'
+import type { HostRenderState } from './HostRenderState'
 
 export class HostRenderEventMapper {
   private readonly reducer = new AgentRenderStateReducer()
+  private lifecycle: RunState | undefined
+  private lastUsage: ITokenUsage | undefined
+
+  /**
+   * host-facing 状态快照。
+   *
+   * P0：这是 host 侧唯一的 render 状态真源。此前 `HostRenderStateController` 会把
+   * mapper 已算好、并塞进 host event 的 preview/committed 再深拷贝存一遍（影子 reducer）。
+   * 现在直接由 mapper 暴露，避免同一份 committed/preview 被同构建模两次。
+   */
+  snapshot(): HostRenderState {
+    const state = this.reducer.snapshot()
+    return {
+      committed: state.committed,
+      preview: state.preview,
+      lifecycle: this.lifecycle,
+      lastUsage: this.lastUsage
+    }
+  }
 
   map(event: AgentEvent): HostRenderEvent[] {
-    const previous = this.reducer.snapshot()
     const next = this.reducer.apply(event)
+    const hostEvents = this.buildHostEvents(event, next)
+
+    // 从产出的 host event 里 fold lifecycle / usage，作为 host 侧唯一状态真源。
+    for (const hostEvent of hostEvents) {
+      if (hostEvent.type === 'host.lifecycle.updated') {
+        this.lifecycle = hostEvent.state
+      } else if (hostEvent.type === 'host.usage.updated') {
+        this.lastUsage = hostEvent.usage
+      }
+    }
+
+    return hostEvents
+  }
+
+  private buildHostEvents(
+    event: AgentEvent,
+    next: ReturnType<AgentRenderStateReducer['snapshot']>
+  ): HostRenderEvent[] {
     const hostEvents: HostRenderEvent[] = []
 
-    if (next.lastUsage && next.lastUsage !== previous.lastUsage) {
+    // P2：usage 是否变化由 reducer 在 fold 时判定（usage_delta 或 step 收口都可能改），
+    // 不再靠 mapper 自己 snapshot previous 做 lastUsage !== 比较。
+    if (this.reducer.lastUsageChanged && next.lastUsage) {
       hostEvents.push({
         type: 'host.usage.updated',
         timestamp: this.resolveTimestamp(event),
@@ -44,7 +84,8 @@ export class HostRenderEventMapper {
           hostEvents.push({
             type: 'host.preview.updated',
             timestamp: event.timestamp,
-            preview: next.preview
+            preview: next.preview,
+            previewEffect: this.reducer.lastPreviewEffect
           })
         }
         return hostEvents
@@ -60,7 +101,7 @@ export class HostRenderEventMapper {
           type: 'host.committed.updated',
           timestamp: event.timestamp,
           committed: next.committed,
-          previewWasActive: Boolean(previous.preview)
+          previewWasActive: this.reducer.lastPreviewWasActive
         })
         return hostEvents
 

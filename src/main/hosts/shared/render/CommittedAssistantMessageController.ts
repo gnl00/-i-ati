@@ -1,9 +1,5 @@
-import type { MessageSegmentPatch } from '@shared/chat/render-events'
-import { buildDifferentialSegmentPatches } from '@shared/run/messagePatch'
-
 export type CommitAssistantMessageResult = {
   message: MessageEntity
-  patches: MessageSegmentPatch[]
 }
 
 export class CommittedAssistantMessageController {
@@ -30,7 +26,6 @@ export class CommittedAssistantMessageController {
   }
 
   commit(body: ChatMessage): CommitAssistantMessageResult {
-    const previousBody = this.finalAssistantMessage.body
     this.finalAssistantMessage = {
       ...this.finalAssistantMessage,
       body
@@ -41,9 +36,11 @@ export class CommittedAssistantMessageController {
       this.messageEntities[index] = this.finalAssistantMessage
     }
 
+    // P2：此前这里会 buildDifferentialSegmentPatches(previousBody, body)，
+    // 但唯一调用方（ChatRenderOutput.commitAssistantMessage）只取 message、丢弃 patches，
+    // 属于第 3 处「先合并再 diff」的空转。既然结果无人消费，直接移除该 diff 计算。
     return {
-      message: this.finalAssistantMessage,
-      patches: buildDifferentialSegmentPatches(previousBody, body)
+      message: this.finalAssistantMessage
     }
   }
 }

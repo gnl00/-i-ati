@@ -4,20 +4,21 @@ import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import {
-  HostRenderStateController,
   type AgentRenderMessageState,
   type HostRenderEvent,
-  type HostRenderEventSink,
-  type HostRenderState
+  type HostRenderEventSink
 } from '@main/hosts/shared/render'
 import { serializeError } from '@main/utils/serializeError'
 import { ChatRenderMapper } from './ChatRenderMapper'
 import { ChatRenderOutput } from './ChatRenderOutput'
 
 export class ChatRenderResponder implements HostRenderEventSink {
-  private readonly state = new HostRenderStateController()
   private readonly mapper = new ChatRenderMapper()
   private readonly output: ChatRenderOutput
+  // P0：不再持有 HostRenderStateController（影子 reducer）。
+  // preview 的 previous/next 直接来自 HostRenderEventMapper 携带在 host event 上的数据，
+  // usage 直接从 host.usage.updated fold，committed 直接用 host event 里的 committed。
+  private lastUsage: ITokenUsage | undefined
 
   constructor(
     private readonly emitter: import('@main/orchestration/chat/run/infrastructure').RunEventEmitter,
@@ -39,10 +40,10 @@ export class ChatRenderResponder implements HostRenderEventSink {
   }
 
   async handle(event: HostRenderEvent): Promise<void> {
-    let previousState = this.state.snapshot()
-    const nextState = this.state.apply(event)
-    await this.handleHostRenderEvent(event, previousState, nextState)
-    previousState = nextState
+    if (event.type === 'host.usage.updated') {
+      this.lastUsage = event.usage
+    }
+    await this.handleHostRenderEvent(event)
   }
 
   getFinalAssistantMessage(): MessageEntity {
@@ -50,23 +51,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
   }
 
   getLastUsage(): ITokenUsage | undefined {
-    return this.state.snapshot().lastUsage
-  }
-
-  private shouldEmitPreviewTextPatch(
-    previousPreview: AgentRenderMessageState | null,
-    nextPreview: AgentRenderMessageState | null
-  ): boolean {
-    return Boolean(previousPreview && nextPreview && previousPreview.stepId === nextPreview.stepId)
-      && this.mapper.canEmitOptimizedTextPreviewPatch(previousPreview!, nextPreview!)
-  }
-
-  private shouldEmitPreviewReasoningPatch(
-    previousPreview: AgentRenderMessageState | null,
-    nextPreview: AgentRenderMessageState | null
-  ): boolean {
-    return Boolean(previousPreview && nextPreview && previousPreview.stepId === nextPreview.stepId)
-      && this.mapper.canEmitOptimizedReasoningPreviewPatch(previousPreview!, nextPreview!)
+    return this.lastUsage
   }
 
   private emitPreview(state: AgentRenderMessageState | null, timestamp: number): void {
@@ -82,9 +67,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
   }
 
   private async handleHostRenderEvent(
-    event: HostRenderEvent,
-    previousState: HostRenderState,
-    nextState: HostRenderState
+    event: HostRenderEvent
   ): Promise<void> {
     switch (event.type) {
       case 'host.lifecycle.updated':
@@ -92,17 +75,19 @@ export class ChatRenderResponder implements HostRenderEventSink {
         return
 
       case 'host.preview.updated':
-        if (this.shouldEmitPreviewTextPatch(previousState.preview, nextState.preview)) {
-          this.emitPreviewTextPatch(nextState.preview)
+        // P2：append 语义由 reducer 前移到 previewEffect，直接按字段决定 emit，
+        // 不再比较 previous/next preview blocks 把语义 diff 回来。
+        if (event.previewEffect === 'text_append') {
+          this.emitPreviewTextPatch(event.preview)
           return
         }
 
-        if (this.shouldEmitPreviewReasoningPatch(previousState.preview, nextState.preview)) {
-          this.emitPreviewReasoningPatch(nextState.preview)
+        if (event.previewEffect === 'reasoning_append') {
+          this.emitPreviewReasoningPatch(event.preview)
           return
         }
 
-        this.emitPreview(nextState.preview, event.timestamp)
+        this.emitPreview(event.preview, event.timestamp)
         return
 
       case 'host.preview.cleared':
@@ -111,7 +96,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
 
       case 'host.committed.updated':
         this.output.commitAssistantMessage(this.buildBody(
-          nextState.committed,
+          event.committed,
           event.timestamp,
           event.previewWasActive || this.output.getCommittedTypewriterCompleted()
         ))
