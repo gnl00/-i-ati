@@ -61,7 +61,10 @@ describe('MessageOperations', () => {
     expect(actionsGroup?.textContent).toContain('Edit')
     expect(actionsGroup?.textContent).not.toContain('Usage 165.2k')
     expect(metaGroup?.textContent).toContain('Usage 165.2k')
-    expect(metaGroup?.textContent).toContain('1970-01-01 08:00:00')
+    const pad = (value: number) => String(value).padStart(2, '0')
+    const createdAtDate = new Date(1)
+    const expectedDateLabel = `${createdAtDate.getFullYear()}-${pad(createdAtDate.getMonth() + 1)}-${pad(createdAtDate.getDate())} ${pad(createdAtDate.getHours())}:${pad(createdAtDate.getMinutes())}:${pad(createdAtDate.getSeconds())}`
+    expect(metaGroup?.textContent).toContain(expectedDateLabel)
     expect(actionsGroup?.className).toContain('opacity-0')
     expect(actionsGroup?.className).toContain('pointer-events-none')
     expect(metaGroup?.className).toContain('opacity-0')

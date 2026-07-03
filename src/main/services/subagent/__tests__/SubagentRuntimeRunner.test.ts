@@ -1,4 +1,32 @@
 import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('electron', () => ({
+  app: {
+    isReady: () => false,
+    isPackaged: false,
+    getPath: () => '/tmp'
+  },
+  BrowserWindow: class {},
+  shell: {
+    openExternal: vi.fn()
+  },
+  ipcMain: {
+    handle: vi.fn(),
+    on: vi.fn()
+  },
+  session: {}
+}))
+
+vi.mock('@main/main-window', () => ({
+  mainWindow: {
+    isDestroyed: () => false,
+    webContents: {
+      send: vi.fn()
+    }
+  },
+  getMainWindow: vi.fn(() => null)
+}))
+
 import { createSubagentConfirmationRequester } from '../runtime/SubagentRuntimeRunner'
 import { subagentRuntimeBridge } from '../subagent-runtime-bridge'
 

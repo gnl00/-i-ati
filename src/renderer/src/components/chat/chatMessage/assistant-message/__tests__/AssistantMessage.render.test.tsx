@@ -85,7 +85,11 @@ vi.mock('../toolcall/ToolCallResult', async () => {
     toolCall
   }: {
     toolCall: ToolCallSegment
-  }) => <span>{toolCall.name}</span>
+  }) => {
+    const key = toolCall.segmentId
+    toolCallRenderCounts.set(key, (toolCallRenderCounts.get(key) ?? 0) + 1)
+    return <span>{toolCall.name}</span>
+  }
 
   const ToolCallResultPanel = ({
     toolCall

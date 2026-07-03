@@ -386,7 +386,7 @@ describe('agent', () => {
       content: 'Final result',
       usage: {
         promptTokens: 11,
-        completionTokens: 0,
+        completionTokens: 3,
         totalTokens: 14,
         promptCacheHitTokens: 0,
         promptCacheMissTokens: 0,

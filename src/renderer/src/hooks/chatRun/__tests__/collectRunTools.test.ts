@@ -56,7 +56,7 @@ describe('collectRunTools', () => {
     ])
   })
 
-  it('limits mcp tools to selected servers', () => {
+  it('includes tools from all connected mcp servers', () => {
     useMcpRuntimeStore.getState().addServerTools('alpha', [
       mcpTool('alpha', 'search', 'Search alpha')
     ])
@@ -65,8 +65,9 @@ describe('collectRunTools', () => {
     ])
     useMcpRuntimeStore.getState().addSelectedServer('alpha')
 
-    expect(collectRunTools(state(), {}).map(tool => tool.name)).toEqual([
-      'alpha__search'
+    expect(collectRunTools(state(), {}).map(tool => tool.name).sort()).toEqual([
+      'alpha__search',
+      'beta__search'
     ])
   })
 

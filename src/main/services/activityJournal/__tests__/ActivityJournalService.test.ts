@@ -5,13 +5,15 @@ const {
   listEntriesMock,
   searchEntriesMock,
   databaseExecMock,
-  sqliteVecLoadMock
+  sqliteVecLoadMock,
+  loadExtensionMock
 } = vi.hoisted(() => ({
   saveEntryMock: vi.fn(),
   listEntriesMock: vi.fn(),
   searchEntriesMock: vi.fn(),
   databaseExecMock: vi.fn(),
-  sqliteVecLoadMock: vi.fn()
+  sqliteVecLoadMock: vi.fn(),
+  loadExtensionMock: vi.fn()
 }))
 
 vi.mock('@main/logging/LogService', () => ({
@@ -23,11 +25,20 @@ vi.mock('@main/logging/LogService', () => ({
   })
 }))
 
+vi.mock('electron', () => ({
+  app: {
+    isPackaged: false,
+    getPath: () => '/tmp'
+  }
+}))
+
 vi.mock('sqlite-vec', () => ({
   default: {
-    load: sqliteVecLoadMock
+    load: sqliteVecLoadMock,
+    getLoadablePath: () => '/mock/vec0'
   },
-  load: sqliteVecLoadMock
+  load: sqliteVecLoadMock,
+  getLoadablePath: () => '/mock/vec0'
 }))
 
 vi.mock('better-sqlite3', () => ({
@@ -35,6 +46,7 @@ vi.mock('better-sqlite3', () => ({
     return {
       pragma: vi.fn(),
       exec: databaseExecMock,
+      loadExtension: loadExtensionMock,
       close: vi.fn()
     }
   })
@@ -80,7 +92,8 @@ describe('ActivityJournalService', () => {
       tags: ['plugins', 'registry']
     })
 
-    expect(sqliteVecLoadMock).toHaveBeenCalledTimes(1)
+    expect(loadExtensionMock).toHaveBeenCalledTimes(1)
+    expect(loadExtensionMock).toHaveBeenCalledWith('/mock/vec0')
     expect(databaseExecMock).toHaveBeenCalled()
     expect(saveEntryMock).toHaveBeenCalledTimes(1)
     const savedRow = saveEntryMock.mock.calls[0][0]
