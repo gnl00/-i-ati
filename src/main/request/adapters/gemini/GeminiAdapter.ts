@@ -1,5 +1,6 @@
 import { withToolCallReasonParameters } from '@shared/tools/definitions-utils'
 import { BaseAdapter } from '../base'
+import { inferImageMimeTypeFromUrl, parseDataImageUrl } from '../multimodal'
 
 const THINKING_LEVELS: ThinkingLevel[] = ['minimal', 'low', 'medium', 'high']
 
@@ -19,6 +20,58 @@ const extractTextContent = (content: UnifiedRequestMessageContent): string => {
 }
 
 const createTextPart = (text: string): { text: string } => ({ text })
+
+const createImagePart = (url: string): Record<string, unknown> | undefined => {
+  const imageUrl = url.trim()
+  if (!imageUrl) {
+    return undefined
+  }
+
+  const dataImage = parseDataImageUrl(imageUrl)
+  if (dataImage) {
+    return {
+      inlineData: {
+        mimeType: dataImage.mediaType,
+        data: dataImage.data
+      }
+    }
+  }
+
+  const mimeType = inferImageMimeTypeFromUrl(imageUrl)
+  return {
+    fileData: {
+      ...(mimeType ? { mimeType } : {}),
+      fileUri: imageUrl
+    }
+  }
+}
+
+const toGeminiContentParts = (content: UnifiedRequestMessageContent): Array<Record<string, unknown>> => {
+  if (typeof content === 'string') {
+    return content ? [createTextPart(content)] : []
+  }
+
+  if (!Array.isArray(content)) {
+    return []
+  }
+
+  return content.flatMap((part): Array<Record<string, unknown>> => {
+    if (typeof part === 'string') {
+      return part ? [createTextPart(part)] : []
+    }
+
+    if (part?.type === 'text' && typeof part.text === 'string') {
+      return part.text ? [createTextPart(part.text)] : []
+    }
+
+    if (part?.type === 'image_url' && part.image_url?.url) {
+      const imagePart = createImagePart(part.image_url.url)
+      return imagePart ? [imagePart] : []
+    }
+
+    return []
+  })
+}
 
 const safeParseJson = (value: string | undefined): Record<string, unknown> => {
   if (!value || typeof value !== 'string') {
@@ -143,11 +196,7 @@ const transformMessages = (messages: UnifiedRequestMessage[], systemPrompt?: str
       continue
     }
 
-    const parts: Array<Record<string, unknown>> = []
-    const text = extractTextContent(message.content)
-    if (text) {
-      parts.push(createTextPart(text))
-    }
+    const parts = toGeminiContentParts(message.content)
 
     if (message.role === 'assistant' && Array.isArray(message.toolCalls)) {
       for (const toolCall of message.toolCalls) {

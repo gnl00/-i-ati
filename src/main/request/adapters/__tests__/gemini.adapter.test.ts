@@ -12,6 +12,62 @@ vi.mock('@main/db/config', () => ({
 const toDataChunk = (payload: Record<string, any>): string => `data: ${JSON.stringify(payload)}`
 
 describe('GeminiAdapter request mapping', () => {
+  it('serializes image_url parts into Gemini image parts', () => {
+    const adapter = new GeminiAdapter()
+
+    const request = createTestUnifiedRequest({
+      adapterPluginId: 'google-gemini-compatible-adapter',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      model: 'gemini-2.5-flash',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'data:image/jpeg;base64,abc123',
+              detail: 'auto'
+            }
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'https://cdn.example/image.png',
+              detail: 'high'
+            }
+          },
+          {
+            type: 'text',
+            text: 'Describe these images.'
+          }
+        ]
+      }]
+    })
+
+    const requestBody = adapter.buildRequest(request)
+
+    expect(requestBody.contents).toEqual([{
+      role: 'user',
+      parts: [
+        {
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: 'abc123'
+          }
+        },
+        {
+          fileData: {
+            mimeType: 'image/png',
+            fileUri: 'https://cdn.example/image.png'
+          }
+        },
+        {
+          text: 'Describe these images.'
+        }
+      ]
+    }])
+  })
+
   it('maps unified input to Gemini GenerateContent format', () => {
     const adapter = new GeminiAdapter()
 

@@ -1,4 +1,5 @@
 import { BaseAdapter } from './base'
+import { parseDataImageUrl } from './multimodal'
 
 interface ClaudeToolUseState {
   id: string
@@ -14,6 +15,33 @@ const toFiniteNumber = (value: unknown): number | undefined => (
 
 const getRequestThinkingOption = (req: IUnifiedRequest): UnifiedRequestThinkingOption | undefined => {
   return req.options?.thinking
+}
+
+const toClaudeImageBlock = (part: VLMContent): Record<string, unknown> | undefined => {
+  const imageUrl = part.image_url?.url?.trim()
+  if (!imageUrl) {
+    return undefined
+  }
+
+  const dataImage = parseDataImageUrl(imageUrl)
+  if (dataImage) {
+    return {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: dataImage.mediaType,
+        data: dataImage.data
+      }
+    }
+  }
+
+  return {
+    type: 'image',
+    source: {
+      type: 'url',
+      url: imageUrl
+    }
+  }
 }
 
 // Claude Messages API (v1) 适配器
@@ -309,11 +337,38 @@ export class ClaudeAdapter extends BaseAdapter {
 
       claudeMessages.push({
         role: 'user',
-        content: this.toClaudeText(msg.content)
+        content: this.toClaudeUserContent(msg.content)
       })
     }
 
     return claudeMessages
+  }
+
+  private toClaudeUserContent(content: UnifiedRequestMessage['content']): string | Record<string, unknown>[] {
+    if (!Array.isArray(content)) {
+      return this.toClaudeText(content)
+    }
+
+    const blocks = content.flatMap((item): Record<string, unknown>[] => {
+      if (typeof item === 'string') {
+        return item ? [{ type: 'text', text: item }] : []
+      }
+
+      if (item?.type === 'text' && typeof item.text === 'string') {
+        return item.text ? [{ type: 'text', text: item.text }] : []
+      }
+
+      if (item?.type === 'image_url') {
+        const imageBlock = toClaudeImageBlock(item)
+        return imageBlock ? [imageBlock] : []
+      }
+
+      return []
+    })
+
+    return blocks.some(block => block.type === 'image')
+      ? blocks
+      : this.toClaudeText(content)
   }
 
   private toClaudeText(content: UnifiedRequestMessage['content']): string {
@@ -323,6 +378,7 @@ export class ClaudeAdapter extends BaseAdapter {
     if (Array.isArray(content)) {
       return content
         .map(item => (typeof item === 'string' ? item : (item as any)?.text || ''))
+        .filter(Boolean)
         .join('\n')
     }
     return ''

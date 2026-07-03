@@ -119,6 +119,63 @@ describe('ClaudeAdapter tool use parsing', () => {
 })
 
 describe('ClaudeAdapter request mapping', () => {
+  it('serializes image_url parts into Claude image content blocks', () => {
+    const adapter = new ClaudeAdapter()
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
+      adapterPluginId: 'claude-compatible-adapter',
+      baseUrl: 'https://api.anthropic.com/v1',
+      model: 'claude-haiku',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'data:image/png;base64,abc123',
+              detail: 'auto'
+            }
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'https://cdn.example/image.jpg',
+              detail: 'high'
+            }
+          },
+          {
+            type: 'text',
+            text: 'Describe these images.'
+          }
+        ]
+      }]
+    }))
+
+    expect(requestBody.messages[0]).toEqual({
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/png',
+            data: 'abc123'
+          }
+        },
+        {
+          type: 'image',
+          source: {
+            type: 'url',
+            url: 'https://cdn.example/image.jpg'
+          }
+        },
+        {
+          type: 'text',
+          text: 'Describe these images.'
+        }
+      ]
+    })
+  })
+
   it('maps thinking level to Claude adaptive thinking fields', () => {
     const adapter = new ClaudeAdapter()
     const requestBody = adapter.buildRequest(createTestUnifiedRequest({
