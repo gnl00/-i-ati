@@ -83,7 +83,7 @@ const PermissionApprovalModeSelector: React.FC<PermissionApprovalModeSelectorPro
                   aria-label="Permission approval mode"
                 >
                   <CurrentIcon className="h-3.5 w-3.5" strokeWidth={2} />
-                  <span>{current.shortLabel}</span>
+                  <span className="select-none">{current.shortLabel}</span>
                   <ChevronDown
                     className={cn(
                       'h-3 w-3 opacity-55 transition-transform duration-200',
@@ -120,7 +120,7 @@ const PermissionApprovalModeSelector: React.FC<PermissionApprovalModeSelectorPro
                       )}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2} />
-                      <span className="min-w-0 flex-1 truncate">{meta.label}</span>
+                      <span className="min-w-0 flex-1 truncate select-none">{meta.label}</span>
                       <span className="text-[10px] text-muted-foreground">
                         {mode === 'manual' ? 'Ask first' : 'Approve'}
                       </span>
