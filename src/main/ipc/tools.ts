@@ -82,7 +82,8 @@ const logger = createLogger('ToolIPC')
 export function registerToolHandlers(): void {
   ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param, engine, fetchCounts, snippetsOnly }) => {
     logger.info('web_search.invoke', { engine: engine ?? 'bing', fetchCounts: fetchCounts ?? 'config/default', query: param, snippetsOnly })
-    return processWebSearch({ engine, fetchCounts, param, snippetsOnly })
+    // renderer 用户主动搜索：允许 Google 反爬弹窗人工验证
+    return processWebSearch({ engine, fetchCounts, param, snippetsOnly, interactive: true })
   })
 
   ipcMain.handle(WEB_FETCH_ACTION, (_event, args) => {

@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { mainWindow } from '@main/main-window'
 import { createLogger } from '@main/logging/LogService'
+import { Semaphore } from './util/Semaphore'
 
 interface WindowPoolConfig {
   searchWindowCount: number
@@ -17,14 +18,22 @@ interface PooledWindow {
 
 const logger = createLogger('BrowserWindowPool')
 
+// about:blank 清理导航的最长等待，超时也放行以免 permit 卡死
+const CLEAR_STATE_TIMEOUT = 2000
+
 class BrowserWindowPool {
   private searchWindows: PooledWindow[] = []
   private contentWindows: PooledWindow[] = []
   private config: WindowPoolConfig
   private isInitialized = false
+  // 固定容量信号量：容量 = 预建窗口数，acquire 先过闸再拿窗口，天然背压排队
+  private readonly searchSem: Semaphore
+  private readonly contentSem: Semaphore
 
   constructor(config: WindowPoolConfig) {
     this.config = config
+    this.searchSem = new Semaphore(config.searchWindowCount)
+    this.contentSem = new Semaphore(config.contentWindowCount)
   }
 
   /**
@@ -74,109 +83,120 @@ class BrowserWindowPool {
   }
 
   /**
-   * Acquire a search window from the pool
+   * Acquire a search window from the pool.
+   * 先获取信号量 permit（容量 = 池大小，满则排队），再取空闲窗口。
    */
   async acquireSearchWindow(): Promise<BrowserWindow> {
     if (!this.isInitialized) {
       await this.initialize()
     }
-
-    // Find an available window
-    const pooled = this.searchWindows.find(w => !w.inUse && !w.window.isDestroyed())
-
-    if (!pooled) {
-      // If no available window, create a new one
-      logger.warn('acquire_search_window.pool_exhausted_creating_new', {
-        existingWindows: this.searchWindows.length
-      })
-      const window = this.createSearchWindow()
-      const newPooled: PooledWindow = {
-        window,
-        inUse: true,
-        createdAt: Date.now(),
-        lastUsedAt: Date.now()
-      }
-      this.searchWindows.push(newPooled)
-      return window
+    await this.searchSem.acquire()
+    try {
+      return this.checkoutWindow(this.searchWindows, () => this.createSearchWindow())
+    } catch (err) {
+      this.searchSem.release()
+      throw err
     }
-
-    pooled.inUse = true
-    pooled.lastUsedAt = Date.now()
-    return pooled.window
   }
 
   /**
-   * Acquire a content window from the pool
+   * Acquire a content window from the pool.
    */
   async acquireContentWindow(): Promise<BrowserWindow> {
     if (!this.isInitialized) {
       await this.initialize()
     }
-
-    // Find an available window
-    const pooled = this.contentWindows.find(w => !w.inUse && !w.window.isDestroyed())
-
-    if (!pooled) {
-      // If no available window, create a new one
-      logger.warn('acquire_content_window.pool_exhausted_creating_new', {
-        existingWindows: this.contentWindows.length
-      })
-      const window = this.createContentWindow()
-      const newPooled: PooledWindow = {
-        window,
-        inUse: true,
-        createdAt: Date.now(),
-        lastUsedAt: Date.now()
-      }
-      this.contentWindows.push(newPooled)
-      return window
+    await this.contentSem.acquire()
+    try {
+      return this.checkoutWindow(this.contentWindows, () => this.createContentWindow())
+    } catch (err) {
+      this.contentSem.release()
+      throw err
     }
+  }
 
+  /**
+   * 从池中取一个空闲窗口标记为占用；若因崩溃留下空档则补建（不会超过容量，因为
+   * 已先过信号量闸门）。
+   */
+  private checkoutWindow(pool: PooledWindow[], create: () => BrowserWindow): BrowserWindow {
+    let pooled = pool.find(w => !w.inUse && !w.window.isDestroyed())
+    if (!pooled) {
+      const window = create()
+      pooled = { window, inUse: false, createdAt: Date.now(), lastUsedAt: Date.now() }
+      pool.push(pooled)
+    }
     pooled.inUse = true
     pooled.lastUsedAt = Date.now()
     return pooled.window
   }
 
   /**
-   * Release a search window back to the pool
+   * Release a search window back to the pool.
    */
-  releaseSearchWindow(window: BrowserWindow): void {
-    const pooled = this.searchWindows.find(w => w.window === window)
-    if (pooled) {
-      pooled.inUse = false
-      pooled.lastUsedAt = Date.now()
-      // Clear the window state
-      this.clearWindowState(window)
-    }
+  async releaseSearchWindow(window: BrowserWindow): Promise<void> {
+    await this.recycleWindow(this.searchWindows, window, this.config.searchWindowCount)
+    this.searchSem.release()
   }
 
   /**
-   * Release a content window back to the pool
+   * Release a content window back to the pool.
    */
-  releaseContentWindow(window: BrowserWindow): void {
-    const pooled = this.contentWindows.find(w => w.window === window)
-    if (pooled) {
-      pooled.inUse = false
-      pooled.lastUsedAt = Date.now()
-      // Clear the window state
-      this.clearWindowState(window)
-    }
+  async releaseContentWindow(window: BrowserWindow): Promise<void> {
+    await this.recycleWindow(this.contentWindows, window, this.config.contentWindowCount)
+    this.contentSem.release()
   }
 
   /**
-   * Clear window state (cookies, cache, history)
+   * 归还窗口：超容量或已销毁的直接 destroy 并移除，否则清理状态后复用。
+   * permit 由调用方在此之后释放，确保清理完成前不会被下一个 acquire 抢走。
    */
-  private clearWindowState(window: BrowserWindow): void {
+  private async recycleWindow(
+    pool: PooledWindow[],
+    window: BrowserWindow,
+    capacity: number
+  ): Promise<void> {
+    const index = pool.findIndex(w => w.window === window)
+    if (index === -1) {
+      // 窗口已被崩溃处理移除；permit 仍需释放（由调用方处理）
+      return
+    }
+
+    if (window.isDestroyed() || pool.length > capacity) {
+      pool.splice(index, 1)
+      if (!window.isDestroyed()) window.destroy()
+      return
+    }
+
+    const pooled = pool[index]
+    // 关键：先 await 清理完成，再翻 inUse=false。清理期间保持 inUse=true，使该窗口
+    // 对 checkoutWindow 的 find(w => !w.inUse) 不可见，避免并发 acquirer 选中一个
+    // 仍在导航 about:blank 的窗口后 loadURL(realUrl) 竞态导致 ERR_ABORTED。
+    await this.clearWindowState(window)
+    pooled.inUse = false
+    pooled.lastUsedAt = Date.now()
+  }
+
+  /**
+   * Clear window state by navigating to about:blank (bounded by timeout).
+   */
+  private async clearWindowState(window: BrowserWindow): Promise<void> {
     if (window.isDestroyed()) return
 
     try {
-      // Stop any ongoing navigation
       window.webContents.stop()
-
-      // Clear navigation history by loading about:blank
-      window.loadURL('about:blank').catch(() => {
-        // Ignore errors during cleanup
-      })
+      // 等待 about:blank 加载完成再放行，避免与下一次 loadURL(realUrl) 竞态导致 ERR_ABORTED
+      await Promise.race([
+        window.loadURL('about:blank').catch(() => {}),
+        new Promise<void>(resolve =>
+          setTimeout(() => {
+            // 超时放行前先中止未完成的 about:blank 导航，否则下次 loadURL(realUrl)
+            // 仍会与飞行中的导航竞态（Bing 路径不恢复 ERR_ABORTED，会直接失败）。
+            if (!window.isDestroyed()) window.webContents.stop()
+            resolve()
+          }, CLEAR_STATE_TIMEOUT)
+        )
+      ])
     } catch (err) {
       logger.error('clear_window_state.failed', err)
     }
