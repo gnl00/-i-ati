@@ -34,7 +34,7 @@ const ChatHeaderComponent: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps)
       className="header relative z-50 h-10 shrink-0 overflow-visible app-dragable"
       style={{ userSelect: 'none' }}
     >
-      <div className="pointer-events-none absolute inset-0 border-b border-black/[0.07] bg-white/50 dark:bg-zinc-950/50 backdrop-blur-3xl dark:border-white/8" />
+      <div className="pointer-events-none absolute inset-0 border-b border-black/[0.07] bg-white/90 dark:bg-zinc-950/50 backdrop-blur-3xl dark:border-white/8" />
 
       <div className="pointer-events-none relative z-10 grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4">
         <div className="flex min-w-0 items-center gap-4 justify-self-start">
