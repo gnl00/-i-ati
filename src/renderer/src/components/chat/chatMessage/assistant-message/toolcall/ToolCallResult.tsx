@@ -820,6 +820,7 @@ export const ToolCallResultPanel = React.memo(({
   toolResponse
 }: ToolCallResultPanelProps) => {
   const [showDetails, setShowDetails] = useState(false)
+  const shouldReduceMotion = Boolean(useReducedMotion())
 
   const resultPayload = useMemo(() => {
     return toolResponse?.result
@@ -918,9 +919,9 @@ export const ToolCallResultPanel = React.memo(({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 4, scale: 0.985 }}
+      animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: shouldReduceMotion ? 0.12 : 0.21, ease: [0.22, 1, 0.36, 1] }}
       className="relative overflow-hidden rounded-2xl"
     >
       {webSearchPayload ? (

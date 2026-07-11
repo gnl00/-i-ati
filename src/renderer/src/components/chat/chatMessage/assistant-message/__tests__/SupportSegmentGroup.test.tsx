@@ -553,11 +553,41 @@ describe('SupportSegmentGroup', () => {
     expect(row(container, 'tool-1')).toBe(firstToolRow)
     expect(row(container, 'tool-2')).toBeTruthy()
     expect(row(container, 'tool-2')?.closest('[data-motion-initial]')?.getAttribute('data-motion-initial'))
-      .toBe('{"opacity":0,"y":3}')
-    expect(row(container, 'tool-2')?.closest('[data-motion-initial]')?.getAttribute('data-motion-initial'))
-      .not.toContain('scale')
+      .toBe('{"opacity":0,"x":-16,"scale":0.97}')
+    expect(row(container, 'tool-2')?.closest('[data-motion-transition]')?.getAttribute('data-motion-transition'))
+      .toBe('{"layout":{"type":"spring","stiffness":420,"damping":36,"mass":0.8},"x":{"type":"spring","stiffness":400,"damping":30,"mass":0.7},"opacity":{"duration":0.16,"ease":[0.22,1,0.36,1]},"scale":{"type":"spring","stiffness":420,"damping":32,"mass":0.6}}')
     expect(container.querySelectorAll('[data-testid^="support-segment-tool-timeline-row-"]')).toHaveLength(2)
     expect(container.querySelector('[data-testid="support-segment-phase-tool"]')?.textContent).toContain('2 calls')
+  })
+
+  it('applies horizontal slide-in animation to appended thought rows', async () => {
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={[
+        reasoningItem({ id: 'thought-1', order: 0 })
+      ]} />)
+    })
+
+    const groupShell = container.querySelector('[data-testid="support-segment-group"]')
+    const firstThoughtRow = row(container, 'thought-1')
+
+    expect(firstThoughtRow).toBeTruthy()
+
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={[
+        reasoningItem({ id: 'thought-1', order: 0 }),
+        reasoningItem({ id: 'thought-2', order: 1 })
+      ]} />)
+    })
+
+    expect(container.querySelector('[data-testid="support-segment-group"]')).toBe(groupShell)
+    expect(row(container, 'thought-1')).toBe(firstThoughtRow)
+    expect(row(container, 'thought-2')).toBeTruthy()
+    expect(row(container, 'thought-2')?.closest('[data-motion-initial]')?.getAttribute('data-motion-initial'))
+      .toBe('{"opacity":0,"x":-12,"scale":0.98}')
+    expect(row(container, 'thought-2')?.closest('[data-motion-animate]')?.getAttribute('data-motion-animate'))
+      .toBe('{"opacity":1,"x":0,"scale":1}')
+    expect(row(container, 'thought-2')?.closest('[data-motion-transition]')?.getAttribute('data-motion-transition'))
+      .toBe('{"layout":{"type":"spring","stiffness":420,"damping":36,"mass":0.8},"x":{"type":"spring","stiffness":400,"damping":30,"mass":0.7},"opacity":{"duration":0.16,"ease":[0.22,1,0.36,1]},"scale":{"type":"spring","stiffness":420,"damping":32,"mass":0.6}}')
   })
 
   it('renders tool call reasons in grouped tool rows', async () => {

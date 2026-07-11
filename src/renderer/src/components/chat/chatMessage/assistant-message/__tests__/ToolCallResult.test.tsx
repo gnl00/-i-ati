@@ -5,18 +5,26 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
+const motionSettings = vi.hoisted(() => ({ reduced: false }))
+
 vi.mock('framer-motion', async () => {
   const React = await import('react')
 
   const passthrough = (tag: string) => (
     React.forwardRef<HTMLElement, Record<string, unknown> & { children?: React.ReactNode }>(({
       children,
-      animate: _animate,
-      initial: _initial,
+      animate,
+      initial,
       layout: _layout,
-      transition: _transition,
+      transition,
       ...props
-    }, ref) => React.createElement(tag, { ...props, ref } as any, children as React.ReactNode))
+    }, ref) => React.createElement(tag, {
+      ...props,
+      ref,
+      'data-motion-animate': JSON.stringify(animate),
+      'data-motion-initial': JSON.stringify(initial),
+      'data-motion-transition': JSON.stringify(transition)
+    } as any, children as React.ReactNode))
   )
 
   return {
@@ -24,11 +32,11 @@ vi.mock('framer-motion', async () => {
       div: passthrough('div'),
       span: passthrough('span')
     },
-    useReducedMotion: () => false
+    useReducedMotion: () => motionSettings.reduced
   }
 })
 
-import { ToolCallResult } from '../toolcall/ToolCallResult'
+import { ToolCallResult, ToolCallResultPanel } from '../toolcall/ToolCallResult'
 
 const createToolCallSegment = (
   status: string,
@@ -256,12 +264,37 @@ describe('ToolCallResult cost display', () => {
   let root: Root
 
   beforeEach(() => {
+    motionSettings.reduced = false
     vi.useFakeTimers()
     vi.setSystemTime(10_000)
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+  })
+
+  it('uses restrained panel entrance motion and removes spatial motion when reduced', async () => {
+    const toolCall = createToolCallSegment('completed', 180)
+
+    await act(async () => {
+      root.render(<ToolCallResultPanel toolCall={toolCall} toolResponse={undefined} />)
+    })
+
+    const panel = container.firstElementChild
+    expect(panel?.getAttribute('data-motion-initial')).toBe('{"opacity":0,"y":4,"scale":0.985}')
+    expect(panel?.getAttribute('data-motion-animate')).toBe('{"opacity":1,"y":0,"scale":1}')
+    expect(panel?.getAttribute('data-motion-transition'))
+      .toBe('{"duration":0.21,"ease":[0.22,1,0.36,1]}')
+
+    motionSettings.reduced = true
+    await act(async () => {
+      root.render(<ToolCallResultPanel toolCall={{ ...toolCall }} toolResponse={undefined} />)
+    })
+
+    expect(panel?.getAttribute('data-motion-initial')).toBe('{"opacity":0}')
+    expect(panel?.getAttribute('data-motion-animate')).toBe('{"opacity":1}')
+    expect(panel?.getAttribute('data-motion-transition'))
+      .toBe('{"duration":0.12,"ease":[0.22,1,0.36,1]}')
   })
 
   afterEach(async () => {

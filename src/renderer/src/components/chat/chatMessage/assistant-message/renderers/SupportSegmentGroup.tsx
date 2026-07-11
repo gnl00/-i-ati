@@ -89,9 +89,19 @@ interface ToolPhaseMetrics {
   totalDurationMs: number
 }
 
+/**
+ * Keeps row insertion and sibling repositioning visually coordinated:
+ * - layout uses a responsive spring for smooth repositioning
+ * - x (horizontal slide) uses spring for natural entrance from left
+ * - opacity uses fixed duration for predictable fade-in
+ * - scale uses spring for organic growth feeling
+ * New rows slide in from the left, establishing clear directionality.
+ */
 const supportSegmentRowAppendTransition: Transition = {
-  duration: 0.2,
-  ease: [0.22, 1, 0.36, 1]
+  layout: { type: 'spring', stiffness: 420, damping: 36, mass: 0.8 },
+  x: { type: 'spring', stiffness: 400, damping: 30, mass: 0.7 },
+  opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+  scale: { type: 'spring', stiffness: 420, damping: 32, mass: 0.6 }
 }
 
 const supportSegmentControlTransition: Transition = {
@@ -601,9 +611,9 @@ const SupportThoughtPhase = memo(({
             <motion.div
               key={item.key}
               layout={shouldReduceMotion ? false : 'position'}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 3 }}
-              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2 }}
+              initial={shouldReduceMotion ? false : { opacity: 0, x: -12, scale: 0.98 }}
+              animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0, scale: 1 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, x: -6, scale: 0.99 }}
               transition={supportSegmentRowAppendTransition}
             >
               <SupportReasoningGroupRow
@@ -719,9 +729,9 @@ const SupportToolPhase = memo(({
             <motion.div
               key={item.key}
               layout={shouldReduceMotion ? false : 'position'}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 3 }}
-              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -2 }}
+              initial={shouldReduceMotion ? false : { opacity: 0, x: -16, scale: 0.97 }}
+              animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0, scale: 1 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, x: -8, scale: 0.98 }}
               transition={supportSegmentRowAppendTransition}
             >
               <SupportToolPhaseTimelineRow
