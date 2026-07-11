@@ -1,67 +1,41 @@
 # Chat Top Mode Scroll Summary
 
-## Background
-- 现有聊天窗口在新消息与 stream chunk 到来时频繁“滚到底部”，导致抖动。
-- 目标改为顶部展示模式：最新用户消息置顶，stream 仅更新内容不触发滚动。
-- 在此基础上，进一步收敛 spacer 行为，避免“无内容空滚动”和滚动语义不一致。
+## 当前合同
 
-## Requirement Source
-- 需求来自对话中的连续交互反馈，核心诉求包括：
-  - 发送 `user-latest` 后，该消息应直接显示在 ChatWindow 顶部。
-  - assistant streaming 期间不应触发自动滚动，保持当前顶部锚点稳定。
-  - 用户上滚意图出现时显示 `scroll to latest message` 按钮。
-  - stream 结束后重算底部 spacer，按内容高度和窗口高度收敛布局。
-  - `__CHAT_WINDOW_MODE` 默认启用 `top` 模式。
+ChatWindowComponentNext 使用 `tail-follow`、`anchor-lock`、`manual` 三态滚动模型。新 user 消息建立顶部锚点；assistant 流式内容向下生长；用户浏览历史时保持当前视口；点击“跳回最新消息”后贴底并恢复尾部跟随。
 
-## Design
-- 统一为“顶部锚定 + 条件 spacer”的滚动模型：
-  - 自动滚动锚点：`latestUserForAutoTop`（避免顶到空 assistant placeholder）。
-  - 按钮锚点：`latestMessage`（最后一条）。
-  - spacer 用于保证“可把锚点顶到顶部”，但可在特定条件下禁用。
-- 滚动职责分层：
-  - `useScrollManagerTop` 负责滚动监听、按钮显隐、自动滚动触发。
-  - `ChatWindowComponentNext` 负责 spacer 计算、stream 结束收敛、业务条件判定。
+## 职责边界
 
-## Implementation
-- 新增顶部滚动 Hook：
-  - `src/renderer/src/hooks/useScrollManagerTop.ts`
-  - 仅在消息长度增长时自动滚动；stream chunk 不触发滚动。
-  - 合并“用户上滚意图”监听（wheel + scroll），并回调组件处理业务逻辑。
-- 新增顶部窗口组件：
-  - `src/renderer/src/components/chat/ChatWindowComponentNext.tsx`
-  - 使用 `@tanstack/react-virtual` 的 `useVirtualizer` 管理 chat history 虚拟列表。
-  - virtual item 使用稳定 message id 作为 key，避免 index 变化复用旧测量。
-  - 通过 `anchorTo: 'end'` + `followOnAppend` 表达尾部锚定与追加跟随策略。
-  - spacer/tail fill 计算基于 virtualizer 测量项与视口尺寸，latest visibility 采用 viewport-bound 判断。
-  - 动态高度由 `measureElement` 回填，`shouldAdjustScrollPositionOnItemSizeChange` instance hook 负责 item 尺寸变化时的锚点补偿。
-  - stream 结束时执行最终收敛：
-    - 若 latest assistant 高度 >= chat window 高度：禁用 spacer。
-    - 否则：`assistantHeight + spacerHeight = windowHeight`。
-  - 在“stream 已结束 + 用户上滚意图 + 视口满足阈值”时禁用 spacer。
-- 锚点策略统一函数：
-  - `src/renderer/src/components/chat/scroll-anchor.ts`
-  - 提供 `resolveAnchorIndex(messages, mode)`，减少多处锚点分叉。
-- 首页模式切换：
-  - `src/renderer/src/pages/HomeV2.tsx`
-  - `__CHAT_WINDOW_MODE` 默认值改为 `top`（仍支持 runtime 切换）。
-- 输入区兼容：
-  - `src/renderer/src/components/chat/chatInput/ChatInputArea.tsx`
-  - `onMessagesUpdate` 改为可选，兼容新旧窗口组件。
+- `ChatWindowComponentNext` 负责 scroll hint 策略、三态切换、动态 `paddingEnd`、一次性锚点校正、typewriter 完成和跳回最新行为。
+- `useScrollManagerTop` 负责 wheel/pointer 用户意图识别、程序滚动抑制和按钮事件锁存。
+- `scroll-anchor` 负责 user-sent 锚点解析、spacer 计算、首帧模式推导与末尾追尾策略，便于 focused tests 覆盖边界条件。
+- 定制 TanStack Virtual fork 继续承担动态测量、末尾判断和 item resize 补偿。
 
-## Final Behavior
-- 新用户消息发送：自动置顶显示。
-- assistant streaming：不自动滚动，只更新消息内容。
-- `scroll to latest message` 按钮：
-  - 用户上滚出现；
-  - 点击滚到最新消息区域；
-  - 并触发临时 spacer 禁用逻辑。
-- stream 结束：立即重算/收敛 spacer，避免残留空滚动。
+## Scroll Hint 策略
 
-## Optimization Notes
-- 已完成：
-  - 上滚监听合并。
-  - spacer 计算节流（rAF 合并 + 值变化才 setState + stream 节流轮询）。
-  - 锚点策略集中化。
-- 可继续（非阻断）：
-  - 按钮点击逻辑与 typewriter 状态更新进一步解耦（纯滚动职责）。
-  - 增补滚动回归测试（发送置顶、stream 稳定、结束收敛）。
+| Hint | 目标 | 对齐 | 模式 | 按钮 |
+| --- | --- | --- | --- | --- |
+| initial mount | 最后一项 | `end` | `tail-follow` | 隐藏 |
+| conversation-switch | hint index | hint align | `tail-follow` | 隐藏 |
+| user-sent | 精确 user message | `start` | `anchor-lock` | 隐藏 |
+| search-result | 精确 message | `start` | `manual` | 显示 |
+
+四类 hint 通过 `runScrollHint()` 共用状态更新、hint 清理、意图抑制和 RAF 滚动骨架，各 effect 保留自己的目标解析条件。
+
+## 虚拟列表参数
+
+- `paddingStart` 与 `scrollPaddingStart` 使用顶部遮挡高度。
+- `paddingEnd` 使用动态 spacer，基础值为 `12px`。
+- `followOnAppend` 只在 `tail-follow` 开启。
+- `anchorTo` 在 `tail-follow` 使用 `end`，在 `anchor-lock` 与 `manual` 使用 `start`。
+- 有效模式在 render 阶段结合当前 scroll hint 同步推导，确保 virtualizer 当次 `setOptions()` 获得最新追加策略。
+- `anchor-lock` 的初始实测校正最多写入一次 `scrollTop`；后续 resize 只更新 spacer。
+- `tail-follow` 已处于末尾时，向下用户意图继续保持追尾；向上意图进入 `manual` 并锁存按钮。
+- overscan 当前为 `4`，真实长会话出现空白帧时回调到 `5` 或 `6`。
+- virtual item 使用稳定 message key，并通过 `measureElement` 回填真实高度。
+
+## 验证
+
+自动化覆盖 user 锚点解析、pending assistant、spacer 收缩、三态 `anchorTo`、one-shot 校正与 viewport/overlay 变化，以及按钮显式锁存、切会话清理和 suppression 期间的真实 wheel/pointer 输入。
+
+真实流式验收仍需覆盖纯文本、代码块、reasoning、tool result 与 segment 首帧。完成该验收后再评估 `tail-follow` typing RAF 保险链。

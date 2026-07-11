@@ -18,8 +18,17 @@ import { useTaskPlan } from '@renderer/hooks/useTaskPlan'
 import { useSubagentRuntime } from '@renderer/hooks/useSubagentRuntime'
 import { useToolConfirmations } from '@renderer/hooks/useToolConfirmations'
 import { useScheduleNotifications } from '@renderer/hooks/useScheduleNotifications'
+import {
+  calculateAnchorLockBottomSpacer,
+  CHAT_BASE_PADDING_END_PX,
+  consumeAnchorLockCorrection,
+  resolveScrollModeForRender,
+  resolveUserSentAnchorIndex,
+  resolveVirtualizerAnchorTo,
+  shouldKeepTailFollowOnUserIntent,
+  type ChatScrollMode
+} from './scroll-anchor'
 
-const STREAMING_FOLLOW_RESTORE_THRESHOLD_PX = 24
 const CHAT_HEADER_OCCLUSION_PX = 48
 const CHAT_HEADER_OCCLUSION_PADDING_STYLE: React.CSSProperties = {
   paddingTop: CHAT_HEADER_OCCLUSION_PX
@@ -30,13 +39,11 @@ const CHAT_HEADER_OCCLUSION_HANDLE_STYLE: React.CSSProperties = {
 }
 const PENDING_USER_MESSAGE_ID = -1
 const CHAT_SCROLL_END_THRESHOLD_PX = 80
-const CHAT_VIRTUAL_OVERSCAN = 8
+const CHAT_VIRTUAL_OVERSCAN = 4
 const CHAT_ITEM_DEFAULT_ESTIMATE_PX = 160
 const CHAT_ITEM_PENDING_ASSISTANT_ESTIMATE_PX = 96
 const CHAT_ITEM_USER_ESTIMATE_PX = 180
 const CHAT_ITEM_ASSISTANT_ESTIMATE_PX = 220
-
-type ScrollMode = 'tail-follow' | 'manual'
 
 type PendingAssistantModel = {
   model?: string
@@ -255,11 +262,15 @@ const ChatWindowComponentNext: React.FC = () => {
   const isRunStreaming = runPhase === 'streaming'
   const topOverlayRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<ChatInputAreaHandle>(null)
-  const latestVisibleRef = useRef<boolean>(true)
-  const scrollModeRef = useRef<ScrollMode>('tail-follow')
+  const currentChatUuid = chatUuid ?? null
+  const scrollModeRef = useRef<ChatScrollMode>('tail-follow')
+  const scrollModeChatUuidRef = useRef<string | null>(currentChatUuid)
+  const [scrollMode, setScrollModeState] = useState<ChatScrollMode>('tail-follow')
+  const lockedAnchorMessageIdRef = useRef<number | null>(null)
+  const lockedAnchorKeyRef = useRef<string | null>(null)
+  const lockedAnchorCorrectionPendingRef = useRef<boolean>(false)
   const suppressScrollIntentRef = useRef<boolean>(false)
   const suppressScrollIntentReleaseRafRef = useRef<number>(0)
-  const userBrowsingHistoryRef = useRef<boolean>(false)
   const chatVirtualizerRef = useRef<ChatVirtualizer | null>(null)
   const initialScrollChatKeyRef = useRef<string | null>(null)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
@@ -270,6 +281,7 @@ const ChatWindowComponentNext: React.FC = () => {
     ? [pendingPlanReview.plan, ...activePlans]
     : activePlans
   const [topOverlayHeight, setTopOverlayHeight] = useState<number>(CHAT_HEADER_OCCLUSION_PX)
+  const [bottomSpacerHeight, setBottomSpacerHeight] = useState<number>(CHAT_BASE_PADDING_END_PX)
   const topOcclusionPx = displayPlans.length > 0 ? topOverlayHeight : CHAT_HEADER_OCCLUSION_PX
   const virtualListItems = useMemo<ChatVirtualListItem[]>(() => {
     const items: ChatVirtualListItem[] = displayMessages.map((message, index) => ({
@@ -293,27 +305,16 @@ const ChatWindowComponentNext: React.FC = () => {
     scrollParentRef,
     showJumpToLatest,
     isButtonFadingOut,
-    scrollToMessageIndex,
-    onVirtualizerChange
+    showJumpToLatestButton,
+    hideJumpToLatestButton,
+    scrollToMessageIndex
   } = useScrollManagerTop({
     messagesLength: virtualListItems.length,
     chatUuid,
     virtualizerRef: chatVirtualizerRef,
     onUserScrollIntentRef,
     onUserScrollUpIntentRef,
-    suppressScrollIntentRef,
-    onLatestVisibleChange: (visible) => {
-      if (
-        visible
-        && isRunStreaming
-        && !latestVisibleRef.current
-        && scrollModeRef.current === 'manual'
-      ) {
-        scrollModeRef.current = 'tail-follow'
-        userBrowsingHistoryRef.current = false
-      }
-      latestVisibleRef.current = visible
-    }
+    suppressScrollIntentRef
   })
 
   const lastMessageIndex = displayMessages.length - 1
@@ -360,10 +361,18 @@ const ChatWindowComponentNext: React.FC = () => {
     releaseAfterFrames(Math.max(1, frames))
   }, [])
 
+  const setScrollMode = useCallback((mode: ChatScrollMode) => {
+    scrollModeRef.current = mode
+    scrollModeChatUuidRef.current = currentChatUuid
+    setScrollModeState(currentMode => currentMode === mode ? currentMode : mode)
+  }, [currentChatUuid])
+
   const markManualBrowsing = useCallback(() => {
-    userBrowsingHistoryRef.current = true
-    scrollModeRef.current = 'manual'
-  }, [])
+    setScrollMode('manual')
+    lockedAnchorMessageIdRef.current = null
+    lockedAnchorKeyRef.current = null
+    lockedAnchorCorrectionPendingRef.current = false
+  }, [setScrollMode])
 
   const getVirtualItemKey = useCallback((index: number) => {
     return virtualListItems[index]?.key ?? `missing:${index}`
@@ -387,6 +396,70 @@ const ChatWindowComponentNext: React.FC = () => {
     return itemEnd <= viewportStart
   }, [topOcclusionPx])
 
+  const reconcileAnchorLockLayout = useCallback(() => {
+    if (scrollModeRef.current !== 'anchor-lock') return
+
+    const lockedAnchorKey = lockedAnchorKeyRef.current
+    const virtualizer = chatVirtualizerRef.current
+    const container = scrollParentRef.current
+    if (!lockedAnchorKey || !virtualizer || !container) return
+
+    const lockedAnchorMessageId = lockedAnchorMessageIdRef.current
+    const anchorIndex = lockedAnchorMessageId === null
+      ? virtualListItems.findIndex(item => item.key === lockedAnchorKey)
+      : virtualListItems.findIndex(item => (
+          item.type === 'message' && item.message.id === lockedAnchorMessageId
+        ))
+    if (anchorIndex < 0 || virtualListItems.length <= 0) return
+
+    const measuredItems = virtualizer.getVirtualItems()
+    const anchorItem = measuredItems.find(item => item.index === anchorIndex)
+    const latestItem = measuredItems.find(item => item.index === virtualListItems.length - 1)
+    if (!anchorItem || !latestItem) return
+
+    const nextSpacerHeight = calculateAnchorLockBottomSpacer({
+      anchorStart: anchorItem.start,
+      latestEnd: latestItem.end,
+      viewportHeight: container.clientHeight,
+      topOcclusionPx
+    })
+    const spacerChanged = bottomSpacerHeight !== nextSpacerHeight
+    if (spacerChanged) {
+      setBottomSpacerHeight(nextSpacerHeight)
+      return
+    }
+
+    if (!lockedAnchorCorrectionPendingRef.current) return
+
+    const anchorElement = container.querySelector<HTMLElement>(`[data-virtual-index="${anchorIndex}"]`)
+    if (!anchorElement) return
+
+    const anchorTop = anchorElement.getBoundingClientRect().top
+    const expectedTop = container.getBoundingClientRect().top + topOcclusionPx
+    const offset = anchorTop - expectedTop
+    // Consume the gate before writing scrollTop so later layout passes remain
+    // spacer-only even when the browser rounds the programmatic adjustment.
+    if (!consumeAnchorLockCorrection(lockedAnchorCorrectionPendingRef, {
+      spacerChanged,
+      offset
+    })) return
+
+    suppressUserScrollIntent(2)
+    container.scrollTop += offset
+  }, [
+    bottomSpacerHeight,
+    scrollParentRef,
+    suppressUserScrollIntent,
+    topOcclusionPx,
+    virtualListItems
+  ])
+
+  const effectiveScrollMode = resolveScrollModeForRender({
+    mode: scrollMode,
+    modeChatUuid: scrollModeChatUuidRef.current,
+    currentChatUuid,
+    scrollHint
+  })
   const chatVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: virtualListItems.length,
     getScrollElement: () => scrollParentRef.current,
@@ -395,17 +468,117 @@ const ChatWindowComponentNext: React.FC = () => {
     measureElement: measureChatElement,
     overscan: CHAT_VIRTUAL_OVERSCAN,
     paddingStart: topOcclusionPx,
-    paddingEnd: 12,
+    paddingEnd: bottomSpacerHeight,
     scrollPaddingStart: topOcclusionPx,
-    anchorTo: 'end',
-    followOnAppend: true,
+    anchorTo: resolveVirtualizerAnchorTo(effectiveScrollMode),
+    followOnAppend: effectiveScrollMode === 'tail-follow',
     scrollEndThreshold: CHAT_SCROLL_END_THRESHOLD_PX,
-    useAnimationFrameWithResizeObserver: true,
-    onChange: onVirtualizerChange
+    useAnimationFrameWithResizeObserver: true
   })
   chatVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = shouldAdjustScrollPositionOnItemSizeChange
   chatVirtualizerRef.current = chatVirtualizer
   const virtualRows = chatVirtualizer.getVirtualItems()
+
+  useLayoutEffect(() => {
+    initialScrollChatKeyRef.current = null
+    setScrollMode('tail-follow')
+    lockedAnchorMessageIdRef.current = null
+    lockedAnchorKeyRef.current = null
+    lockedAnchorCorrectionPendingRef.current = false
+    setBottomSpacerHeight(CHAT_BASE_PADDING_END_PX)
+  }, [chatUuid, setScrollMode])
+
+  useLayoutEffect(() => {
+    reconcileAnchorLockLayout()
+  }, [bottomSpacerHeight, reconcileAnchorLockLayout, virtualRows])
+
+  useLayoutEffect(() => {
+    const container = scrollParentRef.current
+    if (!container) return
+
+    let resizeRaf = 0
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizeRaf) {
+        cancelAnimationFrame(resizeRaf)
+      }
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = 0
+        reconcileAnchorLockLayout()
+      })
+    })
+    resizeObserver.observe(container)
+    return () => {
+      resizeObserver.disconnect()
+      if (resizeRaf) {
+        cancelAnimationFrame(resizeRaf)
+      }
+    }
+  }, [reconcileAnchorLockLayout, scrollParentRef])
+
+  const runScrollHint = useCallback(({
+    targetIndex,
+    align,
+    mode,
+    showJumpButton,
+    anchorMessageId = null,
+    clearHint = true
+  }: {
+    targetIndex: number
+    align: 'start' | 'center' | 'end'
+    mode: ChatScrollMode
+    showJumpButton: boolean
+    anchorMessageId?: number | null
+    clearHint?: boolean
+  }) => {
+    const targetItem = virtualListItems[targetIndex]
+    if (!targetItem) return
+
+    initialScrollChatKeyRef.current = chatUuid ?? 'empty-chat'
+    setScrollMode(mode)
+    lockedAnchorMessageIdRef.current = mode === 'anchor-lock' ? anchorMessageId : null
+    lockedAnchorKeyRef.current = mode === 'anchor-lock' ? targetItem.key : null
+    lockedAnchorCorrectionPendingRef.current = false
+
+    if (mode === 'anchor-lock') {
+      const viewportHeight = scrollParentRef.current?.clientHeight ?? 0
+      setBottomSpacerHeight(Math.max(
+        CHAT_BASE_PADDING_END_PX,
+        viewportHeight - topOcclusionPx
+      ))
+    } else {
+      setBottomSpacerHeight(CHAT_BASE_PADDING_END_PX)
+    }
+
+    if (showJumpButton) {
+      showJumpToLatestButton()
+    } else {
+      hideJumpToLatestButton()
+    }
+    if (clearHint) {
+      clearScrollHint()
+    }
+
+    requestAnimationFrame(() => {
+      suppressUserScrollIntent(3)
+      scrollToMessageIndex(targetIndex, false, align)
+      if (mode !== 'anchor-lock') return
+
+      lockedAnchorCorrectionPendingRef.current = true
+      requestAnimationFrame(reconcileAnchorLockLayout)
+    })
+  }, [
+    chatUuid,
+    clearScrollHint,
+    hideJumpToLatestButton,
+    reconcileAnchorLockLayout,
+    scrollParentRef,
+    scrollToMessageIndex,
+    setScrollMode,
+    showJumpToLatestButton,
+    suppressUserScrollIntent,
+    topOcclusionPx,
+    virtualListItems
+  ])
 
   useLayoutEffect(() => {
     if (virtualListItems.length <= 0) return
@@ -414,14 +587,14 @@ const ChatWindowComponentNext: React.FC = () => {
     const chatKey = chatUuid ?? 'empty-chat'
     if (initialScrollChatKeyRef.current === chatKey) return
 
-    initialScrollChatKeyRef.current = chatKey
-    userBrowsingHistoryRef.current = false
-    scrollModeRef.current = 'tail-follow'
-    requestAnimationFrame(() => {
-      suppressUserScrollIntent(3)
-      chatVirtualizerRef.current?.scrollToEnd({ behavior: 'auto' })
+    runScrollHint({
+      targetIndex: latestVirtualIndex,
+      align: 'end',
+      mode: 'tail-follow',
+      showJumpButton: false,
+      clearHint: false
     })
-  }, [chatUuid, scrollHint, suppressUserScrollIntent, virtualListItems.length])
+  }, [chatUuid, latestVirtualIndex, runScrollHint, scrollHint, virtualListItems.length])
 
   useLayoutEffect(() => {
     if (scrollHint.type !== 'conversation-switch') return
@@ -431,22 +604,18 @@ const ChatWindowComponentNext: React.FC = () => {
       return
     }
 
-    const chatKey = chatUuid ?? 'empty-chat'
-    initialScrollChatKeyRef.current = chatKey
     const targetIndex = Math.min(scrollHint.index, Math.max(virtualListItems.length - 1, 0))
-    userBrowsingHistoryRef.current = false
-    scrollModeRef.current = 'tail-follow'
-    clearScrollHint()
-    requestAnimationFrame(() => {
-      suppressUserScrollIntent(3)
-      scrollToMessageIndex(targetIndex, false, scrollHint.align)
+    runScrollHint({
+      targetIndex,
+      align: scrollHint.align,
+      mode: 'tail-follow',
+      showJumpButton: false
     })
   }, [
     chatUuid,
     clearScrollHint,
-    scrollToMessageIndex,
+    runScrollHint,
     scrollHint,
-    suppressUserScrollIntent,
     virtualListItems.length
   ])
 
@@ -455,33 +624,22 @@ const ChatWindowComponentNext: React.FC = () => {
     if (scrollHint.chatUuid !== (chatUuid ?? null)) return
     if (virtualListItems.length <= 0) return
 
-    const anchorIndex = scrollHint.messageId !== undefined
-      ? virtualListItems.findIndex(item => item.type === 'message' && item.message.id === scrollHint.messageId)
-      : latestVirtualIndex
-    const resolvedTargetIndex = scrollHint.messageId !== undefined
-      ? anchorIndex
-      : latestVirtualIndex
-    if (scrollHint.messageId !== undefined && anchorIndex < 0) {
-      return
-    }
-    if (resolvedTargetIndex < 0) return
+    const targetIndex = resolveUserSentAnchorIndex(virtualListItems, scrollHint.messageId)
+    if (targetIndex < 0) return
 
-    const chatKey = chatUuid ?? 'empty-chat'
-    initialScrollChatKeyRef.current = chatKey
-    userBrowsingHistoryRef.current = false
-    scrollModeRef.current = 'tail-follow'
-    clearScrollHint()
-    requestAnimationFrame(() => {
-      suppressUserScrollIntent(3)
-      scrollToMessageIndex(latestVirtualIndex, false, 'end')
+    const targetItem = virtualListItems[targetIndex]
+    const targetMessageId = targetItem.type === 'message' ? targetItem.message.id ?? null : null
+    runScrollHint({
+      targetIndex,
+      align: 'start',
+      mode: 'anchor-lock',
+      showJumpButton: false,
+      anchorMessageId: targetMessageId
     })
   }, [
     chatUuid,
-    clearScrollHint,
-    latestVirtualIndex,
+    runScrollHint,
     scrollHint,
-    scrollToMessageIndex,
-    suppressUserScrollIntent,
     virtualListItems
   ])
 
@@ -494,33 +652,26 @@ const ChatWindowComponentNext: React.FC = () => {
       return
     }
 
-    const chatKey = chatUuid ?? 'empty-chat'
-    initialScrollChatKeyRef.current = chatKey
-    markManualBrowsing()
-    clearScrollHint()
-    requestAnimationFrame(() => {
-      suppressUserScrollIntent(3)
-      scrollToMessageIndex(targetIndex, false, 'start')
+    runScrollHint({
+      targetIndex,
+      align: 'start',
+      mode: 'manual',
+      showJumpButton: true
     })
   }, [
     chatUuid,
-    clearScrollHint,
-    markManualBrowsing,
+    runScrollHint,
     scrollHint,
-    scrollToMessageIndex,
-    suppressUserScrollIntent,
     virtualListItems
   ])
 
   useEffect(() => {
     onUserScrollIntentRef.current = () => {
       const virtualizer = chatVirtualizerRef.current
-      if (virtualizer?.isAtEnd(STREAMING_FOLLOW_RESTORE_THRESHOLD_PX)) {
-        scrollModeRef.current = 'tail-follow'
-        userBrowsingHistoryRef.current = false
-        return
-      }
-
+      if (shouldKeepTailFollowOnUserIntent(
+        scrollModeRef.current,
+        virtualizer?.isAtEnd(CHAT_SCROLL_END_THRESHOLD_PX) ?? false
+      )) return
       markManualBrowsing()
     }
 
@@ -564,13 +715,25 @@ const ChatWindowComponentNext: React.FC = () => {
         void patchMessageUiState(updatedMessage.id, { typewriterCompleted: true })
       }
     }
-    userBrowsingHistoryRef.current = false
-    scrollModeRef.current = 'tail-follow'
-    // Button targets the latest message (confirmed behavior).
+    setScrollMode('tail-follow')
+    lockedAnchorMessageIdRef.current = null
+    lockedAnchorKeyRef.current = null
+    lockedAnchorCorrectionPendingRef.current = false
+    setBottomSpacerHeight(CHAT_BASE_PADDING_END_PX)
+    hideJumpToLatestButton(true)
     scrollToMessageIndex(latestVirtualIndex, true, 'end')
-  }, [renderedLatestAssistant, displayMessages.length, latestVirtualIndex, isRunStreaming, scrollToMessageIndex, patchMessageUiState, upsertMessage, lastMessageIndex])
-
-  
+  }, [
+    renderedLatestAssistant,
+    displayMessages.length,
+    hideJumpToLatestButton,
+    latestVirtualIndex,
+    isRunStreaming,
+    scrollToMessageIndex,
+    setScrollMode,
+    patchMessageUiState,
+    upsertMessage,
+    lastMessageIndex
+  ])
 
   // Detect first message - trigger exit animation then hide welcome
   const hasVisibleTranscript = displayMessages.length > 0
@@ -604,13 +767,6 @@ const ChatWindowComponentNext: React.FC = () => {
       hasShownWelcomeRef.current = false
     }
   }, [chatUuid, hasVisibleTranscript])
-
-  useEffect(() => {
-    initialScrollChatKeyRef.current = null
-    scrollModeRef.current = 'tail-follow'
-    latestVisibleRef.current = true
-    userBrowsingHistoryRef.current = false
-  }, [chatUuid])
 
   useLayoutEffect(() => {
     if (displayPlans.length === 0) {
@@ -651,14 +807,20 @@ const ChatWindowComponentNext: React.FC = () => {
   }, [])
 
   const handleLatestAssistantTyping = useCallback(() => {
+    if (scrollModeRef.current === 'anchor-lock') {
+      requestAnimationFrame(reconcileAnchorLockLayout)
+      return
+    }
     if (scrollModeRef.current !== 'tail-follow') {
       return
     }
+    // Keep this insurance path until real streaming verifies that resize
+    // compensation covers segment-first-frame and complex Markdown timing.
     requestAnimationFrame(() => {
       if (scrollModeRef.current !== 'tail-follow') return
       chatVirtualizerRef.current?.scrollToEnd({ behavior: 'auto' })
     })
-  }, [])
+  }, [reconcileAnchorLockLayout])
 
   return (
     <>
@@ -779,6 +941,7 @@ const ChatWindowComponentNext: React.FC = () => {
                           key={virtualRow.key}
                           ref={chatVirtualizer.measureElement}
                           data-index={item.messageIndex}
+                          data-virtual-index={virtualRow.index}
                           data-message-id={message?.id ?? undefined}
                           data-message-role={message?.body.role ?? 'assistant'}
                           className="w-full min-h-px"

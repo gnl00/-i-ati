@@ -1,158 +1,59 @@
 # Chat Top Anchor Lock Current Design
 
-## Goal
+## 目标行为
 
-当前聊天窗口的滚动目标是：
+- 用户发送消息后，该 user message 第一行对齐聊天视口顶部。
+- assistant 流式输出期间保持 user 锚点，内容向下生长。
+- 用户产生有效浏览意图后进入手动浏览；向上滚动时显示“跳回最新消息”。
+- 点击按钮后贴到最新消息底部，并恢复尾部跟随。
+- 切换会话与搜索跳转保留原有目标语义。
 
-- 用户发送消息后，最新 user message 立即滚到视口顶部。
-- assistant streaming 期间，顶部锚点保持稳定，不因为列表测量或内容增长发生漂移。
-- 底部 spacer 只承担“补足尾部高度，让 user message 能顶到顶部”的职责。
-- 用户明确滚动后，自动退出锚点锁定，恢复手动滚动语义。
+## 三态模型
 
-## Core Model
+- `tail-follow`：初次进入、切换会话和点击跳回最新后的尾部跟随状态。
+- `anchor-lock`：`user-sent` 建立的本轮 user 顶部锚点。追加跟随关闭，assistant resize 只触发 spacer 收敛。
+- `manual`：用户显式滚动或搜索跳转后的浏览状态。手动滚到底部仍保持该状态，按钮承担显式恢复入口。
 
-当前实现采用三态滚动模型：
+## 锚点与动态尾部填充
 
-- `tail-follow`
-  - 正常跟随尾部，适用于切会话和 jump to latest。
-- `anchor-lock`
-  - 锁定当前轮最新 user message。
-  - assistant 更新时只允许两类动作：重算 spacer、补偿 anchor。
-- `manual`
-  - 用户显式滚动后进入。
-  - 不再自动维持顶部锚点。
+`user-sent` 优先通过 hint 的 `messageId` 定位 user message；hint 未携带 id 时回退到当前列表最后一条 user message。pending assistant 不参与锚点选择。
 
-顶部锚点固定为 `latestUserForAutoTop`，不会在 assistant 开始输出后切到 assistant 自身。
+首帧先把 `paddingEnd` 预填充到可用视口高度，确保 `align: 'start'` 拥有足够滚动空间。完成虚拟项测量后按下式收敛：
 
-## Layout Structure
+```text
+tailHeight = latestItem.end - anchorItem.start
+availableViewportHeight = viewportHeight - topOcclusionPx
+paddingEnd = max(basePaddingEnd, ceil(availableViewportHeight - tailHeight))
+```
 
-`PlanBar` 已移出消息滚动容器。当前结构是：
+assistant 增长时 `tailHeight` 增加，spacer 单调收缩到基础值 `12px`。容器 resize、顶部计划栏高度变化和 virtual item 测量更新都会复用同一计算。
 
-- 会话级 UI 放在 scroll container 外部
-- `useVirtualizer` 只负责 transcript
-- 底部空白作为 TanStack Virtual tail spacer 参与 scroll geometry
-- virtual item 使用稳定 message id 作为 key，测量缓存跟随消息身份
+## 追加与 resize 策略
 
-这样可以避免列表外 UI 的高度变化污染 transcript 的几何关系。
+- `followOnAppend` 只在 `tail-follow` 开启。
+- render 阶段会结合当前会话的 scroll hint 同步推导有效模式，`user-sent` 首帧即关闭 `followOnAppend`，`search-result` 和 `conversation-switch` 同步进入各自模式。
+- virtualizer 的 `anchorTo` 随有效模式切换：`tail-follow` 使用 `end`，`anchor-lock` 与 `manual` 使用 `start`。
+- `tail-follow` 且位于末尾阈值时，item resize 继续保持底部锚定。
+- `anchor-lock` 与 `manual` 只补偿完全位于视口顶部之前的 item。
+- 初次 `scrollToIndex(..., { align: 'start' })` 完成后武装一次性校正。spacer 实测值稳定后，锚点 DOM 与预期顶部偏差超过 `1px` 时校正一次 `scrollTop`，随后消费校正 gate。
+- 后续 layout 与流式 resize 只更新 spacer，滚动位置交由 start anchor 和用户输入管理。
 
-## Spacer Rule
+## 退出与恢复
 
-`bottomSpacerHeight` 的计算基于：
+wheel 和 pointer-active scroll 代表明确用户意图，即使处于程序滚动 suppression 窗口也会派发。`anchor-lock` 收到这些意图后进入 `manual`。`tail-follow` 已处于末尾时，向下 wheel 或 pointer 意图继续保持追尾；向上意图进入 `manual` 并锁存按钮。普通 scroll 事件可能来自虚拟列表测量、spacer 更新或程序滚动，suppression 只过滤这类缺少用户输入来源的事件。
 
-- `anchorTop`
-- `latestBottom`
-- `tailHeight = latestBottom - anchorTop`
-- `requiredViewportFill = viewportHeight - tailHeight`
+退出锚定时保留当下 spacer 高度，避免缩短滚动范围造成视口跳动；`manual` 期间停止 spacer 自动收敛。点击跳回最新、新 user-sent 或切换会话时再重置或重建 spacer。
 
-最终：
+“跳回最新消息”按钮由事件锁存：用户向上滚动或搜索跳转时显示；点击按钮、切换会话、空列表和新的 user-sent 时隐藏。用户意图事件与显式按钮操作完整管理模式转换。
 
-- `nextBottomSpacerHeight = max(0, floor(requiredViewportFill))`
+## 流式追尾保险链
 
-含义是：如果“锚点到尾部”的内容高度还不足以撑满视口，就用 Footer spacer 把剩余空间补满；如果已经足够高，spacer 自然收敛到 `0`。
+`anchor-lock` 下的 `handleLatestAssistantTyping()` 只请求锚点布局收敛。`tail-follow` 下暂时保留 `scrollToEnd()` RAF 保险链，用于覆盖 segment 首帧与复杂 Markdown 测量时序。该链路等待真实流式验收后再决定去留。
 
-## User-Sent Flow
-
-用户发送消息时执行两阶段：
-
-1. 进入 `anchor-lock`
-2. 记录 `lockedAnchorMessageId`
-3. 先写入一个初始 spacer，确保列表有足够滚动空间
-4. 调用 `scrollToMessageIndex(anchorIndex, false, 'start')`
-5. 下一帧进入 layout pass，用真实几何继续收敛 spacer
-
-这里的关键点是：
-
-- “首帧滚到顶部”与“后续布局收敛”分开处理
-- 锚点消息优先通过 `messageId` 锁定，而不是只靠 index 推断
-
-## Assistant Update Flow
-
-assistant 更新时，不再改变滚动模式，只触发 layout pass。
-
-layout pass 的职责只有两件事：
-
-1. 计算新的 spacer
-2. 检查锚点元素相对容器顶部的偏差，并立即补偿 `scrollTop`
-
-当前实现已经避免了旧问题：
-
-- 过去 spacer 更新后会直接 `return`
-- 结果是这一帧先改 spacer，下一帧才补偿 anchor
-- 用户会看到顶部“闪一下”
-
-现在 spacer 更新和 anchor 补偿在同一轮 layout pass 内完成，因此 assistant 首次输出时的可见跳动显著降低。
-
-## Stable And Unstable Reasons
-
-当前只允许以下 reason 直接收缩 spacer：
-
-- `user-sent`
-- `conversation-switch`
-- `container-mounted`
-- `container-resize`
-- `virtual-item-size-changed`
-
-`typing-change` 和普通 `transcript-change` 默认不主动触发 spacer shrink。这样可以避免 streaming 中由于瞬时文本状态变化导致 spacer 频繁抖动。
-
-TanStack Virtual 的动态高度链路是：
-
-- `useVirtualizer` 生成 transcript virtual items
-- `measureElement` 回填每条消息的真实高度
-- `shouldAdjustScrollPositionOnItemSizeChange` instance hook 在尺寸变化时进入锚点补偿
-- latest visibility 绑定当前 viewport，避免 reader dialog 或容器外 UI 改变可见性判断
-
-## Exit Conditions
-
-`anchor-lock` 不会因为普通 `scroll` 事件退出。
-
-当前只接受明确用户输入：
-
-- `wheel`
-- `pointer`
-
-其中：
-
-- `wheel` 覆盖鼠标滚轮
-- `pointer` 主要覆盖拖动滚动条
-
-单纯的 `scrollTop` 变化不再被当成用户意图，因为它也可能来自：
-
-- TanStack Virtual 动态测量
-- spacer 变化
-- anchor 补偿
-- assistant 内容增长
-
-这是本轮修复里最关键的结构调整之一。
-
-## Conversation Switch
-
-切换会话时：
-
-- 清空锁定锚点
-- 重置 spacer
-- 切回 `tail-follow`
-- 通过显式 scroll hint 定位目标 index
-- `useVirtualizer` 通过 `chatUuid` 级别实例重建和稳定 message id key 刷新会话测量缓存
-
-## Follow And Visibility Policy
-
-- `anchorTo: 'end'` 表达默认尾部锚定。
-- `followOnAppend` 负责新消息追加时的跟随策略。
-- `latest visibility` 使用 viewport-bound 判断，只有 latest message 在当前视口范围内时才保持尾部跟随。
-- reader dialog 打开、关闭或改变尺寸时，滚动语义仍以 scroll container viewport 为准。
-
-## Relevant Files
+## 相关文件
 
 - `src/renderer/src/components/chat/ChatWindowComponentNext.tsx`
-- `src/renderer/src/hooks/useScrollManagerTop.ts`
 - `src/renderer/src/components/chat/scroll-anchor.ts`
-
-## Invariants
-
-后续如果继续优化，这几条建议保持不变：
-
-- 顶部锚点始终锁 user message，而不是 latest assistant
-- transcript 外 UI 不进入 TanStack Virtual scroll geometry
-- spacer 只表示“尾部补高”，不承载其它布局语义
-- 退出 `anchor-lock` 必须来自明确用户输入，而不是普通 `scroll`
-- spacer 更新与 anchor 补偿应尽量在同一轮完成
+- `src/renderer/src/hooks/useScrollManagerTop.ts`
+- `src/renderer/src/components/chat/__tests__/chatScrollPolicy.test.ts`
+- `src/renderer/src/hooks/__tests__/useScrollManagerTop.test.tsx`

@@ -1,105 +1,45 @@
 # Chat Top Mode Scroll Fix Summary
 
-## 背景
+## 本轮修复
 
-本轮修复的目标是让 `top mode` 聊天窗口满足以下体验：
+### user-sent 目标
 
-- 消息顺序保持正常时间序，旧消息在上，新消息在下。
-- 发送最新 user 消息后，这条 `user-latest` 必须立即出现在可视区顶端。
-- assistant streaming 期间只更新消息内容，不应把视图重新推到底部，也不应让顶端锚点漂移。
-- footer padding spacer 应随文本高度变化动态收缩，而不是在错误时机残留或抖动。
+原实现计算了 `anchorIndex`，执行阶段仍固定滚到末项底部。本轮统一使用精确 user target 与 `align: 'start'`，hint 带 id 时等待该消息进入列表，缺少 id 时选择最后一条 user message。
 
-## 关键问题
+### 顶部对齐空间
 
-### 1. 自动置顶锚点语义错误
+固定 `paddingEnd: 12` 无法支持短尾部内容的顶部对齐。本轮增加两阶段动态 spacer：首帧按可用视口预填充，测量后按 user 锚点到末项的 tail height 收敛。assistant 增长会让 spacer 缩小，user 顶部保持稳定。
 
-最初 `latestUserForAutoTop` 只在 latest assistant 还是空 placeholder 时才返回上一条 user。  
-一旦 assistant 开始输出文本，锚点就切换成 latest assistant，导致 top line 从 `user-latest` 漂到 `assistant-latest`。
+### 追加与流式行为
 
-### 2. spacer 计算目标错误
+`anchor-lock` 和 `manual` 关闭 `followOnAppend` 并使用 `anchorTo: 'start'`；`tail-follow` 使用 `anchorTo: 'end'`。render 阶段同步结合当前 scroll hint 推导有效模式，确保 `user-sent` 首次 `setOptions()` 已使用顶部锚定策略。item resize 仅补偿视口上方内容。初次实测对齐通过一次性 gate 最多校正一次 `scrollTop`，后续流式更新只收敛 spacer。typing callback 在 `anchor-lock` 只触发布局收敛；`tail-follow` 的 RAF 追尾保险链等待真实流式验证。
 
-早期 spacer 只参考“最后一条消息高度”，没有以“当前轮 user 锚点到尾部总高度”作为计算基准。  
-这会让 top-mode 语义错位，尤其在 assistant/toolcall 出现后更明显。
+### 抖动回归修复
 
-### 3. streaming 期间把所有高度变化都当成 spacer 更新信号
+旧实现的持续顶部校正与 virtualizer 尾部 resize 补偿形成反馈回路，并反复刷新 suppression。当前实现按三态选择一致的锚定方向，顶部校正收敛为 one-shot，wheel 与 pointer-active scroll 在 suppression 期间仍派发用户意图。输出完成后用户可立即下滚并进入 `manual`。
 
-toolcall / reasoning / status 变化与 text segment 增长共用同一条 assistant message。  
-如果 streaming 期间对所有高度变化都重算 spacer，就会引入不必要的抖动。
+### 按钮语义
 
-### 4. toolcall 高度变化导致 top line 漂移
+按钮状态改为用户意图锁存。用户向上滚动和搜索跳转显示按钮；点击按钮后淡出并切回 `tail-follow`；切会话、空列表和 user-sent 清理按钮。`tail-follow` 位于末尾时的向下意图保持追尾状态。
 
-item 动态高度变化会刷新虚拟列表测量缓存和 scroll offset。  
-如果 latest assistant 在 streaming 中插入 toolcall 卡片或状态变化，`user-latest` 可能被慢慢顶出顶部。
+### 公共执行骨架与清理
 
-### 5. chat 切换时旧 spacer 残留
-
-从 ChatSheet 点击切换到另一个 chat 时，虽然 `messages` 已切换，但旧的 spacer 高度和挂起的 rAF 可能仍残留一帧，导致新 chat 初始 footer spacer 不为 0。
-
-## 修复方案
-
-### 1. 固定自动置顶锚点到“当前轮最近 user”
-
-`latestUserForAutoTop` 现在始终从尾部向前查找最近一条 `user`。  
-因此 assistant 开始输出后，top line 仍然保持为 `user-latest`。
-
-### 2. spacer 改为基于“锚点到尾部”的 tail height 计算
-
-footer spacer 不再只看最后一条消息，而是计算：
-
-- `anchor = latestUserForAutoTop`
-- `tailHeight = latestMessage.bottom - anchor.top`
-
-然后用 `viewportHeight - tailHeight` 计算 footer spacer。
-
-### 3. 仅在 text segment / typewriter 推进时动态更新 spacer
-
-spacer 现在主要由以下事件触发重算：
-
-- 新消息插入
-- text segment 内容增长
-- typewriter 推进
-- 容器 resize
-- stream 结束后的正常收敛测量
-
-toolcall / reasoning / error 等非文本变化不再直接驱动 spacer 更新。
-
-### 4. 使用 TanStack Virtual 的动态测量与 instance hook 做 top-anchor lock
-
-`useVirtualizer` 通过 `measureElement` 接收消息行的真实高度。  
-`shouldAdjustScrollPositionOnItemSizeChange` instance hook 会在 item 尺寸变化时进入锚点补偿逻辑。  
-当 latest assistant 因 toolcall 或动态内容导致 tail height 变化时，layout pass 会重算 spacer，并把 `latestUserForAutoTop` 补偿回 `start`，保证 top line 稳定。
-
-### 5. 减少 toolcall 渲染对虚拟列表测量的干扰
-
-`ToolCallResult` 去掉了外层纵向 `margin`，改为内部 `padding`，减少动态高度列表测量误差。
-
-### 6. chat 切换时重置滚动状态
-
-在 `chatUuid` 变化时，显式重置：
-
-- `bottomSpacerHeight = 0`
-- `disableTailSpacer = false`
-- spacer 相关 refs
-- 挂起的 spacer / top-lock rAF
-
-这样新 chat 首帧的 padding spacer 初始值就是 0。
-
-### 7. 使用稳定 key 和追加跟随策略
-
-chat history virtual item 使用稳定 message id key。  
-尾部定位由 `anchorTo: 'end'` 与 `followOnAppend` 管理，latest visibility 绑定当前 viewport，减少 reader dialog 或窗口尺寸变化对滚动语义的影响。
+四类 scroll hint 使用 `runScrollHint()` 统一执行状态更新、spacer 初始化、按钮处理、hint 清理和程序滚动抑制。未使用的 `scrollToLatest` 已从 hook API 删除，overscan 从 `8` 调整为 `4`。
 
 ## 当前行为
 
-- 发送 `user-latest` 后，该消息会立即贴到 ChatWindow 顶部。
-- assistant 开始输出文本后，top line 仍保持为 `user-latest`。
-- toolcall 在 streaming 中插入、执行、完成时，top line 目前表现稳定。
-- footer spacer 会随 text segment 增长动态缩小；内容足够高时自然收敛到 0。
-- 从 ChatSheet 切换到新的 chat 时，footer spacer 初始值为 0。
+- 新 user 消息第一行对齐顶部遮挡区下方。
+- assistant streaming 在 `anchor-lock` 中向下生长。
+- 用户上滚后保持浏览位置，手动滚到底部仍保留按钮。
+- 点击按钮平滑滚到最新消息底部，后续内容继续贴底。
+- 搜索结果顶部对齐并显示按钮。
+- 初次进入与切换会话保持尾部定位语义。
 
-## 相关文件
+## 验证范围
 
-- `src/renderer/src/components/chat/ChatWindowComponentNext.tsx`
-- `src/renderer/src/hooks/useScrollManagerTop.ts`
-- `src/renderer/src/components/chat/scroll-anchor.ts`
-- `src/renderer/src/components/chat/chatMessage/toolcall/ToolCallResult.tsx`
+- `chatScrollPolicy.test.ts`：9 个 spacer、三态 anchorTo、one-shot 校正、锚点与末尾追尾策略测试。
+- `useScrollManagerTop.test.tsx`：7 个按钮锁存、wheel、pointer 与 suppression 测试。
+- `pnpm run typecheck:web`。
+- `git diff --check`。
+
+真实流式环境继续验证 segment 首帧、复杂 Markdown、tool result 和快速长会话滚动，作为 typing RAF 去留与 overscan 最终阈值的依据。
