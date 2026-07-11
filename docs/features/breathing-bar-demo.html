@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>呼吸光条 Loading 效果 Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1816;
+    color: #e2e2e2;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 48px;
+    padding: 40px;
+  }
+  h1 { font-size: 14px; font-weight: 500; color: #888; letter-spacing: 0.3px; margin-bottom: 8px; }
+  .demo-group { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .demo-label { font-size: 11px; color: #666; letter-spacing: 0.2px; }
+
+  /* ─── 1. 渐变流光条（左右扫光） ─── */
+  .bar-1 {
+    width: 200px; height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #334155 0%, #334155 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .bar-1::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(148, 163, 184, 0.6) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: sweep 1.5s ease-in-out infinite;
+  }
+  @keyframes sweep {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ─── 2. 呼吸脉动条（透明度+scale 呼吸） ─── */
+  .bar-2 {
+    width: 200px; height: 3px;
+    border-radius: 2px;
+    background: #475569;
+    position: relative;
+    overflow: hidden;
+  }
+  .bar-2::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 2px;
+    background: #94a3b8;
+    animation: breathe 2s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.3; transform: scaleX(0.3); transform-origin: left; }
+    50%      { opacity: 1;   transform: scaleX(1);   transform-origin: left; }
+  }
+
+  /* ─── 3. Windows 10 风格往返光条 ─── */
+  .bar-3 {
+    width: 200px; height: 4px;
+    border-radius: 2px;
+    background: #1e293b;
+    position: relative;
+    overflow: hidden;
+  }
+  .bar-3::after {
+    content: '';
+    position: absolute;
+    width: 40%; height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #60a5fa, transparent);
+    animation: shuttle 1.4s ease-in-out infinite;
+  }
+  @keyframes shuttle {
+    0%   { left: -40%; }
+    100% { left: 100%; }
+  }
+
+  /* ─── 4. 渐变色呼吸（多色渐变位移） ─── */
+  .bar-4 {
+    width: 200px; height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399, #a78bfa);
+    background-size: 300% 100%;
+    animation: gradientShift 3s ease-in-out infinite;
+    opacity: 0.7;
+  }
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 0; opacity: 0.5; }
+    50%      { background-position: 100% 0; opacity: 1; }
+  }
+
+  /* ─── 5. 心跳脉冲（短条缩放+发光） ─── */
+  .bar-5 {
+    width: 200px; height: 2px;
+    border-radius: 2px;
+    background: #334155;
+    position: relative;
+  }
+  .bar-5::after {
+    content: '';
+    position: absolute;
+    width: 20%; height: 100%;
+    border-radius: 2px;
+    background: #f472b6;
+    box-shadow: 0 0 8px #f472b6;
+    animation: heartbeat 1.8s ease-in-out infinite;
+  }
+  @keyframes heartbeat {
+    0%, 100% { left: 0%; width: 20%; opacity: 0.4; }
+    25%      { left: 40%; width: 20%; opacity: 1; transform: scaleY(2); }
+    50%      { left: 80%; width: 20%; opacity: 0.4; }
+    75%      { left: 40%; width: 40%; opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-group">
+  <h1>五种呼吸光条效果</h1>
+  <div class="demo-label">👇 适合 @i 的"等待输出"动画</div>
+</div>
+
+<div class="demo-group">
+  <div class="demo-label">1. 左右扫光（透明渐变滑动）</div>
+  <div class="bar-1"></div>
+</div>
+
+<div class="demo-group">
+  <div class="demo-label">2. 呼吸脉动（从左到右缩放+透明度）</div>
+  <div class="bar-2"></div>
+</div>
+
+<div class="demo-group">
+  <div class="demo-label">3. 往返梭子（Windows 10 风格光条）</div>
+  <div class="bar-3"></div>
+</div>
+
+<div class="demo-group">
+  <div class="demo-label">4. 渐变色呼吸（紫→蓝→绿渐变色位移）</div>
+  <div class="bar-4"></div>
+</div>
+
+<div class="demo-group">
+  <div class="demo-label">5. 心跳脉冲（发光短条来回跳动）</div>
+  <div class="bar-5"></div>
+</div>
+
+</body>
+</html>

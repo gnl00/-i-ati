@@ -1,6 +1,7 @@
 import React from 'react'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
+import { useChatStore } from '@renderer/store/chatStore'
 import './SharedPromptSurface.css'
 
 interface SharedPromptSurfaceProps {
@@ -61,6 +62,9 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
   onDragOver,
   onDrop
 }, ref) => {
+  const runPhase = useChatStore(state => state.runPhase)
+  const isAIThinking = runPhase === 'submitting' || runPhase === 'streaming'
+
   return (
     <div
       ref={surfaceRef}
@@ -73,6 +77,15 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
         className
       )}
     >
+      {isAIThinking && (
+        <div
+          className="absolute left-0 right-0 top-0 h-[2px] overflow-hidden opacity-0 transition-opacity duration-150 data-[active=true]:opacity-100"
+          data-active={isAIThinking}
+        >
+          <div className="shuttle-bar" />
+        </div>
+      )}
+
       <div
         className={cn(
           'shared-prompt-body relative min-h-0 overflow-hidden',

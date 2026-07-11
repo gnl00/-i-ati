@@ -51,6 +51,31 @@
     box-shadow 320ms var(--shared-prompt-ease);
 }
 
+.shuttle-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(59 130 246 / 0.6) 50%,
+    transparent 100%
+  );
+  animation: shuttle 1.5s ease-in-out infinite;
+}
+
+@keyframes shuttle {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(350%);
+  }
+}
+
 .shared-prompt-surface[data-expanded='true'] {
   grid-template-rows: 112px 42px;
   border-color: color-mix(in srgb, hsl(var(--border)) 58%, hsl(var(--foreground)) 8%);
@@ -225,5 +250,20 @@
   .shared-prompt-actions {
     animation: none;
     transition-duration: 0.01ms;
+  }
+
+  .shuttle-bar {
+    animation: shuttle-reduced 2s ease-in-out infinite;
+  }
+
+  @keyframes shuttle-reduced {
+    0%,
+    100% {
+      opacity: 0.3;
+    }
+
+    50% {
+      opacity: 1;
+    }
   }
 }
