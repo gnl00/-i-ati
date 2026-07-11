@@ -2,10 +2,7 @@ import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { projectToolResultContentForDisplay } from '@main/agent/runtime/tools/ToolResultContentProjector'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
-import {
-  CommittedAssistantMessageController,
-  type AgentRenderMessageState
-} from '@main/hosts/shared/render'
+import type { AgentRenderMessageState } from '@main/hosts/shared/render'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import { ChatRenderMapper } from './ChatRenderMapper'
@@ -24,29 +21,24 @@ const hasPersistableAssistantPayload = (body: ChatMessage): boolean => {
 export class ChatRenderOutput {
   readonly messageEvents: ChatEventMapper
   private readonly mapper: ChatRenderMapper
-  private readonly committedAssistant: CommittedAssistantMessageController
 
   constructor(
     emitter: import('@main/orchestration/chat/run/infrastructure').RunEventEmitter,
     private readonly messageEntities: MessageEntity[],
-    assistantDraft: MessageEntity,
+    private readonly assistantDraft: MessageEntity,
     private readonly stepStore = new ChatStepStore(),
     mapper = new ChatRenderMapper()
   ) {
     this.messageEvents = new ChatEventMapper(emitter)
     this.mapper = mapper
-    this.committedAssistant = new CommittedAssistantMessageController(
-      assistantDraft,
-      this.messageEntities
-    )
   }
 
   getFinalAssistantMessage(): MessageEntity {
-    return this.committedAssistant.getFinalAssistantMessage()
+    return this.assistantDraft
   }
 
   getCommittedTypewriterCompleted(): boolean {
-    return this.committedAssistant.getCommittedTypewriterCompleted()
+    return Boolean(this.assistantDraft.body.typewriterCompleted)
   }
 
   clearPreview(): void {
@@ -62,12 +54,12 @@ export class ChatRenderOutput {
     const previewBody = this.mapper.buildPreviewBody({
       state,
       timestamp,
-      baseBody: this.committedAssistant.getFinalAssistantMessage().body
+      baseBody: this.assistantDraft.body
     })
 
     this.messageEvents.emitStreamPreviewUpdated({
-      chatId: this.committedAssistant.getFinalAssistantMessage().chatId,
-      chatUuid: this.committedAssistant.getFinalAssistantMessage().chatUuid,
+      chatId: this.assistantDraft.chatId,
+      chatUuid: this.assistantDraft.chatUuid,
       body: previewBody
     } satisfies MessageEntity)
   }
@@ -84,8 +76,8 @@ export class ChatRenderOutput {
 
     this.messageEvents.emitStreamPreviewSegmentUpdated(
       {
-        chatId: this.committedAssistant.getFinalAssistantMessage().chatId,
-        chatUuid: this.committedAssistant.getFinalAssistantMessage().chatUuid
+        chatId: this.assistantDraft.chatId,
+        chatUuid: this.assistantDraft.chatUuid
       },
       patch
     )
@@ -104,8 +96,8 @@ export class ChatRenderOutput {
 
     this.messageEvents.emitStreamPreviewSegmentUpdated(
       {
-        chatId: this.committedAssistant.getFinalAssistantMessage().chatId,
-        chatUuid: this.committedAssistant.getFinalAssistantMessage().chatUuid
+        chatId: this.assistantDraft.chatId,
+        chatUuid: this.assistantDraft.chatUuid
       },
       patch
     )
@@ -120,13 +112,14 @@ export class ChatRenderOutput {
     return this.mapper.buildCommittedBody({
       state,
       timestamp,
-      baseBody: this.committedAssistant.getFinalAssistantMessage().body,
+      baseBody: this.assistantDraft.body,
       typewriterCompleted
     })
   }
 
   commitAssistantMessage(body: ChatMessage): void {
-    const { message } = this.committedAssistant.commit(body)
+    this.assistantDraft.body = body
+    const message = this.assistantDraft
     assertMessageEntitySegmentsHaveIds(message, 'next-agent-ui-adapter:message-commit')
 
     if (message.id == null && hasPersistableAssistantPayload(message.body)) {
@@ -167,8 +160,8 @@ export class ChatRenderOutput {
 
     const entity = this.stepStore.persistToolResultMessage(
       toolMessage,
-      this.committedAssistant.getFinalAssistantMessage().chatId,
-      this.committedAssistant.getFinalAssistantMessage().chatUuid
+      this.assistantDraft.chatId,
+      this.assistantDraft.chatUuid
     )
     this.messageEntities.push(entity)
     this.messageEvents.emitToolResultAttached(result.toolCallId, entity)

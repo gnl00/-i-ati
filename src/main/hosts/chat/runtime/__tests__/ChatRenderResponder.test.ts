@@ -36,6 +36,7 @@ const dispatchAgentEvent = async (
 ): Promise<void> => {
   const mapper = mapperByResponder.get(responder) || new HostRenderEventMapper()
   mapperByResponder.set(responder, mapper)
+  responder.connectRenderStateSource(mapper)
   for (const hostEvent of mapper.map(event)) {
     await responder.handle(hostEvent)
   }

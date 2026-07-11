@@ -4,9 +4,10 @@ import { HostRenderEventMapper } from './HostRenderEventMapper'
 import type { HostRenderEventSink } from './HostRenderEventSink'
 
 export class HostRenderEventForwarder implements AgentEventSink {
-  private readonly mapper = new HostRenderEventMapper()
-
-  constructor(private readonly sinks: HostRenderEventSink[]) {}
+  constructor(
+    private readonly sinks: HostRenderEventSink[],
+    private readonly mapper = new HostRenderEventMapper()
+  ) {}
 
   async handle(event: AgentEvent): Promise<void> {
     const hostEvents = this.mapper.map(event)

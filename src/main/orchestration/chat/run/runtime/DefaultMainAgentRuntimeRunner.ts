@@ -16,7 +16,7 @@ import {
   MainAgentLoopInputBootstrapper
 } from '@main/hosts/chat/runtime'
 import { ChatLoadedSkillsTranscriptContextProvider } from '@main/hosts/chat/runtime/LoadedSkillsTranscriptContextProvider'
-import { HostRenderEventForwarder } from '@main/hosts/shared/render'
+import { HostRenderEventForwarder, HostRenderEventMapper } from '@main/hosts/shared/render'
 import { normalizePermissionApprovalMode } from '@tools/approval'
 import { DefaultAgentRunCompletionAdapter } from './AgentRunCompletionAdapter'
 import type {
@@ -55,6 +55,8 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       input.prepared.chatContext.messageEntities,
       input.prepared.chatContext.assistantDraft
     )
+    const renderEventMapper = new HostRenderEventMapper()
+    chatResponder.connectRenderStateSource(renderEventMapper)
     eventBus.register(new HostRenderEventForwarder([
       chatResponder,
       new ChatToolSideEffectSink({
@@ -62,7 +64,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
         chatUuid: input.prepared.runSpec.runtimeContext.chatUuid
       }),
       ...(input.hostRenderSinks || [])
-    ]))
+    ], renderEventMapper))
 
     const runtime = new DefaultAgentRuntime({
       requestSpecSource: {

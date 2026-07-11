@@ -1,46 +1,22 @@
 import { RUN_STATES } from '@shared/run/lifecycle-events'
-import type { RunState } from '@shared/run/lifecycle-events'
 import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { AgentRenderStateReducer } from './AgentRenderStateReducer'
+import type { AgentRenderState } from './AgentRenderState'
 import type { HostRenderEvent } from './HostRenderEvent'
-import type { HostRenderState } from './HostRenderState'
 
 export class HostRenderEventMapper {
   private readonly reducer = new AgentRenderStateReducer()
-  private lifecycle: RunState | undefined
-  private lastUsage: ITokenUsage | undefined
 
   /**
-   * host-facing 状态快照。
-   *
-   * P0：这是 host 侧唯一的 render 状态真源。此前 `HostRenderStateController` 会把
-   * mapper 已算好、并塞进 host event 的 preview/committed 再深拷贝存一遍（影子 reducer）。
-   * 现在直接由 mapper 暴露，避免同一份 committed/preview 被同构建模两次。
+   * 直接暴露唯一 fold 点的只读快照，供 host 查询最终 usage/render state。
    */
-  snapshot(): HostRenderState {
-    const state = this.reducer.snapshot()
-    return {
-      committed: state.committed,
-      preview: state.preview,
-      lifecycle: this.lifecycle,
-      lastUsage: this.lastUsage
-    }
+  snapshot(): AgentRenderState {
+    return this.reducer.snapshot()
   }
 
   map(event: AgentEvent): HostRenderEvent[] {
     const next = this.reducer.apply(event)
-    const hostEvents = this.buildHostEvents(event, next)
-
-    // 从产出的 host event 里 fold lifecycle / usage，作为 host 侧唯一状态真源。
-    for (const hostEvent of hostEvents) {
-      if (hostEvent.type === 'host.lifecycle.updated') {
-        this.lifecycle = hostEvent.state
-      } else if (hostEvent.type === 'host.usage.updated') {
-        this.lastUsage = hostEvent.usage
-      }
-    }
-
-    return hostEvents
+    return this.buildHostEvents(event, next)
   }
 
   private buildHostEvents(

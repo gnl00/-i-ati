@@ -5,6 +5,7 @@ import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import {
   type AgentRenderMessageState,
+  type AgentRenderState,
   type HostRenderEvent,
   type HostRenderEventSink
 } from '@main/hosts/shared/render'
@@ -15,10 +16,7 @@ import { ChatRenderOutput } from './ChatRenderOutput'
 export class ChatRenderResponder implements HostRenderEventSink {
   private readonly mapper = new ChatRenderMapper()
   private readonly output: ChatRenderOutput
-  // P0：不再持有 HostRenderStateController（影子 reducer）。
-  // preview 的 previous/next 直接来自 HostRenderEventMapper 携带在 host event 上的数据，
-  // usage 直接从 host.usage.updated fold，committed 直接用 host event 里的 committed。
-  private lastUsage: ITokenUsage | undefined
+  private renderStateSource: { snapshot(): AgentRenderState } | undefined
 
   constructor(
     private readonly emitter: import('@main/orchestration/chat/run/infrastructure').RunEventEmitter,
@@ -39,10 +37,11 @@ export class ChatRenderResponder implements HostRenderEventSink {
     return this.output.messageEvents
   }
 
+  connectRenderStateSource(stateSource: { snapshot(): AgentRenderState }): void {
+    this.renderStateSource = stateSource
+  }
+
   async handle(event: HostRenderEvent): Promise<void> {
-    if (event.type === 'host.usage.updated') {
-      this.lastUsage = event.usage
-    }
     await this.handleHostRenderEvent(event)
   }
 
@@ -51,7 +50,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
   }
 
   getLastUsage(): ITokenUsage | undefined {
-    return this.lastUsage
+    return this.renderStateSource?.snapshot().lastUsage
   }
 
   private emitPreview(state: AgentRenderMessageState | null, timestamp: number): void {
