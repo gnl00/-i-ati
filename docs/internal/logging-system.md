@@ -94,7 +94,7 @@ renderer 不直接写文件。
 
 核心入口：
 
-- [rendererLogger.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/services/logging/rendererLogger.ts)
+- [rendererLogger.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/shared/logging/rendererLogger.ts)
 - [logging.ts](/Users/gnl/Workspace/code/-i-ati/src/main/ipc/logging.ts)
 
 行为：
@@ -158,7 +158,7 @@ perfLogger.info('mark', { label: 'boot.start', offsetMs: 0 })
 ### renderer
 
 ```ts
-import { createRendererLogger } from '@renderer/services/logging/rendererLogger'
+import { createRendererLogger } from '@renderer/shared/logging/rendererLogger'
 
 const logger = createRendererLogger('MyComponent')
 

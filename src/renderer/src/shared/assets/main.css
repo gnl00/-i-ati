@@ -1,0 +1,568 @@
+@import 'tailwindcss';
+
+@config '../../../../../tailwind.config.js';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility animate-shine {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Light mode: 深色光效 */
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.08) 50%,
+      transparent 100%
+    );
+    animation: shine 1.2s ease-in-out forwards;
+    pointer-events: none;
+  }
+
+  /* Dark mode: 亮色光效 */
+  .dark &::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%
+    );
+  }
+}
+
+@utility dark {
+  /* Dark mode: 亮色光效 */
+  & .animate-shine::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%
+    );
+  }
+
+  & .animate-shine-infinite::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%
+    );
+  }
+}
+
+@utility animate-shine-infinite {
+  /* Infinite Shine Variant */
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Light mode */
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.08) 50%,
+      transparent 100%
+    );
+    animation: shine 1.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .dark &::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%
+    );
+  }
+}
+
+@utility animate-message-in {
+  animation: messageSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@utility animate-assistant-message-in {
+  animation: assistantMessageSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)
+    forwards;
+}
+
+@utility animate-model-badge-pulse {
+  /* Model Badge Animations */
+  animation: modelBadgePulse 2s ease-in-out infinite;
+}
+
+@utility animate-model-badge-dot {
+  animation: modelBadgeDot 1.4s ease-in-out infinite;
+}
+
+@utility animate-reasoning-expand {
+  /* Reasoning Animations */
+  animation: reasoning-expand 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@utility animate-reasoning-collapse {
+  animation: reasoning-collapse 0.25s ease-in forwards;
+}
+
+/* Chat window background - paper texture */
+@utility bg-chat-light {
+  background-color: #f9f9f9;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(139, 125, 102, 0.15) 1px,
+    transparent 0
+  );
+  background-size: 50px 50px;
+}
+@utility bg-chat-dark {
+  background-color: #1a1816;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(160, 145, 120, 0.1) 1px,
+    transparent 0
+  );
+  background-size: 50px 50px;
+}
+
+@layer utilities {
+  .app-dragable {
+    -webkit-app-region: drag;
+  }
+
+  .app-undragable {
+    -webkit-app-region: no-drag;
+  }
+
+  .resize-animation {
+    transition: height 1s ease;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .smooth-scroll {
+    transition: all 0.3s ease;
+  }
+
+  .chat-item-hover:hover {
+    opacity: 1;
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(5px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slideInRight 300ms ease-out forwards;
+  }
+
+  /* ScrollToBottom 按钮滑入动画 */
+  @keyframes slideUp {
+    from {
+      transform: translate(-50%, 10px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-up {
+    animation: slideUp 200ms ease-out forwards;
+  }
+
+  #think {
+    padding-top: 3px;
+    padding-left: 8px;
+    padding-right: 5px;
+    padding-bottom: 5px;
+    /* border-radius: 10px 10px 0px 0px; */
+    border-radius: 10px;
+    color: rgb(105, 105, 105);
+    background-color: #e6e7ec;
+
+    & p {
+      margin: 0px !important;
+    }
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* 呼吸灯效果 - 只影响输入光标（caret）的颜色 */
+  @keyframes caretBreathing {
+    0% {
+      caret-color: #3b82f6;
+    }
+
+    25% {
+      caret-color: #fa6060;
+    }
+
+    50% {
+      caret-color: rgba(58, 201, 55, 0.704);
+    }
+
+    75% {
+      caret-color: #e4c136;
+    }
+
+    100% {
+      caret-color: #8787eae3;
+    }
+  }
+
+  .typewriter-cursor {
+    caret-color: #3b82f6;
+    /* 只使用颜色呼吸，避免 filter 影响整个 textarea */
+    animation: caretBreathing 2s ease-in-out infinite;
+  }
+
+  .typewriter-cursor:focus {
+    /* 聚焦时加快呼吸频率 */
+    animation: caretBreathing 1.5s ease-in-out infinite;
+  }
+
+  /* Popover 弹出动画 */
+  @keyframes popoverFadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.98) translateY(-4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes popoverFadeOut {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: scale(0.98) translateY(-4px);
+    }
+  }
+
+  /* Radix UI Popover 动画 - 只针对 PopoverContent */
+  [data-state='open'][data-side='bottom'],
+  [data-state='open'][data-side='top'] {
+    animation: popoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform, opacity;
+  }
+
+  /* 只针对有 data-side 的元素（PopoverContent），避免影响 PopoverTrigger */
+  [data-state='closed'][data-side='bottom'],
+  [data-state='closed'][data-side='top'] {
+    animation: popoverFadeOut 0.1s cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  /* Shine animation for user messages */
+  @keyframes shine {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(200%);
+    }
+  }
+
+  @keyframes messageSlideIn {
+    0% {
+      transform: translateX(20px) scale(0.78);
+      opacity: 0;
+    }
+
+    100% {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes assistantMessageSlideIn {
+    0% {
+      transform: translateX(-12px) scale(0.94);
+      opacity: 0;
+    }
+
+    100% {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fadeInUp {
+    0% {
+      transform: translateY(10px);
+      opacity: 0;
+    }
+
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Breathe animation for stop button */
+  @keyframes breathe {
+    0%,
+    100% {
+      transform: scale(1);
+      box-shadow:
+        0 10px 15px -3px rgba(239, 68, 68, 0.25),
+        0 4px 6px -4px rgba(239, 68, 68, 0.3);
+    }
+
+    50% {
+      transform: scale(1.05);
+      box-shadow:
+        0 20px 25px -5px rgba(239, 68, 68, 0.4),
+        0 8px 10px -6px rgba(239, 68, 68, 0.5);
+    }
+  }
+
+  /* Workspace button animations */
+  @keyframes workspace-select {
+    0% {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes workspace-glow {
+    0%,
+    100% {
+      opacity: 0.5;
+      filter: blur(8px);
+    }
+    50% {
+      opacity: 0.8;
+      filter: blur(12px);
+    }
+  }
+
+  /* Apply animation when workspace is selected */
+  .workspace-selected {
+    animation: workspace-select 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Wiggle animation for delete button */
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(-5deg);
+    }
+    75% {
+      transform: rotate(5deg);
+    }
+  }
+
+  /* Model Badge Pulse Animation */
+  @keyframes modelBadgePulse {
+    0%,
+    100% {
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      border-color: rgba(148, 163, 184, 0.6);
+    }
+    50% {
+      box-shadow:
+        0 1px 3px 0 rgba(0, 0, 0, 0.1),
+        0 1px 2px -1px rgba(0, 0, 0, 0.1);
+      border-color: rgba(148, 163, 184, 0.8);
+    }
+  }
+
+  /* Model Badge Dot Animation */
+  @keyframes modelBadgeDot {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+  }
+
+  /* Reasoning Expand Animation */
+  @keyframes reasoning-expand {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Reasoning Collapse Animation */
+  @keyframes reasoning-collapse {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+}
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-operation-button {
+  animation: slideIn 0.3s ease-out var(--op-delay, 0ms) both;
+}

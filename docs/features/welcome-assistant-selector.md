@@ -34,9 +34,9 @@ SmartWelcomeEntrance
 
 相关文件：
 
-- `src/renderer/src/components/chat/welcome/SmartWelcomeEntrance.tsx`
-- `src/renderer/src/components/chat/welcome/SmartWelcomeMessage.css`
-- `src/renderer/src/components/chat/chatInput/toolbar/AddAssistantDrawer.tsx`
+- `src/renderer/src/features/chat/welcome/SmartWelcomeEntrance.tsx`
+- `src/renderer/src/features/chat/welcome/SmartWelcomeEntrance.css`
+- `src/renderer/src/features/chat/input/toolbar/AddAssistantDrawer.tsx`
 
 ## 交互设计
 

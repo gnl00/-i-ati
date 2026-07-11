@@ -109,9 +109,9 @@ The tool metadata marks `install_skill`, `import_skills`, `load_skill`, `unload_
 - `skill:import-folder`
 - `skill:delete`
 
-Renderer helpers live in [src/renderer/src/services/skills/SkillService.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/services/skills/SkillService.ts:1), [src/renderer/src/tools/skills/renderer/SkillToolsInvoker.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/tools/skills/renderer/SkillToolsInvoker.ts:1), and [src/renderer/src/invoker/ipcInvoker.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/invoker/ipcInvoker.ts:1).
+Renderer helpers live in [src/renderer/src/features/settings/skills/SkillService.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/settings/skills/SkillService.ts:1), [src/renderer/src/infrastructure/tools/skills/renderer/SkillToolsInvoker.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/infrastructure/tools/skills/renderer/SkillToolsInvoker.ts:1), and [src/renderer/src/infrastructure/ipc/index.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/infrastructure/ipc/index.ts:1).
 
-[SkillsManager](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/components/settings/skills/SkillsManager.tsx:1) is the Settings UI for skills. It:
+[SkillsManager](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/settings/skills/SkillsManager.tsx:1) is the Settings UI for skills. It:
 
 - lists available skills and active skills for the current chat
 - labels built-in skills and keeps their delete action hidden

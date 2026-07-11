@@ -11,7 +11,7 @@
 - 仿照写了一个 resizable 组件，https://stackademic.com/blog/building-a-resizable-sidebar-component-with-persisting-width-using-react-tailwindcss 性能贼拉
 - 使用 react-window 替换 rc-virtual-list，无层级遮挡问题。一开始发现存在闪烁现象，原来是 react-window 需要通过 style 参数来设置 fixedSize 列表的尺寸，否则会有尺寸计算错误导致的闪烁。style 参数必须。
   闪烁解决，但是虚拟 dom 渲染相对于 react-window 虚拟列表要慢，高度计算出来 virHeights 列表前几次总是 0，高度不好计算。
-- HomeV2RcVirList 中使用 rc-virtual-list 可使用 '100%' 实现自适应高度，不再需要手动从虚拟 dom 获取。经过测试 virtua 虚拟列表也可以实现自适应高度。
+- 历史虚拟列表实现中，rc-virtual-list 可使用 '100%' 实现自适应高度，无需手动从虚拟 DOM 获取。经过测试，virtua 虚拟列表也可以实现自适应高度。
 - 当前 chat history 虚拟列表实现使用 `@tanstack/react-virtual` / `useVirtualizer`。以上虚拟列表记录保留早期实验背景。
 - 在使用了代码高亮之后
 

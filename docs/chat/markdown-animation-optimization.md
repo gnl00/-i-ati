@@ -35,7 +35,7 @@
 
 实践证明：在当前项目里“Streaming 时照样渲染 markdown（不降配）”是最顺滑的路径，且不会引入“切换导致的抖动/位移”。
 
-- 渲染入口：`src/renderer/src/components/chat/chatMessage/assistant-message.tsx`
+- 渲染入口：`src/renderer/src/features/chat/message/assistant-message/index.tsx`
 - 调试开关：
   - `window.__STREAMING_TEXT_RENDER_MODE = 'markdown'`（默认）
   - `window.__STREAMING_TEXT_RENDER_MODE = 'switch'`（对比用）
@@ -49,7 +49,7 @@
 
 这样切换发生在“块完成”边界上，且只影响尾部区域，大幅减轻 reflow/位移。
 
-- 实现：`src/renderer/src/components/chat/chatMessage/StreamingMarkdownSwitch.tsx`
+- 实现：`src/renderer/src/features/chat/message/typewriter/StreamingMarkdownSwitch.tsx`
 
 ## 动画实现（从 framer-motion 到 CSS transition）
 
@@ -57,19 +57,19 @@
 
 - 原：`framer-motion` 的 `motion.span`
 - 现：纯 CSS `transition` + `useEnterTransition` 触发（Blur + Opacity + TranslateY）
-- 文件：`src/renderer/src/components/chat/chatMessage/FluidTypewriterText.tsx`
+- 文件：`src/renderer/src/features/chat/message/typewriter/FluidTypewriterText.tsx`
 
 ### 2) Markdown 容器动效：CSS transition（Blur + TranslateY + Opacity）
 
 Markdown 直接渲染时（`ReactMarkdown`）的入场/更新动效由容器 class 控制。
 
-- 文件：`src/renderer/src/components/chat/chatMessage/assistant-message.tsx`
+- 文件：`src/renderer/src/features/chat/message/assistant-message/index.tsx`
 
 ### 3) 动画触发 Hook：`useEnterTransition`
 
 通过 `requestAnimationFrame` 将状态从“起始态”切到“结束态”，触发 CSS transition。
 
-- 文件：`src/renderer/src/components/chat/chatMessage/use-enter-transition.ts`
+- 文件：`src/renderer/src/features/chat/message/typewriter/use-enter-transition.ts`
 
 ## 验证与排障
 

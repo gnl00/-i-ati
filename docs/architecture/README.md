@@ -7,6 +7,7 @@ and data flow. Historical implementation summaries live in
 
 ## Current entry points
 
+- [Renderer architecture](renderer-architecture.md)
 - [Chat runtime](chat-runtime-architecture-current.md)
 - [Agent abstraction](agent-abstraction.md)
 - [Plugin system](plugin-system-design.md)

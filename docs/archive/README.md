@@ -28,6 +28,10 @@ defined by the [documentation governance spec](../specs/documentation-governance
 - [Message segmentation optimization](2026/chat/message-segmentation-optimization.md)
 - [Typewriter optimization with segments](2026/chat/typewriter-optimization-with-segments.md)
 
+### Renderer
+
+- [Chat store refactor summary](2026/renderer/chat-store-refactor-summary.md)
+
 ### Plugins, Telegram, and tools
 
 - [Request adapter plugin API](2026/plugins/request-adapter-plugin-api.md)

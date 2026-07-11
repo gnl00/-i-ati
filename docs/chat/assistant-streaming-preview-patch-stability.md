@@ -56,7 +56,7 @@ Validated commands:
 
 ```bash
 pnpm run typecheck:web
-pnpm test:run src/renderer/src/hooks/chatRun/__tests__/previewPatchBatcher.test.ts src/renderer/src/hooks/chatRun/__tests__/chatRunEvent.test.ts
+pnpm test:run src/renderer/src/features/chat/runtime/__tests__/previewPatchBatcher.test.ts src/renderer/src/features/chat/runtime/__tests__/chatRunEvent.test.ts
 ```
 
 Covered cases:

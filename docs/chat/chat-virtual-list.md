@@ -5,10 +5,10 @@ Reduce render cost for long chats by virtualizing the message list while keeping
 
 ## What Changed
 - Introduced TanStack Virtual (`@tanstack/react-virtual`).
-- Replaced full `map` rendering with a virtualized list in `ChatWindowComponentV2`.
+- Replaced full `map` rendering with a virtualized list in `ChatWindow`.
 - Added a dedicated scroll container ref instead of relying on `parentElement`.
 - Kept the welcome card as a virtualized row when visible.
 
 ## Files
 - `package.json`
-- `src/renderer/src/components/chat/ChatWindowComponentV2.tsx`
+- `src/renderer/src/features/chat/shell/ChatWindow.tsx`

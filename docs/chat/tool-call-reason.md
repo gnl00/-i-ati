@@ -29,7 +29,7 @@ Adapters also normalize request tool schemas before sending them upstream:
 
 The renderer reads tool-call reasons at the tool row level:
 
-- `src/renderer/src/components/chat/chatMessage/assistant-message/model/toolCallReason.ts` exposes `getReasonFromToolCall(segment)`.
+- `src/renderer/src/features/chat/message/assistant-message/model/toolCallReason.ts` exposes `getReasonFromToolCall(segment)`.
 - `getReasonFromToolCall` reads `tool_call_reason` from object args and JSON string args, trims the value, and returns a visible reason for non-empty strings.
 - `ToolCallTriggerContent` calls `getReasonFromToolCall` and renders the reason below the tool name inside the tool row.
 - `ToolCallResultPanel` filters `tool_call_reason` from summary and detail parameter output through `filterDisplayParamEntries`.
@@ -40,10 +40,10 @@ Streaming updates can add `tool_call_reason` while a tool call remains `pending`
 
 ## Development Preview
 
-- `src/renderer/src/pages/test/ToolCallReasonHistoryTestPage.tsx` is a row-level reason scenarios fixture for fast reason switching and history-style mock states.
-- The assistant-message test pages under `src/renderer/src/pages/test` include mocked tool-call rows with `tool_call_reason` for layout and wrapping checks.
+- `src/renderer/src/dev/test-pages/ToolCallReasonHistoryTestPage.tsx` is a row-level reason scenarios fixture for fast reason switching and history-style mock states.
+- The assistant-message test pages under `src/renderer/src/dev/test-pages` include mocked tool-call rows with `tool_call_reason` for layout and wrapping checks.
 
-Both pages are kept as reusable test fixtures under `src/renderer/src/pages/test`.
+Both pages are kept as reusable test fixtures under `src/renderer/src/dev/test-pages`.
 
 ## Tests
 
@@ -53,6 +53,6 @@ Key coverage:
 - Embedded and external registry behavior: `src/shared/tools/__tests__/registry.test.ts`
 - OpenAI and Claude adapter schemas: `src/main/request/adapters/__tests__/*adapter.test.ts`
 - Tool execution argument cleanup: `src/main/agent/tools/__tests__/ToolExecutor.test.ts`
-- Renderer extraction: `src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/toolCallReason.test.ts`
-- Row-level tool result rendering and filtering: `src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/ToolCallResult.test.tsx`
-- Grouped support row rendering: `src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/SupportSegmentGroup.test.tsx`
+- Renderer extraction: `src/renderer/src/features/chat/message/assistant-message/__tests__/toolCallReason.test.ts`
+- Row-level tool result rendering and filtering: `src/renderer/src/features/chat/message/assistant-message/__tests__/ToolCallResult.test.tsx`
+- Grouped support row rendering: `src/renderer/src/features/chat/message/assistant-message/__tests__/SupportSegmentGroup.test.tsx`

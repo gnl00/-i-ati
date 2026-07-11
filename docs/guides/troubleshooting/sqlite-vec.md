@@ -169,7 +169,6 @@ const results = rows.map((row, index) => ({
 
 - `src/main/services/memory/MemoryService.ts` - 记忆存储和检索服务
 - `src/main/services/embedding/EmbeddingService.ts` - Embedding 生成服务
-- `src/renderer/src/constant/prompts.ts` - LLM 使用记忆工具的指导
 
 ---
 

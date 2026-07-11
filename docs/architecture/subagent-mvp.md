@@ -34,9 +34,9 @@
 
 ### renderer
 
-- [SubagentResults.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/components/chat/chatMessage/assistant-message/toolcall/SubagentResults.tsx)
-- [subagentRuntime.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/store/subagentRuntime.ts)
-- [useSubagentRuntime.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/hooks/useSubagentRuntime.ts)
+- [SubagentResults.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
+- [subagentRuntimeStore.ts](../../src/renderer/src/features/subagents/subagentRuntimeStore.ts)
+- [useSubagentRuntime.ts](../../src/renderer/src/features/subagents/useSubagentRuntime.ts)
 
 ## 工具接口
 
@@ -231,8 +231,8 @@
 
 渲染方式：
 
-- [ToolCallResultNextOutput.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/components/chat/chatMessage/assistant-message/toolcall/ToolCallResultNextOutput.tsx) 对 `subagent_spawn / subagent_wait` 做特殊分支
-- 实际卡片在 [SubagentResults.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/components/chat/chatMessage/assistant-message/toolcall/SubagentResults.tsx)
+- [ToolCallResult.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/ToolCallResult.tsx) 对 `subagent_spawn / subagent_wait` 做特殊分支
+- 实际卡片在 [SubagentResults.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
 
 ### 当前行为
 

@@ -6,7 +6,7 @@
 
 2026-07-03 review follow-up fixed the main accordion height path by keeping one `support-segment-middle-panel` mounted for every collapsible group and toggling its `expanded` state between compact and detailed display.
 
-The current production entry renders `HomeV2` from `src/renderer/src/App.tsx`. `src/renderer/src/pages/test/SupportSegmentStreamingMergeTestPage.tsx` remains a dormant visual playground file.
+The current production entry renders `Home` from `src/renderer/src/app/App.tsx`. `src/renderer/src/dev/test-pages/SupportSegmentStreamingMergeTestPage.tsx` remains a dormant visual playground file.
 
 ## Scope
 
@@ -20,7 +20,7 @@ This plan covers:
 - expansion state ownership for user choice and force-expanded runtime items
 - focused renderer tests and typecheck verification
 
-Chat list scroll anchoring stays at the `ChatWindowComponentNext` virtualizer boundary. Validate that collapse remains acceptable in the chat window after this change, then open a dedicated scroll-anchor slice if the viewport still jumps.
+Chat list scroll anchoring stays at the `ChatWindow` virtualizer boundary. Validate that collapse remains acceptable in the chat window after this change, then open a dedicated scroll-anchor slice if the viewport still jumps.
 
 ## Current Code Facts
 
@@ -123,7 +123,7 @@ Implementation target:
 
 ## Shared Primitive
 
-Create `src/renderer/src/components/ui/size-animated-panel.tsx`.
+Create `src/renderer/src/shared/components/ui/size-animated-panel.tsx`.
 
 Public API:
 
@@ -138,7 +138,7 @@ export interface SizeAnimatedPanelProps extends React.HTMLAttributes<HTMLDivElem
 
 Implementation notes:
 
-- import `cn` from `@renderer/lib/utils`
+- import `cn` from `@renderer/shared/lib/utils`
 - render an outer grid container with `data-state`
 - render an inner `min-h-0 overflow-hidden` content wrapper
 - set `aria-hidden={!expanded}` on the outer panel
@@ -153,11 +153,11 @@ Initial consumers:
 ## Implementation Steps
 
 1. Add `SizeAnimatedPanel`. Completed.
-   - File: `src/renderer/src/components/ui/size-animated-panel.tsx`
+   - File: `src/renderer/src/shared/components/ui/size-animated-panel.tsx`
    - Add focused tests only if TypeScript or DOM behavior needs coverage beyond `SupportSegmentGroup`.
 
 2. Split motion tokens in `SupportSegmentGroup`. Completed.
-   - File: `src/renderer/src/components/chat/chatMessage/assistant-message/renderers/SupportSegmentGroup.tsx`
+   - File: `src/renderer/src/features/chat/message/assistant-message/renderers/SupportSegmentGroup.tsx`
    - Add separate names for panel and row append behavior.
    - Remove row append scale.
    - Remove outer `layout="size"` from the group shell.
@@ -176,7 +176,7 @@ Initial consumers:
    - Keep test ids stable for `support-segment-group`, `support-segment-summary-row`, and `support-segment-collapse-row`.
 
 5. Update tests. Completed.
-   - File: `src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/SupportSegmentGroup.test.tsx`
+   - File: `src/renderer/src/features/chat/message/assistant-message/__tests__/SupportSegmentGroup.test.tsx`
    - Update collapsed-state expectations so middle rows stay mounted under a collapsed panel.
    - Assert the same middle panel DOM node switches `data-state` through collapsed, expanded, and collapsed during Expand/Hide.
    - Assert the middle panel data-state, aria-hidden, and inert behavior.
@@ -197,9 +197,9 @@ Run focused tests:
 
 ```bash
 pnpm_config_verify_deps_before_run=false pnpm exec vitest run \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/SupportSegmentGroup.test.tsx \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/AssistantSupportSegmentList.test.tsx \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/assistantMessageRenderModel.test.ts
+  src/renderer/src/features/chat/message/assistant-message/__tests__/SupportSegmentGroup.test.tsx \
+  src/renderer/src/features/chat/message/assistant-message/__tests__/AssistantSupportSegmentList.test.tsx \
+  src/renderer/src/features/chat/message/assistant-message/__tests__/assistantMessageRenderModel.test.ts
 ```
 
 Run renderer typecheck:
@@ -233,9 +233,9 @@ Manual visual checks:
 
 ```bash
 pnpm_config_verify_deps_before_run=false pnpm exec vitest run \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/SupportSegmentGroup.test.tsx \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/AssistantSupportSegmentList.test.tsx \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/assistantMessageRenderModel.test.ts
+  src/renderer/src/features/chat/message/assistant-message/__tests__/SupportSegmentGroup.test.tsx \
+  src/renderer/src/features/chat/message/assistant-message/__tests__/AssistantSupportSegmentList.test.tsx \
+  src/renderer/src/features/chat/message/assistant-message/__tests__/assistantMessageRenderModel.test.ts
 ```
 
 Result: 3 test files passed, 30 tests passed.
@@ -250,9 +250,9 @@ Result: passed.
 
 ```bash
 pnpm_config_verify_deps_before_run=false pnpm exec vitest run \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/SupportSegmentGroup.test.tsx \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/AssistantSupportSegmentList.test.tsx \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/assistantMessageRenderModel.test.ts
+  src/renderer/src/features/chat/message/assistant-message/__tests__/SupportSegmentGroup.test.tsx \
+  src/renderer/src/features/chat/message/assistant-message/__tests__/AssistantSupportSegmentList.test.tsx \
+  src/renderer/src/features/chat/message/assistant-message/__tests__/assistantMessageRenderModel.test.ts
 ```
 
 Result: 3 test files passed, 32 tests passed.
@@ -270,16 +270,16 @@ Covered evidence:
 
 ```bash
 pnpm_config_verify_deps_before_run=false pnpm exec vitest run \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/SupportSegmentGroup.test.tsx
+  src/renderer/src/features/chat/message/assistant-message/__tests__/SupportSegmentGroup.test.tsx
 ```
 
 Result: 1 test file passed, 16 tests passed.
 
 ```bash
 pnpm_config_verify_deps_before_run=false pnpm exec vitest run \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/SupportSegmentGroup.test.tsx \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/AssistantSupportSegmentList.test.tsx \
-  src/renderer/src/components/chat/chatMessage/assistant-message/__tests__/assistantMessageRenderModel.test.ts
+  src/renderer/src/features/chat/message/assistant-message/__tests__/SupportSegmentGroup.test.tsx \
+  src/renderer/src/features/chat/message/assistant-message/__tests__/AssistantSupportSegmentList.test.tsx \
+  src/renderer/src/features/chat/message/assistant-message/__tests__/assistantMessageRenderModel.test.ts
 ```
 
 Result: 3 test files passed, 32 tests passed.

@@ -142,7 +142,7 @@ Main handler：
 
 Renderer invoker：
 
-- `src/renderer/src/invoker/ipcInvoker.ts`
+- `src/renderer/src/infrastructure/ipc/index.ts`
 
 调用方式：
 
@@ -156,7 +156,7 @@ const response = await invokeModelsGetModelCapabilities({
 
 接入组件：
 
-- `src/renderer/src/components/settings/providers/ProviderModelsPanel.tsx`
+- `src/renderer/src/features/settings/providers/ProviderModelsPanel.tsx`
 
 触发条件：
 

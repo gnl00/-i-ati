@@ -7,7 +7,6 @@
     "src/types/**/*",
     "src/main/mcp/**/*",
     "src/shared/constants/**/*",
-    "src/renderer/src/config/**/*",
     "src/shared/**/*",
     "src/main/tools/**/*"
   ],

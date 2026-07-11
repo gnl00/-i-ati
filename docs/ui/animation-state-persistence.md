@@ -165,7 +165,7 @@ const shouldAnimate = useMemo(() => isLatest, [])  // ❌ 空依赖数组
 
 ### 用户消息动画
 
-**文件**：`src/renderer/src/components/chat/ChatMessageComponent.tsx`
+**文件**：`src/renderer/src/features/chat/message/ChatMessageComponent.tsx`
 
 ```tsx
 // Line 100: 状态锁定
@@ -183,7 +183,7 @@ const [wasLatestOnMount] = useState(isLatest)
 
 ### 动画定义
 
-**文件**：`src/renderer/src/assets/main.css`
+**文件**：`src/renderer/src/shared/assets/main.css`
 
 ```css
 /* Line 273-292: Shine 光泽动画 */

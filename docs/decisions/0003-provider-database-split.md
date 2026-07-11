@@ -53,11 +53,11 @@ Refactor database layer to separate provider/account/model data into dedicated t
 - `src/main/db/DatabaseService.ts`
 - `src/shared/constants/index.ts`
 - `src/main/main-ipc.ts`
-- `src/renderer/src/invoker/ipcInvoker.ts`
-- `src/renderer/src/db/ProviderRepository.ts`
-- `src/renderer/src/store/appConfig.ts`
-- `src/renderer/src/db/ConfigRepository.ts`
+- `src/renderer/src/infrastructure/ipc/index.ts`
+- `src/renderer/src/infrastructure/persistence/ProviderRepository.ts`
+- `src/renderer/src/infrastructure/config/appConfig.ts`
+- `src/renderer/src/infrastructure/persistence/ConfigRepository.ts`
 
 ## Tests/Checks
-- `pnpm exec vitest run src/shared/providers/__tests__/fetchModels.test.ts src/main/services/providers/__tests__/ProviderModelsFetchService.test.ts src/main/ipc/__tests__/providers.test.ts src/renderer/src/components/settings/providers/__tests__/FetchModelsDrawer.cacheKey.test.ts`
+- `pnpm exec vitest run src/shared/providers/__tests__/fetchModels.test.ts src/main/services/providers/__tests__/ProviderModelsFetchService.test.ts src/main/ipc/__tests__/providers.test.ts src/renderer/src/features/settings/providers/__tests__/FetchModelsDrawer.cacheKey.test.ts`
 - `pnpm run typecheck`

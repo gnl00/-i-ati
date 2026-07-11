@@ -122,7 +122,7 @@
 #### 症状
 
 ```typescript
-// src/renderer/src/tools/webTools/renderer/WebToolsInvoker.ts
+// src/renderer/src/infrastructure/tools/webTools/renderer/WebToolsInvoker.ts
 const searchResponse = await window.electron?.ipcRenderer.invoke(
   WEB_SEARCH_ACTION,
   {
@@ -534,7 +534,7 @@ const processWebSearch = async ({ fetchCounts, param }) => {
 
 #### 前端配置界面
 
-**文件：** `src/renderer/src/components/sys/PreferenceComponent.tsx`
+**文件：** `src/renderer/src/features/settings/SettingsPanel.tsx`
 
 ```typescript
 // 状态管理
@@ -1327,7 +1327,7 @@ async function summarizeResults(results: WebSearchResultV2[]): Promise<string> {
 |---------|---------|---------|
 | `src/main/tools/webTools/main/BrowserWindowPool.ts` | 窗口池核心实现 | ~250 |
 | `src/main/tools/webTools/main/WebToolsProcessor.ts` | 搜索处理器 | ~250 |
-| `src/renderer/src/tools/webTools/renderer/WebToolsInvoker.ts` | IPC 调用层 | ~30 |
+| `src/renderer/src/infrastructure/tools/webTools/renderer/WebToolsInvoker.ts` | IPC 调用层 | ~30 |
 | `src/main/main-ipc.ts` | IPC 处理器 | ~60 |
 | `src/main/app-config.ts` | 配置管理 | ~70 |
 | `src/config/index.ts` | 默认配置 | ~15 |
@@ -1336,8 +1336,8 @@ async function summarizeResults(results: WebSearchResultV2[]): Promise<string> {
 
 | 文件路径 | 功能描述 |
 |---------|---------|
-| `src/renderer/src/components/sys/PreferenceComponent.tsx` | 设置界面 |
-| `src/renderer/src/components/chat/WebSearchResults.tsx` | 搜索结果展示 |
+| `src/renderer/src/features/settings/SettingsPanel.tsx` | 设置界面 |
+| `src/renderer/src/features/chat/message/assistant-message/toolcall/WebSearchResults.tsx` | 搜索结果展示 |
 
 #### 类型定义文件
 

@@ -1,5 +1,9 @@
 # 欢迎页面融合球效果说明
 
+> 本文保留早期融合球视觉方案的设计参数。当前生产欢迎页由
+> `@renderer/features/chat/welcome/SmartWelcomeEntrance` 实现；此前的卡片堆叠方案保留在
+> `@renderer/dev/experiments/welcome/SmartWelcomeEntranceLegacy`，用于开发期视觉对照。
+
 ## 🎨 效果介绍
 
 我为你的欢迎页面添加了一个**SVG metaballs（融合球）**效果，灵感来自你提供的项目。这个效果会在页面背景中显示 3 个跟随鼠标移动的半透明球体，它们会产生流体般的融合效果。
@@ -58,7 +62,7 @@
 
 ### 调整球体大小
 
-在 `WelcomeMessageWithBlob.tsx` 中修改：
+在当前生产组件 `src/renderer/src/features/chat/welcome/SmartWelcomeEntrance.tsx` 及其样式文件中调整对应视觉参数。以下融合球代码保留为早期方案参考：
 
 ```tsx
 {/* Blob 1 - 小球 */}
@@ -105,36 +109,36 @@ setBlob1Pos(prev => ({
 
 ## 📦 组件对比
 
-### WelcomeMessageSimple.tsx
-- ✅ 保留原设计的打字机效果
+### SmartWelcomeEntrance.tsx（当前生产入口）
+- ✅ 提供问候语打字机效果
 - ✅ 使用 app 配色系统
-- ✅ 移除 emoji，使用纯文本
-- ❌ 无特殊视觉效果
+- ✅ 提供智能消息堆叠、情绪图与指针响应
+- ✅ 由 `features/chat/shell/ChatWindow.tsx` 直接使用
 
-### WelcomeMessageWithBlob.tsx（当前使用）
-- ✅ 保留原设计的打字机效果
-- ✅ 使用 app 配色系统
-- ✅ 移除 emoji，使用纯文本
-- ✅ **新增融合球跟随效果**
+### SmartWelcomeEntranceLegacy.tsx（历史视觉实验）
+- ✅ 保留此前的欢迎卡片堆叠实现
+- ✅ 位于 `dev/experiments/welcome/`，用于开发期视觉对照
+- ✅ 复用当前欢迎页的 greeting 与 emotion 领域能力
 
-## 🔄 如何切换组件
+## 🔄 当前组件映射
 
-在 `ChatWindowComponentV2.tsx` 中修改导入语句：
+生产聊天窗口使用稳定欢迎页入口：
 
 ```tsx
-// 使用融合球版本（当前）
-import WelcomeMessage from "@renderer/components/chat/WelcomeMessageWithBlob"
-
-// 或使用简约版本
-import WelcomeMessage from "@renderer/components/chat/WelcomeMessageSimple"
-
-// 或使用原始版本
-import WelcomeMessage from "@renderer/components/chat/WelcomeMessage5"
+import WelcomeMessage from '@renderer/features/chat/welcome/SmartWelcomeEntrance'
 ```
+
+历史视觉实验保留独立入口：
+
+```tsx
+import SmartWelcomeEntranceLegacy from '@renderer/dev/experiments/welcome/SmartWelcomeEntranceLegacy'
+```
+
+`dev/` 组件用于实验和人工对照页面，生产 renderer 通过目录边界规则保持与该目录隔离。
 
 ## 📝 总结
 
-我为你的欢迎页面添加了一个优雅的融合球效果：
+早期融合球方案包含以下设计目标：
 
 1. ✅ **保留了你喜欢的设计** - 打字机效果、循环提示、整体布局
 2. ✅ **契合 app 配色** - 使用 `primary` 颜色系统，自动适配深色模式
@@ -142,4 +146,4 @@ import WelcomeMessage from "@renderer/components/chat/WelcomeMessage5"
 4. ✅ **克制的视觉效果** - 半透明球体，不会过于抢眼
 5. ✅ **无需额外依赖** - 纯 React + CSS，无需 react-spring
 
-现在你可以运行 app 查看效果了！鼠标移动时，3 个半透明球体会以不同速度跟随，并产生流体般的融合效果。
+当前视觉实现与生产入口以 `SmartWelcomeEntrance` 源码和 `docs/ui/smart-welcome-message-stack.md` 为准。

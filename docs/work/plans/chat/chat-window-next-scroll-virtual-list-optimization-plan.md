@@ -1,4 +1,4 @@
-# ChatWindowComponentNext 滚动与虚拟列表优化方案
+# ChatWindow 滚动与虚拟列表优化方案
 
 Owner: Chat UI maintainers<br>
 Status: Active<br>
@@ -11,10 +11,10 @@ Related implementation: `src/renderer/src`
 ## 文档状态
 
 - 状态：阶段一、阶段二、阶段四已实施；阶段三等待真实流式验收
-- 目标组件：`ChatWindowComponentNext`
+- 目标组件：`ChatWindow`
 - 主要文件：
-  - `src/renderer/src/components/chat/ChatWindowComponentNext.tsx`
-  - `src/renderer/src/hooks/useScrollManagerTop.ts`
+  - `src/renderer/src/features/chat/shell/ChatWindow.tsx`
+  - `src/renderer/src/features/chat/useScrollManagerTop.ts`
 - 依赖基础：`@tanstack/react-virtual@3.14.3` 与 `@tanstack/virtual-core@3.17.1`
 
 ## 1. 结论
@@ -51,7 +51,7 @@ Related implementation: `src/renderer/src`
 
 ### 3.1 user-sent 目标计算与执行目标分离
 
-`ChatWindowComponentNext.tsx:453-486` 已计算 `anchorIndex` 和 `resolvedTargetIndex`，实际调用仍为：
+`ChatWindow.tsx:453-486` 已计算 `anchorIndex` 和 `resolvedTargetIndex`，实际调用仍为：
 
 ```ts
 scrollToMessageIndex(latestVirtualIndex, false, 'end')
@@ -61,7 +61,7 @@ scrollToMessageIndex(latestVirtualIndex, false, 'end')
 
 ### 3.2 顶部对齐还需要尾部滚动空间
 
-当前 virtualizer 使用固定 `paddingEnd: 12`，见 `ChatWindowComponentNext.tsx:390-405`。定制 core 的 `getOffsetForAlignment()` 会把目标 offset 限制在浏览器实际 `maxOffset` 内。
+当前 virtualizer 使用固定 `paddingEnd: 12`，见 `ChatWindow.tsx:390-405`。定制 core 的 `getOffsetForAlignment()` 会把目标 offset 限制在浏览器实际 `maxOffset` 内。
 
 当新 user 消息与 pending assistant 的合计高度小于视口可用高度时，列表尾部缺少足够滚动空间。此时仅把调用改为：
 
@@ -73,13 +73,13 @@ scrollToMessageIndex(resolvedTargetIndex, false, 'start')
 
 ### 3.3 流式期存在主动追尾路径
 
-`ChatWindowComponentNext.tsx:653-661` 的 `handleLatestAssistantTyping()` 在 `tail-follow` 模式下每次触发一个 RAF，并调用 `scrollToEnd()`。
+`ChatWindow.tsx:653-661` 的 `handleLatestAssistantTyping()` 在 `tail-follow` 模式下每次触发一个 RAF，并调用 `scrollToEnd()`。
 
 用户发送后切入 `anchor-lock`，该路径自然停止；点击“跳回最新”后切回 `tail-follow`，该路径继续作为现阶段保险带。后续实验再决定定制 core 的 resize 补偿能否独立覆盖追尾行为。
 
 ### 3.4 按钮当前由 latest visibility 隐式驱动
 
-`useScrollManagerTop.ts:96-131` 根据末项是否可见自动显示或隐藏按钮。`ChatWindowComponentNext.tsx:305-316` 还会在 streaming 期间根据末项重新可见，把 `manual` 自动切回 `tail-follow`。
+`useScrollManagerTop.ts:96-131` 根据末项是否可见自动显示或隐藏按钮。`ChatWindow.tsx:305-316` 还会在 streaming 期间根据末项重新可见，把 `manual` 自动切回 `tail-follow`。
 
 目标交互要求显式恢复，因此按钮显示源改为以下两类事件：
 
@@ -95,7 +95,7 @@ scrollToMessageIndex(resolvedTargetIndex, false, 'start')
 
 ### 3.5 overscan 与条目成本
 
-`CHAT_VIRTUAL_OVERSCAN` 当前为 `8`，见 `ChatWindowComponentNext.tsx:33`。assistant 估算高度上限为 `560px`，真实内容还可能包含 Markdown、代码高亮、表格、KaTeX 与工具结果。
+`CHAT_VIRTUAL_OVERSCAN` 当前为 `8`，见 `ChatWindow.tsx:33`。assistant 估算高度上限为 `560px`，真实内容还可能包含 Markdown、代码高亮、表格、KaTeX 与工具结果。
 
 当前 core 的 `overscan` 接口为单个数值。非对称 overscan 需要自定义 `rangeExtractor`，会扩大实现与验证范围。本轮先把固定值调到 `4`，再用真实长会话确定最终阈值。
 
@@ -305,11 +305,11 @@ runScrollHint({
 
 实现涉及 5 个文件：
 
-1. `src/renderer/src/components/chat/ChatWindowComponentNext.tsx`
-2. `src/renderer/src/hooks/useScrollManagerTop.ts`
-3. `src/renderer/src/components/chat/scroll-anchor.ts`
-4. `src/renderer/src/components/chat/__tests__/chatScrollPolicy.test.ts`
-5. `src/renderer/src/hooks/__tests__/useScrollManagerTop.test.tsx`
+1. `src/renderer/src/features/chat/shell/ChatWindow.tsx`
+2. `src/renderer/src/features/chat/useScrollManagerTop.ts`
+3. `src/renderer/src/features/chat/scroll-anchor.ts`
+4. `src/renderer/src/features/chat/__tests__/chatScrollPolicy.test.ts`
+5. `src/renderer/src/features/chat/__tests__/useScrollManagerTop.test.tsx`
 
 实现完成后同步以下现状文档，使描述与三态模型一致：
 
@@ -353,8 +353,8 @@ runScrollHint({
 
 ```bash
 pnpm_config_verify_deps_before_run=false pnpm exec vitest run \
-  src/renderer/src/components/chat/__tests__/chatScrollPolicy.test.ts \
-  src/renderer/src/hooks/__tests__/useScrollManagerTop.test.tsx
+  src/renderer/src/features/chat/__tests__/chatScrollPolicy.test.ts \
+  src/renderer/src/features/chat/__tests__/useScrollManagerTop.test.tsx
 
 pnpm_config_verify_deps_before_run=false pnpm run typecheck:web
 git diff --check

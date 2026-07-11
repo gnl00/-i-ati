@@ -1,0 +1,160 @@
+import { getChatById } from '@renderer/infrastructure/persistence/ChatRepository'
+import type { StateCreator } from 'zustand'
+import type { ChatSessionActions, ChatSessionState } from './chatSessionStore'
+import type { ChatTranscriptActions, ChatTranscriptState } from './chatTranscriptStore'
+import type { ChatRunUiActions, ChatRunUiState } from './chatRunUiStore'
+import {
+  DEFAULT_PERMISSION_APPROVAL_MODE,
+  normalizePermissionApprovalMode
+} from '@shared/tools/approval'
+
+export type ChatCoordinatorActions = {
+  hydrateChat: (chatId: number) => Promise<void>
+  selectChatShell: (chatId: number | null, chatUuid: string | null, chat?: ChatEntity | null) => void
+  resetChatContext: () => void
+  applyReadyChat: (chatEntity: ChatEntity, options?: { selectShell?: boolean }) => void
+}
+
+type ChatCoordinatorSliceState =
+  & ChatSessionState
+  & ChatTranscriptState
+  & ChatRunUiState
+  & ChatSessionActions
+  & ChatTranscriptActions
+  & ChatRunUiActions
+
+function buildConversationScrollHint(chatUuid: string, messageCount: number): ChatRunUiState['scrollHint'] {
+  if (messageCount <= 0) {
+    return { type: 'none' }
+  }
+
+  return {
+    type: 'conversation-switch',
+    chatUuid,
+    index: messageCount - 1,
+    align: 'end'
+  }
+}
+
+function applyChatShellSelection<T extends ChatCoordinatorSliceState>(
+  set: Parameters<StateCreator<T>>[0],
+  get: Parameters<StateCreator<T>>[1],
+  chatId: number | null,
+  chatUuid: string | null,
+  chat?: ChatEntity | null
+): void {
+  const currentChatId = get().currentChatId
+  const currentChatUuid = get().currentChatUuid
+  const resolvedChat = chatUuid
+    ? (chat ?? get().chatList.find(item => item.uuid === chatUuid) ?? null)
+    : (chat ?? get().chatList.find(item => item.id === chatId) ?? null)
+
+  const nextTitle = resolvedChat?.title ?? (chatId || chatUuid ? get().chatTitle : 'NewChat')
+  const nextUserInstruction = resolvedChat?.userInstruction ?? ''
+  const nextPermissionApprovalMode = normalizePermissionApprovalMode(resolvedChat?.permissionApprovalMode)
+
+  if (currentChatId !== chatId || currentChatUuid !== chatUuid) {
+    const transcriptBuffer = chatUuid
+      ? get().transcriptBuffersByChatUuid[chatUuid]
+      : undefined
+    const runStatus = get().getRunStatusForChat(chatUuid)
+
+    set({
+      currentChatId: chatId,
+      currentChatUuid: chatUuid,
+      chatTitle: nextTitle,
+      messages: transcriptBuffer?.messages ?? ([] as MessageEntity[]),
+      preview: transcriptBuffer?.preview ?? { message: null },
+      runPhase: runStatus.runPhase,
+      postRunJobs: runStatus.postRunJobs,
+      lastRunOutcome: runStatus.lastRunOutcome,
+      userInstruction: nextUserInstruction,
+      permissionApprovalMode: nextPermissionApprovalMode,
+      scrollHint: { type: 'none' }
+    } as Partial<T>)
+    return
+  }
+
+  set({
+    currentChatId: chatId,
+    currentChatUuid: chatUuid,
+    chatTitle: nextTitle,
+    userInstruction: nextUserInstruction,
+    permissionApprovalMode: nextPermissionApprovalMode
+  } as Partial<T>)
+}
+
+export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState>(
+  set: Parameters<StateCreator<T>>[0],
+  get: Parameters<StateCreator<T>>[1]
+): ChatCoordinatorActions {
+  return {
+    hydrateChat: async (chatId) => {
+      const chat = await getChatById(chatId)
+      if (!chat) {
+        throw new Error(`Chat not found: ${chatId}`)
+      }
+
+      if (!chat.uuid) {
+        throw new Error(`Chat missing uuid: ${chatId}`)
+      }
+
+      const messages = await get().fetchMessagesByChatUuid(chat.uuid)
+      const runStatus = get().getRunStatusForChat(chat.uuid)
+
+      set({
+        currentChatId: chat.id,
+        currentChatUuid: chat.uuid,
+        chatTitle: chat.title || 'NewChat',
+        userInstruction: chat.userInstruction || '',
+        permissionApprovalMode: normalizePermissionApprovalMode(chat.permissionApprovalMode),
+        runPhase: runStatus.runPhase,
+        postRunJobs: runStatus.postRunJobs,
+        lastRunOutcome: runStatus.lastRunOutcome,
+        scrollHint: buildConversationScrollHint(chat.uuid, messages.length)
+      } as Partial<T>)
+      get().restoreTranscriptForChat(chat.uuid, messages)
+      set({
+        scrollHint: buildConversationScrollHint(chat.uuid, get().messages.length)
+      } as Partial<T>)
+
+      get().syncSelectedModelRefForChat(chat, messages)
+    },
+
+    selectChatShell: (chatId, chatUuid, chat) => {
+      applyChatShellSelection(set, get, chatId, chatUuid, chat)
+    },
+
+    resetChatContext: () => {
+      set({
+        currentChatId: null,
+        currentChatUuid: null,
+        chatTitle: 'NewChat',
+        messages: [] as MessageEntity[],
+        preview: {
+          message: null
+        },
+        pendingUserMessage: null,
+        runPhase: 'idle',
+        postRunJobs: {
+          title: 'idle',
+          compression: 'idle'
+        },
+        lastRunOutcome: 'idle',
+        userInstruction: '',
+        permissionApprovalMode: DEFAULT_PERMISSION_APPROVAL_MODE,
+        scrollHint: { type: 'none' }
+      } as Partial<T>)
+
+      get().syncSelectedModelRefForChat(null)
+    },
+
+    applyReadyChat: (chatEntity, options = {}) => {
+      get().updateChatList(chatEntity)
+      if (options.selectShell === false) {
+        return
+      }
+      applyChatShellSelection(set, get, chatEntity.id ?? null, chatEntity.uuid ?? null, chatEntity)
+    }
+  }
+}

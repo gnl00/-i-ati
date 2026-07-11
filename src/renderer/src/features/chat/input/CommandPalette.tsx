@@ -1,0 +1,122 @@
+import { cn } from '@renderer/shared/lib/utils'
+import { useTransition, animated } from '@react-spring/web'
+import React from 'react'
+import { createPortal } from 'react-dom'
+
+interface Command {
+  cmd: string
+  label: string
+  description: string
+  action: () => void | Promise<void>
+}
+
+interface CommandPaletteProps {
+  isOpen: boolean
+  commands: Command[]  // Already filtered commands
+  selectedIndex: number
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  onCommandClick: (command: Command) => void | Promise<void>
+}
+
+const CommandPalette: React.FC<CommandPaletteProps> = ({
+  isOpen,
+  commands,
+  selectedIndex,
+  textareaRef,
+  onCommandClick
+}) => {
+  // Animation with react-spring - scale and opacity separately
+  const transition = useTransition(isOpen, {
+    from: { scale: 0.95, opacity: 0 },
+    enter: { scale: 1, opacity: 1 },
+    leave: { scale: 0.95, opacity: 0 },
+    config: { tension: 300, friction: 25 }
+  })
+
+  return (
+    <>
+      {transition((style, item) =>
+        item ? createPortal(
+          (() => {
+            if (commands.length === 0) return null
+
+            // 只在渲染时获取位置，而不是每次输入都获取
+            const textarea = textareaRef.current
+            if (!textarea) return null
+
+            const rect = textarea.getBoundingClientRect()
+
+            return (
+              <animated.div
+                className="fixed z-9999"
+                style={{
+                  top: `${rect.top - 10}px`,
+                  left: `${rect.left}px`,
+                  width: `${rect.width}px`,
+                  transform: 'translateY(-100%)',
+                  opacity: style.opacity
+                }}
+              >
+                <animated.div
+                  style={{
+                    transformOrigin: 'bottom center',
+                    transform: style.scale.to(s => `scale(${s})`)
+                  }}
+                >
+                  <div className="bg-white/90 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden">
+                  <div className="p-1">
+                    {commands.map((cmd, index) => (
+                      <div
+                        key={cmd.cmd}
+                        className={cn(
+                          "px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                          index === selectedIndex
+                            ? "bg-blue-gray-100 dark:bg-blue-900/20"
+                            : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                        )}
+                        onClick={() => void onCommandClick(cmd)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className={cn(
+                              "text-sm font-medium transition-colors",
+                              index === selectedIndex
+                                ? "text-blue-500 dark:text-blue-300"
+                                : "text-gray-900 dark:text-gray-100"
+                            )}>
+                              {cmd.label}
+                            </div>
+                            <div className={cn(
+                              "text-xs mt-0.5 transition-colors",
+                              index === selectedIndex
+                                ? "text-blue-500 dark:text-blue-400"
+                                : "text-gray-500 dark:text-gray-400"
+                            )}>
+                              {cmd.description}
+                            </div>
+                          </div>
+                          <div className={cn(
+                            "text-xs font-mono ml-2 transition-colors",
+                            index === selectedIndex
+                              ? "text-blue-500 dark:text-blue-400"
+                              : "text-gray-400 dark:text-gray-500"
+                          )}>
+                            {cmd.cmd}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </animated.div>
+            </animated.div>
+          )
+          })(),
+          document.body
+        ) : null
+      )}
+    </>
+  )
+}
+
+export default CommandPalette

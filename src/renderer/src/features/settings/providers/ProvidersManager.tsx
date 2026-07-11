@@ -1,0 +1,411 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { invokeProviderTestConnection } from '@renderer/infrastructure/ipc'
+import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
+import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
+import { toast } from 'sonner'
+import FetchModelsDrawer, { type FetchModelsTarget } from './FetchModelsDrawer'
+import { v4 as uuidv4 } from 'uuid'
+import { ProviderModelsPanel } from './ProviderModelsPanel'
+import ProviderConfigurations from './ProviderConfigurations'
+import ProviderSettingsSidebar from './ProviderSettingsSidebar'
+import {
+    SettingsDetailPanel,
+    SettingsEmptyState,
+    SettingsMasterDetail,
+    SettingsPageShell
+} from '../common/SettingsLayout'
+
+interface ProvidersManagerProps {
+    plugins?: PluginEntity[]
+}
+
+const normalizeProviderId = (name: string): string => {
+    return name.trim().toLowerCase().replace(/\s+/g, '-')
+}
+
+const cloneAccountForFetchTarget = (account: ProviderAccount): ProviderAccount => {
+    return {
+        ...account,
+        models: account.models.map(model => ({
+            ...model,
+            modalities: model.modalities ? [...model.modalities] : undefined,
+            capabilities: model.capabilities ? [...model.capabilities] : undefined
+        }))
+    }
+}
+
+const cloneDefinitionForFetchTarget = (definition: ProviderDefinition): ProviderDefinition => {
+    return {
+        ...definition,
+        payloadExtensions: definition.payloadExtensions ? { ...definition.payloadExtensions } : undefined,
+        requestOverrides: definition.requestOverrides ? { ...definition.requestOverrides } : undefined
+    }
+}
+
+const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
+    const {
+        providerDefinitions,
+        setProviderDefinitions,
+        setAccounts,
+        accounts,
+        getProviderEntries,
+        currentAccountId,
+        setCurrentAccountId,
+        addProviderWithAccount,
+        addAccount,
+        updateAccount,
+        removeAccount,
+    } = useAppConfigStore()
+
+    const visibleProviderEntries = useMemo(() => getProviderEntries(), [getProviderEntries, providerDefinitions, accounts])
+    const visibleProviderDefinitions = useMemo(
+        () => visibleProviderEntries.map(entry => entry.definition),
+        [visibleProviderEntries]
+    )
+
+    const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(undefined)
+    const [currentAccount, setCurrentAccount] = useState<ProviderAccount | undefined>(undefined)
+
+    const [newDefinitionDisplayName, setNewDefinitionDisplayName] = useState<string>('')
+    const [newDefinitionAdapterPluginId, setNewDefinitionAdapterPluginId] = useState<string>('openai-chat-compatible-adapter')
+    const [newProviderApi, setNewProviderApi] = useState<string>('')
+    const [newProviderApiKey, setNewProviderApiKey] = useState<string>('')
+    const [newDefinitionIconKey, setNewDefinitionIconKey] = useState<string | undefined>(undefined)
+
+    const [showFetchModelsDrawer, setShowFetchModelsDrawer] = useState<boolean>(false)
+    const [fetchModelsTarget, setFetchModelsTarget] = useState<FetchModelsTarget | undefined>(undefined)
+    const [showNewApiKey, setShowNewApiKey] = useState<boolean>(false)
+    const adapterOptions = useMemo(() => {
+        return getRequestAdapterOptionsFromPlugins(plugins)
+    }, [plugins])
+
+    const firstEnabledAdapterPluginId = useMemo(() => {
+        return adapterOptions.find(option => option.enabled)?.pluginId ?? 'openai-chat-compatible-adapter'
+    }, [adapterOptions])
+
+    useEffect(() => {
+        if (!selectedProviderId && visibleProviderDefinitions.length > 0) {
+            setSelectedProviderId(visibleProviderDefinitions[0].id)
+        }
+    }, [visibleProviderDefinitions, selectedProviderId])
+
+    useEffect(() => {
+        const selectedOption = adapterOptions.find(option => option.pluginId === newDefinitionAdapterPluginId)
+        if (selectedOption?.enabled) {
+            return
+        }
+        setNewDefinitionAdapterPluginId(firstEnabledAdapterPluginId)
+    }, [adapterOptions, firstEnabledAdapterPluginId, newDefinitionAdapterPluginId])
+
+    useEffect(() => {
+        if (!selectedProviderId) {
+            if (currentAccountId) {
+                setCurrentAccountId(undefined)
+            }
+            return
+        }
+
+        const currentAccountForProvider = accounts.find(item => item.id === currentAccountId)
+        if (currentAccountForProvider?.providerId === selectedProviderId) {
+            return
+        }
+
+        const fallbackAccount = accounts.find(item => item.providerId === selectedProviderId)
+        setCurrentAccountId(fallbackAccount?.id)
+    }, [accounts, currentAccountId, selectedProviderId, setCurrentAccountId])
+
+    useEffect(() => {
+        const account = accounts.find(item => item.id === currentAccountId)
+        if (account) {
+            setCurrentAccount(account)
+        } else {
+            setCurrentAccount(undefined)
+        }
+    }, [currentAccountId, accounts])
+
+    const ensureAccountForProvider = (providerId: string): ProviderAccount => {
+        const existing = accounts.find(account => account.providerId === providerId)
+        if (existing) {
+            return existing
+        }
+
+        const definition = visibleProviderDefinitions.find(def => def.id === providerId)
+        const label = definition?.displayName ? `${definition.displayName} Account` : 'Account'
+
+        const newAccount: ProviderAccount = {
+            id: uuidv4(),
+            providerId,
+            label,
+            apiUrl: definition?.defaultApiUrl || '',
+            apiKey: '',
+            models: []
+        }
+
+        addAccount(newAccount)
+        setCurrentAccountId(newAccount.id)
+        return newAccount
+    }
+
+
+    const onAddProviderBtnClick = async (e: React.MouseEvent) => {
+        const displayName = newDefinitionDisplayName.trim()
+        const baseUrl = newProviderApi.trim()
+        const apiKey = newProviderApiKey.trim()
+        if (!displayName || !baseUrl || !apiKey) {
+            alert('Please input display name / API Base URL / API Key')
+            e.preventDefault()
+            return
+        }
+
+        let providerId = normalizeProviderId(displayName)
+        if (!providerId) {
+            providerId = `custom-${uuidv4()}`
+        }
+
+        if (providerDefinitions.some(def => normalizeProviderId(def.id) === providerId)) {
+            const shortSuffix = uuidv4().slice(0, 8)
+            providerId = `${providerId}-${shortSuffix}`
+        }
+
+        const adapterPluginId = newDefinitionAdapterPluginId.trim() || 'openai-chat-compatible-adapter'
+        const selectedAdapterOption = adapterOptions.find(option => option.pluginId === adapterPluginId)
+        if (!selectedAdapterOption?.enabled) {
+            toast.warning(`Adapter "${selectedAdapterOption?.label ?? adapterPluginId}" is disabled in Plugins`)
+            e.preventDefault()
+            return
+        }
+
+        const newDefinition: ProviderDefinition = {
+            id: providerId,
+            displayName,
+            adapterPluginId,
+            enabled: true,
+            iconKey: newDefinitionIconKey || providerId,
+            defaultApiUrl: baseUrl
+        }
+
+        const newAccount: ProviderAccount = {
+            id: uuidv4(),
+            providerId,
+            label: `${displayName} Account`,
+            apiUrl: baseUrl,
+            apiKey,
+            models: []
+        }
+
+        await addProviderWithAccount(newDefinition, newAccount)
+        setSelectedProviderId(providerId)
+
+        setNewDefinitionDisplayName('')
+        setNewDefinitionAdapterPluginId('openai-chat-compatible-adapter')
+        setNewProviderApi('')
+        setNewProviderApiKey('')
+        setNewDefinitionIconKey(undefined)
+        setShowNewApiKey(false)
+
+        toast.success(`Added ${displayName}`)
+    }
+
+    const onModelTableCellClick = (val: string) => {
+        navigator.clipboard.writeText(val)
+        toast.success('Copied')
+    }
+
+    const createFetchModelsTarget = (): FetchModelsTarget | undefined => {
+        if (!currentAccount) {
+            toast.error('Please select an account first')
+            return undefined
+        }
+
+        const providerDefinition = visibleProviderDefinitions.find(def => def.id === currentAccount.providerId)
+        if (!providerDefinition) {
+            toast.error('Provider configuration is incomplete')
+            return undefined
+        }
+
+        return {
+            account: cloneAccountForFetchTarget(currentAccount),
+            providerDefinition: cloneDefinitionForFetchTarget(providerDefinition)
+        }
+    }
+
+    const openFetchModelsDrawer = () => {
+        const target = createFetchModelsTarget()
+        if (!target) {
+            return
+        }
+
+        setFetchModelsTarget(target)
+        setShowFetchModelsDrawer(true)
+    }
+
+    const handleFetchModelsDrawerOpenChange = (open: boolean) => {
+        if (!open) {
+            setShowFetchModelsDrawer(false)
+            setFetchModelsTarget(undefined)
+            return
+        }
+
+        const target = createFetchModelsTarget()
+        if (!target) {
+            return
+        }
+
+        setFetchModelsTarget(target)
+        setShowFetchModelsDrawer(true)
+    }
+
+    const onProviderCardClick = (definition: ProviderDefinition) => {
+        setSelectedProviderId(definition.id)
+    }
+
+    const onProviderDeleteClick = (event: React.MouseEvent, definition: ProviderDefinition) => {
+        event.stopPropagation()
+        const removedAccounts = accounts.filter(account => account.providerId === definition.id)
+        const remainingDefinitions = providerDefinitions.filter(def => def.id !== definition.id)
+        const remainingAccounts = accounts.filter(account => account.providerId !== definition.id)
+
+        setProviderDefinitions(remainingDefinitions)
+        setAccounts(remainingAccounts)
+
+        if (selectedProviderId === definition.id) {
+            setCurrentAccount(undefined)
+            setSelectedProviderId(remainingDefinitions[0]?.id)
+            setCurrentAccountId(undefined)
+        }
+
+        toast.warning(`Provider "${definition.displayName}" deleted`, {
+            action: {
+                label: 'Undo',
+                onClick: () => {
+                    const { providerDefinitions: currentDefinitions, accounts: currentAccounts } = useAppConfigStore.getState()
+                    const nextDefinitions = currentDefinitions.some(def => def.id === definition.id)
+                        ? currentDefinitions
+                        : [...currentDefinitions, definition]
+                    const nextAccounts = [...currentAccounts, ...removedAccounts]
+
+                    setProviderDefinitions(nextDefinitions)
+                    setAccounts(nextAccounts)
+
+                    if (removedAccounts[0]) {
+                        setCurrentAccountId(removedAccounts[0].id)
+                        setSelectedProviderId(definition.id)
+                    }
+                }
+            }
+        })
+    }
+
+    const updateCurrentAccount = (updates: Partial<ProviderAccount>) => {
+        if (!selectedProviderId) return
+        const account = currentAccount ?? ensureAccountForProvider(selectedProviderId)
+        const nextAccount = { ...account, ...updates }
+        setCurrentAccount(nextAccount)
+        updateAccount(account.id, updates)
+    }
+
+    const updateProviderDefinition = (providerId: string, updates: Partial<ProviderDefinition>) => {
+        const nextDefinitions = providerDefinitions.map(def => {
+            if (def.id !== providerId) return def
+            return { ...def, ...updates }
+        })
+        setProviderDefinitions(nextDefinitions)
+    }
+
+    const onAccountDeleteClick = (_e: any, account?: ProviderAccount) => {
+        if (!account) return
+        if (currentAccount && currentAccount.id === account.id) {
+            setCurrentAccount(undefined)
+        }
+        if (currentAccountId && currentAccountId === account.id) {
+            setCurrentAccountId(undefined)
+        }
+        removeAccount(account.id)
+    }
+
+    const selectedDefinition = visibleProviderDefinitions.find(def => def.id === selectedProviderId)
+    const defaultApiUrl = selectedDefinition?.defaultApiUrl || ''
+
+    return (
+        <SettingsPageShell>
+            <SettingsMasterDetail className="bg-transparent p-0">
+                <ProviderSettingsSidebar
+                    plugins={plugins}
+                    providers={visibleProviderEntries}
+                    selectedProviderId={selectedProviderId}
+                    onSelectProvider={onProviderCardClick}
+                    onDeleteProvider={onProviderDeleteClick}
+                    addProvider={{
+                        displayName: newDefinitionDisplayName,
+                        adapterPluginId: newDefinitionAdapterPluginId,
+                        apiUrl: newProviderApi,
+                        apiKey: newProviderApiKey,
+                        iconKey: newDefinitionIconKey,
+                        showApiKey: showNewApiKey,
+                        onDisplayNameChange: setNewDefinitionDisplayName,
+                        onAdapterPluginIdChange: setNewDefinitionAdapterPluginId,
+                        onApiUrlChange: setNewProviderApi,
+                        onApiKeyChange: setNewProviderApiKey,
+                        onIconKeyChange: setNewDefinitionIconKey,
+                        onToggleShowApiKey: () => setShowNewApiKey(!showNewApiKey),
+                        onSave: onAddProviderBtnClick
+                    }}
+                />
+                {/* Provider Details */}
+                <div id="providerDetails" className='flex-1 min-w-0 flex flex-col h-full'>
+                    {!selectedDefinition ? (
+                        <SettingsDetailPanel>
+                            <SettingsEmptyState
+                                icon={<i className="ri-cloud-line text-[16px] text-gray-400 dark:text-gray-500" />}
+                                title="No providers available"
+                                description="Add a provider to configure accounts and models."
+                                className="h-full py-0"
+                            />
+                        </SettingsDetailPanel>
+                    ) : (
+                        <SettingsDetailPanel>
+                            <ProviderConfigurations
+                                plugins={plugins}
+                                providerDefinition={selectedDefinition}
+                                account={currentAccount}
+                                defaultApiUrl={defaultApiUrl}
+                                onUpdateAccount={updateCurrentAccount}
+                                onUpdateProviderDefinition={updateProviderDefinition}
+                                onTestProvider={() => {
+                                    if (!selectedDefinition || !currentAccount) {
+                                        throw new Error('Provider configuration is incomplete')
+                                    }
+                                    return invokeProviderTestConnection({
+                                        providerDefinition: selectedDefinition,
+                                        account: currentAccount
+                                    })
+                                }}
+                                onResetAccount={() => {
+                                    if (!currentAccount) return
+                                    onAccountDeleteClick(undefined as any, currentAccount)
+                                }}
+                            />
+                            <ProviderModelsPanel
+                                selectedProviderId={selectedProviderId}
+                                currentAccount={currentAccount}
+                                onModelTableCellClick={onModelTableCellClick}
+                                onOpenFetchModels={openFetchModelsDrawer}
+                                isFetchDisabled={!currentAccount?.apiKey}
+                                ensureAccountForProvider={ensureAccountForProvider}
+                            />
+                        </SettingsDetailPanel>
+                    )}
+                </div>
+            </SettingsMasterDetail>
+
+            {/* Fetch Models Drawer */}
+            <FetchModelsDrawer
+                open={showFetchModelsDrawer}
+                onOpenChange={handleFetchModelsDrawerOpenChange}
+                target={fetchModelsTarget}
+            />
+        </SettingsPageShell>
+    )
+}
+
+export default ProvidersManager

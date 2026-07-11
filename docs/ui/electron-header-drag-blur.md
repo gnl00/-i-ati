@@ -82,8 +82,8 @@ When dragging fails:
 
 The current chat header follows this pattern:
 
-- `src/renderer/src/components/chat/ChatHeaderComponent.tsx`
-- `src/renderer/src/components/chat/ChatWindowComponentNext.tsx`
-- `src/renderer/src/assets/main.css`
+- `src/renderer/src/features/chat/shell/ChatHeader.tsx`
+- `src/renderer/src/features/chat/shell/ChatWindow.tsx`
+- `src/renderer/src/shared/assets/main.css`
 
 Manual window-position dragging was removed after the native drag region was stabilized.

@@ -32,7 +32,7 @@ Applied to all markdown renderers:
 - streaming markdown switch
 
 ## Files
-- `src/renderer/src/components/chat/chatMessage/markdown-plugins.ts`
-- `src/renderer/src/components/chat/chatMessage/user-message.tsx`
-- `src/renderer/src/components/chat/chatMessage/assistant-message.tsx`
-- `src/renderer/src/components/chat/chatMessage/StreamingMarkdownSwitch.tsx`
+- `src/renderer/src/features/chat/message/markdown/markdown-plugins.ts`
+- `src/renderer/src/features/chat/message/user-message/index.tsx`
+- `src/renderer/src/features/chat/message/assistant-message/index.tsx`
+- `src/renderer/src/features/chat/message/typewriter/StreamingMarkdownSwitch.tsx`

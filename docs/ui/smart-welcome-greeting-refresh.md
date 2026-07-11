@@ -25,7 +25,7 @@
 
 ## 实现
 
-新增 `src/renderer/src/components/chat/welcome/smartGreeting.ts`：
+新增 `src/renderer/src/features/chat/welcome/smartGreeting.ts`：
 
 - `getTimeOfDay(hour)`：把本地小时映射为 `morning | afternoon | evening | night`。
 - `pickSmartGreeting(now, random)`：根据当前时段选择一条 subtitle，支持注入随机源用于测试。
@@ -41,7 +41,7 @@
 
 ## 验证
 
-新增 `src/renderer/src/components/chat/welcome/__tests__/smartGreeting.test.ts`，覆盖：
+新增 `src/renderer/src/features/chat/welcome/__tests__/smartGreeting.test.ts`，覆盖：
 
 - 时段边界映射。
 - 不同时段的随机 subtitle 选择。
@@ -51,6 +51,6 @@
 已通过：
 
 ```bash
-pnpm exec vitest run src/renderer/src/components/chat/welcome/__tests__/smartGreeting.test.ts
+pnpm exec vitest run src/renderer/src/features/chat/welcome/__tests__/smartGreeting.test.ts
 pnpm run typecheck:web
 ```

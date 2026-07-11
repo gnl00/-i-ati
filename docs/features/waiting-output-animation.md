@@ -30,11 +30,11 @@
 
 | 文件 | 角色 | 操作 |
 |------|------|------|
-| `src/renderer/src/components/chat/chatMessage/assistant-message/LoadingDots.tsx` | 现有 LoadingDots 组件 | **删除** |
-| `src/renderer/src/components/chat/chatMessage/assistant-message/AssistantMessageBody.tsx` | 引用 LoadingDots（`textItems.length === 0 && isLatest`） | **移除 LoadingDots 引用和条件渲染** |
-| `src/renderer/src/components/chat/chatMessage/assistant-message/renderers/AssistantTextSegmentList.tsx` | 引用 LoadingDots（`items.length === 0 && isLatest`） | **移除 LoadingDots 引用和条件渲染** |
-| `src/renderer/src/components/chat/chatInput/SharedPromptSurface.tsx` | 光条放置的目标组件 | **新增 shuttle 动画** |
-| `src/renderer/src/components/chat/chatInput/SharedPromptSurface.css` | 光条样式和动画定义 | **新增 CSS** |
+| 已移除的 `LoadingDots` 组件 | 旧等待状态组件 | **已删除** |
+| `src/renderer/src/features/chat/message/assistant-message/AssistantMessageBody.tsx` | 引用 LoadingDots（`textItems.length === 0 && isLatest`） | **移除 LoadingDots 引用和条件渲染** |
+| `src/renderer/src/features/chat/message/assistant-message/renderers/AssistantTextSegmentList.tsx` | 引用 LoadingDots（`items.length === 0 && isLatest`） | **移除 LoadingDots 引用和条件渲染** |
+| `src/renderer/src/features/chat/input/SharedPromptSurface.tsx` | 光条放置的目标组件 | **新增 shuttle 动画** |
+| `src/renderer/src/features/chat/input/SharedPromptSurface.css` | 光条样式和动画定义 | **新增 CSS** |
 | `tailwind.config.js` | `loading-dot` keyframe 定义 | **移除**（LoadingDots 删除后不再需要） |
 
 ## 实现

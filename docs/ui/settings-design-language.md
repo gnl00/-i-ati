@@ -2,7 +2,7 @@
 
 ## Goal
 
-Unify the visual language under `src/renderer/src/components/settings` while preserving the current settings workflows. The settings area should feel like a compact desktop control surface: dense, calm, operational, and consistent across tools, memory, knowledge base, MCP servers, skills, plugins, providers, and data logs.
+Unify the visual language under `src/renderer/src/features/settings` while preserving the current settings workflows. The settings area should feel like a compact desktop control surface: dense, calm, operational, and consistent across tools, memory, knowledge base, MCP servers, skills, plugins, providers, and data logs.
 
 ## Current State
 
@@ -95,7 +95,7 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 
 ## Implementation Plan
 
-1. Add settings-only layout primitives in `src/renderer/src/components/settings/common/SettingsLayout.tsx`.
+1. Add settings-only layout primitives in `src/renderer/src/features/settings/common/SettingsLayout.tsx`.
 2. Migrate Memory and Skills first to validate the resource-list template.
 3. Migrate Data & Log to validate the section-stack template.
 4. Migrate Tools to validate field rows, control groups, and switch-driven expandable regions.

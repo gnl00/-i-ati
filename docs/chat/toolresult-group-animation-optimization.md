@@ -216,7 +216,7 @@ const supportSegmentRowAppendTransition: Transition = {
 
 #### 4. 处理 SizeAnimatedPanel 插入卡顿
 
-**需要检查**: `src/renderer/src/components/ui/size-animated-panel.tsx`
+**需要检查**: `src/renderer/src/shared/components/ui/size-animated-panel.tsx`
 
 **优化方向**:
 

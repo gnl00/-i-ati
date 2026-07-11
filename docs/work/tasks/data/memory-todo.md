@@ -278,7 +278,7 @@ console.log(stats)
 
 ### 实现步骤
 
-#### 步骤 1：创建 Memory Hook (`src/renderer/src/hooks/useMemory.ts`)
+#### 步骤 1：创建 Memory Hook (`src/renderer/src/features/chat/runtime/useChatRun.ts`)
 
 创建一个专门处理 Memory 操作的 React Hook：
 
@@ -403,7 +403,7 @@ ${contextParts.join('\n\n')}
 }
 ```
 
-#### 步骤 2：在 `src/renderer/src/store/appConfig.ts` 中添加 Memory 配置状态
+#### 步骤 2：在 `src/renderer/src/infrastructure/config/appConfig.ts` 中添加 Memory 配置状态
 
 1. 在 `AppConfigState` 类型中添加 Memory 配置：
 
@@ -492,7 +492,7 @@ setAppConfig: async (updatedConfig: IAppConfig) => {
 ```
 
 > 这份文档是历史待办与方案记录，部分路径和命名来自当时状态。
-> 当前 renderer chat run 入口为 `src/renderer/src/hooks/chatRun/useChatRun.ts`。
+> 当前 renderer chat run 入口为 `src/renderer/src/features/chat/runtime/useChatRun.ts`。
 
 #### 步骤 3：集成到 renderer chat run 入口
 
@@ -500,7 +500,7 @@ setAppConfig: async (updatedConfig: IAppConfig) => {
 
 ```typescript
 import { useMemory } from './useMemory'
-import { useAppConfigStore } from '@renderer/store/appConfig'
+import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 ```
 
 2. 在 renderer chat run 入口函数中初始化 Memory hook：
@@ -641,7 +641,7 @@ const buildRequest = async (context: ChatPipelineContext, prompt: string): Promi
 
 #### 步骤 4：添加 UI 指示器（可选但推荐）
 
-在 `ChatInputArea` 或 `ChatHeaderComponent` 中显示记忆状态：
+在 `ChatInputArea` 或 `ChatHeader` 中显示记忆状态：
 
 ```typescript
 // 在组件中
@@ -670,10 +670,10 @@ const { memoryEnabled } = useAppConfigStore()
 
 ### 涉及的文件
 
-- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/hooks/useMemory.ts` - 新建 Memory Hook
-- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/hooks/chatRun/useChatRun.ts` - 集成 Memory 到聊天流程
-- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/store/appConfig.ts` - 添加 Memory 配置状态
-- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/components/chat/ChatInputArea.tsx` - 添加 UI 指示器（可选）
+- `src/renderer/src/features/chat/runtime/useChatRun.ts` - 新建 Memory Hook
+- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/features/chat/runtime/useChatRun.ts` - 集成 Memory 到聊天流程
+- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/infrastructure/config/appConfig.ts` - 添加 Memory 配置状态
+- `src/renderer/src/features/chat/input/ChatInputArea.tsx` - 添加 UI 指示器（可选）
 
 ### 验收标准
 
@@ -766,7 +766,7 @@ const { memoryEnabled } = useAppConfigStore()
 
 #### 步骤 1：在设置面板中添加 Memory 标签
 
-编辑 `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/components/settings/SettingsPanel.tsx`：
+编辑 `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/features/settings/SettingsPanel.tsx`：
 
 1. 在 `preferenceTabs` 数组中添加 Memory 标签：
 
@@ -1176,9 +1176,9 @@ const saveConfigurationClick = (): void => {
 
 ### 涉及的文件
 
-- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/components/settings/SettingsPanel.tsx` - 添加 Memory 设置面板
-- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/store/appConfig.ts` - （已在任务 2 中修改）
-- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/db/ConfigRepository.ts` - （无需修改，自动持久化）
+- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/features/settings/SettingsPanel.tsx` - 添加 Memory 设置面板
+- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/infrastructure/config/appConfig.ts` - （已在任务 2 中修改）
+- `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/infrastructure/persistence/ConfigRepository.ts` - （无需修改，自动持久化）
 
 ### 验收标准
 
@@ -1337,7 +1337,7 @@ interface IAppConfig {
 npx shadcn-ui@latest add slider
 ```
 
-或手动创建 `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/components/ui/slider.tsx`。
+或手动创建 `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/shared/components/ui/slider.tsx`。
 
 ### C. 测试清单
 
@@ -1390,6 +1390,6 @@ npx shadcn-ui@latest add slider
 - **MemoryService 实现：** `/Volumes/devdata/workspace/code/-i-ati/src/main/services/MemoryService.ts`
 - **EmbeddingService 实现：** `/Volumes/devdata/workspace/code/-i-ati/src/main/services/EmbeddingService.ts`
 - **IPC Handlers：** `/Volumes/devdata/workspace/code/-i-ati/src/main/main-ipc.ts`
-- **当前 chat run 入口：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/hooks/chatRun/useChatRun.ts`
-- **设置面板：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/components/settings/SettingsPanel.tsx`
-- **配置管理：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/store/appConfig.ts`
+- **当前 chat run 入口：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/features/chat/runtime/useChatRun.ts`
+- **设置面板：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/features/settings/SettingsPanel.tsx`
+- **配置管理：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/infrastructure/config/appConfig.ts`

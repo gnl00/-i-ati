@@ -6,9 +6,9 @@
 **Related architecture:** [Speed Highlight](../ui/speed-highlight.md)
 
 **相关文件**:
-- `src/renderer/src/components/markdown/SyntaxHighlighterWrapper.tsx`
-- `src/renderer/src/components/chat/SpeedCodeHighlight.tsx`
-- `src/renderer/src/components/chat/ToolCallResult.tsx`
+- `src/renderer/src/shared/components/markdown/SyntaxHighlighterWrapper.tsx`
+- `src/renderer/src/features/chat/common/SpeedCodeHighlight.tsx`
+- `src/renderer/src/features/chat/message/assistant-message/toolcall/ToolCallResult.tsx`
 
 ---
 

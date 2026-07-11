@@ -1,7 +1,7 @@
 # 消息构建与压缩流程
 
 > 这份文档记录的是旧版消息准备链路，`chatSubmit/prepare.ts`、`chatSubmit/request.ts` 等路径属于历史状态。
-> 当前 renderer run 入口请优先参考 `src/renderer/src/hooks/chatRun/useChatRun.ts`，消息主链以 main-driven run 为准。
+> 当前 renderer run 入口请优先参考 `src/renderer/src/features/chat/runtime/useChatRun.ts`，消息主链以 main-driven run 为准。
 
 ## 概述
 
@@ -82,7 +82,7 @@ if (compressionConfig?.enabled && prepared.session.currChatId) {
 
 ### 步骤 3: RequestMessageBuilder 构建消息
 
-**文件：** `src/renderer/src/services/RequestMessageBuilder.ts`
+**文件：** `src/shared/services/RequestMessageBuilder.ts`
 
 **功能：** 统一的消息构建器，执行 5 步处理流程
 
@@ -285,7 +285,7 @@ transformRequest(req: IUnifiedRequest): any {
 |------|------|
 | 历史 renderer `prepare` stage | 消息准备 |
 | 历史 renderer `request` stage | 获取压缩摘要，调用 RequestMessageBuilder |
-| `src/renderer/src/services/RequestMessageBuilder.ts` | **核心**：统一的消息构建器 |
+| `src/shared/services/RequestMessageBuilder.ts` | **核心**：统一的消息构建器 |
 | `src/main/services/compressionService.ts` | 压缩策略分析、摘要生成（主线程执行） |
 | `src/main/request/adapters/openai.ts` | OpenAI adapter 转换 |
 | `src/main/request/adapters/claude.ts` | Claude adapter 转换（特殊处理 system 字段） |

@@ -9,4 +9,4 @@ Avoid full message list updates when marking `typewriterCompleted`.
 - Persists the updated message to SQLite as before.
 
 ## Files
-- `src/renderer/src/components/chat/chatMessage/use-message-typewriter.ts`
+- `src/renderer/src/features/chat/message/typewriter/use-message-typewriter.ts`

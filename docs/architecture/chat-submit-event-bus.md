@@ -52,4 +52,4 @@ run.accepted
 - Shared protocol:
   - `src/shared/run/events.ts`
 - Renderer projection:
-  - `src/renderer/src/hooks/chatRun/useChatRun.ts`
+  - `src/renderer/src/features/chat/runtime/useChatRun.ts`

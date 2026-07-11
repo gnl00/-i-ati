@@ -52,8 +52,8 @@ wheel 和 pointer-active scroll 代表明确用户意图，即使处于程序滚
 
 ## 相关文件
 
-- `src/renderer/src/components/chat/ChatWindowComponentNext.tsx`
-- `src/renderer/src/components/chat/scroll-anchor.ts`
-- `src/renderer/src/hooks/useScrollManagerTop.ts`
-- `src/renderer/src/components/chat/__tests__/chatScrollPolicy.test.ts`
-- `src/renderer/src/hooks/__tests__/useScrollManagerTop.test.tsx`
+- `src/renderer/src/features/chat/shell/ChatWindow.tsx`
+- `src/renderer/src/features/chat/scroll-anchor.ts`
+- `src/renderer/src/features/chat/useScrollManagerTop.ts`
+- `src/renderer/src/features/chat/__tests__/chatScrollPolicy.test.ts`
+- `src/renderer/src/features/chat/__tests__/useScrollManagerTop.test.tsx`

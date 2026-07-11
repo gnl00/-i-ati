@@ -1,7 +1,7 @@
 # Custom Workspace Feature
 
 > 这份文档记录的是早期实现阶段，部分 renderer 路径和模块名已过时。
-> 当前 chat run 入口请优先参考 `src/renderer/src/hooks/chatRun/useChatRun.ts`。
+> 当前 chat run 入口请优先参考 `src/renderer/src/features/chat/runtime/useChatRun.ts`。
 
 ## 概述
 
@@ -85,7 +85,7 @@ declare interface ChatEntity {
 
 #### 3.1 UI 层 - ChatInputActions.tsx
 
-**文件路径：** `src/renderer/src/components/chat/chatInput/ChatInputActions.tsx`
+**文件路径：** `src/renderer/src/features/chat/input/ChatInputActions.tsx`
 
 **新增功能：**
 - `handleWorkspaceSelect()`: 处理目录选择逻辑
@@ -142,7 +142,7 @@ const handleNewChat = async () => {
 
 #### 3.2 Context 层 - ChatContext.tsx
 
-**文件路径：** `src/renderer/src/context/ChatContext.tsx`
+**文件路径：** `src/renderer/src/features/chat/state/chatSessionStore.ts`
 
 **新增功能：**
 - 监听 `chatUuid` 和 `chatList` 变化
@@ -213,7 +213,7 @@ export function setWorkspaceBaseDir(chatUuid: string, customWorkspacePath?: stri
 
 **说明：**
 - 这里指的是重构前 renderer 侧的 `prepare/finalize` 阶段
-- 当前代码不再保留这两个独立文件，chat run 入口已收敛到 `src/renderer/src/hooks/chatRun/useChatRun.ts`
+- 当前代码不再保留这两个独立文件，chat run 入口已收敛到 `src/renderer/src/features/chat/runtime/useChatRun.ts`
 
 **关键修复：**
 保留 `workspacePath` 字段，避免在消息发送过程中丢失
@@ -323,18 +323,18 @@ updateChatList() → 再次同步 workspace
 
 ### 核心文件
 1. `src/types/index.d.ts` - 类型定义
-2. `src/renderer/src/components/chat/chatInput/ChatInputActions.tsx` - UI 组件
-3. `src/renderer/src/context/ChatContext.tsx` - Context 管理
+2. `src/renderer/src/features/chat/input/ChatInputActions.tsx` - UI 组件
+3. `src/renderer/src/features/chat/state/chatSessionStore.ts` - Context 管理
 4. `src/main/main-ipc.ts` - IPC 处理
 5. `src/main/tools/fileOperations/main/FileOperationsProcessor.ts` - 文件操作
-6. `src/renderer/src/tools/fileOperations/renderer/FileOperationsInvoker.ts` - IPC 调用
+6. `src/renderer/src/infrastructure/tools/fileOperations/renderer/FileOperationsInvoker.ts` - IPC 调用
 7. 历史 `chatSubmit/prepare` 阶段 - 消息准备
 8. 历史 `chatSubmit/finalize` 阶段 - 消息完成
 
 ### 辅助文件
-9. `src/renderer/src/invoker/ipcInvoker.ts` - 目录选择 IPC 调用
-10. `src/renderer/src/db/ChatRepository.ts` - 数据库操作
-11. `src/renderer/src/utils/workspaceUtils.ts` - Workspace 工具函数
+9. `src/renderer/src/infrastructure/ipc/index.ts` - 目录选择 IPC 调用
+10. `src/renderer/src/infrastructure/persistence/ChatRepository.ts` - 数据库操作
+11. `src/renderer/src/features/workspace/workspaceUtils.ts` - Workspace 工具函数
 
 ## 测试要点
 

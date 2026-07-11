@@ -2,11 +2,11 @@
 
 ## 当前合同
 
-ChatWindowComponentNext 使用 `tail-follow`、`anchor-lock`、`manual` 三态滚动模型。新 user 消息建立顶部锚点；assistant 流式内容向下生长；用户浏览历史时保持当前视口；点击“跳回最新消息”后贴底并恢复尾部跟随。
+ChatWindow 使用 `tail-follow`、`anchor-lock`、`manual` 三态滚动模型。新 user 消息建立顶部锚点；assistant 流式内容向下生长；用户浏览历史时保持当前视口；点击“跳回最新消息”后贴底并恢复尾部跟随。
 
 ## 职责边界
 
-- `ChatWindowComponentNext` 负责 scroll hint 策略、三态切换、动态 `paddingEnd`、一次性锚点校正、typewriter 完成和跳回最新行为。
+- `ChatWindow` 负责 scroll hint 策略、三态切换、动态 `paddingEnd`、一次性锚点校正、typewriter 完成和跳回最新行为。
 - `useScrollManagerTop` 负责 wheel/pointer 用户意图识别、程序滚动抑制和按钮事件锁存。
 - `scroll-anchor` 负责 user-sent 锚点解析、spacer 计算、首帧模式推导与末尾追尾策略，便于 focused tests 覆盖边界条件。
 - 定制 TanStack Virtual fork 继续承担动态测量、末尾判断和 item resize 补偿。

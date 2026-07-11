@@ -22,7 +22,7 @@
 
 ### 新规则
 
-提交阻塞条件集中在 `src/renderer/src/components/chat/chatInput/queuePolicy.ts`：
+提交阻塞条件集中在 `src/renderer/src/features/chat/input/queuePolicy.ts`：
 
 ```ts
 runPhase === 'submitting'
@@ -39,7 +39,7 @@ runPhase === 'submitting'
 
 ### Run lifecycle 调整
 
-`src/renderer/src/hooks/chatRun/useChatRun.ts` 只把 compression 视为 blocking post-run job。
+`src/renderer/src/features/chat/runtime/useChatRun.ts` 只把 compression 视为 blocking post-run job。
 
 当 run 完成且只有 title pending 时：
 
@@ -131,7 +131,7 @@ sha?
 
 ### 合并规则
 
-实现位置：`src/renderer/src/components/chat/chatInput/queuePolicy.ts`
+实现位置：`src/renderer/src/features/chat/input/queuePolicy.ts`
 
 ```ts
 export function mergeQueuedMessages(items: QueuedChatMessage[]): QueuedChatMessage | null
@@ -144,7 +144,7 @@ export function mergeQueuedMessages(items: QueuedChatMessage[]): QueuedChatMessa
 - `userInstruction`：使用第一条 queued message 的值。
 - 空队列返回 `null`。
 
-接入位置：`src/renderer/src/components/chat/chatInput/ChatInputArea.tsx`
+接入位置：`src/renderer/src/features/chat/input/ChatInputArea.tsx`
 
 queue flush 从取队首：
 
@@ -203,18 +203,18 @@ sha?
 
 ## 关键文件
 
-- `src/renderer/src/components/chat/chatInput/queuePolicy.ts`
-- `src/renderer/src/components/chat/chatInput/ChatInputArea.tsx`
-- `src/renderer/src/hooks/chatRun/useChatRun.ts`
-- `src/renderer/src/hooks/chatRun/chatRunEvent.ts`
+- `src/renderer/src/features/chat/input/queuePolicy.ts`
+- `src/renderer/src/features/chat/input/ChatInputArea.tsx`
+- `src/renderer/src/features/chat/runtime/useChatRun.ts`
+- `src/renderer/src/features/chat/runtime/chatRunEvent.ts`
 - `src/main/orchestration/chat/postRun/TitleJobService.ts`
 - `src/main/hosts/chat/persistence/ChatSessionStore.ts`
 - `src/main/hosts/chat/persistence/ChatStepStore.ts`
 
 ## 测试覆盖
 
-- `src/renderer/src/components/chat/chatInput/__tests__/queuePolicy.test.ts`
-- `src/renderer/src/hooks/chatRun/__tests__/chatRunEvent.test.ts`
+- `src/renderer/src/features/chat/input/__tests__/queuePolicy.test.ts`
+- `src/renderer/src/features/chat/runtime/__tests__/chatRunEvent.test.ts`
 - `src/main/orchestration/chat/postRun/__tests__/TitleJobService.test.ts`
 - `src/main/hosts/chat/__tests__/ChatSessionStore.test.ts`
 - `src/main/hosts/chat/persistence/__tests__/ChatStepStore.test.ts`
@@ -223,8 +223,8 @@ sha?
 
 ```bash
 pnpm exec vitest run \
-  src/renderer/src/components/chat/chatInput/__tests__/queuePolicy.test.ts \
-  src/renderer/src/hooks/chatRun/__tests__/chatRunEvent.test.ts \
+  src/renderer/src/features/chat/input/__tests__/queuePolicy.test.ts \
+  src/renderer/src/features/chat/runtime/__tests__/chatRunEvent.test.ts \
   src/main/orchestration/chat/postRun/__tests__/TitleJobService.test.ts \
   src/main/hosts/chat/__tests__/ChatSessionStore.test.ts \
   src/main/hosts/chat/persistence/__tests__/ChatStepStore.test.ts

@@ -6,8 +6,8 @@ Reduce unnecessary re-renders by decoupling list rendering from full message obj
 ## What Changed
 - Chat list subscribes to `messageKeys` only, not the entire `messages` array.
 - Each row fetches its own message from the store via `ChatMessageRow`.
-- `useChatScroll` now depends on `messageCount` instead of full messages.
+- `useScrollManagerTop` consumes stable message and viewport facts instead of the full message array.
 
 ## Files
-- `src/renderer/src/components/chat/ChatWindowComponentV2.tsx`
-- `src/renderer/src/components/chat/useChatScroll.ts`
+- `src/renderer/src/features/chat/shell/ChatWindow.tsx`
+- `src/renderer/src/features/chat/useScrollManagerTop.ts`

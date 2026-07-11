@@ -2,9 +2,9 @@
 
 ## 已完成的改动
 
-### 1. 创建 `useSegmentTypewriterNext.ts`
+### 1. 创建 `useSegmentTypewriter.ts`
 
-**位置：** `src/renderer/src/hooks/useSegmentTypewriterNext.ts`
+**位置：** `src/renderer/src/features/chat/message/typewriter/useSegmentTypewriter.ts`
 
 **核心改进：**
 - ✅ Token 级粒度（单词/标点分离）
@@ -16,7 +16,7 @@
 ### 2. 更新 `use-message-typewriter.ts`
 
 **改动：**
-- 导入改为 `useSegmentTypewriterNext`
+- 导入改为 `useSegmentTypewriter`
 - 参数调整：
   - `minSpeed: 12 → 30` (Token 级)
   - `maxSpeed: 30 → 80` (Token 级)
@@ -119,7 +119,7 @@ npm run dev
 ```typescript
 // use-message-typewriter.ts
 // 改回旧版
-import { useSegmentTypewriter } from '@renderer/hooks/useSegmentTypewriter'
+import { useSegmentTypewriter } from '@renderer/features/chat/message/typewriter/useSegmentTypewriter'
 
 // 使用旧版
 const { ... } = useSegmentTypewriter(segments, {
@@ -135,7 +135,7 @@ const { ... } = useSegmentTypewriter(segments, {
 ### 方法 2：Git 回滚
 
 ```bash
-git checkout HEAD -- src/renderer/src/components/chat/chatMessage/use-message-typewriter.ts
+git checkout HEAD -- src/renderer/src/features/chat/message/typewriter/use-message-typewriter.ts
 ```
 
 ---
@@ -181,7 +181,7 @@ maxSpeed: 80,  // 增大 = 更慢
 
 **检查正则：**
 ```typescript
-// useSegmentTypewriterNext.ts
+// useSegmentTypewriter.ts
 // 确保包含中文字符范围
 /(\s+|[^\s\w\u4e00-\u9fa5]+|[\u4e00-\u9fa5]+)/
 ```

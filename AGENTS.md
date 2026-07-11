@@ -8,7 +8,7 @@ This is an Electron + Vite + TypeScript desktop app.
 - Shared contracts, prompts, and tool definitions live in `src/shared` and `src/types`. Keep static assets in `assets` or `resources`,
 - build inputs in `build`, and treat `dist`, `out`, and `node_modules` as generated output.
 
-Tests are colocated with features under `__tests__`, for example `src/main/services/skills/__tests__/SkillService.test.ts` and `src/renderer/src/invoker/__tests__/ipcInvoker.events.test.ts`.
+Tests are colocated with features under `__tests__`, for example `src/main/services/skills/__tests__/SkillService.test.ts` and `src/renderer/src/infrastructure/ipc/__tests__/ipcInvoker.events.test.ts`.
 
 ## When to Code
 
@@ -55,6 +55,18 @@ Use `pnpm` for local work.
 Follow `.editorconfig`: UTF-8, LF, spaces, 2-space indentation, and final newlines. ESLint extends the Electron Toolkit TypeScript rules; prefer single quotes and fix lint issues with `pnpm lint` before opening a PR.
 
 Use `PascalCase` for React components and service classes, `camelCase` for functions and variables, and keep test file names as `*.test.ts`. Match existing folder boundaries: UI code stays in `src/renderer/src`, IPC and system integrations stay in `src/main`.
+
+### Renderer dependency boundaries
+
+Renderer code follows the architecture documented in `docs/architecture/renderer-architecture.md`:
+
+- `app/` is the composition root.
+- `features/` owns domain UI, state, hooks, and services. Cross-feature imports resolve through the target feature `index.ts`.
+- `shared/` owns side-effect-light reusable modules and depends on shared renderer modules.
+- `infrastructure/` owns IPC, persistence, configuration orchestration, and renderer tool bridges. It depends on shared renderer modules and external contracts.
+- `dev/` owns experiments and dormant manual test pages.
+
+Run `pnpm run check:renderer-boundaries`, `pnpm run check:renderer-doc-paths`, and `pnpm run test:renderer-architecture` after renderer moves. Update active documentation source paths in the same change.
 
 ### Naming: Prefer Convention Over "Projector"
 Do not generate `*Projector` classes or modules unless the transformation is genuinely a unidirectional read-only view projection (same source → multiple derived views). Prefer existing conventions instead:

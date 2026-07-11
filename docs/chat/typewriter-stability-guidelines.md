@@ -17,7 +17,7 @@ This document summarizes practical steps to make the typewriter animation feel m
    - Smaller window means fewer animated nodes → smoother frame rate.
 
 3) **Lower update frequency (streaming only)**
-   - Increase `batchUpdateInterval` in `useSegmentTypewriterNext` to 48–64ms.
+   - Increase `batchUpdateInterval` in `useSegmentTypewriter` to 48–64ms.
    - Reduces the number of re-renders under rapid token streams.
 
 4) **Cache expensive text transforms**
@@ -29,11 +29,11 @@ This document summarizes practical steps to make the typewriter animation feel m
    - Stable keys + stable array references = fewer layout shifts.
 
 ## Key Implementation Sites
-- `src/renderer/src/components/chat/chatMessage/assistant-message.tsx`
-- `src/renderer/src/components/chat/chatMessage/use-message-typewriter.ts`
-- `src/renderer/src/components/chat/chatMessage/FluidTypewriterText.tsx`
-- `src/renderer/src/components/chat/chatMessage/StreamingMarkdownLite.tsx`
-- `src/renderer/src/components/chat/chatMessage/StreamingMarkdownSwitch.tsx`
+- `src/renderer/src/features/chat/message/assistant-message/index.tsx`
+- `src/renderer/src/features/chat/message/typewriter/use-message-typewriter.ts`
+- `src/renderer/src/features/chat/message/typewriter/FluidTypewriterText.tsx`
+- `src/renderer/src/features/chat/message/typewriter/StreamingMarkdownLite.tsx`
+- `src/renderer/src/features/chat/message/typewriter/StreamingMarkdownSwitch.tsx`
 
 ## Practical Baseline Values
 - Streaming:
