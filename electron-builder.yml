@@ -12,6 +12,10 @@ files:
 asarUnpack:
   - node_modules/sqlite-vec-*/**
 extraResources:
+  - from: resources/providers
+    to: providers
+    filter:
+      - '**/*'
   - from: resources/models
     to: models
     filter:

@@ -1,4 +1,4 @@
-import officialProviderDefinitions from '../../../../data/providers.json'
+import officialProviderDefinitions from '@resources/providers/providers.json'
 
 // embedded config for app
 // configForUpdate only work on configVersion > previous version

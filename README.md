@@ -21,8 +21,7 @@ src/main          Electron main process, IPC, database, tool execution, schedule
 src/preload       preload bridge
 src/renderer/src  React UI, Zustand store, chat and settings screens
 src/shared        shared constants, prompts, tool definitions, schema
-src/data          built-in provider definitions
-resources         bundled resources
+resources         built-in provider definitions and other bundled resources
 docs              design and data-flow docs
 ```
 

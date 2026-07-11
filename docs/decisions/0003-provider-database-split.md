@@ -12,6 +12,7 @@ Refactor database layer to separate provider/account/model data into dedicated t
 
 ### Database Core + Repositories
 - Added `AppDatabase` core to own connection, schema creation, index creation, and migration.
+- Built-in provider definitions live in `resources/providers/providers.json`, which the renderer bundles directly and the packaged main process loads from `process.resourcesPath/providers/providers.json`.
 - Added repositories:
   - `ConfigRepository`
   - `ProviderRepository`
@@ -49,6 +50,7 @@ Refactor database layer to separate provider/account/model data into dedicated t
 
 ## Notable Files
 - `src/main/db/Database.ts`
+- `src/main/db/core/ProviderDefinitionLoader.ts`
 - `src/main/db/repositories/*`
 - `src/main/db/DatabaseService.ts`
 - `src/shared/constants/index.ts`
@@ -57,7 +59,9 @@ Refactor database layer to separate provider/account/model data into dedicated t
 - `src/renderer/src/infrastructure/persistence/ProviderRepository.ts`
 - `src/renderer/src/infrastructure/config/appConfig.ts`
 - `src/renderer/src/infrastructure/persistence/ConfigRepository.ts`
+- `resources/providers/providers.json`
 
 ## Tests/Checks
 - `pnpm exec vitest run src/shared/providers/__tests__/fetchModels.test.ts src/main/services/providers/__tests__/ProviderModelsFetchService.test.ts src/main/ipc/__tests__/providers.test.ts src/renderer/src/features/settings/providers/__tests__/FetchModelsDrawer.cacheKey.test.ts`
+- `pnpm run test:package-providers` builds an unpacked app and verifies that its provider definitions are present, parseable, and byte-for-byte identical to `resources/providers/providers.json`.
 - `pnpm run typecheck`

@@ -2,25 +2,34 @@ import { app } from 'electron'
 import path from 'path'
 import * as fs from 'fs'
 
+export interface ProviderDefinitionLoaderDeps {
+  isPackaged: () => boolean
+  getAppPath: () => string
+  getResourcesPath: () => string
+  fileExists: (filePath: string) => boolean
+  readTextFile: (filePath: string) => string
+}
+
+const defaultDeps: ProviderDefinitionLoaderDeps = {
+  isPackaged: () => app.isPackaged,
+  getAppPath: () => app.getAppPath(),
+  getResourcesPath: () => process.resourcesPath,
+  fileExists: (filePath) => fs.existsSync(filePath),
+  readTextFile: (filePath) => fs.readFileSync(filePath, 'utf-8')
+}
+
 export class ProviderDefinitionLoader {
+  constructor(private readonly deps: ProviderDefinitionLoaderDeps = defaultDeps) {}
+
   load(): ProviderDefinition[] {
     try {
-      const projectRoot = app.getAppPath()
-      const possiblePaths = [
-        path.join(projectRoot, 'src/data/providers.json'),
-        path.join(projectRoot, '../src/data/providers.json'),
-        path.join(process.resourcesPath, 'app.asar.unpacked/data/providers.json'),
-        path.join(process.resourcesPath, 'app/data/providers.json'),
-        path.join(process.resourcesPath, 'data/providers.json')
-      ]
+      const filePath = this.deps.isPackaged()
+        ? path.join(this.deps.getResourcesPath(), 'providers/providers.json')
+        : path.join(this.deps.getAppPath(), 'resources/providers/providers.json')
 
-      for (const filePath of possiblePaths) {
-        if (fs.existsSync(filePath)) {
-          return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as ProviderDefinition[]
-        }
-      }
+      if (!this.deps.fileExists(filePath)) return []
 
-      return []
+      return JSON.parse(this.deps.readTextFile(filePath)) as ProviderDefinition[]
     } catch {
       return []
     }
