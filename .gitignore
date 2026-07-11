@@ -19,7 +19,6 @@ node_modules*
 stats
 
 workspaces/**
-AGENTS.md
 .claude/
 
 .ati-kb

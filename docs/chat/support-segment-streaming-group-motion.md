@@ -143,7 +143,7 @@ Implementation notes:
 - render an inner `min-h-0 overflow-hidden` content wrapper
 - set `aria-hidden={!expanded}` on the outer panel
 - set inert behavior while collapsed so mounted buttons inside hidden content stay out of focus order
-- use Tailwind v4 syntax from `docs/spec/tailwindcss/tailwindcss-v4-syntax-rules.md`
+- use Tailwind v4 syntax from [Tailwind CSS v4 syntax rules](../guides/development/tailwindcss-v4-syntax-rules.md)
 
 Initial consumers:
 

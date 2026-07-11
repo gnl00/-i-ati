@@ -1,54 +1,51 @@
-# Docs Index
+# Documentation
 
-当前 `docs/` 按主题分组：
+Project documentation is organized by purpose and lifecycle. Start with the
+current contract or architecture document, then use work records and archives
+for implementation context and history.
 
-- `architecture/`
-  - 架构设计、重构总结、流程与协议
-- `chat/`
-  - chat 运行时、渲染、滚动、消息、typewriter 相关文档
-- `ui/`
-  - 界面与交互设计、布局与视觉实现
-- `integrations/`
-  - Web Search、MCP、系统能力、外部集成
-- `data/`
-  - memory 等数据能力
-- `reference/`
-  - 外部库或第三方资料归档
-- `internal/`
-  - 内部日志与过程性文档
-- `todo/`
-  - 待办和后续决策记录
+## Lifecycle directories
 
-约定：
+| Directory | Contents |
+| --- | --- |
+| [`specs/`](specs/README.md) | Active behavior, protocol, security, and tool contracts |
+| [`architecture/`](architecture/README.md) | Current structure, boundaries, and data flow |
+| [`decisions/`](decisions/README.md) | Architecture decision records |
+| [`guides/`](guides/README.md) | Development, testing, and troubleshooting procedures |
+| [`work/`](work/README.md) | Active plans, investigations, and tasks |
+| [`reference/`](reference/README.md) | External source indexes and retained reference material |
+| [`archive/`](archive/README.md) | Completed, retired, cancelled, and superseded records |
 
-- 优先把“当前有效”的架构文档放到 `architecture/`
-- 带明显阶段性或历史性的总结，也仍放在 `architecture/`，但应在文首注明“阶段性”或“历史状态”
-- chat 渲染、滚动、typewriter、压缩等面向聊天体验的文档统一放到 `chat/`
-- 外部资料镜像或第三方库说明统一放到 `reference/` 或 `integrations/`
+The [documentation governance spec](specs/documentation-governance.md) defines
+classification, metadata, lifecycle, archive, and link rules.
 
-推荐从这些入口开始：
+## Current topic collections
 
-- 架构现状：
-  - [chat-runtime-architecture-current.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-runtime-architecture-current.md)
-- Subagent 当前实现：
-  - [subagent-mvp.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/subagent-mvp.md)
-- Telegram gateway grammY 迁移：
-  - [telegram-gateway-grammy-migration.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/telegram-gateway-grammy-migration.md)
-- Telegram host adapter 阶段总结：
-  - [telegram-host-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/telegram-host-adapter-stage-summary.md)
-- Emotion 系统阶段总结：
-  - [emotion-system-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/emotion-system-stage-summary.md)
-- Emotion 系统目标设计：
-  - [emotion-system-design.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/emotion-system-design.md)
-- User Info 系统：
-  - [user-info-system.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/user-info-system.md)
-- 本轮阶段总结：
-  - [agent-core-chat-adapter-stage-summary.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/agent-core-chat-adapter-stage-summary.md)
-- chat 事件协议：
-  - [chat-submit-event-bus.md](/Users/gnl/Workspace/code/-i-ati/docs/architecture/chat-submit-event-bus.md)
-- 消息压缩 token 策略：
-  - [message-compression-token-strategy.md](/Users/gnl/Workspace/code/-i-ati/docs/chat/message-compression-token-strategy.md)
-- 日志系统：
-  - [logging-system.md](/Users/gnl/Workspace/code/-i-ati/docs/internal/logging-system.md)
-- File edit tool 优化：
-  - [file-edit-tool-optimization.md](/Users/gnl/Workspace/code/-i-ati/docs/integrations/file-edit-tool-optimization.md)
+The following content remains grouped by topic while it receives content-aware
+classification. Each file should move to a lifecycle directory when its owning
+capability is reviewed.
+
+- `chat/`: chat runtime, rendering, scrolling, compression, and typewriter
+- `data/`: durable data capabilities
+- `features/`: user-facing feature contracts and implementation notes
+- `integrations/`: external systems, MCP, web access, and skills
+- `internal/`: logging and internal operations
+- `ui/`: renderer interaction and visual implementation
+
+## Recommended entry points
+
+- [Chat runtime architecture](architecture/chat-runtime-architecture-current.md)
+- [Plugin system architecture](architecture/plugin-system-design.md)
+- [Tool definition workflow](guides/development/tool-definition-workflow.md)
+- [Tailwind CSS v4 syntax rules](guides/development/tailwindcss-v4-syntax-rules.md)
+- [Documentation decisions](decisions/README.md)
+- [Active work](work/README.md)
+- [Migration inventory](archive/migration-inventory.md)
+
+## Maintenance flow
+
+1. Update an Active spec when behavior or a contract changes.
+2. Synchronize current architecture and executable guides with implementation.
+3. Record durable choices as ADRs.
+4. Track bounded delivery under `work/` with explicit exit criteria.
+5. Preserve completed or superseded records under `archive/YYYY/`.

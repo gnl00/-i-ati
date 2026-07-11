@@ -500,7 +500,7 @@ useAnimationPerformance(import.meta.env.DEV && hasLiveTiming)
 
 - [Chat Message Rendering Optimization](./chat-message-rendering-optimization.md)
 - [Typewriter Stability Guidelines](./typewriter-stability-guidelines.md)
-- [Render Pipeline Optimization](../render-pipeline-optimization.md)
+- [Render Pipeline Optimization](../archive/2026/architecture/render-pipeline-optimization.md)
 
 ---
 
