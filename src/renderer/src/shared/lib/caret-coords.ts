@@ -51,6 +51,42 @@ const properties = [
 const isBrowser = typeof window !== 'undefined';
 const isFirefox = isBrowser && (window as any).mozInnerScreenX != null;
 
+const signatureProperties = ['font', ...properties] as const;
+
+let mirrorDiv: HTMLDivElement | null = null;
+let cachedElement: HTMLTextAreaElement | null = null;
+let cachedComputed: CSSStyleDeclaration | null = null;
+let cachedStyleSignature = '';
+
+function getStyleSignature(element: HTMLTextAreaElement, computed: CSSStyleDeclaration): string {
+  const computedValues = computed as unknown as Record<string, string>;
+  return [
+    element.clientWidth,
+    element.clientHeight,
+    element.nodeName,
+    ...signatureProperties.map(prop => computedValues[prop])
+  ].join('|');
+}
+
+function createMirrorDiv(debug: boolean): HTMLDivElement {
+  const div = document.createElement('div');
+  if (debug) div.id = 'input-textarea-caret-position-mirror-div';
+
+  const style = div.style;
+  style.whiteSpace = 'pre-wrap';
+  style.position = 'absolute';
+  if (!debug) {
+    style.visibility = 'hidden';
+    // Persistent mirror is never removed; park it off-screen so it can't add
+    // scrollable overflow to the page. offsets are relative to the div itself.
+    style.top = '0';
+    style.left = '-9999px';
+  }
+
+  document.body.appendChild(div);
+  return div;
+}
+
 export function getCaretCoordinates(element: HTMLTextAreaElement, position: number, options?: { debug?: boolean }): CaretCoordinates {
   if (!isBrowser) {
     throw new Error('getCaretCoordinates should only be called in a browser context');
@@ -63,51 +99,54 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
   }
 
   // The mirror div will become a clone of the input element
-  const div = document.createElement('div');
-  div.id = 'input-textarea-caret-position-mirror-div';
-  document.body.appendChild(div);
+  const div = debug ? createMirrorDiv(true) : (mirrorDiv ??= createMirrorDiv(false));
+  if (!div.isConnected) document.body.appendChild(div);
 
   const style = div.style;
-  const computed = window.getComputedStyle(element);
+  const computed = !debug && cachedElement === element && cachedComputed
+    ? cachedComputed
+    : window.getComputedStyle(element);
   const isInput = element.nodeName === 'INPUT';
 
   // Default textarea styles
-  style.whiteSpace = 'pre-wrap';
-  if (!isInput)
-    style.wordWrap = 'break-word'; // only for textarea-s
+  style.wordWrap = isInput ? '' : 'break-word'; // only for textarea-s
 
-  // Position off-screen
-  style.position = 'absolute'; // required to return coordinates properly
-  if (!debug)
-    style.visibility = 'hidden'; // not 'display: none' because we want to render
+  const styleSignature = getStyleSignature(element, computed);
+  if (debug || cachedElement !== element || cachedStyleSignature !== styleSignature) {
+    // Transfer the element's properties to the div
+    properties.forEach(prop => {
+      if (isInput && prop === 'lineHeight') {
+        // Special case for <input>s because text is rendered centered and line height may be scalabed.
+        if (computed.boxSizing === "border-box") {
+          const height = parseInt(computed.height);
+          const outerHeight =
+            parseInt(computed.paddingTop) +
+            parseInt(computed.paddingBottom) +
+            parseInt(computed.borderTopWidth) +
+            parseInt(computed.borderBottomWidth);
+          const targetHeight = outerHeight + parseInt(computed.lineHeight);
 
-  // Transfer the element's properties to the div
-  properties.forEach(prop => {
-    if (isInput && prop === 'lineHeight') {
-      // Special case for <input>s because text is rendered centered and line height may be scalabed.
-      if (computed.boxSizing === "border-box") {
-        const height = parseInt(computed.height);
-        const outerHeight =
-          parseInt(computed.paddingTop) +
-          parseInt(computed.paddingBottom) +
-          parseInt(computed.borderTopWidth) +
-          parseInt(computed.borderBottomWidth);
-        const targetHeight = outerHeight + parseInt(computed.lineHeight);
-
-        if (height > targetHeight) {
-          style.lineHeight = height - outerHeight + "px";
-        } else if (height === targetHeight) {
-          style.lineHeight = computed.lineHeight;
+          if (height > targetHeight) {
+            style.lineHeight = height - outerHeight + "px";
+          } else if (height === targetHeight) {
+            style.lineHeight = computed.lineHeight;
+          } else {
+            style.lineHeight = '0';
+          }
         } else {
-          style.lineHeight = '0';
+          style.lineHeight = computed.height;
         }
       } else {
-        style.lineHeight = computed.height;
+        style[prop as any] = computed[prop as any];
       }
-    } else {
-      style[prop as any] = computed[prop as any];
+    });
+
+    if (!debug) {
+      cachedElement = element;
+      cachedComputed = computed;
+      cachedStyleSignature = styleSignature;
     }
-  });
+  }
 
   if (isFirefox) {
     // Firefox lies about the overflow property for textareas: https://bugzilla.mozilla.org/show_bug.cgi?id=984275
@@ -139,8 +178,6 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
 
   if (debug) {
     span.style.backgroundColor = '#aaa';
-  } else {
-    document.body.removeChild(div);
   }
 
   return coordinates;

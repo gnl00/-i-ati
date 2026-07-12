@@ -115,7 +115,6 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
         const root = document.createElement('div')
         root.className = "pointer-events-none absolute rounded-md z-10"
         root.style.opacity = '0'
-        root.style.willChange = 'transform, opacity'
 
         const inner = document.createElement('div')
         inner.className = "w-full h-full rounded-md"
@@ -152,6 +151,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     }
 
     node.busy = true
+    node.root.style.willChange = 'transform, opacity'
     node.root.style.transform = `translate3d(${x}px, ${y}px, 0)`
     node.root.style.width = `${width}px`
     node.root.style.height = `${height}px`
@@ -185,6 +185,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     const complete = () => {
       node.busy = false
       node.root.style.opacity = '0'
+      node.root.style.willChange = ''
       node.animation = null
     }
 
@@ -354,7 +355,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       needsUpdateRef.current = false
 
       textarea.removeEventListener('focus', handleFocus)
-      textarea.removeEventListener('blur-sm', handleBlur)
+      textarea.removeEventListener('blur', handleBlur)
       textarea.removeEventListener('input', handleInput)
       textarea.removeEventListener('scroll', handleScroll, { passive: true } as any)
       textarea.removeEventListener('click', handleClick)
@@ -404,7 +405,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       if (resizeTimeout) clearTimeout(resizeTimeout)
       document.removeEventListener('selectionchange', handleSelectionChange)
       window.removeEventListener('resize', handleResize)
-      window.removeEventListener('blur-sm', handleWindowBlur)
+      window.removeEventListener('blur', handleWindowBlur)
       window.removeEventListener('focus', handleWindowFocus)
     }
   }, [updateCaret, hideCaretElement, textareaRef, markMeasurementsDirty])
