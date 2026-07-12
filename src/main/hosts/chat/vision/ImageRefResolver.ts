@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
 
 export type ImageRefResolverDeps = {
@@ -72,7 +72,7 @@ export class ImageRefResolver {
   private readonly getMessagesByChatUuid: (chatUuid: string) => MessageEntity[]
 
   constructor(deps: ImageRefResolverDeps = {}) {
-    this.getMessagesByChatUuid = deps.getMessagesByChatUuid ?? DatabaseService.getMessagesByChatUuid.bind(DatabaseService)
+    this.getMessagesByChatUuid = deps.getMessagesByChatUuid ?? chatDb.getMessagesByChatUuid.bind(chatDb)
   }
 
   resolve(chatUuid: string | undefined, refs: string[]): ResolvedImageRef[] {

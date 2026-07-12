@@ -1,23 +1,18 @@
 import { RUN_EVENT } from '@shared/constants/index'
 import { mainWindow } from '@main/main-window'
-import DatabaseService from '@main/db/DatabaseService'
+import { runEventDb } from '@main/db/run-events'
+import type {
+  RunEventEmitter as RunEventEmitterContract,
+  RunEventMeta,
+  RunEventSink
+} from '@main/agent/contracts'
 import type {
   RunEventEnvelope,
   RunEventPayloads,
   RunEventType
 } from '@shared/run/events'
 
-export type RunEventMeta = {
-  submissionId: string
-  chatId?: number
-  chatUuid?: string
-}
-
-export interface RunEventSink {
-  handleEvent(event: RunEventEnvelope): void | Promise<void>
-}
-
-export class RunEventEmitter {
+export class RunEventEmitter implements RunEventEmitterContract {
   private sequence = 0
 
   constructor(
@@ -47,7 +42,7 @@ export class RunEventEmitter {
     this.sequence += 1
 
     try {
-      DatabaseService.saveRunEvent({
+      runEventDb.saveRunEvent({
         submissionId: envelope.submissionId,
         chatId: envelope.chatId,
         chatUuid: envelope.chatUuid,

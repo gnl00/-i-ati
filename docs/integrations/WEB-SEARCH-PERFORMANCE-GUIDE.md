@@ -143,7 +143,7 @@ const searchResponse = await window.electron?.ipcRenderer.invoke(
 #### 症状
 
 ```typescript
-// src/main/app-config.ts (优化前)
+// src/main/db/config.ts (优化前)
 const saveConfig = (configData: AppConfigType): void => {
   const mergedConfig = { ...omitedConfig, ...configData }
   fs.writeFileSync(configFile, JSON.stringify(mergedConfig, null, 2))
@@ -368,7 +368,7 @@ src/main/tools/webTools/
 
 #### 核心类设计
 
-**文件：** `src/main/tools/webTools/main/BrowserWindowPool.ts`
+**文件：** `src/main/tools/webTools/BrowserWindowPool.ts`
 
 ```typescript
 interface PooledWindow {
@@ -482,7 +482,7 @@ app.on('window-all-closed', () => {
 
 ### 2. 搜索处理器改造
 
-**文件：** `src/main/tools/webTools/main/WebToolsProcessor.ts`
+**文件：** `src/main/tools/webTools/WebToolsProcessor.ts`
 
 #### Before（每次创建新窗口）
 
@@ -606,7 +606,7 @@ export const defaultConfig: IAppConfig = {
 
 ### 4. 配置系统修复
 
-**文件：** `src/main/app-config.ts`
+**文件：** `src/main/db/config.ts`
 
 ```typescript
 const saveConfig = (configData: AppConfigType): void => {
@@ -690,7 +690,7 @@ const saveConfig = (configData: AppConfigType): void => {
 
 #### 调整窗口池大小
 
-**文件：** `src/main/tools/webTools/main/BrowserWindowPool.ts`
+**文件：** `src/main/tools/webTools/BrowserWindowPool.ts`
 
 ```typescript
 export function getWindowPool(): BrowserWindowPool {
@@ -943,7 +943,7 @@ export const defaultConfig: IAppConfig = {
 
 **解决方案：**
 - 确保点击了 Save 按钮
-- 检查 `src/main/app-config.ts` 的 `saveConfig` 实现
+- 检查 `src/main/db/config.ts` 的 `saveConfig` 实现
 - 验证 `appConfig = mergedConfig` 这行代码存在
 
 #### 问题 3：搜索结果为 0
@@ -1325,11 +1325,11 @@ async function summarizeResults(results: WebSearchResultV2[]): Promise<string> {
 
 | 文件路径 | 功能描述 | 代码行数 |
 |---------|---------|---------|
-| `src/main/tools/webTools/main/BrowserWindowPool.ts` | 窗口池核心实现 | ~250 |
-| `src/main/tools/webTools/main/WebToolsProcessor.ts` | 搜索处理器 | ~250 |
+| `src/main/tools/webTools/BrowserWindowPool.ts` | 窗口池核心实现 | ~250 |
+| `src/main/tools/webTools/WebToolsProcessor.ts` | 搜索处理器 | ~250 |
 | `src/renderer/src/infrastructure/tools/webTools/renderer/WebToolsInvoker.ts` | IPC 调用层 | ~30 |
 | `src/main/main-ipc.ts` | IPC 处理器 | ~60 |
-| `src/main/app-config.ts` | 配置管理 | ~70 |
+| `src/main/db/config.ts` | 配置管理 | ~70 |
 | `src/config/index.ts` | 默认配置 | ~15 |
 
 #### UI 相关文件

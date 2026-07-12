@@ -3,7 +3,7 @@
  * 负责初始化内置 assistants
  */
 
-import DatabaseService from '@main/db/services/DatabaseService'
+import { assistantDb } from '@main/db/assistants'
 
 /**
  * 内置 Assistants 定义
@@ -127,10 +127,10 @@ function generateAssistantId(): string {
 export async function initializeBuiltInAssistants(): Promise<void> {
   try {
     console.log('[AssistantBootstrap] Starting initialization of built-in assistants')
-    // await DatabaseService.deleteAllAssistants()
+    // await assistantDb.deleteAllAssistants()
 
     // 获取所有现有的 assistants
-    const existingAssistants = await DatabaseService.getAllAssistants()
+    const existingAssistants = await assistantDb.getAllAssistants()
     // console.log(JSON.stringify(existingAssistants));
 
     // 检查是否已有内置助手
@@ -153,7 +153,7 @@ export async function initializeBuiltInAssistants(): Promise<void> {
         updatedAt: now
       }
 
-      await DatabaseService.saveAssistant(assistant)
+      await assistantDb.saveAssistant(assistant)
       console.log(`[AssistantBootstrap] Created assistant: ${assistant.name} (${assistant.id})`)
     }
 

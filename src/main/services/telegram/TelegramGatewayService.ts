@@ -3,12 +3,12 @@ import { net } from 'electron'
 import { Bot } from 'grammy'
 import { configDb } from '@main/db/config'
 import { RunService } from '@main/orchestration/chat/run'
-import type { RunEventSink } from '@main/orchestration/chat/run/infrastructure'
+import type { RunEventSink } from '@main/agent/contracts'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
 import { TelegramRenderResponder } from '@main/hosts/telegram/runtime'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { RunEventEnvelope } from '@shared/run/events'
@@ -443,7 +443,7 @@ export class TelegramGatewayService {
     })
       .then(() => {
         if (binding.id) {
-          DatabaseService.updateChatHostBindingLastMessage(binding.id, envelope.messageId)
+          chatDb.updateChatHostBindingLastMessage(binding.id, envelope.messageId)
         }
 
         this.logger.info('update.accepted', {

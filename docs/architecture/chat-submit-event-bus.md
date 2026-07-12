@@ -48,7 +48,7 @@ run.accepted
 ## Key Files
 - Main runtime:
   - `src/main/orchestration/chat/run/index.ts`
-  - `src/main/orchestration/chat/run/runtime/assistant-turn/AssistantTurnLoop.ts`
+  - `src/main/orchestration/chat/run/runtime/DefaultMainAgentRuntimeRunner.ts`
 - Shared protocol:
   - `src/shared/run/events.ts`
 - Renderer projection:

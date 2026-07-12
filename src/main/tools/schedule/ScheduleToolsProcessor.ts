@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { planningDb } from '@main/db/planning'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
@@ -67,7 +67,7 @@ function ensureMinDelay(runAtMs: number): number {
 function emitScheduleUpdated(taskId: string): void {
   const task = planningDb.getScheduledTaskById(taskId)
   if (!task) return
-  const chat = DatabaseService.getChatByUuid(task.chat_uuid)
+  const chat = chatDb.getChatByUuid(task.chat_uuid)
   const emitter = new ScheduleEventEmitter({
     chatId: chat?.id,
     chatUuid: task.chat_uuid

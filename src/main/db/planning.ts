@@ -2,6 +2,7 @@ import DatabaseService from './DatabaseService'
 import type { ScheduledTaskRow } from './dao/ScheduledTaskDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
+import type { TodoListFilters, TodoRow } from './dao/TodoDao'
 
 export const planningDb = {
   saveTaskPlan(plan: Plan): void {
@@ -87,5 +88,25 @@ export const planningDb = {
 
   deleteScheduledTask(id: string): void {
     DatabaseService.deleteScheduledTask(id)
+  },
+
+  saveTodo(todo: TodoRow): void {
+    DatabaseService.saveTodo(todo)
+  },
+
+  updateTodo(todo: TodoRow): void {
+    DatabaseService.updateTodo(todo)
+  },
+
+  getTodoById(id: string): TodoRow | undefined {
+    return DatabaseService.getTodoById(id)
+  },
+
+  listTodos(filters: TodoListFilters): TodoRow[] {
+    return DatabaseService.listTodos(filters)
+  },
+
+  deleteTodo(id: string): void {
+    DatabaseService.deleteTodo(id)
   }
 }

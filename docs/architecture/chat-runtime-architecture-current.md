@@ -1,269 +1,101 @@
 # Chat Runtime Architecture Current
 
-## 当前目标
+## Current structure
 
-当前主线已经从 `chatRun` 中心，演进成四层结构：
+The chat runtime uses four cooperating boundaries:
 
-- `agent`
-  - 运行时 contracts 与工具执行归属
-- `next`
-  - 通用 runtime 内核
-  - 承载 loop、step、model parsing、tools orchestration
-- `hosts/chat`
-  - chat host adapter
-  - 承载 chat-specific mapping、persistence、prepare/finalize 边界
-- `chatPostRun`
-  - run 完成后的后台 job
-  - title / compression
-- `chatOperations`
-  - 显式 chat 操作入口
-  - 手动压缩、手动生成标题
-
-这四层分别对应：
-
-- runtime contracts + core runtime
-- host adapter
-- post-run side jobs
-- application operations
-
-## 当前目录
-
-```text
-src/main/
-  agent/
-    contracts/
-    tools/
-    next/
-      loop/
-      step/
-      events/
-      tools/
-      transcript/
-      runtime/
-
-  services/
-    hosts/
-      chat/
-        config/
-        mapping/
-        persistence/
-        preparation/
-        finalize/
-        ChatAgentAdapter.ts
-        index.ts
-
-    chatRun/
-      infrastructure/
-      runtime/
-      index.ts
-
-    chatPostRun/
-      PostRunJobService.ts
-      TitleJobService.ts
-      CompressionJobService.ts
-      index.ts
-      types.ts
-      utils.ts
-
-    chatOperations/
-      CompressionExecutionService.ts
-      TitleGenerationService.ts
-      index.ts
-      types.ts
-      utils.ts
-```
-
-现网主路径已经切到 `agent/runtime/*`、`hosts/chat/runtime/*`、`chatRun/runtime/*` 和 `subagent/runtime/*`。
-
-## hosts/chat
-
-`hosts/chat` 是 chat 领域适配层。
-
-当前已经落进去的内容：
-
-- [ChatAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/ChatAgentAdapter.ts)
-  - chat run 的总适配入口
-  - 负责 `prepareRun / createStepRuntimeContext / finalizeRun`
-- [config/](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/config)
-  - `AppConfigStore`
-  - `ChatModelContextResolver`
-- [mapping/ChatEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/mapping/ChatEventMapper.ts)
-  - chat-facing event mapping
-- [mapping/ChatStepRuntimeContextMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/mapping/ChatStepRuntimeContextMapper.ts)
-  - 将 chat 上下文收窄成 step runtime 所需最小上下文
-- [persistence/ChatSessionStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/persistence/ChatSessionStore.ts)
-  - chat load/create/history load
-  - chat finalize/title update
-- [persistence/ChatStepStore.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/persistence/ChatStepStore.ts)
-  - user message / assistant placeholder / tool result / finalize assistant
-- [preparation/index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/index.ts)
-  - chat preparation pipeline
-- [finalize/index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/finalize/index.ts)
-  - chat finalize boundary
-
-当前 `hosts/chat` 的状态是：
-
-- config / mapping / persistence / preparation / finalize 已全部物理迁入
-- 旧的 chat-side step wiring 已从当前主代码中移除
-- 当前已经是一个真实的 chat host adapter，而不只是目录边界
-
-也就是说，chat-specific 的主体实现已经基本收进 `hosts/chat`。
-
-## chatRun
-
-`chatRun` 现在更接近 runtime shell，而不是 chat-specific 总入口。
-
-### 当前职责
-
-- [index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/index.ts)
-  - facade
-  - 对外暴露 `start / runBlocking / cancel / resolveToolConfirmation`
-- [runtime/RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunManager.ts)
-  - shell runtime manager
-  - `accepted / runBlocking / cancel`
-- [runtime/AgentRun.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/AgentRun.ts)
-  - shell 层 run 生命周期协调器
-  - 通过 `ChatAgentAdapter` 获取 chat-specific prepare/finalize 能力
-  - 通过当前主 runtime 执行 run
-  - 持有 active run 的 mutable runtime context
-- [runtime/RunLifecycleEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunLifecycleEventMapper.ts)
-  - run 生命周期事件发射
-- [runtime/RunFinalizer.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunFinalizer.ts)
-  - kernel 终态到 shell `RunResult` 的收敛
-- [runtime/RunRegistry.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunRegistry.ts)
-  - active run registry
-- [runtime/RunRuntimeFactory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunRuntimeFactory.ts)
-  - shell composition root
-- [infrastructure/event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/event-emitter.ts)
-  - chat run event emitter factory
-- [infrastructure/tool-confirmation.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/tool-confirmation.ts)
-  - tool confirmation manager
-
-### 仍留在 chatRun 的非 core 内容
-
-- shell runtime orchestration
-- emitter / confirmation infrastructure
-
-所以 `chatRun` 当前更像 shell 层，而不是 chat adapter 本体。
-
-### Mutable runtime context
-
-`run:start` payload 和 `chat.ready` event 是启动时快照，用于 request 构造、事件追踪和日志解释。运行过程中可变的控制面配置放在 active `AgentRun` 持有的 mutable runtime context 中。
-
-当前 mutable runtime context 覆盖：
-
-- `permissionApprovalMode`
-
-Renderer 切换 permission mode 时会：
-
-1. 更新当前 chat store。
-2. 写入 `chats.permission_approval_mode`。
-3. 通过 `run:permission-approval-mode:update` 通知 main。
-4. `RunManager` 更新匹配 `chatUuid` 的 active run runtime context。
-5. `DefaultMainAgentRuntimeRunner` 在每批 tool call 执行前读取最新 `permissionApprovalMode`。
-
-当 mode 切到 `auto` 时，main 会释放当前 submission 已 pending 的 tool confirmation，避免运行中已经进入等待态的工具继续等到 timeout。事件流会追加 `run.permission_approval_mode.changed`，用于解释同一 submission 中不同 tool call 的确认策略变化。
-
-## chatPostRun
-
-`chatPostRun` 只负责 run 结束后的后台 job：
-
-- [PostRunJobService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/postRun/PostRunJobService.ts)
-- [TitleJobService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/postRun/TitleJobService.ts)
-- [CompressionJobService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/postRun/CompressionJobService.ts)
-
-关键点保持不变：
-
-- `run.completed` 先发
-- title/compression 异步继续执行
-- 不阻塞主 run 完成边界
-
-## chatOperations
-
-`chatOperations` 是显式 operation 层：
-
-- [CompressionExecutionService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/maintenance/CompressionExecutionService.ts)
-- [TitleGenerationService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/maintenance/TitleGenerationService.ts)
-
-它和 `chatPostRun` 的区别仍然是：
-
-- `chatOperations`
-  - 用户或 IPC 主动触发
-- `chatPostRun`
-  - run 结束后后台触发
-
-## 当前主流程
-
-当前主链路已经变成：
+- `src/main/agent/runtime/`: provider-independent loop, step, transcript, model,
+  and tool execution.
+- `src/main/hosts/chat/`: chat preparation, persistence, mapping, rendering, and
+  finalization.
+- `src/main/orchestration/chat/run/`: active-run lifecycle, cancellation,
+  confirmation, and runtime assembly.
+- `src/main/orchestration/chat/maintenance/` and `postRun/`: explicit maintenance
+  operations and asynchronous completion jobs.
 
 ```text
 RunService
   -> RunRuntimeFactory
     -> RunManager
       -> AgentRun
-        -> RunLifecycleEventMapper
         -> ChatAgentAdapter.prepareRun()
-        -> legacy chat-side step wiring
-        -> AgentRunKernel
+        -> DefaultMainAgentRuntimeRunner
+          -> AgentRuntime
         -> RunFinalizer
         -> ChatAgentAdapter.finalizeRun()
         -> PostRunJobService
 ```
 
-step 执行链路：
+## Agent runtime
 
-旧的 assistant projection / step wiring 目前只作为历史设计存在，不再保留生产代码入口。
+`src/main/agent/runtime/` owns the execution kernel. Its contracts are exposed
+from `src/main/agent/contracts/`, including run inputs/results, confirmation,
+conversation persistence, message event sinks, and run-event interfaces.
 
-显式 operation 链路：
+The runtime consumes host-neutral request specifications and tool execution
+facts. Chat entities, renderer state, and Electron event transport stay outside
+the kernel.
+
+## Chat host
+
+`src/main/hosts/chat/ChatAgentAdapter.ts` coordinates chat-specific behavior:
+
+- `config/`: application and model context lookup;
+- `preparation/`: request, prompt, skill, compression, and step bootstrap;
+- `persistence/`: chat session and step stores;
+- `mapping/`: chat/runtime event mapping;
+- `runtime/`: renderer output and tool side effects;
+- `finalize/`: terminal chat persistence.
+
+Host modules depend on `RunEventEmitter` from
+`src/main/agent/contracts/RunEvents.ts`. The concrete event implementation stays
+inside orchestration infrastructure.
+
+## Run orchestration
+
+`src/main/orchestration/chat/run/index.ts` exposes start, execute, cancellation,
+confirmation, and active-run configuration updates.
+
+Key implementation files:
+
+- `runtime/RunManager.ts`: active run entry and registry coordination;
+- `runtime/AgentRun.ts`: one run lifecycle;
+- `runtime/RunRuntimeFactory.ts`: local composition root;
+- `runtime/DefaultMainAgentRuntimeRunner.ts`: bridge into `AgentRuntime`;
+- `runtime/RunFinalizer.ts`: terminal result mapping;
+- `infrastructure/event-emitter.ts`: Electron transport and trace persistence;
+- `infrastructure/tool-confirmation.ts`: confirmation state.
+
+The mutable runtime context currently carries `permissionApprovalMode`. Renderer
+updates reach the active run through `run:permission-approval-mode:update`.
+Pending confirmation is released when the updated mode permits automatic
+execution, and the event stream records the mode change.
+
+## Maintenance and post-run work
+
+Explicit operations live in `src/main/orchestration/chat/maintenance/`:
+
+- `CompressionExecutionService.ts`
+- `TitleGenerationService.ts`
+- `MessageCompressionService.ts`
+
+Asynchronous completion jobs live in `src/main/orchestration/chat/postRun/`:
+
+- `PostRunJobService.ts`
+- `TitleJobService.ts`
+- `CompressionJobService.ts`
+
+The main run emits `run.completed` before title and compression jobs continue.
+These jobs preserve the main run completion boundary.
+
+## Dependency direction
 
 ```text
-IPC
-  -> RunService
-    -> chatOperations/*
+orchestration/run -> hosts/chat -> agent contracts
+orchestration/run -> agent/runtime -> agent contracts
+hosts/chat -> db domain facades
+event-emitter implementation -> run-event db facade + Electron window
 ```
 
-post-run 链路：
-
-```text
-AgentRun completed
-  -> PostRunJobService
-    -> TitleJobService
-    -> CompressionJobService
-```
-
-## 当前边界判断
-
-当前已经比较明确的部分：
-
-- `agent`
-  - runtime contracts
-  - tool execution
-- `next`
-  - step execution
-  - parser / model response parsing
-  - loop
-- `hosts/chat`
-  - chat config
-  - chat preparation/finalize
-  - chat persistence
-  - chat event mapping
-  - chat-side step wiring
-- `chatPostRun`
-  - 明确是异步 side jobs
-- `chatOperations`
-  - 明确是显式 use case
-- `chatRun`
-  - 明确是 shell/runtime orchestration
-
-所以目前的状态是：
-
-- 新架构骨架已经落地
-- core execution、parser、tools 已落到 `next/*` / `agent/*`
-- chat host adapter 已经成型
-- `chatRun` 已明显退化为 shell 层
-
-## 后续建议
-
-- 评估 `ChatAgentAdapter` 是否进一步拆成更薄的 `prepare / step-context / finalize` facade
-- 进一步扩展 runtime contracts，让 core 依赖更稳定地面向 contract 而不是 concrete 实现
-- 等 shell/runtime 边界进一步稳定后，再决定 `chatRun/runtime` 中是否还有内容可继续下沉到 `next/*`
+`RunRuntimeFactory` remains a local composition root for the complex run path.
+The process-wide IPC and tool registries remain explicit central registries.

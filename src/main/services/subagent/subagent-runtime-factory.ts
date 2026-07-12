@@ -1,11 +1,10 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { SystemPromptComposer } from '@main/hosts/chat/preparation/request/SystemPromptComposer'
+import { WORK_CONTEXT_TEMPLATE } from '@main/services/workContext/WorkContextService'
 import { resolveAllowedEmbeddedToolsForAgent } from '@tools/permissions'
-import { processWorkContextGet } from '@main/tools/workContext/WorkContextToolsProcessor'
-import { processActivityJournalList } from '@main/tools/activityJournal/ActivityJournalToolsProcessor'
 import type { BuiltInSubagentRole } from '@tools/subagent/index.d'
 import type { SubagentExecutionResult, SubagentSpawnInput } from './types'
 import {
@@ -13,6 +12,10 @@ import {
   type PreparedSubagentRunContext,
   type SubagentRuntimeRunner
 } from './runtime/SubagentRuntimeRunner'
+import {
+  DefaultSubagentContextReader,
+  type SubagentContextReader
+} from './SubagentContextReader'
 
 const ROLE_PROMPTS: Record<BuiltInSubagentRole, string> = {
   general: 'Act as a focused subagent. Execute the assigned task and return a concise, useful summary.',
@@ -26,15 +29,16 @@ export class SubagentRuntimeFactory {
     private readonly appConfigStore = new AppConfigStore(),
     private readonly modelContextResolver = new ChatModelContextResolver(),
     private readonly systemPromptComposer = new SystemPromptComposer(),
-    private readonly runtimeRunner: SubagentRuntimeRunner = new DefaultSubagentRuntimeRunner()
+    private readonly runtimeRunner: SubagentRuntimeRunner = new DefaultSubagentRuntimeRunner(),
+    private readonly contextReader: SubagentContextReader = new DefaultSubagentContextReader()
   ) {}
 
   async run(input: SubagentSpawnInput): Promise<SubagentExecutionResult> {
     const config = this.appConfigStore.requireConfig()
     const modelContext = this.modelContextResolver.resolveOrThrow(config, input.modelRef)
-    const chat = input.chatUuid ? DatabaseService.getChatByUuid(input.chatUuid) : undefined
+    const chat = input.chatUuid ? chatDb.getChatByUuid(input.chatUuid) : undefined
     const workspacePath = input.chatUuid
-      ? (DatabaseService.getWorkspacePathByUuid(input.chatUuid) || chat?.workspacePath || process.cwd())
+      ? (chatDb.getWorkspacePathByUuid(input.chatUuid) || chat?.workspacePath || process.cwd())
       : process.cwd()
 
     const composedSystemPrompts = await this.systemPromptComposer.compose(chat?.id)
@@ -88,20 +92,14 @@ export class SubagentRuntimeFactory {
         sections.push('# Recent Chat Context', recentSummary)
       }
 
-      const workContext = await processWorkContextGet({ chat_uuid: input.chatUuid })
-      if (workContext.success && workContext.content?.trim()) {
-        sections.push('# Work Context', workContext.content.trim())
-      }
+      const workContext = this.safeReadWorkContext(input.chatUuid)
+      sections.push('# Work Context', workContext.trim())
 
-      const activityJournal = await processActivityJournalList({
-        scope: 'current_chat',
-        chat_uuid: input.chatUuid,
-        limit: 5
-      })
-      if (activityJournal.success && activityJournal.entries.length > 0) {
+      const activityJournal = await this.safeListRecentActivity(input.chatUuid, 5)
+      if (activityJournal.length > 0) {
         sections.push(
           '# Recent Activity Journal',
-          activityJournal.entries
+          activityJournal
             .map(entry => `- ${entry.title}${entry.details ? `: ${entry.details}` : ''}`)
             .join('\n')
         )
@@ -116,8 +114,27 @@ export class SubagentRuntimeFactory {
     return sections.join('\n\n')
   }
 
+  private safeReadWorkContext(chatUuid: string): string {
+    try {
+      return this.contextReader.getWorkContext(chatUuid)?.trim() || WORK_CONTEXT_TEMPLATE
+    } catch {
+      return WORK_CONTEXT_TEMPLATE
+    }
+  }
+
+  private async safeListRecentActivity(
+    chatUuid: string,
+    limit: number
+  ): Promise<Awaited<ReturnType<SubagentContextReader['listRecentActivity']>>> {
+    try {
+      return await this.contextReader.listRecentActivity(chatUuid, limit)
+    } catch {
+      return []
+    }
+  }
+
   private buildRecentChatSummary(chatUuid: string): string {
-    const messages = DatabaseService.getMessagesByChatUuid(chatUuid).slice(-8)
+    const messages = chatDb.getMessagesByChatUuid(chatUuid).slice(-8)
     if (messages.length === 0) {
       return ''
     }

@@ -1,6 +1,6 @@
 import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
 import type { ConversationStore } from '@main/agent/contracts'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import EmotionInferenceService from '@main/services/emotion/EmotionInferenceService'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { escapeXmlAttribute } from '@shared/utils/xml'
@@ -94,7 +94,7 @@ export class ChatStepStore implements ConversationStore {
       chatUuid: chatEntity.uuid
     }
 
-    entity.id = DatabaseService.saveMessage(entity)
+    entity.id = chatDb.saveMessage(entity)
     this.attachMessageToChat(chatEntity, entity.id)
     return entity
   }
@@ -142,7 +142,7 @@ export class ChatStepStore implements ConversationStore {
       body
     }
 
-    entity.id = DatabaseService.saveMessage(entity)
+    entity.id = chatDb.saveMessage(entity)
     this.attachMessageToChat(chatEntity, entity.id)
     return entity
   }
@@ -158,17 +158,17 @@ export class ChatStepStore implements ConversationStore {
       chatUuid
     }
 
-    entity.id = DatabaseService.saveMessage(entity)
+    entity.id = chatDb.saveMessage(entity)
     return entity
   }
 
   persistAssistantMessage(message: MessageEntity): MessageEntity {
     if (message.id != null) {
-      DatabaseService.updateMessage(message)
+      chatDb.updateMessage(message)
       return message
     }
 
-    message.id = DatabaseService.saveMessage(message)
+    message.id = chatDb.saveMessage(message)
 
     const chatEntity = this.resolveChatEntity(message.chatId, message.chatUuid)
     if (chatEntity) {
@@ -208,18 +208,18 @@ export class ChatStepStore implements ConversationStore {
     }
 
     if (updated.id != null) {
-      DatabaseService.updateMessage(updated)
+      chatDb.updateMessage(updated)
     } else {
-      updated.id = DatabaseService.saveMessage(updated)
+      updated.id = chatDb.saveMessage(updated)
       this.attachMessageToChat(chatEntity, updated.id)
     }
 
     if (updated.chatId && updated.chatUuid && updated.body.emotion) {
-      const previousState = DatabaseService.getEmotionStateByChatId(updated.chatId)
+      const previousState = chatDb.getEmotionStateByChatId(updated.chatId)
       const nextState = buildNextEmotionStateSnapshot(previousState, updated.body.emotion, {
         accumulated: emotionToolState?.accumulated
       })
-      DatabaseService.upsertEmotionState(updated.chatId, updated.chatUuid, nextState)
+      chatDb.upsertEmotionState(updated.chatId, updated.chatUuid, nextState)
     }
 
     return updated
@@ -276,7 +276,7 @@ export class ChatStepStore implements ConversationStore {
       body
     }
 
-    entity.id = DatabaseService.saveMessage(entity)
+    entity.id = chatDb.saveMessage(entity)
     this.attachMessageToChat(chatEntity, entity.id)
     return entity
   }
@@ -291,7 +291,7 @@ export class ChatStepStore implements ConversationStore {
 
     const latestChat = this.resolveChatEntity(chatEntity.id, chatEntity.uuid) ?? chatEntity
     for (const messageId of latestChat.messages || []) {
-      const entity = DatabaseService.getMessageById(messageId)
+      const entity = chatDb.getMessageById(messageId)
       if (
         entity?.body.source === MESSAGE_SOURCE.RUN_STOPPED
         && entity.body.runBoundary?.submissionId === submissionId
@@ -322,7 +322,7 @@ export class ChatStepStore implements ConversationStore {
 
     const chatMessages = this.resolveChatEntity(chatEntity.id, chatEntity.uuid)?.messages || chatEntity.messages || []
     for (const messageId of chatMessages) {
-      const entity = DatabaseService.getMessageById(messageId)
+      const entity = chatDb.getMessageById(messageId)
       if (entity?.body.role === 'tool' && entity.body.toolCallId) {
         answeredToolCallIds.add(entity.body.toolCallId)
       }
@@ -353,7 +353,7 @@ export class ChatStepStore implements ConversationStore {
       ? messages
       : [...messages, messageId]
 
-    DatabaseService.updateChat({
+    chatDb.updateChat({
       ...latestChat,
       messages: nextMessages,
       updateTime: Date.now()
@@ -362,14 +362,14 @@ export class ChatStepStore implements ConversationStore {
 
   private resolveChatEntity(chatId?: number, chatUuid?: string): ChatEntity | undefined {
     if (chatId != null) {
-      const chat = DatabaseService.getChatById(chatId)
+      const chat = chatDb.getChatById(chatId)
       if (chat) {
         return chat
       }
     }
 
     if (chatUuid) {
-      return DatabaseService.getChatByUuid(chatUuid)
+      return chatDb.getChatByUuid(chatUuid)
     }
 
     return undefined

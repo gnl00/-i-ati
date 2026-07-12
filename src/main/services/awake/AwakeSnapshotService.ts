@@ -1,4 +1,5 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
+import { smartMessageDb } from '@main/db/smart-messages'
 import activityJournalService from '@main/services/activityJournal/ActivityJournalService'
 import { buildEmotionStateSummary } from '@main/services/emotion/EmotionPromptSummary'
 import MemoryService from '@main/services/memory/MemoryService'
@@ -17,7 +18,7 @@ type MemorySearchResult = Awaited<ReturnType<typeof MemoryService.searchMemories
 type MemoryListEntry = Awaited<ReturnType<typeof MemoryService.getAllMemories>>[number]
 type ActivityJournalEntry = Awaited<ReturnType<typeof activityJournalService.listEntries>>[number]
 type ActivityJournalSearchItem = Awaited<ReturnType<typeof activityJournalService.searchEntries>>[number]
-type SmartMessageCandidateSummary = ReturnType<typeof DatabaseService.listRecentSmartMessageCandidateSummaries>[number]
+type SmartMessageCandidateSummary = ReturnType<typeof smartMessageDb.listRecentSmartMessageCandidateSummaries>[number]
 
 export type BuildAwakeSnapshotInput = {
   chat: ChatEntity
@@ -435,7 +436,7 @@ export class AwakeSnapshotService {
     let workContextExists = false
 
     try {
-      const workContext = DatabaseService.getWorkContextByChatUuid(input.chat.uuid)
+      const workContext = chatDb.getWorkContextByChatUuid(input.chat.uuid)
       workContextContent = workContext?.content
       workContextExists = Boolean(workContext)
     } catch {
@@ -572,7 +573,7 @@ export class AwakeSnapshotService {
 
   private safeListRecentSummaries(): SmartMessageCandidateSummary[] {
     try {
-      return DatabaseService.listRecentSmartMessageCandidateSummaries(
+      return smartMessageDb.listRecentSmartMessageCandidateSummaries(
         Date.now() - (RECENT_SUMMARY_WINDOW_DAYS * 86400000),
         RECENT_ACTIVITY_LIMIT
       )
@@ -584,7 +585,7 @@ export class AwakeSnapshotService {
   private buildEmotion(chatId: number | undefined): AwakeSnapshot['emotion'] {
     try {
       return buildEmotionSnapshot(
-        chatId ? DatabaseService.getEmotionStateByChatId(chatId) : undefined
+        chatId ? chatDb.getEmotionStateByChatId(chatId) : undefined
       )
     } catch {
       return fallbackEmotion()

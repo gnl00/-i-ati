@@ -2,7 +2,7 @@ import type { BrowserWindow } from 'electron'
 import { mainWindow } from '@main/main-window'
 import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@tools/webTools/index.d'
 import { getWindowPool } from './BrowserWindowPool'
-import DatabaseService from '@main/db/DatabaseService'
+import { configDb } from '@main/db/config'
 import { createLogger } from '@main/logging/LogService'
 import { resolveSearchEngine, type SearchResultItem } from './search-engine'
 import { waitForCondition } from './util/waitForCondition'
@@ -290,7 +290,7 @@ function resolveConfiguredFetchCounts(fetchCounts?: number): number {
   }
 
   try {
-    const configured = DatabaseService.getConfig()?.tools?.maxWebSearchItems
+    const configured = configDb.getConfig()?.tools?.maxWebSearchItems
     if (typeof configured === 'number' && configured > 0) {
       return Math.min(configured, MAX_FETCH_COUNTS)
     }

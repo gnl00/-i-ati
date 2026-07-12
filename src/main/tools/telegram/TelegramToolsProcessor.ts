@@ -1,5 +1,5 @@
 import { configDb } from '@main/db/config'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { telegramGatewayService } from '@main/services/telegram'
 import type {
   TelegramSearchTargetItem,
@@ -55,11 +55,11 @@ const collectTelegramTargets = (args?: {
   currentChatUuid?: string
   includeArchived?: boolean
 }): ResolvedTelegramTarget[] => {
-  const chats = DatabaseService.getAllChats()
+  const chats = chatDb.getAllChats()
   const items: ResolvedTelegramTarget[] = []
 
   for (const chat of chats) {
-    const bindings = DatabaseService.getChatHostBindingsByChatUuid(chat.uuid)
+    const bindings = chatDb.getChatHostBindingsByChatUuid(chat.uuid)
 
     for (const binding of bindings) {
       if (binding.hostType !== 'telegram') {
@@ -161,12 +161,12 @@ const findTelegramBindingTarget = (
   targetChatUuid: string,
   includeArchived = false
 ): ResolvedTelegramTarget | undefined => {
-  const chat = DatabaseService.getChatByUuid(targetChatUuid)
+  const chat = chatDb.getChatByUuid(targetChatUuid)
   if (!chat) {
     return undefined
   }
 
-  const binding = DatabaseService.getChatHostBindingsByChatUuid(targetChatUuid)
+  const binding = chatDb.getChatHostBindingsByChatUuid(targetChatUuid)
     .find((item) => item.hostType === 'telegram' && (includeArchived || item.status === 'active'))
 
   if (!binding) {
@@ -211,13 +211,13 @@ const persistTelegramOutboundMessage = (args: {
     return
   }
 
-  const chat = DatabaseService.getChatByUuid(args.target.targetChatUuid)
+  const chat = chatDb.getChatByUuid(args.target.targetChatUuid)
   if (!chat?.id) {
     return
   }
 
   const createdAt = Date.now()
-  const messageId = DatabaseService.saveMessage({
+  const messageId = chatDb.saveMessage({
     chatId: chat.id,
     chatUuid: chat.uuid,
     body: {
@@ -242,13 +242,13 @@ const persistTelegramOutboundMessage = (args: {
     }
   })
 
-  DatabaseService.updateChat({
+  chatDb.updateChat({
     ...chat,
     messages: [...(chat.messages || []), messageId],
     updateTime: createdAt
   })
 
-  const binding = DatabaseService.getChatHostBindingsByChatUuid(chat.uuid)
+  const binding = chatDb.getChatHostBindingsByChatUuid(chat.uuid)
     .find((item) =>
       item.hostType === 'telegram'
       && item.hostChatId === args.target.telegramChatId
@@ -256,7 +256,7 @@ const persistTelegramOutboundMessage = (args: {
     )
 
   if (binding?.id && args.sentMessageId) {
-    DatabaseService.updateChatHostBindingLastMessage(binding.id, args.sentMessageId)
+    chatDb.updateChatHostBindingLastMessage(binding.id, args.sentMessageId)
   }
 }
 

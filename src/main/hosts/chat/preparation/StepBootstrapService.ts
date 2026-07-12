@@ -2,7 +2,7 @@ import { ChatStepStore } from '../persistence'
 import { normalizeMediaUrls } from '../persistence/ChatStepStore'
 import { VisionObservationService } from '../vision'
 import { ChatEventMapper } from '../mapping'
-import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
+import type { RunEventEmitter } from '@main/agent/contracts'
 import type { MainAgentRunInput, RunEnvironment, StepBootstrap } from './types'
 
 export class StepBootstrapService {

@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import type { HistorySearchArgs, HistorySearchResponse } from '@tools/history/index.d'
 
 const DEFAULT_LIMIT = 5
@@ -64,7 +64,7 @@ export async function processHistorySearch(
       ? normalizeOptionalQuery(rawQuery)
       : undefined
 
-    const items = DatabaseService.searchHistory({
+    const items = chatDb.searchHistory({
       query: normalizedQuery,
       limit: clampLimit(args.limit),
       scope,

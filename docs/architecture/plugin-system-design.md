@@ -167,7 +167,7 @@ driven by the provider's selected payload extension and its table-driven
 
 External plugin loading should go through a dedicated main-process plugin host, for example:
 
-- `src/main/services/plugins/ExternalPluginHost.ts`
+- `src/main/services/plugins/PluginRuntimeService.ts`
 
 Responsibilities:
 

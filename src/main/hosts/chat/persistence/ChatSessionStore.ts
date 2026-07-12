@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import type { MainAgentRunInput } from '../preparation'
 import { normalizePermissionApprovalMode } from '@tools/approval'
 
@@ -39,13 +39,13 @@ export class ChatSessionStore {
       createTime: Date.now(),
       updateTime: Date.now()
     }
-    chatEntity.id = DatabaseService.saveChat(chatEntity)
+    chatEntity.id = chatDb.saveChat(chatEntity)
     return chatEntity
   }
 
   loadHistoryMessages(chat: ChatEntity): MessageEntity[] {
     if (chat.uuid) {
-      return DatabaseService.getMessagesByChatUuid(chat.uuid)
+      return chatDb.getMessagesByChatUuid(chat.uuid)
     }
     return []
   }
@@ -73,7 +73,7 @@ export class ChatSessionStore {
       updateTime: Date.now()
     }
 
-    DatabaseService.updateChat(updatedChat)
+    chatDb.updateChat(updatedChat)
 
     return {
       ...this.reloadChatEntity(updatedChat),
@@ -88,23 +88,23 @@ export class ChatSessionStore {
       updateTime: Date.now()
     }
 
-    DatabaseService.updateChat(updatedChat)
+    chatDb.updateChat(updatedChat)
     return updatedChat
   }
 
   reloadChatEntity(chatEntity: ChatEntity): ChatEntity {
     return chatEntity.id
-      ? DatabaseService.getChatById(chatEntity.id) || chatEntity
+      ? chatDb.getChatById(chatEntity.id) || chatEntity
       : chatEntity
   }
 
   private resolveExistingChat(chatId?: number, chatUuid?: string): ChatEntity | undefined {
     let chat: ChatEntity | undefined
     if (chatId) {
-      chat = DatabaseService.getChatById(chatId)
+      chat = chatDb.getChatById(chatId)
     }
     if (!chat && chatUuid) {
-      chat = DatabaseService.getChatByUuid(chatUuid)
+      chat = chatDb.getChatByUuid(chatUuid)
     }
     return chat
   }

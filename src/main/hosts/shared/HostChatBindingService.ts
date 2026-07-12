@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 
 const DEFAULT_WORKSPACE_DIR = 'workspaces'
 
@@ -24,14 +24,14 @@ export type ResolveOrCreateHostChatBindingResult = {
 
 export class HostChatBindingService {
   async resolveOrCreate(input: ResolveOrCreateHostChatBindingInput): Promise<ResolveOrCreateHostChatBindingResult> {
-    const existingBinding = DatabaseService.getChatHostBindingByHost(
+    const existingBinding = chatDb.getChatHostBindingByHost(
       input.hostType,
       input.hostChatId,
       input.hostThreadId
     )
 
     if (existingBinding) {
-      const chat = DatabaseService.getChatByUuid(existingBinding.chatUuid)
+      const chat = chatDb.getChatByUuid(existingBinding.chatUuid)
       if (chat) {
         return { chat, binding: existingBinding, created: false }
       }
@@ -54,7 +54,7 @@ export class HostChatBindingService {
       createTime: now,
       updateTime: now
     }
-    chat.id = DatabaseService.saveChat(chat)
+    chat.id = chatDb.saveChat(chat)
 
     const binding: ChatHostBindingEntity = {
       hostType: input.hostType,
@@ -68,13 +68,13 @@ export class HostChatBindingService {
       createTime: now,
       updateTime: now
     }
-    binding.id = DatabaseService.saveChatHostBinding(binding)
+    binding.id = chatDb.saveChatHostBinding(binding)
 
     return { chat, binding, created: true }
   }
 
   async createAndBind(input: ResolveOrCreateHostChatBindingInput): Promise<ResolveOrCreateHostChatBindingResult> {
-    const existingBinding = DatabaseService.getChatHostBindingByHost(
+    const existingBinding = chatDb.getChatHostBindingByHost(
       input.hostType,
       input.hostChatId,
       input.hostThreadId
@@ -97,8 +97,8 @@ export class HostChatBindingService {
       updateTime: now
     }
 
-    DatabaseService.upsertChatHostBinding(binding)
-    const rebound = DatabaseService.getChatHostBindingByHost(
+    chatDb.upsertChatHostBinding(binding)
+    const rebound = chatDb.getChatHostBindingByHost(
       input.hostType,
       input.hostChatId,
       input.hostThreadId
@@ -129,7 +129,7 @@ export class HostChatBindingService {
       createTime: now,
       updateTime: now
     }
-    chat.id = DatabaseService.saveChat(chat)
+    chat.id = chatDb.saveChat(chat)
 
     return { chat, now }
   }

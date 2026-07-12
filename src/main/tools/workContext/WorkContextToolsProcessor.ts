@@ -1,4 +1,9 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
+import {
+  normalizeWorkContextContent,
+  WORK_CONTEXT_TEMPLATE,
+  workContextService
+} from '@main/services/workContext/WorkContextService'
 import type {
   WorkContextGetResponse,
   WorkContextSetResponse
@@ -11,31 +16,6 @@ interface WorkContextGetArgs {
 interface WorkContextSetArgs {
   content: string
   chat_uuid?: string
-}
-
-const WORK_CONTEXT_TEMPLATE = `# Work Context
-
-## Current Goal
-
-## Decisions
-
-## In Progress
-
-## Open Questions
-
-## Temporary Constraints
-
-## Last Updated
-`
-
-const normalizeWorkContextContent = (content: string): string => {
-  return content
-    .replace(/\r\n/g, '\n')
-    .split('\n')
-    .map(line => line.trimEnd())
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
 }
 
 export async function processWorkContextGet(
@@ -51,16 +31,23 @@ export async function processWorkContextGet(
       }
     }
 
-    const record = DatabaseService.getWorkContextByChatUuid(args.chat_uuid)
-    const exists = Boolean(record)
-    const content = record?.content || WORK_CONTEXT_TEMPLATE
+    const snapshot = workContextService.getSnapshot(args.chat_uuid)
+
+    if (snapshot.error) {
+      return {
+        success: false,
+        content: snapshot.content,
+        exists: false,
+        message: `Failed to get work context: ${snapshot.error}`
+      }
+    }
 
     return {
       success: true,
       chat_uuid: args.chat_uuid,
-      content,
-      exists,
-      message: exists ? 'Work context loaded.' : 'Work context not found. Returned template.'
+      content: snapshot.content,
+      exists: snapshot.exists,
+      message: snapshot.exists ? 'Work context loaded.' : 'Work context not found. Returned template.'
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -102,7 +89,7 @@ export async function processWorkContextSet(
       }
     }
 
-    const chat = DatabaseService.getChatByUuid(args.chat_uuid)
+    const chat = chatDb.getChatByUuid(args.chat_uuid)
     if (!chat?.id) {
       return {
         success: false,
@@ -112,7 +99,7 @@ export async function processWorkContextSet(
       }
     }
 
-    const previous = DatabaseService.getWorkContextByChatUuid(args.chat_uuid)
+    const previous = chatDb.getWorkContextByChatUuid(args.chat_uuid)
     const previousNormalized = normalizeWorkContextContent(previous?.content || '')
     const normalizedInput = normalizeWorkContextContent(args.content)
     const nextNormalized = normalizedInput || normalizeWorkContextContent(WORK_CONTEXT_TEMPLATE)
@@ -128,7 +115,7 @@ export async function processWorkContextSet(
     }
 
     const contentToWrite = `${nextNormalized.replace(/\r\n/g, '\n').trimEnd()}\n`
-    DatabaseService.upsertWorkContext(chat.id, args.chat_uuid, contentToWrite)
+    chatDb.upsertWorkContext(chat.id, args.chat_uuid, contentToWrite)
 
     return {
       success: true,

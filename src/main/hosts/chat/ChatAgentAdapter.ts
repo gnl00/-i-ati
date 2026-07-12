@@ -3,7 +3,7 @@ import { ChatFinalizeService } from './finalize/ChatFinalizeService'
 import { ChatEventMapper, ChatStepRuntimeContextMapper, type ChatStepRuntimeContext } from './mapping'
 import type { MainAgentRunInput, RunPreparationResult } from './preparation'
 import { ChatPreparationPipeline } from './preparation'
-import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
+import type { RunEventEmitter } from '@main/agent/contracts'
 
 type FinalizeRunArgs = {
   input: MainAgentRunInput

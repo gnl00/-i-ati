@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/db/DatabaseService'
+import { planningDb } from '@main/db/planning'
 import type {
   TodoAddResponse,
   TodoDeleteResponse,
@@ -96,7 +96,7 @@ export async function processTodoAdd(args: TodoAddArgs): Promise<TodoAddResponse
       deleted_at: null
     }
 
-    DatabaseService.saveTodo(todo)
+    planningDb.saveTodo(todo)
     return { success: true, todo }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -123,7 +123,7 @@ export async function processTodoList(args: TodoListArgs = {}): Promise<TodoList
     }
 
     const tag = args.tag?.trim()
-    const todos = DatabaseService.listTodos({
+    const todos = planningDb.listTodos({
       chatUuid: scope === 'current_chat' ? args.chat_uuid : undefined,
       status: status === 'all' ? undefined : status,
       tag: tag || undefined,
@@ -151,7 +151,7 @@ export async function processTodoUpdate(args: TodoUpdateArgs): Promise<TodoUpdat
       return { success: false, message: 'id is required' }
     }
 
-    const existing = DatabaseService.getTodoById(id)
+    const existing = planningDb.getTodoById(id)
     if (!existing || existing.deleted_at !== null) {
       return { success: false, message: `Todo not found: ${id}` }
     }
@@ -188,7 +188,7 @@ export async function processTodoUpdate(args: TodoUpdateArgs): Promise<TodoUpdat
       updated_at: now
     }
 
-    DatabaseService.updateTodo(updated)
+    planningDb.updateTodo(updated)
     return { success: true, todo: updated }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -204,12 +204,12 @@ export async function processTodoDelete(args: TodoDeleteArgs): Promise<TodoDelet
       return { success: false, message: 'id is required' }
     }
 
-    const existing = DatabaseService.getTodoById(id)
+    const existing = planningDb.getTodoById(id)
     if (!existing || existing.deleted_at !== null) {
       return { success: false, message: `Todo not found: ${id}` }
     }
 
-    DatabaseService.deleteTodo(id)
+    planningDb.deleteTodo(id)
     return { success: true, id }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 
 interface ChatSetTitleArgs {
   title: string
@@ -30,7 +30,7 @@ export async function processChatSetTitle(
       }
     }
 
-    const chat = DatabaseService.getChatByUuid(args.chat_uuid)
+    const chat = chatDb.getChatByUuid(args.chat_uuid)
     if (!chat?.id) {
       return {
         success: false,
@@ -43,7 +43,7 @@ export async function processChatSetTitle(
       title,
       updateTime: Date.now()
     }
-    DatabaseService.updateChat(updatedChat)
+    chatDb.updateChat(updatedChat)
 
     return {
       success: true,

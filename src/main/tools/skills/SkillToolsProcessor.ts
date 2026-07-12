@@ -2,7 +2,7 @@ import { app } from 'electron'
 import path from 'path'
 import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { SkillService } from '@main/services/skills/SkillService'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import type { ExecuteCommandResponse } from '@tools/command/index.d'
@@ -111,7 +111,7 @@ const resolveSourcePath = (source: string, chatUuid?: string): string => {
   }
 
   if (chatUuid) {
-    const workspacePath = DatabaseService.getWorkspacePathByUuid(chatUuid)
+    const workspacePath = chatDb.getWorkspacePathByUuid(chatUuid)
     if (workspacePath) {
       return path.join(workspacePath, source)
     }
@@ -191,14 +191,14 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       return { success: false, loaded: false, message: 'chat_uuid is required' }
     }
 
-    const chat = DatabaseService.getChatByUuid(args.chat_uuid)
+    const chat = chatDb.getChatByUuid(args.chat_uuid)
     if (!chat?.id) {
       return { success: false, loaded: false, message: 'Chat not found' }
     }
 
     await SkillService.getSkillContent(args.name)
 
-    if (DatabaseService.getSkills(chat.id).includes(args.name)) {
+    if (chatDb.getSkills(chat.id).includes(args.name)) {
       return {
         success: true,
         name: args.name,
@@ -208,7 +208,7 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       }
     }
 
-    DatabaseService.addSkill(chat.id, args.name)
+    chatDb.addSkill(chat.id, args.name)
 
     return {
       success: true,
@@ -292,12 +292,12 @@ export async function processUnloadSkill(args: UnloadSkillArgs): Promise<UnloadS
       return { success: false, removed: false, message: 'chat_uuid is required' }
     }
 
-    const chat = DatabaseService.getChatByUuid(args.chat_uuid)
+    const chat = chatDb.getChatByUuid(args.chat_uuid)
     if (!chat?.id) {
       return { success: false, removed: false, message: 'Chat not found' }
     }
 
-    DatabaseService.removeSkill(chat.id, args.name)
+    chatDb.removeSkill(chat.id, args.name)
     return { success: true, removed: true, message: 'Skill removed.' }
   } catch (error) {
     console.error('[SkillTools] Failed to unload skill:', error)

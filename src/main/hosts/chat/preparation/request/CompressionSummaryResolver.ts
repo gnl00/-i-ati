@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 
 export class CompressionSummaryResolver {
   resolve(config: IAppConfig, chatId?: number): CompressedSummaryEntity | null {
@@ -6,7 +6,7 @@ export class CompressionSummaryResolver {
       return null
     }
 
-    const summaries = DatabaseService.getActiveCompressedSummariesByChatId(chatId)
+    const summaries = chatDb.getActiveCompressedSummariesByChatId(chatId)
     return summaries.length > 0 ? summaries[0] : null
   }
 }

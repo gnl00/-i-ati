@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import path from 'path'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { pluginDb } from '@main/db/plugins'
 import { pluginEventEmitter } from '@main/services/plugins'
 
@@ -47,7 +47,7 @@ const resolveSourcePath = (source: string, chatUuid?: string): string => {
   }
 
   if (chatUuid) {
-    const workspacePath = DatabaseService.getWorkspacePathByUuid(chatUuid)
+    const workspacePath = chatDb.getWorkspacePathByUuid(chatUuid)
     if (workspacePath) {
       return path.join(workspacePath, source)
     }

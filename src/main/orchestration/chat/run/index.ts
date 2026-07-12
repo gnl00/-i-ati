@@ -2,11 +2,10 @@ import {
   type CompressionExecutionInput,
   type TitleGenerationInput
 } from '@main/orchestration/chat/maintenance'
-import type { RunResult } from '@main/agent/contracts'
+import type { RunEventSink, RunResult } from '@main/agent/contracts'
 import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
 import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { PermissionApprovalMode } from '@tools/approval'
-import type { RunEventSink } from './infrastructure'
 import type { ToolConfirmationDecision } from './infrastructure'
 import { RunRuntimeFactory, type RunRuntimeDeps } from './runtime/RunRuntimeFactory'
 

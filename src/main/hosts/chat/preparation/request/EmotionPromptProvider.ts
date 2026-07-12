@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { buildEmotionStateSummary } from '@main/services/emotion/EmotionPromptSummary'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { buildEmotionContextContent, buildEmotionSystemPrompt } from '@shared/prompts'
@@ -24,7 +24,7 @@ export class EmotionPromptProvider {
 
   private buildSummary(chatId?: number): string {
     const state = chatId
-      ? DatabaseService.getEmotionStateByChatId(chatId)
+      ? chatDb.getEmotionStateByChatId(chatId)
       : undefined
 
     return buildEmotionStateSummary(state)

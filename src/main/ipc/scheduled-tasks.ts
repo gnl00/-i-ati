@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { planningDb } from '@main/db/planning'
 import { createLogger } from '@main/logging/LogService'
 import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
@@ -13,7 +13,7 @@ const emitScheduledTaskUpdated = (taskId: string): void => {
   const task = planningDb.getScheduledTaskById(taskId)
   if (!task) return
 
-  const chat = DatabaseService.getChatByUuid(task.chat_uuid)
+  const chat = chatDb.getChatByUuid(task.chat_uuid)
   const emitter = new ScheduleEventEmitter({
     chatId: chat?.id,
     chatUuid: task.chat_uuid

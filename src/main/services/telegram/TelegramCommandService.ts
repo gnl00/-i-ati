@@ -6,7 +6,7 @@ import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelConte
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
 import { HostChatBindingService } from '@main/hosts/shared/HostChatBindingService'
 import { RunService } from '@main/orchestration/chat/run'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { embeddedToolsRegistry } from '@tools/registry'
 import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
 import type { TelegramCommand, TelegramCommandCallback } from './telegram-command-parser'
@@ -214,7 +214,7 @@ export class TelegramCommandService {
     }
 
     const match = matches[0]
-    DatabaseService.updateChat({
+    chatDb.updateChat({
       ...chat,
       modelRef: {
         accountId: match.account.id,
@@ -312,7 +312,7 @@ export class TelegramCommandService {
     }
 
     const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
-    DatabaseService.updateChat({ ...chat, workspacePath: inputPath, updateTime: Date.now() })
+    chatDb.updateChat({ ...chat, workspacePath: inputPath, updateTime: Date.now() })
 
     return { text: `Workspace updated.\nPath: ${inputPath}` }
   }
@@ -323,7 +323,7 @@ export class TelegramCommandService {
   ): Promise<TelegramCommandResponse> {
     const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
     const defaultPath = getDefaultWorkspacePath(chat.uuid)
-    DatabaseService.updateChat({ ...chat, workspacePath: defaultPath, updateTime: Date.now() })
+    chatDb.updateChat({ ...chat, workspacePath: defaultPath, updateTime: Date.now() })
     return { text: `Workspace reset to default.\nPath: ${defaultPath}` }
   }
 

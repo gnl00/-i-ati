@@ -1,4 +1,4 @@
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { SkillService } from '@main/services/skills/SkillService'
 import { buildLoadedSkillsContextMessage } from '@shared/services/skills/LoadedSkillsContext'
 
@@ -9,7 +9,7 @@ export class LoadedSkillsContextProvider {
     }
 
     try {
-      const skillNames = DatabaseService.getSkills(chatId)
+      const skillNames = chatDb.getSkills(chatId)
       if (skillNames.length === 0) {
         return null
       }

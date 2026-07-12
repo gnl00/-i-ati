@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
+import { configDb } from '@main/db/config'
 import { planningDb } from '@main/db/planning'
 import { RunService } from '@main/orchestration/chat/run'
 import { createLogger } from '@main/logging/LogService'
@@ -102,7 +103,7 @@ export class SchedulerService {
   private async runTask(task: ScheduledTaskRow): Promise<void> {
     const nextAttempt = (task.attempt_count || 0) + 1
     try {
-      const chat = DatabaseService.getChatByUuid(task.chat_uuid)
+      const chat = chatDb.getChatByUuid(task.chat_uuid)
       if (!chat?.id || !chat.uuid) {
         throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
       }
@@ -179,13 +180,13 @@ export class SchedulerService {
       })
 
       const userMessage = submitResult.userMessageId
-        ? DatabaseService.getMessageById(submitResult.userMessageId)
+        ? chatDb.getMessageById(submitResult.userMessageId)
         : undefined
       if (userMessage) {
         emitter.emit(SCHEDULE_EVENTS.MESSAGE_CREATED, { message: userMessage })
       }
       if (assistantMessageId) {
-        const assistantMessage = DatabaseService.getMessageById(assistantMessageId)
+        const assistantMessage = chatDb.getMessageById(assistantMessageId)
         if (assistantMessage) {
           emitter.emit(SCHEDULE_EVENTS.MESSAGE_CREATED, { message: assistantMessage })
         }
@@ -224,7 +225,7 @@ export class SchedulerService {
   }
 
   private resolveFallbackModelRef(): ModelRef | undefined {
-    const config = DatabaseService.getConfig()
+    const config = configDb.getConfig()
     if (!config) return undefined
     return resolveLiteModelRef(config)
   }
@@ -232,7 +233,7 @@ export class SchedulerService {
   private emitScheduleUpdated(taskId: string): void {
     const task = planningDb.getScheduledTaskById(taskId)
     if (!task) return
-    const chat = DatabaseService.getChatByUuid(task.chat_uuid)
+    const chat = chatDb.getChatByUuid(task.chat_uuid)
     const emitter = new ScheduleEventEmitter({
       chatId: chat?.id,
       chatUuid: task.chat_uuid

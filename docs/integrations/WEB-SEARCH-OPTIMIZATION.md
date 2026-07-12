@@ -329,13 +329,8 @@ const handleWebSearch = async ({ fetchCounts, param }) => {
 
 ### 替换现有代码
 
-```bash
-# 备份原文件
-cp src/main/web-search.ts src/main/web-search.backup.ts
-
-# 使用优化版本
-cp src/main/web-search-optimized.ts src/main/web-search.ts
-```
+当前实现位于 `src/main/tools/webTools/WebToolsProcessor.ts`，历史版本通过 Git
+记录追踪。修改后直接运行该目录的单元测试验证行为。
 
 ### 测试性能
 

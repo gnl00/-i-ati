@@ -1,6 +1,6 @@
 import { AppConfigStore, ChatModelContextResolver } from '../config'
 import { ChatSessionStore } from '../persistence'
-import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
+import type { RunEventEmitter } from '@main/agent/contracts'
 import type { MainAgentRunInput, RunEnvironment } from './types'
 
 export class RunEnvironmentService {

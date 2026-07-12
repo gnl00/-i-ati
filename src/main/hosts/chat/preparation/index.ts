@@ -2,7 +2,7 @@ import { RunEnvironmentService } from './RunEnvironmentService'
 import { RunRequestFactory } from './RunRequestFactory'
 import { StepBootstrapService } from './StepBootstrapService'
 import { ChatEventMapper } from '../mapping'
-import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
+import type { RunEventEmitter } from '@main/agent/contracts'
 import type { MainAgentRunInput, RunPreparationResult } from './types'
 
 export class ChatPreparationPipeline {

@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
+import { assistantDb } from '@main/db/assistants'
 import { createLogger } from '@main/logging/LogService'
 import {
   RunService,
@@ -57,7 +58,7 @@ function attachHostBindingSummaries(chat: ChatEntity | undefined): ChatEntity | 
     return chat
   }
 
-  const hostBindings = DatabaseService.getChatHostBindingsByChatUuid(chat.uuid)
+  const hostBindings = chatDb.getChatHostBindingsByChatUuid(chat.uuid)
     .filter(binding => binding.status === 'active')
     .map(toChatHostBindingSummary)
 
@@ -115,17 +116,17 @@ export function registerChatHandlers(): void {
 
   ipcMain.handle(DB_CHAT_SAVE, async (_event, data) => {
     logger.info('chat.save')
-    return DatabaseService.saveChat(data)
+    return chatDb.saveChat(data)
   })
 
   ipcMain.handle(DB_CHAT_GET_ALL, async (_event) => {
     logger.info('chat.get_all')
-    return DatabaseService.getAllChats().map(chat => attachHostBindingSummaries(chat) ?? chat)
+    return chatDb.getAllChats().map(chat => attachHostBindingSummaries(chat) ?? chat)
   })
 
   ipcMain.handle(DB_CHAT_GET_BY_ID, async (_event, id) => {
     logger.info('chat.get_by_id', { id })
-    return attachHostBindingSummaries(DatabaseService.getChatById(id))
+    return attachHostBindingSummaries(chatDb.getChatById(id))
   })
 
   ipcMain.handle(DB_CHAT_SEARCH, async (_event, args: ChatSearchRequest) => {
@@ -133,32 +134,32 @@ export function registerChatHandlers(): void {
       queryLength: args?.query?.trim().length ?? 0,
       limit: args?.limit
     })
-    return DatabaseService.searchChats(args).map(attachSearchHostBindingSummaries)
+    return chatDb.searchChats(args).map(attachSearchHostBindingSummaries)
   })
 
   ipcMain.handle(DB_CHAT_UPDATE, async (_event, data) => {
     logger.info('chat.update', { id: data.id })
-    return DatabaseService.updateChat(data)
+    return chatDb.updateChat(data)
   })
 
   ipcMain.handle(DB_CHAT_DELETE, async (_event, id) => {
     logger.info('chat.delete', { id })
-    return DatabaseService.deleteChat(id)
+    return chatDb.deleteChat(id)
   })
 
   ipcMain.handle(DB_CHAT_SKILL_ADD, async (_event, { chatId, skillName }) => {
     logger.info('chat_skill.add', { chatId, skillName })
-    return DatabaseService.addSkill(chatId, skillName)
+    return chatDb.addSkill(chatId, skillName)
   })
 
   ipcMain.handle(DB_CHAT_SKILL_REMOVE, async (_event, { chatId, skillName }) => {
     logger.info('chat_skill.remove', { chatId, skillName })
-    return DatabaseService.removeSkill(chatId, skillName)
+    return chatDb.removeSkill(chatId, skillName)
   })
 
   ipcMain.handle(DB_CHAT_SKILLS_GET, async (_event, chatId) => {
     logger.info('chat_skill.get', { chatId })
-    return DatabaseService.getSkills(chatId)
+    return chatDb.getSkills(chatId)
   })
 
   ipcMain.handle(RUN_START, handleRunStart)
@@ -192,26 +193,26 @@ export function registerChatHandlers(): void {
 
   ipcMain.handle(DB_ASSISTANT_SAVE, async (_event, data: Assistant) => {
     logger.info('assistant.save', { id: data.id, name: data.name })
-    return DatabaseService.saveAssistant(data)
+    return assistantDb.saveAssistant(data)
   })
 
   ipcMain.handle(DB_ASSISTANT_GET_ALL, async (_event) => {
     logger.info('assistant.get_all')
-    return DatabaseService.getAllAssistants()
+    return assistantDb.getAllAssistants()
   })
 
   ipcMain.handle(DB_ASSISTANT_GET_BY_ID, async (_event, id: string) => {
     logger.info('assistant.get_by_id', { id })
-    return DatabaseService.getAssistantById(id)
+    return assistantDb.getAssistantById(id)
   })
 
   ipcMain.handle(DB_ASSISTANT_UPDATE, async (_event, data: Assistant) => {
     logger.info('assistant.update', { id: data.id, name: data.name })
-    return DatabaseService.updateAssistant(data)
+    return assistantDb.updateAssistant(data)
   })
 
   ipcMain.handle(DB_ASSISTANT_DELETE, async (_event, id: string) => {
     logger.info('assistant.delete', { id })
-    return DatabaseService.deleteAssistant(id)
+    return assistantDb.deleteAssistant(id)
   })
 }

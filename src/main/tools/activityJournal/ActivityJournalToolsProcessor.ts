@@ -1,5 +1,5 @@
 import activityJournalService from '@main/services/activityJournal/ActivityJournalService'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import type {
   ActivityJournalAppendResponse,
   ActivityJournalCategory,
@@ -70,7 +70,7 @@ export async function processActivityJournalAppend(
       }
     }
 
-    const chat = DatabaseService.getChatByUuid(args.chat_uuid)
+    const chat = chatDb.getChatByUuid(args.chat_uuid)
     const result = await activityJournalService.appendEntry({
       chatUuid: args.chat_uuid,
       chatId: chat?.id,

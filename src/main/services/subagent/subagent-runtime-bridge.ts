@@ -1,8 +1,8 @@
 import type {
+  RunEventEmitter,
   ToolConfirmationRequest,
   ToolConfirmationRequester
 } from '@main/agent/contracts'
-import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
 import { SUBAGENT_EVENTS } from '@shared/subagent/events'
 import type { SubagentRecord } from '@tools/subagent/index.d'
 

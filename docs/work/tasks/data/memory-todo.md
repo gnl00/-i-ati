@@ -1387,8 +1387,8 @@ npx shadcn-ui@latest add slider
 
 ## 参考资料
 
-- **MemoryService 实现：** `/Volumes/devdata/workspace/code/-i-ati/src/main/services/MemoryService.ts`
-- **EmbeddingService 实现：** `/Volumes/devdata/workspace/code/-i-ati/src/main/services/EmbeddingService.ts`
+- **MemoryService 实现：** `/Volumes/devdata/workspace/code/-i-ati/src/main/services/memory/MemoryService.ts`
+- **EmbeddingService 实现：** `/Volumes/devdata/workspace/code/-i-ati/src/main/services/embedding/EmbeddingService.ts`
 - **IPC Handlers：** `/Volumes/devdata/workspace/code/-i-ati/src/main/main-ipc.ts`
 - **当前 chat run 入口：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/features/chat/runtime/useChatRun.ts`
 - **设置面板：** `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/features/settings/SettingsPanel.tsx`

@@ -68,6 +68,18 @@ Renderer code follows the architecture documented in `docs/architecture/renderer
 
 Run `pnpm run check:renderer-boundaries`, `pnpm run check:renderer-doc-paths`, and `pnpm run test:renderer-architecture` after renderer moves. Update active documentation source paths in the same change.
 
+### Main-process dependency boundaries
+
+Main-process code follows `docs/architecture/main-process-architecture.md`:
+
+- `index.ts` is the Electron entry and delegates lifecycle work to `app/`.
+- `main-ipc.ts` and `tools/index.ts` are explicit central registries.
+- `hosts/` consumes stable contracts from `agent/contracts/`.
+- `tools/` may call reusable services; production `services/` do not import tool processors.
+- Production database callers use the domain facades in `db/`.
+
+Run `pnpm run check:main-boundaries`, `pnpm run check:main-doc-paths`, and `pnpm run test:main-architecture` after main-process moves. Update active documentation source paths in the same change.
+
 ### Naming: Prefer Convention Over "Projector"
 Do not generate `*Projector` classes or modules unless the transformation is genuinely a unidirectional read-only view projection (same source → multiple derived views). Prefer existing conventions instead:
 

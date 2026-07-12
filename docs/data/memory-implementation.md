@@ -378,7 +378,7 @@ const results = await window.electron.ipcRenderer.invoke(MEMORY_SEARCH, {
 
 ### 4.1 EmbeddingService 详解
 
-**文件路径**: `/Volumes/devdata/workspace/code/-i-ati/src/main/services/EmbeddingService.ts`
+**文件路径**: `/Volumes/devdata/workspace/code/-i-ati/src/main/services/embedding/EmbeddingService.ts`
 
 #### 4.1.1 类结构
 
@@ -533,7 +533,7 @@ public static cosineSimilarity(embedding1: number[], embedding2: number[]): numb
 
 ### 4.2 MemoryService 详解
 
-**文件路径**: `/Volumes/devdata/workspace/code/-i-ati/src/main/services/MemoryService.ts`
+**文件路径**: `/Volumes/devdata/workspace/code/-i-ati/src/main/services/memory/MemoryService.ts`
 
 #### 4.2.1 类结构
 

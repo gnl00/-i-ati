@@ -27,6 +27,7 @@ export default defineConfig({
       '@preload': path.resolve(__dirname, './src/preload'),
       '@shared': path.resolve(__dirname, './src/shared'),
       '@tools': path.resolve(__dirname, './src/shared/tools'),
+      '@resources': path.resolve(__dirname, './resources'),
     },
   },
 })

@@ -7,7 +7,7 @@ import {
   assertMessageEntitySegmentsHaveIds,
   assertMessageSegmentPatchHasIds
 } from '@shared/chat/segmentId'
-import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
+import type { RunEventEmitter } from '@main/agent/contracts'
 import type { AgentMessageEventSink } from '@main/agent/contracts'
 
 export class ChatEventMapper implements AgentMessageEventSink {

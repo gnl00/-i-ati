@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
-import DatabaseService from '@main/db/DatabaseService'
+import { configDb } from '@main/db/config'
+import { smartMessageDb } from '@main/db/smart-messages'
 import type { SmartMessageCandidateSummaryRow } from '@main/db/dao/SmartMessageDao'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { createLogger } from '@main/logging/LogService'
@@ -121,7 +122,7 @@ export class SmartMessageGenerationService {
       const maxMessages = options.maxMessages ?? DEFAULT_MAX_MESSAGES
       for (const group of groups.slice(0, maxMessages)) {
         try {
-          const existing = DatabaseService.getSmartMessageBySourceHash(
+          const existing = smartMessageDb.getSmartMessageBySourceHash(
             group.sourceHash,
             generationVersion
           )
@@ -131,8 +132,8 @@ export class SmartMessageGenerationService {
           }
 
           const draft = await this.generateDraft(group, modelContext)
-          DatabaseService.markChatSmartMessagesStale(group.chatUuid)
-          DatabaseService.upsertSmartMessage(this.toSmartMessageEntity({
+          smartMessageDb.markChatSmartMessagesStale(group.chatUuid)
+          smartMessageDb.upsertSmartMessage(this.toSmartMessageEntity({
             draft,
             group,
             now,
@@ -163,7 +164,7 @@ export class SmartMessageGenerationService {
     candidateLimit: number
     generationVersion: number
   }): SmartMessageCandidateGroup[] {
-    const rows = DatabaseService.listRecentSmartMessageCandidateSummaries(
+    const rows = smartMessageDb.listRecentSmartMessageCandidateSummaries(
       options.now - options.lookbackMs,
       options.candidateLimit
     )
@@ -318,7 +319,7 @@ export class SmartMessageGenerationService {
   }
 
   private resolveModelContext() {
-    const config = DatabaseService.getConfig()
+    const config = configDb.getConfig()
     if (!config) return null
     const modelRef = resolveLiteModelRef(config)
     if (!modelRef) return null

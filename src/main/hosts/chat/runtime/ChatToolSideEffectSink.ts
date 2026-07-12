@@ -1,5 +1,5 @@
-import DatabaseService from '@main/db/DatabaseService'
-import type { RunEventEmitter } from '@main/orchestration/chat/run/infrastructure'
+import { chatDb } from '@main/db/chat'
+import type { RunEventEmitter } from '@main/agent/contracts'
 import type { HostRenderEvent, HostRenderEventSink } from '@main/hosts/shared/render'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 
@@ -23,7 +23,7 @@ export class ChatToolSideEffectSink implements HostRenderEventSink {
   constructor(private readonly options: ChatToolSideEffectSinkOptions) {
     this.chatEvents = new ChatEventMapper(options.emitter)
     this.getChatByUuid = options.getChatByUuid ?? ((chatUuid) => (
-      DatabaseService.getChatByUuid(chatUuid)
+      chatDb.getChatByUuid(chatUuid)
     ))
   }
 

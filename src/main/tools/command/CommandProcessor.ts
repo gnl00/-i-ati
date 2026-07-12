@@ -8,7 +8,7 @@ import { promisify } from 'util'
 import { resolve, isAbsolute, join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { app } from 'electron'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
 import type {
   ExecuteCommandArgs,
@@ -61,7 +61,7 @@ function resolveWorkspaceBaseDir(chatUuid?: string): string {
   }
 
   try {
-    const workspacePath = DatabaseService.getWorkspacePathByUuid(chatUuid)
+    const workspacePath = chatDb.getWorkspacePathByUuid(chatUuid)
     if (workspacePath) {
       return normalizeWorkspaceBaseDir(workspacePath, chatUuid)
     }

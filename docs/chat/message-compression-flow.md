@@ -234,7 +234,7 @@ private validateMessages(messages: ChatMessage[]): void {
 
 ### 步骤 4: Adapter 转换
 
-**OpenAI Adapter** (`src/main/request/adapters/openai.ts`)
+**OpenAI Adapter** (`src/main/request/adapters/openai/OpenAIAdapter.ts`)
 
 ```typescript
 transformRequest(req: IUnifiedRequest): any {
@@ -286,8 +286,8 @@ transformRequest(req: IUnifiedRequest): any {
 | 历史 renderer `prepare` stage | 消息准备 |
 | 历史 renderer `request` stage | 获取压缩摘要，调用 RequestMessageBuilder |
 | `src/shared/services/RequestMessageBuilder.ts` | **核心**：统一的消息构建器 |
-| `src/main/services/compressionService.ts` | 压缩策略分析、摘要生成（主线程执行） |
-| `src/main/request/adapters/openai.ts` | OpenAI adapter 转换 |
+| `src/main/orchestration/chat/maintenance/MessageCompressionService.ts` | 压缩策略分析、摘要生成（主线程执行） |
+| `src/main/request/adapters/openai/OpenAIAdapter.ts` | OpenAI adapter 转换 |
 | `src/main/request/adapters/claude.ts` | Claude adapter 转换（特殊处理 system 字段） |
 
 ---

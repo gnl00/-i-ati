@@ -16,4 +16,5 @@ export type {
 } from './ToolConfirmation'
 export type { AgentMessageEventSink } from './AgentMessageEventSink'
 export type { ConversationStore } from './ConversationStore'
+export type { RunEventEmitter, RunEventMeta, RunEventSink } from './RunEvents'
 export { AbortError, ToolExecutionError } from './errors'

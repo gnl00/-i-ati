@@ -19,7 +19,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
   private renderStateSource: { snapshot(): AgentRenderState } | undefined
 
   constructor(
-    private readonly emitter: import('@main/orchestration/chat/run/infrastructure').RunEventEmitter,
+    private readonly emitter: import('@main/agent/contracts').RunEventEmitter,
     messageEntities: MessageEntity[],
     assistantDraft: MessageEntity,
     stepStore = new ChatStepStore()

@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'fs/
 import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
 import { existsSync, statSync, accessSync, constants, realpathSync } from 'fs'
 import { lookup } from 'mime-types'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
 import { runRipgrepFileList, runRipgrepSearch } from './RipgrepRunner'
 import type {
@@ -128,7 +128,7 @@ function resolveWorkspaceBaseDir(chatUuid?: string): string {
   }
 
   try {
-    const workspacePath = DatabaseService.getWorkspacePathByUuid(chatUuid)
+    const workspacePath = chatDb.getWorkspacePathByUuid(chatUuid)
     if (workspacePath) {
       return normalizeWorkspaceBaseDir(workspacePath, chatUuid)
     }

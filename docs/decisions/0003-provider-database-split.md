@@ -49,7 +49,7 @@ Refactor database layer to separate provider/account/model data into dedicated t
 - `cancel` reason unused fixed by underscore param.
 
 ## Notable Files
-- `src/main/db/Database.ts`
+- `src/main/db/core/Database.ts`
 - `src/main/db/core/ProviderDefinitionLoader.ts`
 - `src/main/db/repositories/*`
 - `src/main/db/DatabaseService.ts`

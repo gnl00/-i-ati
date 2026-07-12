@@ -23,7 +23,7 @@ export class ChatRenderOutput {
   private readonly mapper: ChatRenderMapper
 
   constructor(
-    emitter: import('@main/orchestration/chat/run/infrastructure').RunEventEmitter,
+    emitter: import('@main/agent/contracts').RunEventEmitter,
     private readonly messageEntities: MessageEntity[],
     private readonly assistantDraft: MessageEntity,
     private readonly stepStore = new ChatStepStore(),

@@ -105,7 +105,7 @@ Phase 1 is implemented in:
 
 - `src/main/agent/runtime/tools/result-normalization/`
 - `src/main/agent/runtime/transcript/AgentTranscriptSnapshotMaterializer.ts`
-- `src/main/agent/runtime/transcript/ToolResultRecordMaterializer.ts`
+- `src/main/agent/runtime/tools/result-normalization/ToolResultNormalizer.ts`
 - `src/main/agent/runtime/transcript/RequestMaterializer.ts`
 - `src/shared/tools/toolResultContent.ts`
 - `src/shared/services/RequestMessageBuilder.ts`

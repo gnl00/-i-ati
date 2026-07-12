@@ -12,7 +12,7 @@ import { agent } from '@main/agent'
 import { resolveRequestOverrides } from '@main/request/overrides'
 import { buildCompressionPrompt } from '@shared/prompts'
 import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
-import DatabaseService from '@main/db/DatabaseService'
+import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
 import { CompressionTranscriptBuilder } from './CompressionTranscriptBuilder'
 
@@ -295,7 +295,7 @@ export class MessageCompressionService {
       this.compressionInProgress.set(chatId, true)
 
       // 3. 获取已有的压缩摘要
-      const existingSummaries = DatabaseService.getActiveCompressedSummariesByChatId(chatId)
+      const existingSummaries = chatDb.getActiveCompressedSummariesByChatId(chatId)
 
       // 4. 分析压缩策略
       const strategy = this.analyzeCompressionStrategy(messages, existingSummaries, model, config)
@@ -394,7 +394,7 @@ export class MessageCompressionService {
       // 9. 将旧摘要标记为 superseded
       if (latestSummary && latestSummary.id) {
         // console.log(`[Compression] Marking previous summary ${latestSummary.id} as superseded`)
-        DatabaseService.updateCompressedSummaryStatus(latestSummary.id, 'superseded')
+        chatDb.updateCompressedSummaryStatus(latestSummary.id, 'superseded')
       }
 
       // 10. 保存新的压缩记录
@@ -415,7 +415,7 @@ export class MessageCompressionService {
         status: 'active'
       }
 
-      const summaryId = DatabaseService.saveCompressedSummary(summaryEntity)
+      const summaryId = chatDb.saveCompressedSummary(summaryEntity)
 
       // console.log(`[Compression] Saved summary ${summaryId}, ratio: ${compressionRatio.toFixed(2)}`)
 

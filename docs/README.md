@@ -35,6 +35,7 @@ capability is reviewed.
 ## Recommended entry points
 
 - [Renderer architecture](architecture/renderer-architecture.md)
+- [Main process architecture](architecture/main-process-architecture.md)
 - [Chat runtime architecture](architecture/chat-runtime-architecture-current.md)
 - [Plugin system architecture](architecture/plugin-system-design.md)
 - [Tool definition workflow](guides/development/tool-definition-workflow.md)
