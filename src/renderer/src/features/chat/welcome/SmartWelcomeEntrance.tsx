@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, BadgePlus, Bot, Check, ChevronDown, Pencil } from 'lucide-react'
 import { AddAssistantDrawer } from '@renderer/features/chat/input/toolbar/AddAssistantDrawer'
 import { getEmotionAssetUrl } from '@renderer/shared/assets/emotions/emotionAssetUrls'
@@ -245,7 +245,6 @@ const MessageCard: React.FC<MessageCardProps> = ({
       'welcome-v2-deck-card absolute left-1/2 top-0 block w-[min(612px,94%)] origin-center',
       'cursor-pointer border-0 bg-transparent p-0 text-left text-inherit',
       'transition-[opacity,filter,transform] duration-320 ease-(--welcome-v2-ease)',
-      'will-change-[transform,opacity,filter]',
       `welcome-v2-deck-card-${tone}`,
       active && 'welcome-v2-deck-card-active',
       muted && 'welcome-v2-deck-card-muted'
@@ -260,7 +259,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
       className={cn(
         'welcome-v2-message relative grid min-h-[118px] content-center gap-2 overflow-hidden rounded-[22px]',
         'border border-(--welcome-v2-card-border) px-6 py-5 shadow-(--welcome-v2-card-shadow)',
-        'transition-[background-color,border-color,box-shadow] duration-260 ease-(--welcome-v2-ease)'
+        'transition-[background-color,border-color,box-shadow,transform] duration-260 ease-(--welcome-v2-ease)'
       )}
     >
       <span className="relative z-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/66">
@@ -287,28 +286,74 @@ const MessageDeck: React.FC<MessageDeckProps> = ({
   messages,
   onSelect
 }) => {
-  const [pointer, setPointer] = useState({ x: 0, y: 0 })
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const activeIndexRef = useRef<number | null>(null)
+  const deckRef = useRef<HTMLDivElement>(null)
+  const deckRectRef = useRef<DOMRect | null>(null)
+  const latestPointerRef = useRef({ x: 0, y: 0 })
+  const pointerFrameRef = useRef<number | null>(null)
+
+  const updateActiveIndex = (nextIndex: number | null): void => {
+    if (activeIndexRef.current === nextIndex) return
+    activeIndexRef.current = nextIndex
+    setActiveIndex(nextIndex)
+  }
+
+  const schedulePointerWrite = (): void => {
+    if (pointerFrameRef.current !== null) return
+
+    pointerFrameRef.current = window.requestAnimationFrame(() => {
+      pointerFrameRef.current = null
+      const deckEl = deckRef.current
+      if (!deckEl) return
+
+      const { x, y } = latestPointerRef.current
+      deckEl.style.setProperty('--welcome-v2-pointer-x', String(x))
+      deckEl.style.setProperty('--welcome-v2-pointer-y', String(y))
+    })
+  }
+
+  useEffect(() => {
+    const refreshDeckRect = (): void => {
+      if (deckRef.current) {
+        deckRectRef.current = deckRef.current.getBoundingClientRect()
+      }
+    }
+
+    window.addEventListener('resize', refreshDeckRect)
+
+    return () => {
+      window.removeEventListener('resize', refreshDeckRect)
+      if (pointerFrameRef.current !== null) {
+        window.cancelAnimationFrame(pointerFrameRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div
-      className="welcome-v2-deck relative h-[clamp(302px,38vh,386px)] w-[min(760px,100%)] perspective-distant transform-3d"
-      style={{
-        '--welcome-v2-pointer-x': pointer.x,
-        '--welcome-v2-pointer-y': pointer.y
-      } as React.CSSProperties}
+      ref={deckRef}
+      className="welcome-v2-deck relative h-[clamp(302px,38vh,386px)] w-[min(760px,100%)]"
+      onPointerEnter={event => {
+        deckRectRef.current = event.currentTarget.getBoundingClientRect()
+      }}
       onPointerMove={event => {
-        const rect = event.currentTarget.getBoundingClientRect()
+        const rect = deckRectRef.current
+        if (!rect) return
+
         const pointerY = event.clientY - rect.top
-        setPointer({
+        latestPointerRef.current = {
           x: (event.clientX - rect.left) / rect.width - 0.5,
           y: (event.clientY - rect.top) / rect.height - 0.5
-        })
-        setActiveIndex(getPointerActiveIndex(pointerY, rect.height, messages.length))
+        }
+        schedulePointerWrite()
+        updateActiveIndex(getPointerActiveIndex(pointerY, rect.height, messages.length))
       }}
       onPointerLeave={() => {
-        setPointer({ x: 0, y: 0 })
-        setActiveIndex(null)
+        deckRectRef.current = null
+        latestPointerRef.current = { x: 0, y: 0 }
+        schedulePointerWrite()
+        updateActiveIndex(null)
       }}
       aria-label="Suggested agent messages"
     >
@@ -321,8 +366,10 @@ const MessageDeck: React.FC<MessageDeckProps> = ({
           active={activeIndex === index}
           muted={activeIndex !== null && activeIndex !== index}
           onSelect={onSelect}
-          onActivate={() => setActiveIndex(index)}
-          onRelease={() => setActiveIndex(current => current === index ? null : current)}
+          onActivate={() => updateActiveIndex(index)}
+          onRelease={() => {
+            if (activeIndexRef.current === index) updateActiveIndex(null)
+          }}
         />
       ))}
     </div>
