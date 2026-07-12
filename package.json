@@ -6,6 +6,10 @@
   "author": "gnl",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/gnl00/-i-ati",
+  "config": {
+    "electron_mirror": "https://npmmirror.com/mirrors/electron/",
+    "electron_builder_binaries_mirror": "https://npmmirror.com/mirrors/electron-builder-binaries/"
+  },
   "scripts": {
     "preinstall": "node -e \"const ua=process.env.npm_config_user_agent||''; if(!ua.includes('pnpm/')){console.error('This project uses pnpm. Please run: pnpm install'); process.exit(1)}\"",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
