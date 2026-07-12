@@ -650,6 +650,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           surfaceRef={setInputAreaContentRef}
           expanded={isWelcomeExpanded}
           className={cn(isSubmitBlocked && 'opacity-[0.82]')}
+          textareaClassName="caret-transparent"
           isDragging={isDragging}
           value={inputContent}
           placeholder="Ask @i what to work on..."
@@ -664,6 +665,12 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           onDragOver={onDragOver}
           onDrop={onDrop}
           mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImageGallery /> : null}
+          bodyOverlay={(
+            <CustomCaretOverlay
+              ref={caretOverlayRef}
+              textareaRef={textareaRef}
+            />
+          )}
           dropIndicator={isDragging ? (
             <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-background/15 backdrop-blur-[1px]">
               <span className="rounded-full bg-background/82 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-xs backdrop-blur-md">
