@@ -3,7 +3,8 @@ import { Cross1Icon } from '@radix-ui/react-icons'
 import { Eye, EyeOff } from 'lucide-react'
 
 import { Button } from '@renderer/shared/components/ui/button'
-import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@renderer/shared/components/ui/drawer'
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerTrigger } from '@renderer/shared/components/ui/drawer'
+import DrawerHeaderBar from '@renderer/shared/components/ui/DrawerHeaderBar'
 import { Input } from '@renderer/shared/components/ui/input'
 import { Label } from '@renderer/shared/components/ui/label'
 import {
@@ -56,7 +57,7 @@ const getProviderSortName = (entry: ProviderEntry): string => {
     return entry.definition.displayName || entry.definition.id
 }
 
-const PROVIDER_TOOLTIP_CLASS_NAME = 'bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
+const PROVIDER_TOOLTIP_CLASS_NAME = 'bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-700/50 dark:border-gray-600/50 text-gray-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
 
 const compareProviderEntriesByName = (left: ProviderEntry, right: ProviderEntry): number => {
     const result = getProviderSortName(left).localeCompare(getProviderSortName(right), undefined, {
@@ -187,9 +188,7 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
                         <span>Add Provider</span>
                     </DrawerTrigger>
                     <DrawerContent className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                        <DrawerHeader className="px-4 pt-4 pb-2">
-                            <DrawerTitle className="text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">Add Provider</DrawerTitle>
-                        </DrawerHeader>
+                        <DrawerHeaderBar title="Add Provider" />
                         <div id='add-new-provider-drawer' className="px-4 pb-3 app-undragable">
                             <div className="grid grid-cols-2 gap-x-2.5 gap-y-2">
                                 {/* Name + Adapter — same row */}

@@ -7,11 +7,9 @@ import { Label } from '@renderer/shared/components/ui/label'
 import {
   Drawer,
   DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
+  DrawerFooter
 } from '@renderer/shared/components/ui/drawer'
+import DrawerHeaderBar from '@renderer/shared/components/ui/DrawerHeaderBar'
 import {
   Select,
   SelectContent,
@@ -53,7 +51,7 @@ type ProviderModelsPanelProps = {
 // fr units: allocated after container width is known → never overflows
 const GRID_COLS = '50fr 14fr 16fr 20fr'
 const ADD_ROW_GRID_COLS = '30fr 34fr 20fr 16fr'
-const MODEL_TOOLTIP_CLASS_NAME = 'bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
+const MODEL_TOOLTIP_CLASS_NAME = 'bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-700/50 dark:border-gray-600/50 text-gray-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
 const MODEL_ADD_FIELD_CLASSNAME = 'h-8 rounded-lg border border-transparent bg-gray-100/80 px-2.5 text-[12.5px] text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/70 transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-1 focus:ring-gray-400/70 focus:ring-offset-0 focus-visible:border-gray-300 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0 dark:bg-gray-950/45 dark:text-gray-100 dark:ring-gray-700 dark:placeholder:text-gray-500 dark:focus:border-gray-600 dark:focus:bg-gray-950/70 dark:focus:ring-gray-500/70 dark:focus-visible:border-gray-600 dark:focus-visible:bg-gray-950/70 dark:focus-visible:ring-gray-500/70'
 const MODEL_TYPE_SELECT_TRIGGER_CLASSNAME = cn(
   'w-full rounded-lg border border-gray-200/85 bg-white/90 text-[12.5px] text-gray-800 shadow-xs',
@@ -313,14 +311,10 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
         }}
       >
         <DrawerContent className="max-h-[72vh] border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
-          <DrawerHeader className="px-5 pt-5 pb-3 border-b border-gray-200/80 dark:border-gray-800 text-left">
-            <DrawerTitle className="text-[15px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-              Edit Model
-            </DrawerTitle>
-            <DrawerDescription className="text-[12px] text-gray-500 dark:text-gray-400">
-              {editingModel ? `${editingModel.label} · ${editingModel.id}` : ''}
-            </DrawerDescription>
-          </DrawerHeader>
+          <DrawerHeaderBar
+            title="Edit Model"
+            description={editingModel ? `${editingModel.label} · ${editingModel.id}` : undefined}
+          />
 
           <div className="px-5 py-4 space-y-3">
             <div className="space-y-1.5">

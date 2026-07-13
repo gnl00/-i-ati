@@ -51,54 +51,16 @@ interface SettingsSubsectionHeaderProps extends Omit<DivProps, 'title'> {
 
 export const settingsScrollbarClassName = 'scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'
 
-export const settingsPrimaryButtonClassName = cn(
-  'h-7 px-3 flex items-center gap-1.5 rounded-lg',
-  'text-[11px] font-medium',
-  'bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white',
-  'text-white dark:text-gray-900',
-  'active:scale-[0.97] transition-all duration-150',
-  'shadow-sm shadow-gray-900/10',
-  'disabled:opacity-40 disabled:pointer-events-none'
-)
-
-export const settingsSecondaryButtonClassName = cn(
-  'h-7 px-2.5 flex items-center gap-1.5 rounded-md',
-  'text-[11px] font-medium',
-  'text-gray-500 dark:text-gray-400',
-  'hover:text-gray-700 dark:hover:text-gray-200',
-  'hover:bg-gray-100 dark:hover:bg-gray-700/50',
-  'active:scale-[0.97] transition-all duration-150',
-  'disabled:opacity-40 disabled:pointer-events-none'
-)
-
-export const settingsOutlineButtonClassName = cn(
-  'h-7 px-3 flex items-center gap-1.5 rounded-md',
-  'text-[11px] font-medium',
-  'text-gray-600 dark:text-gray-300',
-  'border border-gray-200 dark:border-gray-700',
-  'hover:bg-gray-100 dark:hover:bg-gray-700/50',
-  'active:scale-[0.97] transition-all duration-150',
-  'disabled:opacity-40 disabled:pointer-events-none'
-)
-
-export const settingsIconButtonClassName = cn(
-  'h-8 w-8 flex items-center justify-center rounded-lg',
-  'border border-gray-200 dark:border-gray-700',
-  'text-gray-500 dark:text-gray-300',
-  'hover:bg-white dark:hover:bg-gray-800',
-  'transition-colors duration-150',
-  'disabled:opacity-40 disabled:pointer-events-none'
-)
-
-export const settingsDangerButtonClassName = cn(
-  'h-7 px-3 flex items-center gap-1.5 rounded-md',
-  'text-[11px] font-medium',
-  'text-rose-600 dark:text-rose-300',
-  'border border-rose-200 dark:border-rose-900/60',
-  'hover:bg-rose-50 dark:hover:bg-rose-950/40',
-  'active:scale-[0.97] transition-all duration-150',
-  'disabled:opacity-40 disabled:pointer-events-none'
-)
+// Button tokens live in shared/ so non-settings features can consume them
+// without depending on this settings module. Re-exported here under their
+// original names for existing settings call sites.
+export {
+  primaryButtonClassName as settingsPrimaryButtonClassName,
+  secondaryButtonClassName as settingsSecondaryButtonClassName,
+  outlineButtonClassName as settingsOutlineButtonClassName,
+  iconButtonClassName as settingsIconButtonClassName,
+  dangerButtonClassName as settingsDangerButtonClassName
+} from '@renderer/shared/components/ui/buttonTokens'
 
 export const settingsInputClassName = cn(
   'focus-visible:ring-transparent focus-visible:ring-offset-0',

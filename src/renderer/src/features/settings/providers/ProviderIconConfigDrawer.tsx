@@ -6,12 +6,10 @@ import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
   DrawerTrigger
 } from '@renderer/shared/components/ui/drawer'
+import DrawerHeaderBar from '@renderer/shared/components/ui/DrawerHeaderBar'
 import { getProviderIcon } from '@renderer/shared/lib/providerIcons'
 import { ProviderIconPicker } from './ProviderIconPicker'
 
@@ -46,17 +44,13 @@ export const ProviderIconConfigDrawer: React.FC<ProviderIconConfigDrawerProps> =
         {trigger}
       </DrawerTrigger>
       <DrawerContent className="max-h-[80vh] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-        <DrawerHeader className="px-6 pt-6">
-          <DrawerTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Provider Icon
-          </DrawerTitle>
-          <DrawerDescription className="text-xs text-slate-500 dark:text-slate-400">
-            Select the icon shown in the provider list, model picker, and message badge.
-          </DrawerDescription>
-        </DrawerHeader>
+        <DrawerHeaderBar
+          title="Provider Icon"
+          description="Select the icon shown in the provider list, model picker, and message badge."
+        />
         <div className="px-6 pb-4 space-y-4">
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-950/40 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <div className="flex items-center gap-3 rounded-xl border border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-950/40 p-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900">
               <img
                 src={previewIcon}
                 alt={providerDefinition?.displayName || 'Provider icon'}
@@ -65,10 +59,10 @@ export const ProviderIconConfigDrawer: React.FC<ProviderIconConfigDrawerProps> =
               />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-[12.5px] font-medium text-slate-800 dark:text-slate-200">
+              <p className="truncate text-[12.5px] font-medium text-gray-800 dark:text-gray-200">
                 {providerDefinition?.displayName || 'Provider'}
               </p>
-              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">
                 {draftIconKey || providerDefinition?.id || 'default'}
               </p>
             </div>

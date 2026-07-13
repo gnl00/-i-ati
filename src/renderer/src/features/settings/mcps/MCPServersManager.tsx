@@ -2,11 +2,9 @@ import { Button } from '@renderer/shared/components/ui/button'
 import {
   Drawer,
   DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
+  DrawerFooter
 } from '@renderer/shared/components/ui/drawer'
+import DrawerHeaderBar from '@renderer/shared/components/ui/DrawerHeaderBar'
 import { Tabs, TabsContent } from '@renderer/shared/components/ui/tabs'
 import { cn } from '@renderer/shared/lib/utils'
 import { useMcpConnection } from '@renderer/features/settings/mcps/useMcpConnection'
@@ -657,26 +655,16 @@ const MCPServersManager: React.FC<MCPServersManagerProps> = ({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90vh] flex flex-col bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-2xl">
-        <DrawerHeader className="border-b border-gray-100 dark:border-gray-700/50 px-5 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="h-8 w-8 rounded-md bg-gray-100 dark:bg-gray-900 flex items-center justify-center text-gray-700 dark:text-gray-200">
-                <Server className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <DrawerTitle className="text-[15px] font-semibold tracking-tight text-gray-950 dark:text-gray-50">
-                  MCP Servers
-                </DrawerTitle>
-                <DrawerDescription className="truncate text-[12px] text-gray-500 dark:text-gray-400">
-                  Manage installed servers, registry discovery, and manual JSON configuration.
-                </DrawerDescription>
-              </div>
-            </div>
+        <DrawerHeaderBar
+          icon={<Server className="h-4 w-4" />}
+          title="MCP Servers"
+          description="Manage installed servers, registry discovery, and manual JSON configuration."
+          actions={
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-md hover:bg-gray-100 dark:hover:bg-gray-900">
               <i className="ri-close-line text-[18px] text-gray-500 dark:text-gray-400" />
             </Button>
-          </div>
-        </DrawerHeader>
+          }
+        />
 
         <div className="flex-1 overflow-hidden">
           <MCPServersManagerContent
