@@ -17,6 +17,7 @@ import {
 } from '@main/hosts/chat/runtime'
 import { ChatLoadedSkillsTranscriptContextProvider } from '@main/hosts/chat/runtime/LoadedSkillsTranscriptContextProvider'
 import { HostRenderEventForwarder, HostRenderEventMapper } from '@main/hosts/shared/render'
+import { AgentNotificationSink } from '@main/notifications/AgentNotificationSink'
 import { normalizePermissionApprovalMode } from '@tools/approval'
 import { DefaultAgentRunCompletionAdapter } from './AgentRunCompletionAdapter'
 import type {
@@ -65,6 +66,12 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       }),
       ...(input.hostRenderSinks || [])
     ], renderEventMapper))
+
+    // Register notification sink last so render pipeline completes even if notifications fail.
+    // Only register for interactive desktop runs (source undefined/null); exclude 'schedule' and 'telegram'.
+    if (!input.runInput.input.source) {
+      eventBus.register(new AgentNotificationSink(input.prepared.chatContext.chat.title))
+    }
 
     const runtime = new DefaultAgentRuntime({
       requestSpecSource: {

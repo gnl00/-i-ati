@@ -86,9 +86,10 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
   // mainWindow.on('show', async () => {
   // })
 
-  // mainWindow.on('focus', async () => {
-  //   console.log('on-focus')
-  // })
+  window.on('focus', () => {
+    // Clear the Dock badge whenever the user returns to the app (notification click, Cmd-Tab, or Dock activation all route through focus).
+    app.badgeCount = 0
+  })
 
   window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -151,6 +152,32 @@ const windowsClose = () => {
   getMainWindow()?.close()
 }
 
+function showMainWindow(): void {
+  const win = getMainWindow()
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+
+  // Force-activate the app even when the user is in another app (macOS).
+  app.focus({ steal: true })
+
+  // Temporarily float the window above other apps' windows, then restore.
+  // Preserve the user's own always-on-top (pin) setting.
+  const wasAlwaysOnTop = win.isAlwaysOnTop()
+  win.setAlwaysOnTop(true, 'floating')
+  win.show()
+  win.focus()
+
+  setTimeout(() => {
+    if (win.isDestroyed()) return
+    win.setAlwaysOnTop(wasAlwaysOnTop, wasAlwaysOnTop ? 'floating' : 'normal')
+  }, 100)
+}
+
+function isMainWindowForeground(): boolean {
+  const win = getMainWindow()
+  return !!win && win.isVisible() && win.isFocused()
+}
+
 export {
   mainWindow,
   getMainWindow,
@@ -161,5 +188,7 @@ export {
   setWinPosition,
   windowsMinimize,
   windowsMaximize,
-  windowsClose
+  windowsClose,
+  showMainWindow,
+  isMainWindowForeground
 }
