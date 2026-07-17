@@ -1,4 +1,5 @@
 import { chatDb } from '@main/db/chat'
+import { stripChatSearchHighlights } from '@shared/search/chatSearchHighlights'
 import type { HistorySearchArgs, HistorySearchResponse } from '@tools/history/index.d'
 
 const DEFAULT_LIMIT = 5
@@ -70,7 +71,10 @@ export async function processHistorySearch(
       scope,
       withinDays: clampWithinDays(args.withinDays),
       chat_uuid: chatUuid
-    })
+    }).map(item => ({
+      ...item,
+      snippet: stripChatSearchHighlights(item.snippet)
+    }))
 
     return {
       success: true,

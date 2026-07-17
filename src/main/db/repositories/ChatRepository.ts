@@ -1,11 +1,13 @@
 import type { ChatDao } from '@main/db/dao/ChatDao'
 import type { SkillDao } from '@main/db/dao/SkillDao'
+import type { MessageSearchDao } from '@main/db/dao/MessageSearchDao'
 import { toChatEntity, toChatRow } from '@main/db/mappers/ChatMapper'
 
 type ChatRepositoryDeps = {
   hasDb: () => boolean
   getChatRepo: () => ChatDao | undefined
   getSkillRepo: () => SkillDao | undefined
+  getMessageSearchRepo: () => MessageSearchDao | undefined
 }
 
 export class ChatRepository {
@@ -53,7 +55,13 @@ export class ChatRepository {
 
   deleteChat(id: number): void {
     const chatRepo = this.requireChatRepo()
-    chatRepo.deleteChat(id)
+    const messageSearchRepo = this.requireMessageSearchRepo()
+    const chat = chatRepo.getChatById(id)
+
+    messageSearchRepo.runInTransaction(() => {
+      messageSearchRepo.deleteChatMessages(id, chat?.uuid)
+      chatRepo.deleteChat(id)
+    })
   }
 
   getSkills(chatId: number): string[] {
@@ -92,6 +100,13 @@ export class ChatRepository {
     if (!this.deps.hasDb()) throw new Error('Database not initialized')
     const repo = this.deps.getSkillRepo()
     if (!repo) throw new Error('Skill DAO not initialized')
+    return repo
+  }
+
+  private requireMessageSearchRepo(): MessageSearchDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getMessageSearchRepo()
+    if (!repo) throw new Error('Message search DAO not initialized')
     return repo
   }
 }

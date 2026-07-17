@@ -9,6 +9,7 @@ import { ChatDao } from '../dao/ChatDao'
 import { ChatHostBindingDao } from '../dao/ChatHostBindingDao'
 import { SkillDao } from '../dao/SkillDao'
 import { MessageDao } from '../dao/MessageDao'
+import { MessageSearchDao } from '../dao/MessageSearchDao'
 import { EmotionStateDao } from '../dao/EmotionStateDao'
 import { WorkContextDao } from '../dao/WorkContextDao'
 import { CompressedSummaryDao } from '../dao/CompressedSummaryDao'
@@ -37,6 +38,7 @@ import { TodoRepository } from '../repositories/TodoRepository'
 import { PluginBootstrapService } from '../services/PluginBootstrapService'
 import { McpServerMigrationService } from '../services/McpServerMigrationService'
 import { PluginManifestSyncService } from '../services/PluginManifestSyncService'
+import { createLogger } from '@main/logging/LogService'
 
 export type DbRuntimeInitializationStats = {
   chats: number
@@ -44,6 +46,7 @@ export type DbRuntimeInitializationStats = {
 }
 
 export class DbRuntime {
+  private readonly logger = createLogger('DbRuntime')
   private readonly dbCore = AppDatabase.getInstance()
   private db: ReturnType<AppDatabase['getDb']> | null = null
   private initialized = false
@@ -58,6 +61,7 @@ export class DbRuntime {
   private chatHostBindingRepo?: ChatHostBindingDao
   private skillRepo?: SkillDao
   private messageRepo?: MessageDao
+  private messageSearchRepo?: MessageSearchDao
   private emotionStateRepo?: EmotionStateDao
   private workContextRepo?: WorkContextDao
   private summaryRepo?: CompressedSummaryDao
@@ -103,6 +107,15 @@ export class DbRuntime {
     this.chatHostBindingRepo = new ChatHostBindingDao(this.db)
     this.skillRepo = new SkillDao(this.db)
     this.messageRepo = new MessageDao(this.db)
+    this.messageSearchRepo = new MessageSearchDao(this.db)
+    const searchProjectionStartedAt = Date.now()
+    const indexedMessageCount = this.messageSearchRepo.initializeProjection()
+    if (indexedMessageCount > 0) {
+      this.logger.info('message_search.projection_rebuilt', {
+        indexedMessageCount,
+        durationMs: Date.now() - searchProjectionStartedAt
+      })
+    }
     this.emotionStateRepo = new EmotionStateDao(this.db)
     this.workContextRepo = new WorkContextDao(this.db)
     this.summaryRepo = new CompressedSummaryDao(this.db)
@@ -116,7 +129,8 @@ export class DbRuntime {
     this._chatRepository = new ChatRepository({
       hasDb: () => Boolean(this.db),
       getChatRepo: () => this.chatRepo,
-      getSkillRepo: () => this.skillRepo
+      getSkillRepo: () => this.skillRepo,
+      getMessageSearchRepo: (): MessageSearchDao | undefined => this.messageSearchRepo
     })
     this._chatHostBindingRepository = new ChatHostBindingRepository({
       hasDb: () => Boolean(this.db),
@@ -125,7 +139,8 @@ export class DbRuntime {
     this._messageRepository = new MessageRepository({
       hasDb: () => Boolean(this.db),
       getChatRepo: () => this.chatRepo,
-      getMessageRepo: () => this.messageRepo
+      getMessageRepo: () => this.messageRepo,
+      getMessageSearchRepo: (): MessageSearchDao | undefined => this.messageSearchRepo
     })
     this._emotionStateRepository = new EmotionStateRepository({
       hasDb: () => Boolean(this.db),
@@ -233,6 +248,7 @@ export class DbRuntime {
     this.chatHostBindingRepo = undefined
     this.skillRepo = undefined
     this.messageRepo = undefined
+    this.messageSearchRepo = undefined
     this.emotionStateRepo = undefined
     this.workContextRepo = undefined
     this.summaryRepo = undefined

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MessageRepository } from '../MessageRepository'
+import {
+  CHAT_SEARCH_HIGHLIGHT_END,
+  CHAT_SEARCH_HIGHLIGHT_START
+} from '@shared/search/chatSearchHighlights'
 
 const createMessageRepo = (initialRows: any[] = []) => {
   const rows = [...initialRows]
@@ -31,6 +35,55 @@ const createMessageRepo = (initialRows: any[] = []) => {
   }
 }
 
+const createMessageSearchRepo = (messageRepo: ReturnType<typeof createMessageRepo>) => {
+  const getDocuments = () => messageRepo.rows
+    .map((row) => {
+      const body = JSON.parse(row.body)
+      if (
+        (body.role !== 'user' && body.role !== 'assistant')
+        || !row.chat_id && !row.chat_uuid
+      ) {
+        return null
+      }
+      const searchableText = (body.segments ?? [])
+        .filter((segment: any) => segment.type === 'text')
+        .map((segment: any) => segment.content)
+        .join('') || body.content || ''
+      if (!searchableText.trim()) {
+        return null
+      }
+      return {
+        messageId: row.id,
+        chatId: row.chat_id,
+        chatUuid: row.chat_uuid,
+        role: body.role,
+        createdAt: body.createdAt ?? 0,
+        searchableText: searchableText.trim().replace(/\s+/g, ' ')
+      }
+    })
+    .filter(Boolean)
+
+  return {
+    runInTransaction: vi.fn((operation: () => unknown) => operation()),
+    syncMessage: vi.fn(),
+    deleteMessage: vi.fn(),
+    getRecentDocuments: vi.fn((filters: any = {}) => getDocuments()
+      .filter((document: any) =>
+        (filters.minCreatedAt === undefined || document.createdAt >= filters.minCreatedAt)
+        && (!filters.chatUuid || document.chatUuid === filters.chatUuid)
+      )
+      .sort((a: any, b: any) => b.createdAt - a.createdAt || b.messageId - a.messageId)),
+    search: vi.fn((terms: string[], filters: any = {}) => getDocuments()
+      .filter((document: any) =>
+        (filters.minCreatedAt === undefined || document.createdAt >= filters.minCreatedAt)
+        && (!filters.chatUuid || document.chatUuid === filters.chatUuid)
+        && terms.some(term => document.searchableText.toLowerCase().includes(term.toLowerCase()))
+      )
+      .map((document: any) => ({ ...document, rank: -1 }))
+      .sort((a: any, b: any) => a.rank - b.rank || b.createdAt - a.createdAt))
+  }
+}
+
 const createChatRepo = () => ({
   getAllChats: vi.fn(() => []),
   updateMessageCount: vi.fn()
@@ -43,11 +96,13 @@ describe('MessageRepository', () => {
 
   it('increments chat msg_count when saving a user or assistant message', () => {
     const messageRepo = createMessageRepo()
+    const messageSearchRepo = createMessageSearchRepo(messageRepo)
     const chatRepo = createChatRepo()
     const repository = new MessageRepository({
       hasDb: () => true,
       getChatRepo: () => chatRepo as any,
-      getMessageRepo: () => messageRepo as any
+      getMessageRepo: () => messageRepo as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
     })
 
     const messageId = repository.saveMessage({
@@ -61,16 +116,24 @@ describe('MessageRepository', () => {
     } as MessageEntity)
 
     expect(messageId).toBe(1)
+    expect(messageSearchRepo.runInTransaction).toHaveBeenCalledTimes(1)
+    expect(messageSearchRepo.syncMessage).toHaveBeenCalledWith(expect.objectContaining({
+      id: 1,
+      chat_id: 7,
+      chat_uuid: 'chat-7'
+    }))
     expect(chatRepo.updateMessageCount).toHaveBeenCalledWith(7, 1)
   })
 
   it('does not touch chat msg_count for tool messages', () => {
     const messageRepo = createMessageRepo()
+    const messageSearchRepo = createMessageSearchRepo(messageRepo)
     const chatRepo = createChatRepo()
     const repository = new MessageRepository({
       hasDb: () => true,
       getChatRepo: () => chatRepo as any,
-      getMessageRepo: () => messageRepo as any
+      getMessageRepo: () => messageRepo as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
     })
 
     repository.saveMessage({
@@ -99,10 +162,12 @@ describe('MessageRepository', () => {
       tokens: null
     }])
     const chatRepo = createChatRepo()
+    const messageSearchRepo = createMessageSearchRepo(messageRepo)
     const repository = new MessageRepository({
       hasDb: () => true,
       getChatRepo: () => chatRepo as any,
-      getMessageRepo: () => messageRepo as any
+      getMessageRepo: () => messageRepo as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
     })
 
     repository.updateMessage({
@@ -118,6 +183,11 @@ describe('MessageRepository', () => {
 
     expect(chatRepo.updateMessageCount).toHaveBeenCalledTimes(1)
     expect(chatRepo.updateMessageCount).toHaveBeenCalledWith(9, 1)
+    expect(messageSearchRepo.syncMessage).toHaveBeenCalledWith(expect.objectContaining({
+      id: 1,
+      chat_id: 9,
+      chat_uuid: 'chat-9'
+    }))
   })
 
   it('decrements chat msg_count when deleting a counted message', () => {
@@ -133,14 +203,17 @@ describe('MessageRepository', () => {
       tokens: null
     }])
     const chatRepo = createChatRepo()
+    const messageSearchRepo = createMessageSearchRepo(messageRepo)
     const repository = new MessageRepository({
       hasDb: () => true,
       getChatRepo: () => chatRepo as any,
-      getMessageRepo: () => messageRepo as any
+      getMessageRepo: () => messageRepo as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
     })
 
     repository.deleteMessage(1)
 
+    expect(messageSearchRepo.deleteMessage).toHaveBeenCalledWith(1)
     expect(chatRepo.updateMessageCount).toHaveBeenCalledWith(7, -1)
   })
 
@@ -214,10 +287,12 @@ describe('MessageRepository', () => {
         }
       ])
     }
+    const messageSearchRepo = createMessageSearchRepo(messageRepo)
     const repository = new MessageRepository({
       hasDb: () => true,
       getChatRepo: () => chatRepo as any,
-      getMessageRepo: () => messageRepo as any
+      getMessageRepo: () => messageRepo as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
     })
 
     const results = repository.searchChats({ query: 'implementation' })
@@ -234,7 +309,11 @@ describe('MessageRepository', () => {
       matchedTimestamp: 1000,
       messageHitCount: 1
     })
-    expect(results[0].snippet).toContain('Implementation details')
+    expect(results[0].snippet).toContain(CHAT_SEARCH_HIGHLIGHT_START)
+    expect(results[0].snippet
+      ?.replaceAll(CHAT_SEARCH_HIGHLIGHT_START, '')
+      .replaceAll(CHAT_SEARCH_HIGHLIGHT_END, '')
+    ).toContain('Implementation details')
     expect(results[1]).toMatchObject({
       chat: {
         id: 2,
@@ -370,10 +449,12 @@ describe('MessageRepository', () => {
         }
       ])
     }
+    const messageSearchRepo = createMessageSearchRepo(messageRepo)
     const repository = new MessageRepository({
       hasDb: () => true,
       getChatRepo: () => chatRepo as any,
-      getMessageRepo: () => messageRepo as any
+      getMessageRepo: () => messageRepo as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
     })
 
     const results = repository.searchHistory({
@@ -499,10 +580,12 @@ describe('MessageRepository', () => {
         }
       ])
     }
+    const messageSearchRepo = createMessageSearchRepo(messageRepo)
     const repository = new MessageRepository({
       hasDb: () => true,
       getChatRepo: () => chatRepo as any,
-      getMessageRepo: () => messageRepo as any
+      getMessageRepo: () => messageRepo as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
     })
 
     const scopedResults = repository.searchHistory({

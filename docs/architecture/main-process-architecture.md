@@ -103,6 +103,47 @@ These facades narrow each caller's available surface and support gradual
 migration toward existing database application services. New small features
 should reuse the closest domain facade.
 
+### Chat message search projection
+
+Chat title search and the `history_search` tool share an indexed message
+retrieval boundary:
+
+```text
+ChatTitleList -> IPC -> db/chat.ts
+history_search tool ----> db/chat.ts
+                         -> ChatService
+                         -> MessageRepository
+                         -> MessageSearchDao
+                         -> message_search_documents + message_search_fts
+```
+
+`MessageSearchDao` owns SQL for the structured
+`message_search_documents` projection and its external-content FTS5 trigram
+index. It returns query/scope/time-filtered message candidates with chat
+identity, creation time, BM25 relevance, and highlighted snippets. One- and
+two-code-point queries use the structured projection fallback and a
+JavaScript-produced Unicode-lowercased text column.
+
+`MessageRepository` owns product semantics above indexed retrieval: visible
+user/assistant projection rules, chat-title merging, chat-level aggregation,
+history keyword OR semantics, neighboring-message windows, and result contract
+mapping. Public limits apply after repository aggregation and ranking, which
+preserves complete chat-level and message-level result semantics.
+`extractSearchableMessageText()` remains the shared text-extraction boundary.
+The `history_search` tool converts highlighted transport snippets to plain text
+at its response boundary.
+
+Source message mutations, search document mutations, and FTS row mutations
+share one SQLite transaction. `MessageSearchDao` explicitly maintains the
+external-content index while the connection uses `trusted_schema = OFF`.
+Projection-version metadata drives transactional initial backfill and later
+rebuilds from `messages.body`.
+
+The durable decision and delivery record are:
+
+- [ADR 0004: Chat Message FTS5 Search](../decisions/0004-chat-message-fts5-search.md)
+- [Chat message FTS5 search optimization plan](../archive/2026/chat/chat-message-fts5-search-optimization-plan.md)
+
 ## Executable checks
 
 Run these commands after main-process structure changes:

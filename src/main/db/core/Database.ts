@@ -98,6 +98,7 @@ class AppDatabase {
 
     this.db = new Database(this.dbPath)
     this.db.pragma('journal_mode = WAL')
+    this.db.pragma('trusted_schema = OFF')
 
     this.createTables()
     this.createIndexes()
@@ -153,6 +154,36 @@ class AppDatabase {
       )
     `)
     this.ensureColumn('messages', 'token_usage', 'TEXT')
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS message_search_documents (
+        message_id INTEGER PRIMARY KEY,
+        chat_id INTEGER,
+        chat_uuid TEXT,
+        role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+        created_at INTEGER NOT NULL,
+        searchable_text TEXT NOT NULL,
+        searchable_text_folded TEXT NOT NULL DEFAULT '',
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS message_search_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS message_search_fts USING fts5(
+        searchable_text,
+        content='message_search_documents',
+        content_rowid='message_id',
+        tokenize='trigram'
+      );
+    `)
+    this.ensureColumn(
+      'message_search_documents',
+      'searchable_text_folded',
+      "TEXT NOT NULL DEFAULT ''"
+    )
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS emotion_states (
@@ -458,6 +489,12 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chats_update_time ON chats(update_time DESC);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_uuid ON messages(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_message_search_documents_chat_id_created_at
+        ON message_search_documents(chat_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_message_search_documents_chat_uuid_created_at
+        ON message_search_documents(chat_uuid, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_message_search_documents_created_at
+        ON message_search_documents(created_at DESC);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_host_bindings_unique
         ON chat_host_bindings(host_type, host_chat_id, host_thread_id);
       CREATE INDEX IF NOT EXISTS idx_chat_host_bindings_chat_uuid

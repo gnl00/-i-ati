@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  CHAT_SEARCH_HIGHLIGHT_END,
+  CHAT_SEARCH_HIGHLIGHT_START
+} from '@shared/search/chatSearchHighlights'
+import type { HistorySearchArgs } from '@tools/history/index.d'
 import { processHistorySearch } from '../HistoryToolsProcessor'
 
 const { searchHistoryMock } = vi.hoisted(() => ({
@@ -45,6 +50,37 @@ describe('HistoryToolsProcessor', () => {
       chat_uuid: undefined
     })
     expect(result.count).toBe(1)
+  })
+
+  it('returns plain-text snippets without UI highlight markers', async () => {
+    searchHistoryMock.mockReturnValue([
+      {
+        chatUuid: 'chat-1',
+        chatId: 1,
+        chatTitle: 'Implementation Plan',
+        matchedMessageId: 101,
+        matchedFields: ['message'],
+        hitCount: 1,
+        createdAt: 1,
+        snippet: [
+          'review ',
+          CHAT_SEARCH_HIGHLIGHT_START,
+          'implementation',
+          CHAT_SEARCH_HIGHLIGHT_END,
+          ' details'
+        ].join(''),
+        messages: []
+      }
+    ])
+
+    const result = await processHistorySearch({
+      query: ['implementation'],
+      limit: 5
+    })
+
+    expect(result.items[0]?.snippet).toBe('review implementation details')
+    expect(result.items[0]?.snippet).not.toContain(CHAT_SEARCH_HIGHLIGHT_START)
+    expect(result.items[0]?.snippet).not.toContain(CHAT_SEARCH_HIGHLIGHT_END)
   })
 
   it('requires chat_uuid when scope=current_chat', async () => {
@@ -101,7 +137,7 @@ describe('HistoryToolsProcessor', () => {
     const result = await processHistorySearch({
       query: '呼和浩特 Hohhot',
       limit: 5
-    } as any)
+    } as unknown as HistorySearchArgs)
 
     expect(result.success).toBe(false)
     expect(result.message).toContain('query must be an array')

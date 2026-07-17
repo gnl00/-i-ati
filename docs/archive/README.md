@@ -23,6 +23,7 @@ defined by the [documentation governance spec](../specs/documentation-governance
 
 ### Chat
 
+- [Chat message FTS5 search optimization plan](2026/chat/chat-message-fts5-search-optimization-plan.md)
 - [Chat top mode scroll fix summary](2026/chat/chat-top-mode-scroll-fix-summary.md)
 - [FlowToken optimization completion summary](2026/chat/flowtoken-optimization-completion-summary.md)
 - [Message segmentation optimization](2026/chat/message-segmentation-optimization.md)

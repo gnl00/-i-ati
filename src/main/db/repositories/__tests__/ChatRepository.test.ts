@@ -17,7 +17,8 @@ describe('ChatRepository', () => {
     const repository = new ChatRepository({
       hasDb: () => true,
       getChatRepo: () => ({}) as any,
-      getSkillRepo: () => skillRepo as any
+      getSkillRepo: () => skillRepo as any,
+      getMessageSearchRepo: () => ({}) as any
     })
 
     repository.addSkill(7, 'memory')
@@ -47,7 +48,8 @@ describe('ChatRepository', () => {
     const repository = new ChatRepository({
       hasDb: () => true,
       getChatRepo: () => ({}) as any,
-      getSkillRepo: () => skillRepo as any
+      getSkillRepo: () => skillRepo as any,
+      getMessageSearchRepo: () => ({}) as any
     })
 
     repository.addSkill(7, 'memory')
@@ -55,5 +57,30 @@ describe('ChatRepository', () => {
     expect(skillRepo.getSkills).toHaveBeenCalledWith(7)
     expect(skillRepo.getMaxLoadOrder).toHaveBeenCalledTimes(0)
     expect(skillRepo.insertSkill).toHaveBeenCalledTimes(0)
+  })
+
+  it('removes message search rows in the same transaction before deleting a chat', () => {
+    const callOrder: string[] = []
+    const chatRepo = {
+      getChatById: vi.fn(() => ({ id: 7, uuid: 'chat-7' })),
+      deleteChat: vi.fn(() => callOrder.push('chat'))
+    }
+    const messageSearchRepo = {
+      runInTransaction: vi.fn((operation: () => void) => operation()),
+      deleteChatMessages: vi.fn(() => callOrder.push('search'))
+    }
+    const repository = new ChatRepository({
+      hasDb: () => true,
+      getChatRepo: () => chatRepo as any,
+      getSkillRepo: () => ({}) as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
+    })
+
+    repository.deleteChat(7)
+
+    expect(messageSearchRepo.runInTransaction).toHaveBeenCalledTimes(1)
+    expect(messageSearchRepo.deleteChatMessages).toHaveBeenCalledWith(7, 'chat-7')
+    expect(chatRepo.deleteChat).toHaveBeenCalledWith(7)
+    expect(callOrder).toEqual(['search', 'chat'])
   })
 })

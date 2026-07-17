@@ -1,5 +1,9 @@
 import type { ChatDao } from '@main/db/dao/ChatDao'
 import type { MessageDao } from '@main/db/dao/MessageDao'
+import type {
+  MessageSearchDao,
+  MessageSearchDocument
+} from '@main/db/dao/MessageSearchDao'
 import { toChatEntity } from '@main/db/mappers/ChatMapper'
 import {
   patchMessageRowUiState,
@@ -7,14 +11,17 @@ import {
   toMessageInsertRow,
   toMessageRow
 } from '@main/db/mappers/MessageMapper'
-import { extractSearchableMessageText } from '@main/services/messages/MessageSegmentContent'
 import type { HistorySearchArgs, HistorySearchItem, HistorySearchMessage } from '@tools/history/index.d'
-import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
+import {
+  CHAT_SEARCH_HIGHLIGHT_END,
+  CHAT_SEARCH_HIGHLIGHT_START
+} from '@shared/search/chatSearchHighlights'
 
 type MessageRepositoryDeps = {
   hasDb: () => boolean
   getChatRepo: () => ChatDao | undefined
   getMessageRepo: () => MessageDao | undefined
+  getMessageSearchRepo: () => MessageSearchDao | undefined
 }
 
 type SearchableMessageRecord = {
@@ -26,6 +33,15 @@ type SearchableMessageRecord = {
   text: string
   normalizedText: string
   createdAt: number
+}
+
+type RankedChatSearchResult = ChatSearchResult & {
+  searchRank?: number
+}
+
+type RankedHistorySearchItem = {
+  item: HistorySearchItem
+  searchRank?: number
 }
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000
@@ -44,38 +60,19 @@ export class MessageRepository {
 
     const limit = normalizeLimit(args.limit)
     const chatRepo = this.requireChatRepo()
-    const messageRepo = this.requireMessageRepo()
+    const messageSearchRepo = this.requireMessageSearchRepo()
     const chats = chatRepo.getAllChats().map(toChatEntity)
     const messageMatchesByChatKey = new Map<string, {
       matchedMessageId?: number
       matchedTimestamp?: number
       snippet?: string
       messageHitCount: number
+      searchRank?: number
     }>()
 
-    for (const row of messageRepo.getAllMessages()) {
-      const chatKey = resolveMessageChatKey(row.chat_uuid, row.chat_id)
-      if (!chatKey || !row.body) {
-        continue
-      }
-
-      let body: ChatMessage
-      try {
-        body = JSON.parse(row.body) as ChatMessage
-      } catch {
-        continue
-      }
-
-      if (
-        (body.role !== 'user' && body.role !== 'assistant')
-        || (body.source && HIDDEN_MESSAGE_SOURCES.has(body.source))
-      ) {
-        continue
-      }
-
-      const searchableText = extractSearchableMessageText(body)
-      const normalizedText = normalizeSearchText(searchableText)
-      if (!normalizedText.includes(normalizedQuery)) {
+    for (const match of messageSearchRepo.search([normalizedQuery])) {
+      const chatKey = resolveMessageChatKey(match.chatUuid, match.chatId)
+      if (!chatKey) {
         continue
       }
 
@@ -83,19 +80,25 @@ export class MessageRepository {
         matchedMessageId: undefined,
         matchedTimestamp: undefined,
         snippet: undefined,
-        messageHitCount: 0
+        messageHitCount: 0,
+        searchRank: undefined
       }
-      current.messageHitCount += countOccurrences(normalizedText, normalizedQuery)
+      current.messageHitCount += countOccurrences(
+        normalizeSearchText(match.searchableText),
+        normalizedQuery
+      )
       if (current.matchedMessageId === undefined) {
-        current.matchedMessageId = row.id
-        current.matchedTimestamp = typeof body.createdAt === 'number' ? body.createdAt : undefined
-        current.snippet = buildSnippet(searchableText, normalizedQuery)
+        current.matchedMessageId = match.messageId
+        current.matchedTimestamp = match.createdAt
+        current.snippet = match.snippet
+          ?? buildHighlightedSnippet(match.searchableText, normalizedQuery)
+        current.searchRank = match.rank
       }
       messageMatchesByChatKey.set(chatKey, current)
     }
 
     const results = chats
-      .map((chat): ChatSearchResult | null => {
+      .map((chat): RankedChatSearchResult | null => {
         const chatKey = resolveChatKey(chat)
         if (!chatKey) {
           return null
@@ -119,16 +122,22 @@ export class MessageRepository {
           matchedTimestamp: messageMatch?.matchedTimestamp,
           snippet: messageMatch?.snippet,
           messageHitCount: messageMatch?.messageHitCount ?? 0,
-          score: buildResultScore(chat, titleMatch, messageMatch?.messageHitCount ?? 0)
+          score: buildResultScore(chat, titleMatch, messageMatch?.messageHitCount ?? 0),
+          searchRank: messageMatch?.searchRank
         }
       })
-      .filter((result): result is ChatSearchResult => result !== null)
+      .filter((result): result is RankedChatSearchResult => result !== null)
       .sort((a, b) => {
         if (b.score !== a.score) {
           return b.score - a.score
         }
+        const rankComparison = compareSearchRank(a.searchRank, b.searchRank)
+        if (rankComparison !== 0) {
+          return rankComparison
+        }
         return b.chat.updateTime - a.chat.updateTime
       })
+      .map(toChatSearchResult)
 
     return limit ? results.slice(0, limit) : results
   }
@@ -152,6 +161,12 @@ export class MessageRepository {
         return resolveChatKey(chat) === scopeChatKey
       })
     const chatByKey = new Map<string, ChatEntity>()
+    const searchFilters = {
+      minCreatedAt,
+      ...(args.scope === 'current_chat' && args.chat_uuid
+        ? { chatUuid: args.chat_uuid }
+        : {})
+    }
 
     chats.forEach((chat) => {
       const key = resolveChatKey(chat)
@@ -161,15 +176,16 @@ export class MessageRepository {
     })
 
     const messagesByChatKey = new Map<string, SearchableMessageRecord[]>()
-    const recentMessages: SearchableMessageRecord[] = []
+    const recentMessages = this.requireMessageSearchRepo()
+      .getRecentDocuments(searchFilters)
+      .map(document => buildSearchableMessageRecord(document, chatByKey))
+      .filter((message): message is SearchableMessageRecord => message !== null)
 
-    for (const row of this.requireMessageRepo().getAllMessages()) {
-      const message = buildSearchableMessageRecord(row, chatByKey, minCreatedAt)
+    for (const message of recentMessages) {
       if (!message) {
         continue
       }
 
-      recentMessages.push(message)
       const bucket = messagesByChatKey.get(message.chatKey) ?? []
       bucket.push(message)
       messagesByChatKey.set(message.chatKey, bucket)
@@ -202,10 +218,15 @@ export class MessageRepository {
         .filter((item): item is HistorySearchItem => item !== null)
     }
 
-    const items: HistorySearchItem[] = []
+    const items: RankedHistorySearchItem[] = []
     const chatsWithMessageMatches = new Set<string>()
+    const messageMatches = this.requireMessageSearchRepo().search(queryTerms, searchFilters)
 
-    for (const message of recentMessages) {
+    for (const match of messageMatches) {
+      const message = buildSearchableMessageRecord(match, chatByKey)
+      if (!message) {
+        continue
+      }
       const messageMatchedTerms = findMatchedQueryTerms(message.normalizedText, queryTerms)
       if (messageMatchedTerms.length === 0) {
         continue
@@ -222,15 +243,22 @@ export class MessageRepository {
       const titleHitCount = countTermOccurrences(normalizedTitle, titleMatchedTerms)
       const messageHitCount = countTermOccurrences(message.normalizedText, messageMatchedTerms)
 
-      items.push(buildHistoryItem({
-        chat,
-        matchedMessageId: message.id,
-        matchedFields: titleHitCount > 0 ? ['title', 'message'] : ['message'],
-        hitCount: titleHitCount + messageHitCount,
-        createdAt: message.createdAt,
-        snippet: buildSnippet(message.text, pickSnippetTerm(message.normalizedText, messageMatchedTerms)),
-        messages: buildHistoryMessageWindow(messagesByChatKey.get(message.chatKey), message.id)
-      }))
+      items.push({
+        item: buildHistoryItem({
+          chat,
+          matchedMessageId: message.id,
+          matchedFields: titleHitCount > 0 ? ['title', 'message'] : ['message'],
+          hitCount: titleHitCount + messageHitCount,
+          createdAt: message.createdAt,
+          snippet: match.snippet
+            ?? buildHighlightedSnippet(
+              message.text,
+              pickSnippetTerm(message.normalizedText, messageMatchedTerms)
+            ),
+          messages: buildHistoryMessageWindow(messagesByChatKey.get(message.chatKey), message.id)
+        }),
+        searchRank: match.rank
+      })
     }
 
     for (const chat of chats) {
@@ -252,32 +280,43 @@ export class MessageRepository {
         continue
       }
 
-      items.push(buildHistoryItem({
-        chat,
-        matchedMessageId: recentBucket?.[recentBucket.length - 1]?.id,
-        matchedFields: ['title'],
-        hitCount: titleHitCount,
-        createdAt,
-        snippet: buildSnippet(chat.title, pickSnippetTerm(normalizedTitle, titleMatchedTerms)),
-        messages: buildHistoryMessageWindow(recentBucket)
-      }))
+      items.push({
+        item: buildHistoryItem({
+          chat,
+          matchedMessageId: recentBucket?.[recentBucket.length - 1]?.id,
+          matchedFields: ['title'],
+          hitCount: titleHitCount,
+          createdAt,
+          snippet: buildSnippet(chat.title, pickSnippetTerm(normalizedTitle, titleMatchedTerms)),
+          messages: buildHistoryMessageWindow(recentBucket)
+        })
+      })
     }
 
     return items
-      .sort((a, b) => compareHistoryItems(a, b))
+      .sort(compareRankedHistoryItems)
       .slice(0, limit)
+      .map(result => result.item)
   }
 
   saveMessage(data: MessageEntity): number {
     const messageRepo = this.requireMessageRepo()
+    const messageSearchRepo = this.requireMessageSearchRepo()
     const row = toMessageInsertRow(data)
-    const messageId = messageRepo.insertMessage(row)
 
-    if (row.chat_id && this.shouldCountForChat(row.body)) {
-      this.requireChatRepo().updateMessageCount(row.chat_id, 1)
-    }
+    return messageSearchRepo.runInTransaction(() => {
+      const messageId = messageRepo.insertMessage(row)
+      messageSearchRepo.syncMessage({
+        id: messageId,
+        ...row
+      })
 
-    return messageId
+      if (row.chat_id && this.shouldCountForChat(row.body)) {
+        this.requireChatRepo().updateMessageCount(row.chat_id, 1)
+      }
+
+      return messageId
+    })
   }
 
   getAllMessages(): MessageEntity[] {
@@ -312,37 +351,50 @@ export class MessageRepository {
 
   updateMessage(data: MessageEntity): void {
     const messageRepo = this.requireMessageRepo()
+    const messageSearchRepo = this.requireMessageSearchRepo()
     if (!data.id) return
 
-    const prev = messageRepo.getMessageById(data.id)
-    const next = toMessageRow(data)
-    messageRepo.updateMessage(next)
+    messageSearchRepo.runInTransaction(() => {
+      const prev = messageRepo.getMessageById(data.id!)
+      const next = toMessageRow(data)
+      messageRepo.updateMessage(next)
 
-    if (!prev) {
-      return
-    }
+      if (!prev) {
+        return
+      }
 
-    this.reconcileChatMessageCount(prev, next)
+      messageSearchRepo.syncMessage(next)
+      this.reconcileChatMessageCount(prev, next)
+    })
   }
 
   patchMessageUiState(id: number, uiState: MessageUiStatePatch): void {
     const messageRepo = this.requireMessageRepo()
-    const row = messageRepo.getMessageById(id)
-    if (!row) {
-      return
-    }
+    const messageSearchRepo = this.requireMessageSearchRepo()
+    messageSearchRepo.runInTransaction(() => {
+      const row = messageRepo.getMessageById(id)
+      if (!row) {
+        return
+      }
 
-    messageRepo.updateMessage(patchMessageRowUiState(row, uiState))
+      const next = patchMessageRowUiState(row, uiState)
+      messageRepo.updateMessage(next)
+      messageSearchRepo.syncMessage(next)
+    })
   }
 
   deleteMessage(id: number): void {
     const messageRepo = this.requireMessageRepo()
-    const prev = messageRepo.getMessageById(id)
-    messageRepo.deleteMessage(id)
+    const messageSearchRepo = this.requireMessageSearchRepo()
+    messageSearchRepo.runInTransaction(() => {
+      const prev = messageRepo.getMessageById(id)
+      messageSearchRepo.deleteMessage(id)
+      messageRepo.deleteMessage(id)
 
-    if (prev?.chat_id && this.shouldCountForChat(prev.body)) {
-      this.requireChatRepo().updateMessageCount(prev.chat_id, -1)
-    }
+      if (prev?.chat_id && this.shouldCountForChat(prev.body)) {
+        this.requireChatRepo().updateMessageCount(prev.chat_id, -1)
+      }
+    })
   }
 
   private reconcileChatMessageCount(
@@ -395,6 +447,13 @@ export class MessageRepository {
     if (!this.deps.hasDb()) throw new Error('Database not initialized')
     const repo = this.deps.getMessageRepo()
     if (!repo) throw new Error('Message repository not initialized')
+    return repo
+  }
+
+  private requireMessageSearchRepo(): MessageSearchDao {
+    if (!this.deps.hasDb()) throw new Error('Database not initialized')
+    const repo = this.deps.getMessageSearchRepo()
+    if (!repo) throw new Error('Message search DAO not initialized')
     return repo
   }
 }
@@ -532,12 +591,11 @@ function buildResultScore(chat: ChatEntity, titleMatch: boolean, messageHitCount
 }
 
 function buildSearchableMessageRecord(
-  row: { id: number; chat_id: number | null; chat_uuid: string | null; body: string | null },
-  chatByKey: Map<string, ChatEntity>,
-  minCreatedAt: number
+  document: MessageSearchDocument,
+  chatByKey: Map<string, ChatEntity>
 ): SearchableMessageRecord | null {
-  const chatKey = resolveMessageChatKey(row.chat_uuid, row.chat_id)
-  if (!chatKey || !row.body) {
+  const chatKey = resolveMessageChatKey(document.chatUuid, document.chatId)
+  if (!chatKey) {
     return null
   }
 
@@ -546,39 +604,15 @@ function buildSearchableMessageRecord(
     return null
   }
 
-  let body: ChatMessage
-  try {
-    body = JSON.parse(row.body) as ChatMessage
-  } catch {
-    return null
-  }
-
-  if (
-    (body.role !== 'user' && body.role !== 'assistant')
-    || (body.source && HIDDEN_MESSAGE_SOURCES.has(body.source))
-  ) {
-    return null
-  }
-
-  const text = extractSearchableMessageText(body).trim()
-  if (!text) {
-    return null
-  }
-
-  const createdAt = typeof body.createdAt === 'number' ? body.createdAt : chat.updateTime
-  if (createdAt < minCreatedAt) {
-    return null
-  }
-
   return {
-    id: row.id,
+    id: document.messageId,
     chatKey,
-    chatUuid: row.chat_uuid ?? chat.uuid,
-    chatId: row.chat_id ?? chat.id,
-    role: body.role,
-    text,
-    normalizedText: normalizeSearchText(text),
-    createdAt
+    chatUuid: document.chatUuid ?? chat.uuid,
+    chatId: document.chatId ?? chat.id,
+    role: document.role,
+    text: document.searchableText,
+    normalizedText: normalizeSearchText(document.searchableText),
+    createdAt: document.createdAt
   }
 }
 
@@ -672,22 +706,76 @@ function truncateText(text: string, maxLength: number): string {
   return `${compactText.slice(0, maxLength - 3)}...`
 }
 
-function compareHistoryItems(a: HistorySearchItem, b: HistorySearchItem): number {
-  const aMessageMatch = a.matchedFields.includes('message') ? 1 : 0
-  const bMessageMatch = b.matchedFields.includes('message') ? 1 : 0
+function compareRankedHistoryItems(
+  a: RankedHistorySearchItem,
+  b: RankedHistorySearchItem
+): number {
+  const aItem = a.item
+  const bItem = b.item
+  const aMessageMatch = aItem.matchedFields.includes('message') ? 1 : 0
+  const bMessageMatch = bItem.matchedFields.includes('message') ? 1 : 0
   if (bMessageMatch !== aMessageMatch) {
     return bMessageMatch - aMessageMatch
   }
 
-  const aTitleMatch = a.matchedFields.includes('title') ? 1 : 0
-  const bTitleMatch = b.matchedFields.includes('title') ? 1 : 0
+  const aTitleMatch = aItem.matchedFields.includes('title') ? 1 : 0
+  const bTitleMatch = bItem.matchedFields.includes('title') ? 1 : 0
   if (bTitleMatch !== aTitleMatch) {
     return bTitleMatch - aTitleMatch
   }
 
-  if (b.hitCount !== a.hitCount) {
-    return b.hitCount - a.hitCount
+  if (
+    aMessageMatch
+    && bMessageMatch
+    && typeof a.searchRank === 'number'
+    && typeof b.searchRank === 'number'
+  ) {
+    const rankComparison = a.searchRank - b.searchRank
+    if (rankComparison !== 0) {
+      return rankComparison
+    }
   }
 
-  return b.createdAt - a.createdAt
+  if (bItem.hitCount !== aItem.hitCount) {
+    return bItem.hitCount - aItem.hitCount
+  }
+
+  return bItem.createdAt - aItem.createdAt
+}
+
+function compareSearchRank(a: number | undefined, b: number | undefined): number {
+  return (a ?? Number.POSITIVE_INFINITY) - (b ?? Number.POSITIVE_INFINITY)
+}
+
+function toChatSearchResult(result: RankedChatSearchResult): ChatSearchResult {
+  return {
+    chat: result.chat,
+    matchSource: result.matchSource,
+    matchedMessageId: result.matchedMessageId,
+    matchedTimestamp: result.matchedTimestamp,
+    snippet: result.snippet,
+    messageHitCount: result.messageHitCount,
+    score: result.score
+  }
+}
+
+function buildHighlightedSnippet(text: string, normalizedQuery: string): string {
+  const snippet = buildSnippet(text, normalizedQuery)
+  if (!normalizedQuery) {
+    return snippet
+  }
+
+  const matchIndex = snippet.toLowerCase().indexOf(normalizedQuery)
+  if (matchIndex < 0) {
+    return snippet
+  }
+
+  const matchEnd = matchIndex + normalizedQuery.length
+  return [
+    snippet.slice(0, matchIndex),
+    CHAT_SEARCH_HIGHLIGHT_START,
+    snippet.slice(matchIndex, matchEnd),
+    CHAT_SEARCH_HIGHLIGHT_END,
+    snippet.slice(matchEnd)
+  ].join('')
 }

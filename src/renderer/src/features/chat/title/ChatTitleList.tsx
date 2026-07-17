@@ -4,6 +4,7 @@ import { deleteChat, updateChat } from '@renderer/infrastructure/persistence/Cha
 import { invokeDbChatSearch } from '@renderer/infrastructure/ipc'
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
+import { parseChatSearchHighlights } from '@shared/search/chatSearchHighlights'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -64,6 +65,24 @@ function renderHighlightedTitle(title: string, query: string): React.ReactNode {
 }
 
 function renderHighlightedSnippet(snippet: string, query: string): React.ReactNode {
+  const ftsParts = parseChatSearchHighlights(snippet)
+  if (ftsParts.some(part => part.highlighted)) {
+    return ftsParts.map((part, index) => {
+      if (!part.highlighted) {
+        return <React.Fragment key={`fts-highlight-part-${index}`}>{part.text}</React.Fragment>
+      }
+
+      return (
+        <mark
+          key={`fts-highlight-part-${index}`}
+          className="rounded bg-amber-200/80 px-0.5 text-gray-800 dark:bg-amber-500/25 dark:text-amber-100"
+        >
+          {part.text}
+        </mark>
+      )
+    })
+  }
+
   return renderHighlightedText(
     snippet,
     query,
@@ -241,28 +260,15 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   }, [chatList])
 
   const titleListResults = useMemo<ChatSearchResult[]>(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase()
-    if (!normalizedQuery) {
-      return sortedChatList
-        .filter(item => item.id !== -1)
-        .map(item => ({
-          chat: item,
-          matchSource: 'title',
-          messageHitCount: 0,
-          score: item.updateTime
-        }))
-    }
-
-    return sortedChatList.filter(item => {
-      if (item.id === -1) return false
-      return item.title.toLowerCase().includes(normalizedQuery)
-    }).map(item => ({
-      chat: item,
-      matchSource: 'title',
-      messageHitCount: 0,
-      score: item.updateTime
-    }))
-  }, [searchQuery, sortedChatList])
+    return sortedChatList
+      .filter(item => item.id !== -1)
+      .map(item => ({
+        chat: item,
+        matchSource: 'title',
+        messageHitCount: 0,
+        score: item.updateTime
+      }))
+  }, [sortedChatList])
 
   const isSearchMode = searchQuery.trim().length > 0
   const displayResults = isSearchMode ? searchResults : titleListResults

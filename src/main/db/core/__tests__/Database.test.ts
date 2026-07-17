@@ -93,4 +93,40 @@ describe('AppDatabase', () => {
     expect(createMessagesSql).toContain('token_usage TEXT')
     expect(migrationSql).toContain('ALTER TABLE messages ADD COLUMN token_usage TEXT')
   })
+
+  it('creates the message search projection and FTS5 trigram index under safe schema mode', async () => {
+    const { AppDatabase } = await import('../Database')
+
+    AppDatabase.getInstance().initialize()
+
+    const searchSchemaSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) =>
+        typeof sql === 'string' && sql.includes('CREATE TABLE IF NOT EXISTS message_search_documents')
+      )
+    const searchIndexSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) =>
+        typeof sql === 'string' && sql.includes('idx_message_search_documents_chat_uuid_created_at')
+      )
+    const foldedTextMigrationSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) =>
+        typeof sql === 'string'
+        && sql.includes(
+          "ALTER TABLE message_search_documents ADD COLUMN searchable_text_folded TEXT NOT NULL DEFAULT ''"
+        )
+      )
+
+    expect(dbPragmaMock).toHaveBeenCalledWith('trusted_schema = OFF')
+    expect(searchSchemaSql).toContain('CREATE TABLE IF NOT EXISTS message_search_metadata')
+    expect(searchSchemaSql).toContain("searchable_text_folded TEXT NOT NULL DEFAULT ''")
+    expect(searchSchemaSql).toContain('CREATE VIRTUAL TABLE IF NOT EXISTS message_search_fts USING fts5')
+    expect(searchSchemaSql).toContain("content='message_search_documents'")
+    expect(searchSchemaSql).toContain("tokenize='trigram'")
+    expect(searchIndexSql).toContain('idx_message_search_documents_created_at')
+    expect(foldedTextMigrationSql).toContain(
+      "ALTER TABLE message_search_documents ADD COLUMN searchable_text_folded TEXT NOT NULL DEFAULT ''"
+    )
+  })
 })
